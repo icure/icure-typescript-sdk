@@ -14,12 +14,14 @@ import { ClassificationDto } from "../model/ClassificationDto"
 import { ContactDto } from "../model/ContactDto"
 import { DocIdentifier } from "../model/DocIdentifier"
 import { DocumentDto } from "../model/DocumentDto"
+import { EntityTemplateDto } from "../model/EntityTemplateDto"
 import { FormDto } from "../model/FormDto"
 import { HealthElementDto } from "../model/HealthElementDto"
 import { InvoiceDto } from "../model/InvoiceDto"
 import { MessageDto } from "../model/MessageDto"
 import { PaginatedListClassificationDto } from "../model/PaginatedListClassificationDto"
 import { PaginatedListDocumentDto } from "../model/PaginatedListDocumentDto"
+import { PaginatedListEntityTemplateDto } from "../model/PaginatedListEntityTemplateDto"
 import { PaginatedListFormDto } from "../model/PaginatedListFormDto"
 import { PaginatedListHealthElementDto } from "../model/PaginatedListHealthElementDto"
 import { PaginatedListInvoiceDto } from "../model/PaginatedListInvoiceDto"
@@ -176,6 +178,44 @@ export class iccTmpApi {
       .concat(new XHR.Header("Content-Type", "application/json"))
     return XHR.sendCommand("POST", _url, headers, _body, this.fetchImpl)
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocumentDto(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Returns an instance of created entityTemplate.
+   * @summary Create a entityTemplate with the current user
+   * @param body
+   */
+  createTmpEntityTemplate(body?: EntityTemplateDto): Promise<EntityTemplateDto> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/tmp/entityTemplate` + "?ts=" + new Date().getTime()
+    let headers = this.headers
+    headers = headers
+      .filter((h) => h.header !== "Content-Type")
+      .concat(new XHR.Header("Content-Type", "application/json"))
+    return XHR.sendCommand("POST", _url, headers, _body, this.fetchImpl)
+      .then((doc) => new EntityTemplateDto(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Returns an instance of created entityTemplate.
+   * @summary Create a entityTemplate with the current user
+   * @param body
+   */
+  createTmpEntityTemplates(body?: Array<EntityTemplateDto>): Promise<Array<EntityTemplateDto>> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/tmp/entityTemplate/batch` + "?ts=" + new Date().getTime()
+    let headers = this.headers
+    headers = headers
+      .filter((h) => h.header !== "Content-Type")
+      .concat(new XHR.Header("Content-Type", "application/json"))
+    return XHR.sendCommand("POST", _url, headers, _body, this.fetchImpl)
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new EntityTemplateDto(it)))
       .catch((err) => this.handleError(err))
   }
 
@@ -517,6 +557,44 @@ export class iccTmpApi {
   }
 
   /**
+   * Returns an instance of entityTemplate.
+   * @summary Get a entityTemplate by id
+   * @param id
+   */
+  getTmpEntityTemplate(id: string): Promise<EntityTemplateDto> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/tmp/entityTemplate/byId/${encodeURIComponent(String(id))}` +
+      "?ts=" +
+      new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand("GET", _url, headers, _body, this.fetchImpl)
+      .then((doc) => new EntityTemplateDto(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Returns an instance of created entityTemplate.
+   * @summary Get entityTemplates by ids with the current user
+   * @param body
+   */
+  getTmpEntityTemplates(body?: Array<string>): Promise<Array<EntityTemplateDto>> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/tmp/entityTemplate/get` + "?ts=" + new Date().getTime()
+    let headers = this.headers
+    headers = headers
+      .filter((h) => h.header !== "Content-Type")
+      .concat(new XHR.Header("Content-Type", "application/json"))
+    return XHR.sendCommand("POST", _url, headers, _body, this.fetchImpl)
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new EntityTemplateDto(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    * Returns an instance of form.
    * @summary Get a form by id
    * @param id
@@ -775,6 +853,33 @@ export class iccTmpApi {
   }
 
   /**
+   * Returns paginated entityTemplates.
+   * @summary List entityTemplates with the current user
+   * @param firstEntityTemplateId
+   * @param pageSize
+   */
+  listTmpEntityTemplates(
+    firstEntityTemplateId?: string,
+    pageSize?: number
+  ): Promise<PaginatedListEntityTemplateDto> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/tmp/entityTemplate/list` +
+      "?ts=" +
+      new Date().getTime() +
+      (firstEntityTemplateId
+        ? "&firstEntityTemplateId=" + encodeURIComponent(String(firstEntityTemplateId))
+        : "") +
+      (pageSize ? "&pageSize=" + encodeURIComponent(String(pageSize)) : "")
+    let headers = this.headers
+    return XHR.sendCommand("GET", _url, headers, _body, this.fetchImpl)
+      .then((doc) => new PaginatedListEntityTemplateDto(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    * Returns paginated forms.
    * @summary List forms with the current user
    * @param firstFormId
@@ -1000,6 +1105,44 @@ export class iccTmpApi {
       .concat(new XHR.Header("Content-Type", "application/json"))
     return XHR.sendCommand("PUT", _url, headers, _body, this.fetchImpl)
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocumentDto(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Returns the modified entityTemplate.
+   * @summary Modify a entityTemplate
+   * @param body
+   */
+  modifyTmpEntityTemplate(body?: EntityTemplateDto): Promise<EntityTemplateDto> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/tmp/entityTemplate` + "?ts=" + new Date().getTime()
+    let headers = this.headers
+    headers = headers
+      .filter((h) => h.header !== "Content-Type")
+      .concat(new XHR.Header("Content-Type", "application/json"))
+    return XHR.sendCommand("PUT", _url, headers, _body, this.fetchImpl)
+      .then((doc) => new EntityTemplateDto(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Returns the modified healthcare elements.
+   * @summary Modify a batch of healthcare elements
+   * @param body
+   */
+  modifyTmpEntityTemplates(body?: Array<EntityTemplateDto>): Promise<Array<EntityTemplateDto>> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/tmp/entityTemplate/batch` + "?ts=" + new Date().getTime()
+    let headers = this.headers
+    headers = headers
+      .filter((h) => h.header !== "Content-Type")
+      .concat(new XHR.Header("Content-Type", "application/json"))
+    return XHR.sendCommand("PUT", _url, headers, _body, this.fetchImpl)
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new EntityTemplateDto(it)))
       .catch((err) => this.handleError(err))
   }
 
