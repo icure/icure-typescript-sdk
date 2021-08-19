@@ -426,10 +426,17 @@ export class IccFormApi {
   /**
    *
    * @summary Update a form template's layout
+   * @param attachment
    * @param formTemplateId
    */
-  setTemplateAttachmentMulti(formTemplateId: string): Promise<string> {
+  setTemplateAttachmentMulti(attachment?: ArrayBuffer | any[], formTemplateId: string): Promise<string> {
     let _body = null
+    if (attachment && !_body) {
+      const parts = Array.isArray(attachment) ? (attachment as any[]) : [attachment as ArrayBuffer]
+      const _blob = new Blob(parts, { type: 'application/octet-stream' })
+      _body = new FormData()
+      _body.append('attachment', _blob)
+    }
 
     const _url = this.host + `/form/template/${encodeURIComponent(String(formTemplateId))}/attachment/multipart` + '?ts=' + new Date().getTime()
     let headers = this.headers

@@ -289,11 +289,18 @@ export class IccDocumentApi {
   /**
    *
    * @summary Creates a document's attachment
+   * @param attachment
    * @param documentId
    * @param enckeys
    */
-  setDocumentAttachmentMulti(documentId: string, enckeys?: string): Promise<Document> {
+  setDocumentAttachmentMulti(attachment: ArrayBuffer, documentId: string, enckeys?: string): Promise<Document> {
     let _body = null
+    if (attachment && !_body) {
+      const parts = Array.isArray(attachment) ? (attachment as any[]) : [attachment as ArrayBuffer]
+      const _blob = new Blob(parts, { type: 'application/octet-stream' })
+      _body = new FormData()
+      _body.append('attachment', _blob)
+    }
 
     const _url =
       this.host +

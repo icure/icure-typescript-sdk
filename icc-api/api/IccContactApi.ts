@@ -84,7 +84,7 @@ export class IccContactApi {
 
   /**
    * Returns the modified contacts.
-   * @summary Modify a batch of contacts
+   * @summary Create a batch of contacts
    * @param body
    */
   createContacts(body?: Array<Contact>): Promise<Array<Contact>> {
