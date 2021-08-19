@@ -429,7 +429,7 @@ export class IccFormApi {
    * @param attachment
    * @param formTemplateId
    */
-  setTemplateAttachmentMulti(attachment?: ArrayBuffer | any[], formTemplateId: string): Promise<string> {
+  setTemplateAttachmentMulti(attachment: ArrayBuffer, formTemplateId: string): Promise<string> {
     let _body = null
     if (attachment && !_body) {
       const parts = Array.isArray(attachment) ? (attachment as any[]) : [attachment as ArrayBuffer]
