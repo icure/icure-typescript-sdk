@@ -12,6 +12,7 @@
 import { XHR } from './XHR'
 import { DatabaseInitialisation } from '../model/DatabaseInitialisation'
 import { Group } from '../model/Group'
+import { IdWithRev } from '../model/IdWithRev'
 import { ListOfIds } from '../model/ListOfIds'
 import { ListOfProperties } from '../model/ListOfProperties'
 import { RegistrationInformation } from '../model/RegistrationInformation'
@@ -237,7 +238,7 @@ export class IccGroupApi {
    * @param id The id of the group
    * @param warmup Warmup the design doc
    */
-  solveConflicts(id: string, warmup?: boolean): Promise<Unit> {
+  solveConflicts(id: string, warmup?: boolean): Promise<Array<IdWithRev>> {
     let _body = null
 
     const _url =
@@ -248,7 +249,7 @@ export class IccGroupApi {
       (warmup ? '&warmup=' + encodeURIComponent(String(warmup)) : '')
     let headers = this.headers
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
-      .then((doc) => new Unit(doc.body as JSON))
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new IdWithRev(it)))
       .catch((err) => this.handleError(err))
   }
 }

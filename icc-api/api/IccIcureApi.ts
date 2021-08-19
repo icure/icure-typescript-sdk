@@ -10,9 +10,16 @@
  * Do not edit the class manually.
  */
 import { XHR } from './XHR'
+import { Contact } from '../model/Contact'
+import { Document } from '../model/Document'
+import { Form } from '../model/Form'
+import { HealthElement } from '../model/HealthElement'
 import { IndexingInfo } from '../model/IndexingInfo'
+import { Invoice } from '../model/Invoice'
+import { Message } from '../model/Message'
+import { Patient } from '../model/Patient'
 import { ReplicationInfo } from '../model/ReplicationInfo'
-import { Unit } from '../model/Unit'
+import { ReplicatorDocument } from '../model/ReplicatorDocument'
 
 export class IccIcureApi {
   host: string
@@ -77,6 +84,21 @@ export class IccIcureApi {
 
   /**
    *
+   * @summary Get replication info
+   * @param id
+   */
+  getReplicatorInfo(id: string): Promise<ReplicatorDocument> {
+    let _body = null
+
+    const _url = this.host + `/icure/r/${encodeURIComponent(String(id))}` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+      .then((doc) => new ReplicatorDocument(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
    * @summary Get version
    */
   getVersion(): Promise<string> {
@@ -107,13 +129,13 @@ export class IccIcureApi {
    *
    * @summary Resolve contacts conflicts
    */
-  resolveContactsConflicts(): Promise<Unit> {
+  resolveContactsConflicts(): Promise<Array<Contact>> {
     let _body = null
 
     const _url = this.host + `/icure/conflicts/contact` + '?ts=' + new Date().getTime()
     let headers = this.headers
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
-      .then((doc) => new Unit(doc.body as JSON))
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Contact(it)))
       .catch((err) => this.handleError(err))
   }
 
@@ -122,13 +144,13 @@ export class IccIcureApi {
    * @summary resolve documents conflicts
    * @param ids
    */
-  resolveDocumentsConflicts(ids?: string): Promise<Unit> {
+  resolveDocumentsConflicts(ids?: string): Promise<Array<Document>> {
     let _body = null
 
     const _url = this.host + `/icure/conflicts/document` + '?ts=' + new Date().getTime() + (ids ? '&ids=' + encodeURIComponent(String(ids)) : '')
     let headers = this.headers
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
-      .then((doc) => new Unit(doc.body as JSON))
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Document(it)))
       .catch((err) => this.handleError(err))
   }
 
@@ -136,13 +158,13 @@ export class IccIcureApi {
    *
    * @summary resolve forms conflicts
    */
-  resolveFormsConflicts(): Promise<Unit> {
+  resolveFormsConflicts(): Promise<Array<Form>> {
     let _body = null
 
     const _url = this.host + `/icure/conflicts/form` + '?ts=' + new Date().getTime()
     let headers = this.headers
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
-      .then((doc) => new Unit(doc.body as JSON))
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Form(it)))
       .catch((err) => this.handleError(err))
   }
 
@@ -150,13 +172,13 @@ export class IccIcureApi {
    *
    * @summary resolve healthcare elements conflicts
    */
-  resolveHealthElementsConflicts(): Promise<Unit> {
+  resolveHealthElementsConflicts(): Promise<Array<HealthElement>> {
     let _body = null
 
     const _url = this.host + `/icure/conflicts/healthelement` + '?ts=' + new Date().getTime()
     let headers = this.headers
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
-      .then((doc) => new Unit(doc.body as JSON))
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new HealthElement(it)))
       .catch((err) => this.handleError(err))
   }
 
@@ -164,13 +186,13 @@ export class IccIcureApi {
    *
    * @summary resolve invoices conflicts
    */
-  resolveInvoicesConflicts(): Promise<Unit> {
+  resolveInvoicesConflicts(): Promise<Array<Invoice>> {
     let _body = null
 
     const _url = this.host + `/icure/conflicts/invoice` + '?ts=' + new Date().getTime()
     let headers = this.headers
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
-      .then((doc) => new Unit(doc.body as JSON))
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
       .catch((err) => this.handleError(err))
   }
 
@@ -178,13 +200,13 @@ export class IccIcureApi {
    *
    * @summary resolve messages conflicts
    */
-  resolveMessagesConflicts(): Promise<Unit> {
+  resolveMessagesConflicts(): Promise<Array<Message>> {
     let _body = null
 
     const _url = this.host + `/icure/conflicts/message` + '?ts=' + new Date().getTime()
     let headers = this.headers
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
-      .then((doc) => new Unit(doc.body as JSON))
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Message(it)))
       .catch((err) => this.handleError(err))
   }
 
@@ -192,13 +214,13 @@ export class IccIcureApi {
    *
    * @summary Resolve patients conflicts
    */
-  resolvePatientsConflicts(): Promise<Unit> {
+  resolvePatientsConflicts(): Promise<Array<Patient>> {
     let _body = null
 
     const _url = this.host + `/icure/conflicts/patient` + '?ts=' + new Date().getTime()
     let headers = this.headers
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
-      .then((doc) => new Unit(doc.body as JSON))
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Patient(it)))
       .catch((err) => this.handleError(err))
   }
 
