@@ -56,10 +56,10 @@ export class IccAccesslogApi {
    * @param accessLogIds
    */
   deleteAccessLog(accessLogIds: string): Promise<Array<DocIdentifier>> {
-    const _body = null
+    let _body = null
 
     const _url = this.host + `/accesslog/${encodeURIComponent(String(accessLogIds))}` + '?ts=' + new Date().getTime()
-    const headers = this.headers
+    let headers = this.headers
     return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl)
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
       .catch((err) => this.handleError(err))
@@ -72,7 +72,7 @@ export class IccAccesslogApi {
    * @param secretFKeys
    */
   findAccessLogsByHCPartyPatientForeignKeys(hcPartyId: string, secretFKeys: string): Promise<Array<AccessLog>> {
-    const _body = null
+    let _body = null
 
     const _url =
       this.host +
@@ -81,7 +81,7 @@ export class IccAccesslogApi {
       new Date().getTime() +
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
       (secretFKeys ? '&secretFKeys=' + encodeURIComponent(String(secretFKeys)) : '')
-    const headers = this.headers
+    let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
       .then((doc) => (doc.body as Array<JSON>).map((it) => new AccessLog(it)))
       .catch((err) => this.handleError(err))
