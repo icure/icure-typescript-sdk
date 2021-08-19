@@ -14,17 +14,20 @@ import { Classification } from '../model/Classification'
 import { Contact } from '../model/Contact'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { Document } from '../model/Document'
+import { EntityTemplate } from '../model/EntityTemplate'
 import { Form } from '../model/Form'
 import { HealthElement } from '../model/HealthElement'
 import { Invoice } from '../model/Invoice'
 import { Message } from '../model/Message'
 import { PaginatedListClassification } from '../model/PaginatedListClassification'
 import { PaginatedListDocument } from '../model/PaginatedListDocument'
+import { PaginatedListEntityTemplate } from '../model/PaginatedListEntityTemplate'
 import { PaginatedListForm } from '../model/PaginatedListForm'
 import { PaginatedListHealthElement } from '../model/PaginatedListHealthElement'
 import { PaginatedListInvoice } from '../model/PaginatedListInvoice'
 import { PaginatedListPatient } from '../model/PaginatedListPatient'
 import { Patient } from '../model/Patient'
+import { ReplicatorDocument } from '../model/ReplicatorDocument'
 import { Unit } from '../model/Unit'
 
 export class IccTmpApi {
@@ -159,6 +162,40 @@ export class IccTmpApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Document(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Returns an instance of created entityTemplate.
+   * @summary Create a entityTemplate with the current user
+   * @param body
+   */
+  createTmpEntityTemplate(body?: EntityTemplate): Promise<EntityTemplate> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/tmp/entityTemplate` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+      .then((doc) => new EntityTemplate(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Returns an instance of created entityTemplate.
+   * @summary Create a entityTemplate with the current user
+   * @param body
+   */
+  createTmpEntityTemplates(body?: Array<EntityTemplate>): Promise<Array<EntityTemplate>> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/tmp/entityTemplate/batch` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new EntityTemplate(it)))
       .catch((err) => this.handleError(err))
   }
 
@@ -380,7 +417,7 @@ export class IccTmpApi {
 
   /**
    * Returns an instance of created classification.
-   * @summary Create a classification with the current user
+   * @summary Get classifications by ids with the current user
    * @param body
    */
   getTmpClassifications(body?: Array<string>): Promise<Array<Classification>> {
@@ -412,7 +449,7 @@ export class IccTmpApi {
 
   /**
    * Returns an instance of created contact.
-   * @summary Create a contact with the current user
+   * @summary Get contacts by ids with the current user
    * @param body
    */
   getTmpContacts(body?: Array<string>): Promise<Array<Contact>> {
@@ -444,7 +481,7 @@ export class IccTmpApi {
 
   /**
    * Returns an instance of created document.
-   * @summary Create a document with the current user
+   * @summary Get documents by ids with the current user
    * @param body
    */
   getTmpDocuments(body?: Array<string>): Promise<Array<Document>> {
@@ -460,6 +497,38 @@ export class IccTmpApi {
   }
 
   /**
+   * Returns an instance of entityTemplate.
+   * @summary Get a entityTemplate by id
+   * @param id
+   */
+  getTmpEntityTemplate(id: string): Promise<EntityTemplate> {
+    let _body = null
+
+    const _url = this.host + `/tmp/entityTemplate/byId/${encodeURIComponent(String(id))}` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+      .then((doc) => new EntityTemplate(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Returns an instance of created entityTemplate.
+   * @summary Get entityTemplates by ids with the current user
+   * @param body
+   */
+  getTmpEntityTemplates(body?: Array<string>): Promise<Array<EntityTemplate>> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/tmp/entityTemplate/get` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new EntityTemplate(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    * Returns an instance of form.
    * @summary Get a form by id
    * @param id
@@ -467,7 +536,7 @@ export class IccTmpApi {
   getTmpForm(id: string): Promise<Form> {
     let _body = null
 
-    const _url = this.host + `/tmp/byId/form/${encodeURIComponent(String(id))}` + '?ts=' + new Date().getTime()
+    const _url = this.host + `/tmp/form/byId/${encodeURIComponent(String(id))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
       .then((doc) => new Form(doc.body as JSON))
@@ -476,14 +545,14 @@ export class IccTmpApi {
 
   /**
    * Returns an instance of created form.
-   * @summary Create a form with the current user
+   * @summary Get forms by ids with the current user
    * @param body
    */
   getTmpForms(body?: Array<string>): Promise<Array<Form>> {
     let _body = null
     _body = body
 
-    const _url = this.host + `/tmp/fget/list` + '?ts=' + new Date().getTime()
+    const _url = this.host + `/tmp/form/get` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
@@ -508,7 +577,7 @@ export class IccTmpApi {
 
   /**
    * Returns an instance of created healthElement.
-   * @summary Create a healthElement with the current user
+   * @summary Get healthElements by ids with the current user
    * @param body
    */
   getTmpHealthElements(body?: Array<string>): Promise<Array<HealthElement>> {
@@ -540,7 +609,7 @@ export class IccTmpApi {
 
   /**
    * Returns an instance of created invoice.
-   * @summary Create a invoice with the current user
+   * @summary Get invoices by ids with the current user
    * @param body
    */
   getTmpInvoices(body?: Array<string>): Promise<Array<Invoice>> {
@@ -572,7 +641,7 @@ export class IccTmpApi {
 
   /**
    * Returns an instance of created message.
-   * @summary Create a message with the current user
+   * @summary Get messages by ids with the current user
    * @param body
    */
   getTmpMessages(body?: Array<string>): Promise<Array<Message>> {
@@ -604,7 +673,7 @@ export class IccTmpApi {
 
   /**
    * Returns an instance of created patient.
-   * @summary Create a patient with the current user
+   * @summary Get patients by ids with the current user
    * @param body
    */
   getTmpPatients(body?: Array<string>): Promise<Array<Patient>> {
@@ -625,7 +694,7 @@ export class IccTmpApi {
    * @param firstClassificationId
    * @param pageSize
    */
-  listTmpClassifications(firstClassificationId: string, pageSize: number): Promise<PaginatedListClassification> {
+  listTmpClassifications(firstClassificationId?: string, pageSize?: number): Promise<PaginatedListClassification> {
     let _body = null
 
     const _url =
@@ -647,7 +716,7 @@ export class IccTmpApi {
    * @param firstContactId
    * @param pageSize
    */
-  listTmpContacts(firstContactId: string, pageSize: number): Promise<PaginatedListInvoice> {
+  listTmpContacts(firstContactId?: string, pageSize?: number): Promise<PaginatedListInvoice> {
     let _body = null
 
     const _url =
@@ -669,7 +738,7 @@ export class IccTmpApi {
    * @param firstDocumentId
    * @param pageSize
    */
-  listTmpDocuments(firstDocumentId: string, pageSize: number): Promise<PaginatedListDocument> {
+  listTmpDocuments(firstDocumentId?: string, pageSize?: number): Promise<PaginatedListDocument> {
     let _body = null
 
     const _url =
@@ -686,12 +755,34 @@ export class IccTmpApi {
   }
 
   /**
+   * Returns paginated entityTemplates.
+   * @summary List entityTemplates with the current user
+   * @param firstEntityTemplateId
+   * @param pageSize
+   */
+  listTmpEntityTemplates(firstEntityTemplateId?: string, pageSize?: number): Promise<PaginatedListEntityTemplate> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/tmp/entityTemplate/list` +
+      '?ts=' +
+      new Date().getTime() +
+      (firstEntityTemplateId ? '&firstEntityTemplateId=' + encodeURIComponent(String(firstEntityTemplateId)) : '') +
+      (pageSize ? '&pageSize=' + encodeURIComponent(String(pageSize)) : '')
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+      .then((doc) => new PaginatedListEntityTemplate(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    * Returns paginated forms.
    * @summary List forms with the current user
    * @param firstFormId
    * @param pageSize
    */
-  listTmpForms(firstFormId: string, pageSize: number): Promise<PaginatedListForm> {
+  listTmpForms(firstFormId?: string, pageSize?: number): Promise<PaginatedListForm> {
     let _body = null
 
     const _url =
@@ -713,7 +804,7 @@ export class IccTmpApi {
    * @param firstHealthElementId
    * @param pageSize
    */
-  listTmpHealthElements(firstHealthElementId: string, pageSize: number): Promise<PaginatedListHealthElement> {
+  listTmpHealthElements(firstHealthElementId?: string, pageSize?: number): Promise<PaginatedListHealthElement> {
     let _body = null
 
     const _url =
@@ -735,7 +826,7 @@ export class IccTmpApi {
    * @param firstInvoiceId
    * @param pageSize
    */
-  listTmpInvoices(firstInvoiceId: string, pageSize: number): Promise<PaginatedListInvoice> {
+  listTmpInvoices(firstInvoiceId?: string, pageSize?: number): Promise<PaginatedListInvoice> {
     let _body = null
 
     const _url =
@@ -757,7 +848,7 @@ export class IccTmpApi {
    * @param firstMessageId
    * @param pageSize
    */
-  listTmpMessages(firstMessageId: string, pageSize: number): Promise<PaginatedListInvoice> {
+  listTmpMessages(firstMessageId?: string, pageSize?: number): Promise<PaginatedListInvoice> {
     let _body = null
 
     const _url =
@@ -779,7 +870,7 @@ export class IccTmpApi {
    * @param firstPatientId
    * @param pageSize
    */
-  listTmpPatients(firstPatientId: string, pageSize: number): Promise<PaginatedListPatient> {
+  listTmpPatients(firstPatientId?: string, pageSize?: number): Promise<PaginatedListPatient> {
     let _body = null
 
     const _url =
@@ -894,6 +985,40 @@ export class IccTmpApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Document(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Returns the modified entityTemplate.
+   * @summary Modify a entityTemplate
+   * @param body
+   */
+  modifyTmpEntityTemplate(body?: EntityTemplate): Promise<EntityTemplate> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/tmp/entityTemplate` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+      .then((doc) => new EntityTemplate(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Returns the modified healthcare elements.
+   * @summary Modify a batch of healthcare elements
+   * @param body
+   */
+  modifyTmpEntityTemplates(body?: Array<EntityTemplate>): Promise<Array<EntityTemplate>> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/tmp/entityTemplate/batch` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new EntityTemplate(it)))
       .catch((err) => this.handleError(err))
   }
 
@@ -1089,7 +1214,7 @@ export class IccTmpApi {
    * @param body
    * @param from
    */
-  replicateToTmpDatabase(from: string, body?: Array<string>): Promise<Unit> {
+  replicateToTmpDatabase(from: string, body?: Array<string>): Promise<ReplicatorDocument> {
     let _body = null
     _body = body
 
@@ -1097,7 +1222,7 @@ export class IccTmpApi {
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
-      .then((doc) => new Unit(doc.body as JSON))
+      .then((doc) => new ReplicatorDocument(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 }
