@@ -12,6 +12,7 @@
 import { CodeStubDto } from "./CodeStubDto"
 import { DocumentGroupDto } from "./DocumentGroupDto"
 import { FormLayout } from "./FormLayout"
+import { FormTemplateLayout } from "./FormTemplateLayout"
 
 import { decodeBase64 } from "./ModelHelper"
 
@@ -27,6 +28,7 @@ export class FormTemplateDto {
    */
   deletionDate?: number
   layout?: FormLayout
+  templateLayout?: FormTemplateLayout
   name?: string
   guid?: string
   group?: DocumentGroupDto

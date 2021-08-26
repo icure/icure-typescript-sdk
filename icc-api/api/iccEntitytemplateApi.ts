@@ -11,7 +11,6 @@
  */
 import { XHR } from "./XHR"
 import { DocIdentifier } from "../model/DocIdentifier"
-import { EntityTemplate } from "../model/EntityTemplate"
 import { EntityTemplateDto } from "../model/EntityTemplateDto"
 
 export class iccEntitytemplateApi {
@@ -57,6 +56,25 @@ export class iccEntitytemplateApi {
   }
 
   /**
+   * Returns the modified entityTemplates.
+   * @summary Create a batch of entityTemplates
+   * @param body
+   */
+  createEntityTemplates(body?: Array<EntityTemplateDto>): Promise<Array<EntityTemplateDto>> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/entitytemplate/batch` + "?ts=" + new Date().getTime()
+    let headers = this.headers
+    headers = headers
+      .filter((h) => h.header !== "Content-Type")
+      .concat(new XHR.Header("Content-Type", "application/json"))
+    return XHR.sendCommand("POST", _url, headers, _body, this.fetchImpl)
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new EntityTemplateDto(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    *
    * @summary Delete entity templates
    * @param entityTemplateIds
@@ -86,7 +104,7 @@ export class iccEntitytemplateApi {
     type: string,
     searchString?: string,
     includeEntities?: boolean
-  ): Promise<Array<EntityTemplate>> {
+  ): Promise<Array<EntityTemplateDto>> {
     let _body = null
 
     const _url =
@@ -98,7 +116,7 @@ export class iccEntitytemplateApi {
       (includeEntities ? "&includeEntities=" + encodeURIComponent(String(includeEntities)) : "")
     let headers = this.headers
     return XHR.sendCommand("GET", _url, headers, _body, this.fetchImpl)
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new EntityTemplate(it)))
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new EntityTemplateDto(it)))
       .catch((err) => this.handleError(err))
   }
 
@@ -113,7 +131,7 @@ export class iccEntitytemplateApi {
     type: string,
     keyword: string,
     includeEntities?: boolean
-  ): Promise<Array<EntityTemplate>> {
+  ): Promise<Array<EntityTemplateDto>> {
     let _body = null
 
     const _url =
@@ -126,7 +144,7 @@ export class iccEntitytemplateApi {
       (includeEntities ? "&includeEntities=" + encodeURIComponent(String(includeEntities)) : "")
     let headers = this.headers
     return XHR.sendCommand("GET", _url, headers, _body, this.fetchImpl)
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new EntityTemplate(it)))
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new EntityTemplateDto(it)))
       .catch((err) => this.handleError(err))
   }
 
@@ -143,7 +161,7 @@ export class iccEntitytemplateApi {
     type: string,
     searchString?: string,
     includeEntities?: boolean
-  ): Promise<Array<EntityTemplate>> {
+  ): Promise<Array<EntityTemplateDto>> {
     let _body = null
 
     const _url =
@@ -157,7 +175,7 @@ export class iccEntitytemplateApi {
       (includeEntities ? "&includeEntities=" + encodeURIComponent(String(includeEntities)) : "")
     let headers = this.headers
     return XHR.sendCommand("GET", _url, headers, _body, this.fetchImpl)
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new EntityTemplate(it)))
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new EntityTemplateDto(it)))
       .catch((err) => this.handleError(err))
   }
 
@@ -174,7 +192,7 @@ export class iccEntitytemplateApi {
     type: string,
     keyword: string,
     includeEntities?: boolean
-  ): Promise<Array<EntityTemplate>> {
+  ): Promise<Array<EntityTemplateDto>> {
     let _body = null
 
     const _url =
@@ -187,7 +205,7 @@ export class iccEntitytemplateApi {
       (includeEntities ? "&includeEntities=" + encodeURIComponent(String(includeEntities)) : "")
     let headers = this.headers
     return XHR.sendCommand("GET", _url, headers, _body, this.fetchImpl)
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new EntityTemplate(it)))
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new EntityTemplateDto(it)))
       .catch((err) => this.handleError(err))
   }
 
@@ -245,6 +263,25 @@ export class iccEntitytemplateApi {
       .concat(new XHR.Header("Content-Type", "application/json"))
     return XHR.sendCommand("PUT", _url, headers, _body, this.fetchImpl)
       .then((doc) => new EntityTemplateDto(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Returns the modified entityTemplates.
+   * @summary Modify a batch of entityTemplates
+   * @param body
+   */
+  modifyEntityTemplates(body?: Array<EntityTemplateDto>): Promise<Array<EntityTemplateDto>> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/entitytemplate/batch` + "?ts=" + new Date().getTime()
+    let headers = this.headers
+    headers = headers
+      .filter((h) => h.header !== "Content-Type")
+      .concat(new XHR.Header("Content-Type", "application/json"))
+    return XHR.sendCommand("PUT", _url, headers, _body, this.fetchImpl)
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new EntityTemplateDto(it)))
       .catch((err) => this.handleError(err))
   }
 }

@@ -292,25 +292,39 @@ export class PatientDto {
   employementInfos?: Array<EmploymentInfoDto>
 }
 export namespace PatientDto {
-  export type GenderEnum = "M" | "F" | "I" | "C" | "Y" | "X" | "U"
+  export type GenderEnum =
+    | "male"
+    | "female"
+    | "indeterminate"
+    | "changed"
+    | "changedToMale"
+    | "changedToFemale"
+    | "unknown"
   export const GenderEnum = {
-    M: "M" as GenderEnum,
-    F: "F" as GenderEnum,
-    I: "I" as GenderEnum,
-    C: "C" as GenderEnum,
-    Y: "Y" as GenderEnum,
-    X: "X" as GenderEnum,
-    U: "U" as GenderEnum,
+    Male: "male" as GenderEnum,
+    Female: "female" as GenderEnum,
+    Indeterminate: "indeterminate" as GenderEnum,
+    Changed: "changed" as GenderEnum,
+    ChangedToMale: "changedToMale" as GenderEnum,
+    ChangedToFemale: "changedToFemale" as GenderEnum,
+    Unknown: "unknown" as GenderEnum,
   }
-  export type BirthSexEnum = "M" | "F" | "I" | "C" | "Y" | "X" | "U"
+  export type BirthSexEnum =
+    | "male"
+    | "female"
+    | "indeterminate"
+    | "changed"
+    | "changedToMale"
+    | "changedToFemale"
+    | "unknown"
   export const BirthSexEnum = {
-    M: "M" as BirthSexEnum,
-    F: "F" as BirthSexEnum,
-    I: "I" as BirthSexEnum,
-    C: "C" as BirthSexEnum,
-    Y: "Y" as BirthSexEnum,
-    X: "X" as BirthSexEnum,
-    U: "U" as BirthSexEnum,
+    Male: "male" as BirthSexEnum,
+    Female: "female" as BirthSexEnum,
+    Indeterminate: "indeterminate" as BirthSexEnum,
+    Changed: "changed" as BirthSexEnum,
+    ChangedToMale: "changedToMale" as BirthSexEnum,
+    ChangedToFemale: "changedToFemale" as BirthSexEnum,
+    Unknown: "unknown" as BirthSexEnum,
   }
   export type DeactivationReasonEnum =
     | "deceased"

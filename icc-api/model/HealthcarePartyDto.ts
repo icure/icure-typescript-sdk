@@ -169,15 +169,22 @@ export class HealthcarePartyDto {
   publicKey?: string
 }
 export namespace HealthcarePartyDto {
-  export type GenderEnum = "M" | "F" | "I" | "C" | "Y" | "X" | "U"
+  export type GenderEnum =
+    | "male"
+    | "female"
+    | "indeterminate"
+    | "changed"
+    | "changedToMale"
+    | "changedToFemale"
+    | "unknown"
   export const GenderEnum = {
-    M: "M" as GenderEnum,
-    F: "F" as GenderEnum,
-    I: "I" as GenderEnum,
-    C: "C" as GenderEnum,
-    Y: "Y" as GenderEnum,
-    X: "X" as GenderEnum,
-    U: "U" as GenderEnum,
+    Male: "male" as GenderEnum,
+    Female: "female" as GenderEnum,
+    Indeterminate: "indeterminate" as GenderEnum,
+    Changed: "changed" as GenderEnum,
+    ChangedToMale: "changedToMale" as GenderEnum,
+    ChangedToFemale: "changedToFemale" as GenderEnum,
+    Unknown: "unknown" as GenderEnum,
   }
   export type StatusesEnum = "trainee" | "withconvention" | "accreditated"
   export const StatusesEnum = {

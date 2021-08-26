@@ -258,7 +258,7 @@ export class iccPatientApi {
 
   /**
    *
-   * @summary Get Paginated List of Patients sorted by Access logs descending
+   * @summary Get the patient having the provided externalId
    * @param externalId A external ID
    */
   findByExternalId(externalId: string): Promise<PatientDto> {
