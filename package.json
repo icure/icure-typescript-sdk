@@ -1,11 +1,11 @@
 {
   "name": "@icure/api",
-  "version": "4.0.63",
+  "version": "4.0.65",
   "description": "Typescript version of iCure standalone API client",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "dependencies": {
-    "date-fns": "^2.22.1",
+    "date-fns": "^2.23.0",
     "libphonenumber-js": "^1.7.18",
     "lodash": "^4.17.20",
     "moment": "^2.22.1",
