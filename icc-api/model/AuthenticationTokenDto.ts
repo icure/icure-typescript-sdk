@@ -9,17 +9,27 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
-import { SamTextDto } from "./SamTextDto"
 
+/**
+ * Encrypted and time-limited Authentication tokens used for inter-applications authentication
+ */
 import { decodeBase64 } from "./ModelHelper"
 
-export class PackagingTypeDto {
+export class AuthenticationTokenDto {
   constructor(json: JSON | any) {
-    Object.assign(this as PackagingTypeDto, json)
+    Object.assign(this as AuthenticationTokenDto, json)
   }
 
-  code?: string
-  name?: SamTextDto
-  edqmCode?: string
-  edqmDefinition?: string
+  /**
+   * Encrypted token
+   */
+  token?: string
+  /**
+   * Validity starting time of the token
+   */
+  creationTime?: Date
+  /**
+   * Token validity in seconds
+   */
+  validity?: number
 }

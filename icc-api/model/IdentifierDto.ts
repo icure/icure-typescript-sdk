@@ -9,17 +9,21 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
-import { SamTextDto } from "./SamTextDto"
+import { CodeStubDto } from "./CodeStubDto"
 
 import { decodeBase64 } from "./ModelHelper"
 
-export class PackagingTypeDto {
+export class IdentifierDto {
   constructor(json: JSON | any) {
-    Object.assign(this as PackagingTypeDto, json)
+    Object.assign(this as IdentifierDto, json)
   }
 
-  code?: string
-  name?: SamTextDto
-  edqmCode?: string
-  edqmDefinition?: string
+  id?: string
+  assigner?: string
+  start?: string
+  end?: string
+  system?: string
+  type?: CodeStubDto
+  use?: string
+  value?: string
 }
