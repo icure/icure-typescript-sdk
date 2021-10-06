@@ -39,11 +39,11 @@ export class iccAuthApi {
   /**
    * Login using username and password
    * @summary login
-   * @param session
+   * @param body
    */
-  login(session: WebSession): Promise<AuthenticationResponse> {
+  login(body?: WebSession): Promise<AuthenticationResponse> {
     let _body = null
-    _body = session
+    _body = body
 
     const _url = this.host + `/auth/login` + "?ts=" + new Date().getTime()
     let headers = this.headers

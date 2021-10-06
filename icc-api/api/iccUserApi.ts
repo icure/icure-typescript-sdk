@@ -76,6 +76,27 @@ export class iccUserApi {
   }
 
   /**
+   *
+   * @summary Check token validity
+   * @param userId
+   * @param token
+   */
+  checkTokenValidity(userId: string, token: string): Promise<boolean> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/user/token/${encodeURIComponent(String(userId))}` +
+      "?ts=" +
+      new Date().getTime()
+    let headers = this.headers
+    token && (headers = headers.concat(new XHR.Header("token", token)))
+    return XHR.sendCommand("GET", _url, headers, _body, this.fetchImpl)
+      .then((doc) => JSON.parse(JSON.stringify(doc.body)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    * Create a user. HealthcareParty ID should be set. Email or Login have to be set. If login hasn't been set, Email will be used for Login instead.
    * @summary Create a user
    * @param body
@@ -251,6 +272,28 @@ export class iccUserApi {
     let headers = this.headers
     return XHR.sendCommand("GET", _url, headers, _body, this.fetchImpl)
       .then((doc) => (doc.body as Array<JSON>).map((it) => new UserGroupDto(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
+   * @summary Require a new temporary token for authentication
+   * @param userId
+   * @param key The token key. Only one instance of a token with a defined key can exist at the same time
+   * @param tokenValidity The token validity in seconds
+   */
+  getToken(userId: string, key: string, tokenValidity?: number): Promise<string> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/user/token/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(key))}` +
+      "?ts=" +
+      new Date().getTime() +
+      (tokenValidity ? "&tokenValidity=" + encodeURIComponent(String(tokenValidity)) : "")
+    let headers = this.headers
+    return XHR.sendCommand("POST", _url, headers, _body, this.fetchImpl)
+      .then((doc) => JSON.parse(JSON.stringify(doc.body)))
       .catch((err) => this.handleError(err))
   }
 
