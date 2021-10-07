@@ -298,6 +298,36 @@ export class iccUserApi {
   }
 
   /**
+   *
+   * @summary Require a new temporary token for authentication inside provided group
+   * @param groupId
+   * @param userId
+   * @param key The token key. Only one instance of a token with a defined key can exist at the same time
+   * @param tokenValidity The token validity in seconds
+   */
+  getTokenInGroup(
+    groupId: string,
+    userId: string,
+    key: string,
+    tokenValidity?: number
+  ): Promise<string> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/user/inGroup/${encodeURIComponent(String(groupId))}/token/${encodeURIComponent(
+        String(userId)
+      )}/${encodeURIComponent(String(key))}` +
+      "?ts=" +
+      new Date().getTime() +
+      (tokenValidity ? "&tokenValidity=" + encodeURIComponent(String(tokenValidity)) : "")
+    let headers = this.headers
+    return XHR.sendCommand("POST", _url, headers, _body, this.fetchImpl)
+      .then((doc) => JSON.parse(JSON.stringify(doc.body)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    * General information about the user
    * @summary Get a user by his ID
    * @param userId
