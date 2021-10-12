@@ -35,13 +35,15 @@ export class IccAuthApi {
   /**
    * Login using username and password
    * @summary login
-   * @param session
+   * @param body
    */
-  login(session: WebSession): Promise<AuthenticationResponse> {
+  login(body?: WebSession): Promise<AuthenticationResponse> {
     let _body = null
+    _body = body
 
-    const _url = this.host + `/auth/login` + '?ts=' + new Date().getTime() + (session ? '&session=' + encodeURIComponent(String(session)) : '')
+    const _url = this.host + `/auth/login` + '?ts=' + new Date().getTime()
     let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
       .then((doc) => new AuthenticationResponse(doc.body as JSON))
       .catch((err) => this.handleError(err))

@@ -133,11 +133,12 @@ export namespace XHR {
         throw new XHRError(url, error.message, error.status, error.error, response.headers)
       }
       const ct = contentTypeOverride || response.headers.get('content-type') || 'text/plain'
-      return (ct.startsWith('application/json')
-        ? response.json()
-        : ct.startsWith('application/xml') || ct.startsWith('text/')
-        ? response.text()
-        : response.arrayBuffer()
+      return (
+        ct.startsWith('application/json')
+          ? response.json()
+          : ct.startsWith('application/xml') || ct.startsWith('text/')
+          ? response.text()
+          : response.arrayBuffer()
       ).then((d) => new Data(response.status, ct, d))
     })
   }
