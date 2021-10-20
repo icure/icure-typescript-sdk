@@ -358,7 +358,9 @@ export class IccContactXApi extends IccContactApi {
           svc.content = _.fromPairs(
             await Promise.all(
               _.toPairs(svc.content).map(async (p) => {
-                p[1].compoundValue = await this.encryptServices(key, rawKey, p[1].compoundValue!)
+                if (p[1].compoundValue?.length) {
+                  p[1].compoundValue = await this.encryptServices(key, rawKey, p[1].compoundValue!)
+                }
                 return p
               })
             )
