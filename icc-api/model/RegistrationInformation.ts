@@ -18,5 +18,5 @@ export class RegistrationInformation {
   firstName?: string
   lastName?: string
   emailAddress?: string
-  userOptions?: { [key: string]: string }
+  userOptions?: string
 }
