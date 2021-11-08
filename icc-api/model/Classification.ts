@@ -57,6 +57,7 @@ export class Classification {
   deletionDate?: number
   parentId?: string
   label?: string
+  templateId?: string
   /**
    * The secretForeignKeys are filled at the to many end of a one to many relationship (for example inside Contact for the Patient -> Contacts relationship). Used when we want to find all contacts for a specific patient. These keys are in clear. You can have several to partition the medical document space.
    */
