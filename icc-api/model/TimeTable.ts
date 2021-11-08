@@ -58,6 +58,7 @@ export class TimeTable {
   deletionDate?: number
   name?: string
   agendaId?: string
+  publicTimeTable?: boolean
   startTime?: number
   endTime?: number
   items?: Array<TimeTableItem>
