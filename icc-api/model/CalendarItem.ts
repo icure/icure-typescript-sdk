@@ -77,6 +77,7 @@ export class CalendarItem {
   details?: string
   wasMigrated?: boolean
   agendaId?: string
+  recurrenceId?: string
   meetingTags?: Array<CalendarItemTag>
   flowItem?: FlowItem
   /**
