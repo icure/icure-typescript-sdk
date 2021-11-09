@@ -127,6 +127,26 @@ export class IccIcureApi {
 
   /**
    *
+   * @param loglevel
+   * @param _package
+   */
+  loglevel(loglevel: string, _package: string): Promise<string> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/icure/loglevel/${encodeURIComponent(String(loglevel))}` +
+      '?ts=' +
+      new Date().getTime() +
+      (_package ? '&_package=' + encodeURIComponent(String(_package)) : '')
+    let headers = this.headers
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+      .then((doc) => JSON.parse(JSON.stringify(doc.body)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
    * @summary Resolve contacts conflicts
    * @param limit
    */
