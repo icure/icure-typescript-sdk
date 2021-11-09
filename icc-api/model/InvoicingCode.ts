@@ -55,6 +55,7 @@ export class InvoicingCode {
   prescriberCdHcParty?: string
   locationNihii?: string
   locationCdHcParty?: string
+  locationService?: number
   canceled?: boolean
   accepted?: boolean
   pending?: boolean

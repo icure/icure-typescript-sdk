@@ -9,22 +9,12 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
-import { CodeStub } from './CodeStub'
 
-export class Measure {
+export class LoginCredentials {
   constructor(json: JSON | any) {
-    Object.assign(this as Measure, json)
+    Object.assign(this as LoginCredentials, json)
   }
 
-  value?: number
-  min?: number
-  max?: number
-  ref?: number
-  severity?: number
-  severityCode?: string
-  evolution?: number
-  unit?: string
-  unitCodes?: Array<CodeStub>
-  comment?: string
-  comparator?: string
+  username?: string
+  password?: string
 }

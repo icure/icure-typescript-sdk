@@ -20,8 +20,10 @@ export class PropertyStub {
     Object.assign(this as PropertyStub, json)
   }
 
+  id?: string
   type?: PropertyTypeStub
   typedValue?: TypedValueObject
+  deletionDate?: number
   /**
    * The base64 encoded data of this object, formatted as JSON and encrypted in AES using the random master key from encryptionKeys.
    */

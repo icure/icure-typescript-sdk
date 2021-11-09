@@ -11,7 +11,7 @@
  */
 import { XHR } from './XHR'
 import { AuthenticationResponse } from '../model/AuthenticationResponse'
-import { WebSession } from '../model/WebSession'
+import { LoginCredentials } from '../model/LoginCredentials'
 
 export class IccAuthApi {
   host: string
@@ -37,7 +37,7 @@ export class IccAuthApi {
    * @summary login
    * @param body
    */
-  login(body?: WebSession): Promise<AuthenticationResponse> {
+  login(body?: LoginCredentials): Promise<AuthenticationResponse> {
     let _body = null
     _body = body
 
