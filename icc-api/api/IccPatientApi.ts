@@ -20,6 +20,7 @@ import { ListOfIds } from '../model/ListOfIds'
 import { PaginatedListPatient } from '../model/PaginatedListPatient'
 import { PaginatedListString } from '../model/PaginatedListString'
 import { Patient } from '../model/Patient'
+import { PatientRegistrationSuccess } from '../model/PatientRegistrationSuccess'
 
 export class IccPatientApi {
   host: string
@@ -330,17 +331,18 @@ export class IccPatientApi {
    * @param system
    * @param id
    */
-  getPatientByHealrhcarepartyAndIdentifier(hcPartyId: string, system: string, id: string): Promise<Array<Patient>> {
+  getPatientByHealthcarepartyAndIdentifier(hcPartyId: string, id: string, system?: string): Promise<Patient> {
     let _body = null
 
     const _url =
       this.host +
-      `/patient/${encodeURIComponent(String(hcPartyId))}/${encodeURIComponent(String(system))}/${encodeURIComponent(String(id))}` +
+      `/patient/${encodeURIComponent(String(hcPartyId))}/${encodeURIComponent(String(id))}` +
       '?ts=' +
-      new Date().getTime()
+      new Date().getTime() +
+      (system ? '&system=' + encodeURIComponent(String(system)) : '')
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new Patient(it)))
+      .then((doc) => new Patient(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 
@@ -691,6 +693,31 @@ export class IccPatientApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
       .then((doc) => new Patient(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Register a new patient into the system
+   * @summary Register a patient
+   * @param body
+   * @param hcPartyId
+   * @param groupId
+   * @param useShortToken
+   */
+  registerPatient(hcPartyId: string, groupId: string, useShortToken?: boolean, body?: Patient): Promise<PatientRegistrationSuccess> {
+    let _body = null
+    _body = body
+
+    const _url =
+      this.host +
+      `/patient/register/forHcp/${encodeURIComponent(String(hcPartyId))}/inGroup/${encodeURIComponent(String(groupId))}` +
+      '?ts=' +
+      new Date().getTime() +
+      (useShortToken ? '&useShortToken=' + encodeURIComponent(String(useShortToken)) : '')
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+      .then((doc) => new PatientRegistrationSuccess(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 

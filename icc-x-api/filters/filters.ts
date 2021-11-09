@@ -47,7 +47,12 @@ export type AbstractFilter<T> = T extends Patient
   : ConstantFilter<T> | IntersectionFilter<T> | UnionFilter<T> | ComplementFilter<T>
 
 abstract class FilterBuilder<T> {
+  // This is the current generator for the filter, when we call build(), filterProvider() is going to be called
   filterProvider?: () => AbstractFilter<T>
+  // This is the method that is called each time we chain a filter to another filter. The default behaviour is to
+  // return a FilterBuilder with the provider set to the last element in the chain, except when we use combination
+  // operators like or()/and()/… . After one of those, the composer is set to a function that will return a FilterBuilder
+  // that combines the existing filterBuilder with the filter definition we just added.
   composer: (thisFilterBuilder: FilterBuilder<T>, otherFilterBuilder: FilterBuilder<T>) => FilterBuilder<T> = (
     thisFilterBuilder: FilterBuilder<T>,
     otherFilterBuilder: FilterBuilder<T>
@@ -77,17 +82,18 @@ abstract class FilterBuilder<T> {
   ) {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const leftHandFilterBuilder: FilterBuilder<T> = this
+    const leftHandFilter = leftHandFilterBuilder.build() // Freeze the leftHand filter
 
     return leftHandFilterBuilder.filterProvider
       ? this.clone(
           undefined, //filter provider is indeterminate until we have performed a composition
-          (orFilterBuilder: FilterBuilder<T>, rightHandFilterBuilder: FilterBuilder<T>) => {
-            const leftHandFilter = leftHandFilterBuilder.build()
+          (unused: FilterBuilder<T>, rightHandFilterBuilder: FilterBuilder<T>) => {
+            // because we freeze the leftHand in the state it is right now, we are not going to use its value when the composition occurs
             const rightHandFilter = rightHandFilterBuilder.build()
 
             return rightHandFilter
               ? this.clone(leftHandRightHandFiltersCombiner(leftHandFilter, rightHandFilter), rightHandFilterBuilder.composer)
-              : rightHandFilterBuilder
+              : rightHandFilterBuilder //Can this happen ?
           }
         )
       : this
@@ -100,6 +106,25 @@ abstract class FilterBuilder<T> {
     const rightHandFilterBuilder = rightHandFilterBuilderFactory(this)
     return this.filterProvider ? this.clone(leftHandRightHandFiltersCombiner(this.build(), rightHandFilterBuilder.build())) : this
   }
+
+  /**
+   * There are two ways of doing and, or, …
+   *
+   * 1) for (...) or (...) we use the syntax ... .or((builder) => builder...)
+   * ex: youngerThan(65).or((b) => b.olderThan(18).and().gender(M)) means any gender < 65 or male > 18
+   * 2) for ((...) or ...) we use the syntax ... .or().…
+   * ex: youngerThan(65).or().olderThan(18).and().gender(M) means males between 18 and 65
+   *
+   * When 1) is used we do not have to wait for anything to provide a resolved builder that can later be combined with extra elements in the chain.
+   * In other words, we can build the current filter chain up to the or/and/… and we can build what is inside the or/and/… brackets and we can set
+   * the filterProvider of the returned Builder to () => UnionFilter([leftHand.build(), innerBrackets.build()]).
+   *
+   * When 2) is used, things get more tricky because we will have to do an or/and/… between what we have on the leftHand and with what we do not have
+   * yet on the right hand. What we do in that situation is to set the filterProvider() to undefined because calling build() without having provided a
+   * rightHand doesn't make sense. We set a composer that is going to be called the next time we chain a filter.
+   *
+   * @param filterBuilderFactory
+   */
 
   and(filterBuilderFactory?: (it: FilterBuilder<T>) => FilterBuilder<T>): FilterBuilder<T> {
     const combiner = (leftHandFilter: AbstractFilter<T>, rightHandFilter: AbstractFilter<T>) => () =>
