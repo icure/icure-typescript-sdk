@@ -6,7 +6,7 @@ import { ShamirClass } from './crypto/shamir'
 
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import { Delegation, HealthcareParty, Patient } from '../icc-api/model/models'
+import { Delegation, HealthcareParty, Patient, User } from '../icc-api/model/models'
 import { b2a, b64_2uas, hex2ua, string2ua, ua2hex, ua2string, ua2utf8, utf8_2ua } from './utils/binary-utils'
 import { IccHcpartyXApi } from './icc-hcparty-x-api'
 
@@ -1278,5 +1278,58 @@ export class IccCryptoXApi {
     }
 
     throw '### THIS SHOULD NOT HAPPEN: ' + argName + ' has an invalid value: ' + argValue + details
+  }
+
+  getEncryptionDecryptionKeys(
+    healthcarePartyId: string,
+    document:
+      | models.AccessLog
+      | models.CalendarItem
+      | models.Classification
+      | models.Contact
+      | models.Document
+      | models.Form
+      | models.HealthElement
+      | models.Invoice
+      | models.Message
+      | models.Receipt
+      | models.Patient
+  ): Promise<Array<string> | null> {
+    return !document.id
+      ? Promise.resolve(null)
+      : this.extractKeysFromDelegationsForHcpHierarchy(
+          healthcarePartyId,
+          document.id,
+          (document.encryptionKeys && Object.keys(document.encryptionKeys).length && document.encryptionKeys) || document.delegations!
+        )
+          .then(({ extractedKeys }) => extractedKeys)
+          .catch(() => null)
+  }
+
+  async encryptDecrypt(
+    method: 'encrypt' | 'decrypt',
+    content: Uint8Array | ArrayBuffer,
+    edKey?: string,
+    user?: User,
+    documentObject?: models.Document
+  ): Promise<Uint8Array | Array<any> | any> {
+    if (!content || !(edKey || (user?.healthcarePartyId && documentObject))) return content
+
+    if (edKey) {
+      const importedEdKey = await this._AES.importKey('raw', hex2ua(edKey.replace(/-/g, '')))
+      try {
+        return this._AES[method](importedEdKey, content)
+      } catch (e) {
+        return content
+      }
+    }
+
+    const sfks = await this.extractKeysFromDelegationsForHcpHierarchy(user?.healthcarePartyId!, documentObject?.id!, documentObject?.encryptionKeys!)
+    const importedEdKey = await this._AES.importKey('raw', hex2ua(sfks.extractedKeys[0].replace(/-/g, '')))
+    try {
+      return this._AES[method](importedEdKey, content)
+    } catch (e) {
+      return content
+    }
   }
 }
