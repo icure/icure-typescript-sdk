@@ -147,6 +147,7 @@ export class HealthcareParty {
   type?: string
   contactPerson?: string
   contactPersonHcpId?: string
+  supervisorId?: string
   flatRateTarifications?: Array<FlatRateTarification>
   importedData?: { [key: string]: string }
   options?: { [key: string]: string }
