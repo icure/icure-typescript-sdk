@@ -71,8 +71,8 @@ export class IccAnonymousAccessApi {
   }
 
   /**
-   * Returns a list of healthcare parties contained in the group owning the providing id
-   * @summary List healthcare parties for a provided group id
+   * Returns a list of Agendas cfor the provided user and group
+   * @summary List Agendas for a provided group id
    * @param groupId Healthcare parties group id
    * @param userId Healthcare party user id
    */
