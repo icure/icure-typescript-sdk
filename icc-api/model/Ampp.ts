@@ -42,6 +42,7 @@ export class Ampp {
   crmLink?: SamText
   deliveryModusCode?: string
   deliveryModus?: SamText
+  deliveryModusSpecificationCode?: string
   deliveryModusSpecification?: SamText
   dhpcLink?: SamText
   distributorCompany?: Company

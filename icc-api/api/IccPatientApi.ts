@@ -286,6 +286,58 @@ export class IccPatientApi {
   }
 
   /**
+   *
+   * @summary Provides a paginated list of patients with duplicate name for an hecparty
+   * @param hcPartyId Healthcare party id
+   * @param startKey The start key for pagination, depends on the filters used
+   * @param startDocumentId A patient document ID
+   * @param limit Number of rows
+   */
+  findDuplicatesByName(hcPartyId: string, startKey?: string, startDocumentId?: string, limit?: number): Promise<PaginatedListPatient> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/patient/duplicates/name` +
+      '?ts=' +
+      new Date().getTime() +
+      (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
+      (startKey ? '&startKey=' + encodeURIComponent(String(startKey)) : '') +
+      (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
+      (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
+    let headers = this.headers
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+      .then((doc) => new PaginatedListPatient(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
+   * @summary Provides a paginated list of patients with duplicate ssin for an hecparty
+   * @param hcPartyId Healthcare party id
+   * @param startKey The start key for pagination, depends on the filters used
+   * @param startDocumentId A patient document ID
+   * @param limit Number of rows
+   */
+  findDuplicatesBySsin(hcPartyId: string, startKey?: string, startDocumentId?: string, limit?: number): Promise<PaginatedListPatient> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/patient/duplicates/ssin` +
+      '?ts=' +
+      new Date().getTime() +
+      (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
+      (startKey ? '&startKey=' + encodeURIComponent(String(startKey)) : '') +
+      (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
+      (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
+    let headers = this.headers
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+      .then((doc) => new PaginatedListPatient(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    * Returns a list of patients
    * @summary Filter patients for the current user (HcParty)
    * @param firstName The first name
