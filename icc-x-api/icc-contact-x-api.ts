@@ -333,6 +333,17 @@ export class IccContactXApi extends IccContactApi {
       : Promise.resolve(null)
   }
 
+  createContactsWithUser(user: models.User, bodies?: Array<models.Contact>): Promise<models.Contact | any> {
+    return bodies
+      ? this.encrypt(
+          user,
+          bodies.map((c) => _.cloneDeep(c))
+        )
+          .then((ctcs) => super.createContacts(ctcs))
+          .then((ctcs) => this.decrypt((user.healthcarePartyId || user.patientId)!, ctcs))
+      : Promise.resolve(null)
+  }
+
   encryptServices(key: CryptoKey, rawKey: string, services: Service[]): PromiseLike<Service[]> {
     return Promise.all(
       services.map(async (svc) => {
