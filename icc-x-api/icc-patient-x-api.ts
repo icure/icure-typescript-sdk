@@ -545,7 +545,7 @@ export class IccPatientXApi extends IccPatientApi {
     })
   }
 
-  initEncryptionKeys(user: models.User, pat: models.Patient) {
+  initEncryptionKeys(user: models.User, pat: models.Patient): Promise<models.Patient> {
     const hcpId = user.healthcarePartyId || user.patientId
     return this.crypto.initEncryptionKeys(pat, hcpId!).then((eks) => {
       let promise = Promise.resolve(
