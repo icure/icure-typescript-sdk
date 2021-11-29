@@ -148,7 +148,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
     )
   }
 
-  initEncryptionKeys(user: models.User, accessLog: models.AccessLog) {
+  initEncryptionKeys(user: models.User, accessLog: models.AccessLog): Promise<models.AccessLog> {
     const hcpId = user.healthcarePartyId || user.patientId
     return this.crypto.initEncryptionKeys(accessLog, hcpId!).then((eks) => {
       let promise = Promise.resolve(
