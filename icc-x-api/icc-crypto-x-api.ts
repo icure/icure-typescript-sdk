@@ -66,7 +66,9 @@ export class IccCryptoXApi {
   }
 
   keychainLocalStoreIdPrefix = 'org.taktik.icure.ehealth.keychain.'
-  hcpPreferenceKeyEhealthCert = 'eHealthCRT'
+  keychainValidityDateLocalStoreIdPrefix = 'org.taktik.icure.ehealth.keychain-date.'
+  hcpPreferenceKeyEhealthCert = 'eHealthCRTCrypt'
+  hcpPreferenceKeyEhealthCertDate = 'eHealthCRTDate'
 
   private hcpartyBaseApi: IccHcpartyApi
   private patientBaseApi: IccPatientApi
@@ -1130,27 +1132,106 @@ export class IccCryptoXApi {
     localStorage.setItem(this.keychainLocalStoreIdPrefix + id, keyChainB64)
   }
 
-  saveKeyChainInHCPFromLocalStorage(hcpId: string): Promise<HealthcareParty> {
-    return this.hcpartyBaseApi
-      .getHealthcareParty(hcpId)
-      .then((hcp) => {
-        const crt = this.getKeychainInBrowserLocalStorageAsBase64(hcp.id!)
-        const opts = hcp.options || {}
-        _.set(opts, this.hcpPreferenceKeyEhealthCert, crt)
-        hcp.options = opts
-        return hcp
-      })
-      .then((hcp) => {
-        return this.hcpartyBaseApi.modifyHealthcareParty(hcp)
-      })
+  // noinspection JSUnusedGlobalSymbols
+  saveKeychainValidityDateInBrowserLocalStorage(id: string, date: string) {
+    if (!id) return
+
+    if (!date) {
+      localStorage.removeItem(this.keychainValidityDateLocalStoreIdPrefix + id)
+    } else {
+      localStorage.setItem(this.keychainValidityDateLocalStoreIdPrefix + id, date)
+    }
+  }
+
+  /**
+   * Populate the HCP.options dict with an encrypted eHealth certificate and unencryped expiry date.
+   * Any potentially unencrypted certificates will be pruned from the HCP.
+   * @param hcpId Id of the hcp to modify
+   * @returns modified HCP
+   */
+  async saveKeyChainInHCPFromLocalStorage(hcpId: string): Promise<models.HealthcareParty> {
+    return await this.hcpartyBaseApi.getHealthcareParty(hcpId).then(async (hcp: HealthcareParty) => {
+      let aesKey: CryptoKey | null = null
+      try {
+        aesKey = _.find(
+          await this.decryptAndImportAesHcPartyKeysForDelegators([hcp.id!], hcp.id!),
+          (delegator: { delegatorId: string }) => delegator.delegatorId === hcp.id
+        )!.key
+      } catch (e) {
+        console.error('Error while importing the AES key.')
+      }
+      if (!aesKey) {
+        console.error('No encryption key!')
+      }
+
+      const opts = hcp.options || {}
+
+      const crt = this.getKeychainInBrowserLocalStorageAsBase64(hcp.id!!)
+      if (!!aesKey && !!crt) {
+        let crtEncrypted: ArrayBuffer | null = null
+        try {
+          crtEncrypted = await this.AES.encrypt(aesKey, new Uint8Array(string2ua(atob(crt))))
+        } catch (e) {
+          console.error('Error while encrypting the certificate', e)
+        }
+
+        // add the encrypted certificate to the options
+        _.set(opts, this.hcpPreferenceKeyEhealthCert, ua2string(new Uint8Array(crtEncrypted!)))
+      }
+
+      const crtValidityDate = this.getKeychainValidityDateInBrowserLocalStorage(hcp.id!!)
+      if (!!crtValidityDate) {
+        _.set(opts, this.hcpPreferenceKeyEhealthCertDate, crtValidityDate)
+      }
+
+      hcp.options = opts
+      return hcp
+    })
   }
 
   importKeychainInBrowserFromHCP(hcpId: string): Promise<void> {
-    return this.hcpartyBaseApi.getHealthcareParty(hcpId).then((hcp) => {
-      const crt = _.get(hcp.options, this.hcpPreferenceKeyEhealthCert)
-      if (crt) {
-        this.saveKeychainInBrowserLocalStorageAsBase64(hcp.id!, crt)
+    return this.hcpartyBaseApi.getHealthcareParty(hcpId).then(async (hcp: HealthcareParty) => {
+      let crtCryp: Uint8Array | null = null
+      if (!!hcp.options && !!hcp.options[this.hcpPreferenceKeyEhealthCert]) {
+        crtCryp = string2ua(hcp.options[this.hcpPreferenceKeyEhealthCert])
       }
+
+      const crtValidityDate = _.get(hcp.options, this.hcpPreferenceKeyEhealthCertDate)
+
+      // store the validity date
+      if (!!crtValidityDate) {
+        this.saveKeychainValidityDateInBrowserLocalStorage(hcp.id!!, crtValidityDate)
+      }
+
+      let crt: ArrayBuffer | null = null
+      let decryptionKey: CryptoKey | null = null
+      try {
+        decryptionKey = _.find(
+          await this.decryptAndImportAesHcPartyKeysForDelegators([hcp.id!], hcp.id!),
+          (delegator: { delegatorId: string }) => delegator.delegatorId === hcp.id
+        )!.key
+      } catch (e) {
+        console.error('Error while importing the AES key.')
+      }
+      if (!decryptionKey) {
+        throw new Error('No encryption key! eHealth certificate cannot be decrypted.')
+      }
+
+      if (!!crtCryp && decryptionKey) {
+        try {
+          crt = await this.AES.decrypt(decryptionKey, crtCryp)
+        } catch (e) {
+          console.error(e)
+        }
+      }
+
+      if (!crt) {
+        throw new Error(`Error while saving certificate in browser local storage! Hcp ${hcp.id} has no certificate.`)
+      } else {
+        this.saveKeychainInBrowserLocalStorageAsBase64(hcp.id!!, btoa(String.fromCharCode.apply(null, new Uint8Array(crt))))
+      }
+
+      return
     })
   }
 
@@ -1182,6 +1263,10 @@ export class IccCryptoXApi {
 
   getKeychainInBrowserLocalStorageAsBase64(id: string) {
     return localStorage.getItem(this.keychainLocalStoreIdPrefix + id)
+  }
+
+  getKeychainValidityDateInBrowserLocalStorage(id: string) {
+    return localStorage.getItem(this.keychainValidityDateLocalStoreIdPrefix + id)
   }
 
   // noinspection JSUnusedGlobalSymbols
