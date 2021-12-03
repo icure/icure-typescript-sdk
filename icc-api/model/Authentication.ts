@@ -9,19 +9,12 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
+import { Basic } from './Basic'
 
-export class ReplicationStats {
+export class Authentication {
   constructor(json: JSON | any) {
-    Object.assign(this as ReplicationStats, json)
+    Object.assign(this as Authentication, json)
   }
 
-  revisionsChecked?: number
-  missingRevisionsFound?: number
-  docsRead?: number
-  docsWritten?: number
-  changesPending?: number
-  docWriteFailures?: number
-  checkpointedSourceSeq?: string
-  startTime?: number
-  error?: string
+  basic?: Basic
 }

@@ -64,6 +64,13 @@ export namespace Partnership {
     | 'stepmother'
     | 'stepson'
     | 'tutor'
+    | 'next_of_kin'
+    | 'federal_agency'
+    | 'insurance_company'
+    | 'state_agency'
+    | 'unknown'
+    | 'seealso'
+    | 'refer'
   export const TypeEnum = {
     PrimaryContact: 'primary_contact' as TypeEnum,
     PrimaryContactFor: 'primary_contact_for' as TypeEnum,
@@ -94,6 +101,13 @@ export namespace Partnership {
     Stepmother: 'stepmother' as TypeEnum,
     Stepson: 'stepson' as TypeEnum,
     Tutor: 'tutor' as TypeEnum,
+    NextOfKin: 'next_of_kin' as TypeEnum,
+    FederalAgency: 'federal_agency' as TypeEnum,
+    InsuranceCompany: 'insurance_company' as TypeEnum,
+    StateAgency: 'state_agency' as TypeEnum,
+    Unknown: 'unknown' as TypeEnum,
+    Seealso: 'seealso' as TypeEnum,
+    Refer: 'refer' as TypeEnum,
   }
   export type StatusEnum = 'active' | 'complicated' | 'past'
   export const StatusEnum = {

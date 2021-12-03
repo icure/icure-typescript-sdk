@@ -173,7 +173,7 @@ export namespace Invoice {
     Efact: 'efact' as InvoiceTypeEnum,
     Other: 'other' as InvoiceTypeEnum,
   }
-  export type SentMediumTypeEnum = 'cdrom' | 'eattest' | 'efact' | 'email' | 'mediprima' | 'paper'
+  export type SentMediumTypeEnum = 'cdrom' | 'eattest' | 'efact' | 'email' | 'mediprima' | 'paper' | 'stat'
   export const SentMediumTypeEnum = {
     Cdrom: 'cdrom' as SentMediumTypeEnum,
     Eattest: 'eattest' as SentMediumTypeEnum,
@@ -181,6 +181,7 @@ export namespace Invoice {
     Email: 'email' as SentMediumTypeEnum,
     Mediprima: 'mediprima' as SentMediumTypeEnum,
     Paper: 'paper' as SentMediumTypeEnum,
+    Stat: 'stat' as SentMediumTypeEnum,
   }
   export type InterventionTypeEnum = 'total' | 'userfees'
   export const InterventionTypeEnum = {
