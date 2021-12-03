@@ -380,8 +380,8 @@ export class IccPatientApi {
    * It gets patient administrative data based on the identifier (root & extension) parameters.
    * @summary Get patient by identifier
    * @param hcPartyId
-   * @param system
    * @param id
+   * @param system
    */
   getPatientByHealthcarepartyAndIdentifier(hcPartyId: string, id: string, system?: string): Promise<Patient> {
     let _body = null
