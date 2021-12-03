@@ -1,5 +1,7 @@
 import { IccHcpartyApi } from '../icc-api'
 import { HealthcareParty } from '../icc-api/model/HealthcareParty'
+import * as models from "../icc-api/model/models"
+import {findName, garnishPersonWithName, hasName} from "./utils/person-util"
 
 // noinspection JSUnusedGlobalSymbols
 export class IccHcpartyXApi extends IccHcpartyApi {
@@ -33,6 +35,35 @@ export class IccHcpartyXApi extends IccHcpartyApi {
     return null
   }
 
+  completeNames(hcParty?: models.HealthcareParty) : models.HealthcareParty | undefined {
+    if (!hcParty) {
+      return hcParty
+    }
+
+    let finalHcParty = hcParty
+
+    if ((!!finalHcParty.lastName || !!finalHcParty.name) && !hasName(finalHcParty, models.PersonName.UseEnum.Official)) {
+      finalHcParty = garnishPersonWithName(finalHcParty,
+        models.PersonName.UseEnum.Official,
+        finalHcParty.lastName,
+        finalHcParty.firstName,
+        finalHcParty.name
+      )
+    }
+
+    if ((!finalHcParty.lastName || !finalHcParty.name) && !!hasName(finalHcParty, models.PersonName.UseEnum.Official)) {
+      let officialName = findName(finalHcParty, models.PersonName.UseEnum.Official)
+      finalHcParty = {
+        ...finalHcParty,
+        lastName: officialName!.lastName,
+        firstName: officialName!.firstNames ? officialName!.firstNames[0] : undefined,
+        name: officialName!.text
+      }
+    }
+
+    return finalHcParty
+  }
+
   putHcPartyInCache(key: string, value: Promise<HealthcareParty> | null = null): Promise<HealthcareParty> {
     const hcp =
       value ||
@@ -45,13 +76,21 @@ export class IccHcpartyXApi extends IccHcpartyApi {
     return hcp
   }
 
+  createHealthcareParty(body?: HealthcareParty): Promise<HealthcareParty> {
+    return super.createHealthcareParty(this.completeNames(body))
+  }
+
+  createHealthcarePartyInGroup(groupId: string, body?: HealthcareParty): Promise<HealthcareParty> {
+    return super.createHealthcarePartyInGroup(groupId, this.completeNames(body))
+  }
+
   modifyHealthcareParty(body?: HealthcareParty): Promise<HealthcareParty | any> {
     if (body && body.id) {
       console.log(`Evict key ${body.id} because of modification`)
       delete this.hcPartyCache[body.id]
     }
 
-    return super.modifyHealthcareParty(body).then((hcp) => this.putHcPartyInCache(hcp.id!, Promise.resolve(hcp)))
+    return super.modifyHealthcareParty(this.completeNames(body)).then((hcp) => this.putHcPartyInCache(hcp.id!, Promise.resolve(hcp)))
   }
 
   getHealthcareParty(healthcarePartyId: string, bypassCache = false): Promise<HealthcareParty | any> {
