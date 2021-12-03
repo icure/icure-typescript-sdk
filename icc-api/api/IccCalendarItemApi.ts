@@ -68,6 +68,23 @@ export class IccCalendarItemApi {
 
   /**
    *
+   * @summary Deletes calendarItems
+   * @param body
+   */
+  deleteCalendarItems(body?: ListOfIds): Promise<Array<DocIdentifier>> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/calendarItem/delete/byIds` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
    * @summary Find CalendarItems by hcparty and patient
    * @param hcPartyId
    * @param secretFKeys
@@ -82,6 +99,26 @@ export class IccCalendarItemApi {
       new Date().getTime() +
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
       (secretFKeys ? '&secretFKeys=' + encodeURIComponent(String(secretFKeys)) : '')
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new CalendarItem(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
+   * @summary Find CalendarItems by recurrenceId
+   * @param recurrenceId
+   */
+  findCalendarItemsByRecurrenceId(recurrenceId: string): Promise<Array<CalendarItem>> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/calendarItem/byRecurrenceId` +
+      '?ts=' +
+      new Date().getTime() +
+      (recurrenceId ? '&recurrenceId=' + encodeURIComponent(String(recurrenceId)) : '')
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
       .then((doc) => (doc.body as Array<JSON>).map((it) => new CalendarItem(it)))

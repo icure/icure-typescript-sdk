@@ -19,6 +19,7 @@ import { Insurability } from './Insurability'
 import { MedicalHouseContract } from './MedicalHouseContract'
 import { Partnership } from './Partnership'
 import { PatientHealthCareParty } from './PatientHealthCareParty'
+import { PersonName } from './PersonName'
 import { PropertyStub } from './PropertyStub'
 import { SchoolingInfo } from './SchoolingInfo'
 
@@ -80,6 +81,10 @@ export class Patient {
    * the lastname (surname) of the patient. This is the official lastname that should be used for official administrative purposes.
    */
   lastName?: string
+  /**
+   * the list of all denominations of the patient, also containing the official full name information. Ordered by preference of use. First element is therefore the official name used for the patient in the application
+   */
+  denominations?: Array<PersonName>
   /**
    * the name of the company this patient is member of.
    */
@@ -332,6 +337,8 @@ export namespace Patient {
     | 'unknown'
     | 'contract'
     | 'other'
+    | 'annulled'
+    | 'polygamous'
   export const PersonalStatusEnum = {
     Single: 'single' as PersonalStatusEnum,
     InCouple: 'in_couple' as PersonalStatusEnum,
@@ -345,5 +352,7 @@ export namespace Patient {
     Unknown: 'unknown' as PersonalStatusEnum,
     Contract: 'contract' as PersonalStatusEnum,
     Other: 'other' as PersonalStatusEnum,
+    Annulled: 'annulled' as PersonalStatusEnum,
+    Polygamous: 'polygamous' as PersonalStatusEnum,
   }
 }

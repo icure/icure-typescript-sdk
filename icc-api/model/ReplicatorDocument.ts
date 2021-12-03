@@ -9,6 +9,7 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
+import { Remote } from './Remote'
 import { ReplicationStats } from './ReplicationStats'
 
 export class ReplicatorDocument {
@@ -18,14 +19,16 @@ export class ReplicatorDocument {
 
   id?: string
   rev?: string
-  source?: string
-  target?: string
+  source?: Remote
+  target?: Remote
   owner?: string
   createTarget?: boolean
   continuous?: boolean
   docIds?: Array<string>
   replicationState?: string
-  replicationStateTime?: string
+  replicationStateTime?: number
   replicationStats?: ReplicationStats
+  errorCount?: number
+  revsInfo?: Array<{ [key: string]: string }>
   revHistory?: { [key: string]: string }
 }

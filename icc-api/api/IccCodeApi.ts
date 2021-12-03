@@ -13,6 +13,7 @@ import { XHR } from './XHR'
 import { Code } from '../model/Code'
 import { FilterChainCode } from '../model/FilterChainCode'
 import { PaginatedListCode } from '../model/PaginatedListCode'
+import { Unit } from '../model/Unit'
 
 export class IccCodeApi {
   host: string
@@ -322,6 +323,21 @@ export class IccCodeApi {
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Code(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Import codes from the resources XML file depending on the passed pathVariable
+   * @summary Import codes
+   * @param codeType
+   */
+  importCodes(codeType: string): Promise<Unit> {
+    let _body = null
+
+    const _url = this.host + `/code/${encodeURIComponent(String(codeType))}` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+      .then((doc) => new Unit(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 

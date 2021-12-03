@@ -10,7 +10,7 @@
  * Do not edit the class manually.
  */
 import { XHR } from './XHR'
-import { Agenda } from '../model/Agenda'
+import { CalendarItemType } from '../model/CalendarItemType'
 import { User } from '../model/User'
 
 export class IccAnonymousAccessApi {
@@ -34,35 +34,36 @@ export class IccAnonymousAccessApi {
 
   /**
    *
-   * @summary Get Availabilities for HCP and agendaId
+   * @summary Get Availabilities for HCP and appointmentType
    * @param groupId
-   * @param agendaId
+   * @param userId
+   * @param getCalendarItemTypeId
    * @param startDate
    * @param endDate
    * @param hcpId
-   * @param duration
    * @param limit
    */
-  getAvailabilitiesByPeriodAndAgendaId(
+  getAvailabilitiesByPeriodAndCalendarItemTypeId(
     groupId: string,
-    agendaId: string,
+    userId: string,
+    getCalendarItemTypeId: string,
     startDate: number,
     endDate: number,
     hcpId: string,
-    duration: number,
     limit?: number
   ): Promise<Array<number>> {
     let _body = null
 
     const _url =
       this.host +
-      `/aa/available/inGroup/${encodeURIComponent(String(groupId))}/agenda/${encodeURIComponent(String(agendaId))}` +
+      `/aa/available/inGroup/${encodeURIComponent(String(groupId))}/forUser/${encodeURIComponent(String(userId))}/type/${encodeURIComponent(
+        String(getCalendarItemTypeId)
+      )}` +
       '?ts=' +
       new Date().getTime() +
       (startDate ? '&startDate=' + encodeURIComponent(String(startDate)) : '') +
       (endDate ? '&endDate=' + encodeURIComponent(String(endDate)) : '') +
       (hcpId ? '&hcpId=' + encodeURIComponent(String(hcpId)) : '') +
-      (duration ? '&duration=' + encodeURIComponent(String(duration)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
@@ -71,22 +72,26 @@ export class IccAnonymousAccessApi {
   }
 
   /**
-   * Returns a list of Agendas cfor the provided user and group
-   * @summary List Agendas for a provided group id
+   * Returns a list of Calendar Item types
+   * @summary List Calendar Item types for a provided group id and user id
    * @param groupId Healthcare parties group id
    * @param userId Healthcare party user id
+   * @param startDate
+   * @param endDate
    */
-  listAgendasInHealthcareParty(groupId: string, userId: string): Promise<Array<Agenda>> {
+  listAppointmentTypesForUser(groupId: string, userId: string, startDate: number, endDate: number): Promise<Array<CalendarItemType>> {
     let _body = null
 
     const _url =
       this.host +
-      `/aa/agenda/inGroup/${encodeURIComponent(String(groupId))}/forUser/${encodeURIComponent(String(userId))}` +
+      `/aa/appointmentType/inGroup/${encodeURIComponent(String(groupId))}/forUser/${encodeURIComponent(String(userId))}` +
       '?ts=' +
-      new Date().getTime()
+      new Date().getTime() +
+      (startDate ? '&startDate=' + encodeURIComponent(String(startDate)) : '') +
+      (endDate ? '&endDate=' + encodeURIComponent(String(endDate)) : '')
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new Agenda(it)))
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new CalendarItemType(it)))
       .catch((err) => this.handleError(err))
   }
 
