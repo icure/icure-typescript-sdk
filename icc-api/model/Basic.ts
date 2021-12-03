@@ -10,18 +10,11 @@
  * Do not edit the class manually.
  */
 
-export class ReplicationStats {
+export class Basic {
   constructor(json: JSON | any) {
-    Object.assign(this as ReplicationStats, json)
+    Object.assign(this as Basic, json)
   }
 
-  revisionsChecked?: number
-  missingRevisionsFound?: number
-  docsRead?: number
-  docsWritten?: number
-  changesPending?: number
-  docWriteFailures?: number
-  checkpointedSourceSeq?: string
-  startTime?: number
-  error?: string
+  username?: string
+  password?: string
 }

@@ -44,6 +44,7 @@ export namespace Telecom {
     | 'print'
     | 'disk'
     | 'other'
+    | 'pager'
   export const TelecomTypeEnum = {
     Mobile: 'mobile' as TelecomTypeEnum,
     Phone: 'phone' as TelecomTypeEnum,
@@ -58,5 +59,6 @@ export namespace Telecom {
     Print: 'print' as TelecomTypeEnum,
     Disk: 'disk' as TelecomTypeEnum,
     Other: 'other' as TelecomTypeEnum,
+    Pager: 'pager' as TelecomTypeEnum,
   }
 }

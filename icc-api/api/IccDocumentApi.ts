@@ -35,8 +35,8 @@ export class IccDocumentApi {
   }
 
   /**
-   *
-   * @summary Creates a document
+   * Creates a document and returns an instance of created document afterward
+   * @summary Create a document
    * @param body
    */
   createDocument(body?: Document): Promise<Document> {
@@ -52,8 +52,8 @@ export class IccDocumentApi {
   }
 
   /**
-   *
-   * @summary Deletes a document's attachment
+   * Deletes a document's attachment and returns the modified document instance afterward
+   * @summary Delete a document's attachment
    * @param documentId
    */
   deleteAttachment(documentId: string): Promise<Document> {
@@ -67,8 +67,8 @@ export class IccDocumentApi {
   }
 
   /**
-   *
-   * @summary Deletes a document
+   * Deletes a batch of documents and returns the list of deleted document ids
+   * @summary Delete a document
    * @param documentIds
    */
   deleteDocument(documentIds: string): Promise<Array<DocIdentifier>> {
@@ -143,8 +143,8 @@ export class IccDocumentApi {
   }
 
   /**
-   *
-   * @summary Gets a document
+   * Returns the document corresponding to the identifier passed in the request
+   * @summary Get a document
    * @param documentId
    */
   getDocument(documentId: string): Promise<Document> {
@@ -182,8 +182,8 @@ export class IccDocumentApi {
   }
 
   /**
-   *
-   * @summary Gets a document
+   * Returns the first document corresponding to the externalUuid passed in the request
+   * @summary Get a document
    * @param externalUuid
    */
   getDocumentByExternalUuid(externalUuid: string): Promise<Document> {
@@ -197,8 +197,8 @@ export class IccDocumentApi {
   }
 
   /**
-   *
-   * @summary Gets a document
+   * Returns a list of document corresponding to the identifiers passed in the body
+   * @summary Get a batch of document
    * @param body
    */
   getDocuments(body?: ListOfIds): Promise<Array<Document>> {
@@ -214,7 +214,7 @@ export class IccDocumentApi {
   }
 
   /**
-   *
+   * Returns a list of document corresponding to the externalUuid passed in the request
    * @summary Get all documents with externalUuid
    * @param externalUuid
    */
@@ -229,8 +229,8 @@ export class IccDocumentApi {
   }
 
   /**
-   *
-   * @summary Updates a document
+   * Updates the document and returns an instance of the modified document afterward
+   * @summary Update a document
    * @param body
    */
   modifyDocument(body?: Document): Promise<Document> {
@@ -247,7 +247,7 @@ export class IccDocumentApi {
 
   /**
    * Returns the modified documents.
-   * @summary Updates a batch of documents
+   * @summary Update a batch of documents
    * @param body
    */
   modifyDocuments(body?: Array<Document>): Promise<Array<Document>> {
@@ -263,13 +263,13 @@ export class IccDocumentApi {
   }
 
   /**
-   *
-   * @summary Creates a document's attachment
+   * Creates a document's attachment and returns the modified document instance afterward
+   * @summary Create a document's attachment
    * @param body
    * @param documentId
    * @param enckeys
    */
-  setDocumentAttachment(documentId: string, enckeys?: string, body?: ArrayBuffer): Promise<Document> {
+  setDocumentAttachment(documentId: string, enckeys?: string, body?: Object): Promise<Document> {
     let _body = null
     _body = body
 
@@ -278,6 +278,31 @@ export class IccDocumentApi {
       `/document/${encodeURIComponent(String(documentId))}/attachment` +
       '?ts=' +
       new Date().getTime() +
+      (enckeys ? '&enckeys=' + encodeURIComponent(String(enckeys)) : '')
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+      .then((doc) => new Document(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Creates a document attachment and returns the modified document instance afterward
+   * @summary Create a document's attachment
+   * @param body
+   * @param documentId
+   * @param enckeys
+   */
+  setDocumentAttachmentBody(documentId: string, enckeys?: string, body?: Object): Promise<Document> {
+    let _body = null
+    _body = body
+
+    const _url =
+      this.host +
+      `/document/attachment` +
+      '?ts=' +
+      new Date().getTime() +
+      (documentId ? '&documentId=' + encodeURIComponent(String(documentId)) : '') +
       (enckeys ? '&enckeys=' + encodeURIComponent(String(enckeys)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
@@ -329,31 +354,6 @@ export class IccDocumentApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
       .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
-   *
-   * @summary Creates a document's attachment
-   * @param body
-   * @param documentId
-   * @param enckeys
-   */
-  setSafeDocumentAttachment(documentId: string, enckeys?: string, body?: ArrayBuffer): Promise<Document> {
-    let _body = null
-    _body = body
-
-    const _url =
-      this.host +
-      `/document/attachment` +
-      '?ts=' +
-      new Date().getTime() +
-      (documentId ? '&documentId=' + encodeURIComponent(String(documentId)) : '') +
-      (enckeys ? '&enckeys=' + encodeURIComponent(String(enckeys)) : '')
-    let headers = this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
-      .then((doc) => new Document(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 }

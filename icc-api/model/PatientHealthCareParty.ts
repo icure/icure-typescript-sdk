@@ -50,7 +50,7 @@ export namespace PatientHealthCareParty {
     | 'hospital'
     | 'other'
     | 'referringphysician'
-    | 'managingOrganization'
+    | 'managingorganization'
   export const TypeEnum = {
     Doctor: 'doctor' as TypeEnum,
     Referral: 'referral' as TypeEnum,
@@ -59,6 +59,6 @@ export namespace PatientHealthCareParty {
     Hospital: 'hospital' as TypeEnum,
     Other: 'other' as TypeEnum,
     Referringphysician: 'referringphysician' as TypeEnum,
-    ManagingOrganization: 'managingOrganization' as TypeEnum,
+    Managingorganization: 'managingorganization' as TypeEnum,
   }
 }
