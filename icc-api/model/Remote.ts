@@ -9,19 +9,13 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
+import { Authentication } from './Authentication'
 
-export class ReplicationStats {
+export class Remote {
   constructor(json: JSON | any) {
-    Object.assign(this as ReplicationStats, json)
+    Object.assign(this as Remote, json)
   }
 
-  revisionsChecked?: number
-  missingRevisionsFound?: number
-  docsRead?: number
-  docsWritten?: number
-  changesPending?: number
-  docWriteFailures?: number
-  checkpointedSourceSeq?: string
-  startTime?: number
-  error?: string
+  url?: string
+  auth?: Authentication
 }

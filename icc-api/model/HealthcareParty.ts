@@ -14,6 +14,7 @@ import { CodeStub } from './CodeStub'
 import { FinancialInstitutionInformation } from './FinancialInstitutionInformation'
 import { FlatRateTarification } from './FlatRateTarification'
 import { HealthcarePartyHistoryStatus } from './HealthcarePartyHistoryStatus'
+import { PersonName } from './PersonName'
 
 /**
  * This entity is a root level object. It represents a healthcare party. It is serialized in JSON and saved in the underlying icure-healthcareParty CouchDB database.
@@ -48,6 +49,10 @@ export class HealthcareParty {
    * the firstname (name) of the healthcare party.
    */
   firstName?: string
+  /**
+   * the list of all denominations of the healthcare party, also containing the official full name information. Ordered by preference of use. First element is therefore the official name used for the healthcare party in the application
+   */
+  denominations?: Array<PersonName>
   /**
    * the gender of the healthcare party: male, female, indeterminate, changed, changedToMale, changedToFemale, unknown
    */
