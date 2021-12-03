@@ -50,9 +50,9 @@ export class HealthcareParty {
    */
   firstName?: string
   /**
-   * the list of all denominations of the healthcare party, also containing the official full name information. Ordered by preference of use. First element is therefore the official name used for the healthcare party in the application
+   * the list of all names of the healthcare party, also containing the official full name information. Ordered by preference of use. First element is therefore the official name used for the healthcare party in the application
    */
-  denominations?: Array<PersonName>
+  names?: Array<PersonName>
   /**
    * the gender of the healthcare party: male, female, indeterminate, changed, changedToMale, changedToFemale, unknown
    */
