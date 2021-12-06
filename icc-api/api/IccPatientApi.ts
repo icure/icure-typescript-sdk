@@ -362,10 +362,10 @@ export class IccPatientApi {
       * It gets patient administrative data based on the identifier (root & extension) parameters.
       * @summary Get patient by identifier
       * @param hcPartyId 
-      * @param system 
       * @param id 
+      * @param system 
       */
- getPatientByHealthcarepartyAndIdentifier(hcPartyId: string, system?: string, id: string): Promise<Patient> {
+ getPatientByHealthcarepartyAndIdentifier(hcPartyId: string, id: string, system?: string): Promise<Patient> {
     let _body = null
     
     const _url = this.host + `/patient/${encodeURIComponent(String(hcPartyId))}/${encodeURIComponent(String(id))}` + "?ts=" + new Date().getTime()  + (system ? "&system=" + encodeURIComponent(String(system)) : "")
@@ -707,22 +707,22 @@ export class IccPatientApi {
       * @param groupId 
       * @param useShortToken 
       */
- registerPatient(hcPartyId: string, groupId: string, useShortToken?: boolean, body?: Patient): Promise<PatientRegistrationSuccess> {
-    let _body = null
-    _body = body
-
-    const _url = this.host + `/patient/register/forHcp/${encodeURIComponent(String(hcPartyId))}/inGroup/${encodeURIComponent(String(groupId))}` + "?ts=" + new Date().getTime()  + (useShortToken ? "&useShortToken=" + encodeURIComponent(String(useShortToken)) : "")
-    let headers = this.headers
-    headers = headers.filter(h => h.header !== "Content-Type").concat(new XHR.Header("Content-Type", "application/json"))
-    return XHR.sendCommand("POST", _url, headers, _body, this.fetchImpl)
-      .then(doc => 
-          
-              new PatientRegistrationSuccess(doc.body as JSON)
+      registerPatient(hcPartyId: string, groupId: string, useShortToken?: boolean, body?: Patient): Promise<PatientRegistrationSuccess> {
+        let _body = null
+        _body = body
+    
+        const _url = this.host + `/patient/register/forHcp/${encodeURIComponent(String(hcPartyId))}/inGroup/${encodeURIComponent(String(groupId))}` + "?ts=" + new Date().getTime()  + (useShortToken ? "&useShortToken=" + encodeURIComponent(String(useShortToken)) : "")
+        let headers = this.headers
+        headers = headers.filter(h => h.header !== "Content-Type").concat(new XHR.Header("Content-Type", "application/json"))
+        return XHR.sendCommand("POST", _url, headers, _body, this.fetchImpl)
+          .then(doc => 
               
-      )
-      .catch(err => this.handleError(err))
-}
-
+                  new PatientRegistrationSuccess(doc.body as JSON)
+                  
+          )
+          .catch(err => this.handleError(err))
+    }
+    
      /**
       * Response is an array containing the ID of undeleted patient..
       * @summary undelete previously deleted patients
