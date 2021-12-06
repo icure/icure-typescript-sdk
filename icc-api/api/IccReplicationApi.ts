@@ -10,11 +10,12 @@
  * Do not edit the class manually.
  */
 import { XHR } from "./XHR"
-import { AuthenticationResponse } from '../model/AuthenticationResponse';
-import { LoginCredentials } from '../model/LoginCredentials';
+import { ReplicateCommand } from '../model/ReplicateCommand';
+import { ReplicatorDocument } from '../model/ReplicatorDocument';
+import { ReplicatorResponse } from '../model/ReplicatorResponse';
 
 
-export class IccAuthApi {
+export class IccReplicationApi {
   host: string
   headers: Array<XHR.Header>
   fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
@@ -35,78 +36,79 @@ export class IccAuthApi {
 
 
      /**
-      * Login using username and password
-      * @summary login
+      * Create a document to start a continuous replication
+      * @summary Create continuous replication document
       * @param body 
       */
- login(body?: LoginCredentials): Promise<AuthenticationResponse> {
+ createContinuousReplicationDoc(body?: ReplicateCommand): Promise<ReplicatorResponse> {
     let _body = null
     _body = body
 
-    const _url = this.host + `/auth/login` + "?ts=" + new Date().getTime() 
+    const _url = this.host + `/replication/continuous` + "?ts=" + new Date().getTime() 
     let headers = this.headers
     headers = headers.filter(h => h.header !== "Content-Type").concat(new XHR.Header("Content-Type", "application/json"))
     return XHR.sendCommand("POST", _url, headers, _body, this.fetchImpl)
       .then(doc => 
           
-              new AuthenticationResponse(doc.body as JSON)
+              new ReplicatorResponse(doc.body as JSON)
               
       )
       .catch(err => this.handleError(err))
 }
 
      /**
-      * Logout
-      * @summary logout
+      * Create a document to start a one time replication
+      * @summary Create one time replication document
+      * @param body 
       */
- logout(): Promise<AuthenticationResponse> {
+ createOneTimeReplicationDoc(body?: ReplicateCommand): Promise<ReplicatorResponse> {
     let _body = null
-    
-    const _url = this.host + `/auth/logout` + "?ts=" + new Date().getTime() 
+    _body = body
+
+    const _url = this.host + `/replication/onetime` + "?ts=" + new Date().getTime() 
     let headers = this.headers
-    return XHR.sendCommand("GET", _url, headers, _body, this.fetchImpl)
+    headers = headers.filter(h => h.header !== "Content-Type").concat(new XHR.Header("Content-Type", "application/json"))
+    return XHR.sendCommand("POST", _url, headers, _body, this.fetchImpl)
       .then(doc => 
           
-              new AuthenticationResponse(doc.body as JSON)
+              new ReplicatorResponse(doc.body as JSON)
               
       )
       .catch(err => this.handleError(err))
 }
 
      /**
-      * Logout
-      * @summary logout
+      * DocId is the id provided by a replicator document from replication/docs
+      * @summary Delete replication document to stop it
+      * @param docId 
       */
- logoutPost(): Promise<AuthenticationResponse> {
+ deleteReplicationDoc(docId: string): Promise<ReplicatorResponse> {
     let _body = null
     
-    const _url = this.host + `/auth/logout` + "?ts=" + new Date().getTime() 
+    const _url = this.host + `/replication/stop/${encodeURIComponent(String(docId))}` + "?ts=" + new Date().getTime() 
     let headers = this.headers
     return XHR.sendCommand("POST", _url, headers, _body, this.fetchImpl)
       .then(doc => 
           
-              new AuthenticationResponse(doc.body as JSON)
+              new ReplicatorResponse(doc.body as JSON)
               
       )
       .catch(err => this.handleError(err))
 }
 
      /**
-      * Get token for subsequent operation
-      * @summary token
-      * @param method 
-      * @param path 
+      * Get all replication infos and states
+      * @summary Get replication documents
       */
- token(method: string, path: string): Promise<string> {
+ getReplicationDocs(): Promise<Array<ReplicatorDocument>> {
     let _body = null
     
-    const _url = this.host + `/auth/token/${encodeURIComponent(String(method))}/${encodeURIComponent(String(path))}` + "?ts=" + new Date().getTime() 
+    const _url = this.host + `/replication/docs` + "?ts=" + new Date().getTime() 
     let headers = this.headers
     return XHR.sendCommand("GET", _url, headers, _body, this.fetchImpl)
       .then(doc => 
           
-              JSON.parse(JSON.stringify(doc.body))
-              
+              (doc.body as Array<JSON>).map(it => new ReplicatorDocument(it))
       )
       .catch(err => this.handleError(err))
 }
