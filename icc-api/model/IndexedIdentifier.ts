@@ -9,13 +9,13 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
-import { Authentication } from './Authentication'
+import { Identifier } from './Identifier'
 
-export class Remote {
+export class IndexedIdentifier {
   constructor(json: JSON | any) {
-    Object.assign(this as Remote, json)
+    Object.assign(this as IndexedIdentifier, json)
   }
 
-  url?: string
-  auth?: Authentication
+  id?: string
+  identifier?: Identifier
 }
