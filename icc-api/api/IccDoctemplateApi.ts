@@ -199,7 +199,7 @@ export class IccDoctemplateApi {
    * @param body
    * @param documentTemplateId
    */
-  setDocumentTemplateAttachment(documentTemplateId: string, body?: Object): Promise<DocumentTemplate> {
+  setDocumentTemplateAttachment(documentTemplateId: string, body?: ArrayBuffer): Promise<DocumentTemplate> {
     let _body = null
     _body = body
 
@@ -217,7 +217,7 @@ export class IccDoctemplateApi {
    * @param body
    * @param documentTemplateId
    */
-  setDocumentTemplateAttachmentJson(documentTemplateId: string, body?: Object): Promise<DocumentTemplate> {
+  setDocumentTemplateAttachmentJson(documentTemplateId: string, body?: ArrayBuffer): Promise<DocumentTemplate> {
     let _body = null
     _body = body
 
