@@ -313,7 +313,7 @@ export class IccContactXApi extends IccContactApi {
       : Promise.resolve(null)
   }
 
-  modifyContactsWithUser(user: models.User, bodies?: Array<models.Contact>): Promise<models.Contact | any> {
+  modifyContactsWithUser(user: models.User, bodies?: Array<models.Contact>): Promise<models.Contact[] | any> {
     return bodies
       ? this.encrypt(
           user,
@@ -333,7 +333,7 @@ export class IccContactXApi extends IccContactApi {
       : Promise.resolve(null)
   }
 
-  createContactsWithUser(user: models.User, bodies?: Array<models.Contact>): Promise<models.Contact | any> {
+  createContactsWithUser(user: models.User, bodies?: Array<models.Contact>): Promise<models.Contact[] | any> {
     return bodies
       ? this.encrypt(
           user,
