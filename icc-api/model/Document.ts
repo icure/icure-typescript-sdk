@@ -11,11 +11,11 @@
  */
 import { CodeStub } from './CodeStub'
 import { Delegation } from './Delegation'
-import { b64_2ab } from './ModelHelper'
 
 /**
  * This entity is a root level object. It represents a Document. It is serialized in JSON and saved in the underlying CouchDB database.
  */
+import { b64_2ab } from './ModelHelper'
 export class Document {
   constructor(json: JSON | any) {
     Object.assign(
