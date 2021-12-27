@@ -36,7 +36,7 @@ export class IccPubsubApi {
    * @param body
    * @param bucket
    */
-  offerAuth(bucket: string, body?: Object): Promise<{ [key: string]: boolean }> {
+  offerAuth(bucket: string, body?: ArrayBuffer): Promise<{ [key: string]: boolean }> {
     let _body = null
     _body = body
 
@@ -54,7 +54,7 @@ export class IccPubsubApi {
    * @param body
    * @param key
    */
-  pub(key: string, body?: Object): Promise<{ [key: string]: boolean }> {
+  pub(key: string, body?: ArrayBuffer): Promise<{ [key: string]: boolean }> {
     let _body = null
     _body = body
 

@@ -141,7 +141,7 @@ export class IccReceiptApi {
    * @param blobType
    * @param enckeys
    */
-  setReceiptAttachment(receiptId: string, blobType: string, enckeys?: string, body?: Object): Promise<Receipt> {
+  setReceiptAttachment(receiptId: string, blobType: string, enckeys?: string, body?: ArrayBuffer): Promise<Receipt> {
     let _body = null
     _body = body
 
