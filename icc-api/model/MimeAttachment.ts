@@ -9,13 +9,13 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
-
+import { b64_2ab } from './ModelHelper'
 export class MimeAttachment {
   constructor(json: JSON | any) {
-    Object.assign(this as MimeAttachment, json)
+    Object.assign(this as MimeAttachment, json, json.data ? { data: b64_2ab(json.data) } : {})
   }
 
-  data?: string
+  data?: ArrayBuffer
   fileName?: string
   mimeType?: string
 }
