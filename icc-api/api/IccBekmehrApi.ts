@@ -98,7 +98,7 @@ export class IccBekmehrApi {
     recipientFirstName: string,
     recipientLastName: string,
     mimeType: string,
-    body?: Object
+    body?: ArrayBuffer
   ): Promise<ArrayBuffer> {
     let _body = null
     _body = body
@@ -170,7 +170,7 @@ export class IccBekmehrApi {
     recipientFirstName: string,
     recipientLastName: string,
     mimeType: string,
-    body?: Object
+    body?: ArrayBuffer
   ): Promise<ArrayBuffer> {
     let _body = null
     _body = body
@@ -252,7 +252,7 @@ export class IccBekmehrApi {
     recipientFirstName: string,
     recipientLastName: string,
     mimeType: string,
-    body?: Object
+    body?: ArrayBuffer
   ): Promise<ArrayBuffer> {
     let _body = null
     _body = body
@@ -321,7 +321,7 @@ export class IccBekmehrApi {
     recipientFirstName: string,
     recipientLastName: string,
     mimeType: string,
-    body?: Object
+    body?: ArrayBuffer
   ): Promise<ArrayBuffer> {
     let _body = null
     _body = body
@@ -369,7 +369,7 @@ export class IccBekmehrApi {
     recipientFirstName: string,
     recipientLastName: string,
     mimeType: string,
-    body?: Object
+    body?: ArrayBuffer
   ): Promise<ArrayBuffer> {
     let _body = null
     _body = body
@@ -417,7 +417,7 @@ export class IccBekmehrApi {
     recipientFirstName: string,
     recipientLastName: string,
     mimeType: string,
-    body?: Object
+    body?: ArrayBuffer
   ): Promise<ArrayBuffer> {
     let _body = null
     _body = body
@@ -465,7 +465,7 @@ export class IccBekmehrApi {
     recipientFirstName: string,
     recipientLastName: string,
     mimeType: string,
-    body?: Object
+    body?: ArrayBuffer
   ): Promise<ArrayBuffer> {
     let _body = null
     _body = body
