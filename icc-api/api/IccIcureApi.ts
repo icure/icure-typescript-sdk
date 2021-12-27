@@ -113,6 +113,20 @@ export class IccIcureApi {
 
   /**
    *
+   * @summary Check if a user exists
+   */
+  isReady(): Promise<string> {
+    let _body = null
+
+    const _url = this.host + `/icure/ok` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+      .then((doc) => JSON.parse(JSON.stringify(doc.body)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
    * @param loglevel
    * @param _package
    */
