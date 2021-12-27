@@ -19,7 +19,6 @@ import { Invoice } from '../model/Invoice'
 import { Message } from '../model/Message'
 import { Patient } from '../model/Patient'
 import { ReplicationInfo } from '../model/ReplicationInfo'
-import { User } from '../model/User'
 import { ReplicatorDocument } from '../model/ReplicatorDocument'
 
 export class IccIcureApi {
@@ -71,21 +70,6 @@ export class IccIcureApi {
 
   /**
    *
-   * @summary Get property types
-   * @param type
-   */
-  getPropertyTypes(type: string): Promise<Array<string>> {
-    let _body = null
-
-    const _url = this.host + `/icure/propertytypes/${encodeURIComponent(String(type))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
-      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
-   *
    * @summary Get replication info
    */
   getReplicationInfo(): Promise<ReplicationInfo> {
@@ -115,54 +99,12 @@ export class IccIcureApi {
 
   /**
    *
-   * @summary Get users stubs
-   */
-  getUsers(): Promise<Array<User>> {
-    let _body = null
-
-    const _url = this.host + `/icure/u` + '?ts=' + new Date().getTime()
-    let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new User(it)))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
-   *
    * @summary Get version
    */
   getVersion(): Promise<string> {
     let _body = null
 
     const _url = this.host + `/icure/v` + '?ts=' + new Date().getTime()
-    let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
-      .then((doc) => JSON.parse(JSON.stringify(doc.body)))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
-   *
-   * @summary Check if a patient exists
-   */
-  isPatientReady(): Promise<string> {
-    let _body = null
-
-    const _url = this.host + `/icure/pok` + '?ts=' + new Date().getTime()
-    let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
-      .then((doc) => JSON.parse(JSON.stringify(doc.body)))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
-   *
-   * @summary Check if a user exists
-   */
-  isReady(): Promise<string> {
-    let _body = null
-
-    const _url = this.host + `/icure/ok` + '?ts=' + new Date().getTime()
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
       .then((doc) => JSON.parse(JSON.stringify(doc.body)))
