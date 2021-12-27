@@ -40,7 +40,7 @@ export class IccBeresultexportApi {
    * @param date
    * @param ref
    */
-  exportHealthOne(fromHcpId: string, toHcpId: string, patId: string, date: number, ref: string, body?: Object): Promise<ArrayBuffer> {
+  exportHealthOne(fromHcpId: string, toHcpId: string, patId: string, date: number, ref: string, body?: ArrayBuffer): Promise<ArrayBuffer> {
     let _body = null
     _body = body
 
@@ -76,7 +76,7 @@ export class IccBeresultexportApi {
     date: number,
     ref: string,
     mimeType?: boolean,
-    body?: Object
+    body?: ArrayBuffer
   ): Promise<ArrayBuffer> {
     let _body = null
     _body = body
@@ -106,7 +106,7 @@ export class IccBeresultexportApi {
    * @param date
    * @param ref
    */
-  exportMedidoc(fromHcpId: string, toHcpId: string, patId: string, date: number, ref: string, body?: Object): Promise<ArrayBuffer> {
+  exportMedidoc(fromHcpId: string, toHcpId: string, patId: string, date: number, ref: string, body?: ArrayBuffer): Promise<ArrayBuffer> {
     let _body = null
     _body = body
 
