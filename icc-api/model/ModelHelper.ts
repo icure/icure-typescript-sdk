@@ -7,7 +7,7 @@ export function b64_2ab(v: any) {
   }
   if (typeof v === 'string') {
     const bs = (Buffer && Buffer.from(v as string, 'base64').toString('ascii')) || atob(v as string)
-    var data = new Uint8Array(bs.length)
+    const data = new Uint8Array(bs.length)
     for (let i = 0; i < bs.length; i++) {
       data[i] = bs.charCodeAt(i)
     }
