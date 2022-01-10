@@ -6,7 +6,7 @@ export class AESUtils {
   ivLength = 16
   aesAlgorithmEncryptName = 'AES-CBC'
 
-  aesKeyGenParams = {
+  aesKeyGenParams: AesKeyGenParams = {
     name: 'AES-CBC',
     length: 256,
   }
@@ -104,14 +104,10 @@ export class AESUtils {
     return new Promise((resolve: (value: CryptoKey | string) => any, reject: (reason: any) => any) => {
       const extractable = true
       const keyUsages: KeyUsage[] = ['decrypt', 'encrypt']
-      if (toHex === undefined || !toHex) {
-        return this.crypto.subtle.generateKey(this.aesKeyGenParams, extractable, keyUsages).then(resolve, reject)
-      } else {
-        return this.crypto.subtle
-          .generateKey(this.aesKeyGenParams, extractable, keyUsages)
-          .then((k) => this.exportKey(k, 'raw'), reject)
-          .then((raw) => resolve(ua2hex(raw)), reject)
-      }
+      const cryptoKeyPromise: Promise<CryptoKey> = this.crypto.subtle.generateKey(this.aesKeyGenParams, extractable, keyUsages) as Promise<CryptoKey>
+      return toHex === undefined || !toHex
+        ? cryptoKeyPromise.then(resolve, reject)
+        : cryptoKeyPromise.then((k) => this.exportKey(k, 'raw'), reject).then((raw) => resolve(ua2hex(raw)), reject)
     })
   }
 
