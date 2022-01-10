@@ -225,7 +225,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
       : Promise.resolve(null)
   }
 
-  initEncryptionKeys(user: models.User, calendarItem: models.CalendarItem) {
+  initEncryptionKeys(user: models.User, calendarItem: models.CalendarItem): Promise<models.CalendarItem> {
     const hcpId = user.healthcarePartyId || user.patientId
     return this.crypto.initEncryptionKeys(calendarItem, hcpId!).then((eks) => {
       let promise = Promise.resolve(
