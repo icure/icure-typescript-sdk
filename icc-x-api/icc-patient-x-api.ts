@@ -20,14 +20,14 @@ import {
   Invoice,
   ListOfIds,
   Patient,
-  PersonName
+  PersonName,
 } from '../icc-api/model/models'
-import { retry} from './utils'
+import { retry } from './utils'
 import { utils } from './crypto/utils'
 import { IccCalendarItemXApi } from './icc-calendar-item-x-api'
 import { b64_2ab } from '../icc-api/model/ModelHelper'
 import { b2a, hex2ua, string2ua, ua2hex, ua2utf8, utf8_2ua } from './utils/binary-utils'
-import {findName, garnishPersonWithName, hasName} from "./utils/person-util"
+import { findName, garnishPersonWithName, hasName } from './utils/person-util'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccPatientXApi extends IccPatientApi {
@@ -94,7 +94,7 @@ export class IccPatientXApi extends IccPatientApi {
     return this.initDelegations(patient, user)
   }
 
-  completeNames(patient: models.Patient) : models.Patient {
+  completeNames(patient: models.Patient): models.Patient {
     let finalPatient = patient
 
     if (!!finalPatient.lastName && !hasName(finalPatient, models.PersonName.UseEnum.Official)) {
@@ -114,7 +114,7 @@ export class IccPatientXApi extends IccPatientApi {
       finalPatient = {
         ...finalPatient,
         lastName: officialName!.lastName,
-        firstName: officialName!.firstNames?.[0]
+        firstName: officialName!.firstNames?.[0],
       }
     }
 
@@ -598,7 +598,7 @@ export class IccPatientXApi extends IccPatientApi {
     })
   }
 
-  initEncryptionKeys(user: models.User, pat: models.Patient) {
+  initEncryptionKeys(user: models.User, pat: models.Patient): Promise<models.Patient> {
     const hcpId = user.healthcarePartyId || user.patientId
     return this.crypto.initEncryptionKeys(pat, hcpId!).then((eks) => {
       let promise = Promise.resolve(
