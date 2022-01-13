@@ -20,8 +20,7 @@
     "declaration": true,
     /* Generates corresponding '.d.ts' file. */
     "outDir": "./dist",
-    "baseUrl": "./",
-    "types": ["node", "jest"]
+    "baseUrl": "./"
   },
   "include": ["index.ts", "node-compat.ts", "icc-api/*", "icc-x-api/*", "icc-api/**/*", "icc-x-api/**/*"]
 }
