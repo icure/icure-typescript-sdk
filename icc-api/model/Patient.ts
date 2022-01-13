@@ -208,7 +208,7 @@ export class Patient {
   /**
    * A picture usually saved in JPEG format.
    */
-  picture?: string
+  picture?: ArrayBuffer
   /**
    * An external (from another source) id with no guarantee or requirement for unicity .
    */
