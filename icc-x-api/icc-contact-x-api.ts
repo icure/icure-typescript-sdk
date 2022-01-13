@@ -313,7 +313,7 @@ export class IccContactXApi extends IccContactApi {
       : Promise.resolve(null)
   }
 
-  modifyContactsWithUser(user: models.User, bodies?: Array<models.Contact>): Promise<models.Contact | any> {
+  modifyContactsWithUser(user: models.User, bodies?: Array<models.Contact>): Promise<models.Contact[] | any> {
     return bodies
       ? this.encrypt(
           user,
@@ -330,6 +330,17 @@ export class IccContactXApi extends IccContactApi {
           .then((ctcs) => super.createContact(ctcs[0]))
           .then((ctc) => this.decrypt((user.healthcarePartyId || user.patientId)!, [ctc]))
           .then((ctcs) => ctcs[0])
+      : Promise.resolve(null)
+  }
+
+  createContactsWithUser(user: models.User, bodies?: Array<models.Contact>): Promise<models.Contact[] | any> {
+    return bodies
+      ? this.encrypt(
+          user,
+          bodies.map((c) => _.cloneDeep(c))
+        )
+          .then((ctcs) => super.createContacts(ctcs))
+          .then((ctcs) => this.decrypt((user.healthcarePartyId || user.patientId)!, ctcs))
       : Promise.resolve(null)
   }
 
