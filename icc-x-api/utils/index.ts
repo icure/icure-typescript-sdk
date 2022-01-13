@@ -1,3 +1,5 @@
-export * from './code-util'
-export * from './net-utils'
-export * from './formatting-util'
+export * as codeUtils from './code-util'
+export * as netUtils from './net-utils'
+export * as formattingUtils from './formatting-util'
+export * as binaryUtils from './binary-utils'
+export * as hcpUtils from './hcp-util'
