@@ -22,12 +22,12 @@ import {
   Patient,
   PersonName,
 } from '../icc-api/model/models'
-import { retry } from './utils'
 import { utils } from './crypto/utils'
 import { IccCalendarItemXApi } from './icc-calendar-item-x-api'
 import { b64_2ab } from '../icc-api/model/ModelHelper'
 import { b2a, hex2ua, string2ua, ua2hex, ua2utf8, utf8_2ua } from './utils/binary-utils'
 import { findName, garnishPersonWithName, hasName } from './utils/person-util'
+import { retry } from './utils/net-utils'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccPatientXApi extends IccPatientApi {
