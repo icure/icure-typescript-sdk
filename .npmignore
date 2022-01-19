@@ -1,6 +1,3 @@
-# ignore the .ts files, but include the .d.ts files
-*.ts
-!*.d.ts
 node_modules
 swagger-codegen-generators.jar
 .idea/
