@@ -1228,7 +1228,7 @@ export class IccCryptoXApi {
       if (!crt) {
         throw new Error(`Error while saving certificate in browser local storage! Hcp ${hcp.id} has no certificate.`)
       } else {
-        this.saveKeychainInBrowserLocalStorageAsBase64(hcp.id!!, btoa(String.fromCharCode.apply(null, new Uint8Array(crt))))
+        this.saveKeychainInBrowserLocalStorageAsBase64(hcp.id!!, btoa(String.fromCharCode.apply(null, new Uint8Array(crt) as number[])))
       }
 
       return
