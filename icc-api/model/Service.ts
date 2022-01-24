@@ -9,6 +9,7 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
+import { Annotation } from './Annotation'
 import { CodeStub } from './CodeStub'
 import { Content } from './Content'
 import { Delegation } from './Delegation'
@@ -63,18 +64,36 @@ export class Service {
    * The contact secret encryption key used to encrypt the secured properties (like services for example), encrypted for separate Crypto Actors.
    */
   encryptionKeys?: { [key: string]: Array<Delegation> }
+  /**
+   * Description / Unambiguous qualification (LOINC code) of the type of information contained in the service. Could be a code to qualify temperature, complaint, diagnostic, ...
+   */
   label?: string
   dataClassName?: string
+  /**
+   * Used for sorting services inside an upper object (A contact, a transaction, a FHIR bundle, ...)
+   */
   index?: number
   /**
-   * The type of the content recorded in the documents for the service
+   * Information contained in the service. Content is localized, using ISO language code as key
    */
   content?: { [key: string]: Content }
   encryptedContent?: string
   textIndexes?: { [key: string]: string }
+  /**
+   * The date (YYYYMMDDhhmmss) when the Service is noted to have started and also closes on the same date
+   */
   valueDate?: number
+  /**
+   * The date (YYYYMMDDhhmmss) of the start of the Service
+   */
   openingDate?: number
+  /**
+   * The date (YYYYMMDDhhmmss) marking the end of the Service
+   */
   closingDate?: number
+  /**
+   * Id of the form used during the Service
+   */
   formId?: string
   /**
    * The timestamp (unix epoch in ms) of creation of this entity, will be filled automatically if missing. Not enforced by the application server.
@@ -109,6 +128,10 @@ export class Service {
    * List of invoicing codes
    */
   invoicingCodes?: Array<string>
+  /**
+   * Comments - Notes recorded by a HCP about this service
+   */
+  notes?: Array<Annotation>
   /**
    * Links towards related services (possibly in other contacts)
    */

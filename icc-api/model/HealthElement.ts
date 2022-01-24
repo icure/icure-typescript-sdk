@@ -28,7 +28,7 @@ export class HealthElement {
    * The Id of the healthcare element. We encourage using either a v4 UUID or a HL7 Id.
    */
   id?: string
-  identifier?: Array<Identifier>
+  identifiers?: Array<Identifier>
   /**
    * The revision of the healthcare element in the database, used for conflict management / optimistic locking.
    */
