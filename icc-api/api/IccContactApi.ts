@@ -18,8 +18,6 @@ import { DocIdentifier } from '../model/DocIdentifier'
 import { FilterChainContact } from '../model/FilterChainContact'
 import { FilterChainService } from '../model/FilterChainService'
 import { IcureStub } from '../model/IcureStub'
-import { Identifier } from '../model/Identifier'
-import { IndexedIdentifier } from '../model/IndexedIdentifier'
 import { LabelledOccurence } from '../model/LabelledOccurence'
 import { ListOfIds } from '../model/ListOfIds'
 import { PaginatedListContact } from '../model/PaginatedListContact'
@@ -376,28 +374,6 @@ export class IccContactApi {
   }
 
   /**
-   * It gets service data based on the identifier (root & extension) parameters.
-   * @summary Get service by identifier
-   * @param hcPartyId
-   * @param value
-   * @param system
-   */
-  getServiceByHealthcarepartyAndIdentifier(hcPartyId: string, value: string, system?: string): Promise<Service> {
-    let _body = null
-
-    const _url =
-      this.host +
-      `/contact/service/${encodeURIComponent(String(hcPartyId))}/${encodeURIComponent(String(value))}` +
-      '?ts=' +
-      new Date().getTime() +
-      (system ? '&system=' + encodeURIComponent(String(system)) : '')
-    let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
-      .then((doc) => new Service(doc.body as JSON))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
    *
    * @summary Get the list of all used codes frequencies in services
    * @param codeType
@@ -414,24 +390,6 @@ export class IccContactApi {
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
       .then((doc) => (doc.body as Array<JSON>).map((it) => new LabelledOccurence(it)))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
-   * It gets service data based on the provided identifiers (root & extension)
-   * @summary Get services ids by identifiers
-   * @param body
-   * @param hcPartyId
-   */
-  getServicesIdsByHealthcarePartyAndIdentifiers(hcPartyId: string, body?: Array<Identifier>): Promise<Array<IndexedIdentifier>> {
-    let _body = null
-    _body = body
-
-    const _url = this.host + `/contact/services/ids/${encodeURIComponent(String(hcPartyId))}/byIdentifiers` + '?ts=' + new Date().getTime()
-    let headers = this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new IndexedIdentifier(it)))
       .catch((err) => this.handleError(err))
   }
 
