@@ -734,66 +734,66 @@ export class IccPatientXApi extends IccPatientApi {
               ? Promise.all([
                   retry(() =>
                     this.helementApi
-                      .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, delSfks.join(','))
+                      .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
                       .then((hes) =>
                         parentId
                           ? this.helementApi
-                              .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(parentId, delSfks.join(','))
+                              .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
                               .then((moreHes) => _.uniqBy(hes.concat(moreHes), 'id'))
                           : hes
                       )
                   ) as Promise<Array<models.IcureStub>>,
                   retry(() =>
                     this.formApi
-                      .findFormsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, delSfks.join(','))
+                      .findFormsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
                       .then((frms) =>
                         parentId
                           ? this.formApi
-                              .findFormsDelegationsStubsByHCPartyPatientForeignKeys(parentId, delSfks.join(','))
+                              .findFormsDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
                               .then((moreFrms) => _.uniqBy(frms.concat(moreFrms), 'id'))
                           : frms
                       )
                   ) as Promise<Array<models.Form>>,
                   retry(() =>
                     this.contactApi
-                      .findByHCPartyPatientSecretFKeys(ownerId, delSfks.join(','))
+                      .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
                       .then((ctcs) =>
                         parentId
                           ? this.contactApi
-                              .findByHCPartyPatientSecretFKeys(parentId, delSfks.join(','))
+                              .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
                               .then((moreCtcs) => _.uniqBy(ctcs.concat(moreCtcs), 'id'))
                           : ctcs
                       )
                   ) as Promise<Array<models.Contact>>,
                   retry(() =>
                     this.invoiceApi
-                      .findInvoicesDelegationsStubsByHCPartyPatientForeignKeys(ownerId, delSfks.join(','))
+                      .findInvoicesDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
                       .then((ivs) =>
                         parentId
                           ? this.invoiceApi
-                              .findInvoicesDelegationsStubsByHCPartyPatientForeignKeys(parentId, delSfks.join(','))
+                              .findInvoicesDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
                               .then((moreIvs) => _.uniqBy(ivs.concat(moreIvs), 'id'))
                           : ivs
                       )
                   ) as Promise<Array<models.IcureStub>>,
                   retry(() =>
                     this.classificationApi
-                      .findClassificationsByHCPartyPatientForeignKeys(ownerId, delSfks.join(','))
+                      .findClassificationsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
                       .then((cls) =>
                         parentId
                           ? this.classificationApi
-                              .findClassificationsByHCPartyPatientForeignKeys(parentId, delSfks.join(','))
+                              .findClassificationsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
                               .then((moreCls) => _.uniqBy(cls.concat(moreCls), 'id'))
                           : cls
                       )
                   ) as Promise<Array<models.Classification>>,
                   retry(() =>
                     this.calendarItemApi
-                      .findByHCPartyPatientSecretFKeys(ownerId, delSfks.join(','))
+                      .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
                       .then((cls) =>
                         parentId
                           ? this.calendarItemApi
-                              .findByHCPartyPatientSecretFKeys(parentId, delSfks.join(','))
+                              .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
                               .then((moreCls) => _.uniqBy(cls.concat(moreCls), 'id'))
                           : cls
                       )
@@ -1057,61 +1057,61 @@ export class IccPatientXApi extends IccPatientApi {
               ? Promise.all([
                   retry(() =>
                     this.helementApi
-                      .findByHCPartyPatientSecretFKeys(ownerId, delSfks.join(','))
+                      .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
                       .then((hes) =>
                         parentId
                           ? this.helementApi
-                              .findByHCPartyPatientSecretFKeys(parentId, delSfks.join(','))
+                              .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
                               .then((moreHes) => _.uniqBy(hes.concat(moreHes), 'id'))
                           : hes
                       )
                   ) as Promise<Array<models.IcureStub>>,
                   retry(() =>
                     this.formApi
-                      .findFormsByHCPartyPatientForeignKeys(ownerId, delSfks.join(','))
+                      .findFormsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
                       .then((frms) =>
                         parentId
                           ? this.formApi
-                              .findFormsByHCPartyPatientForeignKeys(parentId, delSfks.join(','))
+                              .findFormsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
                               .then((moreFrms) => _.uniqBy(frms.concat(moreFrms), 'id'))
                           : frms
                       )
                   ) as Promise<Array<models.Form>>,
                   retry(() =>
                     this.contactApi
-                      .findByHCPartyPatientSecretFKeys(ownerId, delSfks.join(','))
+                      .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
                       .then((ctcs) =>
                         parentId
                           ? this.contactApi
-                              .findByHCPartyPatientSecretFKeys(parentId, delSfks.join(','))
+                              .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
                               .then((moreCtcs) => _.uniqBy(ctcs.concat(moreCtcs), 'id'))
                           : ctcs
                       )
                   ) as Promise<Array<models.Contact>>,
                   retry(() =>
                     this.invoiceApi
-                      .findInvoicesByHCPartyPatientForeignKeys(ownerId, delSfks.join(','))
+                      .findInvoicesByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
                       .then((ivs) =>
                         parentId
                           ? this.invoiceApi
-                              .findInvoicesByHCPartyPatientForeignKeys(parentId, delSfks.join(','))
+                              .findInvoicesByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
                               .then((moreIvs) => _.uniqBy(ivs.concat(moreIvs), 'id'))
                           : ivs
                       )
                   ) as Promise<Array<models.IcureStub>>,
                   retry(() =>
                     this.classificationApi
-                      .findClassificationsByHCPartyPatientForeignKeys(ownerId, delSfks.join(','))
+                      .findClassificationsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
                       .then((cls) =>
                         parentId
                           ? this.classificationApi
-                              .findClassificationsByHCPartyPatientForeignKeys(parentId, delSfks.join(','))
+                              .findClassificationsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
                               .then((moreCls) => _.uniqBy(cls.concat(moreCls), 'id'))
                           : cls
                       )
                   ) as Promise<Array<models.Classification>>,
                   retry(async () => {
-                    const delegationSFKs = delSfks.join(',')
+                    const delegationSFKs = _.uniq(delSfks).join(',')
                     try {
                       let calendarItems = await this.calendarItemApi.findByHCPartyPatientSecretFKeys(ownerId, delegationSFKs)
 

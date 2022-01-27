@@ -103,7 +103,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
       .extractDelegationsSFKs(patient, hcpartyId)
       .then((secretForeignKeys) =>
         secretForeignKeys && secretForeignKeys.extractedKeys && secretForeignKeys.extractedKeys.length > 0
-          ? this.findByHCPartyPatientSecretFKeys(secretForeignKeys.hcpartyId!, secretForeignKeys.extractedKeys.join(','))
+          ? this.findByHCPartyPatientSecretFKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(','))
           : Promise.resolve([])
       )
   }
