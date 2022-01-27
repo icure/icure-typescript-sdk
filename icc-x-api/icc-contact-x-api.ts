@@ -169,7 +169,7 @@ export class IccContactXApi extends IccContactApi {
                 ])
               }, [] as Array<{ hcpartyId: string; extractedKeys: Array<string> }>)
               .filter((l) => l.extractedKeys.length > 0)
-              .map(({ hcpartyId, extractedKeys }) => this.findByHCPartyPatientSecretFKeys(hcpartyId, extractedKeys.join(',')))
+              .map(({ hcpartyId, extractedKeys }) => this.findByHCPartyPatientSecretFKeys(hcpartyId, _.uniq(extractedKeys).join(',')))
           ).then((results) => _.uniqBy(_.flatMap(results), (x) => x.id))
         : Promise.resolve([])
     )

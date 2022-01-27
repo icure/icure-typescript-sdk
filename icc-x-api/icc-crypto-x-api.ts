@@ -1390,7 +1390,7 @@ export class IccCryptoXApi {
           document.id,
           (document.encryptionKeys && Object.keys(document.encryptionKeys).length && document.encryptionKeys) || document.delegations!
         )
-          .then(({ extractedKeys }) => extractedKeys)
+          .then(({ extractedKeys }) => _.uniq(extractedKeys))
           .catch(() => null)
   }
 
