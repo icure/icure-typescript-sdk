@@ -13,6 +13,7 @@ import { CareTeamMember } from './CareTeamMember'
 import { CodeStub } from './CodeStub'
 import { Delegation } from './Delegation'
 import { Episode } from './Episode'
+import { Identifier } from './Identifier'
 import { PlanOfAction } from './PlanOfAction'
 
 /**
@@ -27,8 +28,9 @@ export class HealthElement {
    * The Id of the healthcare element. We encourage using either a v4 UUID or a HL7 Id.
    */
   id?: string
+  identifiers?: Array<Identifier>
   /**
-   * The revision of the patient in the database, used for conflict management / optimistic locking.
+   * The revision of the healthcare element in the database, used for conflict management / optimistic locking.
    */
   rev?: string
   /**

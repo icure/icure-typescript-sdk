@@ -374,28 +374,6 @@ export class IccContactApi {
   }
 
   /**
-   * It gets service data based on the identifier (root & extension) parameters.
-   * @summary Get service by identifier
-   * @param hcPartyId
-   * @param system
-   * @param value
-   */
-  getServiceByHealthcarepartyAndIdentifier(hcPartyId: string, value: string, system?: string): Promise<Service> {
-    let _body = null
-
-    const _url =
-      this.host +
-      `/contact/${encodeURIComponent(String(hcPartyId))}/${encodeURIComponent(String(value))}` +
-      '?ts=' +
-      new Date().getTime() +
-      (system ? '&system=' + encodeURIComponent(String(system)) : '')
-    let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
-      .then((doc) => new Service(doc.body as JSON))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
    *
    * @summary Get the list of all used codes frequencies in services
    * @param codeType
@@ -480,6 +458,21 @@ export class IccContactApi {
       '?ts=' +
       new Date().getTime() +
       (associationId ? '&associationId=' + encodeURIComponent(String(associationId)) : '')
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Service(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Returns the list of services linked to the provided health element id
+   * @summary List services linked to a health element
+   * @param healthElementId
+   */
+  listServicesByHealthElementId(healthElementId: string): Promise<Array<Service>> {
+    let _body = null
+
+    const _url = this.host + `/contact/service/healthElementId/${encodeURIComponent(String(healthElementId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Service(it)))

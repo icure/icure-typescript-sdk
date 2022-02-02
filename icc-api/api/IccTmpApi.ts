@@ -370,6 +370,21 @@ export class IccTmpApi {
   }
 
   /**
+   * Deletes a document's attachment and returns the modified document instance afterward
+   * @summary Delete a document's attachment
+   * @param documentId
+   */
+  deleteTmpDocumentAttachment(documentId: string): Promise<Document> {
+    let _body = null
+
+    const _url = this.host + `/tmp/document/${encodeURIComponent(String(documentId))}/attachment` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl)
+      .then((doc) => new Document(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    * Response is a set containing the ID's of deleted items.
    * @summary Soft delete items.
    * @param body
@@ -476,6 +491,29 @@ export class IccTmpApi {
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
       .then((doc) => new Document(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
+   * @param documentId
+   * @param attachmentId
+   * @param enckeys
+   * @param fileName
+   */
+  getTmpDocumentAttachment(documentId: string, attachmentId: string, enckeys?: string, fileName?: string): Promise<any | Boolean> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/tmp/document/${encodeURIComponent(String(documentId))}/attachment/${encodeURIComponent(String(attachmentId))}` +
+      '?ts=' +
+      new Date().getTime() +
+      (enckeys ? '&enckeys=' + encodeURIComponent(String(enckeys)) : '') +
+      (fileName ? '&fileName=' + encodeURIComponent(String(fileName)) : '')
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+      .then((doc) => true)
       .catch((err) => this.handleError(err))
   }
 
@@ -1223,6 +1261,30 @@ export class IccTmpApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
       .then((doc) => new ReplicatorDocument(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Creates a document's attachment and returns the modified document instance afterward
+   * @summary Create a document's attachment
+   * @param body
+   * @param documentId
+   * @param enckeys
+   */
+  setTmpDocumentAttachment(documentId: string, enckeys?: string, body?: Object): Promise<Document> {
+    let _body = null
+    _body = body
+
+    const _url =
+      this.host +
+      `/tmp/document/${encodeURIComponent(String(documentId))}/attachment` +
+      '?ts=' +
+      new Date().getTime() +
+      (enckeys ? '&enckeys=' + encodeURIComponent(String(enckeys)) : '')
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+      .then((doc) => new Document(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 }
