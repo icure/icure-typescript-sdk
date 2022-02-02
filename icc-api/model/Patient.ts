@@ -82,9 +82,9 @@ export class Patient {
    */
   lastName?: string
   /**
-   * the list of all denominations of the patient, also containing the official full name information. Ordered by preference of use. First element is therefore the official name used for the patient in the application
+   * the list of all names of the patient, also containing the official full name information. Ordered by preference of use. First element is therefore the official name used for the patient in the application
    */
-  denominations?: Array<PersonName>
+  names?: Array<PersonName>
   /**
    * the name of the company this patient is member of.
    */
