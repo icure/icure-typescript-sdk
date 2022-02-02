@@ -46,4 +46,6 @@ export class FlowItem {
   patientId?: string
   patientLastName?: string
   patientFirstName?: string
+  description?: string
+  interventionCode?: string
 }
