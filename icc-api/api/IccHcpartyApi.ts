@@ -10,7 +10,9 @@
  * Do not edit the class manually.
  */
 import { XHR } from './XHR'
+import { AbstractFilterHealthcareParty } from '../model/AbstractFilterHealthcareParty'
 import { DocIdentifier } from '../model/DocIdentifier'
+import { FilterChainHealthcareParty } from '../model/FilterChainHealthcareParty'
 import { HealthcareParty } from '../model/HealthcareParty'
 import { ListOfIds } from '../model/ListOfIds'
 import { PaginatedListHealthcareParty } from '../model/PaginatedListHealthcareParty'
@@ -102,6 +104,31 @@ export class IccHcpartyApi {
     let headers = this.headers
     return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl)
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Returns a list of healthcare party along with next start keys and Document ID. If the nextStartKey is Null it means that this is the last page.
+   * @summary Filter healthcare parties for the current user (HcParty)
+   * @param body
+   * @param startDocumentId A HealthcareParty document ID
+   * @param limit Number of rows
+   */
+  filterHealthPartiesBy(startDocumentId?: string, limit?: number, body?: FilterChainHealthcareParty): Promise<PaginatedListHealthcareParty> {
+    let _body = null
+    _body = body
+
+    const _url =
+      this.host +
+      `/hcparty/filter` +
+      '?ts=' +
+      new Date().getTime() +
+      (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
+      (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+      .then((doc) => new PaginatedListHealthcareParty(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 
@@ -343,6 +370,23 @@ export class IccHcpartyApi {
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
       .then((doc) => new PaginatedListHealthcareParty(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
+   * @summary Get ids of healthcare party matching the provided filter for the current user (HcParty)
+   * @param body
+   */
+  matchHealthcarePartiesBy(body?: AbstractFilterHealthcareParty): Promise<Array<string>> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/hcparty/match` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
       .catch((err) => this.handleError(err))
   }
 
