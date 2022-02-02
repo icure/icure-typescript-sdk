@@ -7,9 +7,9 @@ import { Moment } from 'moment'
 // TODO: move this to env.js?
 const DEFAULT_COUNTRY = 'BE'
 
-const nihiiRegExp = new RegExp('^(\\d{1})(\\d{5})(\\d{2})(\\d{3})$')
-const ssinRegExp = new RegExp('^(\\d{2})(\\d{2})(\\d{2})(\\d{3})(\\d{2})$')
-const ibanRegExp = new RegExp('^(\\d{4})(\\d{4})(\\d{4})(\\d{4})$')
+export const nihiiRegExp = new RegExp('^(\\d{1})(\\d{5})(\\d{2})(\\d{3})$')
+export const ssinRegExp = new RegExp('^(\\d{2})(\\d{2})(\\d{2})(\\d{3})(\\d{2})$')
+export const ibanRegExp = new RegExp('^(\\d{4})(\\d{4})(\\d{4})(\\d{4})$')
 
 const patterns = {
   IBAN: (iban: string) => /^BE\d{14}$/.test(iban) && isValidIBAN(iban),
