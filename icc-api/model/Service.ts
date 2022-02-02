@@ -27,6 +27,10 @@ export class Service {
    * The Id of the Service. We encourage using either a v4 UUID or a HL7 Id.
    */
   id?: string
+  /**
+   * The transactionId is used when a single service had to be split into parts for technical reasons. Several services with the same non null transaction id form one single service
+   */
+  transactionId?: string
   identifier?: Array<Identifier>
   /**
    * Id of the contact during which the service is provided

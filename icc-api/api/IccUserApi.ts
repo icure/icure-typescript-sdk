@@ -243,7 +243,7 @@ export class IccUserApi {
 
   /**
    *
-   * @summary Require a new temporary token for authentication
+   * @summary Request a new temporary token for authentication
    * @param userId
    * @param key The token key. Only one instance of a token with a defined key can exist at the same time
    * @param tokenValidity The token validity in seconds
