@@ -754,9 +754,10 @@ export class IccPatientApi {
    * @param body
    * @param hcPartyId
    * @param groupId
+   * @param token
    * @param useShortToken
    */
-  registerPatient(hcPartyId: string, groupId: string, useShortToken?: boolean, body?: Patient): Promise<PatientRegistrationSuccess> {
+  registerPatient(hcPartyId: string, groupId: string, token?: string, useShortToken?: boolean, body?: Patient): Promise<PatientRegistrationSuccess> {
     let _body = null
     _body = body
 
@@ -765,6 +766,7 @@ export class IccPatientApi {
       `/patient/register/forHcp/${encodeURIComponent(String(hcPartyId))}/inGroup/${encodeURIComponent(String(groupId))}` +
       '?ts=' +
       new Date().getTime() +
+      (token ? '&token=' + encodeURIComponent(String(token)) : '') +
       (useShortToken ? '&useShortToken=' + encodeURIComponent(String(useShortToken)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
