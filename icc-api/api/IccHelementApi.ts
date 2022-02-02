@@ -10,6 +10,7 @@
  * Do not edit the class manually.
  */
 import { XHR } from './XHR'
+import { AbstractFilterHealthElement } from '../model/AbstractFilterHealthElement'
 import { Delegation } from '../model/Delegation'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { FilterChainHealthElement } from '../model/FilterChainHealthElement'
@@ -175,6 +176,22 @@ export class IccHelementApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
       .then((doc) => (doc.body as Array<JSON>).map((it) => new HealthElement(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+   *
+   * @summary Get ids of health element matching the provided filter for the current user (HcParty)
+   * @param body
+   */
+  matchHealthElementsBy(body?: AbstractFilterHealthElement): Promise<Array<string>> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/helement/match` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
       .catch((err) => this.handleError(err))
   }
 
