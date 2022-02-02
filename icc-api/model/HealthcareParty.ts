@@ -15,6 +15,7 @@ import { FinancialInstitutionInformation } from './FinancialInstitutionInformati
 import { FlatRateTarification } from './FlatRateTarification'
 import { HealthcarePartyHistoryStatus } from './HealthcarePartyHistoryStatus'
 import { PersonName } from './PersonName'
+import { PropertyStub } from './PropertyStub'
 
 /**
  * This entity is a root level object. It represents a healthcare party. It is serialized in JSON and saved in the underlying icure-healthcareParty CouchDB database.
@@ -50,9 +51,9 @@ export class HealthcareParty {
    */
   firstName?: string
   /**
-   * the list of all denominations of the healthcare party, also containing the official full name information. Ordered by preference of use. First element is therefore the official name used for the healthcare party in the application
+   * the list of all names of the healthcare party, also containing the official full name information. Ordered by preference of use. First element is therefore the official name used for the healthcare party in the application
    */
-  denominations?: Array<PersonName>
+  names?: Array<PersonName>
   /**
    * the gender of the healthcare party: male, female, indeterminate, changed, changedToMale, changedToFemale, unknown
    */
@@ -156,6 +157,7 @@ export class HealthcareParty {
   flatRateTarifications?: Array<FlatRateTarification>
   importedData?: { [key: string]: string }
   options?: { [key: string]: string }
+  properties?: Array<PropertyStub>
   /**
    * For each couple of HcParties (delegator and delegate), this map contains the exchange AES key. The delegator is always this hcp, the key of the map is the id of the delegate. The AES exchange key is encrypted using RSA twice : once using this hcp public key (index 0 in the Array) and once using the other hcp public key (index 1 in the Array). For a pair of HcParties. Each HcParty always has one AES exchange key for himself.
    */
