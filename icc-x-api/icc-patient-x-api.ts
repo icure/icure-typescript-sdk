@@ -10,12 +10,24 @@ import { IccClassificationXApi } from './icc-classification-x-api'
 
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import { CalendarItem, Classification, Delegation, Document, IcureStub, Invoice, ListOfIds, Patient } from '../icc-api/model/models'
+import {
+  CalendarItem,
+  Classification,
+  Delegation,
+  Document,
+  HealthcareParty,
+  IcureStub,
+  Invoice,
+  ListOfIds,
+  Patient,
+  PersonName,
+} from '../icc-api/model/models'
 import { retry } from './utils'
 import { utils } from './crypto/utils'
 import { IccCalendarItemXApi } from './icc-calendar-item-x-api'
 import { b64_2ab } from '../icc-api/model/ModelHelper'
 import { b2a, hex2ua, string2ua, ua2hex, ua2utf8, utf8_2ua } from './utils/binary-utils'
+import { findName, garnishPersonWithName, hasName } from './utils/person-util'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccPatientXApi extends IccPatientApi {
@@ -82,6 +94,47 @@ export class IccPatientXApi extends IccPatientApi {
     return this.initDelegations(patient, user)
   }
 
+  completeNames(patient: models.Patient): models.Patient {
+    let finalPatient = patient
+
+    if (!!finalPatient.lastName && !hasName(finalPatient, models.PersonName.UseEnum.Official)) {
+      finalPatient = garnishPersonWithName(finalPatient, models.PersonName.UseEnum.Official, finalPatient.lastName, finalPatient.firstName)
+    }
+
+    if (!!finalPatient.maidenName && !hasName(finalPatient, models.PersonName.UseEnum.Maiden)) {
+      finalPatient = garnishPersonWithName(finalPatient, models.PersonName.UseEnum.Maiden, finalPatient.maidenName, finalPatient.firstName)
+    }
+
+    if (!!finalPatient.alias && !hasName(finalPatient, models.PersonName.UseEnum.Nickname)) {
+      finalPatient = garnishPersonWithName(finalPatient, models.PersonName.UseEnum.Nickname, finalPatient.alias, finalPatient.firstName)
+    }
+
+    if (!finalPatient.lastName && !!hasName(finalPatient, models.PersonName.UseEnum.Official)) {
+      let officialName = findName(finalPatient, models.PersonName.UseEnum.Official)
+      finalPatient = {
+        ...finalPatient,
+        lastName: officialName!.lastName,
+        firstName: officialName!.firstNames?.[0],
+      }
+    }
+
+    if (!finalPatient.maidenName && !!hasName(finalPatient, models.PersonName.UseEnum.Maiden)) {
+      finalPatient = {
+        ...finalPatient,
+        maidenName: findName(finalPatient, models.PersonName.UseEnum.Maiden)!.lastName,
+      }
+    }
+
+    if (!finalPatient.alias && !!hasName(finalPatient, models.PersonName.UseEnum.Nickname)) {
+      finalPatient = {
+        ...finalPatient,
+        alias: findName(finalPatient, models.PersonName.UseEnum.Nickname)!.lastName,
+      }
+    }
+
+    return finalPatient
+  }
+
   initDelegations(patient: models.Patient, user: models.User, secretForeignKey?: string): Promise<models.Patient> {
     return this.crypto
       .initObjectDelegations(patient, null, (user.healthcarePartyId || user.patientId)!, secretForeignKey || null)
@@ -144,7 +197,7 @@ export class IccPatientXApi extends IccPatientApi {
 
   createPatientWithUser(user: models.User, body?: models.Patient): Promise<models.Patient | any> {
     return body
-      ? this.encrypt(user, [_.cloneDeep(body)])
+      ? this.encrypt(user, [_.cloneDeep(this.completeNames(body))])
           .then((pats) => super.createPatient(pats[0]))
           .then((p) => this.decrypt(user, [p]))
           .then((pats) => pats[0])
@@ -408,7 +461,7 @@ export class IccPatientXApi extends IccPatientApi {
 
   modifyPatientWithUser(user: models.User, body?: models.Patient): Promise<models.Patient | null> {
     return body
-      ? this.encrypt(user, [_.cloneDeep(body)])
+      ? this.encrypt(user, [_.cloneDeep(this.completeNames(body))])
           .then((pats) => super.modifyPatient(pats[0]))
           .then((p) => this.decrypt(user, [p]))
           .then((pats) => pats[0])
@@ -545,7 +598,7 @@ export class IccPatientXApi extends IccPatientApi {
     })
   }
 
-  initEncryptionKeys(user: models.User, pat: models.Patient) {
+  initEncryptionKeys(user: models.User, pat: models.Patient): Promise<models.Patient> {
     const hcpId = user.healthcarePartyId || user.patientId
     return this.crypto.initEncryptionKeys(pat, hcpId!).then((eks) => {
       let promise = Promise.resolve(
