@@ -10,6 +10,7 @@
  * Do not edit the class manually.
  */
 import { XHR } from './XHR'
+import { AbstractFilterCode } from '../model/AbstractFilterCode'
 import { Code } from '../model/Code'
 import { FilterChainCode } from '../model/FilterChainCode'
 import { PaginatedListCode } from '../model/PaginatedListCode'
@@ -338,6 +339,23 @@ export class IccCodeApi {
     let headers = this.headers
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
       .then((doc) => new Unit(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
+   * @summary Get ids of code matching the provided filter for the current user (HcParty)
+   * @param body
+   */
+  matchCodesBy(body?: AbstractFilterCode): Promise<Array<string>> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/code/match` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
       .catch((err) => this.handleError(err))
   }
 
