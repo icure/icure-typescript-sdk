@@ -179,6 +179,7 @@ export class IccHelementApi {
       .catch((err) => this.handleError(err))
   }
 
+  /**
    *
    * @summary Get ids of health element matching the provided filter for the current user (HcParty)
    * @param body
