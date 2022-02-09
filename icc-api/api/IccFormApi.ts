@@ -423,13 +423,13 @@ export class IccFormApi {
       .catch((err) => this.handleError(err))
   }
 
-     /**
-      * 
-      * @summary Update a form template's layout
-      * @param attachment 
-      * @param formTemplateId 
-      */
- setTemplateAttachmentMulti(attachment?: ArrayBuffer | any[], formTemplateId?: string): Promise<string> {
+  /**
+   *
+   * @summary Update a form template's layout
+   * @param attachment
+   * @param formTemplateId
+   */
+  setTemplateAttachmentMulti(attachment: ArrayBuffer, formTemplateId: string): Promise<string> {
     let _body = null
     if (attachment && !_body) {
       const parts = Array.isArray(attachment) ? (attachment as any[]) : [attachment as ArrayBuffer]
