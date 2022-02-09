@@ -169,7 +169,7 @@ export class IccContactXApi extends IccContactApi {
                 ])
               }, [] as Array<{ hcpartyId: string; extractedKeys: Array<string> }>)
               .filter((l) => l.extractedKeys.length > 0)
-              .map(({ hcpartyId, extractedKeys }) => this.findByHCPartyPatientSecretFKeys(hcpartyId, extractedKeys.join(',')))
+              .map(({ hcpartyId, extractedKeys }) => this.findByHCPartyPatientSecretFKeys(hcpartyId, _.uniq(extractedKeys).join(',')))
           ).then((results) => _.uniqBy(_.flatMap(results), (x) => x.id))
         : Promise.resolve([])
     )
@@ -313,7 +313,7 @@ export class IccContactXApi extends IccContactApi {
       : Promise.resolve(null)
   }
 
-  modifyContactsWithUser(user: models.User, bodies?: Array<models.Contact>): Promise<models.Contact | any> {
+  modifyContactsWithUser(user: models.User, bodies?: Array<models.Contact>): Promise<models.Contact[] | any> {
     return bodies
       ? this.encrypt(
           user,
@@ -333,7 +333,7 @@ export class IccContactXApi extends IccContactApi {
       : Promise.resolve(null)
   }
 
-  createContactsWithUser(user: models.User, bodies?: Array<models.Contact>): Promise<models.Contact | any> {
+  createContactsWithUser(user: models.User, bodies?: Array<models.Contact>): Promise<models.Contact[] | any> {
     return bodies
       ? this.encrypt(
           user,
