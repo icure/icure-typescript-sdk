@@ -30,7 +30,7 @@ export class Content {
    * Value as date. The format could have a all three (day, month and year) or values on any of these three, whatever is known.
    */
   fuzzyDateValue?: number
-  binaryValue?: string
+  binaryValue?: ArrayBuffer
   /**
    * Linked document.
    */

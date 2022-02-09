@@ -9,9 +9,7 @@ import { a2b, hex2ua, string2ua, ua2string } from './utils/binary-utils'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccDocumentXApi extends IccDocumentApi {
-  crypto: IccCryptoXApi
   fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response>
-  authApi: IccAuthApi
 
   /** maps invalid UTI values to corresponding MIME type for backward-compatibility (pre-v1.0.117) */
   compatUtiRevDefs: { [key: string]: string } = {
@@ -546,8 +544,8 @@ export class IccDocumentXApi extends IccDocumentApi {
   constructor(
     host: string,
     headers: { [key: string]: string },
-    crypto: IccCryptoXApi,
-    authApi: IccAuthApi,
+    private crypto: IccCryptoXApi,
+    private authApi: IccAuthApi,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
@@ -555,8 +553,6 @@ export class IccDocumentXApi extends IccDocumentApi {
       : fetch
   ) {
     super(host, headers, fetchImpl)
-    this.authApi = authApi
-    this.crypto = crypto
     this.fetchImpl = fetchImpl
   }
 
@@ -644,7 +640,7 @@ export class IccDocumentXApi extends IccDocumentApi {
     return this.crypto
       .extractDelegationsSFKs(message, hcpartyId)
       .then((secretForeignKeys) =>
-        this.findDocumentsByHCPartyPatientForeignKeys(secretForeignKeys.hcpartyId!, secretForeignKeys.extractedKeys.join(','))
+        this.findDocumentsByHCPartyPatientForeignKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(','))
       )
       .then((documents) => this.decrypt(hcpartyId, documents))
       .then(function (decryptedForms) {
