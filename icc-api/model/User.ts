@@ -99,9 +99,13 @@ export class User {
    */
   termsOfUseDate?: number
   /**
-   * email address of the user.
+   * email address of the user (used for token exchange or password recovery).
    */
   email?: string
+  /**
+   * mobile phone of the user (used for token exchange or password recovery).
+   */
+  mobilePhone?: string
   applicationTokens?: { [key: string]: string }
   /**
    * Encrypted and time-limited Authentication tokens used for inter-applications authentication
