@@ -10,6 +10,12 @@ import { Delegation, HealthcareParty, Patient, User } from '../icc-api/model/mod
 import { b2a, b64_2uas, hex2ua, string2ua, ua2hex, ua2string, ua2utf8, utf8_2ua } from './utils/binary-utils'
 import { IccHcpartyXApi } from './icc-hcparty-x-api'
 
+interface DelegatorAndKeys {
+  delegatorId: string
+  key: CryptoKey
+  rawKey: string
+}
+
 export class IccCryptoXApi {
   get shamir(): ShamirClass {
     return this._shamir
@@ -24,7 +30,7 @@ export class IccCryptoXApi {
     return this._AES
   }
   hcPartyKeysCache: {
-    [key: string]: { delegatorId: string; key: CryptoKey; rawKey: string }
+    [key: string]: DelegatorAndKeys
   } = {}
 
   //[delegateId][delegatorId] = delegateEncryptedHcPartyKey
@@ -203,7 +209,7 @@ export class IccCryptoXApi {
     delegateHcPartyId: string,
     encryptedHcPartyKey: string,
     encryptedForDelegator = false //TODO: suggestion: break this into 2 separate methods: decryptDelegatorEncryptedHcPartyKey() and decryptDelegateEncryptedHcPartyKey()
-  ): Promise<{ delegatorId: string; key: CryptoKey; rawKey: string }> {
+  ): Promise<DelegatorAndKeys> {
     const cacheKey = delegatorId + '|' + delegateHcPartyId + '|' + (encryptedForDelegator ? '->' : '<-')
     const res = this.hcPartyKeysCache[cacheKey]
     const hcPartyKeyOwner = encryptedForDelegator ? delegatorId : delegateHcPartyId
@@ -296,7 +302,7 @@ export class IccCryptoXApi {
     //TODO:  suggested name: getDecryptedHcPKeysSharedBetweenDelegateAndDelegators
     delegatorsHcPartyIdsSet: Array<string>,
     delegateHcPartyId: string
-  ): Promise<Array<{ delegatorId: string; key: CryptoKey; rawKey: string }>> {
+  ): Promise<Array<DelegatorAndKeys>> {
     return (
       this.hcPartyKeysRequestsCache[delegateHcPartyId] ||
       (this.hcPartyKeysRequestsCache[delegateHcPartyId] = this.getHcPartyKeysForDelegate(delegateHcPartyId))
@@ -337,7 +343,7 @@ export class IccCryptoXApi {
     healthcarePartyId: string,
     delegations: { [key: string]: Array<models.Delegation> },
     fallbackOnParent = true
-  ): Promise<Array<{ delegatorId: string; key: CryptoKey; rawKey: string }>> {
+  ): Promise<Array<DelegatorAndKeys>> {
     const delegatorIds: { [key: string]: boolean } = {}
     const delegationsArray = delegations[healthcarePartyId]
     if (delegationsArray && delegationsArray.length) {
@@ -1155,7 +1161,7 @@ export class IccCryptoXApi {
       try {
         aesKey = _.find(
           await this.decryptAndImportAesHcPartyKeysForDelegators([hcp.id!], hcp.id!),
-          (delegator: { delegatorId: string }) => delegator.delegatorId === hcp.id
+          (delegator: DelegatorAndKeys) => delegator.delegatorId === hcp.id
         )!.key
       } catch (e) {
         console.error('Error while importing the AES key.')
@@ -1208,7 +1214,7 @@ export class IccCryptoXApi {
       try {
         decryptionKey = _.find(
           await this.decryptAndImportAesHcPartyKeysForDelegators([hcp.id!], hcp.id!),
-          (delegator: { delegatorId: string }) => delegator.delegatorId === hcp.id
+          (delegator: DelegatorAndKeys) => delegator.delegatorId === hcp.id
         )!.key
       } catch (e) {
         console.error('Error while importing the AES key.')
@@ -1228,7 +1234,7 @@ export class IccCryptoXApi {
       if (!crt) {
         throw new Error(`Error while saving certificate in browser local storage! Hcp ${hcp.id} has no certificate.`)
       } else {
-        this.saveKeychainInBrowserLocalStorageAsBase64(hcp.id!!, btoa(String.fromCharCode.apply(null, new Uint8Array(crt))))
+        this.saveKeychainInBrowserLocalStorageAsBase64(hcp.id!!, btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(crt)))))
       }
 
       return
@@ -1384,7 +1390,7 @@ export class IccCryptoXApi {
           document.id,
           (document.encryptionKeys && Object.keys(document.encryptionKeys).length && document.encryptionKeys) || document.delegations!
         )
-          .then(({ extractedKeys }) => extractedKeys)
+          .then(({ extractedKeys }) => _.uniq(extractedKeys))
           .catch(() => null)
   }
 

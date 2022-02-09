@@ -1,50 +1,14 @@
-import { IccEntityrefApi, IccInsuranceApi, IccMessageApi } from '../icc-api'
+import { IccMessageApi } from '../icc-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
-import { IccDocumentXApi } from './icc-document-x-api'
-import { IccInvoiceXApi } from './icc-invoice-x-api'
 
 import * as _ from 'lodash'
-import * as moment from 'moment'
 
-import {
-  AbstractFilterPatient,
-  EntityReference,
-  FilterChainPatient,
-  HealthcareParty,
-  Insurance,
-  Invoice,
-  ListOfIds,
-  Message,
-  PaginatedListPatient,
-  Patient,
-  PatientHealthCareParty,
-  Receipt,
-  ReferralPeriod,
-  User,
-} from '../icc-api/model/models'
-
-import { IccReceiptXApi } from './icc-receipt-x-api'
-import { IccPatientXApi } from './icc-patient-x-api'
-
+import { Patient, User } from '../icc-api/model/models'
 export class IccMessageXApi extends IccMessageApi {
-  private crypto: IccCryptoXApi
-  private insuranceApi: IccInsuranceApi
-  private entityReferenceApi: IccEntityrefApi
-  private receiptXApi: IccReceiptXApi
-  private invoiceXApi: IccInvoiceXApi
-  private documentXApi: IccDocumentXApi
-  private patientApi: IccPatientXApi
-
   constructor(
     host: string,
     headers: { [key: string]: string },
-    crypto: IccCryptoXApi,
-    insuranceApi: IccInsuranceApi,
-    entityReferenceApi: IccEntityrefApi,
-    invoiceXApi: IccInvoiceXApi,
-    documentXApi: IccDocumentXApi,
-    receiptXApi: IccReceiptXApi,
-    patientApi: IccPatientXApi,
+    private crypto: IccCryptoXApi,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
@@ -53,12 +17,6 @@ export class IccMessageXApi extends IccMessageApi {
   ) {
     super(host, headers, fetchImpl)
     this.crypto = crypto
-    this.insuranceApi = insuranceApi
-    this.entityReferenceApi = entityReferenceApi
-    this.receiptXApi = receiptXApi
-    this.invoiceXApi = invoiceXApi
-    this.documentXApi = documentXApi
-    this.patientApi = patientApi
   }
 
   // noinspection JSUnusedGlobalSymbols
