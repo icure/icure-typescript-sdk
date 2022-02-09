@@ -16,8 +16,6 @@ import { Delegation } from '../model/Delegation'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { FilterChainPatient } from '../model/FilterChainPatient'
 import { IdWithRev } from '../model/IdWithRev'
-import { Identifier } from '../model/Identifier'
-import { IndexedIdentifier } from '../model/IndexedIdentifier'
 import { ListOfIds } from '../model/ListOfIds'
 import { PaginatedListPatient } from '../model/PaginatedListPatient'
 import { PaginatedListString } from '../model/PaginatedListString'
@@ -416,24 +414,6 @@ export class IccPatientApi {
   }
 
   /**
-   * It gets patient data based on the provided identifiers (root & extension)
-   * @summary Get patient ids by identifiers
-   * @param body
-   * @param hcPartyId
-   */
-  getPatientIdsByHealthcarePartyAndIdentifiers(hcPartyId: string, body?: Array<Identifier>): Promise<Array<IndexedIdentifier>> {
-    let _body = null
-    _body = body
-
-    const _url = this.host + `/patient/ids/${encodeURIComponent(String(hcPartyId))}/byIdentifiers` + '?ts=' + new Date().getTime()
-    let headers = this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new IndexedIdentifier(it)))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
    * It gets patient administrative data.
    * @summary Get patients by id
    * @param body
@@ -774,9 +754,10 @@ export class IccPatientApi {
    * @param body
    * @param hcPartyId
    * @param groupId
+   * @param token
    * @param useShortToken
    */
-  registerPatient(hcPartyId: string, groupId: string, useShortToken?: boolean, body?: Patient): Promise<PatientRegistrationSuccess> {
+  registerPatient(hcPartyId: string, groupId: string, token?: string, useShortToken?: boolean, body?: Patient): Promise<PatientRegistrationSuccess> {
     let _body = null
     _body = body
 
@@ -785,6 +766,7 @@ export class IccPatientApi {
       `/patient/register/forHcp/${encodeURIComponent(String(hcPartyId))}/inGroup/${encodeURIComponent(String(groupId))}` +
       '?ts=' +
       new Date().getTime() +
+      (token ? '&token=' + encodeURIComponent(String(token)) : '') +
       (useShortToken ? '&useShortToken=' + encodeURIComponent(String(useShortToken)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))

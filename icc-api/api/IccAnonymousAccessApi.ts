@@ -11,7 +11,7 @@
  */
 import { XHR } from './XHR'
 import { CalendarItemType } from '../model/CalendarItemType'
-import { User } from '../model/User'
+import { UserAndHealthcareParty } from '../model/UserAndHealthcareParty'
 
 export class IccAnonymousAccessApi {
   host: string
@@ -33,7 +33,7 @@ export class IccAnonymousAccessApi {
   }
 
   /**
-   *
+   * The start of the slot is returned in YYYYDDMMHHmmss format and only slots belonging to public time tables are returned.
    * @summary Get Availabilities for HCP and appointmentType
    * @param groupId
    * @param userId
@@ -72,7 +72,7 @@ export class IccAnonymousAccessApi {
   }
 
   /**
-   * Returns a list of Calendar Item types
+   * Returns a list of Calendar Item types. In order to be returned, the Calendar Item Type must be linked to a time table enclosed in an Agenda for which an anonymous right has been set (a Right with read permission and null user)
    * @summary List Calendar Item types for a provided group id and user id
    * @param groupId Healthcare parties group id
    * @param userId Healthcare party user id
@@ -96,17 +96,17 @@ export class IccAnonymousAccessApi {
   }
 
   /**
-   * Returns a list of healthcare parties contained in the group owning the providing id
+   * Returns a list of Users/healthcare parties contained in the group owning the providing id. In order to be returned, a healthcare party needs to be linked to a user an this user must have a property 'org.taktik.icure.public' set to a boolean true.
    * @summary List healthcare parties for a provided group id
    * @param groupId Healthcare parties group id
    */
-  listHealthcarePartiesInGroup(groupId: string): Promise<Array<User>> {
+  listHealthcarePartiesInGroup(groupId: string): Promise<Array<UserAndHealthcareParty>> {
     let _body = null
 
     const _url = this.host + `/aa/hcparty/inGroup/${encodeURIComponent(String(groupId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new User(it)))
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new UserAndHealthcareParty(it)))
       .catch((err) => this.handleError(err))
   }
 }
