@@ -1,7 +1,7 @@
 import { IccHcpartyApi } from '../icc-api'
 import { HealthcareParty } from '../icc-api/model/HealthcareParty'
-import * as models from "../icc-api/model/models"
-import {findName, garnishPersonWithName, hasName} from "./utils/person-util"
+import * as models from '../icc-api/model/models'
+import { findName, garnishPersonWithName, hasName } from './utils/person-util'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccHcpartyXApi extends IccHcpartyApi {
@@ -35,7 +35,7 @@ export class IccHcpartyXApi extends IccHcpartyApi {
     return null
   }
 
-  completeNames(hcParty?: models.HealthcareParty) : models.HealthcareParty | undefined {
+  completeNames(hcParty?: models.HealthcareParty): models.HealthcareParty | undefined {
     if (!hcParty) {
       return hcParty
     }
@@ -43,7 +43,8 @@ export class IccHcpartyXApi extends IccHcpartyApi {
     let finalHcParty = hcParty
 
     if ((!!finalHcParty.lastName || !!finalHcParty.name) && !hasName(finalHcParty, models.PersonName.UseEnum.Official)) {
-      finalHcParty = garnishPersonWithName(finalHcParty,
+      finalHcParty = garnishPersonWithName(
+        finalHcParty,
         models.PersonName.UseEnum.Official,
         finalHcParty.lastName,
         finalHcParty.firstName,
@@ -57,7 +58,7 @@ export class IccHcpartyXApi extends IccHcpartyApi {
         ...finalHcParty,
         lastName: officialName!.lastName,
         firstName: officialName!.firstNames ? officialName!.firstNames[0] : undefined,
-        name: officialName!.text
+        name: officialName!.text,
       }
     }
 
