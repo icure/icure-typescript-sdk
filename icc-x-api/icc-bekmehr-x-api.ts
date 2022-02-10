@@ -72,7 +72,7 @@ export class IccBekmehrXApi extends IccBekmehrApi {
 
     const messageHandler = (msg: any, event: any) => {
       if (msg.command === 'decrypt') {
-        if (msg.type === 'Contact') {
+        if (msg.type === 'ContactDto') {
           that.ctcApi
             .decrypt(healthcarePartyId, msg.body)
             .then((res) =>
@@ -81,7 +81,7 @@ export class IccBekmehrXApi extends IccBekmehrApi {
                 .reduce(async (p, patcher) => (patcher as ContactPatcher).patch(await p), Promise.resolve(res))
             )
             .then((res) => send('decryptResponse', msg.uuid, res))
-        } else if (msg.type === 'HealthElement') {
+        } else if (msg.type === 'HealthElementDto') {
           that.helementApi
             .decrypt(healthcarePartyId, msg.body)
             .then((res) =>
@@ -90,7 +90,7 @@ export class IccBekmehrXApi extends IccBekmehrApi {
                 .reduce(async (p, patcher) => (patcher as HealthElementPatcher).patch(await p), Promise.resolve(res))
             )
             .then((res) => send('decryptResponse', msg.uuid, res))
-        } else if (msg.type === 'Document') {
+        } else if (msg.type === 'DocumentDto') {
           that.documentApi
             .decrypt(
               healthcarePartyId,
