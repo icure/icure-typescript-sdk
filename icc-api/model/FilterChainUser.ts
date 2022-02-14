@@ -9,19 +9,14 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
-import { TimeTableHour } from './TimeTableHour'
+import { AbstractFilterUser } from './AbstractFilterUser'
+import { Predicate } from './Predicate'
 
-export class TimeTableItem {
+export class FilterChainUser {
   constructor(json: JSON | any) {
-    Object.assign(this as TimeTableItem, json)
+    Object.assign(this as FilterChainUser, json)
   }
 
-  days?: Array<string>
-  hours?: Array<TimeTableHour>
-  recurrenceTypes?: Array<string>
-  calendarItemTypeId?: string
-  homeVisit?: boolean
-  placeId?: string
-  publicTimeTableItem?: boolean
-  unavailable?: boolean
+  filter?: AbstractFilterUser
+  predicate?: Predicate
 }

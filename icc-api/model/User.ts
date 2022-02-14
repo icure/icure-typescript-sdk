@@ -87,6 +87,10 @@ export class User {
    */
   patientId?: string
   /**
+   * Id of the device if the user is a device
+   */
+  deviceId?: string
+  /**
    * Delegations that are automatically generated client side when a new database object is created by this user
    */
   autoDelegations?: { [key: string]: Array<string> }
