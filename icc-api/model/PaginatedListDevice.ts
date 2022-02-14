@@ -9,19 +9,16 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
-import { TimeTableHour } from './TimeTableHour'
+import { Device } from './Device'
+import { PaginatedDocumentKeyIdPairObject } from './PaginatedDocumentKeyIdPairObject'
 
-export class TimeTableItem {
+export class PaginatedListDevice {
   constructor(json: JSON | any) {
-    Object.assign(this as TimeTableItem, json)
+    Object.assign(this as PaginatedListDevice, json)
   }
 
-  days?: Array<string>
-  hours?: Array<TimeTableHour>
-  recurrenceTypes?: Array<string>
-  calendarItemTypeId?: string
-  homeVisit?: boolean
-  placeId?: string
-  publicTimeTableItem?: boolean
-  unavailable?: boolean
+  pageSize?: number
+  totalSize?: number
+  rows?: Array<Device>
+  nextKeyPair?: PaginatedDocumentKeyIdPairObject
 }

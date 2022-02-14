@@ -11,6 +11,7 @@
  */
 import { XHR } from './XHR'
 import { AbstractFilterContact } from '../model/AbstractFilterContact'
+import { AbstractFilterService } from '../model/AbstractFilterService'
 import { Contact } from '../model/Contact'
 import { Content } from '../model/Content'
 import { Delegation } from '../model/Delegation'
@@ -508,6 +509,23 @@ export class IccContactApi {
     _body = body
 
     const _url = this.host + `/contact/match` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
+   * @summary Get ids of services matching the provided filter for the current user
+   * @param body
+   */
+  matchServicesBy(body?: AbstractFilterService): Promise<Array<string>> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/contact/service/match` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)

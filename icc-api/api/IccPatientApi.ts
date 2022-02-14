@@ -403,7 +403,7 @@ export class IccPatientApi {
    * @summary Get the patient (identified by patientId) hcparty keys. Those keys are AES keys (encrypted) used to share information between HCPs and a patient.
    * @param patientId The patient Id for which information is shared
    */
-  getPatientHcPartyKeysForDelegate(patientId: string): Promise<string> {
+  getPatientHcPartyKeysForDelegate(patientId: string): Promise<{ [key: string]: string }> {
     let _body = null
 
     const _url = this.host + `/patient/${encodeURIComponent(String(patientId))}/keys` + '?ts=' + new Date().getTime()
