@@ -19,7 +19,9 @@ import { PatientByHcPartyFilter } from './PatientByHcPartyFilter'
 import { PatientByHcPartyGenderEducationProfession } from './PatientByHcPartyGenderEducationProfession'
 import { PatientByIdsFilter } from './PatientByIdsFilter'
 import { PatientByHcPartyNameContainsFuzzyFilter } from './PatientByHcPartyNameContainsFuzzyFilter'
+
 import GenderEnum = Patient.GenderEnum
+import { ContactByHcPartyFilter } from './ContactByHcPartyFilter'
 
 export * from './UserByIdsFilter'
 export * from './PatientByHcPartyAndIdentifiersFilter'
@@ -70,12 +72,14 @@ export class Filter {
 }
 
 export type AbstractFilter<T> = T extends Patient
-  ? AbstractFilterPatient | ConstantFilter<T> | IntersectionFilter<T> | UnionFilter<T> | ComplementFilter<T>
+  ? AbstractFilterPatient | ConstantFilter<Patient> | IntersectionFilter<Patient> | UnionFilter<Patient> | ComplementFilter<Patient>
   : T extends Contact
   ? AbstractFilterContact | ConstantFilter<T> | IntersectionFilter<T> | UnionFilter<T> | ComplementFilter<T>
   : T extends Service
   ? AbstractFilterService | ConstantFilter<T> | IntersectionFilter<T> | UnionFilter<T> | ComplementFilter<T>
   : ConstantFilter<T> | IntersectionFilter<T> | UnionFilter<T> | ComplementFilter<T>
+
+const f: AbstractFilterContact = new ComplementFilter<Contact>(new ContactByHcPartyFilter({}), new ContactByHcPartyFilter({}))
 
 abstract class FilterBuilder<T> {
   // This is the current generator for the filter, when we call build(), filterProvider() is going to be called

@@ -9,10 +9,13 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
+import { AbstractFilterPatient } from '../../icc-api/model/AbstractFilterPatient'
 
-export class PatientByHcPartyAndSsinFilter {
+export class PatientByHcPartyAndSsinFilter extends AbstractFilterPatient {
   $type: string = 'PatientByHcPartyAndSsinFilter'
   constructor(json: JSON | any) {
+    super(json)
+
     Object.assign(this as PatientByHcPartyAndSsinFilter, json)
   }
 
