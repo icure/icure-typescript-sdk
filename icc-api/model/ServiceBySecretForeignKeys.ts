@@ -10,13 +10,12 @@
  * Do not edit the class manually.
  */
 
-export class PatientByHcPartyDateOfBirthFilter {
-  $type: string = 'PatientByHcPartyDateOfBirthFilter'
+export class ServiceBySecretForeignKeys {
   constructor(json: JSON | any) {
-    Object.assign(this as PatientByHcPartyDateOfBirthFilter, json)
+    Object.assign(this as ServiceBySecretForeignKeys, json)
   }
 
   desc?: string
-  dateOfBirth?: number
   healthcarePartyId?: string
+  patientSecretForeignKeys?: Array<string>
 }
