@@ -9,9 +9,9 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
-import { AbstractFilterPatient } from '../../icc-api/model/AbstractFilterPatient'
+import { AbstractFilterService } from '../../icc-api/model/AbstractFilterService'
 
-export class ServiceByContactsAndSubcontactsFilter extends AbstractFilterPatient {
+export class ServiceByContactsAndSubcontactsFilter extends AbstractFilterService {
   $type: string = 'ServiceByContactsAndSubcontactsFilter'
   constructor(json: JSON | any) {
     super(json)
