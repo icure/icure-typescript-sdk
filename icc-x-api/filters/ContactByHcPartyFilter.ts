@@ -10,9 +10,13 @@
  * Do not edit the class manually.
  */
 
-export class ContactByHcPartyFilter {
+import { AbstractFilterContact } from '../../icc-api/model/AbstractFilterContact'
+
+export class ContactByHcPartyFilter extends AbstractFilterContact {
   $type: string = 'ContactByHcPartyFilter'
   constructor(json: JSON | any) {
+    super(json)
+
     Object.assign(this as ContactByHcPartyFilter, json)
   }
 

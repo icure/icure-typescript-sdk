@@ -8,6 +8,8 @@ import GenderEnum = Patient.GenderEnum
 export class PatientByHcPartyGenderEducationProfession extends AbstractFilterPatient {
   constructor(json: JSON | any) {
     super(json)
+
+    super(json)
   }
 
   healthcarePartyId?: string
