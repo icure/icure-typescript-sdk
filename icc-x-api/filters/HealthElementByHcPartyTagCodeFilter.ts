@@ -10,13 +10,17 @@
  * Do not edit the class manually.
  */
 
-export class PatientByHcPartyDateOfBirthFilter {
-  $type: string = 'PatientByHcPartyDateOfBirthFilter'
+export class HealthElementByHcPartyTagCodeFilter {
+  $type: string = 'HealthElementByHcPartyTagCodeFilter'
   constructor(json: JSON | any) {
-    Object.assign(this as PatientByHcPartyDateOfBirthFilter, json)
+    Object.assign(this as HealthElementByHcPartyTagCodeFilter, json)
   }
 
   desc?: string
-  dateOfBirth?: number
-  healthcarePartyId?: string
+  healthCarePartyId?: string
+  codeType?: string
+  codeCode?: string
+  tagType?: string
+  tagCode?: string
+  status?: number
 }
