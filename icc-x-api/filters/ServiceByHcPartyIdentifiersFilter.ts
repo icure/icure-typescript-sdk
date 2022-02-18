@@ -9,14 +9,15 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
+import { Identifier } from '../../icc-api/model/Identifier'
 
-export class PatientByHcPartyDateOfBirthFilter {
-  $type: string = 'PatientByHcPartyDateOfBirthFilter'
+export class ServiceByHcPartyIdentifiersFilter {
+  $type: string = 'ServiceByHcPartyIdentifiersFilter'
   constructor(json: JSON | any) {
-    Object.assign(this as PatientByHcPartyDateOfBirthFilter, json)
+    Object.assign(this as ServiceByHcPartyIdentifiersFilter, json)
   }
 
-  desc?: string
-  dateOfBirth?: number
   healthcarePartyId?: string
+  desc?: string
+  identifiers?: Array<Identifier>
 }
