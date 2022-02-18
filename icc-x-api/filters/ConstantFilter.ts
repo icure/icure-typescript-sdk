@@ -3,6 +3,7 @@ export class ConstantFilter<T> {
     this.constant = constant
   }
 
+  desc?: string
   constant?: T[]
   $type = 'ConstantFilter'
 }

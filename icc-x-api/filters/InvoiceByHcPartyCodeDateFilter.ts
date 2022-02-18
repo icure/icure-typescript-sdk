@@ -9,10 +9,13 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
+import { AbstractFilterInvoice } from '../../icc-api/model/AbstractFilterInvoice'
 
-export class InvoiceByHcPartyCodeDateFilter {
+export class InvoiceByHcPartyCodeDateFilter extends AbstractFilterInvoice {
   $type: string = 'InvoiceByHcPartyCodeDateFilter'
   constructor(json: JSON | any) {
+    super(json)
+
     Object.assign(this as InvoiceByHcPartyCodeDateFilter, json)
   }
 

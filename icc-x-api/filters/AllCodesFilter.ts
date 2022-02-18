@@ -9,10 +9,12 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
+import { AbstractFilterCode } from '../../icc-api/model/AbstractFilterCode'
 
-export class AllCodesFilter {
+export class AllCodesFilter extends AbstractFilterCode {
   $type: string = 'AllCodesFilter'
   constructor(json: JSON | any) {
+    super(json)
     Object.assign(this as AllCodesFilter, json)
   }
 
