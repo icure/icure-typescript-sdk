@@ -9,9 +9,12 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
+import { AbstractFilterService } from '../../icc-api/model/AbstractFilterService'
 
-export class ServiceBySecretForeignKeys {
+export class ServiceBySecretForeignKeys extends AbstractFilterService {
   constructor(json: JSON | any) {
+    super(json)
+
     Object.assign(this as ServiceBySecretForeignKeys, json)
   }
 
