@@ -10,7 +10,6 @@
  * Do not edit the class manually.
  */
 import { AbstractFilterPatient } from '../../icc-api/model/AbstractFilterPatient'
-import { AbstractFilterPatient } from '../../icc-api/model/AbstractFilterPatient'
 
 export class PatientByHcPartyAndActiveFilter extends AbstractFilterPatient {
   $type: string = 'PatientByHcPartyAndActiveFilter'
