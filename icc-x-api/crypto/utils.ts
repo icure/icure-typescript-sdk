@@ -1,9 +1,24 @@
-import * as base64js from 'base64-js'
 import * as moment from 'moment'
 import { Moment } from 'moment'
 import * as _ from 'lodash'
-import { a2b, b2a, ua2b64Url, hex2ua, string2ua, ua2b64, ua2hex, ua2string, b64Url2ua, b64_2ua } from '../utils/binary-utils'
+import { a2b, b2a, b64Url2ua, hex2ua, string2ua, ua2b64Url, ua2hex, ua2string } from '../utils/binary-utils'
 import { ASN1, Stream } from '../utils/asn1'
+
+function prefix(hex: string): string {
+  return hex.length % 2 == 0 ? hex : '0' + hex
+}
+
+function writeAsn1(type: string, hex: string): string {
+  const hexToCode = prefix(hex)
+  const hexLen = hexToCode.length / 2
+  if (hexLen <= 127) {
+    return `${type}${prefix(hexLen.toString(16))}${hexToCode}`
+  } else {
+    const hexLenHex = prefix(hexLen.toString(16))
+    const hexLenHexLen = (hexLenHex.length / 2) | 0x80
+    return `${type}${prefix(hexLenHexLen.toString(16))}${hexLenHex}${hexToCode}`
+  }
+}
 
 export class UtilsClass {
   constructor() {}
@@ -73,6 +88,36 @@ export class UtilsClass {
       n: ua2b64Url(this.minimalRep(modulus)),
       e: ua2b64Url(this.minimalRep(exponent)),
     }
+  }
+
+  jwk2pkcs8(jwk: any): string {
+    const privKey = [
+      '020100', // Version = Int 0
+      writeAsn1('02', ua2hex(b64Url2ua(jwk.n))),
+      writeAsn1('02', ua2hex(b64Url2ua(jwk.e))),
+      writeAsn1('02', ua2hex(b64Url2ua(jwk.d))),
+      writeAsn1('02', ua2hex(b64Url2ua(jwk.p))),
+      writeAsn1('02', ua2hex(b64Url2ua(jwk.q))),
+      writeAsn1('02', ua2hex(b64Url2ua(jwk.dp))),
+      writeAsn1('02', ua2hex(b64Url2ua(jwk.dq))),
+      writeAsn1('02', ua2hex(b64Url2ua(jwk.qi))),
+    ]
+
+    const oidSeq = '300d06092a864886f70d0101010500'
+    const os = writeAsn1('04', writeAsn1('30', privKey.join('')))
+    const pkcs8 = writeAsn1('30', ['020100', oidSeq, os].join(''))
+
+    return pkcs8
+  }
+
+  jwk2spki(jwk: any): string {
+    const pubKey = [writeAsn1('02', ua2hex(b64Url2ua(jwk.n))), writeAsn1('02', ua2hex(b64Url2ua(jwk.e)))]
+
+    const oidSeq = '300d06092a864886f70d0101010500'
+    const os = writeAsn1('03', '00' + writeAsn1('30', pubKey.join('')))
+    const spki = writeAsn1('30', [oidSeq, os].join(''))
+
+    return spki
   }
 
   pkcs8ToJwk(buff: Uint8Array | ArrayBuffer) {
