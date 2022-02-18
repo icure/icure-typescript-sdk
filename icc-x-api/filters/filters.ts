@@ -21,6 +21,9 @@ import { PatientByIdsFilter } from './PatientByIdsFilter'
 import { PatientByHcPartyNameContainsFuzzyFilter } from './PatientByHcPartyNameContainsFuzzyFilter'
 import GenderEnum = Patient.GenderEnum
 
+export * from './ComplementFilter'
+export * from './UnionFilter'
+export * from './IntersectionFilter'
 export * from './PatientByHcPartyAndActiveFilter'
 export * from './PatientByHcPartyAndExternalIdFilter'
 export * from './PatientByHcPartyAndSsinsFilter'
