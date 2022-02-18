@@ -10,10 +10,13 @@
  * Do not edit the class manually.
  */
 import { Identifier } from '../../icc-api/model/Identifier'
+import { AbstractFilterPatient } from '../../icc-api/model/AbstractFilterPatient'
 
-export class PatientByHcPartyAndIdentifiersFilter {
+export class PatientByHcPartyAndIdentifiersFilter extends AbstractFilterPatient {
   $type: string = 'PatientByHcPartyAndIdentifiersFilter'
   constructor(json: JSON | any) {
+    super(json)
+
     Object.assign(this as PatientByHcPartyAndIdentifiersFilter, json)
   }
 

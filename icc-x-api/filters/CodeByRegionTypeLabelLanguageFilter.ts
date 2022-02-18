@@ -10,9 +10,13 @@
  * Do not edit the class manually.
  */
 
-export class CodeByRegionTypeLabelLanguageFilter {
+import { AbstractFilterCode } from '../../icc-api/model/AbstractFilterCode'
+
+export class CodeByRegionTypeLabelLanguageFilter extends AbstractFilterCode {
   $type: string = 'CodeByRegionTypeLabelLanguageFilter'
   constructor(json: JSON | any) {
+    super(json)
+
     Object.assign(this as CodeByRegionTypeLabelLanguageFilter, json)
   }
 

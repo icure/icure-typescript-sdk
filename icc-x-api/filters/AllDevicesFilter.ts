@@ -9,10 +9,13 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
+import { AbstractFilterDevice } from '../../icc-api/model/AbstractFilterDevice'
 
-export class AllDevicesFilter {
+export class AllDevicesFilter extends AbstractFilterDevice {
   $type: string = 'AllDevicesFilter'
   constructor(json: JSON | any) {
+    super(json)
+
     Object.assign(this as AllDevicesFilter, json)
   }
 

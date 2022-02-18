@@ -10,9 +10,13 @@
  * Do not edit the class manually.
  */
 
-export class CodeByIdsFilter {
+import { AbstractFilterCode } from '../../icc-api/model/AbstractFilterCode'
+
+export class CodeByIdsFilter extends AbstractFilterCode {
   $type: string = 'CodeByIdsFilter'
   constructor(json: JSON | any) {
+    super(json)
+
     Object.assign(this as CodeByIdsFilter, json)
   }
 
