@@ -1,24 +1,9 @@
 import * as moment from 'moment'
 import { Moment } from 'moment'
 import * as _ from 'lodash'
-import { a2b, b2a, b64Url2ua, hex2ua, string2ua, ua2b64Url, ua2hex, ua2string } from '../utils/binary-utils'
-import { ASN1, Stream } from '../utils/asn1'
-
-function prefix(hex: string): string {
-  return hex.length % 2 == 0 ? hex : '0' + hex
-}
-
-function writeAsn1(type: string, hex: string): string {
-  const hexToCode = prefix(hex)
-  const hexLen = hexToCode.length / 2
-  if (hexLen <= 127) {
-    return `${type}${prefix(hexLen.toString(16))}${hexToCode}`
-  } else {
-    const hexLenHex = prefix(hexLen.toString(16))
-    const hexLenHexLen = (hexLenHex.length / 2) | 0x80
-    return `${type}${prefix(hexLenHexLen.toString(16))}${hexLenHex}${hexToCode}`
-  }
-}
+import { a2b, b2a, b64Url2ua, string2ua, ua2b64Url, ua2hex, ua2string } from '../utils/binary-utils'
+import { pack } from '../utils/asn1-packer'
+import { parseAsn1 } from '../utils/asn1-parser'
 
 export class UtilsClass {
   constructor() {}
@@ -38,49 +23,77 @@ export class UtilsClass {
     }
   }
 
+  jwk2pkcs8(jwk: any): string {
+    return pack([
+      0x30,
+      [
+        [0x02, '00'],
+        [0x30, [[0x06, '2a864886f70d010101'], [0x05]]],
+        [
+          0x04,
+          [
+            [
+              0x30,
+              [
+                [0x02, '00'],
+                [0x02, ua2hex(b64Url2ua(jwk.n))],
+                [0x02, ua2hex(b64Url2ua(jwk.e))],
+                [0x02, ua2hex(b64Url2ua(jwk.d))],
+                [0x02, ua2hex(b64Url2ua(jwk.p))],
+                [0x02, ua2hex(b64Url2ua(jwk.q))],
+                [0x02, ua2hex(b64Url2ua(jwk.dp))],
+                [0x02, ua2hex(b64Url2ua(jwk.dq))],
+                [0x02, ua2hex(b64Url2ua(jwk.qi))],
+              ],
+            ],
+          ],
+        ],
+      ],
+    ])
+  }
+
+  jwk2spki(jwk: any): string {
+    return pack([
+      0x30,
+      [
+        [0x30, [[0x06, '2a864886f70d010101'], [0x05]]],
+        [
+          0x03,
+          [
+            [
+              0x30,
+              [
+                [0x02, ua2hex(b64Url2ua(jwk.n))],
+                [0x02, ua2hex(b64Url2ua(jwk.e))],
+              ],
+            ],
+          ],
+        ],
+      ],
+    ])
+  }
+
   spkiToJwk(buf: Uint8Array): { kty: string; alg: string; n: string; e: string; ext: boolean } {
-    const pubkeyAsn1 = ASN1.decode(new Stream(buf, 0))
-    //Case PKCS#8
-    //16
-    //  16
-    //    06
-    //    05
-    //--03
-    //----16
-    //------2
-    //------2
-    let modulusRaw: ASN1 | undefined = undefined
-    let exponentRaw: ASN1 | undefined = undefined
+    const asn1 = parseAsn1(new Uint8Array(buf))
 
-    if (pubkeyAsn1.tag.tagNumber === 16 && pubkeyAsn1.sub[0].tag.tagNumber === 16 && pubkeyAsn1.sub[0].sub[0].tag.tagNumber === 6) {
-      const oidRaw = pubkeyAsn1.sub[0].sub[0]
-      const oidStart = oidRaw.header + oidRaw.stream.pos
-      const oid = oidRaw.stream.parseOID(oidStart, oidStart + oidRaw.length, 32)
-
-      if (oid === '1.2.840.113549.1.1.1') {
-        modulusRaw = pubkeyAsn1.sub[1].sub[0].sub[0]
-        exponentRaw = pubkeyAsn1.sub[1].sub[0].sub[1]
-      }
-    } else {
-      if (pubkeyAsn1.tag.tagNumber === 16 && pubkeyAsn1.sub[0].tag.tagNumber === 2 && pubkeyAsn1.sub[1].tag.tagNumber === 2) {
-        modulusRaw = pubkeyAsn1.sub[0]
-        exponentRaw = pubkeyAsn1.sub[1]
-      }
+    var modulus: Uint8Array | undefined = undefined
+    var exponent: Uint8Array | undefined = undefined
+    if (
+      asn1.type === 0x30 &&
+      asn1.children?.[0]?.type === 0x30 &&
+      asn1.children?.[0]?.children?.[0]?.type === 0x06 &&
+      ua2hex(asn1.children?.[0]?.children?.[0]?.value ?? new Uint8Array()) === '2a864886f70d010101'
+    ) {
+      modulus = asn1.children?.[1]?.children?.[0]?.children?.[0]?.value
+      exponent = asn1.children?.[1]?.children?.[0]?.children?.[1]?.value
+    } else if (asn1.type === 0x30 && asn1.children?.[0]?.type === 0x02 && asn1.children?.[1]?.type === 0x02) {
+      modulus = asn1.children?.[0]?.value
+      exponent = asn1.children?.[1]?.value
     }
 
-    if (!modulusRaw || !exponentRaw) {
+    if (!modulus || !exponent) {
       throw new Error('Invalid spki format')
     }
-
-    const modulusStart = modulusRaw.header + modulusRaw.stream.pos + 1
-    const modulusEnd = modulusRaw.length + modulusRaw.stream.pos + modulusRaw.header
-    const modulusHex = modulusRaw.stream.hexDump(modulusStart, modulusEnd, true)
-    const modulus = hex2ua(modulusHex)
-    const exponentStart = exponentRaw.header + exponentRaw.stream.pos
-    const exponentEnd = exponentRaw.length + exponentRaw.stream.pos + exponentRaw.header
-    const exponentHex = exponentRaw.stream.hexDump(exponentStart, exponentEnd, true)
-    const exponent = hex2ua(exponentHex)
-
     return {
       kty: 'RSA',
       alg: 'RSA-OAEP',
@@ -90,81 +103,22 @@ export class UtilsClass {
     }
   }
 
-  jwk2pkcs8(jwk: any): string {
-    const privKey = [
-      '020100', // Version = Int 0
-      writeAsn1('02', ua2hex(b64Url2ua(jwk.n))),
-      writeAsn1('02', ua2hex(b64Url2ua(jwk.e))),
-      writeAsn1('02', ua2hex(b64Url2ua(jwk.d))),
-      writeAsn1('02', ua2hex(b64Url2ua(jwk.p))),
-      writeAsn1('02', ua2hex(b64Url2ua(jwk.q))),
-      writeAsn1('02', ua2hex(b64Url2ua(jwk.dp))),
-      writeAsn1('02', ua2hex(b64Url2ua(jwk.dq))),
-      writeAsn1('02', ua2hex(b64Url2ua(jwk.qi))),
-    ]
-
-    const oidSeq = '300d06092a864886f70d0101010500'
-    const os = writeAsn1('04', writeAsn1('30', privKey.join('')))
-    const pkcs8 = writeAsn1('30', ['020100', oidSeq, os].join(''))
-
-    return pkcs8
-  }
-
-  jwk2spki(jwk: any): string {
-    const pubKey = [writeAsn1('02', ua2hex(b64Url2ua(jwk.n))), writeAsn1('02', ua2hex(b64Url2ua(jwk.e)))]
-
-    const oidSeq = '300d06092a864886f70d0101010500'
-    const os = writeAsn1('03', '00' + writeAsn1('30', pubKey.join('')))
-    const spki = writeAsn1('30', [oidSeq, os].join(''))
-
-    return spki
-  }
-
-  pkcs8ToJwk(buff: Uint8Array | ArrayBuffer) {
-    let buf = new Uint8Array(buff)
-    let hex = ua2hex(buf)
-    if (!hex.startsWith('3082') || !hex.substr(8).startsWith('0201000282010100')) {
-      hex = hex.substr(52)
-      buf = hex2ua(hex)
-    }
-    const key: any = {}
-    let offset = buf[1] & 0x80 ? buf[1] - 0x80 + 5 : 7
-
-    function read() {
-      let s = buf[offset + 1]
-
-      if (s & 0x80) {
-        const n = s - 0x80
-        s = n === 2 ? 256 * buf[offset + 2] + buf[offset + 3] : buf[offset + 2]
-        offset += n
-      }
-
-      offset += 2
-
-      const b = buf.slice(offset, offset + s)
-      offset += s
-      return b
-    }
-
-    key.modulus = read()
-    key.publicExponent = read()
-    key.privateExponent = read()
-    key.prime1 = read()
-    key.prime2 = read()
-    key.exponent1 = read()
-    key.exponent2 = read()
-    key.coefficient = read()
-
+  pkcs8ToJwk(buf: Uint8Array | ArrayBuffer) {
+    const parsed = parseAsn1(new Uint8Array(buf))
+    const seq =
+      parsed.children?.length === 3 && parsed.children[2].type === 0x04 && parsed.children[2].children?.length === 1
+        ? parsed.children[2].children[0]
+        : parsed
     return {
       kty: 'RSA',
-      n: ua2b64Url(this.minimalRep(key.modulus)),
-      e: ua2b64Url(this.minimalRep(key.publicExponent)),
-      d: ua2b64Url(this.minimalRep(key.privateExponent)),
-      p: ua2b64Url(this.minimalRep(key.prime1)),
-      q: ua2b64Url(this.minimalRep(key.prime2)),
-      dp: ua2b64Url(this.minimalRep(key.exponent1)),
-      dq: ua2b64Url(this.minimalRep(key.exponent2)),
-      qi: ua2b64Url(this.minimalRep(key.coefficient)),
+      n: ua2b64Url(this.minimalRep(seq.children![1].value as Uint8Array)),
+      e: ua2b64Url(this.minimalRep(seq.children![2].value as Uint8Array)),
+      d: ua2b64Url(this.minimalRep(seq.children![3].value as Uint8Array)),
+      p: ua2b64Url(this.minimalRep(seq.children![4].value as Uint8Array)),
+      q: ua2b64Url(this.minimalRep(seq.children![5].value as Uint8Array)),
+      dp: ua2b64Url(this.minimalRep(seq.children![6].value as Uint8Array)),
+      dq: ua2b64Url(this.minimalRep(seq.children![7].value as Uint8Array)),
+      qi: ua2b64Url(this.minimalRep(seq.children![8].value as Uint8Array)),
     }
   }
 
