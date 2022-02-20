@@ -1,10 +1,14 @@
-import { UtilsClass } from '../icc-x-api'
+import { also, UtilsClass } from '../icc-x-api'
 import { expect } from 'chai'
+import { BitString, Integer, IntegerParams, Null, ObjectIdentifier, Sequence } from 'asn1js'
+
 import 'mocha'
 import { b64_2ua, hex2ua, ua2b64, ua2hex, ua2string } from '..'
 import { crypto } from '../node-compat'
 import { RSAUtils } from '../icc-x-api/crypto/RSA'
 import { b64Url2ua, ua2b64Url } from '../icc-x-api/utils/binary-utils'
+import { pack } from '../icc-x-api/utils/asn1-packer'
+import { parseAsn1 } from '../icc-x-api/utils/asn1-parser'
 
 describe('ArrayBuffer methods', () => {
   let utils: UtilsClass
@@ -39,6 +43,8 @@ describe('ArrayBuffer methods', () => {
     it('should manage jwk conversions for private keys gracefully', async () => {
       const privKey =
         '***REMOVED***'
+      const parsed = parseAsn1(new Uint8Array(hex2ua(privKey)))
+
       const jwk1 = utils.pkcs8ToJwk(hex2ua(privKey))
       const pkcs8 = utils.jwk2pkcs8(jwk1)
       const jwk2 = utils.pkcs8ToJwk(hex2ua(pkcs8))
