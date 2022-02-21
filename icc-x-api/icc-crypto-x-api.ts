@@ -106,6 +106,10 @@ export class IccCryptoXApi {
     )
   }
 
+  sha256(data: ArrayBuffer | Uint8Array) {
+    return this.crypto.subtle.digest('SHA-256', data)
+  }
+
   encryptedShamirRSAKey(hcp: HealthcareParty, notaries: Array<HealthcareParty>, threshold?: number): Promise<HealthcareParty> {
     return this._RSA.loadKeyPairImported(hcp.id!).then((keyPair) =>
       this._RSA.exportKey(keyPair.privateKey, 'pkcs8').then((exportedKey) => {
