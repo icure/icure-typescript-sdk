@@ -7,7 +7,7 @@ import { utils } from './crypto/utils'
 import * as moment from 'moment'
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import { Contact, Service } from '../icc-api/model/models'
+import {Contact, ListOfIds, Service} from '../icc-api/model/models'
 import { PaginatedListContact } from '../icc-api/model/PaginatedListContact'
 import { a2b, b2a, hex2ua, string2ua, ua2string, ua2utf8, utf8_2ua } from './utils/binary-utils'
 
@@ -218,6 +218,10 @@ export class IccContactXApi extends IccContactApi {
     throw new Error('Cannot call a method that returns contacts without providing a user for de/encryption')
   }
 
+  listServices(body?: ListOfIds): Promise<Array<Service>> {
+    throw new Error('Cannot call a method that returns services without providing a user for de/encryption')
+  }
+
   findByHCPartyFormId(hcPartyId?: string, formId?: string): never {
     throw new Error('Cannot call a method that returns contacts without providing a user for de/encryption')
   }
@@ -283,6 +287,12 @@ export class IccContactXApi extends IccContactApi {
       .then((ctcs) =>
         this.decrypt(user.healthcarePartyId! || user.patientId!, ctcs.rows!).then((decryptedRows) => Object.assign(ctcs, { rows: decryptedRows }))
       )
+  }
+
+  listServicesWithUser(user: models.User, serviceIds: ListOfIds): Promise<Array<Service> | any> {
+    return super
+      .listServices(serviceIds)
+      .then((services) => this.decryptServices(user.healthcarePartyId! || user.patientId!, services, undefined, undefined))
   }
 
   findByHCPartyFormIdWithUser(user: models.User, hcPartyId: string, formId: string): Promise<Array<models.Contact> | any> {
