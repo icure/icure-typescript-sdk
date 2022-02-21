@@ -14,6 +14,7 @@ import { IccMessageXApi } from './icc-message-x-api'
 import { IccReceiptXApi } from './icc-receipt-x-api'
 import { IccAccesslogXApi } from './icc-accesslog-x-api'
 import { IccTimeTableXApi } from './icc-time-table-x-api'
+import { IccDeviceApi } from '../icc-api/api/IccDeviceApi'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -60,7 +61,14 @@ export const Api = function (
   const entityReferenceApi = new IccEntityrefApi(host, headers, fetchImpl)
   const userApi = new IccUserXApi(host, headers, fetchImpl)
   const healthcarePartyApi = new IccHcpartyXApi(host, headers, fetchImpl)
-  const cryptoApi = new IccCryptoXApi(host, headers, healthcarePartyApi, new IccPatientApi(host, headers, fetchImpl), crypto)
+  const cryptoApi = new IccCryptoXApi(
+    host,
+    headers,
+    healthcarePartyApi,
+    new IccPatientApi(host, headers, fetchImpl),
+    new IccDeviceApi(host, headers, fetchImpl),
+    crypto
+  )
   const accessLogApi = new IccAccesslogXApi(host, headers, cryptoApi, fetchImpl)
   const contactApi = new IccContactXApi(host, headers, cryptoApi, fetchImpl)
   const formApi = new IccFormXApi(host, headers, cryptoApi, fetchImpl)
