@@ -67,7 +67,7 @@ export const Api = function (
     headers,
     healthcarePartyApi,
     new IccPatientApi(host, headers, fetchImpl),
-    new IccDeviceApi(host, headers, fetchImpl),
+    deviceApi,
     crypto
   )
   const accessLogApi = new IccAccesslogXApi(host, headers, cryptoApi, fetchImpl)
