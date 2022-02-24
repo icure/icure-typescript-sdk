@@ -34,8 +34,13 @@ export class IccCryptoXApi {
     [delegateId: string]: Promise<{ [delegatorId: string]: string }>
   } = {}
 
+  patientCache: { [key: string]: Promise<Patient> } = {}
+  deviceCache: { [key: string]: Promise<Device> } = {}
+
   emptyHcpCache(hcpartyId: string) {
     delete this.hcPartyKeysRequestsCache[hcpartyId]
+    delete this.patientCache[hcpartyId]
+    delete this.deviceCache[hcpartyId]
   }
 
   /**
@@ -379,7 +384,9 @@ export class IccCryptoXApi {
 
     const secretId = this.randomUuid()
     return this.getDataOwner(ownerId)
-      .then(({ dataOwner: owner }) => this.getOrCreateHcPartyKey(owner, ownerId))
+      .then(({ dataOwner: owner }) => {
+        return this.getOrCreateHcPartyKey(owner, ownerId)
+      })
       .then((encryptedHcPartyKey) => this.decryptHcPartyKey(ownerId, ownerId, encryptedHcPartyKey, true))
       .then((importedAESHcPartyKey) =>
         Promise.all([
@@ -617,8 +624,9 @@ export class IccCryptoXApi {
     this.throwDetailedExceptionForInvalidParameter('createdObject.id', createdObject.id, 'initEncryptionKeys', arguments)
 
     const secretId = this.randomUuid()
-    return this.getHcPartyKeysForDelegate(ownerId)
-      .then((encryptedHcPartyKey) => this.decryptHcPartyKey(ownerId, ownerId, encryptedHcPartyKey[ownerId], true))
+    return this.getDataOwner(ownerId)
+      .then(({ dataOwner: owner }) => this.getOrCreateHcPartyKey(owner, ownerId))
+      .then((encryptedHcPartyKey) => this.decryptHcPartyKey(ownerId, ownerId, encryptedHcPartyKey, true))
       .then((importedAESHcPartyKey) => this._AES.encrypt(importedAESHcPartyKey.key, string2ua(createdObject.id + ':' + secretId)))
       .then((encryptedEncryptionKeys) => ({
         encryptionKeys: _.fromPairs([
@@ -1291,7 +1299,6 @@ export class IccCryptoXApi {
                   .then((AESKey) => {
                     const ownerPubKey = this._utils.spkiToJwk(hex2ua(owner.publicKey!))
                     const delegatePubKey = this._utils.spkiToJwk(hex2ua(delegate.publicKey!))
-
                     return Promise.all([
                       this._RSA.importKey('jwk', ownerPubKey, ['encrypt']),
                       this._RSA.importKey('jwk', delegatePubKey, ['encrypt']),
@@ -1304,10 +1311,10 @@ export class IccCryptoXApi {
                   })
                   .then(([ownerKey, delegateKey]) => (owner.hcPartyKeys![delegateId] = [ua2hex(ownerKey), ua2hex(delegateKey)]))
                   .then(() => {
-                    ownerType === 'hcp'
+                    return ownerType === 'hcp'
                       ? this.hcpartyBaseApi.modifyHealthcareParty(owner as HealthcareParty).then((hcp: HealthcareParty) => resolve(['hcp', hcp]))
                       : ownerType === 'patient'
-                      ? this.hcpartyBaseApi.modifyHealthcareParty(owner as HealthcareParty).then((hcp: HealthcareParty) => resolve(['patient', hcp]))
+                      ? this.patientBaseApi.modifyPatient(owner as Patient).then((patient: Patient) => resolve(['patient', patient]))
                       : this.deviceBaseApi.updateDevice(owner as Device).then((dev: Device) => resolve(['device', dev]))
                   })
                   .catch((e) => reject(e))
@@ -1316,19 +1323,46 @@ export class IccCryptoXApi {
 
           // invalidate the hcPartyKeys cache for the delegate hcp (who was not modified, but the view for its
           // id was updated)
-          this.hcPartyKeysRequestsCache[delegateId] = genProm.then(() => this.forceGetHcPartyKeysForDelegate(delegateId))
-          return genProm.then((res) => res[1])
+          this.hcPartyKeysRequestsCache[delegateId] = genProm.then(() => {
+            return this.forceGetHcPartyKeysForDelegate(delegateId)
+          })
+          return genProm.then((res) => {
+            return res[1]
+          })
         }
       )
     )
   }
 
-  private getDataOwner(ownerId: string) {
-    return (this.hcpartyBaseApi as IccHcpartyXApi)
-      .getHealthcareParty(ownerId, true)
-      .then((x) => ({ type: 'hcp', dataOwner: x }))
-      .catch(() => this.deviceBaseApi.getDevice(ownerId).then((x) => ({ type: 'device', dataOwner: x })))
-      .catch(() => this.patientBaseApi.getPatient(ownerId).then((x) => ({ type: 'patient', dataOwner: x })))
+  private async getDataOwner(ownerId: string) {
+    const prom =
+      this.patientCache[ownerId]?.then((x) => ({ type: 'patient', dataOwner: x })) ??
+      this.deviceCache[ownerId]?.then((x) => ({ type: 'device', dataOwner: x }))?.catch(() => null) ??
+      (this.hcpartyBaseApi as IccHcpartyXApi).getHealthcareParty(ownerId, true).then((x) => ({ type: 'hcp', dataOwner: x }))
+
+    try {
+      return await prom
+    } catch (e) {}
+    try {
+      return await (this.deviceCache[ownerId] = this.deviceBaseApi.getDevice(ownerId))
+        .then((x) => ({ type: 'device', dataOwner: x }))
+        .catch((e) => {
+          delete this.deviceCache[ownerId]
+          throw e
+        })
+    } catch (e) {}
+
+    try {
+      return (this.patientCache[ownerId] = this.patientBaseApi.getPatient(ownerId))
+        .then((x) => ({ type: 'patient', dataOwner: x }))
+        .catch((e) => {
+          delete this.patientCache[ownerId]
+          throw e
+        })
+    } catch (e) {
+      console.error('Cannot load data owner with id ' + ownerId)
+      throw e
+    }
   }
 
   // noinspection JSUnusedGlobalSymbols
