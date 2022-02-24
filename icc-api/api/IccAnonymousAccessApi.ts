@@ -10,7 +10,7 @@
  * Do not edit the class manually.
  */
 import { XHR } from './XHR'
-import { CalendarItemType } from '../model/CalendarItemType'
+import { AppointmentTypeAndPlace } from '../model/AppointmentTypeAndPlace'
 import { UserAndHealthcareParty } from '../model/UserAndHealthcareParty'
 
 export class IccAnonymousAccessApi {
@@ -37,7 +37,9 @@ export class IccAnonymousAccessApi {
    * @summary Get Availabilities for HCP and appointmentType
    * @param groupId
    * @param userId
-   * @param getCalendarItemTypeId
+   * @param calendarItemTypeId
+   * @param placeId
+   * @param isNewPatient
    * @param startDate
    * @param endDate
    * @param hcpId
@@ -46,7 +48,9 @@ export class IccAnonymousAccessApi {
   getAvailabilitiesByPeriodAndCalendarItemTypeId(
     groupId: string,
     userId: string,
-    getCalendarItemTypeId: string,
+    calendarItemTypeId: string,
+    placeId: string,
+    isNewPatient: boolean,
     startDate: number,
     endDate: number,
     hcpId: string,
@@ -57,10 +61,12 @@ export class IccAnonymousAccessApi {
     const _url =
       this.host +
       `/aa/available/inGroup/${encodeURIComponent(String(groupId))}/forUser/${encodeURIComponent(String(userId))}/type/${encodeURIComponent(
-        String(getCalendarItemTypeId)
+        String(calendarItemTypeId)
       )}` +
       '?ts=' +
       new Date().getTime() +
+      (placeId ? '&placeId=' + encodeURIComponent(String(placeId)) : '') +
+      (isNewPatient ? '&isNewPatient=' + encodeURIComponent(String(isNewPatient)) : '') +
       (startDate ? '&startDate=' + encodeURIComponent(String(startDate)) : '') +
       (endDate ? '&endDate=' + encodeURIComponent(String(endDate)) : '') +
       (hcpId ? '&hcpId=' + encodeURIComponent(String(hcpId)) : '') +
@@ -79,7 +85,7 @@ export class IccAnonymousAccessApi {
    * @param startDate
    * @param endDate
    */
-  listAppointmentTypesForUser(groupId: string, userId: string, startDate: number, endDate: number): Promise<Array<CalendarItemType>> {
+  listAppointmentTypesForUser(groupId: string, userId: string, startDate: number, endDate: number): Promise<Array<AppointmentTypeAndPlace>> {
     let _body = null
 
     const _url =
@@ -91,7 +97,7 @@ export class IccAnonymousAccessApi {
       (endDate ? '&endDate=' + encodeURIComponent(String(endDate)) : '')
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new CalendarItemType(it)))
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new AppointmentTypeAndPlace(it)))
       .catch((err) => this.handleError(err))
   }
 
