@@ -2,7 +2,7 @@ const textDecoder = TextDecoder ? new TextDecoder() : null
 const textEncoder = TextEncoder ? new TextEncoder() : null
 
 export function b2a(a: string): string {
-  if (Buffer) {
+  if (typeof Buffer !== 'undefined') {
     const buf = Buffer.from(a, 'latin1')
     return buf.toString('base64')
   }
@@ -13,7 +13,7 @@ export function b2a(a: string): string {
 }
 
 export function a2b(s: string): string {
-  if (Buffer) {
+  if (typeof Buffer !== 'undefined') {
     const buf = new Buffer(s, 'base64')
     return buf.toString('latin1')
   }
