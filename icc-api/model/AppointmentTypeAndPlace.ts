@@ -9,20 +9,18 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
-import { TimeTableHour } from './TimeTableHour'
+import { Address } from './Address'
 
-export class TimeTableItem {
+export class AppointmentTypeAndPlace {
   constructor(json: JSON | any) {
-    Object.assign(this as TimeTableItem, json)
+    Object.assign(this as AppointmentTypeAndPlace, json)
   }
 
-  days?: Array<string>
-  hours?: Array<TimeTableHour>
-  recurrenceTypes?: Array<string>
   calendarItemTypeId?: string
-  homeVisit?: boolean
+  name?: string
+  color?: string
+  subjectByLanguage?: { [key: string]: string }
   placeId?: string
-  publicTimeTableItem?: boolean
-  acceptsNewPatient?: boolean
-  unavailable?: boolean
+  address?: Address
+  acceptsNewPatients?: boolean
 }
