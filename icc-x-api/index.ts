@@ -61,12 +61,13 @@ export const Api = function (
   const entityReferenceApi = new IccEntityrefApi(host, headers, fetchImpl)
   const userApi = new IccUserXApi(host, headers, fetchImpl)
   const healthcarePartyApi = new IccHcpartyXApi(host, headers, fetchImpl)
+  const deviceApi = new IccDeviceApi(host, headers, fetchImpl)
   const cryptoApi = new IccCryptoXApi(
     host,
     headers,
     healthcarePartyApi,
     new IccPatientApi(host, headers, fetchImpl),
-    new IccDeviceApi(host, headers, fetchImpl),
+    deviceApi,
     crypto
   )
   const accessLogApi = new IccAccesslogXApi(host, headers, cryptoApi, fetchImpl)
@@ -116,6 +117,7 @@ export const Api = function (
     userApi,
     patientApi,
     healthcarePartyApi,
+    deviceApi,
     accessLogApi,
     contactApi,
     healthcareElementApi,
