@@ -1,4 +1,4 @@
-import { IccAuthApi, IccEntityrefApi, IccGroupApi, IccInsuranceApi, IccPatientApi } from '../icc-api'
+import { IccAgendaApi, IccAuthApi, IccEntityrefApi, IccGroupApi, IccInsuranceApi, IccPatientApi } from '../icc-api'
 import { IccUserXApi } from './icc-user-x-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 import { IccContactXApi } from './icc-contact-x-api'
@@ -70,6 +70,7 @@ export const Api = function (
     crypto
   )
   const accessLogApi = new IccAccesslogXApi(host, headers, cryptoApi, fetchImpl)
+  const agendaApi = new IccAgendaApi(host, headers, fetchImpl)
   const contactApi = new IccContactXApi(host, headers, cryptoApi, fetchImpl)
   const formApi = new IccFormXApi(host, headers, cryptoApi, fetchImpl)
   const groupApi = new IccGroupApi(host, headers)
@@ -125,6 +126,7 @@ export const Api = function (
     messageApi,
     entityReferenceApi,
     receiptApi,
+    agendaApi,
     calendarItemApi,
     classificationApi,
     timetableApi,
