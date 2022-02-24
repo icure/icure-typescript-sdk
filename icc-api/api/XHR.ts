@@ -39,7 +39,7 @@ export namespace XHR {
   }
 
   function b2a(a: string): string {
-    if (Buffer) {
+    if (typeof Buffer !== 'undefined') {
       return Buffer.from(a).toString('base64')
     }
     if (typeof btoa !== 'undefined') {

@@ -3,7 +3,7 @@ export function b64_2ab(s: string): ArrayBuffer {
 }
 
 function a2b(s: string): string {
-  if (Buffer) {
+  if (typeof Buffer !== 'undefined') {
     const buf = new Buffer(s, 'base64')
     return buf.toString('latin1')
   }
