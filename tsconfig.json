@@ -16,7 +16,6 @@
     "allowSyntheticDefaultImports": true,
     "preserveConstEnums": true,
     "lib": ["es2017", "es6", "es5", "dom"],
-    "sourceMap": true,
     "declaration": true,
     /* Generates corresponding '.d.ts' file. */
     "outDir": "./dist",
