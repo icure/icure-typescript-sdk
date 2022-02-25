@@ -65,7 +65,7 @@ export class IccAnonymousAccessApi {
       )}` +
       '?ts=' +
       new Date().getTime() +
-      (isNewPatient ? '&isNewPatient=' + encodeURIComponent(String(isNewPatient)) : '') +
+      (isNewPatient !== null && isNewPatient !== undefined ? '&isNewPatient=' + encodeURIComponent(String(isNewPatient)) : '') +
       (startDate ? '&startDate=' + encodeURIComponent(String(startDate)) : '') +
       (endDate ? '&endDate=' + encodeURIComponent(String(endDate)) : '') +
       (hcpId ? '&hcpId=' + encodeURIComponent(String(hcpId)) : '') +
