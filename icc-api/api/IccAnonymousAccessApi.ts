@@ -38,22 +38,22 @@ export class IccAnonymousAccessApi {
    * @param groupId
    * @param userId
    * @param calendarItemTypeId
-   * @param placeId
    * @param isNewPatient
    * @param startDate
    * @param endDate
    * @param hcpId
+   * @param placeId
    * @param limit
    */
   getAvailabilitiesByPeriodAndCalendarItemTypeId(
     groupId: string,
     userId: string,
     calendarItemTypeId: string,
-    placeId: string,
     isNewPatient: boolean,
     startDate: number,
     endDate: number,
     hcpId: string,
+    placeId?: string,
     limit?: number
   ): Promise<Array<number>> {
     let _body = null
@@ -65,11 +65,11 @@ export class IccAnonymousAccessApi {
       )}` +
       '?ts=' +
       new Date().getTime() +
-      (placeId ? '&placeId=' + encodeURIComponent(String(placeId)) : '') +
       (isNewPatient ? '&isNewPatient=' + encodeURIComponent(String(isNewPatient)) : '') +
       (startDate ? '&startDate=' + encodeURIComponent(String(startDate)) : '') +
       (endDate ? '&endDate=' + encodeURIComponent(String(endDate)) : '') +
       (hcpId ? '&hcpId=' + encodeURIComponent(String(hcpId)) : '') +
+      (placeId ? '&placeId=' + encodeURIComponent(String(placeId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
