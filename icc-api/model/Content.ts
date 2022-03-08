@@ -12,9 +12,10 @@
 import { Measure } from './Measure'
 import { Medication } from './Medication'
 import { Service } from './Service'
+import { TimeSeries } from './TimeSeries'
 
 /**
- * The type of the content recorded in the documents for the service
+ * Information contained in the service. Content is localized, using ISO language code as key
  */
 import { b64_2ab } from './ModelHelper'
 export class Content {
@@ -37,6 +38,7 @@ export class Content {
   documentId?: string
   measureValue?: Measure
   medicationValue?: Medication
+  timeSeries?: TimeSeries
   compoundValue?: Array<Service>
   ratio?: Array<Measure>
   range?: Array<Measure>

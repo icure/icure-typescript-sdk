@@ -22,5 +22,7 @@ export class TimeTableItem {
   calendarItemTypeId?: string
   homeVisit?: boolean
   placeId?: string
+  publicTimeTableItem?: boolean
+  acceptsNewPatient?: boolean
   unavailable?: boolean
 }

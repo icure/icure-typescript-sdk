@@ -10,8 +10,10 @@
  * Do not edit the class manually.
  */
 import { XHR } from './XHR'
+import { AbstractFilterUser } from '../model/AbstractFilterUser'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { EmailTemplate } from '../model/EmailTemplate'
+import { FilterChainUser } from '../model/FilterChainUser'
 import { PaginatedListUser } from '../model/PaginatedListUser'
 import { PropertyStub } from '../model/PropertyStub'
 import { Unit } from '../model/Unit'
@@ -167,6 +169,31 @@ export class IccUserApi {
   }
 
   /**
+   * Returns a list of users along with next start keys and Document ID. If the nextStartKey is Null it means that this is the last page.
+   * @summary Filter users for the current user (HcParty)
+   * @param body
+   * @param startDocumentId A User document ID
+   * @param limit Number of rows
+   */
+  filterUsersBy(startDocumentId?: string, limit?: number, body?: FilterChainUser): Promise<PaginatedListUser> {
+    let _body = null
+    _body = body
+
+    const _url =
+      this.host +
+      `/user/filter` +
+      '?ts=' +
+      new Date().getTime() +
+      (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
+      (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+      .then((doc) => new PaginatedListUser(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    *
    * @summary Get the list of users by healthcare party id
    * @param id
@@ -247,8 +274,9 @@ export class IccUserApi {
    * @param userId
    * @param key The token key. Only one instance of a token with a defined key can exist at the same time
    * @param tokenValidity The token validity in seconds
+   * @param token
    */
-  getToken(userId: string, key: string, tokenValidity?: number): Promise<string> {
+  getToken(userId: string, key: string, tokenValidity?: number, token?: string): Promise<string> {
     let _body = null
 
     const _url =
@@ -258,6 +286,7 @@ export class IccUserApi {
       new Date().getTime() +
       (tokenValidity ? '&tokenValidity=' + encodeURIComponent(String(tokenValidity)) : '')
     let headers = this.headers
+    token && (headers = headers.concat(new XHR.Header('token', token)))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
       .then((doc) => JSON.parse(JSON.stringify(doc.body)))
       .catch((err) => this.handleError(err))
@@ -269,9 +298,10 @@ export class IccUserApi {
    * @param groupId
    * @param userId
    * @param key The token key. Only one instance of a token with a defined key can exist at the same time
+   * @param token
    * @param tokenValidity The token validity in seconds
    */
-  getTokenInGroup(groupId: string, userId: string, key: string, tokenValidity?: number): Promise<string> {
+  getTokenInGroup(groupId: string, userId: string, key: string, token?: string, tokenValidity?: number): Promise<string> {
     let _body = null
 
     const _url =
@@ -281,6 +311,7 @@ export class IccUserApi {
       new Date().getTime() +
       (tokenValidity ? '&tokenValidity=' + encodeURIComponent(String(tokenValidity)) : '')
     let headers = this.headers
+    token && (headers = headers.concat(new XHR.Header('token', token)))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
       .then((doc) => JSON.parse(JSON.stringify(doc.body)))
       .catch((err) => this.handleError(err))
@@ -362,6 +393,23 @@ export class IccUserApi {
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
       .then((doc) => new PaginatedListUser(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
+   * @summary Get ids of healthcare party matching the provided filter for the current user (HcParty)
+   * @param body
+   */
+  matchUsersBy(body?: AbstractFilterUser): Promise<Array<string>> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/user/match` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
       .catch((err) => this.handleError(err))
   }
 

@@ -19,10 +19,36 @@ import { PatientByHcPartyFilter } from './PatientByHcPartyFilter'
 import { PatientByHcPartyGenderEducationProfession } from './PatientByHcPartyGenderEducationProfession'
 import { PatientByIdsFilter } from './PatientByIdsFilter'
 import { PatientByHcPartyNameContainsFuzzyFilter } from './PatientByHcPartyNameContainsFuzzyFilter'
-import GenderEnum = Patient.GenderEnum
 
+import GenderEnum = Patient.GenderEnum
+import { ContactByHcPartyFilter } from './ContactByHcPartyFilter'
+
+export * from './AllCodesFilter'
+export * from './AllDevicesFilter'
+export * from './AllHealthcarePartiesFilter'
+export * from './AllUsersFilter'
+export * from './CodeByIdsFilter'
+export * from './CodeByRegionTypeLabelLanguageFilter'
+export * from './ComplementFilter'
+export * from './ConstantFilter'
+export * from './ContactByHcPartyFilter'
+export * from './ContactByHcPartyPatientTagCodeDateFilter'
+export * from './ContactByHcPartyTagCodeDateFilter'
+export * from './ContactByServiceIdsFilter'
+export * from './DeviceByHcPartyFilter'
+export * from './DeviceByIdsFilter'
+export * from './HealthElementByHcPartyFilter'
+export * from './HealthElementByHcPartyIdentifiersFilter'
+export * from './HealthElementByHcPartySecretForeignKeysFilter'
+export * from './HealthElementByHcPartyTagCodeFilter'
+export * from './HealthElementByIdsFilter'
+export * from './HealthcarePartyByIdsFilter'
+export * from './IntersectionFilter'
+export * from './InvoiceByHcPartyCodeDateFilter'
 export * from './PatientByHcPartyAndActiveFilter'
 export * from './PatientByHcPartyAndExternalIdFilter'
+export * from './PatientByHcPartyAndIdentifiersFilter'
+export * from './PatientByHcPartyAndSsinFilter'
 export * from './PatientByHcPartyAndSsinsFilter'
 export * from './PatientByHcPartyDateOfBirthBetweenFilter'
 export * from './PatientByHcPartyDateOfBirthFilter'
@@ -31,6 +57,14 @@ export * from './PatientByHcPartyGenderEducationProfession'
 export * from './PatientByHcPartyNameContainsFuzzyFilter'
 export * from './PatientByHcPartyNameFilter'
 export * from './PatientByIdsFilter'
+export * from './ServiceByContactsAndSubcontactsFilter'
+export * from './ServiceByHcPartyFilter'
+export * from './ServiceByHcPartyIdentifiersFilter'
+export * from './ServiceByHcPartyTagCodeDateFilter'
+export * from './ServiceByIdsFilter'
+export * from './ServiceBySecretForeignKeys'
+export * from './UnionFilter'
+export * from './UserByIdsFilter'
 
 export class Filter {
   public static patient(): PatientFilterBuilder {
@@ -39,12 +73,14 @@ export class Filter {
 }
 
 export type AbstractFilter<T> = T extends Patient
-  ? AbstractFilterPatient | ConstantFilter<T> | IntersectionFilter<T> | UnionFilter<T> | ComplementFilter<T>
+  ? AbstractFilterPatient | ConstantFilter<Patient> | IntersectionFilter<Patient> | UnionFilter<Patient> | ComplementFilter<Patient>
   : T extends Contact
   ? AbstractFilterContact | ConstantFilter<T> | IntersectionFilter<T> | UnionFilter<T> | ComplementFilter<T>
   : T extends Service
   ? AbstractFilterService | ConstantFilter<T> | IntersectionFilter<T> | UnionFilter<T> | ComplementFilter<T>
   : ConstantFilter<T> | IntersectionFilter<T> | UnionFilter<T> | ComplementFilter<T>
+
+const f: AbstractFilterContact = new ComplementFilter<Contact>(new ContactByHcPartyFilter({}), new ContactByHcPartyFilter({}))
 
 abstract class FilterBuilder<T> {
   // This is the current generator for the filter, when we call build(), filterProvider() is going to be called

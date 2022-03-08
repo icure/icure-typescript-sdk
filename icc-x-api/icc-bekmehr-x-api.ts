@@ -112,7 +112,7 @@ export class IccBekmehrXApi extends IccBekmehrApi {
                 })
               )
             )
-        } else {
+        } else if (msg.type === 'ServiceDto') {
           that.ctcApi
             .decryptServices(healthcarePartyId, msg.body)
             .then((res) =>
