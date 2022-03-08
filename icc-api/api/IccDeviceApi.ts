@@ -16,6 +16,7 @@ import { DocIdentifier } from '../model/DocIdentifier'
 import { FilterChainDevice } from '../model/FilterChainDevice'
 import { IdWithRev } from '../model/IdWithRev'
 import { ListOfIds } from '../model/ListOfIds'
+import { PaginatedListDevice } from '../model/PaginatedListDevice'
 
 export class IccDeviceApi {
   host: string
@@ -114,7 +115,7 @@ export class IccDeviceApi {
     const _url = this.host + `/device/delete/batch` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
       .catch((err) => this.handleError(err))
   }
@@ -123,22 +124,10 @@ export class IccDeviceApi {
    * Returns a list of devices along with next start keys and Document ID. If the nextStartKey is Null it means that this is the last page.
    * @summary Filter devices for the current user (HcParty)
    * @param body
-   * @param startKey The start key for pagination, depends on the filters used
    * @param startDocumentId A device document ID
    * @param limit Number of rows
-   * @param skip Skip rows
-   * @param sort Sort key
-   * @param desc Descending
    */
-  filterDevicesBy(
-    startKey?: string,
-    startDocumentId?: string,
-    limit?: number,
-    skip?: number,
-    sort?: string,
-    desc?: boolean,
-    body?: FilterChainDevice
-  ): Promise<string> {
+  filterDevicesBy(startDocumentId?: string, limit?: number, body?: FilterChainDevice): Promise<PaginatedListDevice> {
     let _body = null
     _body = body
 
@@ -147,16 +136,12 @@ export class IccDeviceApi {
       `/device/filter` +
       '?ts=' +
       new Date().getTime() +
-      (startKey ? '&startKey=' + encodeURIComponent(String(startKey)) : '') +
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
-      (limit ? '&limit=' + encodeURIComponent(String(limit)) : '') +
-      (skip ? '&skip=' + encodeURIComponent(String(skip)) : '') +
-      (sort ? '&sort=' + encodeURIComponent(String(sort)) : '') +
-      (desc ? '&desc=' + encodeURIComponent(String(desc)) : '')
+      (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
-      .then((doc) => JSON.parse(JSON.stringify(doc.body)))
+      .then((doc) => new PaginatedListDevice(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 
@@ -172,6 +157,21 @@ export class IccDeviceApi {
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
       .then((doc) => new Device(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * (key, value) of the map is as follows: (ID of the owner of the encrypted AES key, encrypted AES key)
+   * @summary Get the HcParty encrypted AES keys indexed by owner
+   * @param deviceId The deviceId Id for which information is shared
+   */
+  getDeviceHcPartyKeysForDelegate(deviceId: string): Promise<{ [key: string]: string }> {
+    let _body = null
+
+    const _url = this.host + `/device/${encodeURIComponent(String(deviceId))}/keys` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+      .then((doc) => JSON.parse(JSON.stringify(doc.body)))
       .catch((err) => this.handleError(err))
   }
 

@@ -18,7 +18,7 @@ import { PersonName } from './PersonName'
 import { PropertyStub } from './PropertyStub'
 
 /**
- * This entity is a root level object. It represents a healthcare party. It is serialized in JSON and saved in the underlying icure-healthcareParty CouchDB database.
+ * This entity is a root level object. It represents a healthcare party. It is serialized in JSON and saved in the underlying icure-healthdata CouchDB database.
  */
 import { b64_2ab } from './ModelHelper'
 export class HealthcareParty {
@@ -34,6 +34,14 @@ export class HealthcareParty {
    * the revision of the healthcare party in the database, used for conflict management / optimistic locking.
    */
   rev?: string
+  /**
+   * creation timestamp of the object.
+   */
+  created?: number
+  /**
+   * last modification timestamp of the object.
+   */
+  modified?: number
   /**
    * hard delete (unix epoch in ms) timestamp of the object. Filled automatically when deletePatient is called.
    */
