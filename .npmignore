@@ -1,4 +1,3 @@
-*.ts
 node_modules
 swagger-codegen-generators.jar
 .idea/

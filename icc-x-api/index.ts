@@ -91,18 +91,7 @@ export const Api = function (
     ['note'],
     fetchImpl
   )
-  const messageApi = new IccMessageXApi(
-    host,
-    headers,
-    cryptoApi,
-    insuranceApi,
-    entityReferenceApi,
-    invoiceApi,
-    documentApi,
-    receiptApi,
-    patientApi,
-    fetchImpl
-  )
+  const messageApi = new IccMessageXApi(host, headers, cryptoApi, fetchImpl)
 
   return {
     cryptoApi,
