@@ -91,6 +91,6 @@ export class IccReceiptXApi extends IccReceiptApi {
   logReceipt(user: models.User, docId: string, refs: Array<string>, blobType: string, blob: ArrayBuffer) {
     return this.newInstance(user, { documentId: docId, references: refs })
       .then((rcpt) => this.createReceipt(rcpt))
-      .then((rcpt) => blob.byteLength!=0 ? this.setReceiptAttachment(rcpt.id!, blobType, '', <any>blob) : Promise.resolve(rcpt))
+      .then((rcpt) => (blob.byteLength != 0 ? this.setReceiptAttachment(rcpt.id!, blobType, '', <any>blob) : Promise.resolve(rcpt)))
   }
 }
