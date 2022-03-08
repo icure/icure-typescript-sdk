@@ -6,6 +6,7 @@ export class ComplementFilter<T> {
     this.subSet = subSet
   }
 
+  desc?: string
   superSet: AbstractFilter<T>
   subSet: AbstractFilter<T>
   $type = 'ComplementFilter'

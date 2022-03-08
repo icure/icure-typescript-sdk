@@ -17,6 +17,7 @@ import { FilterChainHealthElement } from '../model/FilterChainHealthElement'
 import { HealthElement } from '../model/HealthElement'
 import { IcureStub } from '../model/IcureStub'
 import { ListOfIds } from '../model/ListOfIds'
+import { PaginatedListHealthElement } from '../model/PaginatedListHealthElement'
 
 export class IccHelementApi {
   host: string
@@ -87,19 +88,27 @@ export class IccHelementApi {
   }
 
   /**
-   * Returns a list of healthcare elements along with next start keys and Document ID. If the nextStartKey is Null it means that this is the last page.
-   * @summary Filter healthcare elements for the current user (HcParty)
+   * Returns a list of health elements along with next start keys and Document ID. If the nextStartKey is Null it means that this is the last page.
+   * @summary Filter health elements for the current user (HcParty)
    * @param body
+   * @param startDocumentId A HealthElement document ID
+   * @param limit Number of rows
    */
-  filterHealthElementsBy(body?: FilterChainHealthElement): Promise<Array<HealthElement>> {
+  filterHealthElementsBy(startDocumentId?: string, limit?: number, body?: FilterChainHealthElement): Promise<PaginatedListHealthElement> {
     let _body = null
     _body = body
 
-    const _url = this.host + `/helement/filter` + '?ts=' + new Date().getTime()
+    const _url =
+      this.host +
+      `/helement/filter` +
+      '?ts=' +
+      new Date().getTime() +
+      (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
+      (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new HealthElement(it)))
+      .then((doc) => new PaginatedListHealthElement(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 
