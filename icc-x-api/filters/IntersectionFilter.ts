@@ -5,6 +5,7 @@ export class IntersectionFilter<T> {
     this.filters = filters
   }
 
+  desc?: string
   filters: AbstractFilter<T>[]
   $type = 'IntersectionFilter'
 }
