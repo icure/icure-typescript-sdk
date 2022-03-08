@@ -4,12 +4,10 @@ import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
 
 export class IccReceiptXApi extends IccReceiptApi {
-  crypto: IccCryptoXApi
-
   constructor(
     host: string,
     headers: { [key: string]: string },
-    crypto: IccCryptoXApi,
+    private crypto: IccCryptoXApi,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
@@ -17,7 +15,6 @@ export class IccReceiptXApi extends IccReceiptApi {
       : fetch
   ) {
     super(host, headers, fetchImpl)
-    this.crypto = crypto
   }
 
   newInstance(user: models.User, r: any): Promise<models.Receipt> {
@@ -94,6 +91,6 @@ export class IccReceiptXApi extends IccReceiptApi {
   logReceipt(user: models.User, docId: string, refs: Array<string>, blobType: string, blob: ArrayBuffer) {
     return this.newInstance(user, { documentId: docId, references: refs })
       .then((rcpt) => this.createReceipt(rcpt))
-      .then((rcpt) => this.setReceiptAttachment(rcpt.id!, blobType, '', <any>blob))
+      .then((rcpt) => (blob.byteLength != 0 ? this.setReceiptAttachment(rcpt.id!, blobType, '', <any>blob) : Promise.resolve(rcpt)))
   }
 }
