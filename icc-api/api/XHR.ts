@@ -1,3 +1,5 @@
+import { ua2b64 } from '../model/ModelHelper'
+
 export namespace XHR {
   export class Header {
     header: string
@@ -36,16 +38,6 @@ export namespace XHR {
       this.errorCode = errorCode
       this.headers = headers
     }
-  }
-
-  function b2a(a: string): string {
-    if (typeof Buffer !== 'undefined') {
-      return Buffer.from(a).toString('base64')
-    }
-    if (typeof btoa !== 'undefined') {
-      return btoa(a)
-    }
-    throw new Error('Unsupported operation b2a')
   }
 
   function fetchWithTimeout(
@@ -113,9 +105,7 @@ export namespace XHR {
               body:
                 !contentType || contentType.data === 'application/json'
                   ? JSON.stringify(data, (k, v) => {
-                      return v instanceof ArrayBuffer || v instanceof Uint8Array
-                        ? b2a(new Uint8Array(v).reduce((d, b) => d + String.fromCharCode(b), ''))
-                        : v
+                      return v instanceof ArrayBuffer || v instanceof Uint8Array ? ua2b64(v) : v
                     })
                   : data,
             }

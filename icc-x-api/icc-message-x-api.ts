@@ -4,24 +4,8 @@ import { IccDocumentXApi } from './icc-document-x-api'
 import { IccInvoiceXApi } from './icc-invoice-x-api'
 
 import * as _ from 'lodash'
-import * as moment from 'moment'
 
-import {
-  AbstractFilterPatient,
-  EntityReference,
-  FilterChainPatient,
-  HealthcareParty,
-  Insurance,
-  Invoice,
-  ListOfIds,
-  Message,
-  PaginatedListPatient,
-  Patient,
-  PatientHealthCareParty,
-  Receipt,
-  ReferralPeriod,
-  User,
-} from '../icc-api/model/models'
+import { Patient, User } from '../icc-api/model/models'
 
 import { IccReceiptXApi } from './icc-receipt-x-api'
 import { IccPatientXApi } from './icc-patient-x-api'
