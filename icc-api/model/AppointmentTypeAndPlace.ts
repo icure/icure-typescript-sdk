@@ -19,6 +19,7 @@ export class AppointmentTypeAndPlace {
   calendarItemTypeId?: string
   name?: string
   color?: string
+  duration?: number
   subjectByLanguage?: { [key: string]: string }
   placeId?: string
   address?: Address

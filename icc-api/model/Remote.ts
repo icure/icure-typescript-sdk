@@ -9,7 +9,7 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
-import { Authentication } from './Authentication'
+import { RemoteAuthentication } from './RemoteAuthentication'
 
 export class Remote {
   constructor(json: JSON | any) {
@@ -17,5 +17,5 @@ export class Remote {
   }
 
   url?: string
-  auth?: Authentication
+  auth?: RemoteAuthentication
 }
