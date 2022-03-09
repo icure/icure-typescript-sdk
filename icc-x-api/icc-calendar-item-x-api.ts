@@ -11,7 +11,7 @@ import { hex2ua, ua2utf8, utf8_2ua } from './utils/binary-utils'
 export class IccCalendarItemXApi extends IccCalendarItemApi {
   i18n: any = i18n
   crypto: IccCryptoXApi
-  cryptedKeys = ['details', 'title']
+  cryptedKeys = ['details', 'title', 'patientId']
 
   constructor(
     host: string,
