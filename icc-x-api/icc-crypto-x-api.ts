@@ -490,7 +490,7 @@ export class IccCryptoXApi {
     )
 
     return this.getDataOwner(ownerId)
-      .then(({ dataOwner: owner }) => this.getOrCreateHcPartyKey(owner, ownerId))
+      .then(({ dataOwner: owner }) => this.getOrCreateHcPartyKey(owner, delegateId))
       .then((encryptedHcPartyKey) => this.decryptHcPartyKey(ownerId, delegateId, encryptedHcPartyKey, true))
       .then((importedAESHcPartyKey) =>
         Promise.all([
@@ -676,7 +676,7 @@ export class IccCryptoXApi {
     this.throwDetailedExceptionForInvalidParameter('secretEncryptionKeyOfObject', secretEncryptionKeyOfObject, 'appendEncryptionKeys', arguments)
 
     return this.getDataOwner(ownerId)
-      .then(({ dataOwner: owner }) => this.getOrCreateHcPartyKey(owner, ownerId))
+      .then(({ dataOwner: owner }) => this.getOrCreateHcPartyKey(owner, delegateId))
       .then((encryptedHcPartyKey) => this.decryptHcPartyKey(ownerId, delegateId, encryptedHcPartyKey, true))
       .then((importedAESHcPartyKey) =>
         Promise.all([
@@ -770,7 +770,6 @@ export class IccCryptoXApi {
     if (parent) this.throwDetailedExceptionForInvalidParameter('parent.id', parent.id, 'addDelegationsAndEncryptionKeys', arguments)
 
     this.throwDetailedExceptionForInvalidParameter('child.id', child.id, 'addDelegationsAndEncryptionKeys', arguments)
-
     return (
       secretDelegationKey
         ? this.extendedDelegationsAndCryptedForeignKeys(child, parent, ownerId, delegateId, secretDelegationKey)

@@ -24,7 +24,7 @@ const jwkKey = {
 describe('Patient', () => {
   it('should be capable of loging in and encryption', async () => {
     const patientLogin = 'ad@taktik.com'
-    const token = '3a9d5d12-1a25-4f7a-a9a8-5584ce3cd12c'
+    const token = '85c95456-cb06-4281-89f3-3edfddae0db2'
     const { cryptoApi, userApi } = Api('https://kraken.icure.dev/rest/v1', patientLogin, token, crypto)
     const rawPatientApi = new IccPatientApi('https://kraken.icure.dev/rest/v1', { Authorization: `Basic ${b2a(`${patientLogin}:${token}`)}` })
 
@@ -48,6 +48,7 @@ describe('Patient', () => {
       user,
       await calendarItemApi.newInstancePatient(user, patient, {}, ['171f186a-7a2a-40f0-b842-b486428c771b'])
     )
+
     expect(ci != null)
   })
 })
