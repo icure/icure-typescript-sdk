@@ -27,38 +27,11 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
     this.crypto = crypto
   }
 
-  newInstance(user: User, ci: CalendarItem) {
-    const hcpId = user.healthcarePartyId || user.patientId
-
-    const calendarItem = _.extend(
-      {
-        id: this.crypto.randomUuid(),
-        _type: 'org.taktik.icure.entities.CalendarItem',
-        created: new Date().getTime(),
-        modified: new Date().getTime(),
-        responsible: hcpId,
-        author: user.id,
-        codes: [],
-        tags: [],
-      },
-      ci || {}
-    )
-
-    return this.crypto.initObjectDelegations(calendarItem, null, hcpId!, null).then((initData) => {
-      _.extend(calendarItem, { delegations: initData.delegations })
-
-      let promise = Promise.resolve(calendarItem)
-      ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
-        (delegateId) =>
-          (promise = promise
-            .then((cal) => this.crypto.extendedDelegationsAndCryptedForeignKeys(cal, null, hcpId!, delegateId, initData.secretId))
-            .then((extraData) => _.extend(calendarItem, { delegations: extraData.delegations })))
-      )
-      return promise
-    })
+  newInstance(user: User, ci: CalendarItem, delegates: string[] = []) {
+    return this.newInstancePatient(user, null, ci, delegates)
   }
 
-  newInstancePatient(user: models.User, patient: models.Patient, ci: any, delegates: string[] = []): Promise<models.CalendarItem> {
+  newInstancePatient(user: models.User, patient: models.Patient | null, ci: any, delegates: string[] = []): Promise<models.CalendarItem> {
     const calendarItem = _.extend(
       {
         id: this.crypto.randomUuid(),
@@ -78,7 +51,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
 
   initDelegationsAndEncryptionKeys(
     user: models.User,
-    patient: models.Patient,
+    patient: models.Patient | null,
     calendarItem: models.CalendarItem,
     delegates: string[] = []
   ): Promise<models.CalendarItem> {
