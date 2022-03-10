@@ -607,7 +607,7 @@ export class IccCryptoXApi {
       })
   }
 
-  private getOrCreateHcPartyKey(owner: HealthcareParty | Patient, delegateId: string) {
+  getOrCreateHcPartyKey(owner: HealthcareParty | Patient, delegateId: string) {
     return !owner.hcPartyKeys![delegateId]
       ? this.generateKeyForDelegate(owner.id!, delegateId).then((owner) => owner.hcPartyKeys![delegateId][0])
       : Promise.resolve(owner.hcPartyKeys![delegateId][0])
@@ -767,6 +767,7 @@ export class IccCryptoXApi {
     secretDelegationKey: string | null,
     secretEncryptionKey: string | null
   ): Promise<T> {
+    debugger
     if (parent) this.throwDetailedExceptionForInvalidParameter('parent.id', parent.id, 'addDelegationsAndEncryptionKeys', arguments)
 
     this.throwDetailedExceptionForInvalidParameter('child.id', child.id, 'addDelegationsAndEncryptionKeys', arguments)
@@ -1319,8 +1320,12 @@ export class IccCryptoXApi {
                     return ownerType === 'hcp'
                       ? this.hcpartyBaseApi.modifyHealthcareParty(owner as HealthcareParty).then((hcp: HealthcareParty) => resolve(['hcp', hcp]))
                       : ownerType === 'patient'
-                      ? this.patientBaseApi.modifyPatient(owner as Patient).then((patient: Patient) => resolve(['patient', patient]))
-                      : this.deviceBaseApi.updateDevice(owner as Device).then((dev: Device) => resolve(['device', dev]))
+                      ? (this.patientCache[owner.id!] = this.patientBaseApi.modifyPatient(owner as Patient)).then((patient: Patient) => {
+                          resolve(['patient', patient])
+                        })
+                      : (this.deviceCache[owner.id!] = this.deviceBaseApi.updateDevice(owner as Device)).then((dev: Device) => {
+                          resolve(['device', dev])
+                        })
                   })
                   .catch((e) => reject(e))
               : reject(new Error(`Missing public key for delegate ${delegateId}`))
