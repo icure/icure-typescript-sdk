@@ -1,0 +1,16 @@
+steps:
+  - name: 'gcr.io/cloud-builders/git'
+    entrypoint: 'bash'
+    args:
+      ['-c', 'git fetch --unshallow --tags && git checkout ${BRANCH_NAME} && git describe --tags --abbrev=10 --dirty --always --long > .gitversion']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['login', 'docker.taktik.be', '--username', '${_REPO_USERNAME}', '--password', '${_REPO_PASSWORD}']
+
+  - name: 'docker'
+    entrypoint: 'sh'
+    args: ['-c', 'v=$(cat .gitversion) && tag="docker.taktik.be/lutaplanning:$v" && docker build . -t $tag && docker push $tag']
+
+options:
+  machineType: 'N1_HIGHCPU_8'
+timeout: 1800s

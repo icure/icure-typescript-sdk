@@ -1348,7 +1348,7 @@ export class IccCryptoXApi {
     const prom =
       this.patientCache[ownerId]?.then((x) => ({ type: 'patient', dataOwner: x })) ??
       this.deviceCache[ownerId]?.then((x) => ({ type: 'device', dataOwner: x }))?.catch(() => null) ??
-      (this.hcpartyBaseApi as IccHcpartyXApi).getHealthcareParty(ownerId, true).then((x) => ({ type: 'hcp', dataOwner: x }))
+      this.hcpartyBaseApi.getHealthcareParty(ownerId).then((x) => ({ type: 'hcp', dataOwner: x }))
 
     try {
       return await prom
