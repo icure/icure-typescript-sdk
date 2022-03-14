@@ -2,9 +2,9 @@ import { expect, use } from 'chai'
 import 'mocha'
 import { Api } from '../icc-x-api'
 import { IccPatientApi } from '../icc-api'
-import { ua2hex, User } from '../dist'
+import { User } from '../icc-api/model/User'
 import { crypto } from '../node-compat'
-import { b2a, hex2ua } from '../icc-x-api/utils/binary-utils'
+import { b2a, ua2hex, hex2ua } from '../icc-x-api/utils/binary-utils'
 import { Patient } from '../icc-api/model/Patient'
 
 const jwkKey = {
