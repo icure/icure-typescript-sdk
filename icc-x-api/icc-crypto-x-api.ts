@@ -767,7 +767,6 @@ export class IccCryptoXApi {
     secretDelegationKey: string | null,
     secretEncryptionKey: string | null
   ): Promise<T> {
-    debugger
     if (parent) this.throwDetailedExceptionForInvalidParameter('parent.id', parent.id, 'addDelegationsAndEncryptionKeys', arguments)
 
     this.throwDetailedExceptionForInvalidParameter('child.id', child.id, 'addDelegationsAndEncryptionKeys', arguments)
