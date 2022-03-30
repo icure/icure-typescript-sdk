@@ -19,6 +19,7 @@ export class MedicationSchemeExportInfo {
 
   secretForeignKeys?: Array<string>
   services?: Array<Service>
+  serviceAuthors?: Array<HealthcareParty>
   recipient?: HealthcareParty
   comment?: string
 }

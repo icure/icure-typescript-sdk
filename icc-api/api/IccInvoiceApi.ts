@@ -41,7 +41,7 @@ export class IccInvoiceApi {
 
   /**
    *
-   * @summary Gets all invoices for author at date
+   * @summary Append codes to new or existing invoice
    * @param body
    * @param userId
    * @param type
@@ -602,7 +602,7 @@ export class IccInvoiceApi {
 
   /**
    *
-   * @summary Gets all invoices for author at date
+   * @summary removeCodes for linked serviceId
    * @param body
    * @param userId
    * @param serviceId

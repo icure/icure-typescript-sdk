@@ -139,6 +139,9 @@ export class Invoice {
   creditNote?: boolean
   creditNoteRelatedInvoiceId?: string
   idDocument?: IdentityDocumentReader
+  admissionDate?: number
+  locationNihii?: string
+  locationService?: number
   cancelReason?: string
   cancelDate?: number
   options?: { [key: string]: string }
