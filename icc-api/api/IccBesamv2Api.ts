@@ -17,9 +17,11 @@ import { PaginatedListAmp } from '../model/PaginatedListAmp'
 import { PaginatedListNmp } from '../model/PaginatedListNmp'
 import { PaginatedListVmp } from '../model/PaginatedListVmp'
 import { PaginatedListVmpGroup } from '../model/PaginatedListVmpGroup'
+import { Paragraph } from '../model/Paragraph'
 import { PharmaceuticalForm } from '../model/PharmaceuticalForm'
 import { SamVersion } from '../model/SamVersion'
 import { Substance } from '../model/Substance'
+import { Verse } from '../model/Verse'
 import { Vmp } from '../model/Vmp'
 import { VmpGroup } from '../model/VmpGroup'
 
@@ -424,6 +426,85 @@ export class IccBesamv2Api {
   }
 
   /**
+   *
+   * @param searchString
+   * @param language
+   */
+  findParagraphs(searchString: string, language: string): Promise<Array<Paragraph>> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/be_samv2/chap/search/${encodeURIComponent(String(searchString))}/${encodeURIComponent(String(language))}` +
+      '?ts=' +
+      new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Paragraph(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
+   * @param cnk
+   * @param language
+   */
+  findParagraphsWithCnk(cnk: number, language: string): Promise<Array<Paragraph>> {
+    let _body = null
+
+    const _url =
+      this.host + `/be_samv2/chap/bycnk/${encodeURIComponent(String(cnk))}/${encodeURIComponent(String(language))}` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Paragraph(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
+   * @param chapterName
+   * @param paragraphName
+   * @param verseSeq
+   * @param docSeq
+   * @param language
+   * @param response
+   */
+  getAddedDocument(chapterName: string, paragraphName: string, verseSeq: number, docSeq: number, language: string): Promise<ArrayBuffer> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/be_samv2/chap/${encodeURIComponent(String(chapterName))}/${encodeURIComponent(String(paragraphName))}/${encodeURIComponent(
+        String(verseSeq)
+      )}/addeddoc/${encodeURIComponent(String(docSeq))}/${encodeURIComponent(String(language))}` +
+      '?ts=' +
+      new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+      .then((doc) => doc.body)
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
+   * @param chapterName
+   * @param paragraphName
+   */
+  getAmpsForParagraph(chapterName: string, paragraphName: string): Promise<Array<Amp>> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/be_samv2/chap/amps/${encodeURIComponent(String(chapterName))}/${encodeURIComponent(String(paragraphName))}` +
+      '?ts=' +
+      new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Amp(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    * Returns a list of codes matched with given input. If several types are provided, paginantion is not supported
    * @summary Get Samv2 version.
    */
@@ -434,6 +515,47 @@ export class IccBesamv2Api {
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
       .then((doc) => new SamVersion(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
+   * @param chapterName
+   * @param paragraphName
+   */
+  getVersesHierarchy(chapterName: string, paragraphName: string): Promise<Verse> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/be_samv2/chap/verse/${encodeURIComponent(String(chapterName))}/${encodeURIComponent(String(paragraphName))}` +
+      '?ts=' +
+      new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+      .then((doc) => new Verse(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
+   * @param chapterName
+   * @param paragraphName
+   * @param language
+   */
+  getVtmNamesForParagraph(chapterName: string, paragraphName: string, language: string): Promise<Array<string>> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/be_samv2/chap/vtms/${encodeURIComponent(String(chapterName))}/${encodeURIComponent(String(paragraphName))}/${encodeURIComponent(
+        String(language)
+      )}` +
+      '?ts=' +
+      new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
       .catch((err) => this.handleError(err))
   }
 

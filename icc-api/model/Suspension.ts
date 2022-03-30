@@ -18,4 +18,5 @@ export class Suspension {
   beginMoment?: number
   endMoment?: number
   suspensionReason?: string
+  lifecycle?: string
 }

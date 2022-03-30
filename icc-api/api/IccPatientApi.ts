@@ -399,7 +399,7 @@ export class IccPatientApi {
   }
 
   /**
-   * This endpoint is used to recover all keys that have already been created and that can be used to share information with this patient. It returns a map with the following structure: ID of the owner of the encrypted AES key -> encrypted AES key. The returned encrypted AES keys will have to be decrypted using the patient's private key.
+   * This endpoint is used to recover all keys that have already been created and that can be used to share information with this patient. It returns a map with the following structure: ID of the owner of the encrypted AES key -> encrypted AES key. The returned encrypted AES keys will have to be decrypted using the patient's private key.                  {                     \"hcparty 1 delegator ID\": \"AES hcparty key (encrypted using patient public RSA key)\"                     \"hcparty 2 delegator ID\": \"other AES hcparty key (encrypted using patient public RSA key)\"                 }
    * @summary Get the patient (identified by patientId) hcparty keys. Those keys are AES keys (encrypted) used to share information between HCPs and a patient.
    * @param patientId The patient Id for which information is shared
    */
