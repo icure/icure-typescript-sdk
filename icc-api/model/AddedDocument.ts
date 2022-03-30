@@ -9,12 +9,19 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
-import { Basic } from './Basic'
 
-export class Authentication {
+export class AddedDocument {
   constructor(json: JSON | any) {
-    Object.assign(this as Authentication, json)
+    Object.assign(this as AddedDocument, json)
   }
 
-  basic?: Basic
+  from?: number
+  to?: number
+  verseSeq?: number
+  documentSeq?: number
+  mimeType?: string
+  addressUrl?: string
+  descrNl?: string
+  descrFr?: string
+  localPath?: string
 }

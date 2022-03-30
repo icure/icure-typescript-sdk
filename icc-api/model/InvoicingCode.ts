@@ -56,6 +56,7 @@ export class InvoicingCode {
   locationNihii?: string
   locationCdHcParty?: string
   locationService?: number
+  admissionDate?: number
   canceled?: boolean
   accepted?: boolean
   pending?: boolean
