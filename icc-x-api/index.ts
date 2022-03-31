@@ -15,6 +15,7 @@ import { IccReceiptXApi } from './icc-receipt-x-api'
 import { IccAccesslogXApi } from './icc-accesslog-x-api'
 import { IccTimeTableXApi } from './icc-time-table-x-api'
 import { IccDeviceApi } from '../icc-api/api/IccDeviceApi'
+import { IccCodeXApi } from './icc-code-x-api'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -58,6 +59,7 @@ export const Api = function (
 ) {
   const headers = apiHeaders(username, password)
   const authApi = new IccAuthApi(host, headers, fetchImpl)
+  const codeApi = new IccCodeXApi(host, headers, fetchImpl)
   const entityReferenceApi = new IccEntityrefApi(host, headers, fetchImpl)
   const userApi = new IccUserXApi(host, headers, fetchImpl)
   const healthcarePartyApi = new IccHcpartyXApi(host, headers, fetchImpl)
@@ -96,6 +98,7 @@ export const Api = function (
   return {
     cryptoApi,
     authApi,
+    codeApi,
     userApi,
     patientApi,
     healthcarePartyApi,
