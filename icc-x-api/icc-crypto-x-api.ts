@@ -8,7 +8,6 @@ import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
 import { Delegation, Device, HealthcareParty, Patient, User } from '../icc-api/model/models'
 import { b2a, b64_2uas, hex2ua, string2ua, ua2hex, ua2string, ua2utf8, utf8_2ua } from './utils/binary-utils'
-import { IccHcpartyXApi } from './icc-hcparty-x-api'
 import { IccDeviceApi } from '../icc-api/api/IccDeviceApi'
 
 interface DelegatorAndKeys {
@@ -17,7 +16,24 @@ interface DelegatorAndKeys {
   rawKey: string
 }
 
+type CachedDataOwner =
+  | {
+      type: 'patient'
+      dataOwner: Patient
+    }
+  | {
+      type: 'device'
+      dataOwner: Device
+    }
+  | {
+      type: 'hcp'
+      dataOwner: HealthcareParty
+    }
+
 export class IccCryptoXApi {
+  get crypto(): Crypto {
+    return this._crypto
+  }
   get shamir(): ShamirClass {
     return this._shamir
   }
@@ -40,13 +56,12 @@ export class IccCryptoXApi {
     [delegateId: string]: Promise<{ [delegatorId: string]: string }>
   } = {}
 
-  patientCache: { [key: string]: Promise<Patient> } = {}
-  deviceCache: { [key: string]: Promise<Device> } = {}
+  dataOwnerCache: { [key: string]: Promise<CachedDataOwner> } = {}
 
   emptyHcpCache(hcpartyId: string) {
     delete this.hcPartyKeysRequestsCache[hcpartyId]
-    delete this.patientCache[hcpartyId]
-    delete this.deviceCache[hcpartyId]
+    delete this.dataOwnerCache[hcpartyId]
+    delete this.dataOwnerCache[hcpartyId]
   }
 
   /**
@@ -81,7 +96,7 @@ export class IccCryptoXApi {
   private hcpartyBaseApi: IccHcpartyApi
   private patientBaseApi: IccPatientApi
   private deviceBaseApi: IccDeviceApi
-  private crypto: Crypto
+  private _crypto: Crypto
 
   private generateKeyConcurrencyMap: { [key: string]: PromiseLike<HealthcareParty | Patient> }
 
@@ -101,7 +116,7 @@ export class IccCryptoXApi {
     this.hcpartyBaseApi = hcpartyBaseApi
     this.patientBaseApi = patientBaseApi
     this.deviceBaseApi = deviceBaseApi
-    this.crypto = crypto
+    this._crypto = crypto
     this.generateKeyConcurrencyMap = {}
 
     this._AES = new AESUtils(crypto)
@@ -113,12 +128,12 @@ export class IccCryptoXApi {
   randomUuid() {
     return ((1e7).toString() + -1e3 + -4e3 + -8e3 + -1e11).replace(
       /[018]/g,
-      (c) => (Number(c) ^ ((this.crypto.getRandomValues(new Uint8Array(1))! as Uint8Array)[0] & (15 >> (Number(c) / 4)))).toString(16) //Keep that inlined or you will loose the random
+      (c) => (Number(c) ^ ((this._crypto.getRandomValues(new Uint8Array(1))! as Uint8Array)[0] & (15 >> (Number(c) / 4)))).toString(16) //Keep that inlined or you will loose the random
     )
   }
 
   sha256(data: ArrayBuffer | Uint8Array) {
-    return this.crypto.subtle.digest('SHA-256', data)
+    return this._crypto.subtle.digest('SHA-256', data)
   }
 
   encryptedShamirRSAKey(hcp: HealthcareParty, notaries: Array<HealthcareParty>, threshold?: number): Promise<HealthcareParty> {
@@ -1317,14 +1332,16 @@ export class IccCryptoXApi {
                   .then(([ownerKey, delegateKey]) => (owner.hcPartyKeys![delegateId] = [ua2hex(ownerKey), ua2hex(delegateKey)]))
                   .then(() => {
                     return ownerType === 'hcp'
-                      ? this.hcpartyBaseApi.modifyHealthcareParty(owner as HealthcareParty).then((hcp: HealthcareParty) => resolve(['hcp', hcp]))
+                      ? (this.dataOwnerCache[owner.id!] = this.hcpartyBaseApi
+                          .modifyHealthcareParty(owner as HealthcareParty)
+                          .then((x) => ({ type: 'hcp', dataOwner: x } as CachedDataOwner))).then((x) => resolve(['hcp', x.dataOwner]))
                       : ownerType === 'patient'
-                      ? (this.patientCache[owner.id!] = this.patientBaseApi.modifyPatient(owner as Patient)).then((patient: Patient) => {
-                          resolve(['patient', patient])
-                        })
-                      : (this.deviceCache[owner.id!] = this.deviceBaseApi.updateDevice(owner as Device)).then((dev: Device) => {
-                          resolve(['device', dev])
-                        })
+                      ? (this.dataOwnerCache[owner.id!] = this.patientBaseApi
+                          .modifyPatient(owner as Patient)
+                          .then((x) => ({ type: 'patient', dataOwner: x }))).then((x) => resolve(['patient', x.dataOwner]))
+                      : (this.dataOwnerCache[owner.id!] = this.deviceBaseApi
+                          .updateDevice(owner as Device)
+                          .then((x) => ({ type: 'device', dataOwner: x }))).then((x) => resolve(['device', x.dataOwner]))
                   })
                   .catch((e) => reject(e))
               : reject(new Error(`Missing public key for delegate ${delegateId}`))
@@ -1343,35 +1360,19 @@ export class IccCryptoXApi {
     )
   }
 
-  private async getDataOwner(ownerId: string) {
-    const prom =
-      this.patientCache[ownerId]?.then((x) => ({ type: 'patient', dataOwner: x })) ??
-      this.deviceCache[ownerId]?.then((x) => ({ type: 'device', dataOwner: x }))?.catch(() => null) ??
-      this.hcpartyBaseApi.getHealthcareParty(ownerId).then((x) => ({ type: 'hcp', dataOwner: x }))
-
-    try {
-      return await prom
-    } catch (e) {}
-    try {
-      return await (this.deviceCache[ownerId] = this.deviceBaseApi.getDevice(ownerId))
-        .then((x) => ({ type: 'device', dataOwner: x }))
+  private getDataOwner(ownerId: string) {
+    return (
+      this.dataOwnerCache[ownerId] ??
+      (this.dataOwnerCache[ownerId] = this.patientBaseApi
+        .getPatient(ownerId)
+        .then((x) => ({ type: 'patient', dataOwner: x } as CachedDataOwner))
+        .catch(() => this.deviceBaseApi.getDevice(ownerId).then((x) => ({ type: 'device', dataOwner: x } as CachedDataOwner)))
+        .catch(() => this.hcpartyBaseApi.getHealthcareParty(ownerId).then((x) => ({ type: 'hcp', dataOwner: x } as CachedDataOwner)))
         .catch((e) => {
-          delete this.deviceCache[ownerId]
+          delete this.dataOwnerCache[ownerId]
           throw e
-        })
-    } catch (e) {}
-
-    try {
-      return (this.patientCache[ownerId] = this.patientBaseApi.getPatient(ownerId))
-        .then((x) => ({ type: 'patient', dataOwner: x }))
-        .catch((e) => {
-          delete this.patientCache[ownerId]
-          throw e
-        })
-    } catch (e) {
-      console.error('Cannot load data owner with id ' + ownerId)
-      throw e
-    }
+        }))
+    )
   }
 
   // noinspection JSUnusedGlobalSymbols
