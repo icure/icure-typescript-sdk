@@ -1360,7 +1360,7 @@ export class IccCryptoXApi {
     )
   }
 
-  private getDataOwner(ownerId: string) {
+  getDataOwner(ownerId: string) {
     return (
       this.dataOwnerCache[ownerId] ??
       (this.dataOwnerCache[ownerId] = this.patientBaseApi
