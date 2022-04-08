@@ -1118,10 +1118,9 @@ export class IccCryptoXApi {
 
   // noinspection JSUnusedGlobalSymbols
   loadKeyPairsAsJwkInBrowserLocalStorage(healthcarePartyId: string, privKey: JsonWebKey) {
-    return this.hcpartyBaseApi
-      .getPublicKey(healthcarePartyId)
-      .then((publicKey: models.PublicKey) => {
-        const pubKey = this._utils.spkiToJwk(hex2ua(publicKey.hexString!))
+    return this.getDataOwner(healthcarePartyId)
+      .then(({ dataOwner }) => {
+        const pubKey = this._utils.spkiToJwk(hex2ua(dataOwner.publicKey!))
 
         privKey.n = pubKey.n
         privKey.e = pubKey.e
