@@ -53,55 +53,75 @@ describe('Patient', () => {
     const hcpUser = await userApiForHcp.getCurrentUser()
     await cryptoApiForHcp.loadKeyPairsAsJwkInBrowserLocalStorage(hcpUser.healthcarePartyId!, cryptoApiForHcp.utils.pkcs8ToJwk(hex2ua(hcpPrivKey)))
 
-    const rawPatientApiForHcp = new IccPatientApi('https://kraken.icure.dev/rest/v1', {
-      Authorization: `Basic ${b2a(`${hcpUser.id}:5ba921cf-9ea3-4163-a359-48f7db9cdf4e`)}`,
-    })
-    const patient = await rawPatientApiForHcp.createPatient(new Patient({ id: cryptoApiForHcp.randomUuid(), firstName: 'Tasty', lastName: 'Test' }))
-    const pwd = cryptoApiForHcp.randomUuid()
-    const tmpUser = await userApiForHcp.createUser(
-      new User({ id: cryptoApiForHcp.randomUuid(), login: cryptoApiForHcp.randomUuid(), passwordHash: pwd, patientId: patient.id })
-    )
-
-    const { cryptoApi } = Api('https://kraken.icure.dev/rest/v1', tmpUser.id!, pwd, crypto)
-    const rawPatientApi = new IccPatientApi('https://kraken.icure.dev/rest/v1', { Authorization: `Basic ${b2a(`${tmpUser.id!}:${pwd}`)}` })
-    const { publicKey, privateKey } = await cryptoApi.RSA.generateKeyPair()
-    const publicKeyHex = ua2hex(await cryptoApi.RSA.exportKey(publicKey!, 'spki'))
-    await rawPatientApi.modifyPatient({ ...patient, publicKey: publicKeyHex })
-    await cryptoApi.loadKeyPairsAsTextInBrowserLocalStorage(
-      patient.id!,
-      new Uint8Array((await cryptoApi.RSA.exportKey(privateKey!, 'pkcs8')) as ArrayBuffer)
-    )
-
-    const { userApi, calendarItemApi, patientApi, cryptoApi: updatedCryptoApi } = Api('https://kraken.icure.dev/rest/v1', tmpUser.id!, pwd!, crypto)
-    const user = await userApi.getCurrentUser()
-    let me = await patientApi.getPatientWithUser(user, user.patientId!)
-    await updatedCryptoApi.getOrCreateHcPartyKey(me, user.patientId!)
-    me = await patientApi.getPatientWithUser(user, user.patientId!)
-    await updatedCryptoApi.getOrCreateHcPartyKey(me, '171f186a-7a2a-40f0-b842-b486428c771b')
-
-    me = await patientApi.getPatientWithUser(user, user.patientId!)
-    me = await patientApi.modifyPatientWithUser(user, await patientApi.initDelegations(me, user))
-
-    const sek = await updatedCryptoApi.extractKeysFromDelegationsForHcpHierarchy(me.id, me.id, me.encryptionKeys)
-    const sdk = await updatedCryptoApi.extractKeysFromDelegationsForHcpHierarchy(me.id, me.id, me.delegations)
-
-    me = await patientApi.modifyPatientWithUser(
-      user,
-      await updatedCryptoApi.addDelegationsAndEncryptionKeys(
-        null,
-        me,
-        user.patientId!,
-        '171f186a-7a2a-40f0-b842-b486428c771b',
-        sdk.extractedKeys[0],
-        sek.extractedKeys[0]
+    try {
+      const rawPatientApiForHcp = new IccPatientApi('https://kraken.icure.dev/rest/v1', {
+        Authorization: `Basic ${b2a(`${hcpUser.id}:5ba921cf-9ea3-4163-a359-48f7db9cdf4e`)}`,
+      })
+      const patient = await rawPatientApiForHcp.createPatient(new Patient({ id: cryptoApiForHcp.randomUuid(), firstName: 'Tasty', lastName: 'Test' }))
+      const pwd = cryptoApiForHcp.randomUuid()
+      const tmpUser = await userApiForHcp.createUser(
+        new User({ id: cryptoApiForHcp.randomUuid(), login: cryptoApiForHcp.randomUuid(), passwordHash: pwd, patientId: patient.id })
       )
-    )
-    await patientApi.modifyPatientWithUser(user, new Patient({ ...me, note: 'This is secret' }))
 
-    const pat2 = await patientApiForHcp.getPatientWithUser(hcpUser, patient.id!)
-    expect(pat2 != null)
-    expect(pat2.note != null)
-  })
+      try {
+        const { cryptoApi } = Api('https://kraken.icure.dev/rest/v1', tmpUser.id!, pwd, crypto)
+        const rawPatientApi = new IccPatientApi('https://kraken.icure.dev/rest/v1', { Authorization: `Basic ${b2a(`${tmpUser.id!}:${pwd}`)}` })
+        const { publicKey, privateKey } = await cryptoApi.RSA.generateKeyPair()
+        const publicKeyHex = ua2hex(await cryptoApi.RSA.exportKey(publicKey!, 'spki'))
+        await rawPatientApi.modifyPatient({ ...patient, publicKey: publicKeyHex })
+        await cryptoApi.loadKeyPairsAsTextInBrowserLocalStorage(
+          patient.id!,
+          new Uint8Array((await cryptoApi.RSA.exportKey(privateKey!, 'pkcs8')) as ArrayBuffer)
+        )
+
+        try {
+          const {
+            userApi,
+            calendarItemApi,
+            patientApi,
+            cryptoApi: updatedCryptoApi,
+          } = Api('https://kraken.icure.dev/rest/v1', tmpUser.id!, pwd!, crypto)
+          const user = await userApi.getCurrentUser()
+          let me = await patientApi.getPatientWithUser(user, user.patientId!)
+          await updatedCryptoApi.getOrCreateHcPartyKey(me, user.patientId!)
+          me = await patientApi.getPatientWithUser(user, user.patientId!)
+          await updatedCryptoApi.getOrCreateHcPartyKey(me, '171f186a-7a2a-40f0-b842-b486428c771b')
+
+          me = await patientApi.getPatientWithUser(user, user.patientId!)
+          me = await patientApi.modifyPatientWithUser(user, await patientApi.initDelegations(me, user))
+
+          const sek = await updatedCryptoApi.extractKeysFromDelegationsForHcpHierarchy(me.id, me.id, me.encryptionKeys)
+          const sdk = await updatedCryptoApi.extractKeysFromDelegationsForHcpHierarchy(me.id, me.id, me.delegations)
+
+          me = await patientApi.modifyPatientWithUser(
+            user,
+            await updatedCryptoApi.addDelegationsAndEncryptionKeys(
+              null,
+              me,
+              user.patientId!,
+              '171f186a-7a2a-40f0-b842-b486428c771b',
+              sdk.extractedKeys[0],
+              sek.extractedKeys[0]
+            )
+          )
+          await patientApi.modifyPatientWithUser(user, new Patient({ ...me, note: 'This is secret' }))
+
+          const pat2 = await patientApiForHcp.getPatientWithUser(hcpUser, patient.id!)
+          expect(pat2 != null)
+          expect(pat2.note != null)
+        } catch (e) {
+          console.log('Error in phase 3')
+          throw e
+        }
+      } catch (e) {
+        console.log('Error in phase 2')
+        throw e
+      }
+    } catch (e) {
+      console.log('Error in phase 1')
+      throw e
+    }
+  }).timeout(60000)
   it('should be capable of logging in and encryption', async () => {
     const patientLogin = 'ad@taktik.com'
     const token = '85c95456-cb06-4281-89f3-3edfddae0db2'
@@ -160,5 +180,5 @@ describe('Patient', () => {
     expect(pat2 != null)
     expect(ci != null)
     expect(ci2 != null)
-  })
+  }).timeout(60000)
 })
