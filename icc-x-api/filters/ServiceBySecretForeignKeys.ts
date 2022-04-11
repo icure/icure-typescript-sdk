@@ -12,6 +12,7 @@
 import { AbstractFilterService } from '../../icc-api/model/AbstractFilterService'
 
 export class ServiceBySecretForeignKeys extends AbstractFilterService {
+  $type: string = 'ServiceBySecretForeignKeys'
   constructor(json: JSON | any) {
     super(json)
 
