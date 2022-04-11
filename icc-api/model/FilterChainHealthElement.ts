@@ -13,6 +13,7 @@ import { AbstractFilterHealthElement } from './AbstractFilterHealthElement'
 import { Predicate } from './Predicate'
 
 export class FilterChainHealthElement {
+  $type: string = 'FilterChain'
   constructor(json: JSON | any) {
     Object.assign(this as FilterChainHealthElement, json)
   }
