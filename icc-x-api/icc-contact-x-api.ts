@@ -7,9 +7,10 @@ import { utils } from './crypto/utils'
 import * as moment from 'moment'
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import { Contact, ListOfIds, Service } from '../icc-api/model/models'
+import { Contact, FilterChainService, ListOfIds, Service } from '../icc-api/model/models'
 import { PaginatedListContact } from '../icc-api/model/PaginatedListContact'
 import { a2b, b2a, hex2ua, string2ua, ua2string, ua2utf8, utf8_2ua } from './utils/binary-utils'
+import { ServiceByIdsFilter } from './filters/ServiceByIdsFilter'
 
 export class IccContactXApi extends IccContactApi {
   i18n: any = i18n
@@ -291,8 +292,8 @@ export class IccContactXApi extends IccContactApi {
 
   listServicesWithUser(user: models.User, serviceIds: ListOfIds): Promise<Array<Service> | any> {
     return super
-      .listServices(serviceIds)
-      .then((services) => this.decryptServices(user.healthcarePartyId! || user.patientId!, services, undefined, undefined))
+      .filterServicesBy(undefined, serviceIds.ids?.length, new FilterChainService({ filter: new ServiceByIdsFilter({ ids: serviceIds.ids }) }))
+      .then((paginatedList) => this.decryptServices(user.healthcarePartyId! || user.patientId!, paginatedList.rows ?? [], undefined, undefined))
   }
 
   findByHCPartyFormIdWithUser(user: models.User, hcPartyId: string, formId: string): Promise<Array<models.Contact> | any> {

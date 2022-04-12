@@ -13,6 +13,7 @@ import { AbstractFilterService } from './AbstractFilterService'
 import { Predicate } from './Predicate'
 
 export class FilterChainService {
+  $type: string = 'FilterChain'
   constructor(json: JSON | any) {
     Object.assign(this as FilterChainService, json)
   }
