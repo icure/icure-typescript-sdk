@@ -13,6 +13,7 @@ import { AbstractFilterDevice } from './AbstractFilterDevice'
 import { Predicate } from './Predicate'
 
 export class FilterChainDevice {
+  $type: string = 'FilterChain'
   constructor(json: JSON | any) {
     Object.assign(this as FilterChainDevice, json)
   }
