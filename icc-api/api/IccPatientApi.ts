@@ -12,6 +12,7 @@
 import { XHR } from './XHR'
 import { AbstractFilterPatient } from '../model/AbstractFilterPatient'
 import { Content } from '../model/Content'
+import { DataOwnerRegistrationSuccess } from '../model/DataOwnerRegistrationSuccess'
 import { Delegation } from '../model/Delegation'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { FilterChainPatient } from '../model/FilterChainPatient'
@@ -20,7 +21,6 @@ import { ListOfIds } from '../model/ListOfIds'
 import { PaginatedListPatient } from '../model/PaginatedListPatient'
 import { PaginatedListString } from '../model/PaginatedListString'
 import { Patient } from '../model/Patient'
-import { PatientRegistrationSuccess } from '../model/PatientRegistrationSuccess'
 
 export class IccPatientApi {
   host: string
@@ -757,7 +757,13 @@ export class IccPatientApi {
    * @param token
    * @param useShortToken
    */
-  registerPatient(hcPartyId: string, groupId: string, token?: string, useShortToken?: boolean, body?: Patient): Promise<PatientRegistrationSuccess> {
+  registerPatient(
+    hcPartyId: string,
+    groupId: string,
+    token?: string,
+    useShortToken?: boolean,
+    body?: Patient
+  ): Promise<DataOwnerRegistrationSuccess> {
     let _body = null
     _body = body
 
@@ -771,7 +777,7 @@ export class IccPatientApi {
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
-      .then((doc) => new PatientRegistrationSuccess(doc.body as JSON))
+      .then((doc) => new DataOwnerRegistrationSuccess(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 
