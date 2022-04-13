@@ -11,6 +11,7 @@
  */
 import { XHR } from './XHR'
 import { AbstractFilterHealthcareParty } from '../model/AbstractFilterHealthcareParty'
+import { DataOwnerRegistrationSuccess } from '../model/DataOwnerRegistrationSuccess'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { FilterChainHealthcareParty } from '../model/FilterChainHealthcareParty'
 import { HealthcareParty } from '../model/HealthcareParty'
@@ -422,6 +423,40 @@ export class IccHcpartyApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
       .then((doc) => new HealthcareParty(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Register a new hcp into the system
+   * @summary Register a hcp
+   * @param body
+   * @param groupId
+   * @param parentHcPartyId
+   * @param token
+   * @param useShortToken
+   */
+  registerHealthcareParty(
+    groupId: string,
+    parentHcPartyId?: string,
+    token?: string,
+    useShortToken?: boolean,
+    body?: HealthcareParty
+  ): Promise<DataOwnerRegistrationSuccess> {
+    let _body = null
+    _body = body
+
+    const _url =
+      this.host +
+      `/hcparty/register/inGroup/${encodeURIComponent(String(groupId))}` +
+      '?ts=' +
+      new Date().getTime() +
+      (parentHcPartyId ? '&parentHcPartyId=' + encodeURIComponent(String(parentHcPartyId)) : '') +
+      (token ? '&token=' + encodeURIComponent(String(token)) : '') +
+      (useShortToken ? '&useShortToken=' + encodeURIComponent(String(useShortToken)) : '')
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+      .then((doc) => new DataOwnerRegistrationSuccess(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 }
