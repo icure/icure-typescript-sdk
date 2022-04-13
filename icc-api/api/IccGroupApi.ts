@@ -51,7 +51,16 @@ export class IccGroupApi {
    * @param q The number of shards for patient and healthdata dbs : 3-8 is a recommended range of value
    * @param n The number of replications for dbs : 3 is a recommended value
    */
-  createGroup(id: string, name: string, password: string, server?: string, q?: number, n?: number, body?: DatabaseInitialisation): Promise<Group> {
+  createGroup(
+    id: string,
+    name: string,
+    password: string,
+    server?: string,
+    q?: number,
+    n?: number,
+    superGroup?: string,
+    body?: DatabaseInitialisation
+  ): Promise<Group> {
     let _body = null
     _body = body
 
@@ -63,7 +72,8 @@ export class IccGroupApi {
       (name ? '&name=' + encodeURIComponent(String(name)) : '') +
       (server ? '&server=' + encodeURIComponent(String(server)) : '') +
       (q ? '&q=' + encodeURIComponent(String(q)) : '') +
-      (n ? '&n=' + encodeURIComponent(String(n)) : '')
+      (n ? '&n=' + encodeURIComponent(String(n)) : '') +
+      (superGroup ? '&superGroup=' + encodeURIComponent(String(superGroup)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     password && (headers = headers.concat(new XHR.Header('password', password)))
