@@ -12,6 +12,7 @@
 import { XHR } from './XHR'
 import { DatabaseInitialisation } from '../model/DatabaseInitialisation'
 import { Group } from '../model/Group'
+import { GroupDatabasesInfo } from '../model/GroupDatabasesInfo'
 import { IdWithRev } from '../model/IdWithRev'
 import { ListOfIds } from '../model/ListOfIds'
 import { ListOfProperties } from '../model/ListOfProperties'
@@ -50,6 +51,7 @@ export class IccGroupApi {
    * @param server The server on which the group dbs will be created
    * @param q The number of shards for patient and healthdata dbs : 3-8 is a recommended range of value
    * @param n The number of replications for dbs : 3 is a recommended value
+   * @param superGroup Group parent
    */
   createGroup(
     id: string,
@@ -117,6 +119,23 @@ export class IccGroupApi {
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
       .then((doc) => new Group(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Reset storage
+   * @summary Reset storage for group
+   * @param body
+   */
+  getGroupsStorageInfos(body?: ListOfIds): Promise<Array<GroupDatabasesInfo>> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/group/storage/info` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new GroupDatabasesInfo(it)))
       .catch((err) => this.handleError(err))
   }
 
