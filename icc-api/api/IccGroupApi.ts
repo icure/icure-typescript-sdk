@@ -12,9 +12,11 @@
 import { XHR } from './XHR'
 import { DatabaseInitialisation } from '../model/DatabaseInitialisation'
 import { Group } from '../model/Group'
+import { GroupDatabasesInfo } from '../model/GroupDatabasesInfo'
 import { IdWithRev } from '../model/IdWithRev'
 import { ListOfIds } from '../model/ListOfIds'
 import { ListOfProperties } from '../model/ListOfProperties'
+import { PaginatedListGroup } from '../model/PaginatedListGroup'
 import { RegistrationInformation } from '../model/RegistrationInformation'
 import { RegistrationSuccess } from '../model/RegistrationSuccess'
 import { ReplicationInfo } from '../model/ReplicationInfo'
@@ -49,8 +51,18 @@ export class IccGroupApi {
    * @param server The server on which the group dbs will be created
    * @param q The number of shards for patient and healthdata dbs : 3-8 is a recommended range of value
    * @param n The number of replications for dbs : 3 is a recommended value
+   * @param superGroup Group parent
    */
-  createGroup(id: string, name: string, password: string, server?: string, q?: number, n?: number, body?: DatabaseInitialisation): Promise<Group> {
+  createGroup(
+    id: string,
+    name: string,
+    password: string,
+    server?: string,
+    q?: number,
+    n?: number,
+    superGroup?: string,
+    body?: DatabaseInitialisation
+  ): Promise<Group> {
     let _body = null
     _body = body
 
@@ -62,12 +74,36 @@ export class IccGroupApi {
       (name ? '&name=' + encodeURIComponent(String(name)) : '') +
       (server ? '&server=' + encodeURIComponent(String(server)) : '') +
       (q ? '&q=' + encodeURIComponent(String(q)) : '') +
-      (n ? '&n=' + encodeURIComponent(String(n)) : '')
+      (n ? '&n=' + encodeURIComponent(String(n)) : '') +
+      (superGroup ? '&superGroup=' + encodeURIComponent(String(superGroup)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     password && (headers = headers.concat(new XHR.Header('password', password)))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
       .then((doc) => new Group(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * List groups that are the children of the group with th eprovided parent id
+   * @summary Find groups by parent
+   * @param id The id of the group
+   * @param startDocumentId A grou document ID used as a cursor for pagination
+   * @param limit Number of rows
+   */
+  findGroups(id: string, startDocumentId?: string, limit?: number): Promise<PaginatedListGroup> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/group/${encodeURIComponent(String(id))}/children` +
+      '?ts=' +
+      new Date().getTime() +
+      (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
+      (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+      .then((doc) => new PaginatedListGroup(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 
@@ -83,6 +119,23 @@ export class IccGroupApi {
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
       .then((doc) => new Group(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Reset storage
+   * @summary Reset storage for group
+   * @param body
+   */
+  getGroupsStorageInfos(body?: ListOfIds): Promise<Array<GroupDatabasesInfo>> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/group/storage/info` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new GroupDatabasesInfo(it)))
       .catch((err) => this.handleError(err))
   }
 
