@@ -1,23 +1,28 @@
-import { IccMessageApi } from '../icc-api'
-import { IccCryptoXApi } from './icc-crypto-x-api'
+import {IccMessageApi} from '../icc-api'
+import {IccCryptoXApi} from './icc-crypto-x-api'
 
 import * as _ from 'lodash'
 
-import { Patient, User } from '../icc-api/model/models'
+import {Patient, User} from '../icc-api/model/models'
+import {IccUserXApi} from "./icc-user-x-api"
 
 export class IccMessageXApi extends IccMessageApi {
+  userApi: IccUserXApi
+
   constructor(
     host: string,
     headers: { [key: string]: string },
     private crypto: IccCryptoXApi,
+    userApi: IccUserXApi,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
-      ? self.fetch
-      : fetch
+        ? self.fetch
+        : fetch
   ) {
     super(host, headers, fetchImpl)
     this.crypto = crypto
+    this.userApi = userApi
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -32,7 +37,7 @@ export class IccMessageXApi extends IccMessageApi {
         _type: 'org.taktik.icure.entities.Message',
         created: new Date().getTime(),
         modified: new Date().getTime(),
-        responsible: user.healthcarePartyId,
+        responsible: this.userApi.getDataOwnerOf(user),
         author: user.id,
         codes: [],
         tags: [],
@@ -40,10 +45,11 @@ export class IccMessageXApi extends IccMessageApi {
       m || {}
     )
 
-    const hcpId = user.healthcarePartyId || user.patientId
+    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+
     return this.crypto
-      .extractDelegationsSFKs(patient, hcpId)
-      .then((secretForeignKeys) => this.crypto.initObjectDelegations(message, patient, hcpId!, secretForeignKeys.extractedKeys[0]))
+      .extractDelegationsSFKs(patient, dataOwnerId)
+      .then((secretForeignKeys) => this.crypto.initObjectDelegations(message, patient, dataOwnerId!, secretForeignKeys.extractedKeys[0]))
       .then((initData) => {
         _.extend(message, {
           delegations: initData.delegations,
@@ -56,7 +62,7 @@ export class IccMessageXApi extends IccMessageApi {
           (delegateId) =>
             (promise = promise.then((helement) =>
               this.crypto
-                .extendedDelegationsAndCryptedForeignKeys(helement, patient, hcpId!, delegateId, initData.secretId)
+                .extendedDelegationsAndCryptedForeignKeys(helement, patient, dataOwnerId!, delegateId, initData.secretId)
                 .then((extraData) =>
                   _.extend(helement, {
                     delegations: extraData.delegations,
