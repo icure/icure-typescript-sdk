@@ -1,33 +1,22 @@
-import { IccPatientApi, IccEntityrefApi, IccAuthApi } from '../icc-api'
-import { IccCryptoXApi } from './icc-crypto-x-api'
-import { IccContactXApi } from './icc-contact-x-api'
-import { IccFormXApi } from './icc-form-x-api'
-import { IccHcpartyXApi } from './icc-hcparty-x-api'
-import { IccInvoiceXApi } from './icc-invoice-x-api'
-import { IccDocumentXApi } from './icc-document-x-api'
-import { IccHelementXApi } from './icc-helement-x-api'
-import { IccClassificationXApi } from './icc-classification-x-api'
+import {IccPatientApi} from '../icc-api'
+import {IccCryptoXApi} from './icc-crypto-x-api'
+import {IccContactXApi} from './icc-contact-x-api'
+import {IccFormXApi} from './icc-form-x-api'
+import {IccHcpartyXApi} from './icc-hcparty-x-api'
+import {IccInvoiceXApi} from './icc-invoice-x-api'
+import {IccDocumentXApi} from './icc-document-x-api'
+import {IccHelementXApi} from './icc-helement-x-api'
+import {IccClassificationXApi} from './icc-classification-x-api'
 
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import {
-  CalendarItem,
-  Classification,
-  Delegation,
-  Document,
-  HealthcareParty,
-  IcureStub,
-  Invoice,
-  ListOfIds,
-  Patient,
-  PersonName,
-} from '../icc-api/model/models'
-import { utils } from './crypto/utils'
-import { IccCalendarItemXApi } from './icc-calendar-item-x-api'
-import { b64_2ab } from '../icc-api/model/ModelHelper'
-import { b2a, hex2ua, string2ua, ua2hex, ua2utf8, utf8_2ua } from './utils/binary-utils'
-import { findName, garnishPersonWithName, hasName } from './utils/person-util'
-import { retry } from './utils/net-utils'
+import {CalendarItem, Classification, Delegation, Document, IcureStub, Invoice, ListOfIds, Patient} from '../icc-api/model/models'
+import {utils} from './crypto/utils'
+import {IccCalendarItemXApi} from './icc-calendar-item-x-api'
+import {b64_2ab} from '../icc-api/model/ModelHelper'
+import {b2a, hex2ua, string2ua, ua2hex, ua2utf8, utf8_2ua} from './utils/binary-utils'
+import {findName, garnishPersonWithName, hasName} from './utils/person-util'
+import {retry} from './utils/net-utils'
 import {IccUserXApi} from "./icc-user-x-api"
 
 // noinspection JSUnusedGlobalSymbols
@@ -88,7 +77,7 @@ export class IccPatientXApi extends IccPatientApi {
         _type: 'org.taktik.icure.entities.Patient',
         created: new Date().getTime(),
         modified: new Date().getTime(),
-        responsible: user.healthcarePartyId || user.patientId,
+        responsible: this.userApi.getDataOwnerOf(user),
         author: user.id,
         codes: [],
         tags: [],
