@@ -1,11 +1,12 @@
-import { IccAuthApi, IccDocumentApi } from '../icc-api'
-import { IccCryptoXApi } from './icc-crypto-x-api'
+import {IccAuthApi, IccDocumentApi} from '../icc-api'
+import {IccCryptoXApi} from './icc-crypto-x-api'
 
 import * as _ from 'lodash'
-import { XHR } from '../icc-api/api/XHR'
+import {XHR} from '../icc-api/api/XHR'
 import * as models from '../icc-api/model/models'
 
-import { a2b, hex2ua, string2ua, ua2string } from './utils/binary-utils'
+import {a2b, hex2ua, string2ua, ua2string} from './utils/binary-utils'
+import {IccUserXApi} from "./icc-user-x-api"
 
 // noinspection JSUnusedGlobalSymbols
 export class IccDocumentXApi extends IccDocumentApi {
@@ -540,20 +541,24 @@ export class IccDocumentXApi extends IccDocumentApi {
     'x-msdos-program': 'com.microsoft.windows-executable',
     'x-music/x-midi': 'public.midi',
   }
+  userApi: IccUserXApi
+
 
   constructor(
     host: string,
     headers: { [key: string]: string },
     private crypto: IccCryptoXApi,
     private authApi: IccAuthApi,
+    userApi: IccUserXApi,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
-      ? self.fetch
-      : fetch
+        ? self.fetch
+        : fetch
   ) {
     super(host, headers, fetchImpl)
     this.fetchImpl = fetchImpl
+    this.userApi = userApi
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -564,7 +569,7 @@ export class IccDocumentXApi extends IccDocumentApi {
         _type: 'org.taktik.icure.entities.Document',
         created: new Date().getTime(),
         modified: new Date().getTime(),
-        responsible: user.healthcarePartyId || user.patientId,
+        responsible: this.userApi.getDataOwnerOf(user),
         author: user.id,
         codes: [],
         tags: [],
@@ -575,18 +580,40 @@ export class IccDocumentXApi extends IccDocumentApi {
     return this.initDelegationsAndEncryptionKeys(user, message, document)
   }
 
+  initEncryptionKeys(user: models.User, document: models.Document) {
+    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+    return this.crypto.initEncryptionKeys(document, dataOwnerId!).then((eks) => {
+      let promise = Promise.resolve(
+          _.extend(document, {
+            encryptionKeys: eks.encryptionKeys,
+          })
+        )
+      ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
+        (delegateId) =>
+          (promise = promise.then((document) =>
+            this.crypto.appendEncryptionKeys(document, dataOwnerId!, delegateId, eks.secretId).then((extraEks) => {
+              return _.extend(document, {
+                encryptionKeys: extraEks.encryptionKeys,
+              })
+            })
+          ))
+      )
+      return promise
+    })
+  }
+
   private initDelegationsAndEncryptionKeys(
     user: models.User,
     message: models.Message | undefined = undefined,
     document: models.Document
   ): Promise<models.Document> {
-    const hcpId = user.healthcarePartyId || user.patientId
+    const dataOwnerId = this.userApi.getDataOwnerOf(user)
     return this.crypto
-      .extractDelegationsSFKs(message || null, hcpId)
+      .extractDelegationsSFKs(message || null, dataOwnerId)
       .then((secretForeignKeys) =>
         Promise.all([
-          this.crypto.initObjectDelegations(document, message, hcpId!, secretForeignKeys.extractedKeys[0]),
-          this.crypto.initEncryptionKeys(document, hcpId!),
+          this.crypto.initObjectDelegations(document, message, dataOwnerId!, secretForeignKeys.extractedKeys[0]),
+          this.crypto.initEncryptionKeys(document, dataOwnerId!),
         ])
       )
       .then((initData) => {
@@ -603,7 +630,7 @@ export class IccDocumentXApi extends IccDocumentApi {
         ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
           (delegateId) =>
             (promise = promise.then((document) =>
-              this.crypto.addDelegationsAndEncryptionKeys(message || null, document, hcpId!, delegateId, dels.secretId, eks.secretId).catch((e) => {
+              this.crypto.addDelegationsAndEncryptionKeys(message || null, document, dataOwnerId!, delegateId, dels.secretId, eks.secretId).catch((e) => {
                 console.log(e)
                 return document
               })
@@ -611,28 +638,6 @@ export class IccDocumentXApi extends IccDocumentApi {
         )
         return promise
       })
-  }
-
-  initEncryptionKeys(user: models.User, document: models.Document) {
-    const hcpId = user.healthcarePartyId || user.patientId
-    return this.crypto.initEncryptionKeys(document, hcpId!).then((eks) => {
-      let promise = Promise.resolve(
-        _.extend(document, {
-          encryptionKeys: eks.encryptionKeys,
-        })
-      )
-      ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
-        (delegateId) =>
-          (promise = promise.then((document) =>
-            this.crypto.appendEncryptionKeys(document, hcpId!, delegateId, eks.secretId).then((extraEks) => {
-              return _.extend(document, {
-                encryptionKeys: extraEks.encryptionKeys,
-              })
-            })
-          ))
-      )
-      return promise
-    })
   }
 
   // noinspection JSUnusedGlobalSymbols

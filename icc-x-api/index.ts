@@ -1,21 +1,21 @@
-import { IccAgendaApi, IccAuthApi, IccEntityrefApi, IccGroupApi, IccInsuranceApi, IccPatientApi } from '../icc-api'
-import { IccUserXApi } from './icc-user-x-api'
-import { IccCryptoXApi } from './icc-crypto-x-api'
-import { IccContactXApi } from './icc-contact-x-api'
-import { IccInvoiceXApi } from './icc-invoice-x-api'
-import { IccDocumentXApi } from './icc-document-x-api'
-import { IccHcpartyXApi } from './icc-hcparty-x-api'
-import { IccFormXApi } from './icc-form-x-api'
-import { IccHelementXApi } from './icc-helement-x-api'
-import { IccClassificationXApi } from './icc-classification-x-api'
-import { IccCalendarItemXApi } from './icc-calendar-item-x-api'
-import { IccPatientXApi } from './icc-patient-x-api'
-import { IccMessageXApi } from './icc-message-x-api'
-import { IccReceiptXApi } from './icc-receipt-x-api'
-import { IccAccesslogXApi } from './icc-accesslog-x-api'
-import { IccTimeTableXApi } from './icc-time-table-x-api'
-import { IccDeviceApi } from '../icc-api/api/IccDeviceApi'
-import { IccCodeXApi } from './icc-code-x-api'
+import {IccAgendaApi, IccAuthApi, IccEntityrefApi, IccGroupApi, IccInsuranceApi, IccPatientApi} from '../icc-api'
+import {IccUserXApi} from './icc-user-x-api'
+import {IccCryptoXApi} from './icc-crypto-x-api'
+import {IccContactXApi} from './icc-contact-x-api'
+import {IccInvoiceXApi} from './icc-invoice-x-api'
+import {IccDocumentXApi} from './icc-document-x-api'
+import {IccHcpartyXApi} from './icc-hcparty-x-api'
+import {IccFormXApi} from './icc-form-x-api'
+import {IccHelementXApi} from './icc-helement-x-api'
+import {IccClassificationXApi} from './icc-classification-x-api'
+import {IccCalendarItemXApi} from './icc-calendar-item-x-api'
+import {IccPatientXApi} from './icc-patient-x-api'
+import {IccMessageXApi} from './icc-message-x-api'
+import {IccReceiptXApi} from './icc-receipt-x-api'
+import {IccAccesslogXApi} from './icc-accesslog-x-api'
+import {IccTimeTableXApi} from './icc-time-table-x-api'
+import {IccDeviceApi} from '../icc-api/api/IccDeviceApi'
+import {IccCodeXApi} from './icc-code-x-api'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -67,7 +67,7 @@ export const Api = function (
   const cryptoApi = new IccCryptoXApi(host, headers, healthcarePartyApi, new IccPatientApi(host, headers, fetchImpl), deviceApi, crypto)
   const accessLogApi = new IccAccesslogXApi(host, headers, cryptoApi, fetchImpl)
   const agendaApi = new IccAgendaApi(host, headers, fetchImpl)
-  const contactApi = new IccContactXApi(host, headers, cryptoApi, fetchImpl)
+  const contactApi = new IccContactXApi(host, headers, cryptoApi, userApi, fetchImpl)
   const formApi = new IccFormXApi(host, headers, cryptoApi, fetchImpl)
   const groupApi = new IccGroupApi(host, headers)
   const invoiceApi = new IccInvoiceXApi(host, headers, cryptoApi, entityReferenceApi, fetchImpl)
@@ -89,6 +89,7 @@ export const Api = function (
     documentApi,
     healthcarePartyApi,
     classificationApi,
+    userApi,
     calendarItemApi,
     ['note'],
     fetchImpl
