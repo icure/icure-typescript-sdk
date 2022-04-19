@@ -7,10 +7,10 @@ import { utils } from './crypto/utils'
 import * as moment from 'moment'
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import {Contact, FilterChainService, ListOfIds, Service} from '../icc-api/model/models'
+import { Contact, FilterChainService, ListOfIds, Service } from '../icc-api/model/models'
 import { PaginatedListContact } from '../icc-api/model/PaginatedListContact'
 import { a2b, b2a, hex2ua, string2ua, ua2string, ua2utf8, utf8_2ua } from './utils/binary-utils'
-import {ServiceByIdsFilter} from "./filters/ServiceByIdsFilter"
+import { ServiceByIdsFilter } from './filters/ServiceByIdsFilter'
 
 export class IccContactXApi extends IccContactApi {
   i18n: any = i18n
