@@ -10,16 +10,19 @@ import * as models from '../icc-api/model/models'
 import { Contact, FilterChainService, ListOfIds, Service } from '../icc-api/model/models'
 import { PaginatedListContact } from '../icc-api/model/PaginatedListContact'
 import { a2b, b2a, hex2ua, string2ua, ua2string, ua2utf8, utf8_2ua } from './utils/binary-utils'
-import { ServiceByIdsFilter } from './filters/ServiceByIdsFilter'
+import {ServiceByIdsFilter} from "./filters/ServiceByIdsFilter"
+import {IccUserXApi} from "./icc-user-x-api"
 
 export class IccContactXApi extends IccContactApi {
   i18n: any = i18n
   crypto: IccCryptoXApi
+  userApi: IccUserXApi
 
   constructor(
     host: string,
     headers: { [key: string]: string },
     crypto: IccCryptoXApi,
+    userApi: IccUserXApi,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
@@ -28,6 +31,7 @@ export class IccContactXApi extends IccContactApi {
   ) {
     super(host, headers, fetchImpl)
     this.crypto = crypto
+    this.userApi = userApi
   }
 
   newInstance(user: models.User, patient: models.Patient, c: any, confidential = false): Promise<models.Contact> {
@@ -68,14 +72,15 @@ export class IccContactXApi extends IccContactApi {
     contact: models.Contact,
     confidential = false
   ): Promise<models.Contact> {
-    const hcpId = user.healthcarePartyId || user.patientId
+    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+
     return this.crypto
-      .extractPreferredSfk(patient, hcpId!, confidential)
+      .extractPreferredSfk(patient, dataOwnerId!, confidential)
       .then((key) => {
         if (!key) {
           console.error(`SFK cannot be found for HealthElement ${key}. The health element will not be reachable from the patient side`)
         }
-        return Promise.all([this.crypto.initObjectDelegations(contact, patient, hcpId!, key), this.crypto.initEncryptionKeys(contact, hcpId!)])
+        return Promise.all([this.crypto.initObjectDelegations(contact, patient, dataOwnerId!, key), this.crypto.initEncryptionKeys(contact, dataOwnerId!)])
       })
       .then(([dels, eks]) => {
         _.extend(contact, {
@@ -89,7 +94,7 @@ export class IccContactXApi extends IccContactApi {
         ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
           (delegateId) =>
             (promise = promise.then((contact) =>
-              this.crypto.addDelegationsAndEncryptionKeys(patient, contact, hcpId!, delegateId, dels.secretId, eks.secretId).catch((e) => {
+              this.crypto.addDelegationsAndEncryptionKeys(patient, contact, dataOwnerId!, delegateId, dels.secretId, eks.secretId).catch((e) => {
                 console.log(e)
                 return contact
               })
@@ -98,7 +103,7 @@ export class IccContactXApi extends IccContactApi {
         ;(user.autoDelegations && user.autoDelegations.anonymousMedicalInformation ? user.autoDelegations.anonymousMedicalInformation : []).forEach(
           (delegateId) =>
             (promise = promise.then((contact) =>
-              this.crypto.addDelegationsAndEncryptionKeys(patient, contact, hcpId!, delegateId, null, eks.secretId).catch((e) => {
+              this.crypto.addDelegationsAndEncryptionKeys(patient, contact, dataOwnerId!, delegateId, null, eks.secretId).catch((e) => {
                 console.log(e)
                 return contact
               })
@@ -109,8 +114,9 @@ export class IccContactXApi extends IccContactApi {
   }
 
   initEncryptionKeys(user: models.User, ctc: models.Contact) {
-    const hcpId = user.healthcarePartyId || user.patientId
-    return this.crypto.initEncryptionKeys(ctc, hcpId!).then((eks) => {
+    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+
+    return this.crypto.initEncryptionKeys(ctc, dataOwnerId!).then((eks) => {
       let promise = Promise.resolve(
         _.extend(ctc, {
           encryptionKeys: eks.encryptionKeys,
@@ -125,7 +131,7 @@ export class IccContactXApi extends IccContactApi {
         (delegateId) =>
           (promise = promise.then((contact) =>
             this.crypto
-              .appendEncryptionKeys(contact, hcpId!, delegateId, eks.secretId)
+              .appendEncryptionKeys(contact, dataOwnerId!, delegateId, eks.secretId)
               .then((extraEks) => {
                 return _.extend(contact, {
                   encryptionKeys: extraEks.encryptionKeys,
