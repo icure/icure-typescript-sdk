@@ -1,12 +1,12 @@
-import { UtilsClass } from '../icc-x-api'
+import { UtilsClass } from '../../../icc-x-api'
 import { expect } from 'chai'
 
 import 'mocha'
-import { hex2ua, ua2hex } from '..'
-import { crypto } from '../node-compat'
-import { RSAUtils } from '../icc-x-api/crypto/RSA'
-import { b64Url2ua } from '../icc-x-api'
-import { parseAsn1 } from '../icc-x-api/utils/asn1-parser'
+import { hex2ua, ua2hex } from '../../../index'
+import { crypto } from '../../../node-compat'
+import { RSAUtils } from '../../../icc-x-api/crypto/RSA'
+import { b64Url2ua } from '../../../icc-x-api'
+import { parseAsn1 } from '../../../icc-x-api/utils/asn1-parser'
 
 describe('ArrayBuffer methods', () => {
   let utils: UtilsClass
