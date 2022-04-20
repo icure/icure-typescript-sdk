@@ -65,19 +65,19 @@ export const Api = function (
   const healthcarePartyApi = new IccHcpartyXApi(host, headers, fetchImpl)
   const deviceApi = new IccDeviceApi(host, headers, fetchImpl)
   const cryptoApi = new IccCryptoXApi(host, headers, healthcarePartyApi, new IccPatientApi(host, headers, fetchImpl), deviceApi, crypto)
-  const accessLogApi = new IccAccesslogXApi(host, headers, cryptoApi, fetchImpl)
+  const accessLogApi = new IccAccesslogXApi(host, headers, cryptoApi, userApi, fetchImpl)
   const agendaApi = new IccAgendaApi(host, headers, fetchImpl)
   const contactApi = new IccContactXApi(host, headers, cryptoApi, userApi, fetchImpl)
-  const formApi = new IccFormXApi(host, headers, cryptoApi, fetchImpl)
+  const formApi = new IccFormXApi(host, headers, cryptoApi, userApi, fetchImpl)
   const groupApi = new IccGroupApi(host, headers)
-  const invoiceApi = new IccInvoiceXApi(host, headers, cryptoApi, entityReferenceApi, fetchImpl)
+  const invoiceApi = new IccInvoiceXApi(host, headers, cryptoApi, entityReferenceApi, userApi, fetchImpl)
   const insuranceApi = new IccInsuranceApi(host, headers, fetchImpl)
-  const documentApi = new IccDocumentXApi(host, headers, cryptoApi, authApi, fetchImpl)
+  const documentApi = new IccDocumentXApi(host, headers, cryptoApi, authApi, userApi, fetchImpl)
   const healthcareElementApi = new IccHelementXApi(host, headers, cryptoApi, userApi, [], fetchImpl)
-  const classificationApi = new IccClassificationXApi(host, headers, cryptoApi, fetchImpl)
-  const calendarItemApi = new IccCalendarItemXApi(host, headers, cryptoApi, fetchImpl)
-  const receiptApi = new IccReceiptXApi(host, headers, cryptoApi, fetchImpl)
-  const timetableApi = new IccTimeTableXApi(host, headers, cryptoApi, fetchImpl)
+  const classificationApi = new IccClassificationXApi(host, headers, cryptoApi, userApi, fetchImpl)
+  const calendarItemApi = new IccCalendarItemXApi(host, headers, cryptoApi, userApi, fetchImpl)
+  const receiptApi = new IccReceiptXApi(host, headers, cryptoApi, userApi, fetchImpl)
+  const timetableApi = new IccTimeTableXApi(host, headers, cryptoApi, userApi, fetchImpl)
   const patientApi = new IccPatientXApi(
     host,
     headers,
@@ -94,7 +94,7 @@ export const Api = function (
     ['note'],
     fetchImpl
   )
-  const messageApi = new IccMessageXApi(host, headers, cryptoApi, fetchImpl)
+  const messageApi = new IccMessageXApi(host, headers, cryptoApi, userApi, fetchImpl)
 
   return {
     cryptoApi,
