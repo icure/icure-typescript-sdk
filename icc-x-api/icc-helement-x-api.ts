@@ -6,10 +6,9 @@ import * as models from '../icc-api/model/models'
 import * as _ from 'lodash'
 import * as moment from 'moment'
 import {a2b, b2a, hex2ua, string2ua, ua2utf8, utf8_2ua} from './utils/binary-utils'
-import {HealthElement, Patient} from "../icc-api/model/models"
+import {HealthElement} from "../icc-api/model/models"
 import {utils} from "./crypto/utils"
 import {IccUserXApi} from "./icc-user-x-api"
-import {use} from "chai"
 
 export class IccHelementXApi extends IccHelementApi {
   crypto: IccCryptoXApi
@@ -124,6 +123,27 @@ export class IccHelementXApi extends IccHelementApi {
         .then((hes) => this.decrypt(this.userApi.getDataOwnerOf(user), hes))
       : Promise.resolve(null)
 
+  }
+
+  getHealthElement(healthElementId: string): never {
+    throw new Error('Cannot call a method that returns health element without providing a user for de/encryption')
+  }
+
+  getHealthElementWithUser(user: models.User, healthElementId: string): Promise<models.HealthElement | any> {
+    return super
+      .getHealthElement(healthElementId)
+        .then((he) => this.decryptWithUser(user, [he]))
+        .then((hes) => hes[0])
+  }
+
+  getHealthElements(body?: models.ListOfIds): never {
+    throw new Error('Cannot call a method that returns health elements without providing a user for de/encryption')
+  }
+
+  getHealthElementsWithUser(user: models.User, body?: models.ListOfIds): Promise<models.HealthElement[] | any> {
+    return super
+        .getHealthElements(body)
+        .then((hes) => this.decrypt(this.userApi.getDataOwnerOf(user), hes))
   }
 
   // noinspection JSUnusedGlobalSymbols
