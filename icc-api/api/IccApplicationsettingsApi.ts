@@ -33,6 +33,23 @@ export class IccApplicationsettingsApi {
 
   /**
    *
+   * @summary Create new application settings
+   * @param body
+   */
+  createApplicationSettings(body?: ApplicationSettings): Promise<ApplicationSettings> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/appsettings` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+      .then((doc) => new ApplicationSettings(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
    * @summary Gets all application settings
    */
   getApplicationSettings(): Promise<Array<ApplicationSettings>> {

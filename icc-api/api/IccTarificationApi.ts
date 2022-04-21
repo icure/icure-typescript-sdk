@@ -58,6 +58,7 @@ export class IccTarificationApi {
    * @param tarification
    * @param version
    * @param startDocumentId A tarification document ID
+   * @param startKey
    * @param limit Number of rows
    */
   findPaginatedTarifications(
@@ -66,6 +67,7 @@ export class IccTarificationApi {
     tarification?: string,
     version?: string,
     startDocumentId?: string,
+    startKey?: string,
     limit?: number
   ): Promise<PaginatedListTarification> {
     let _body = null
@@ -80,6 +82,7 @@ export class IccTarificationApi {
       (tarification ? '&tarification=' + encodeURIComponent(String(tarification)) : '') +
       (version ? '&version=' + encodeURIComponent(String(version)) : '') +
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
+      (startKey ? '&startKey=' + encodeURIComponent(String(startKey)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
@@ -94,6 +97,7 @@ export class IccTarificationApi {
    * @param types
    * @param language
    * @param label
+   * @param startKey
    * @param startDocumentId A tarification document ID
    * @param limit Number of rows
    */
@@ -102,6 +106,7 @@ export class IccTarificationApi {
     types?: string,
     language?: string,
     label?: string,
+    startKey?: string,
     startDocumentId?: string,
     limit?: number
   ): Promise<PaginatedListTarification> {
@@ -116,6 +121,7 @@ export class IccTarificationApi {
       (types ? '&types=' + encodeURIComponent(String(types)) : '') +
       (language ? '&language=' + encodeURIComponent(String(language)) : '') +
       (label ? '&label=' + encodeURIComponent(String(label)) : '') +
+      (startKey ? '&startKey=' + encodeURIComponent(String(startKey)) : '') +
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
