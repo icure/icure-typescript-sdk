@@ -25,8 +25,8 @@ export class IccHelementXApi extends IccHelementApi {
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
-      ? self.fetch
-      : fetch
+        ? self.fetch
+        : fetch
   ) {
     super(host, headers, fetchImpl)
     this.crypto = crypto
@@ -129,22 +129,84 @@ export class IccHelementXApi extends IccHelementApi {
     throw new Error('Cannot call a method that returns health element without providing a user for de/encryption')
   }
 
-  getHealthElementWithUser(user: models.User, healthElementId: string): Promise<models.HealthElement | any> {
+  getHealthElementWithUser(user: models.User, healthElementId: string): Promise<models.HealthElement> {
     return super
       .getHealthElement(healthElementId)
-        .then((he) => this.decryptWithUser(user, [he]))
-        .then((hes) => hes[0])
+      .then((he) => this.decryptWithUser(user, [he]))
+      .then((hes) => hes[0])
   }
 
   getHealthElements(body?: models.ListOfIds): never {
     throw new Error('Cannot call a method that returns health elements without providing a user for de/encryption')
   }
 
-  getHealthElementsWithUser(user: models.User, body?: models.ListOfIds): Promise<models.HealthElement[] | any> {
+  getHealthElementsWithUser(user: models.User, body?: models.ListOfIds): Promise<models.HealthElement[]> {
     return super
-        .getHealthElements(body)
-        .then((hes) => this.decrypt(this.userApi.getDataOwnerOf(user), hes))
+      .getHealthElements(body)
+      .then((hes) => this.decrypt(this.userApi.getDataOwnerOf(user), hes))
   }
+
+  newHealthElementDelegations(healthElementId: string, body?: Array<models.Delegation>): never {
+    throw new Error('Cannot call a method that returns health element without providing a user for de/encryption')
+  }
+
+  newHealthElementDelegationsWithUser(user: models.User, healthElementId: string, body?: Array<models.Delegation>): Promise<models.HealthElement> {
+    return super
+      .newHealthElementDelegations(healthElementId, body)
+      .then((he) => this.decryptWithUser(user, [he]))
+      .then((he) => he[0])
+  }
+
+  findHealthElementsByHCPartyPatientForeignKeys(hcPartyId: string, secretFKeys: string): never {
+    throw new Error('Cannot call a method that returns health element without providing a user for de/encryption')
+  }
+
+  findHealthElementsByHCPartyPatientForeignKeysWithUser(user: models.User, hcPartyId: string, secretFKeys: string): Promise<HealthElement[]> {
+    return super
+      .findHealthElementsByHCPartyPatientForeignKeys(hcPartyId, secretFKeys)
+      .then((hes) => this.decryptWithUser(user, hes))
+  }
+
+  findHealthElementsByHCPartyAndPatientWithUser(user: models.User, hcPartyId: string, patient: models.Patient) : Promise<models.HealthElement[]> {
+    return this.crypto.extractSFKsHierarchyFromDelegations(patient, hcPartyId)
+      .then((keysAndHcPartyId) => {
+        const keys = keysAndHcPartyId
+          .find((secretForeignKeys) => secretForeignKeys.hcpartyId == hcPartyId)
+          ?.extractedKeys
+
+        if (keys == undefined) {
+          throw Error("No delegation for user")
+        }
+
+        return this.findHealthElementsByHCPartyPatientForeignKeysWithUser(user, hcPartyId, keys.join(","))
+      })
+  }
+
+  modifyHealthElement(body?: HealthElement): never {
+    throw new Error('Cannot call a method that returns health element without providing a user for de/encryption')
+  }
+
+  modifyHealthElementWithUser(user: models.User, body?: HealthElement): Promise<HealthElement | any> {
+    return body
+      ? this.encrypt(user, [_.cloneDeep(body)])
+        .then((hes) => super.modifyHealthElement(hes[0]))
+        .then((he) => this.decryptWithUser(user, [he]))
+        .then((hes) => hes[0])
+      : Promise.resolve(null)
+  }
+
+  modifyHealthElements(body?: Array<HealthElement>): never {
+    throw new Error('Cannot call a method that returns health elements without providing a user for de/encryption')
+  }
+
+  modifyHealthElementsWithUser(user: models.User, bodies?: HealthElement[]): Promise<HealthElement[] | any> {
+    return bodies
+      ? this.encrypt(user, bodies.map((c) => _.cloneDeep(c)))
+        .then((hes) => super.modifyHealthElements(hes))
+        .then((hes) => this.decrypt(this.userApi.getDataOwnerOf(user), hes))
+      : Promise.resolve(null)
+  }
+
 
   // noinspection JSUnusedGlobalSymbols
   /**
@@ -170,18 +232,18 @@ export class IccHelementXApi extends IccHelementApi {
       .then((secretForeignKeys) =>
         secretForeignKeys && secretForeignKeys.length > 0
           ? Promise.all(
-              secretForeignKeys
-                .reduce((acc, level) => {
-                  return acc.concat([
-                    {
-                      hcpartyId: level.hcpartyId,
-                      extractedKeys: level.extractedKeys.filter((key) => !acc.some((previousLevel) => previousLevel.extractedKeys.includes(key))),
-                    },
-                  ])
-                }, [] as Array<{ hcpartyId: string; extractedKeys: Array<string> }>)
-                .filter((l) => l.extractedKeys.length > 0)
-                .map(({ hcpartyId, extractedKeys }) => this.findByHCPartyPatientSecretFKeys(hcpartyId, _.uniq(extractedKeys).join(',')))
-            ).then((results) => _.uniqBy(_.flatMap(results), (x) => x.id))
+            secretForeignKeys
+              .reduce((acc, level) => {
+                return acc.concat([
+                  {
+                    hcpartyId: level.hcpartyId,
+                    extractedKeys: level.extractedKeys.filter((key) => !acc.some((previousLevel) => previousLevel.extractedKeys.includes(key))),
+                  },
+                ])
+              }, [] as Array<{ hcpartyId: string; extractedKeys: Array<string> }>)
+              .filter((l) => l.extractedKeys.length > 0)
+              .map(({ hcpartyId, extractedKeys }) => this.findByHCPartyPatientSecretFKeys(hcpartyId, _.uniq(extractedKeys).join(',')))
+          ).then((results) => _.uniqBy(_.flatMap(results), (x) => x.id))
           : Promise.resolve([])
       )
       .then((decryptedHelements: Array<models.HealthElement>) => {
@@ -215,8 +277,8 @@ export class IccHelementXApi extends IccHelementApi {
             ? Promise.resolve(he)
             : this.initEncryptionKeys(user, he)
         ).then((healthElement: HealthElement) =>
-            this.crypto.extractKeysFromDelegationsForHcpHierarchy(dataOwnerId, healthElement.id!, healthElement.encryptionKeys!)
-          )
+          this.crypto.extractKeysFromDelegationsForHcpHierarchy(dataOwnerId, healthElement.id!, healthElement.encryptionKeys!)
+        )
           .then((sfks: { extractedKeys: Array<string>; hcpartyId: string }) =>
             this.crypto.AES.importKey('raw', hex2ua(sfks.extractedKeys[0].replace(/-/g, '')))
           )
