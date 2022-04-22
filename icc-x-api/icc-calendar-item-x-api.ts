@@ -2,29 +2,33 @@ import * as i18n from './rsrc/contact.i18n'
 
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import { utils } from './crypto/utils'
-import { IccCryptoXApi } from './icc-crypto-x-api'
-import { IccCalendarItemApi } from '../icc-api'
-import { CalendarItem, User } from '../icc-api/model/models'
-import { hex2ua, ua2utf8, utf8_2ua } from './utils/binary-utils'
+import {CalendarItem, User} from '../icc-api/model/models'
+import {utils} from './crypto/utils'
+import {IccCryptoXApi} from './icc-crypto-x-api'
+import {IccCalendarItemApi} from '../icc-api'
+import {hex2ua, ua2utf8, utf8_2ua} from './utils/binary-utils'
+import {IccUserXApi} from "./icc-user-x-api"
 
 export class IccCalendarItemXApi extends IccCalendarItemApi {
   i18n: any = i18n
   crypto: IccCryptoXApi
+  userApi: IccUserXApi
   cryptedKeys = ['details', 'title', 'patientId']
 
   constructor(
     host: string,
     headers: { [key: string]: string },
     crypto: IccCryptoXApi,
+    userApi: IccUserXApi,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
-      ? self.fetch
-      : fetch
+        ? self.fetch
+        : fetch
   ) {
     super(host, headers, fetchImpl)
     this.crypto = crypto
+    this.userApi = userApi
   }
 
   newInstance(user: User, ci: CalendarItem, delegates: string[] = []) {
@@ -38,7 +42,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
         _type: 'org.taktik.icure.entities.CalendarItem',
         created: new Date().getTime(),
         modified: new Date().getTime(),
-        responsible: user.healthcarePartyId || user.patientId,
+        responsible: this.userApi.getDataOwnerOf(user),
         author: user.id,
         codes: [],
         tags: [],
@@ -55,13 +59,14 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
     calendarItem: models.CalendarItem,
     delegates: string[] = []
   ): Promise<models.CalendarItem> {
-    const hcpId = user.healthcarePartyId || user.patientId
+    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+
     return this.crypto
-      .extractDelegationsSFKs(patient, hcpId!)
+      .extractDelegationsSFKs(patient, dataOwnerId!)
       .then((secretForeignKeys) =>
         Promise.all([
-          this.crypto.initObjectDelegations(calendarItem, patient, hcpId!, secretForeignKeys.extractedKeys[0]),
-          this.crypto.initEncryptionKeys(calendarItem, hcpId!),
+          this.crypto.initObjectDelegations(calendarItem, patient, dataOwnerId!, secretForeignKeys.extractedKeys[0]),
+          this.crypto.initEncryptionKeys(calendarItem, dataOwnerId!),
         ])
       )
       .then((initData) => {
@@ -80,7 +85,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
         ).forEach(
           (delegateId) =>
             (promise = promise.then((contact) =>
-              this.crypto.addDelegationsAndEncryptionKeys(patient, contact, hcpId!, delegateId, dels.secretId, eks.secretId)
+              this.crypto.addDelegationsAndEncryptionKeys(patient, contact, dataOwnerId!, delegateId, dels.secretId, eks.secretId)
             ))
         )
         return promise
@@ -106,8 +111,8 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
   createCalendarItemWithHcParty(user: models.User, body?: models.CalendarItem): Promise<models.CalendarItem | any> {
     return body
       ? this.encrypt(user, [_.cloneDeep(body)])
-          .then((items) => super.createCalendarItem(items[0]))
-          .then((ci) => this.decrypt((user.healthcarePartyId || user.patientId)!, [ci]))
+        .then((items) => super.createCalendarItem(items[0]))
+        .then((ci) => this.decrypt((this.userApi.getDataOwnerOf(user))!, [ci]))
           .then((cis) => cis[0])
       : Promise.resolve(null)
   }
@@ -115,7 +120,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
   getCalendarItemWithUser(user: models.User, calendarItemId: string): Promise<CalendarItem | any> {
     return super
       .getCalendarItem(calendarItemId)
-      .then((calendarItem) => this.decrypt((user.healthcarePartyId || user.patientId)!, [calendarItem]))
+      .then((calendarItem) => this.decrypt((this.userApi.getDataOwnerOf(user))!, [calendarItem]))
       .then((cis) => cis[0])
   }
 
@@ -124,7 +129,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
   }
 
   getCalendarItemsWithUser(user: models.User): Promise<Array<CalendarItem> | any> {
-    return super.getCalendarItems().then((calendarItems) => this.decrypt((user.healthcarePartyId || user.patientId)!, calendarItems))
+    return super.getCalendarItems().then((calendarItems) => this.decrypt((this.userApi.getDataOwnerOf(user))!, calendarItems))
   }
 
   getCalendarItems(): never {
@@ -132,7 +137,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
   }
 
   getCalendarItemsWithIdsWithUser(user: models.User, body?: models.ListOfIds): Promise<Array<CalendarItem> | any> {
-    return super.getCalendarItemsWithIds(body).then((calendarItems) => this.decrypt((user.healthcarePartyId || user.patientId)!, calendarItems))
+    return super.getCalendarItemsWithIds(body).then((calendarItems) => this.decrypt((this.userApi.getDataOwnerOf(user))!, calendarItems))
   }
 
   getCalendarItemsWithIds(body?: models.ListOfIds): never {
@@ -147,7 +152,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
   ): Promise<Array<CalendarItem> | any> {
     return super
       .getCalendarItemsByPeriodAndHcPartyId(startDate, endDate, hcPartyId)
-      .then((calendarItems) => this.decrypt((user.healthcarePartyId || user.patientId)!, calendarItems))
+      .then((calendarItems) => this.decrypt((this.userApi.getDataOwnerOf(user))!, calendarItems))
   }
 
   getCalendarItemsByPeriodAndHcPartyId(startDate?: number, endDate?: number, hcPartyId?: string): never {
@@ -162,7 +167,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
   ): Promise<Array<CalendarItem> | any> {
     return super
       .getCalendarsByPeriodAndAgendaId(startDate, endDate, agendaId)
-      .then((calendarItems) => this.decrypt((user.healthcarePartyId || user.patientId)!, calendarItems))
+      .then((calendarItems) => this.decrypt((this.userApi.getDataOwnerOf(user))!, calendarItems))
   }
 
   getCalendarsByPeriodAndAgendaId(startDate?: number, endDate?: number, agendaId?: string): never {
@@ -192,24 +197,25 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
   modifyCalendarItemWithHcParty(user: models.User, body?: models.CalendarItem): Promise<models.CalendarItem | any> {
     return body
       ? this.encrypt(user, [_.cloneDeep(body)])
-          .then((items) => super.modifyCalendarItem(items[0]))
-          .then((ci) => this.decrypt((user.healthcarePartyId || user.patientId)!, [ci]))
+        .then((items) => super.modifyCalendarItem(items[0]))
+        .then((ci) => this.decrypt((this.userApi.getDataOwnerOf(user))!, [ci]))
           .then((cis) => cis[0])
       : Promise.resolve(null)
   }
 
   initEncryptionKeys(user: models.User, calendarItem: models.CalendarItem): Promise<models.CalendarItem> {
-    const hcpId = user.healthcarePartyId || user.patientId
-    return this.crypto.initEncryptionKeys(calendarItem, hcpId!).then((eks) => {
+    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+
+    return this.crypto.initEncryptionKeys(calendarItem, dataOwnerId!).then((eks) => {
       let promise = Promise.resolve(
-        _.extend(calendarItem, {
-          encryptionKeys: eks.encryptionKeys,
-        })
-      )
+          _.extend(calendarItem, {
+            encryptionKeys: eks.encryptionKeys,
+          })
+        )
       ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
         (delegateId) =>
           (promise = promise.then((item) =>
-            this.crypto.appendEncryptionKeys(item, hcpId!, delegateId, eks.secretId).then((extraEks) => {
+            this.crypto.appendEncryptionKeys(item, dataOwnerId!, delegateId, eks.secretId).then((extraEks) => {
               return _.extend(item, {
                 encryptionKeys: extraEks.encryptionKeys,
               })
@@ -229,7 +235,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
         )
           .then((calendarItem: CalendarItem) =>
             this.crypto.extractKeysFromDelegationsForHcpHierarchy(
-              (user.healthcarePartyId || user.patientId)!,
+              (this.userApi.getDataOwnerOf(user))!,
               calendarItem.id!,
               calendarItem.encryptionKeys!
             )
