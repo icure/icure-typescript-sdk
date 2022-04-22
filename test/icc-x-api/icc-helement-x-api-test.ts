@@ -83,6 +83,7 @@ describe('icc-helement-x-api Tests', () => {
     assert(readHealthElement.note == hElementToCreate.note)
     assert(readHealthElement.delegations![hcpUser.healthcarePartyId!].length > 0)
     assert(readHealthElement.encryptionKeys![hcpUser.healthcarePartyId!].length > 0)
+    assert(readHealthElement.cryptedForeignKeys![hcpUser.healthcarePartyId!].length > 0)
   })
 
   it('ModifyHealthElementWithUser Success for HCP', async () => {
@@ -111,6 +112,7 @@ describe('icc-helement-x-api Tests', () => {
     assert(readHealthElement.note == modifiedHealthElement.note)
     assert(readHealthElement.delegations![hcpUser.healthcarePartyId!].length > 0)
     assert(readHealthElement.encryptionKeys![hcpUser.healthcarePartyId!].length > 0)
+    assert(readHealthElement.cryptedForeignKeys![hcpUser.healthcarePartyId!].length > 0)
   })
 
   it('findHealthElementsByHCPartyAndPatientWithUser Success for HCP', async () => {
