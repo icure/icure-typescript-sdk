@@ -1,13 +1,13 @@
 /* make node behave */
-import { IccPatientApi } from '../icc-api/api/IccPatientApi'
-import { crypto } from '../node-compat'
+import { IccPatientApi } from '../../../icc-api/api/IccPatientApi'
+import { crypto } from '../../../node-compat'
 import { expect } from 'chai'
 import 'mocha'
 
-import { Api } from '../icc-x-api'
-import { User } from '../icc-api/model/User'
-import { Patient } from '../icc-api/model/Patient'
-import { hex2ua } from '../icc-x-api/utils/binary-utils'
+import { Api } from '../../../icc-x-api'
+import { User } from '../../../icc-api/model/User'
+import { Patient } from '../../../icc-api/model/Patient'
+import { hex2ua } from '../../../icc-x-api/utils/binary-utils'
 
 const privateKeys: { [key: string]: string } = {
   '37d470b5-1931-40e2-b959-af38545d8b67':
@@ -98,14 +98,14 @@ describe('Init confidential delegation in patient', () => {
 })
 
 async function initKeys(api: any, user: User) {
-  let id = user.healthcarePartyId
+  let id = api.userApi.getDataOwnerOf(user)!
   while (id) {
     await api.cryptoApi.loadKeyPairsAsTextInBrowserLocalStorage(id, api.cryptoApi.hex2ua(privateKeys[id])).catch((error: any) => {
       console.error('Error: in loadKeyPairsAsTextInBrowserLocalStorage')
       console.error(error)
     })
 
-    id = (await api.healthcarePartyApi.getHealthcareParty(id)).parentId
+    id = (await api.cryptoApi.getDataOwner(id)).parentId
   }
 }
 
