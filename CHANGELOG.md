@@ -6,6 +6,8 @@
 - [FEATURE] [#86](https://github.com/taktik/icc-api/pull/86) - Every dataOwner is now supported for encryption/decryption services (not only HCP anymore)
 - [FEATURE] [a3318e7477b929a00bc8227080fa424cd2896d6b](https://github.com/taktik/icc-api/commit/a3318e7477b929a00bc8227080fa424cd2896d6b) - Add getGroupsStorageInfos API in IccGroupApi
 - [FEATURE] [a3318e7477b929a00bc8227080fa424cd2896d6b](https://github.com/taktik/icc-api/commit/a3318e7477b929a00bc8227080fa424cd2896d6b) - Add getUserSyncInfo API in IccIcureApi
+- [FEATURE] [531eaf99c2d1a91cb3e228bda2cfc71c5a99b8f4](https://github.com/taktik/icc-api/commit/531eaf99c2d1a91cb3e228bda2cfc71c5a99b8f4) - Add findGroupsWithContent API in IccGroupApi
+- [FEATURE] [f53614ef84b8cb525820d1e1a3fbed1b98e62c2e](https://github.com/taktik/icc-api/commit/f53614ef84b8cb525820d1e1a3fbed1b98e62c2e) - Add UserByNameEmailPhoneFilter
 
 ### Breaking changes for [#86](https://github.com/taktik/icc-api/pull/86)
 
