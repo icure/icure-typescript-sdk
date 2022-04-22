@@ -1,6 +1,6 @@
 # icc-api CHANGELOG
 
-## 2.0.0
+## 4.2.0
 
 - [FEATURE] [#86](https://github.com/taktik/icc-api/pull/86) - BREAK Add icc-helement-x-api services managing encryption/decryption
 - [FEATURE] [#86](https://github.com/taktik/icc-api/pull/86) - Every dataOwner is now supported for encryption/decryption services (not only HCP anymore)
