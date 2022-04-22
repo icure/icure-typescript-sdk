@@ -2,7 +2,7 @@
 import { expect } from 'chai'
 import 'mocha'
 
-import { a2b, b2a, string2ua, ua2string, b64_2ua, ua2b64 } from '../icc-api/model/ModelHelper'
+import { a2b, b2a, string2ua, ua2string, b64_2ua, ua2b64 } from '../../../icc-api/model/ModelHelper'
 
 function getRaw(size: number) {
   return 'x'.repeat(size).replace(/./g, () => String.fromCharCode(Math.random() * 256))
