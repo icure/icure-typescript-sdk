@@ -1,4 +1,4 @@
-import { utils } from '../icc-x-api'
+import { utils } from '../../../icc-x-api'
 import { expect } from 'chai'
 import 'mocha'
 

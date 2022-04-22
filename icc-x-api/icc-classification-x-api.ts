@@ -1,26 +1,30 @@
-import { IccClassificationApi } from '../icc-api'
-import { IccCryptoXApi } from './icc-crypto-x-api'
+import {IccClassificationApi} from '../icc-api'
+import {IccCryptoXApi} from './icc-crypto-x-api'
 
 import * as models from '../icc-api/model/models'
 
 import * as _ from 'lodash'
 import * as moment from 'moment'
+import {IccUserXApi} from "./icc-user-x-api"
 
 export class IccClassificationXApi extends IccClassificationApi {
   crypto: IccCryptoXApi
+  userApi: IccUserXApi
 
   constructor(
     host: string,
     headers: { [key: string]: string },
     crypto: IccCryptoXApi,
+    userApi: IccUserXApi,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
-      ? self.fetch
-      : fetch
+        ? self.fetch
+        : fetch
   ) {
     super(host, headers, fetchImpl)
     this.crypto = crypto
+    this.userApi = userApi
   }
 
   newInstance(user: models.User, patient: models.Patient, c: any): Promise<models.Classification> {
@@ -30,7 +34,7 @@ export class IccClassificationXApi extends IccClassificationApi {
         _type: 'org.taktik.icure.entities.Classification',
         created: new Date().getTime(),
         modified: new Date().getTime(),
-        responsible: user.healthcarePartyId || user.patientId,
+        responsible: this.userApi.getDataOwnerOf(user),
         author: user.id,
         codes: [],
         tags: [],
@@ -48,10 +52,10 @@ export class IccClassificationXApi extends IccClassificationApi {
     patient: models.Patient,
     classification: models.Classification
   ): Promise<models.Classification> {
-    const hcpId = user.healthcarePartyId || user.patientId
+    const dataOwnerId = this.userApi.getDataOwnerOf(user)
     return this.crypto
-      .extractDelegationsSFKs(patient, hcpId!)
-      .then((secretForeignKeys) => this.crypto.initObjectDelegations(classification, patient, hcpId!, secretForeignKeys.extractedKeys[0]))
+      .extractDelegationsSFKs(patient, dataOwnerId!)
+      .then((secretForeignKeys) => this.crypto.initObjectDelegations(classification, patient, dataOwnerId!, secretForeignKeys.extractedKeys[0]))
       .then((initData) => {
         _.extend(classification, {
           delegations: initData.delegations,
@@ -64,7 +68,7 @@ export class IccClassificationXApi extends IccClassificationApi {
           (delegateId) =>
             (promise = promise.then((classification) =>
               this.crypto
-                .extendedDelegationsAndCryptedForeignKeys(classification, patient, hcpId!, delegateId, initData.secretId)
+                .extendedDelegationsAndCryptedForeignKeys(classification, patient, dataOwnerId!, delegateId, initData.secretId)
                 .then((extraData) =>
                   _.extend(classification, {
                     delegations: extraData.delegations,
