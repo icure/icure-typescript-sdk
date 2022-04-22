@@ -155,6 +155,10 @@ export class HealthcareParty {
    */
   financialInstitutionInformation?: Array<FinancialInstitutionInformation>
   /**
+   * A description of the HCP, meant for the public and in multiple languages.
+   */
+  descr?: { [key: string]: string }
+  /**
    * The invoicing scheme this healthcare party adheres to : 'service fee' or 'flat rate'
    */
   billingType?: string
