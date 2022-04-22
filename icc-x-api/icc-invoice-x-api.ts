@@ -1,10 +1,10 @@
-import {IccEntityrefApi, IccInvoiceApi} from '../icc-api'
-import {IccCryptoXApi} from './icc-crypto-x-api'
+import { IccEntityrefApi, IccInvoiceApi } from '../icc-api'
+import { IccCryptoXApi } from './icc-crypto-x-api'
 
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import {Invoice} from '../icc-api/model/models'
-import {IccUserXApi} from "./icc-user-x-api"
+import { Invoice } from '../icc-api/model/models'
+import { IccUserXApi } from './icc-user-x-api'
 
 export class IccInvoiceXApi extends IccInvoiceApi {
   crypto: IccCryptoXApi
@@ -20,8 +20,8 @@ export class IccInvoiceXApi extends IccInvoiceApi {
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
-        ? self.fetch
-        : fetch
+      ? self.fetch
+      : fetch
   ) {
     super(host, headers, fetchImpl)
     this.crypto = crypto
@@ -55,10 +55,10 @@ export class IccInvoiceXApi extends IccInvoiceApi {
     const dataOwnerId = this.userApi.getDataOwnerOf(user)
     return this.crypto.initEncryptionKeys(invoice, dataOwnerId!).then((eks) => {
       let promise = Promise.resolve(
-          _.extend(invoice, {
-            encryptionKeys: eks.encryptionKeys,
-          })
-        )
+        _.extend(invoice, {
+          encryptionKeys: eks.encryptionKeys,
+        })
+      )
       ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.financialInformation || []) : []).forEach(
         (delegateId) =>
           (promise = promise.then((invoice) =>

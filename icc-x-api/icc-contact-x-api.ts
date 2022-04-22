@@ -1,17 +1,17 @@
-import {IccContactApi} from '../icc-api'
-import {IccCryptoXApi} from './icc-crypto-x-api'
+import { IccContactApi } from '../icc-api'
+import { IccCryptoXApi } from './icc-crypto-x-api'
 
 import i18n from './rsrc/contact.i18n'
-import {utils} from './crypto/utils'
+import { utils } from './crypto/utils'
 
 import * as moment from 'moment'
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import {Contact, FilterChainService, ListOfIds, Service} from '../icc-api/model/models'
-import {PaginatedListContact} from '../icc-api/model/PaginatedListContact'
-import {a2b, b2a, hex2ua, string2ua, ua2string, ua2utf8, utf8_2ua} from './utils/binary-utils'
-import {ServiceByIdsFilter} from "./filters/ServiceByIdsFilter"
-import {IccUserXApi} from "./icc-user-x-api"
+import { Contact, FilterChainService, ListOfIds, Service } from '../icc-api/model/models'
+import { PaginatedListContact } from '../icc-api/model/PaginatedListContact'
+import { a2b, b2a, hex2ua, string2ua, ua2string, ua2utf8, utf8_2ua } from './utils/binary-utils'
+import { ServiceByIdsFilter } from './filters/ServiceByIdsFilter'
+import { IccUserXApi } from './icc-user-x-api'
 
 export class IccContactXApi extends IccContactApi {
   i18n: any = i18n
@@ -80,7 +80,10 @@ export class IccContactXApi extends IccContactApi {
         if (!key) {
           console.error(`SFK cannot be found for HealthElement ${key}. The health element will not be reachable from the patient side`)
         }
-        return Promise.all([this.crypto.initObjectDelegations(contact, patient, dataOwnerId!, key), this.crypto.initEncryptionKeys(contact, dataOwnerId!)])
+        return Promise.all([
+          this.crypto.initObjectDelegations(contact, patient, dataOwnerId!, key),
+          this.crypto.initEncryptionKeys(contact, dataOwnerId!),
+        ])
       })
       .then(([dels, eks]) => {
         _.extend(contact, {
@@ -303,29 +306,29 @@ export class IccContactXApi extends IccContactApi {
   }
 
   findByHCPartyFormIdWithUser(user: models.User, hcPartyId: string, formId: string): Promise<Array<models.Contact> | any> {
-    return super.findByHCPartyFormId(hcPartyId, formId).then((ctcs) => this.decrypt((this.userApi.getDataOwnerOf(user))!, ctcs))
+    return super.findByHCPartyFormId(hcPartyId, formId).then((ctcs) => this.decrypt(this.userApi.getDataOwnerOf(user)!, ctcs))
   }
 
   findByHCPartyFormIdsWithUser(user: models.User, hcPartyId: string, body: models.ListOfIds): Promise<Array<models.Contact> | any> {
-    return super.findByHCPartyFormIds(hcPartyId, body).then((ctcs) => this.decrypt((this.userApi.getDataOwnerOf(user))!, ctcs))
+    return super.findByHCPartyFormIds(hcPartyId, body).then((ctcs) => this.decrypt(this.userApi.getDataOwnerOf(user)!, ctcs))
   }
 
   getContactWithUser(user: models.User, contactId: string): Promise<models.Contact | any> {
     return super
       .getContact(contactId)
-      .then((ctc) => this.decrypt((this.userApi.getDataOwnerOf(user))!, [ctc]))
+      .then((ctc) => this.decrypt(this.userApi.getDataOwnerOf(user)!, [ctc]))
       .then((ctcs) => ctcs[0])
   }
 
   getContactsWithUser(user: models.User, body?: models.ListOfIds): Promise<Array<models.Contact> | any> {
-    return super.getContacts(body).then((ctcs) => this.decrypt((this.userApi.getDataOwnerOf(user))!, ctcs))
+    return super.getContacts(body).then((ctcs) => this.decrypt(this.userApi.getDataOwnerOf(user)!, ctcs))
   }
 
   modifyContactWithUser(user: models.User, body?: models.Contact): Promise<models.Contact | any> {
     return body
       ? this.encrypt(user, [_.cloneDeep(body)])
-        .then((ctcs) => super.modifyContact(ctcs[0]))
-        .then((ctc) => this.decrypt((this.userApi.getDataOwnerOf(user))!, [ctc]))
+          .then((ctcs) => super.modifyContact(ctcs[0]))
+          .then((ctc) => this.decrypt(this.userApi.getDataOwnerOf(user)!, [ctc]))
           .then((ctcs) => ctcs[0])
       : Promise.resolve(null)
   }
@@ -333,19 +336,19 @@ export class IccContactXApi extends IccContactApi {
   modifyContactsWithUser(user: models.User, bodies?: Array<models.Contact>): Promise<models.Contact[] | any> {
     return bodies
       ? this.encrypt(
-        user,
-        bodies.map((c) => _.cloneDeep(c))
-      )
-        .then((ctcs) => super.modifyContacts(ctcs))
-        .then((ctcs) => this.decrypt((this.userApi.getDataOwnerOf(user))!, ctcs))
+          user,
+          bodies.map((c) => _.cloneDeep(c))
+        )
+          .then((ctcs) => super.modifyContacts(ctcs))
+          .then((ctcs) => this.decrypt(this.userApi.getDataOwnerOf(user)!, ctcs))
       : Promise.resolve(null)
   }
 
   createContactWithUser(user: models.User, body?: models.Contact): Promise<models.Contact | any> {
     return body
       ? this.encrypt(user, [_.cloneDeep(body)])
-        .then((ctcs) => super.createContact(ctcs[0]))
-        .then((ctc) => this.decrypt((this.userApi.getDataOwnerOf(user))!, [ctc]))
+          .then((ctcs) => super.createContact(ctcs[0]))
+          .then((ctc) => this.decrypt(this.userApi.getDataOwnerOf(user)!, [ctc]))
           .then((ctcs) => ctcs[0])
       : Promise.resolve(null)
   }
@@ -353,11 +356,11 @@ export class IccContactXApi extends IccContactApi {
   createContactsWithUser(user: models.User, bodies?: Array<models.Contact>): Promise<models.Contact[] | any> {
     return bodies
       ? this.encrypt(
-        user,
-        bodies.map((c) => _.cloneDeep(c))
-      )
-        .then((ctcs) => super.createContacts(ctcs))
-        .then((ctcs) => this.decrypt((this.userApi.getDataOwnerOf(user))!, ctcs))
+          user,
+          bodies.map((c) => _.cloneDeep(c))
+        )
+          .then((ctcs) => super.createContacts(ctcs))
+          .then((ctcs) => this.decrypt(this.userApi.getDataOwnerOf(user)!, ctcs))
       : Promise.resolve(null)
   }
 
@@ -403,7 +406,7 @@ export class IccContactXApi extends IccContactApi {
   }
 
   encrypt(user: models.User, ctcs: Array<models.Contact>) {
-    const hcpartyId = (this.userApi.getDataOwnerOf(user))!
+    const hcpartyId = this.userApi.getDataOwnerOf(user)!
     const bypassEncryption = false //Used for debug
 
     return Promise.all(

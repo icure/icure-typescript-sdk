@@ -1,8 +1,8 @@
-import {IccReceiptApi} from '../icc-api'
-import {IccCryptoXApi} from './icc-crypto-x-api'
+import { IccReceiptApi } from '../icc-api'
+import { IccCryptoXApi } from './icc-crypto-x-api'
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import {IccUserXApi} from "./icc-user-x-api"
+import { IccUserXApi } from './icc-user-x-api'
 
 export class IccReceiptXApi extends IccReceiptApi {
   userApi: IccUserXApi
@@ -15,8 +15,8 @@ export class IccReceiptXApi extends IccReceiptApi {
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
-        ? self.fetch
-        : fetch
+      ? self.fetch
+      : fetch
   ) {
     super(host, headers, fetchImpl)
     this.userApi = userApi
@@ -47,10 +47,10 @@ export class IccReceiptXApi extends IccReceiptApi {
 
     return this.crypto.initEncryptionKeys(rcpt, dataOwnerId).then((eks) => {
       let promise = Promise.resolve(
-          _.extend(rcpt, {
-            encryptionKeys: eks.encryptionKeys,
-          })
-        )
+        _.extend(rcpt, {
+          encryptionKeys: eks.encryptionKeys,
+        })
+      )
       ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
         (delegateId) =>
           (promise = promise.then((receipt) =>
@@ -85,12 +85,10 @@ export class IccReceiptXApi extends IccReceiptApi {
       ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
         (delegateId) =>
           (promise = promise.then((receipt) =>
-            this.crypto
-              .addDelegationsAndEncryptionKeys(null, receipt, dataOwnerId, delegateId, dels.secretId, eks.secretId)
-              .catch((e) => {
-                console.log(e)
-                return receipt
-              })
+            this.crypto.addDelegationsAndEncryptionKeys(null, receipt, dataOwnerId, delegateId, dels.secretId, eks.secretId).catch((e) => {
+              console.log(e)
+              return receipt
+            })
           ))
       )
       return promise
