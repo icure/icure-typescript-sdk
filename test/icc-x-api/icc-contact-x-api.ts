@@ -1,20 +1,20 @@
-import {before} from "mocha"
+import { before } from 'mocha'
 
 import 'isomorphic-fetch'
 
 import { LocalStorage } from 'node-localstorage'
 import * as os from 'os'
-import {Api} from "../../icc-x-api"
-import {crypto} from "../../node-compat"
-import {Patient} from "../../icc-api/model/Patient"
-import {assert} from "chai"
-import {randomUUID} from "crypto"
-import {TestUtils} from "../utils/test_utils"
+import { Api } from '../../icc-x-api'
+import { crypto } from '../../node-compat'
+import { Patient } from '../../icc-api/model/Patient'
+import { assert } from 'chai'
+import { randomUUID } from 'crypto'
+import { TestUtils } from '../utils/test_utils'
 import initKey = TestUtils.initKey
-import {Code} from "../../icc-api/model/Code"
-import {Contact} from "../../icc-api/model/Contact"
-import {Service} from "../../icc-api/model/Service"
-import {Content} from "../../icc-api/model/Content"
+import { Code } from '../../icc-api/model/Code'
+import { Contact } from '../../icc-api/model/Contact'
+import { Service } from '../../icc-api/model/Service'
+import { Content } from '../../icc-api/model/Content'
 
 const tmp = os.tmpdir()
 console.log('Saving keys in ' + tmp)
@@ -49,35 +49,52 @@ describe('icc-x-contact-api Tests', () => {
       userApi: userApiForHcp,
       patientApi: patientApiForHcp,
       contactApi: contactApiForHcp,
-      cryptoApi: cryptoApiForHcp
+      cryptoApi: cryptoApiForHcp,
     } = Api(iCureUrl, hcpUserName!, hcpPassword!, crypto)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
     await initKey(userApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
 
-    const patient = await patientApiForHcp.createPatientWithUser(hcpUser, await patientApiForHcp.newInstance(hcpUser, new Patient({
-      id: randomUUID(),
-      firstName: "John",
-      lastName: "Snow",
-      note: "Winter is coming"
-    })))
+    const patient = await patientApiForHcp.createPatientWithUser(
+      hcpUser,
+      await patientApiForHcp.newInstance(
+        hcpUser,
+        new Patient({
+          id: randomUUID(),
+          firstName: 'John',
+          lastName: 'Snow',
+          note: 'Winter is coming',
+        })
+      )
+    )
 
-    const contactToCreate = await contactApiForHcp.newInstance(hcpUser, patient, new Contact({
-      id: randomUUID(),
-      services: [contactApiForHcp.service().newInstance(hcpUser, new Service({
+    const contactToCreate = await contactApiForHcp.newInstance(
+      hcpUser,
+      patient,
+      new Contact({
         id: randomUUID(),
-        valueDate: 20220203111034,
-        content: { "en": new Content({ numberValue: 53.5 }) },
-        tags: [new Code({
-          id: "LOINC|29463-7|2",
-          code: "29463-7",
-          type: "LOINC",
-          version: "2"
-        })]
-      }))],
-      descr: "Weight value"
-    }), true)
-
+        services: [
+          contactApiForHcp.service().newInstance(
+            hcpUser,
+            new Service({
+              id: randomUUID(),
+              valueDate: 20220203111034,
+              content: { en: new Content({ numberValue: 53.5 }) },
+              tags: [
+                new Code({
+                  id: 'LOINC|29463-7|2',
+                  code: '29463-7',
+                  type: 'LOINC',
+                  version: '2',
+                }),
+              ],
+            })
+          ),
+        ],
+        descr: 'Weight value',
+      }),
+      true
+    )
 
     // When
     const createdContact = (await contactApiForHcp.createContactWithUser(hcpUser, contactToCreate)) as Contact
