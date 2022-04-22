@@ -1,11 +1,11 @@
-import {IccClassificationApi} from '../icc-api'
-import {IccCryptoXApi} from './icc-crypto-x-api'
+import { IccClassificationApi } from '../icc-api'
+import { IccCryptoXApi } from './icc-crypto-x-api'
 
 import * as models from '../icc-api/model/models'
 
 import * as _ from 'lodash'
 import * as moment from 'moment'
-import {IccUserXApi} from "./icc-user-x-api"
+import { IccUserXApi } from './icc-user-x-api'
 
 export class IccClassificationXApi extends IccClassificationApi {
   crypto: IccCryptoXApi
@@ -19,8 +19,8 @@ export class IccClassificationXApi extends IccClassificationApi {
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
-        ? self.fetch
-        : fetch
+      ? self.fetch
+      : fetch
   ) {
     super(host, headers, fetchImpl)
     this.crypto = crypto

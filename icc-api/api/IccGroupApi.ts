@@ -85,10 +85,10 @@ export class IccGroupApi {
   }
 
   /**
-   * List groups that are the children of the group with th eprovided parent id
+   * List groups that are the children of the group with the provided parent id
    * @summary Find groups by parent
    * @param id The id of the group
-   * @param startDocumentId A grou document ID used as a cursor for pagination
+   * @param startDocumentId A group document ID used as a cursor for pagination
    * @param limit Number of rows
    */
   findGroups(id: string, startDocumentId?: string, limit?: number): Promise<PaginatedListGroup> {
@@ -99,6 +99,33 @@ export class IccGroupApi {
       `/group/${encodeURIComponent(String(id))}/children` +
       '?ts=' +
       new Date().getTime() +
+      (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
+      (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+      .then((doc) => new PaginatedListGroup(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * List groups that are the children of the group with the provided parent id and that match the provided search string
+   * @summary Find groups by parent and content
+   * @param id The id of the group
+   * @param searchString The string to search for in the group. Properties, name and id are scanned for the provided search string.
+   * @param startKey The start key for pagination, depends on the filters used
+   * @param startDocumentId A group document ID used as a cursor for pagination
+   * @param limit Number of rows
+   */
+  findGroupsWithContent(id: string, searchString: string, startKey?: string, startDocumentId?: string, limit?: number): Promise<PaginatedListGroup> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/group/${encodeURIComponent(String(id))}/children/search` +
+      '?ts=' +
+      new Date().getTime() +
+      (searchString ? '&searchString=' + encodeURIComponent(String(searchString)) : '') +
+      (startKey ? '&startKey=' + encodeURIComponent(String(startKey)) : '') +
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
