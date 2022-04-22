@@ -356,7 +356,7 @@ export class IccCryptoXApi {
    * the delegations.
    * 3. Decrypt's delegators' keys and returns them.
    *
-   * @param healthcarePartyId : the id of the delegate HCP
+   * @param dataOwnerId : the id of the delegate HCP
    * @param delegations : generic delegations (can be SPKs, CFKs, EKs) for all delegates
    * @param fallbackOnParent  default true; use parent's healthCarePartyId in case there's no delegation for the `healthcarePartyId`
    * @returns  - **delegatorId** : the id of the delegator HcP that shares the **key** with the `healthcarePartyId`
@@ -364,23 +364,23 @@ export class IccCryptoXApi {
    */
   decryptAndImportAesHcPartyKeysInDelegations(
     //TODO: suggested name: getDecryptedHcPKeysOfDelegateAndParentsFromGenericDelegations
-    healthcarePartyId: string,
+    dataOwnerId: string,
     delegations: { [key: string]: Array<models.Delegation> },
     fallbackOnParent = true
   ): Promise<Array<DelegatorAndKeys>> {
     const delegatorIds: { [key: string]: boolean } = {}
-    const delegationsArray = delegations[healthcarePartyId]
+    const delegationsArray = delegations[dataOwnerId]
     if (delegationsArray && delegationsArray.length) {
       delegationsArray.forEach(function (delegationItem) {
         delegatorIds[delegationItem.owner!] = true //TODO: why is set to true?
       })
     } else if (fallbackOnParent) {
-      return this.getDataOwner(healthcarePartyId).then(({ dataOwner: hcp }) =>
+      return this.getDataOwner(dataOwnerId).then(({ dataOwner: hcp }) =>
         (hcp as any).parentId ? this.decryptAndImportAesHcPartyKeysInDelegations((hcp as any).parentId, delegations) : Promise.resolve([])
       )
     }
 
-    return this.decryptAndImportAesHcPartyKeysForDelegators(Object.keys(delegatorIds), healthcarePartyId)
+    return this.decryptAndImportAesHcPartyKeysForDelegators(Object.keys(delegatorIds), dataOwnerId)
   }
 
   /**
@@ -997,31 +997,31 @@ export class IccCryptoXApi {
 
   /**
    * Get decrypted generic secret IDs (secretIdSPKs, parentIds, secretIdEKs) from generic delegations (SPKs, CFKs, EKs)
-   * 1. Get HealthCareParty from it's Id.
-   * 2. Decrypt the keys of the given HCP.
+   * 1. Get Data Owner (HCP, Patient or Device) from it's Id.
+   * 2. Decrypt the keys of the given data owner.
    * 3. Decrypt the parent's key if it has parent.
    * 4. Return the decrypted key corresponding to the Health Care Party.
-   * @param hcpartyId : the id of the delegate HcP (including its parents) for which to decrypt `extractedKeys`
+   * @param dataOwnerId : the id of the delegate data owner (including its parents) for which to decrypt `extractedKeys`
    * @param objectId : the id of the object/document of which delegations to decrypt ; used just to log to console a message (Cryptographic mistake) in case the object id inside SPK, CFK, EK is different from this one
    * @param delegations : generic delegations (can be SPKs, CFKs, EKs) for all delegates from where to extract `extractedKeys`
-   * @returns - **extractedKeys** array containing secret IDs from decrypted generic delegations, from both HCP with given `hcpartyId` and its parents; can contain duplicates
-   * - **hcpartyId** the given `hcpartyId` OR, if a parent exist, the HCP id of the top parent in the hierarchy  (even if that parent has no delegations)
+   * @returns - **extractedKeys** array containing secret IDs from decrypted generic delegations, from both data owner with given `dataOwnerId` and its parents; can contain duplicates
+   * - **dataOwnerId** the given `dataOwnerId` OR, if a parent exist, the data owner id of the top parent in the hierarchy  (even if that parent has no delegations)
    */
-  //TODO: even if there are no delegations for parent HCP (but the parent exists), the returned hcpartyId will be the one of the parent
+  //TODO: even if there are no delegations for parent HCP (but the parent exists), the returned dataOwnerId will be the one of the parent
   extractKeysFromDelegationsForHcpHierarchy(
     //TODO suggested name: getSecretIdsOfHcpAndParentsFromGenericDelegations
-    hcpartyId: string,
+    dataOwnerId: string,
     objectId: string,
     delegations: { [key: string]: Array<models.Delegation> }
   ): Promise<{ extractedKeys: Array<string>; hcpartyId: string }> {
-    return this.getDataOwner(hcpartyId).then(({ dataOwner: hcp }) =>
-      (delegations[hcpartyId] && delegations[hcpartyId].length
-        ? this.decryptAndImportAesHcPartyKeysInDelegations(hcpartyId, delegations, false).then((decryptedAndImportedAesHcPartyKeys) => {
+    return this.getDataOwner(dataOwnerId).then(({ dataOwner: hcp }) =>
+      (delegations[dataOwnerId] && delegations[dataOwnerId].length
+        ? this.decryptAndImportAesHcPartyKeysInDelegations(dataOwnerId, delegations, false).then((decryptedAndImportedAesHcPartyKeys) => {
             const collatedAesKeysFromDelegatorToHcpartyId: {
               [key: string]: { key: CryptoKey; rawKey: string }
             } = {}
             decryptedAndImportedAesHcPartyKeys.forEach((k) => (collatedAesKeysFromDelegatorToHcpartyId[k.delegatorId] = k))
-            return this.decryptKeyInDelegationLikes(delegations[hcpartyId], collatedAesKeysFromDelegatorToHcpartyId, objectId!)
+            return this.decryptKeyInDelegationLikes(delegations[dataOwnerId], collatedAesKeysFromDelegatorToHcpartyId, objectId!)
           })
         : Promise.resolve([])
       ).then((extractedKeys) =>
@@ -1031,7 +1031,7 @@ export class IccCryptoXApi {
                 extractedKeys: parentResponse.extractedKeys.concat(extractedKeys),
               })
             )
-          : { extractedKeys: extractedKeys, hcpartyId: hcpartyId }
+          : { extractedKeys: extractedKeys, hcpartyId: dataOwnerId }
       )
     )
   }
@@ -1375,13 +1375,13 @@ export class IccCryptoXApi {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  checkPrivateKeyValidity(hcp: models.HealthcareParty | models.Patient): Promise<boolean> {
+  checkPrivateKeyValidity(dataOwner: models.HealthcareParty | models.Patient | models.Device): Promise<boolean> {
     return new Promise<boolean>((resolve) => {
       this._RSA
-        .importKey('jwk', this._utils.spkiToJwk(hex2ua(hcp.publicKey!)), ['encrypt'])
+        .importKey('jwk', this._utils.spkiToJwk(hex2ua(dataOwner.publicKey!)), ['encrypt'])
         .then((k) => this._RSA.encrypt(k, utf8_2ua('shibboleth')))
         .then((cipher) => {
-          const kp = this._RSA.loadKeyPairNotImported(hcp.id!)
+          const kp = this._RSA.loadKeyPairNotImported(dataOwner.id!)
           return this._RSA
             .importKeyPair('jwk', kp.privateKey, 'jwk', kp.publicKey)
             .then((ikp) => this._RSA.decrypt(ikp.privateKey, new Uint8Array(cipher)))
@@ -1413,7 +1413,7 @@ export class IccCryptoXApi {
   }
 
   getEncryptionDecryptionKeys(
-    healthcarePartyId: string,
+    dataOwnerId: string,
     document:
       | models.AccessLog
       | models.CalendarItem
@@ -1430,7 +1430,7 @@ export class IccCryptoXApi {
     return !document.id
       ? Promise.resolve(null)
       : this.extractKeysFromDelegationsForHcpHierarchy(
-          healthcarePartyId,
+          dataOwnerId,
           document.id,
           (document.encryptionKeys && Object.keys(document.encryptionKeys).length && document.encryptionKeys) || document.delegations!
         )
