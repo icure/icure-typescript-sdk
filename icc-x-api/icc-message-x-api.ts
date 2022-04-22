@@ -1,10 +1,10 @@
-import {IccMessageApi} from '../icc-api'
-import {IccCryptoXApi} from './icc-crypto-x-api'
+import { IccMessageApi } from '../icc-api'
+import { IccCryptoXApi } from './icc-crypto-x-api'
 
 import * as _ from 'lodash'
 
-import {Patient, User} from '../icc-api/model/models'
-import {IccUserXApi} from "./icc-user-x-api"
+import { Patient, User } from '../icc-api/model/models'
+import { IccUserXApi } from './icc-user-x-api'
 
 export class IccMessageXApi extends IccMessageApi {
   userApi: IccUserXApi
@@ -17,8 +17,8 @@ export class IccMessageXApi extends IccMessageApi {
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
-        ? self.fetch
-        : fetch
+      ? self.fetch
+      : fetch
   ) {
     super(host, headers, fetchImpl)
     this.crypto = crypto

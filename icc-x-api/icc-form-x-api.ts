@@ -1,11 +1,11 @@
-import {IccFormApi} from '../icc-api'
-import {IccCryptoXApi} from './icc-crypto-x-api'
+import { IccFormApi } from '../icc-api'
+import { IccCryptoXApi } from './icc-crypto-x-api'
 
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
 
-import {a2b, hex2ua, string2ua, ua2string} from './utils/binary-utils'
-import {IccUserXApi} from "./icc-user-x-api"
+import { a2b, hex2ua, string2ua, ua2string } from './utils/binary-utils'
+import { IccUserXApi } from './icc-user-x-api'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccFormXApi extends IccFormApi {
@@ -20,8 +20,8 @@ export class IccFormXApi extends IccFormApi {
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
-        ? self.fetch
-        : fetch
+      ? self.fetch
+      : fetch
   ) {
     super(host, headers, fetchImpl)
     this.crypto = crypto
@@ -51,10 +51,10 @@ export class IccFormXApi extends IccFormApi {
     const dataOwnerId = this.userApi.getDataOwnerOf(user)
     return this.crypto.initEncryptionKeys(form, dataOwnerId!).then((eks) => {
       let promise = Promise.resolve(
-          _.extend(form, {
-            encryptionKeys: eks.encryptionKeys,
-          })
-        )
+        _.extend(form, {
+          encryptionKeys: eks.encryptionKeys,
+        })
+      )
       ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
         (delegateId) =>
           (promise = promise.then((contact) =>

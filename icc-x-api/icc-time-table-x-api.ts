@@ -1,11 +1,11 @@
 import * as i18n from './rsrc/contact.i18n'
 
 import * as _ from 'lodash'
-import {IccTimeTableApi} from '../icc-api'
-import {User} from '../icc-api/model/User'
-import {TimeTable} from '../icc-api/model/TimeTable'
-import {IccCryptoXApi} from './icc-crypto-x-api'
-import {IccUserXApi} from "./icc-user-x-api"
+import { IccTimeTableApi } from '../icc-api'
+import { User } from '../icc-api/model/User'
+import { TimeTable } from '../icc-api/model/TimeTable'
+import { IccCryptoXApi } from './icc-crypto-x-api'
+import { IccUserXApi } from './icc-user-x-api'
 
 export class IccTimeTableXApi extends IccTimeTableApi {
   i18n: any = i18n
@@ -20,8 +20,8 @@ export class IccTimeTableXApi extends IccTimeTableApi {
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
-        ? self.fetch
-        : fetch
+      ? self.fetch
+      : fetch
   ) {
     super(host, headers, fetchImpl)
     this.crypto = crypto
@@ -44,20 +44,14 @@ export class IccTimeTableXApi extends IccTimeTableApi {
     )
 
     return this.crypto.initObjectDelegations(timeTable, null, this.userApi.getDataOwnerOf(user), null).then((initData) => {
-      _.extend(timeTable, {delegations: initData.delegations})
+      _.extend(timeTable, { delegations: initData.delegations })
 
       let promise = Promise.resolve(timeTable)
       ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
         (delegateId) =>
           (promise = promise
             .then((patient) =>
-              this.crypto.extendedDelegationsAndCryptedForeignKeys(
-                patient,
-                null,
-                this.userApi.getDataOwnerOf(user),
-                delegateId,
-                initData.secretId
-              )
+              this.crypto.extendedDelegationsAndCryptedForeignKeys(patient, null, this.userApi.getDataOwnerOf(user), delegateId, initData.secretId)
             )
             .then((extraData) => _.extend(timeTable, { delegations: extraData.delegations })))
       )
