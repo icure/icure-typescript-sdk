@@ -1,7 +1,9 @@
 # icc-api CHANGELOG
 
-## 4.2.0
+## 4.2.1
+- [FIX] [#87](https://github.com/taktik/icc-api/pull/87)- Add descr property on hcp
 
+## 4.2.0
 - [FEATURE] [#86](https://github.com/taktik/icc-api/pull/86) - BREAK Add icc-helement-x-api services managing encryption/decryption
 - [FEATURE] [#86](https://github.com/taktik/icc-api/pull/86) - Every dataOwner is now supported for encryption/decryption services (not only HCP anymore)
 - [FEATURE] [a3318e7477b929a00bc8227080fa424cd2896d6b](https://github.com/taktik/icc-api/commit/a3318e7477b929a00bc8227080fa424cd2896d6b) - Add getGroupsStorageInfos API in IccGroupApi
