@@ -1,7 +1,9 @@
 # icc-api CHANGELOG
+## 4.2.2
+- [FIX] [#88](https://github.com/taktik/icc-api/pull/88) - UserByNameEmailPhoneFilter Typo
 
 ## 4.2.1
-- [FIX] [#87](https://github.com/taktik/icc-api/pull/87)- Add descr property on hcp
+- [FIX] [#87](https://github.com/taktik/icc-api/pull/87) - Add descr property on hcp
 
 ## 4.2.0
 - [FEATURE] [#86](https://github.com/taktik/icc-api/pull/86) - BREAK Add icc-helement-x-api services managing encryption/decryption
