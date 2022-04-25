@@ -11,12 +11,12 @@
  */
 import { AbstractFilterUser } from '../../icc-api/model/AbstractFilterUser'
 
-export class UserByNameEmailPhoneilter extends AbstractFilterUser {
-  $type: string = 'UserByNameEmailPhoneilter'
+export class UserByNameEmailPhoneFilter extends AbstractFilterUser {
+  $type: string = 'UserByNameEmailPhoneFilter'
   constructor(json: JSON | any) {
     super(json)
 
-    Object.assign(this as UserByNameEmailPhoneilter, json)
+    Object.assign(this as UserByNameEmailPhoneFilter, json)
   }
 
   searchString: string = ''
