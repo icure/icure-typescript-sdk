@@ -194,6 +194,32 @@ export class IccUserApi {
   }
 
   /**
+   * Returns a list of users along with next start keys and Document ID. If the nextStartKey is Null it means that this is the last page.
+   * @summary Filter users for the current user (HcParty) for a provided groupId
+   * @param body
+   * @param groupId
+   * @param startDocumentId A User document ID
+   * @param limit Number of rows
+   */
+  filterUsersInGroupBy(groupId: string, startDocumentId?: string, limit?: number, body?: FilterChainUser): Promise<PaginatedListUser> {
+    let _body = null
+    _body = body
+
+    const _url =
+      this.host +
+      `/user/filter/inGroup/${encodeURIComponent(String(groupId))}` +
+      '?ts=' +
+      new Date().getTime() +
+      (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
+      (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+      .then((doc) => new PaginatedListUser(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    *
    * @summary Get the list of users by healthcare party id
    * @param id
