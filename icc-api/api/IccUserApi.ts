@@ -12,10 +12,10 @@
 import { XHR } from './XHR'
 import { AbstractFilterUser } from '../model/AbstractFilterUser'
 import { DocIdentifier } from '../model/DocIdentifier'
-import { EmailTemplate } from '../model/EmailTemplate'
 import { FilterChainUser } from '../model/FilterChainUser'
 import { PaginatedListUser } from '../model/PaginatedListUser'
 import { PropertyStub } from '../model/PropertyStub'
+import { TokenWithGroup } from '../model/TokenWithGroup'
 import { Unit } from '../model/Unit'
 import { User } from '../model/User'
 import { UserGroup } from '../model/UserGroup'
@@ -235,24 +235,6 @@ export class IccUserApi {
   }
 
   /**
-   *
-   * @summary Send a forgotten email message to an user
-   * @param body
-   * @param email the email of the user
-   */
-  forgottenPassword(email: string, body?: EmailTemplate): Promise<boolean> {
-    let _body = null
-    _body = body
-
-    const _url = this.host + `/user/forgottenPassword/${encodeURIComponent(String(email))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
-      .then((doc) => JSON.parse(JSON.stringify(doc.body)))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
    * Get current user.
    * @summary Get Currently logged-in user session.
    */
@@ -315,6 +297,30 @@ export class IccUserApi {
     token && (headers = headers.concat(new XHR.Header('token', token)))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
       .then((doc) => JSON.parse(JSON.stringify(doc.body)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
+   * @summary Require a new temporary token for authentication inside all groups
+   * @param userIdentifier
+   * @param key The token key. Only one instance of a token with a defined key can exist at the same time
+   * @param token
+   * @param tokenValidity The token validity in seconds
+   */
+  getTokenInAllGroups(userIdentifier: string, key: string, token?: string, tokenValidity?: number): Promise<Array<TokenWithGroup>> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/user/inAllGroups/token/${encodeURIComponent(String(userIdentifier))}/${encodeURIComponent(String(key))}` +
+      '?ts=' +
+      new Date().getTime() +
+      (tokenValidity ? '&tokenValidity=' + encodeURIComponent(String(tokenValidity)) : '')
+    let headers = this.headers
+    token && (headers = headers.concat(new XHR.Header('token', token)))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new TokenWithGroup(it)))
       .catch((err) => this.handleError(err))
   }
 
