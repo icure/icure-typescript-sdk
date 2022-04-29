@@ -15,6 +15,7 @@ import { Content } from '../model/Content'
 import { DiaryNoteExportInfo } from '../model/DiaryNoteExportInfo'
 import { ImportMapping } from '../model/ImportMapping'
 import { ImportResult } from '../model/ImportResult'
+import { IncapacityExportInfo } from '../model/IncapacityExportInfo'
 import { MedicationSchemeExportInfo } from '../model/MedicationSchemeExportInfo'
 import { SoftwareMedicalFileExport } from '../model/SoftwareMedicalFileExport'
 import { SumehrContent } from '../model/SumehrContent'
@@ -148,6 +149,32 @@ export class IccBekmehrApi {
 
   /**
    *
+   * @summary Get Incapacity export
+   * @param patientId
+   * @param language
+   * @param body
+   * @param xTimezoneOffset
+   */
+  generateIncapacityExport(patientId: string, language: string, body?: IncapacityExportInfo, xTimezoneOffset?: string): Promise<ArrayBuffer> {
+    let _body = null
+    _body = body
+
+    const _url =
+      this.host +
+      `/be_kmehr/incapacity/${encodeURIComponent(String(patientId))}/export` +
+      '?ts=' +
+      new Date().getTime() +
+      (language ? '&language=' + encodeURIComponent(String(language)) : '')
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    xTimezoneOffset && (headers = headers.concat(new XHR.Header('X-Timezone-Offset', xTimezoneOffset)))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+      .then((doc) => doc.body)
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
    * @summary Get Kmehr labresult
    * @param body
    * @param patientId
@@ -198,16 +225,19 @@ export class IccBekmehrApi {
    *
    * @summary Get Medicationscheme export
    * @param body
+   * @param xTimezoneOffset
    * @param patientId
    * @param language
    * @param recipientSafe
+   * @param xTimezoneOffset
    * @param version
    */
   generateMedicationSchemeExport(
     patientId: string,
     language: string,
     recipientSafe: string,
-    version: number,
+    xTimezoneOffset?: string,
+    version?: number,
     body?: MedicationSchemeExportInfo
   ): Promise<ArrayBuffer> {
     let _body = null
@@ -223,6 +253,7 @@ export class IccBekmehrApi {
       (version ? '&version=' + encodeURIComponent(String(version)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    xTimezoneOffset && (headers = headers.concat(new XHR.Header('X-Timezone-Offset', xTimezoneOffset)))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
