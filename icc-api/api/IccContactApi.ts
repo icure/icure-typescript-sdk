@@ -469,11 +469,17 @@ export class IccContactApi {
    * Returns the list of services linked to the provided health element id
    * @summary List services linked to a health element
    * @param healthElementId
+   * @param hcPartyId hcPartyId
    */
-  listServicesByHealthElementId(healthElementId: string): Promise<Array<Service>> {
+  listServicesByHealthElementId(healthElementId: string, hcPartyId: string): Promise<Array<Service>> {
     let _body = null
 
-    const _url = this.host + `/contact/service/healthElementId/${encodeURIComponent(String(healthElementId))}` + '?ts=' + new Date().getTime()
+    const _url =
+      this.host +
+      `/contact/service/healthElementId/${encodeURIComponent(String(healthElementId))}` +
+      '?ts=' +
+      new Date().getTime() +
+      (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '')
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Service(it)))
