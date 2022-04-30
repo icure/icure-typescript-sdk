@@ -16,6 +16,10 @@ export class UserGroup {
   }
 
   groupId?: string
-  userId?: string
   groupName?: string
+  userId?: string
+  login?: string
+  name?: string
+  email?: string
+  phone?: string
 }
