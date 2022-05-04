@@ -405,7 +405,7 @@ export class IccUserApi {
 
   /**
    * Returns a list of users.
-   * @summary List users with(out) pagination
+   * @summary List users with pagination
    * @param groupId
    * @param startKey An user login
    * @param startDocumentId An user document ID

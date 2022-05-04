@@ -81,6 +81,7 @@ export namespace Address {
     | 'postal'
     | 'diplomatic'
     | 'reference'
+    | 'careaddress'
   export const AddressTypeEnum = {
     Home: 'home' as AddressTypeEnum,
     Work: 'work' as AddressTypeEnum,
@@ -93,5 +94,6 @@ export namespace Address {
     Postal: 'postal' as AddressTypeEnum,
     Diplomatic: 'diplomatic' as AddressTypeEnum,
     Reference: 'reference' as AddressTypeEnum,
+    Careaddress: 'careaddress' as AddressTypeEnum,
   }
 }
