@@ -55,6 +55,24 @@ export class IccDeviceApi {
   }
 
   /**
+   * One of Name or Last name+First name, Nihii, and Public key are required.
+   * @summary Create a device
+   * @param body
+   * @param groupId
+   */
+  createDeviceInGroup(groupId: string, body?: Device): Promise<Device> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/device/inGroup/${encodeURIComponent(String(groupId))}` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+      .then((doc) => new Device(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    * Returns the id and _rev of created devices
    * @summary Create devices in bulk
    * @param body
@@ -116,6 +134,23 @@ export class IccDeviceApi {
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Deleting a device. Response is an array containing the id of deleted device.
+   * @summary Delete a device
+   * @param groupId
+   * @param deviceIds
+   */
+  deleteDevicesInGroup(groupId: string, deviceIds: string): Promise<Array<DocIdentifier>> {
+    let _body = null
+
+    const _url =
+      this.host + `/device/inGroup/${encodeURIComponent(String(groupId))}/${encodeURIComponent(String(deviceIds))}` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl)
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
       .catch((err) => this.handleError(err))
   }
@@ -193,6 +228,24 @@ export class IccDeviceApi {
   }
 
   /**
+   * General information about the device
+   * @summary Get devices by their IDs
+   * @param body
+   * @param groupId
+   */
+  getDevicesInGroup(groupId: string, body?: ListOfIds): Promise<Array<Device>> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/device/inGroup/${encodeURIComponent(String(groupId))}/byIds` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Device(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    *
    * @summary Get ids of devices matching the provided filter for the current user (HcParty)
    * @param body
@@ -206,6 +259,24 @@ export class IccDeviceApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
       .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * No particular return value. It's just a message.
+   * @summary Modify a Device.
+   * @param body
+   * @param groupId
+   */
+  modifyDeviceInGroup(groupId: string, body?: Device): Promise<Device> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/device/inGroup/${encodeURIComponent(String(groupId))}` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+      .then((doc) => new Device(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 
