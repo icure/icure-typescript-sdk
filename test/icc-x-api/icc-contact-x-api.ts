@@ -4,7 +4,7 @@ import 'isomorphic-fetch'
 
 import { LocalStorage } from 'node-localstorage'
 import * as os from 'os'
-import {Api, IccContactXApi, IccHelementXApi, IccPatientXApi} from '../../icc-x-api'
+import { Api, IccContactXApi, IccHelementXApi, IccPatientXApi } from '../../icc-x-api'
 import { crypto } from '../../node-compat'
 import { Patient } from '../../icc-api/model/Patient'
 import { assert } from 'chai'
@@ -15,12 +15,12 @@ import { Code } from '../../icc-api/model/Code'
 import { Contact } from '../../icc-api/model/Contact'
 import { Service } from '../../icc-api/model/Service'
 import { Content } from '../../icc-api/model/Content'
-import {User} from '../../icc-api/model/User'
-import {HealthElement} from '../../icc-api/model/HealthElement'
-import {SubContact} from "../../icc-api/model/SubContact"
-import {ServiceLink} from "../../icc-api/model/ServiceLink"
-import {FilterChainService} from "../../icc-api/model/FilterChainService"
-import {ServiceByHcPartyHealthElementIdsFilter} from "../../icc-x-api/filters/ServiceByHcPartyHealthElementIdsFilter"
+import { User } from '../../icc-api/model/User'
+import { HealthElement } from '../../icc-api/model/HealthElement'
+import { SubContact } from '../../icc-api/model/SubContact'
+import { ServiceLink } from '../../icc-api/model/ServiceLink'
+import { FilterChainService } from '../../icc-api/model/FilterChainService'
+import { ServiceByHcPartyHealthElementIdsFilter } from '../../icc-x-api/filters/ServiceByHcPartyHealthElementIdsFilter'
 
 const tmp = os.tmpdir()
 console.log('Saving keys in ' + tmp)
@@ -64,7 +64,8 @@ async function createPatient(patientApiForHcp: IccPatientXApi, hcpUser: User) {
 }
 
 async function createHealthElement(healthElementApi: IccHelementXApi, hcpUser: User, patient: Patient) {
-  return healthElementApi.createHealthElementWithUser(hcpUser,
+  return healthElementApi.createHealthElementWithUser(
+    hcpUser,
     await healthElementApi.newInstance(
       hcpUser,
       patient,
@@ -78,9 +79,10 @@ async function createHealthElement(healthElementApi: IccHelementXApi, hcpUser: U
             type: 'ICURE',
             version: '1',
           }),
-        ]
+        ],
       }),
-      true)
+      true
+    )
   )
 }
 
@@ -96,7 +98,7 @@ function createBasicContact(contactApiForHcp: IccContactXApi, hcpUser: User, pat
           new Service({
             id: randomUUID(),
             valueDate: 20220203111034,
-            content: {en: new Content({numberValue: 53.5})},
+            content: { en: new Content({ numberValue: 53.5 }) },
             tags: [
               new Code({
                 id: 'LOINC|29463-7|2',
@@ -164,31 +166,37 @@ describe('icc-x-contact-api Tests', () => {
 
     const patient = await createPatient(patientApiForHcp, hcpUser)
     const healthElement = await createHealthElement(hElementApiForHcp, hcpUser, patient)
-    const contactToCreate = await createBasicContact(contactApiForHcp, hcpUser, patient)
-      .then((contact) => { return {...contact,
+    const contactToCreate = await createBasicContact(contactApiForHcp, hcpUser, patient).then((contact) => {
+      return {
+        ...contact,
         subContacts: [
           new SubContact({
             id: randomUUID(),
             healthElementId: healthElement!.id!,
-            services: [new ServiceLink({serviceId: contact.services![0].id })]
-          })
-        ] } } )
+            services: [new ServiceLink({ serviceId: contact.services![0].id })],
+          }),
+        ],
+      }
+    })
 
     const createdContact = (await contactApiForHcp.createContactWithUser(hcpUser, contactToCreate)) as Contact
     assert(createdContact != null)
 
     // When
-    const foundServices = await contactApiForHcp.filterServicesBy(undefined, undefined, new FilterChainService({
-      filter: new ServiceByHcPartyHealthElementIdsFilter({
-        healthcarePartyId: hcpUser.healthcarePartyId!,
-        healthElementIds: [healthElement!.id!]
+    const foundServices = await contactApiForHcp.filterServicesBy(
+      undefined,
+      undefined,
+      new FilterChainService({
+        filter: new ServiceByHcPartyHealthElementIdsFilter({
+          healthcarePartyId: hcpUser.healthcarePartyId!,
+          healthElementIds: [healthElement!.id!],
+        }),
       })
-    }))
+    )
 
     // Then
     assert(foundServices.rows!.length == 1)
     assert(foundServices.rows![0].id == createdContact.services![0].id)
     assert(foundServices.rows![0].healthElementsIds!.find((heId) => heId == healthElement!.id!) != undefined)
-
   })
 })
