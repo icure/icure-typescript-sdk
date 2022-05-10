@@ -85,6 +85,21 @@ export class IccGroupApi {
   }
 
   /**
+   * Delete group without reset or deleteing storage
+   * @summary Delete group
+   * @param id The id of group to delete
+   */
+  deleteGroup(id: string): Promise<Group> {
+    let _body = null
+
+    const _url = this.host + `/group/${encodeURIComponent(String(id))}` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl)
+      .then((doc) => new Group(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    * List groups that are the children of the group with the provided parent id
    * @summary Find groups by parent
    * @param id The id of the group
