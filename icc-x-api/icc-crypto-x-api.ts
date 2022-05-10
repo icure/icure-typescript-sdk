@@ -1,14 +1,14 @@
-import { IccHcpartyApi, IccPatientApi } from '../icc-api'
-import { AESUtils } from './crypto/AES'
-import { RSAUtils } from './crypto/RSA'
-import { UtilsClass } from './crypto/utils'
-import { ShamirClass } from './crypto/shamir'
+import {IccHcpartyApi, IccPatientApi} from '../icc-api'
+import {AESUtils} from './crypto/AES'
+import {RSAUtils} from './crypto/RSA'
+import {UtilsClass} from './crypto/utils'
+import {ShamirClass} from './crypto/shamir'
 
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import { Delegation, Device, HealthcareParty, Patient, User } from '../icc-api/model/models'
-import { b2a, b64_2uas, hex2ua, string2ua, ua2hex, ua2string, ua2utf8, utf8_2ua } from './utils/binary-utils'
-import { IccDeviceApi } from '../icc-api/api/IccDeviceApi'
+import {Delegation, Device, HealthcareParty, Patient, User} from '../icc-api/model/models'
+import {b2a, b64_2uas, hex2ua, string2ua, ua2hex, ua2string, ua2utf8, utf8_2ua} from './utils/binary-utils'
+import {IccDeviceApi} from '../icc-api/api/IccDeviceApi'
 
 interface DelegatorAndKeys {
   delegatorId: string
@@ -18,7 +18,7 @@ interface DelegatorAndKeys {
 
 type CachedDataOwner =
   | {
-      type: 'patient'
+  type: 'patient'
       dataOwner: Patient
     }
   | {
@@ -46,6 +46,7 @@ export class IccCryptoXApi {
   get AES(): AESUtils {
     return this._AES
   }
+
   hcPartyKeysCache: {
     [key: string]: DelegatorAndKeys
   } = {}
@@ -55,6 +56,8 @@ export class IccCryptoXApi {
   hcPartyKeysRequestsCache: {
     [delegateId: string]: Promise<{ [delegatorId: string]: string }>
   } = {}
+
+  cacheLastDeletionTimestamp: Date | undefined = undefined
 
   dataOwnerCache: { [key: string]: Promise<CachedDataOwner> } = {}
 
@@ -319,13 +322,15 @@ export class IccCryptoXApi {
    *
    * @param delegatorsHcPartyIdsSet array of delegator HcP IDs that could have delegated something to the HcP with ID `delegateHcPartyId`
    * @param delegateHcPartyId the HcP for which the HcPs with IDs in `delegatorsHcPartyIdsSet` could have delegated something
+   * @param minCacheDurationInSeconds The minimum cache duration
    * @returns - **delegatorId** : the id of the delegator HcP that shares the **key** with the `delegateHcPartyId`
    *  - **key** the decrypted HcPartyKey, shared between **delegatorId** and `delegateHcPartyId`
    */
   decryptAndImportAesHcPartyKeysForDelegators(
     //TODO:  suggested name: getDecryptedHcPKeysSharedBetweenDelegateAndDelegators
     delegatorsHcPartyIdsSet: Array<string>,
-    delegateHcPartyId: string
+    delegateHcPartyId: string,
+    minCacheDurationInSeconds: number = 60
   ): Promise<Array<DelegatorAndKeys>> {
     return (
       this.hcPartyKeysRequestsCache[delegateHcPartyId] ||
@@ -343,7 +348,21 @@ export class IccCryptoXApi {
             return undefined
           })
         })
-      ).then((hcPartyKeys) => hcPartyKeys.filter(<T>(hcPartyKey: T | undefined): hcPartyKey is T => !!hcPartyKey))
+      ).then((hcPartyKeys) => {
+        const filteredHcPartyKeys = hcPartyKeys.filter(<T>(hcPartyKey: T | undefined): hcPartyKey is T => !!hcPartyKey)
+
+        if (filteredHcPartyKeys.length > 0) {
+          return filteredHcPartyKeys
+        }
+
+        if (!this.cacheLastDeletionTimestamp || ((this.cacheLastDeletionTimestamp.getMilliseconds() - new Date().getMilliseconds()) / 1000) >= minCacheDurationInSeconds) {
+          this.emptyHcpCache(delegateHcPartyId)
+          this.cacheLastDeletionTimestamp = new Date()
+          return this.decryptAndImportAesHcPartyKeysForDelegators(delegatorsHcPartyIdsSet, delegateHcPartyId)
+        }
+
+        return filteredHcPartyKeys
+      })
     })
   }
 
