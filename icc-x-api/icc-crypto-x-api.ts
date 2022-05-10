@@ -57,7 +57,7 @@ export class IccCryptoXApi {
     [delegateId: string]: Promise<{ [delegatorId: string]: string }>
   } = {}
 
-  cacheLastDeletionTimestamp: Date | undefined = undefined
+  cacheLastDeletionTimestamp: number | undefined = undefined
 
   dataOwnerCache: { [key: string]: Promise<CachedDataOwner> } = {}
 
@@ -355,9 +355,10 @@ export class IccCryptoXApi {
           return filteredHcPartyKeys
         }
 
-        if (!this.cacheLastDeletionTimestamp || ((this.cacheLastDeletionTimestamp.getMilliseconds() - new Date().getMilliseconds()) / 1000) >= minCacheDurationInSeconds) {
-          this.emptyHcpCache(delegateHcPartyId)
-          this.cacheLastDeletionTimestamp = new Date()
+        const nowTimestamp = +new Date()
+        if (!this.cacheLastDeletionTimestamp || ((nowTimestamp - this.cacheLastDeletionTimestamp) / 1000) >= minCacheDurationInSeconds) {
+          delete this.hcPartyKeysRequestsCache[delegateHcPartyId]
+          this.cacheLastDeletionTimestamp = nowTimestamp
           return this.decryptAndImportAesHcPartyKeysForDelegators(delegatorsHcPartyIdsSet, delegateHcPartyId)
         }
 
