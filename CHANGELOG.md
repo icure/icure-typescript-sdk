@@ -1,35 +1,51 @@
 # icc-api CHANGELOG
+
+## 4.2.11
+
+- [FEATURE] - Added delete group endpoint
+
 ## 4.2.10
+
 - [FEATURE] [#90](https://github.com/taktik/icc-api/pull/90) - Adding ServiceByHcPartyAndHealthElementIdsFilter
 
 ## 4.2.9
-- [FEATURE] [487e0abae86e0d2d978774c8bcc2d108a322bf49](https://github.com/taktik/icc-api/commit/487e0abae86e0d2d978774c8bcc2d108a322bf49) - Add support for devices per group endpoints 
+
+- [FEATURE] [487e0abae86e0d2d978774c8bcc2d108a322bf49](https://github.com/taktik/icc-api/commit/487e0abae86e0d2d978774c8bcc2d108a322bf49) - Add support for devices per group endpoints
 
 ## 4.2.8
+
 - [FEATURE] [1309bd53ae06a0c8d2e8ebaa9986669d0e37bb2a](https://github.com/taktik/icc-api/commit/1309bd53ae06a0c8d2e8ebaa9986669d0e37bb2a) - Switched doImport from GET to POST
 
 ## 4.2.7
-- [FEATURE] [b1de8da2ba3c08e49bf311a9c565aa29061859cb](https://github.com/taktik/icc-api/commit/b1de8da2ba3c08e49bf311a9c565aa29061859cb) - Upgrade UserGroup  
+
+- [FEATURE] [b1de8da2ba3c08e49bf311a9c565aa29061859cb](https://github.com/taktik/icc-api/commit/b1de8da2ba3c08e49bf311a9c565aa29061859cb) - Upgrade UserGroup
 
 ## 4.2.6
-- [FEATURE] [deb9ea154fbcbeb2f2ba386a13379cced8b88fe3](https://github.com/taktik/icc-api/commit/deb9ea154fbcbeb2f2ba386a13379cced8b88fe3) -  Add incapacity api
+
+- [FEATURE] [deb9ea154fbcbeb2f2ba386a13379cced8b88fe3](https://github.com/taktik/icc-api/commit/deb9ea154fbcbeb2f2ba386a13379cced8b88fe3) - Add incapacity api
 
 ## 4.2.5
+
 - [FEATURE] [874e1f83e0b2f67e2541653fa086ae4286564a48](https://github.com/taktik/icc-api/commit/874e1f83e0b2f67e2541653fa086ae4286564a48) - Add icapacity dtos + extra token request api
 
 ## 4.2.4
+
 - [FEATURE] [b2dfb46089bb95029b32fcef1c7c49029408b1b2](https://github.com/taktik/icc-api/commit/b2dfb46089bb95029b32fcef1c7c49029408b1b2) - Add api to search users in groups
- 
+
 ## 4.2.3
-- [FEATURE] [6a658d4fddf99b61ee74a892eec8d15701b62daf](https://github.com/taktik/icc-api/commit/6a658d4fddf99b61ee74a892eec8d15701b62daf) - Add PermissionApi in API services 
+
+- [FEATURE] [6a658d4fddf99b61ee74a892eec8d15701b62daf](https://github.com/taktik/icc-api/commit/6a658d4fddf99b61ee74a892eec8d15701b62daf) - Add PermissionApi in API services
 
 ## 4.2.2
+
 - [FIX] [#88](https://github.com/taktik/icc-api/pull/88) - UserByNameEmailPhoneFilter Typo
 
 ## 4.2.1
+
 - [FIX] [#87](https://github.com/taktik/icc-api/pull/87) - Add descr property on hcp
 
 ## 4.2.0
+
 - [FEATURE] [#86](https://github.com/taktik/icc-api/pull/86) - BREAK Add icc-helement-x-api services managing encryption/decryption
 - [FEATURE] [#86](https://github.com/taktik/icc-api/pull/86) - Every dataOwner is now supported for encryption/decryption services (not only HCP anymore)
 - [FEATURE] [a3318e7477b929a00bc8227080fa424cd2896d6b](https://github.com/taktik/icc-api/commit/a3318e7477b929a00bc8227080fa424cd2896d6b) - Add getGroupsStorageInfos API in IccGroupApi

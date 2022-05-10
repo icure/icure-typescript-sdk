@@ -72,7 +72,7 @@ export class IccBesamv2Api {
 
     const _url =
       this.host +
-      `/be_samv2/vmp/byAtc/${encodeURIComponent(String(atcCode))}` +
+      `/be_samv2/amp/byAtc/${encodeURIComponent(String(atcCode))}` +
       '?ts=' +
       new Date().getTime() +
       (startKey ? '&startKey=' + encodeURIComponent(String(startKey)) : '') +
