@@ -11,6 +11,7 @@
  */
 import { CodeStub } from './CodeStub'
 import { Delegation } from './Delegation'
+import { Identifier } from './Identifier'
 import { Service } from './Service'
 import { SubContact } from './SubContact'
 
@@ -58,6 +59,10 @@ export class Contact {
    * A code is an item from a codification system that qualifies the content of this entity. SNOMED-CT, ICPC-2 or ICD-10 codifications systems can be used for codes
    */
   codes?: Array<CodeStub>
+  /**
+   * The identifiers of the Contact
+   */
+  identifier?: Array<Identifier>
   /**
    * Soft delete (unix epoch in ms) timestamp of the object.
    */
