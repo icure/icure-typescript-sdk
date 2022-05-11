@@ -385,8 +385,9 @@ export class IccUserApi {
    * @param startKey An user email
    * @param startDocumentId An user document ID
    * @param limit Number of rows
+   * @param skipPatients Filter out patient users
    */
-  listUsers(startKey?: string, startDocumentId?: string, limit?: number): Promise<PaginatedListUser> {
+  listUsers(startKey?: string, startDocumentId?: string, limit?: number, skipPatients?: boolean): Promise<PaginatedListUser> {
     let _body = null
 
     const _url =
@@ -396,7 +397,8 @@ export class IccUserApi {
       new Date().getTime() +
       (startKey ? '&startKey=' + encodeURIComponent(String(startKey)) : '') +
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
-      (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
+      (limit ? '&limit=' + encodeURIComponent(String(limit)) : '') +
+      (skipPatients ? '&skipPatients=' + encodeURIComponent(String(skipPatients)) : '')
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
       .then((doc) => new PaginatedListUser(doc.body as JSON))
@@ -416,7 +418,7 @@ export class IccUserApi {
 
     const _url =
       this.host +
-      `/user/inGroup/${encodeURIComponent(String(groupId))}` +
+      `/user/inGroup   /${encodeURIComponent(String(groupId))}` +
       '?ts=' +
       new Date().getTime() +
       (startKey ? '&startKey=' + encodeURIComponent(String(startKey)) : '') +

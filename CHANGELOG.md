@@ -1,5 +1,9 @@
 # icc-api CHANGELOG
 
+## 4.2.12
+
+- [FEATURE] - Add support identifiers in Contact and add option in User Api to hide patients while loading the list of users
+
 ## 4.2.11
 
 - [FEATURE] - Added delete group endpoint
