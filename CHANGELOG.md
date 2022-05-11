@@ -1,8 +1,16 @@
 # icc-api CHANGELOG
 
-## 4.2.12
+## 4.2.14
 
 - [FEATURE] - Add support identifiers in Contact and add option in User Api to hide patients while loading the list of users
+
+## 4.2.13
+
+- [FIX] - Invalidate caches when hcparty keys cannot be found
+
+## 4.2.12
+
+- [FIX] - Fix path in AMP by ATC
 
 ## 4.2.11
 
