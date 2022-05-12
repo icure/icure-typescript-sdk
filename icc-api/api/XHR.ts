@@ -86,19 +86,18 @@ export namespace XHR {
         {
           method: method,
           credentials: 'include' as RequestCredentials,
-          headers:
-            (headers &&
-              headers
-                .filter(
-                  (h) =>
-                    (h.header.toLowerCase() !== 'content-type' || h.data !== 'multipart/form-data') &&
-                    h.header.toUpperCase() !== 'X-CLIENT-SIDE-TIMEOUT'
-                )
-                .reduce((acc: { [key: string]: string }, h) => {
-                  acc[h.header] = h.data
-                  return acc
-                }, {})) ||
-            {},
+          headers: (headers ?? [])
+            .filter(
+              (h) =>
+                (h.header.toLowerCase() !== 'content-type' || h.data !== 'multipart/form-data') && h.header.toUpperCase() !== 'X-CLIENT-SIDE-TIMEOUT'
+            )
+            .reduce(
+              (acc: { [key: string]: string }, h) => {
+                acc[h.header] = h.data
+                return acc
+              },
+              { 'X-Requested-With': 'XMLHttpRequest' }
+            ),
         },
         method === 'POST' || method === 'PUT'
           ? {

@@ -1,8 +1,8 @@
 # icc-api CHANGELOG
 
-## 4.2.14
+## 4.2.15
 
-- [FEATURE] - Add support identifiers in Contact and add option in User Api to hide patients while loading the list of users
+- [FIX] - Add missing X-Requested-With: XMLHttpRequest header in XHR.ts
 
 ## 4.2.13
 
