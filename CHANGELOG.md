@@ -1,5 +1,9 @@
 # icc-api CHANGELOG
 
+## 4.2.16
+
+- [FIX] - Do not send BASIC auth while logging out in order to prevent creation of a new session
+
 ## 4.2.15
 
 - [FIX] - Add missing X-Requested-With: XMLHttpRequest header in XHR.ts
