@@ -75,7 +75,8 @@ export namespace XHR {
       : typeof self !== 'undefined'
       ? self.fetch
       : fetch,
-    contentTypeOverride?: 'application/json' | 'text/plain' | 'application/octet-stream'
+    contentTypeOverride?: 'application/json' | 'text/plain' | 'application/octet-stream',
+    forceSendAuthorization = false
   ): Promise<Data> {
     const contentType = headers && headers.find((it) => (it.header ? it.header.toLowerCase() === 'content-type' : false))
     const clientTimeout = headers && headers.find((it) => (it.header ? it.header.toUpperCase() === 'X-CLIENT-SIDE-TIMEOUT' : false))
@@ -89,7 +90,9 @@ export namespace XHR {
           headers: (headers ?? [])
             .filter(
               (h) =>
-                (h.header.toLowerCase() !== 'content-type' || h.data !== 'multipart/form-data') && h.header.toUpperCase() !== 'X-CLIENT-SIDE-TIMEOUT'
+                (forceSendAuthorization || h.header.toLowerCase() !== 'authorization') &&
+                (h.header.toLowerCase() !== 'content-type' || h.data !== 'multipart/form-data') &&
+                h.header.toUpperCase() !== 'X-CLIENT-SIDE-TIMEOUT'
             )
             .reduce(
               (acc: { [key: string]: string }, h) => {
@@ -113,22 +116,26 @@ export namespace XHR {
       timeout,
       fetchImpl
     ).then(async function (response) {
-      if (response.status >= 400) {
-        const error: {
-          error: string
-          message: string
-          status: number
-        } = { error: response.statusText, message: await response.text(), status: response.status }
-        throw new XHRError(url, error.message, error.status, error.error, response.headers)
+      if (response.status === 403 && !forceSendAuthorization) {
+        return sendCommand(method, url, headers, data, fetchImpl, contentTypeOverride, true)
+      } else {
+        if (response.status >= 400) {
+          const error: {
+            error: string
+            message: string
+            status: number
+          } = { error: response.statusText, message: await response.text(), status: response.status }
+          throw new XHRError(url, error.message, error.status, error.error, response.headers)
+        }
+        const ct = contentTypeOverride || response.headers.get('content-type') || 'text/plain'
+        return (
+          ct.startsWith('application/json')
+            ? response.json()
+            : ct.startsWith('application/xml') || ct.startsWith('text/')
+            ? response.text()
+            : response.arrayBuffer()
+        ).then((d) => new Data(response.status, ct, d))
       }
-      const ct = contentTypeOverride || response.headers.get('content-type') || 'text/plain'
-      return (
-        ct.startsWith('application/json')
-          ? response.json()
-          : ct.startsWith('application/xml') || ct.startsWith('text/')
-          ? response.text()
-          : response.arrayBuffer()
-      ).then((d) => new Data(response.status, ct, d))
     })
   }
 }
