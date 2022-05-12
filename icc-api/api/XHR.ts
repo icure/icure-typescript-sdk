@@ -116,7 +116,7 @@ export namespace XHR {
       timeout,
       fetchImpl
     ).then(async function (response) {
-      if (response.status === 403 && !forceSendAuthorization) {
+      if (response.status === 401 && !forceSendAuthorization) {
         return sendCommand(method, url, headers, data, fetchImpl, contentTypeOverride, true)
       } else {
         if (response.status >= 400) {
