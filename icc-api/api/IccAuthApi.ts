@@ -58,7 +58,13 @@ export class IccAuthApi {
 
     const _url = this.host + `/auth/logout` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand(
+      'GET',
+      _url,
+      headers.filter((h) => h.header?.toLowerCase() !== 'authorization'),
+      _body,
+      this.fetchImpl
+    )
       .then((doc) => new AuthenticationResponse(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -72,7 +78,13 @@ export class IccAuthApi {
 
     const _url = this.host + `/auth/logout` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand(
+      'POST',
+      _url,
+      headers.filter((h) => h.header?.toLowerCase() !== 'authorization'),
+      _body,
+      this.fetchImpl
+    )
       .then((doc) => new AuthenticationResponse(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
