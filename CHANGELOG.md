@@ -1,5 +1,9 @@
 # icc-api CHANGELOG
 
+## 4.2.17
+
+- [FIX] - Do not send BASIC auth if cookies are available
+
 ## 4.2.16
 
 - [FIX] - Do not send BASIC auth while logging out in order to prevent creation of a new session
