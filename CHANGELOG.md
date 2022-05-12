@@ -1,8 +1,12 @@
 # icc-api CHANGELOG
 
-## 4.2.17
+## 4.2.18
 
 - [FIX] - Do not send BASIC auth if cookies are available
+
+## 4.2.18
+
+- Internal release
 
 ## 4.2.16
 
