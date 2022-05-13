@@ -115,27 +115,43 @@ export namespace XHR {
       ),
       timeout,
       fetchImpl
-    ).then(async function (response) {
-      if (response.status === 401 && !forceSendAuthorization) {
-        return sendCommand(method, url, headers, data, fetchImpl, contentTypeOverride, true)
-      } else {
-        if (response.status >= 400) {
-          const error: {
-            error: string
-            message: string
-            status: number
-          } = { error: response.statusText, message: await response.text(), status: response.status }
-          throw new XHRError(url, error.message, error.status, error.error, response.headers)
+    )
+      .catch(async (e) => {
+        if (!forceSendAuthorization) {
+          //Might be due to a 401
+          return {
+            status: 401,
+            statusText: e.message,
+            arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
+            json: () => Promise.resolve({}),
+            text: () => Promise.resolve(''),
+            headers: new Headers(),
+          }
+        } else {
+          throw e
         }
-        const ct = contentTypeOverride || response.headers.get('content-type') || 'text/plain'
-        return (
-          ct.startsWith('application/json')
-            ? response.json()
-            : ct.startsWith('application/xml') || ct.startsWith('text/')
-            ? response.text()
-            : response.arrayBuffer()
-        ).then((d) => new Data(response.status, ct, d))
-      }
-    })
+      })
+      .then(async function (response) {
+        if (response.status === 401 && !forceSendAuthorization) {
+          return sendCommand(method, url, headers, data, fetchImpl, contentTypeOverride, true)
+        } else {
+          if (response.status >= 400) {
+            const error: {
+              error: string
+              message: string
+              status: number
+            } = { error: response.statusText, message: await response.text(), status: response.status }
+            throw new XHRError(url, error.message, error.status, error.error, response.headers)
+          }
+          const ct = contentTypeOverride || response.headers.get('content-type') || 'text/plain'
+          return (
+            ct.startsWith('application/json')
+              ? response.json()
+              : ct.startsWith('application/xml') || ct.startsWith('text/')
+              ? response.text()
+              : response.arrayBuffer()
+          ).then((d) => new Data(response.status, ct, d))
+        }
+      })
   }
 }
