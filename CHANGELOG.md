@@ -1,12 +1,16 @@
 # icc-api CHANGELOG
 
-## 4.2.19
+## 4.2.20
 
 - [FEATURE] - Add a tag to groups to differentiate root, apps and databases
 
-### Breaking changes for 4.2.19
+### Breaking changes for 4.2.20
 
 The createGroup signature has been slightly altered with an extra argument before the databaseSynchronisations argument
+
+## 4.2.19
+
+- Internal release
 
 ## 4.2.18
 
