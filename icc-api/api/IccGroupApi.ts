@@ -47,6 +47,7 @@ export class IccGroupApi {
    * @param body
    * @param id The id of the group, also used for subsequent authentication against the db (can only contain digits, letters, - and _)
    * @param name The name of the group
+   * @param type The type of the group.
    * @param password The password of the group (can only contain digits, letters, - and _)
    * @param server The server on which the group dbs will be created
    * @param q The number of shards for patient and healthdata dbs : 3-8 is a recommended range of value
@@ -61,6 +62,7 @@ export class IccGroupApi {
     q?: number,
     n?: number,
     superGroup?: string,
+    type?: string,
     body?: DatabaseInitialisation
   ): Promise<Group> {
     let _body = null
@@ -72,6 +74,7 @@ export class IccGroupApi {
       '?ts=' +
       new Date().getTime() +
       (name ? '&name=' + encodeURIComponent(String(name)) : '') +
+      (type ? '&type=' + encodeURIComponent(String(type)) : '') +
       (server ? '&server=' + encodeURIComponent(String(server)) : '') +
       (q ? '&q=' + encodeURIComponent(String(q)) : '') +
       (n ? '&n=' + encodeURIComponent(String(n)) : '') +
@@ -216,6 +219,20 @@ export class IccGroupApi {
     let headers = this.headers
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
       .then((doc) => new Unit(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * List available apps for user
+   * @summary List apps
+   */
+  listApps(): Promise<Array<Group>> {
+    let _body = null
+
+    const _url = this.host + `/group/apps` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Group(it)))
       .catch((err) => this.handleError(err))
   }
 
