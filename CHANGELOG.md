@@ -1,10 +1,18 @@
 # icc-api CHANGELOG
 
+## 4.2.19
+
+- [FEATURE] - Add a tag to groups to differentiate root, apps and databases
+
+### Breaking changes for 4.2.19
+
+The createGroup signature has been slightly altered with an extra argument before the databaseSynchronisations argument
+
 ## 4.2.18
 
 - [FIX] - Do not send BASIC auth if cookies are available
 
-## 4.2.18
+## 4.2.17
 
 - Internal release
 
