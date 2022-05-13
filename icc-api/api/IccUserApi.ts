@@ -418,7 +418,7 @@ export class IccUserApi {
 
     const _url =
       this.host +
-      `/user/inGroup   /${encodeURIComponent(String(groupId))}` +
+      `/user/inGroup/${encodeURIComponent(String(groupId))}` +
       '?ts=' +
       new Date().getTime() +
       (startKey ? '&startKey=' + encodeURIComponent(String(startKey)) : '') +
