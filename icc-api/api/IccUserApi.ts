@@ -252,12 +252,12 @@ export class IccUserApi {
    * Get current user.
    * @summary Get presently logged-in user.
    */
-  getCurrentUser(): Promise<User> {
+  getCurrentUser(preserveSession = false): Promise<User> {
     let _body = null
 
     const _url = this.host + `/user/current` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, !preserveSession)
       .then((doc) => new User(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
