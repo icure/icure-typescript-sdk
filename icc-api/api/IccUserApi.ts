@@ -266,12 +266,12 @@ export class IccUserApi {
    * Get current user.
    * @summary Get presently logged-in user.
    */
-  getMatchingUsers(): Promise<Array<UserGroup>> {
+  getMatchingUsers(preserveSession = false): Promise<Array<UserGroup>> {
     let _body = null
 
     const _url = this.host + `/user/matches` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, !preserveSession)
       .then((doc) => (doc.body as Array<JSON>).map((it) => new UserGroup(it)))
       .catch((err) => this.handleError(err))
   }
