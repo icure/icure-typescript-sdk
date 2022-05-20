@@ -377,6 +377,21 @@ export class IccPatientApi {
   }
 
   /**
+   * (key, value) of the map is as follows: (ID of the owner of the encrypted AES key, encrypted AES keys)
+   * @summary Get the HcParty encrypted AES keys indexed by owner.
+   * @param patientId
+   */
+  getPatientAesExchangeKeysForDelegate(patientId: string): Promise<{ [key: string]: { [key: string]: string } }> {
+    let _body = null
+
+    const _url = this.host + `/patient/${encodeURIComponent(String(patientId))}/aesExchangeKeys` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+      .then((doc) => JSON.parse(JSON.stringify(doc.body)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    * It gets patient administrative data based on the identifier (root & extension) parameters.
    * @summary Get patient by identifier
    * @param hcPartyId

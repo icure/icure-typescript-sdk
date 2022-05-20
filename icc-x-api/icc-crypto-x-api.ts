@@ -1,14 +1,14 @@
-import {IccHcpartyApi, IccPatientApi} from '../icc-api'
-import {AESUtils} from './crypto/AES'
-import {RSAUtils} from './crypto/RSA'
-import {UtilsClass} from './crypto/utils'
-import {ShamirClass} from './crypto/shamir'
+import { IccHcpartyApi, IccPatientApi } from '../icc-api'
+import { AESUtils } from './crypto/AES'
+import { RSAUtils } from './crypto/RSA'
+import { UtilsClass } from './crypto/utils'
+import { ShamirClass } from './crypto/shamir'
 
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import {Delegation, Device, HealthcareParty, Patient, User} from '../icc-api/model/models'
-import {b2a, b64_2uas, hex2ua, string2ua, ua2hex, ua2string, ua2utf8, utf8_2ua} from './utils/binary-utils'
-import {IccDeviceApi} from '../icc-api/api/IccDeviceApi'
+import { Delegation, Device, HealthcareParty, Patient, User } from '../icc-api/model/models'
+import { b2a, b64_2uas, hex2ua, string2ua, ua2hex, ua2string, ua2utf8, utf8_2ua } from './utils/binary-utils'
+import { IccDeviceApi } from '../icc-api'
 
 interface DelegatorAndKeys {
   delegatorId: string
@@ -18,7 +18,7 @@ interface DelegatorAndKeys {
 
 type CachedDataOwner =
   | {
-  type: 'patient'
+      type: 'patient'
       dataOwner: Patient
     }
   | {
@@ -356,7 +356,7 @@ export class IccCryptoXApi {
         }
 
         const nowTimestamp = +new Date()
-        if (!this.cacheLastDeletionTimestamp || ((nowTimestamp - this.cacheLastDeletionTimestamp) / 1000) >= minCacheDurationInSeconds) {
+        if (!this.cacheLastDeletionTimestamp || (nowTimestamp - this.cacheLastDeletionTimestamp) / 1000 >= minCacheDurationInSeconds) {
           delete this.hcPartyKeysRequestsCache[delegateHcPartyId]
           this.cacheLastDeletionTimestamp = nowTimestamp
           return this.decryptAndImportAesHcPartyKeysForDelegators(delegatorsHcPartyIdsSet, delegateHcPartyId)
