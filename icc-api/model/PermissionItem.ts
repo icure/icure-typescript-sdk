@@ -19,6 +19,7 @@ export class PermissionItem {
     Object.assign(this as PermissionItem, json)
   }
 
+  itemType?: string
   type?: PermissionItem.TypeEnum
   predicate?: Predicate
 }
