@@ -42,4 +42,5 @@ export class FormTemplate {
   reports?: Array<string>
   tags?: Array<CodeStub>
   layoutAttachmentId?: string
+  templateLayoutAttachmentId?: string
 }
