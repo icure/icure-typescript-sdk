@@ -35,7 +35,6 @@ export * from './icc-patient-x-api'
 export * from './icc-user-x-api'
 export * from './icc-time-table-x-api'
 export * from './icc-receipt-x-api'
-export { utils, UtilsClass } from './crypto/utils'
 export * from './utils'
 
 export const apiHeaders = function (username: string, password: string) {

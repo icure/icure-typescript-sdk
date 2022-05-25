@@ -1,5 +1,3 @@
-import { utils } from './utils'
-
 export class ShamirClass {
   // Protected settings object
   config = {

@@ -7,8 +7,8 @@ import * as _ from 'lodash'
 import * as moment from 'moment'
 import { a2b, b2a, hex2ua, string2ua, ua2utf8, utf8_2ua } from './utils/binary-utils'
 import { HealthElement } from '../icc-api/model/models'
-import { utils } from './crypto/utils'
 import { IccUserXApi } from './icc-user-x-api'
+import { crypt } from './utils'
 
 export class IccHelementXApi extends IccHelementApi {
   crypto: IccCryptoXApi
@@ -70,7 +70,7 @@ export class IccHelementXApi extends IccHelementApi {
           console.error(`SFK cannot be found for HealthElement ${healthElement.id}. The health element will not be reachable from the patient side`)
         }
 
-        return this.crypto.initObjectDelegations(healthElement, patient, dataOwnerId, key)
+        return this.crypto.initObjectDelegations(healthElement, patient, dataOwnerId, key ?? null)
       })
       .then((initData) => {
         _.extend(healthElement, {
@@ -283,7 +283,7 @@ export class IccHelementXApi extends IccHelementApi {
             this.crypto.AES.importKey('raw', hex2ua(sfks.extractedKeys[0].replace(/-/g, '')))
           )
           .then((key: CryptoKey) =>
-            utils.crypt(
+            crypt(
               he,
               (obj: { [key: string]: string }) =>
                 this.crypto.AES.encrypt(

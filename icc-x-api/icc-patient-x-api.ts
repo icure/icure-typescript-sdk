@@ -11,12 +11,11 @@ import { IccClassificationXApi } from './icc-classification-x-api'
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
 import { CalendarItem, Classification, Delegation, Document, IcureStub, Invoice, ListOfIds, Patient } from '../icc-api/model/models'
-import { utils } from './crypto/utils'
 import { IccCalendarItemXApi } from './icc-calendar-item-x-api'
 import { b64_2ab } from '../icc-api/model/ModelHelper'
 import { b2a, hex2ua, string2ua, ua2hex, ua2utf8, utf8_2ua } from './utils/binary-utils'
 import { findName, garnishPersonWithName, hasName } from './utils/person-util'
-import { retry } from './utils/net-utils'
+import { retry, crypt, decrypt } from './utils'
 import { IccUserXApi } from './icc-user-x-api'
 
 // noinspection JSUnusedGlobalSymbols
@@ -483,7 +482,7 @@ export class IccPatientXApi extends IccPatientApi {
             this.crypto.AES.importKey('raw', hex2ua(sfks.extractedKeys[0].replace(/-/g, '')))
           )
           .then((key: CryptoKey) =>
-            utils.crypt(
+            crypt(
               p,
               (obj: { [key: string]: string }) =>
                 this.crypto.AES.encrypt(
@@ -552,29 +551,27 @@ export class IccPatientXApi extends IccPatientApi {
                         return Promise.resolve(p)
                       }
                       return this.crypto.AES.importKey('raw', hex2ua(sfks[0].replace(/-/g, ''))).then((key) =>
-                        utils
-                          .decrypt(p, (ec) =>
-                            this.crypto.AES.decrypt(key, ec)
-                              .then((dec) => {
-                                const jsonContent = dec && ua2utf8(dec)
-                                try {
-                                  return JSON.parse(jsonContent)
-                                } catch (e) {
-                                  console.log('Cannot parse patient', p.id, jsonContent || 'Invalid content')
-                                  return p
-                                }
-                              })
-                              .catch((err) => {
-                                console.log('Cannot decrypt patient', p.id, err)
+                        decrypt(p, (ec) =>
+                          this.crypto.AES.decrypt(key, ec)
+                            .then((dec) => {
+                              const jsonContent = dec && ua2utf8(dec)
+                              try {
+                                return JSON.parse(jsonContent)
+                              } catch (e) {
+                                console.log('Cannot parse patient', p.id, jsonContent || 'Invalid content')
                                 return p
-                              })
-                          )
-                          .then((p) => {
-                            if (p.picture && !(p.picture instanceof ArrayBuffer)) {
-                              p.picture = b64_2ab(p.picture)
-                            }
-                            return p
-                          })
+                              }
+                            })
+                            .catch((err) => {
+                              console.log('Cannot decrypt patient', p.id, err)
+                              return p
+                            })
+                        ).then((p) => {
+                          if (p.picture && !(p.picture instanceof ArrayBuffer)) {
+                            p.picture = b64_2ab(p.picture)
+                          }
+                          return p
+                        })
                       )
                     })
                 : Promise.resolve(p)

@@ -2,7 +2,6 @@ import { IccContactApi } from '../icc-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 
 import i18n from './rsrc/contact.i18n'
-import { utils } from './crypto/utils'
 
 import * as moment from 'moment'
 import * as _ from 'lodash'
@@ -12,6 +11,7 @@ import { PaginatedListContact } from '../icc-api/model/PaginatedListContact'
 import { a2b, b2a, hex2ua, string2ua, ua2string, ua2utf8, utf8_2ua } from './utils/binary-utils'
 import { ServiceByIdsFilter } from './filters/ServiceByIdsFilter'
 import { IccUserXApi } from './icc-user-x-api'
+import { truncateTrailingNulls, before } from './utils'
 
 export class IccContactXApi extends IccContactApi {
   i18n: any = i18n
@@ -74,46 +74,40 @@ export class IccContactXApi extends IccContactApi {
   ): Promise<models.Contact> {
     const dataOwnerId = this.userApi.getDataOwnerOf(user)
 
-    return this.crypto
-      .extractPreferredSfk(patient, dataOwnerId!, confidential)
-      .then((key) => {
-        if (!key) {
-          console.error(`SFK cannot be found for HealthElement ${key}. The health element will not be reachable from the patient side`)
-        }
-        return Promise.all([
-          this.crypto.initObjectDelegations(contact, patient, dataOwnerId!, key),
-          this.crypto.initEncryptionKeys(contact, dataOwnerId!),
-        ])
+    return this.crypto.extractPreferredSfk(patient, dataOwnerId!, confidential).then(async (key) => {
+      if (!key) {
+        console.error(`SFK cannot be found for HealthElement ${key}. The health element will not be reachable from the patient side`)
+      }
+      const dels = await this.crypto.initObjectDelegations(contact, patient, dataOwnerId!, key ?? null)
+      const eks = await this.crypto.initEncryptionKeys(contact, dataOwnerId!)
+      _.extend(contact, {
+        delegations: dels.delegations,
+        cryptedForeignKeys: dels.cryptedForeignKeys,
+        secretForeignKeys: dels.secretForeignKeys,
+        encryptionKeys: eks.encryptionKeys,
       })
-      .then(([dels, eks]) => {
-        _.extend(contact, {
-          delegations: dels.delegations,
-          cryptedForeignKeys: dels.cryptedForeignKeys,
-          secretForeignKeys: dels.secretForeignKeys,
-          encryptionKeys: eks.encryptionKeys,
-        })
 
-        let promise = Promise.resolve(contact)
-        ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
-          (delegateId) =>
-            (promise = promise.then((contact) =>
-              this.crypto.addDelegationsAndEncryptionKeys(patient, contact, dataOwnerId!, delegateId, dels.secretId, eks.secretId).catch((e) => {
-                console.log(e)
-                return contact
-              })
-            ))
-        )
-        ;(user.autoDelegations && user.autoDelegations.anonymousMedicalInformation ? user.autoDelegations.anonymousMedicalInformation : []).forEach(
-          (delegateId) =>
-            (promise = promise.then((contact) =>
-              this.crypto.addDelegationsAndEncryptionKeys(patient, contact, dataOwnerId!, delegateId, null, eks.secretId).catch((e) => {
-                console.log(e)
-                return contact
-              })
-            ))
-        )
-        return promise
-      })
+      let promise = Promise.resolve(contact)
+      ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
+        (delegateId) =>
+          (promise = promise.then((contact) =>
+            this.crypto.addDelegationsAndEncryptionKeys(patient, contact, dataOwnerId!, delegateId, dels.secretId, eks.secretId).catch((e) => {
+              console.log(e)
+              return contact
+            })
+          ))
+      )
+      ;(user.autoDelegations && user.autoDelegations.anonymousMedicalInformation ? user.autoDelegations.anonymousMedicalInformation : []).forEach(
+        (delegateId) =>
+          (promise = promise.then((contact) =>
+            this.crypto.addDelegationsAndEncryptionKeys(patient, contact, dataOwnerId!, delegateId, null, eks.secretId).catch((e) => {
+              console.log(e)
+              return contact
+            })
+          ))
+      )
+      return promise
+    })
   }
 
   initEncryptionKeys(user: models.User, ctc: models.Contact) {
@@ -324,16 +318,16 @@ export class IccContactXApi extends IccContactApi {
     return super.getContacts(body).then((ctcs) => this.decrypt(this.userApi.getDataOwnerOf(user)!, ctcs))
   }
 
-  modifyContactWithUser(user: models.User, body?: models.Contact): Promise<models.Contact | any> {
+  async modifyContactWithUser(user: models.User, body?: models.Contact): Promise<models.Contact | any> {
     return body
       ? this.encrypt(user, [_.cloneDeep(body)])
           .then((ctcs) => super.modifyContact(ctcs[0]))
           .then((ctc) => this.decrypt(this.userApi.getDataOwnerOf(user)!, [ctc]))
           .then((ctcs) => ctcs[0])
-      : Promise.resolve(null)
+      : null
   }
 
-  modifyContactsWithUser(user: models.User, bodies?: Array<models.Contact>): Promise<models.Contact[] | any> {
+  async modifyContactsWithUser(user: models.User, bodies?: Array<models.Contact>): Promise<models.Contact[] | any> {
     return bodies
       ? this.encrypt(
           user,
@@ -341,19 +335,19 @@ export class IccContactXApi extends IccContactApi {
         )
           .then((ctcs) => super.modifyContacts(ctcs))
           .then((ctcs) => this.decrypt(this.userApi.getDataOwnerOf(user)!, ctcs))
-      : Promise.resolve(null)
+      : null
   }
 
-  createContactWithUser(user: models.User, body?: models.Contact): Promise<models.Contact | any> {
+  async createContactWithUser(user: models.User, body?: models.Contact): Promise<models.Contact | any> {
     return body
       ? this.encrypt(user, [_.cloneDeep(body)])
           .then((ctcs) => super.createContact(ctcs[0]))
           .then((ctc) => this.decrypt(this.userApi.getDataOwnerOf(user)!, [ctc]))
           .then((ctcs) => ctcs[0])
-      : Promise.resolve(null)
+      : null
   }
 
-  createContactsWithUser(user: models.User, bodies?: Array<models.Contact>): Promise<models.Contact[] | any> {
+  async createContactsWithUser(user: models.User, bodies?: Array<models.Contact>): Promise<models.Contact[] | any> {
     return bodies
       ? this.encrypt(
           user,
@@ -361,7 +355,7 @@ export class IccContactXApi extends IccContactApi {
         )
           .then((ctcs) => super.createContacts(ctcs))
           .then((ctcs) => this.decrypt(this.userApi.getDataOwnerOf(user)!, ctcs))
-      : Promise.resolve(null)
+      : null
   }
 
   encryptServices(key: CryptoKey, rawKey: string, services: Service[]): PromiseLike<Service[]> {
@@ -483,7 +477,7 @@ export class IccContactXApi extends IccContactApi {
             const dec = await this.crypto.AES.decrypt(key, string2ua(a2b(svc.encryptedContent!)))
             let jsonContent
             try {
-              jsonContent = ua2utf8(utils.truncateTrailingNulls(new Uint8Array(dec)))
+              jsonContent = ua2utf8(truncateTrailingNulls(new Uint8Array(dec)))
               Object.assign(svc, { content: JSON.parse(jsonContent) })
             } catch (e) {
               console.log('Cannot parse service', svc.id, jsonContent || '<- Invalid encoding')
@@ -496,7 +490,7 @@ export class IccContactXApi extends IccContactApi {
             const dec = await this.crypto.AES.decrypt(key, string2ua(a2b(svc.encryptedSelf!)))
             let jsonContent
             try {
-              jsonContent = ua2utf8(utils.truncateTrailingNulls(new Uint8Array(dec)))
+              jsonContent = ua2utf8(truncateTrailingNulls(new Uint8Array(dec)))
               Object.assign(svc, JSON.parse(jsonContent))
             } catch (e) {
               console.log('Cannot parse service', svc.id, jsonContent || '<- Invalid encoding')
@@ -678,7 +672,7 @@ export class IccContactXApi extends IccContactApi {
       ctcs.reduce(
         (selected: { s: models.Service | null; c: models.Contact | null }, c: models.Contact) => {
           const candidate = (c.services || []).find((s) => s.id === svc.id)
-          return ctc.id !== c.id && candidate && (selected.s === null || utils.before(selected.s.modified || 0, candidate.modified || 0))
+          return ctc.id !== c.id && candidate && (selected.s === null || before(selected.s.modified || 0, candidate.modified || 0))
             ? { s: candidate, c: c }
             : selected
         },
