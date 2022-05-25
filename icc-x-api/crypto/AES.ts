@@ -1,5 +1,4 @@
-import { utils } from './utils'
-import { ua2hex } from '../utils/binary-utils'
+import { appendBuffer, ua2hex } from '../utils'
 
 export class AESUtils {
   /********* AES Config **********/
@@ -42,7 +41,7 @@ export class AESUtils {
           plainData
         )
         .then(
-          (cipherData) => resolve(utils.appendBuffer(aesAlgorithmEncrypt.iv.buffer as ArrayBuffer, cipherData)),
+          (cipherData) => resolve(appendBuffer(aesAlgorithmEncrypt.iv.buffer as ArrayBuffer, cipherData)),
           (err) => reject('AES encryption failed: ' + err)
         )
     })
@@ -89,6 +88,18 @@ export class AESUtils {
           reject('AES decryption failed: ' + err)
         })
     })
+  }
+
+  async decryptSome(cryptoKeys: CryptoKey[], uint8Array: Uint8Array): Promise<ArrayBuffer> {
+    try {
+      return this.decrypt(cryptoKeys[0], uint8Array)
+    } catch (e) {
+      if (cryptoKeys.length > 1) {
+        return this.decryptSome(cryptoKeys.slice(1), uint8Array)
+      } else {
+        throw e
+      }
+    }
   }
 
   // generate an AES key
