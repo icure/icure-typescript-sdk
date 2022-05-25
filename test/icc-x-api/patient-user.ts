@@ -1,6 +1,6 @@
 import { expect, use } from 'chai'
 import 'mocha'
-import { Api } from '../../icc-x-api'
+import { Api, jwk2pkcs8, pkcs8ToJwk } from '../../icc-x-api'
 import { IccPatientApi } from '../../icc-api'
 import { User } from '../../icc-api/model/User'
 import { crypto } from '../../node-compat'
@@ -51,7 +51,7 @@ describe('Patient', () => {
       cryptoApi: cryptoApiForHcp,
     } = Api('https://kraken.icure.dev/rest/v1', 'demo-formations', '5ba921cf-9ea3-4163-a359-48f7db9cdf4e', crypto)
     const hcpUser = await userApiForHcp.getCurrentUser()
-    await cryptoApiForHcp.loadKeyPairsAsJwkInBrowserLocalStorage(hcpUser.healthcarePartyId!, cryptoApiForHcp.utils.pkcs8ToJwk(hex2ua(hcpPrivKey)))
+    await cryptoApiForHcp.loadKeyPairsAsJwkInBrowserLocalStorage(hcpUser.healthcarePartyId!, pkcs8ToJwk(hex2ua(hcpPrivKey)))
 
     try {
       const rawPatientApiForHcp = new IccPatientApi('https://kraken.icure.dev/rest/v1', {
@@ -83,9 +83,9 @@ describe('Patient', () => {
           } = Api('https://kraken.icure.dev/rest/v1', tmpUser.id!, pwd!, crypto)
           const user = await userApi.getCurrentUser()
           let me = await patientApi.getPatientWithUser(user, user.patientId!)
-          await updatedCryptoApi.getOrCreateHcPartyKey(me, user.patientId!)
+          await updatedCryptoApi.getOrCreateHcPartyKeys(me, user.patientId!)
           me = await patientApi.getPatientWithUser(user, user.patientId!)
-          await updatedCryptoApi.getOrCreateHcPartyKey(me, '171f186a-7a2a-40f0-b842-b486428c771b')
+          await updatedCryptoApi.getOrCreateHcPartyKeys(me, '171f186a-7a2a-40f0-b842-b486428c771b')
 
           me = await patientApi.getPatientWithUser(user, user.patientId!)
           me = await patientApi.modifyPatientWithUser(user, await patientApi.initDelegations(me, user))
@@ -131,7 +131,7 @@ describe('Patient', () => {
     const user = await userApi.getCurrentUser()
     const patient = await rawPatientApi.getPatient(user.patientId!)
 
-    await cryptoApi.loadKeyPairsAsTextInBrowserLocalStorage(user.patientId!, hex2ua(cryptoApi.utils.jwk2pkcs8(jwkKey)))
+    await cryptoApi.loadKeyPairsAsTextInBrowserLocalStorage(user.patientId!, hex2ua(jwk2pkcs8(jwkKey)))
 
     if (!patient.publicKey) {
       const { publicKey, privateKey } = await cryptoApi.RSA.generateKeyPair()
@@ -173,7 +173,7 @@ describe('Patient', () => {
     } = Api('https://kraken.icure.dev/rest/v1', 'demo-formations', '5ba921cf-9ea3-4163-a359-48f7db9cdf4e', crypto)
     const hcpUser = await userApiForHcp.getCurrentUser()
 
-    await cryptoApiForHcp.loadKeyPairsAsJwkInBrowserLocalStorage(hcpUser.healthcarePartyId!, cryptoApiForHcp.utils.pkcs8ToJwk(hex2ua(hcpPrivKey)))
+    await cryptoApiForHcp.loadKeyPairsAsJwkInBrowserLocalStorage(hcpUser.healthcarePartyId!, pkcs8ToJwk(hex2ua(hcpPrivKey)))
     const pat2 = await patientApiForHcp.getPatientWithUser(hcpUser, patient.id!)
     const ci2 = await calendarItemApiForHcp.getCalendarItemWithUser(hcpUser, ci.id)
 
