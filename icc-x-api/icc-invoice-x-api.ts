@@ -73,7 +73,12 @@ export class IccInvoiceXApi extends IccInvoiceApi {
     })
   }
 
-  private initDelegationsAndEncryptionKeys(user: models.User, patient: models.Patient, invoice: models.Invoice): Promise<models.Invoice> {
+  private initDelegationsAndEncryptionKeys(
+    user: models.User,
+    patient: models.Patient,
+    invoice: models.Invoice,
+    delegates: string[] = []
+  ): Promise<models.Invoice> {
     const dataOwnerId = this.userApi.getDataOwnerOf(user)
     return this.crypto
       .extractDelegationsSFKs(patient, dataOwnerId)
@@ -94,7 +99,9 @@ export class IccInvoiceXApi extends IccInvoiceApi {
         })
 
         let promise = Promise.resolve(invoice)
-        ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.financialInformation || []) : []).forEach(
+        _.uniq(
+          delegates.concat(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.financialInformation || []) : [])
+        ).forEach(
           (delegateId) =>
             (promise = promise.then((invoice) =>
               this.crypto.addDelegationsAndEncryptionKeys(patient, invoice, dataOwnerId!, delegateId, dels.secretId, eks.secretId).catch((e) => {
