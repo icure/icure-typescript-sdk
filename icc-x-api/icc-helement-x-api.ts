@@ -59,7 +59,8 @@ export class IccHelementXApi extends IccHelementApi {
     healthElement: models.HealthElement,
     patient: models.Patient,
     user: models.User,
-    confidential: boolean
+    confidential: boolean,
+    delegates: string[] = []
   ): Promise<models.HealthElement> {
     let dataOwnerId = this.userApi.getDataOwnerOf(user)
 
@@ -80,7 +81,9 @@ export class IccHelementXApi extends IccHelementApi {
         })
 
         let promise = Promise.resolve(healthElement)
-        ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
+        _.uniq(
+          delegates.concat(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : [])
+        ).forEach(
           (delegateId) =>
             (promise = promise.then((helement) =>
               this.crypto
