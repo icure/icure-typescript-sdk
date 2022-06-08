@@ -29,7 +29,7 @@ export class IccInvoiceXApi extends IccInvoiceApi {
     this.userApi = userApi
   }
 
-  newInstance(user: models.User, patient: models.Patient, inv?: any): Promise<models.Invoice> {
+  newInstance(user: models.User, patient: models.Patient, inv: any = {}, delegates: string[] = []): Promise<models.Invoice> {
     const invoice = new models.Invoice(
       _.extend(
         {
@@ -48,7 +48,7 @@ export class IccInvoiceXApi extends IccInvoiceApi {
       )
     )
 
-    return this.initDelegationsAndEncryptionKeys(user, patient, invoice)
+    return this.initDelegationsAndEncryptionKeys(user, patient, invoice, delegates)
   }
 
   initEncryptionKeys(user: models.User, invoice: models.Invoice) {

@@ -27,7 +27,7 @@ export class IccClassificationXApi extends IccClassificationApi {
     this.userApi = userApi
   }
 
-  newInstance(user: models.User, patient: models.Patient, c: any): Promise<models.Classification> {
+  newInstance(user: models.User, patient: models.Patient, c: any = {}, delegates: string[] = []): Promise<models.Classification> {
     const classification = _.assign(
       {
         id: this.crypto.randomUuid(),
@@ -44,7 +44,7 @@ export class IccClassificationXApi extends IccClassificationApi {
       c || {}
     )
 
-    return this.initDelegationsAndEncryptionKeys(user, patient, classification)
+    return this.initDelegationsAndEncryptionKeys(user, patient, classification, delegates)
   }
 
   initDelegationsAndEncryptionKeys(

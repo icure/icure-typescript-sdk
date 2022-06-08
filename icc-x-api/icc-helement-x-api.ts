@@ -34,7 +34,7 @@ export class IccHelementXApi extends IccHelementApi {
     this.encryptedKeys = encryptedKeys
   }
 
-  newInstance(user: models.User, patient: models.Patient, h: any, confidential = false) {
+  newInstance(user: models.User, patient: models.Patient, h: any, confidential = false, delegates: string[] = []) {
     const dataOwnerId = this.userApi.getDataOwnerOf(user)
     const helement = _.assign(
       {
@@ -52,7 +52,7 @@ export class IccHelementXApi extends IccHelementApi {
       h || {}
     )
 
-    return this.initDelegationsAndCryptedForeignKeys(helement, patient, user, confidential)
+    return this.initDelegationsAndCryptedForeignKeys(helement, patient, user, confidential, delegates)
   }
 
   initDelegationsAndCryptedForeignKeys(
