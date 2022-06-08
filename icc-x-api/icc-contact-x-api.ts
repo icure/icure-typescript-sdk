@@ -70,13 +70,14 @@ export class IccContactXApi extends IccContactApi {
     user: models.User,
     patient: models.Patient,
     contact: models.Contact,
-    confidential = false
+    confidential = false,
+    delegates: string[] = []
   ): Promise<models.Contact> {
     const dataOwnerId = this.userApi.getDataOwnerOf(user)
 
     return this.crypto.extractPreferredSfk(patient, dataOwnerId!, confidential).then(async (key) => {
       if (!key) {
-        console.error(`SFK cannot be found for HealthElement ${key}. The health element will not be reachable from the patient side`)
+        console.error(`SFK cannot be found for Contact ${key}. The contact will not be reachable from the patient side`)
       }
       const dels = await this.crypto.initObjectDelegations(contact, patient, dataOwnerId!, key ?? null)
       const eks = await this.crypto.initEncryptionKeys(contact, dataOwnerId!)
@@ -88,7 +89,9 @@ export class IccContactXApi extends IccContactApi {
       })
 
       let promise = Promise.resolve(contact)
-      ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
+      _.uniq(
+        delegates.concat(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : [])
+      ).forEach(
         (delegateId) =>
           (promise = promise.then((contact) =>
             this.crypto.addDelegationsAndEncryptionKeys(patient, contact, dataOwnerId!, delegateId, dels.secretId, eks.secretId).catch((e) => {
