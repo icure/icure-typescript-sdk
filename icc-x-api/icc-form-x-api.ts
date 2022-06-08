@@ -29,7 +29,7 @@ export class IccFormXApi extends IccFormApi {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  newInstance(user: models.User, patient: models.Patient, c: any) {
+  newInstance(user: models.User, patient: models.Patient, c: any = {}, delegates: string[] = []) {
     const form = _.extend(
       {
         id: this.crypto.randomUuid(),
@@ -44,7 +44,7 @@ export class IccFormXApi extends IccFormApi {
       c || {}
     )
 
-    return this.initDelegationsAndEncryptionKeys(user, patient, form)
+    return this.initDelegationsAndEncryptionKeys(user, patient, form, delegates)
   }
 
   initEncryptionKeys(user: models.User, form: models.Form) {
