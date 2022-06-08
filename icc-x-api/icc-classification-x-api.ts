@@ -50,7 +50,8 @@ export class IccClassificationXApi extends IccClassificationApi {
   initDelegationsAndEncryptionKeys(
     user: models.User,
     patient: models.Patient,
-    classification: models.Classification
+    classification: models.Classification,
+    delegates: string[] = []
   ): Promise<models.Classification> {
     const dataOwnerId = this.userApi.getDataOwnerOf(user)
     return this.crypto
@@ -64,7 +65,9 @@ export class IccClassificationXApi extends IccClassificationApi {
         })
 
         let promise = Promise.resolve(classification)
-        ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
+        _.uniq(
+          delegates.concat(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : [])
+        ).forEach(
           (delegateId) =>
             (promise = promise.then((classification) =>
               this.crypto
