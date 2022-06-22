@@ -69,7 +69,7 @@ export class IccPatientXApi extends IccPatientApi {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  newInstance(user: models.User, p: any) {
+  newInstance(user: models.User, p: any = {}, delegates: string[] = []) {
     const patient = _.extend(
       {
         id: this.crypto.randomUuid(),
@@ -83,7 +83,7 @@ export class IccPatientXApi extends IccPatientApi {
       },
       p || {}
     )
-    return this.initDelegations(patient, user)
+    return this.initDelegations(patient, user, undefined, delegates)
   }
 
   completeNames(patient: models.Patient): models.Patient {
@@ -127,13 +127,20 @@ export class IccPatientXApi extends IccPatientApi {
     return finalPatient
   }
 
-  initDelegations(patient: models.Patient, user: models.User, secretForeignKey?: string): Promise<models.Patient> {
+  initDelegations(
+    patient: models.Patient,
+    user: models.User,
+    secretForeignKey: string | undefined = undefined,
+    delegates: string[] = []
+  ): Promise<models.Patient> {
     const dataOwnerId = this.userApi.getDataOwnerOf(user)
     return this.crypto.initObjectDelegations(patient, null, dataOwnerId!, secretForeignKey || null).then((initData) => {
       _.extend(patient, { delegations: initData.delegations })
 
       let promise = Promise.resolve(patient)
-      ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
+      _.uniq(
+        delegates.concat(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : [])
+      ).forEach(
         (delegateId) =>
           (promise = promise
             .then((patient) => this.crypto.extendedDelegationsAndCryptedForeignKeys(patient, null, dataOwnerId!, delegateId, initData.secretId))
