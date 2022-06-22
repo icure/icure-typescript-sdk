@@ -34,7 +34,7 @@ export class IccContactXApi extends IccContactApi {
     this.userApi = userApi
   }
 
-  newInstance(user: models.User, patient: models.Patient, c: any, confidential = false): Promise<models.Contact> {
+  newInstance(user: models.User, patient: models.Patient, c: any, confidential = false, delegates: string[] = []): Promise<models.Contact> {
     const contact = new models.Contact(
       _.extend(
         {
@@ -55,7 +55,7 @@ export class IccContactXApi extends IccContactApi {
       )
     )
 
-    return this.initDelegationsAndEncryptionKeys(user, patient, contact, confidential)
+    return this.initDelegationsAndEncryptionKeys(user, patient, contact, confidential, delegates)
   }
 
   /**
