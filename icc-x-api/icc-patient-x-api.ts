@@ -183,7 +183,7 @@ export class IccPatientXApi extends IccPatientApi {
   }
 
   createPatient(body?: models.Patient): never {
-    throw new Error('Cannot call a method that returns contacts without providing a user for de/encryption')
+    throw new Error('Cannot call a method that returns patients without providing a user for de/encryption')
   }
 
   createPatientWithUser(user: models.User, body?: models.Patient): Promise<models.Patient | any> {
@@ -515,7 +515,7 @@ export class IccPatientXApi extends IccPatientApi {
 
     return (
       user.healthcarePartyId
-        ? this.hcpartyApi.getHealthcareParty(user.healthcarePartyId!).then((hcp) => [hcp.id, hcp.parentId])
+        ? this.hcpartyApi.getHealthcarePartyHierarchyIds(user.healthcarePartyId)
         : Promise.resolve([dataOwnerId])
     ).then((ids) => {
       const hcpId = ids[0]
