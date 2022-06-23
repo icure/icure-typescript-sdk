@@ -66,7 +66,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
 
       let promise = Promise.resolve(maintenanceTask)
       _.uniq(
-        delegates.concat(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : [])
+        delegates.concat(user.autoDelegations ? (user.autoDelegations.all || []) : [])
       ).forEach(
         (delegateId) =>
           (promise = promise
@@ -89,7 +89,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
             encryptionKeys: eks.encryptionKeys,
           })
         )
-      ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
+      ;(user.autoDelegations ? (user.autoDelegations.all || []) : []).forEach(
         (delegateId) =>
           (promise = promise.then((patient) =>
             this.crypto
