@@ -25,6 +25,7 @@ import {FilterChainMaintenanceTask} from "../../icc-api/model/FilterChainMainten
 import {MaintenanceTaskByIdsFilter} from "../../icc-x-api/filters/MaintenanceTaskByIdsFilter"
 import {FilterChainService} from "../../icc-api/model/FilterChainService"
 import {ServiceByHcPartyHealthElementIdsFilter} from "../../icc-x-api/filters/ServiceByHcPartyHealthElementIdsFilter"
+import {MaintenanceTaskByHcPartyAndTypeFilter} from "../../icc-x-api/filters/MaintenanceTaskByHcPartyAndTypeFilter"
 const tmp = os.tmpdir()
 console.log('Saving keys in ' + tmp)
 ;(global as any).localStorage = new LocalStorage(tmp, 5 * 1024 * 1024 * 1024)
@@ -165,7 +166,7 @@ describe('icc-x-maintenance-task-api Tests', () => {
     assert(updatedTask.status == MaintenanceTask.StatusEnum.Ongoing)
   }).timeout(10000);
 
-  it('FilterMaintenanceTaskByWithUser Success for HCP', async () => {
+  it('FilterMaintenanceTaskByWithUser By Ids Success for HCP', async () => {
     // Given
     const {
       userApi: userApiForHcp1,
@@ -188,6 +189,36 @@ describe('icc-x-maintenance-task-api Tests', () => {
         })
       })
     )).rows[0] as MaintenanceTask
+
+
+    // Then
+    assert(foundTask.id == createdTask.id)
+  });
+
+  it('FilterMaintenanceTaskByWithUser By Type Success for HCP', async () => {
+    // Given
+    const {
+      userApi: userApiForHcp1,
+      healthcarePartyApi: hcPartyApiForHcp1,
+      maintenanceTaskApi: maintenanceTaskApiForHcp1,
+      cryptoApi: cryptoApiForHcp1,
+    } = Api(iCureUrl, hcp1UserName!, hcp1Password!, crypto)
+
+    const hcp1User = await userApiForHcp1.getCurrentUser()
+    const hcp1 = await hcPartyApiForHcp1.getCurrentHealthcareParty()
+    await initKey(userApiForHcp1, cryptoApiForHcp1, hcp1User, hcp1PrivKey!)
+
+    let createdTask: MaintenanceTask = await maintenanceTaskApiForHcp1.createMaintenanceTaskWithUser(hcp1User, await maintenanceTaskToCreate(maintenanceTaskApiForHcp1, hcp1User, hcp1))
+
+    // When
+    let foundTask = (await maintenanceTaskApiForHcp1.filterMaintenanceTasksByWithUser(hcp1User, undefined, undefined,
+      new FilterChainMaintenanceTask({
+        filter: new MaintenanceTaskByHcPartyAndTypeFilter({
+          healthcarePartyId: hcp1.id!,
+          type: createdTask.taskType!
+        })
+      })
+    )).rows[0]
 
 
     // Then
