@@ -9,23 +9,16 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
-import { CodeStub } from './CodeStub'
+import { AbstractFilterMaintenanceTask } from '../../icc-api/model/AbstractFilterMaintenanceTask'
 
-export class Measure {
+export class MaintenanceTaskAfterDateFilter extends AbstractFilterMaintenanceTask {
+  $type: string = 'MaintenanceTaskAfterDateFilter'
   constructor(json: JSON | any) {
-    Object.assign(this as Measure, json)
+    super(json)
+
+    Object.assign(this as MaintenanceTaskAfterDateFilter, json)
   }
 
-  value?: number
-  min?: number
-  max?: number
-  ref?: number
-  severity?: number
-  severityCode?: string
-  evolution?: number
-  unit?: string
-  unitCodes?: Array<CodeStub>
-  comment?: string
-  comparator?: string
-  sign?: string
+  date?: number
+  desc?: string
 }
