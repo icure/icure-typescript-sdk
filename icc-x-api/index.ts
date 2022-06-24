@@ -47,7 +47,7 @@ export const apiHeaders = function (username: string, password: string) {
   }
 }
 
-export const Api = function (
+export const Api = async function (
   host: string,
   username: string,
   password: string,
@@ -98,6 +98,12 @@ export const Api = function (
   )
   const messageApi = new IccMessageXApi(host, headers, cryptoApi, userApi, fetchImpl)
   const maintenanceTaskApi = new IccMaintenanceTaskXApi(host, headers, cryptoApi, userApi, healthcarePartyApi, ['properties'], fetchImpl)
+
+  try {
+    await authApi.login({ username, password })
+  } catch (e) {
+    console.error('Incorrect user and password used to instantiate Api, or network problem', e)
+  }
 
   return {
     cryptoApi,
