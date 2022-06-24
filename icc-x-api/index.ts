@@ -16,7 +16,7 @@ import { IccAccesslogXApi } from './icc-accesslog-x-api'
 import { IccTimeTableXApi } from './icc-time-table-x-api'
 import { IccDeviceApi } from '../icc-api/api/IccDeviceApi'
 import { IccCodeXApi } from './icc-code-x-api'
-import {IccMaintenanceTaskXApi} from "./icc-maintenance-task-x-api"
+import {IccMaintenanceTaskXApi} from './icc-maintenance-task-x-api'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
