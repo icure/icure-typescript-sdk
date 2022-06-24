@@ -1,6 +1,6 @@
 # icc-api CHANGELOG
 
-## 4.2.28
+## 4.2.29
 
 - [BREAKING] - Make Api() async so that we can call authAPi.login and clear session cookie
 
