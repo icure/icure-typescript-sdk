@@ -1,13 +1,11 @@
 import { expect, use } from 'chai'
 import 'mocha'
-import { Api, jwk2pkcs8, pkcs8ToJwk } from '../../icc-x-api'
+import { Api, pkcs8ToJwk } from '../../icc-x-api'
 import { IccPatientApi } from '../../icc-api'
 import { User } from '../../icc-api/model/User'
 import { crypto } from '../../node-compat'
 import { b2a, ua2hex, hex2ua } from '../../icc-x-api/utils/binary-utils'
 import { Patient } from '../../icc-api/model/Patient'
-import {TestUtils} from "../utils/test_utils"
-import initKey = TestUtils.initKey
 
 const hcpUserName = process.env.HCP_USERNAME!
 const hcpPassword = process.env.HCP_PASSWORD!
@@ -113,8 +111,7 @@ describe('Patient', () => {
 
     const user = await userApi.getCurrentUser()
     const patient = await rawPatientApi.getPatient(user.patientId!)
-
-    await cryptoApi.loadKeyPairsAsTextInBrowserLocalStorage(user.patientId!, hex2ua(jwk2pkcs8(jwkKey)))
+    await cryptoApiForHcp.loadKeyPairsAsJwkInBrowserLocalStorage(user.patientId!, pkcs8ToJwk(hex2ua(patPrivKey)))
 
     if (!patient.publicKey) {
       const { publicKey, privateKey } = await cryptoApi.RSA.generateKeyPair()
