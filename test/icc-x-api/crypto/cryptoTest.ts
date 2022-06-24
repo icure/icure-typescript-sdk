@@ -4,7 +4,7 @@ import { crypto } from '../../../node-compat'
 import { expect } from 'chai'
 import 'mocha'
 
-import { Api } from '../../../icc-x-api'
+import { Api, pkcs8ToJwk } from '../../../icc-x-api'
 import { User } from '../../../icc-api/model/User'
 import { Patient } from '../../../icc-api/model/Patient'
 import { hex2ua } from '../../../icc-x-api/utils/binary-utils'
@@ -27,7 +27,7 @@ const mhapi = Api(
 )
 
 describe('Import private Key', () => {
-  const jwk = api.cryptoApi.utils.pkcs8ToJwk(
+  const jwk = pkcs8ToJwk(
     hex2ua(
       'MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCa0vYzV9p7ubZ7I1tQ9mxJaLORujNAxMSml9BJVRK/8182kv/cyGf6BgKBnZ/pNT8Em2xp4tv0qYfk0biLlHUwfEFCezOvjApneag0cSLwMsuAG1TizlTi7e8rGuH0QKeXlFpNCrVBcRhm6jLQlv4tqUO92CUTRf2PULBIHoj1LjJqLMlEbRJclkNlAYLb6/AnLaYASpVKzCH49HI2+n07uyVvuTKs65sP4IGvJ6O0dtCIWQVSaw5fqqfXElNrd7Bf8po2thehfvYRuIdjRsyf+GSilcyewtX+DvsNlNmeXbluo2qW2V7GPeY50kPHTHc6TDUCNiZfcSYN4PzV+7lLAgMBAAECggEBAIeN1Ym2jdBuFVtS5YzJdJ4BUddxk5ZNsW+6096g4b22M9LweZywyniZ8m/RtkTVHcvG2PEMc1CPbi/lfxKWdNRytiCjBenZTvKyDZd8xv5POuV7CKNby+60LActjk/wm8uXVEjH61LU1myk+MCwsvL/lBQPvsZVLV/hYbaDJZ6j6VJ4rIOCbwZ0pLC1tscXCHq855xzyfa/eDLvczfYsHkSJEww49xZUSuNKrD+wojY5WHimYXn6qqh4BClLtAl9fogHIkyFKQtmxfv+HdSkCBjoazMTrFpzUCK7E7pXliOC/X8y26UXme5Zcb7XZNsG4y/Xm3W96m4tN0l9o/8toECgYEA3cEB04VoG4H1J+223OXLfKni58so+hGHkzYov7w46cFTzTeDRTp+D/vSrSjvZ+h54IdE1xSOg7PLP7coKsA/7tXUTLfnDQFLGu8hPQwFfT1sdWU3Oe4iunlMCl9hlNuExt8+Dd299XscwRSIEBX0nCbtpXJHDccI0qGrxMVBZxsCgYEAsrvlqy9dQTI8jJprZdrwdx9BarxsjGsIorzWMubrug2e+22ZtDWjrlsbKz70UGSONhvGxICQLSW0Wa0SDAUoarf5HiTsyFFrqdsIbo2r9btLqX7xxMIKdRhB5HKkETIUViPsoMpPuzAltPt0MODlJYr+21AXwqDdZsuLzw0XKZECgYA0W8gEm3EzXYH3BYexrIhZTPuIY02vjcgHGDiS3OxLNRyGTd8uz1rIh1r9C7dLP3bXbtjwN6hWrHMG/kX7ohz2VYKlAp8JUQ7csy2T7my1X3VmWpmpkfKdONqdcFvn+9Tj5/4M5BhgB8uIQ0LFGYoB/KcL82mXdTE+GnImKbUBlQKBgAblq1I0zLN0XdPLLbPLhBYEtcCJruKoSrgE83sZYCVY2za2nwTOQRe8WksL7d+gUcCSx9PTZjznxJLlU9n05P9hRBK+uAhu4+m1Exk5DFa6OIw84tWF62NjYT+QkPY86X39euclh3ggvoPCZFRyiUUunPEXoSMYlBKgbi+6QJeRAoGAcPr0coa1lCXLfC9hfyt7GygLky8TGoa4LmPE+yQFJatAMjq5AsUHpK7jN/n5W4mqkVHRriiCv/SXOW5oBAf1QHyhVPIARwFwIu2o/gQ4pHP7OBI9NrxRv/xp48E/q07PFgV1KSZeLAmTyoiGzAGcZelGD+VJtVP6SLsPPKCXXng='
     )
