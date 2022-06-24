@@ -137,9 +137,9 @@ export class AESUtils {
    */
   exportKey(cryptoKey: CryptoKey, format: 'raw'): Promise<ArrayBuffer>
   exportKey(cryptoKey: CryptoKey, format: 'jwk'): Promise<JsonWebKey>
-  exportKey(cryptoKey: CryptoKey, format: string): Promise<ArrayBuffer | JsonWebKey> {
+  exportKey(cryptoKey: CryptoKey, format: 'jwk' | 'raw'): Promise<ArrayBuffer | JsonWebKey> {
     return new Promise((resolve: (value: ArrayBuffer | JsonWebKey) => any, reject: (reason: any) => any) => {
-      return this.crypto.subtle.exportKey(format, cryptoKey).then(resolve, reject)
+      return this.crypto.subtle.exportKey(format as any, cryptoKey).then(resolve, reject)
     })
   }
 
@@ -155,11 +155,11 @@ export class AESUtils {
    * @param aesKey
    * @returns {*}
    */
-  importKey(format: string, aesKey: JsonWebKey | ArrayBuffer | Uint8Array): Promise<CryptoKey> {
+  importKey(format: 'jwk' | 'raw', aesKey: JsonWebKey | ArrayBuffer | Uint8Array): Promise<CryptoKey> {
     return new Promise((resolve: (value: CryptoKey) => any, reject: (reason: any) => any) => {
       const extractable = true
       const keyUsages: KeyUsage[] = ['decrypt', 'encrypt']
-      return this.crypto.subtle.importKey(format, aesKey, this.aesKeyGenParams, extractable, keyUsages).then(resolve, reject)
+      return this.crypto.subtle.importKey(format as any, aesKey as any, this.aesKeyGenParams, extractable, keyUsages).then(resolve, reject)
     })
   }
 }

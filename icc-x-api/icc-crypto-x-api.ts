@@ -1456,6 +1456,33 @@ export class IccCryptoXApi {
     })
   }
 
+  async addNewKeyPairForOwner(ownerId: string): Promise<{ dataOwner: HealthcareParty | Patient | Device; publicKey: string; privateKey: string }> {
+    const { type: ownerType, dataOwner: owner } = await this.getDataOwner(ownerId)
+    const { publicKey, privateKey } = await this.RSA.generateKeyPair()
+    const publicKeyHex = ua2hex(await this.RSA.exportKey(publicKey!, 'spki'))
+
+    const gen = (await this._AES.generateCryptoKey(true)) as string
+    const aesEK = ua2hex(await this._RSA.encrypt(publicKey, hex2ua(gen)))
+    owner.aesExchangeKeys = { [publicKeyHex]: { [ownerId]: { [publicKeyHex.slice(-12)]: aesEK } } }
+
+    const modifiedDataOwnerAndType =
+      ownerType === 'hcp'
+        ? await (this.dataOwnerCache[owner.id!] = this.hcpartyBaseApi
+            .modifyHealthcareParty(owner as HealthcareParty)
+            .then((x) => ({ type: 'hcp', dataOwner: x } as CachedDataOwner)))
+        : ownerType === 'patient'
+        ? await (this.dataOwnerCache[owner.id!] = this.patientBaseApi
+            .modifyPatient(owner as Patient)
+            .then((x) => ({ type: 'patient', dataOwner: x })))
+        : await (this.dataOwnerCache[owner.id!] = this.deviceBaseApi.updateDevice(owner as Device).then((x) => ({ type: 'device', dataOwner: x })))
+
+    return {
+      dataOwner: modifiedDataOwnerAndType.dataOwner,
+      publicKey: publicKeyHex,
+      privateKey: ua2hex((await this.RSA.exportKey(privateKey!, 'pkcs8')) as ArrayBuffer),
+    }
+  }
+
   generateKeyForDelegate(ownerId: string, delegateId: string): PromiseLike<HealthcareParty | Patient> {
     //Preload hcp and patient because we need them and they are going to be invalidated from the caches
     return notConcurrent(this.generateKeyConcurrencyMap, ownerId, async () => {
