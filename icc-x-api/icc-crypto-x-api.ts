@@ -141,11 +141,13 @@ export class IccCryptoXApi {
 
   encryptShamirRSAKey(hcp: HealthcareParty, notaries: Array<HealthcareParty>, threshold?: number): Promise<HealthcareParty> {
     return this.loadKeyPairImported(hcp.id!).then((keyPair) =>
-      this._RSA.exportKey(keyPair.privateKey, 'pkcs8').then((exportedKey) => {
+      this._RSA.exportKey(keyPair.privateKey, 'pkcs8').then(async (exportedKey) => {
         const privateKey = exportedKey as ArrayBuffer
         const nLen = notaries.length
         const shares = nLen == 1 ? [privateKey] : this._shamir.share(ua2hex(privateKey), nLen, threshold || nLen).map((share) => hex2ua(share))
-        const publicKeys = Object.keys(this.rsaKeyPairs)
+        const publicKeys = await Object.values(this.rsaKeyPairs).reduce(async (p, rsa) => {
+          return (await p).concat([jwk2spki(await this.RSA.exportKey(rsa.publicKey, 'jwk'))])
+        }, Promise.resolve([] as string[]))
 
         return _.reduce(
           notaries,
@@ -187,12 +189,14 @@ export class IccCryptoXApi {
   **/
   async decryptShamirRSAKey(hcp: HealthcareParty, notaries: Array<HealthcareParty>): Promise<void> {
     try {
-      const publicKeys = Object.keys(this.rsaKeyPairs)
+      const publicKeys = await Object.values(this.rsaKeyPairs).reduce(async (p, rsa) => {
+        return (await p).concat([jwk2spki(await this.RSA.exportKey(rsa.publicKey, 'jwk'))])
+      }, Promise.resolve([] as string[]))
       const nLen = notaries.length
       let decryptedPrivatedKey
       if (nLen == 1) {
         const notaryHcPartyId = notaries[0].id!
-        const encryptedAesKeyMap = this.getEncryptedAesExchangeKeys(hcp, notaryHcPartyId)
+        const encryptedAesKeyMap = await this.getEncryptedAesExchangeKeys(hcp, notaryHcPartyId)
         const importedAESHcPartyKey = await Promise.all(
           Object.entries(encryptedAesKeyMap).map(
             async ([idPubKey, keysMap]) => await this.decryptHcPartyKey(notaryHcPartyId, hcp.id!, notaryHcPartyId, idPubKey, keysMap, publicKeys)
@@ -214,7 +218,7 @@ export class IccCryptoXApi {
                 // TODO: now, we get the encrypted shares in db and decrypt them. This assumes that the
                 // the notaries' private keys are in localstorage. We should implement a way for the notaries to
                 // give hcp the decrypted shares without having to also share their private keys.
-                const encryptedAesKeyMap = this.getEncryptedAesExchangeKeys(hcp, notary.id!)
+                const encryptedAesKeyMap = await this.getEncryptedAesExchangeKeys(hcp, notary.id!)
                 const importedAESHcPartyKey = await Promise.all(
                   Object.entries(encryptedAesKeyMap).map(
                     async ([idPubKey, keysMap]) => await this.decryptHcPartyKey(notary.id!, hcp.id!, notary.id!, idPubKey, keysMap, publicKeys)
@@ -471,7 +475,7 @@ export class IccCryptoXApi {
    * both the delegations (createdObject.id) and the cryptedForeignKeys
    * (parentObject.id), and returns them in an object.
    */
-  initObjectDelegations(
+  async initObjectDelegations(
     createdObject: any,
     parentObject: any,
     ownerId: string,
@@ -483,7 +487,10 @@ export class IccCryptoXApi {
     secretForeignKeys: any[]
     secretId: string
   }> {
-    const publicKeys = Object.values(this.rsaKeyPairs).map((rsa) => jwk2pkcs8(rsa.publicKey))
+    const publicKeys = await Object.values(this.rsaKeyPairs).reduce(async (p, rsa) => {
+      const jwk = await this.RSA.exportKey(rsa.publicKey, 'jwk')
+      return (await p).concat([jwk2spki(jwk)])
+    }, Promise.resolve([] as string[]))
 
     this.throwDetailedExceptionForInvalidParameter('createdObject.id', createdObject.id, 'initObjectDelegations', arguments)
 
@@ -592,7 +599,9 @@ export class IccCryptoXApi {
 
     return this.getDataOwner(ownerId)
       .then(async ({ dataOwner: owner }) => {
-        const publicKeys = Object.keys(this.rsaKeyPairs)
+        const publicKeys = await Object.values(this.rsaKeyPairs).reduce(async (p, rsa) => {
+          return (await p).concat([jwk2spki(await this.RSA.exportKey(rsa.publicKey, 'jwk'))])
+        }, Promise.resolve([] as string[]))
         const { owner: modifiedOwner, aesExchangeKeys } = await this.getOrCreateHcPartyKeys(owner, delegateId)
         const [publicKeyIdentifier, hcPartyKeys] = Object.entries(aesExchangeKeys)[0]
         const importedAESHcPartyKey = await this.decryptHcPartyKey(ownerId, delegateId, ownerId, publicKeyIdentifier, hcPartyKeys, publicKeys)
@@ -724,11 +733,13 @@ export class IccCryptoXApi {
       })
   }
 
-  getEncryptedAesExchangeKeys(
+  async getEncryptedAesExchangeKeys(
     owner: HealthcareParty | Patient | Device,
     delegateId: string
-  ): { [pubKeyIdentifier: string]: { [pubKeyFingerprint: string]: string } } {
-    const publicKeys = Object.keys(this.rsaKeyPairs) //FIXME Keys are data owner ids, not publicKeys
+  ): Promise<{ [pubKeyIdentifier: string]: { [pubKeyFingerprint: string]: string } }> {
+    const publicKeys = await Object.values(this.rsaKeyPairs).reduce(async (p, rsa) => {
+      return (await p).concat([jwk2spki(await this.RSA.exportKey(rsa.publicKey, 'jwk'))])
+    }, Promise.resolve([] as string[]))
     const mapOfAesExchangeKeys = Object.entries(owner.aesExchangeKeys ?? {})
       .filter((e) => e[1][delegateId] && Object.keys(e[1][delegateId]).some((k1) => publicKeys.includes(k1)))
       .reduce((map, e) => {
@@ -749,13 +760,13 @@ export class IccCryptoXApi {
     owner: HealthcareParty | Patient | Device
     aesExchangeKeys: { [pubKeyIdentifier: string]: { [pubKeyFingerprint: string]: string } }
   }> {
-    const aesExchangeKeys = this.getEncryptedAesExchangeKeys(owner, delegateId)
+    const aesExchangeKeys = await this.getEncryptedAesExchangeKeys(owner, delegateId)
     if (Object.keys(aesExchangeKeys).length) {
       return { owner, aesExchangeKeys }
     }
 
     const modifiedOwner = await this.generateKeyForDelegate(owner.id!, delegateId)
-    return { owner: modifiedOwner, aesExchangeKeys: this.getEncryptedAesExchangeKeys(modifiedOwner, delegateId) }
+    return { owner: modifiedOwner, aesExchangeKeys: await this.getEncryptedAesExchangeKeys(modifiedOwner, delegateId) }
   }
 
   /**
@@ -776,7 +787,9 @@ export class IccCryptoXApi {
 
     const secretId = this.randomUuid()
     return this.getDataOwner(ownerId).then(async ({ dataOwner: owner }) => {
-      const publicKeys = Object.keys(this.rsaKeyPairs)
+      const publicKeys = await Object.values(this.rsaKeyPairs).reduce(async (p, rsa) => {
+        return (await p).concat([jwk2spki(await this.RSA.exportKey(rsa.publicKey, 'jwk'))])
+      }, Promise.resolve([] as string[]))
       const { owner: modifiedOwner, aesExchangeKeys } = await this.getOrCreateHcPartyKeys(owner, ownerId)
       const [publicKeyIdentifier, hcPartyKeys] = Object.entries(aesExchangeKeys)[0]
       const importedAESHcPartyKey = await this.decryptHcPartyKey(ownerId, ownerId, ownerId, publicKeyIdentifier, hcPartyKeys, publicKeys)
@@ -810,7 +823,7 @@ export class IccCryptoXApi {
    * @returns - **encryptionKeys** existing EKs of the `modifiedObject`, appended with a new EK item (owner: `ownerId`, delegatedTo: `delegateId`, encrypted key with secretId: `secretEncryptionKeyOfObject` )
    * - **secretId** which is the given input parameter `secretEncryptionKeyOfObject`
    */
-  appendEncryptionKeys(
+  async appendEncryptionKeys(
     //TODO: suggested name: getExtendedEKwithDelegationFromDelegatorToDelegate
     modifiedObject: any,
     ownerId: string,
@@ -826,7 +839,9 @@ export class IccCryptoXApi {
 
     return this.getDataOwner(ownerId)
       .then(async ({ dataOwner: owner }) => {
-        const publicKeys = Object.keys(this.rsaKeyPairs)
+        const publicKeys = await Object.values(this.rsaKeyPairs).reduce(async (p, rsa) => {
+          return (await p).concat([jwk2spki(await this.RSA.exportKey(rsa.publicKey, 'jwk'))])
+        }, Promise.resolve([] as string[]))
         const { owner: modifiedOwner, aesExchangeKeys } = await this.getOrCreateHcPartyKeys(owner, delegateId)
         const [publicKeyIdentifier, hcPartyKeys] = Object.entries(aesExchangeKeys)[0]
         const importedAESHcPartyKey = await this.decryptHcPartyKey(ownerId, ownerId, delegateId, publicKeyIdentifier, hcPartyKeys, publicKeys)

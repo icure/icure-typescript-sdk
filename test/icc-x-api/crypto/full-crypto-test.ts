@@ -146,6 +146,22 @@ describe('Full battery on tests on crypto and keys', async function () {
       couchdb.on('close', (code) => console.log(`child process exited with code ${code}`))
 
       await retry(() => XHR.sendCommand('GET', `http://127.0.0.1:${DB_PORT}`, null), 10)
+    } else {
+      //Cleanup
+      const tbd = (
+        await XHR.sendCommand('GET', `http://127.0.0.1:${DB_PORT}/icure-base/_all_docs`, [
+          new XHR.Header('Content-type', 'application/json'),
+          new XHR.Header('Authorization', `Basic ${b2a(`${couchdbUser}:${couchdbPassword}`)}`),
+        ])
+      ).body.rows
+        .filter((r: any) => r.id.startsWith('user-'))
+        .map((it: any) => ({ _id: it.id, _rev: it.value.rev, deleted: true }))
+      await XHR.sendCommand(
+        'POST',
+        `http://127.0.0.1:${DB_PORT}/icure-base/_bulk_docs`,
+        [new XHR.Header('Content-type', 'application/json'), new XHR.Header('Authorization', `Basic ${b2a(`${couchdbUser}:${couchdbPassword}`)}`)],
+        { docs: tbd }
+      )
     }
 
     let asLaunched = false
@@ -227,7 +243,7 @@ describe('Full battery on tests on crypto and keys', async function () {
 
         const newPatientUser = await userApi.createUser(
           new User({
-            id: uuid(),
+            id: `user-${uuid()}-patient`,
             login: `patient-${login}`,
             status: 'ACTIVE',
             passwordHash: hashedAdmin,
@@ -236,7 +252,7 @@ describe('Full battery on tests on crypto and keys', async function () {
         )
         const newHcpUser = await userApi.createUser(
           new User({
-            id: uuid(),
+            id: `user-${uuid()}-hcp`,
             login: `hcp-${login}`,
             status: 'ACTIVE',
             passwordHash: hashedAdmin,
@@ -278,9 +294,10 @@ describe('Full battery on tests on crypto and keys', async function () {
           const facade: EntityFacade<any> = f[1]
           const api = Api(`http://127.0.0.1:${AS_PORT}/rest/v1`, u.login!, 'admin', webcrypto as unknown as Crypto)
 
-          Object.entries(privateKeys[u.login!]).forEach(([pubKey, privKey]) => {
-            api.cryptoApi.cacheKeyPair({ publicKey: spkiToJwk(hex2ua(pubKey)), privateKey: pkcs8ToJwk(hex2ua(privKey)) })
-          })
+          await Object.entries(privateKeys[u.login!]).reduce(async (p, [pubKey, privKey]) => {
+            await p
+            await api.cryptoApi.cacheKeyPair({ publicKey: spkiToJwk(hex2ua(pubKey)), privateKey: pkcs8ToJwk(hex2ua(privKey)) })
+          }, Promise.resolve())
 
           const parent = f[0] !== 'Patient' ? await api.patientApi.getPatientWithUser(u, `${u.id}-Patient`) : undefined
           const record = await entities[f[0] as 'Patient' | 'Contact' | 'HealthElement'](api, `${u.id}-${f[0]}`, u, parent)
@@ -294,9 +311,10 @@ describe('Full battery on tests on crypto and keys', async function () {
           const u = users.find((it) => it.login === `${uType}-${uId}`)!
           const facade = f[1]
           const api = Api(`http://127.0.0.1:${AS_PORT}/rest/v1`, u.login!, 'admin', webcrypto as unknown as Crypto)
-          Object.entries(privateKeys[u.login!]).forEach(([pubKey, privKey]) => {
-            api.cryptoApi.cacheKeyPair({ publicKey: spkiToJwk(hex2ua(pubKey)), privateKey: pkcs8ToJwk(hex2ua(privKey)) })
-          })
+          await Object.entries(privateKeys[u.login!]).reduce(async (p, [pubKey, privKey]) => {
+            await p
+            await api.cryptoApi.cacheKeyPair({ publicKey: spkiToJwk(hex2ua(pubKey)), privateKey: pkcs8ToJwk(hex2ua(privKey)) })
+          }, Promise.resolve())
 
           const entity = await facade.get(api, `${u.id}-${f[0]}`)
           expect(entity.id).to.equal(`${u.id}-${f[0]}`)
@@ -306,9 +324,10 @@ describe('Full battery on tests on crypto and keys', async function () {
           const u = users.find((it) => it.login === `${uType}-${uId}`)!
           const facade = f[1]
           const api = Api(`http://127.0.0.1:${AS_PORT}/rest/v1`, u.login!, 'admin', webcrypto as unknown as Crypto)
-          Object.entries(privateKeys[u.login!]).forEach(([pubKey, privKey]) => {
-            api.cryptoApi.cacheKeyPair({ publicKey: spkiToJwk(hex2ua(pubKey)), privateKey: pkcs8ToJwk(hex2ua(privKey)) })
-          })
+          await Object.entries(privateKeys[u.login!]).reduce(async (p, [pubKey, privKey]) => {
+            await p
+            await api.cryptoApi.cacheKeyPair({ publicKey: spkiToJwk(hex2ua(pubKey)), privateKey: pkcs8ToJwk(hex2ua(privKey)) })
+          }, Promise.resolve())
 
           const parent = f[0] !== 'Patient' ? await api.patientApi.getPatientWithUser(u, `${u.id}-Patient`) : undefined
           const entity = await facade.share(api, parent, await facade.get(api, `${u.id}-${f[0]}`), delegate!.id)
