@@ -6,7 +6,7 @@ import { ShamirClass } from './crypto/shamir'
 import * as _ from 'lodash'
 import { Delegation, Device, Document, EncryptedEntity, EncryptedParentEntity, HealthcareParty, Patient, User } from '../icc-api/model/models'
 import { b2a, b64_2uas, hex2ua, string2ua, ua2hex, ua2string, ua2utf8, utf8_2ua } from './utils/binary-utils'
-import {jwk2pkcs8, jwk2spki, notConcurrent, pkcs8ToJwk, spkiToJwk} from './utils'
+import { jwk2pkcs8, jwk2spki, notConcurrent, pkcs8ToJwk, spkiToJwk } from './utils'
 
 interface DelegatorAndKeys {
   delegatorId: string
@@ -1514,6 +1514,7 @@ export class IccCryptoXApi {
       }
 
       let ownerCombinedAesExchangeKeys = owner.aesExchangeKeys ?? {}
+
       if (ownerLegacyPublicKey && !(owner.aesExchangeKeys ?? {})[ownerLegacyPublicKey]) {
         //Transfer keys from old structure (hcparty keys) to new one (aesExchangeKeys)
         const unknownDataOwnerCounterPartIds = Object.keys(owner.hcPartyKeys ?? {}).filter((x) => x !== ownerId && x !== delegateId)
@@ -1557,7 +1558,7 @@ export class IccCryptoXApi {
           owner.hcPartyKeys![delegateId] = [encryptedAesKeys[ownerLegacyPublicKey.slice(-12)], encryptedAesKeys[delegate.publicKey.slice(-12)]]
         }
         owner.aesExchangeKeys = {
-          ...(owner.aesExchangeKeys ?? {}),
+          ...(ownerCombinedAesExchangeKeys ?? {}),
           [selectedPublicKey]: { ...(owner.aesExchangeKeys?.[selectedPublicKey] ?? {}), [delegateId]: encryptedAesKeys },
         }
 
