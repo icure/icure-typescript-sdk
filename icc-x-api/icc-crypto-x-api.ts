@@ -6,7 +6,7 @@ import { ShamirClass } from './crypto/shamir'
 import * as _ from 'lodash'
 import { Delegation, Device, Document, EncryptedEntity, EncryptedParentEntity, HealthcareParty, Patient, User } from '../icc-api/model/models'
 import { b2a, b64_2uas, hex2ua, string2ua, ua2hex, ua2string, ua2utf8, utf8_2ua } from './utils/binary-utils'
-import { jwk2spki, notConcurrent, pkcs8ToJwk, spkiToJwk } from './utils'
+import {jwk2pkcs8, jwk2spki, notConcurrent, pkcs8ToJwk, spkiToJwk} from './utils'
 
 interface DelegatorAndKeys {
   delegatorId: string
@@ -289,9 +289,9 @@ export class IccCryptoXApi {
     }
 
     const result = await publicKeys.reduce(async (res, pk) => {
-      await res
-      if (res) {
-        return res
+      const delegatorAndKeys = await res
+      if (delegatorAndKeys) {
+        return delegatorAndKeys
       }
 
       const fingerprint = pk.slice(-12)
@@ -483,7 +483,7 @@ export class IccCryptoXApi {
     secretForeignKeys: any[]
     secretId: string
   }> {
-    const publicKeys = Object.keys(this.rsaKeyPairs)
+    const publicKeys = Object.values(this.rsaKeyPairs).map((rsa) => jwk2pkcs8(rsa.publicKey))
 
     this.throwDetailedExceptionForInvalidParameter('createdObject.id', createdObject.id, 'initObjectDelegations', arguments)
 
@@ -728,7 +728,7 @@ export class IccCryptoXApi {
     owner: HealthcareParty | Patient | Device,
     delegateId: string
   ): { [pubKeyIdentifier: string]: { [pubKeyFingerprint: string]: string } } {
-    const publicKeys = Object.keys(this.rsaKeyPairs)
+    const publicKeys = Object.keys(this.rsaKeyPairs) //FIXME Keys are data owner ids, not publicKeys
     const mapOfAesExchangeKeys = Object.entries(owner.aesExchangeKeys ?? {})
       .filter((e) => e[1][delegateId] && Object.keys(e[1][delegateId]).some((k1) => publicKeys.includes(k1)))
       .reduce((map, e) => {
@@ -739,7 +739,7 @@ export class IccCryptoXApi {
 
     return !owner.publicKey || mapOfAesExchangeKeys[owner.publicKey] || !owner.hcPartyKeys?.[delegateId]
       ? mapOfAesExchangeKeys
-      : { ...mapOfAesExchangeKeys, [owner.publicKey]: { [owner.publicKey.slice(-12)]: owner.hcPartyKeys![delegateId][0] } }
+      : { ...mapOfAesExchangeKeys, [owner.publicKey]: { [owner.publicKey.slice(-12)]: owner.hcPartyKeys[delegateId][0] } }
   }
 
   async getOrCreateHcPartyKeys(
