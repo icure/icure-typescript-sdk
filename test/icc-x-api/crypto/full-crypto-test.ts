@@ -42,17 +42,29 @@ const facades: EntityFacades = {
   Patient: {
     create: async (api, r) => api.patientApi.createPatientWithUser(await api.userApi.getCurrentUser(), r),
     get: async (api, id) => api.patientApi.getPatientWithUser(await api.userApi.getCurrentUser(), id),
-    share: async (api, p, r, doId) => api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, await getDataOwnerId(api), doId, null, null),
+    share: async (api, p, r, doId) => {
+      const ownerId = await getDataOwnerId(api)
+      const [dels, eks] = await api.cryptoApi.extractDelegationsSFKsAndEncryptionSKs(r, ownerId)
+      return api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, ownerId, doId, dels[0], eks[0])
+    },
   } as EntityFacade<Patient>,
   Contact: {
     create: async (api, r) => api.contactApi.createContactWithUser(await api.userApi.getCurrentUser(), r),
     get: async (api, id) => api.contactApi.getContactWithUser(await api.userApi.getCurrentUser(), id),
-    share: async (api, p, r, doId) => api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, await getDataOwnerId(api), doId, null, null),
+    share: async (api, p, r, doId) => {
+      const ownerId = await getDataOwnerId(api)
+      const [dels, eks] = await api.cryptoApi.extractDelegationsSFKsAndEncryptionSKs(r, ownerId)
+      return api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, ownerId, doId, null, null)
+    },
   } as EntityFacade<Contact>,
   HealthElement: {
     create: async (api, r) => api.healthcareElementApi.createHealthElementWithUser(await api.userApi.getCurrentUser(), r),
     get: async (api, id) => api.healthcareElementApi.getHealthElementWithUser(await api.userApi.getCurrentUser(), id),
-    share: async (api, p, r, doId) => api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, await getDataOwnerId(api), doId, null, null),
+    share: async (api, p, r, doId) => {
+      const ownerId = await getDataOwnerId(api)
+      const [dels, eks] = await api.cryptoApi.extractDelegationsSFKsAndEncryptionSKs(r, ownerId)
+      return api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, ownerId, doId, null, null)
+    },
   } as EntityFacade<HealthElement>,
 }
 
@@ -79,20 +91,22 @@ const entities: EntityCreators = {
   },
 }
 const userDefinitions: Record<string, (user: User, api: ReturnType<typeof Api>) => Promise<User>> = {
-  'a single available key in old format': async (user: User) => user,
-  'a single lost key': async (user: User) => {
-    delete privateKeys[user.login!]
-    return user
-  },
-  'one lost key and one available key': async (user: User, { cryptoApi, maintenanceTaskApi }) => {
+  'two available keys': async (user: User, { cryptoApi, maintenanceTaskApi }) => {
     const { privateKey, publicKey } = await cryptoApi.addNewKeyPairForOwner(maintenanceTaskApi, user, (user.healthcarePartyId ?? user.patientId)!)
     privateKeys[user.login!] = { ...(privateKeys[user.login!] ?? {}), [publicKey]: privateKey }
     return user
   },
-  'one lost key recoverable through transfer keys': async (user: User) => {
+  'a single available key in old format': async (user: User) => user,
+  'a single lost key': async (user: User) => {
+    privateKeys[user.login!] = {}
     return user
   },
-  'two available keys': async (user: User) => {
+  'one lost key and one available key': async (user: User, { cryptoApi, maintenanceTaskApi }) => {
+    const { privateKey, publicKey } = await cryptoApi.addNewKeyPairForOwner(maintenanceTaskApi, user, (user.healthcarePartyId ?? user.patientId)!)
+    privateKeys[user.login!] = { [publicKey]: privateKey }
+    return user
+  },
+  'one lost key recoverable through transfer keys': async (user: User) => {
     return user
   },
   'one available key and one lost key recoverable through transfer keys': async (user: User) => {
@@ -156,12 +170,12 @@ describe('Full battery on tests on crypto and keys', async function () {
           ])
         ).body.rows
           .filter((r: any) => r.id.startsWith('user-'))
-          .map((it: any) => ({_id: it.id, _rev: it.value.rev, deleted: true}))
+          .map((it: any) => ({ _id: it.id, _rev: it.value.rev, deleted: true }))
         await XHR.sendCommand(
           'POST',
           `http://127.0.0.1:${DB_PORT}/icure-base/_bulk_docs`,
           [new XHR.Header('Content-type', 'application/json'), new XHR.Header('Authorization', `Basic ${b2a(`${couchdbUser}:${couchdbPassword}`)}`)],
-          {docs: tbd}
+          { docs: tbd }
         )
       } catch (e) {
         //ignore
@@ -297,6 +311,8 @@ describe('Full battery on tests on crypto and keys', async function () {
           const u = users.find((it) => it.login === `${uType}-${uId}`)!
           const facade: EntityFacade<any> = f[1]
           const api = Api(`http://127.0.0.1:${AS_PORT}/rest/v1`, u.login!, 'admin', webcrypto as unknown as Crypto)
+
+          const dow = await api.cryptoApi.getDataOwner((u.healthcarePartyId ?? u.patientId)!)
 
           await Object.entries(privateKeys[u.login!]).reduce(async (p, [pubKey, privKey]) => {
             await p
