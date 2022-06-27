@@ -7,11 +7,20 @@ import { Contact } from '../../../icc-api/model/Contact'
 import { HealthElement } from '../../../icc-api/model/HealthElement'
 import { EncryptedEntity, EncryptedParentEntity, HealthcareParty, Service, User } from '../../../icc-api/model/models'
 import { before, describe, it } from 'mocha'
-import { webcrypto } from 'crypto'
 
+import { webcrypto } from 'crypto'
 import 'isomorphic-fetch'
+import { tmpdir } from 'os'
+
 import { IccPatientApi } from '../../../icc-api'
 import { expect } from 'chai'
+
+import { TextDecoder, TextEncoder } from 'util'
+;(global as any).localStorage = new (require('node-localstorage').LocalStorage)(tmpdir(), 5 * 1024 * 1024 * 1024)
+;(global as any).fetch = fetch
+;(global as any).Storage = ''
+;(global as any).TextDecoder = TextDecoder
+;(global as any).TextEncoder = TextEncoder
 
 interface EntityFacade<T extends EncryptedEntity> {
   create: (api: ReturnType<typeof Api>, record: Omit<T, 'rev'>) => Promise<T>
