@@ -63,7 +63,7 @@ const facades: EntityFacades = {
     share: async (api, p, r, doId) => {
       const ownerId = await getDataOwnerId(api)
       const [dels, eks] = await api.cryptoApi.extractDelegationsSFKsAndEncryptionSKs(r, ownerId)
-      return api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, ownerId, doId, null, null)
+      return api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, ownerId, doId, dels[0], eks[0])
     },
   } as EntityFacade<Contact>,
   HealthElement: {
@@ -72,7 +72,7 @@ const facades: EntityFacades = {
     share: async (api, p, r, doId) => {
       const ownerId = await getDataOwnerId(api)
       const [dels, eks] = await api.cryptoApi.extractDelegationsSFKsAndEncryptionSKs(r, ownerId)
-      return api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, ownerId, doId, null, null)
+      return api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, ownerId, doId, dels[0], eks[0])
     },
   } as EntityFacade<HealthElement>,
 }
