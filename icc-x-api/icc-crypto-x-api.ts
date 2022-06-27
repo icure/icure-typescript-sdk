@@ -349,7 +349,7 @@ export class IccCryptoXApi {
   cacheKeyPair(keyPairInJwk: { publicKey: JsonWebKey; privateKey: JsonWebKey }) {
     return this._RSA.importKeyPair('jwk', keyPairInJwk.privateKey, 'jwk', keyPairInJwk.publicKey).then((importedKeyPair) => {
       const pk = jwk2spki(keyPairInJwk.publicKey)
-      return (this.rsaKeyPairs[pk.substring(pk.length - 12)] = importedKeyPair)
+      return (this.rsaKeyPairs[pk.slice(-32)] = importedKeyPair)
     })
   }
 
