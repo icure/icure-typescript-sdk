@@ -41,7 +41,7 @@ async function getDataOwnerId(api: ReturnType<typeof Api>) {
 const facades: EntityFacades = {
   Patient: {
     create: async (api, r) => api.patientApi.createPatientWithUser(await api.userApi.getCurrentUser(), r),
-    get: async (api, id) => api.patientApi.getPatient(id),
+    get: async (api, id) => api.patientApi.getPatientWithUser(await api.userApi.getCurrentUser(), id),
     share: async (api, p, r, doId) => api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, await getDataOwnerId(api), doId, null, null),
   } as EntityFacade<Patient>,
   Contact: {
@@ -84,8 +84,8 @@ const userDefinitions: Record<string, (user: User, api: ReturnType<typeof Api>) 
     delete privateKeys[user.login!]
     return user
   },
-  'one lost key and one available key': async (user: User, { cryptoApi }) => {
-    const { privateKey, publicKey } = await cryptoApi.addNewKeyPairForOwner((user.healthcarePartyId ?? user.patientId)!)
+  'one lost key and one available key': async (user: User, { cryptoApi, maintenanceTaskApi }) => {
+    const { privateKey, publicKey } = await cryptoApi.addNewKeyPairForOwner(maintenanceTaskApi, user, (user.healthcarePartyId ?? user.patientId)!)
     privateKeys[user.login!] = { ...(privateKeys[user.login!] ?? {}), [publicKey]: privateKey }
     return user
   },
@@ -147,21 +147,25 @@ describe('Full battery on tests on crypto and keys', async function () {
 
       await retry(() => XHR.sendCommand('GET', `http://127.0.0.1:${DB_PORT}`, null), 10)
     } else {
-      //Cleanup
-      const tbd = (
-        await XHR.sendCommand('GET', `http://127.0.0.1:${DB_PORT}/icure-base/_all_docs`, [
-          new XHR.Header('Content-type', 'application/json'),
-          new XHR.Header('Authorization', `Basic ${b2a(`${couchdbUser}:${couchdbPassword}`)}`),
-        ])
-      ).body.rows
-        .filter((r: any) => r.id.startsWith('user-'))
-        .map((it: any) => ({ _id: it.id, _rev: it.value.rev, deleted: true }))
-      await XHR.sendCommand(
-        'POST',
-        `http://127.0.0.1:${DB_PORT}/icure-base/_bulk_docs`,
-        [new XHR.Header('Content-type', 'application/json'), new XHR.Header('Authorization', `Basic ${b2a(`${couchdbUser}:${couchdbPassword}`)}`)],
-        { docs: tbd }
-      )
+      try {
+        //Cleanup
+        const tbd = (
+          await XHR.sendCommand('GET', `http://127.0.0.1:${DB_PORT}/icure-base/_all_docs`, [
+            new XHR.Header('Content-type', 'application/json'),
+            new XHR.Header('Authorization', `Basic ${b2a(`${couchdbUser}:${couchdbPassword}`)}`),
+          ])
+        ).body.rows
+          .filter((r: any) => r.id.startsWith('user-'))
+          .map((it: any) => ({_id: it.id, _rev: it.value.rev, deleted: true}))
+        await XHR.sendCommand(
+          'POST',
+          `http://127.0.0.1:${DB_PORT}/icure-base/_bulk_docs`,
+          [new XHR.Header('Content-type', 'application/json'), new XHR.Header('Authorization', `Basic ${b2a(`${couchdbUser}:${couchdbPassword}`)}`)],
+          {docs: tbd}
+        )
+      } catch (e) {
+        //ignore
+      }
     }
 
     let asLaunched = false
@@ -197,7 +201,7 @@ describe('Full battery on tests on crypto and keys', async function () {
       icureOss.stderr.on('data', (data) => console.error(`stderr: ${data}`))
       icureOss.on('close', (code) => console.log(`child process exited with code ${code}`))
 
-      await retry(() => XHR.sendCommand('GET', `http://127.0.0.1:${AS_PORT}/rest/v1/icure/v`, null), 100)
+      await retry(() => XHR.sendCommand('GET', `http://127.0.0.1:${AS_PORT}/rest/v1/icure/v`, null), 100, 5000)
     }
     const hashedAdmin = '{R0DLKxxRDxdtpfY542gOUZbvWkfv1KWO9QOi9yvr/2c=}39a484cbf9057072623177422172e8a173bd826d68a2b12fa8e36ff94a44a0d7'
 
@@ -225,7 +229,7 @@ describe('Full battery on tests on crypto and keys', async function () {
 
       const publicKeyDelegate = await makeKeyPair(cryptoApi, `hcp-delegate`)
       delegate = await healthcarePartyApi.createHealthcareParty(
-        new HealthcareParty({ id: uuid(), publicKey: publicKeyDelegate, firstName: 'test', lastName: 'test' })
+        new HealthcareParty({ id: uuid(), publicKey: publicKeyDelegate, firstName: 'test', lastName: 'test' }) //FIXME Shouldn't we call addNewKeyPair directly, instead of initialising like before ?
       )
 
       await Object.entries(userDefinitions).reduce(async (p, [login, creationProcess]) => {
