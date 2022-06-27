@@ -218,7 +218,7 @@ describe('Full battery on tests on crypto and keys', async function () {
         '-d',
         '--name',
         'icure-oss-test',
-        'docker.taktik.be/icure-oss:2.4.1-kraken.df7d7499e6',
+        'docker.taktik.be/icure-oss:2.4.2-kraken.8f6b845a8b',
       ])
       icureOss.stdout.on('data', (data) => console.log(`stdout: ${data}`))
       icureOss.stderr.on('data', (data) => console.error(`stderr: ${data}`))
