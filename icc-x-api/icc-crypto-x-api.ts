@@ -1499,8 +1499,7 @@ export class IccCryptoXApi {
 
     await this.cacheKeyPair({ publicKey: await this.RSA.exportKey(publicKey!, 'jwk'), privateKey: await this.RSA.exportKey(privateKey!, 'jwk') })
 
-    const aesKeyEncrypted = await this.encryptAesKeyFor(gen, cdo.dataOwner, publicKey)
-    owner.aesExchangeKeys = { [publicKeyHex]: aesKeyEncrypted }
+    owner.aesExchangeKeys = { [publicKeyHex]: await this.encryptAesKeyFor(gen, cdo.dataOwner, publicKey) }
 
     const modifiedDataOwnerAndType =
       ownerType === 'hcp'
@@ -1533,9 +1532,9 @@ export class IccCryptoXApi {
   ): Promise<{ [delId: string]: {[pk: string]: string} }> {
     const dataOwnerAllPubKeys = [doNewPublicKey].concat(await this.getDataOwnerPublicKeys(dataOwner))
 
-    const encrAes: {[pk: string]: string} = {}
+    const encrAes: {[pubKeyFingerprint: string]: string} = {}
     for (const pubKey of dataOwnerAllPubKeys) {
-      encrAes[ua2hex(await this.RSA.exportKey(doNewPublicKey, 'spki')).slice(-32)] = ua2hex(await this._RSA.encrypt(pubKey, hex2ua(aesKey)))
+      encrAes[ua2hex(await this.RSA.exportKey(pubKey, 'spki')).slice(-32)] = ua2hex(await this._RSA.encrypt(pubKey, hex2ua(aesKey)))
     }
 
     return { [dataOwner.id!] : encrAes }
