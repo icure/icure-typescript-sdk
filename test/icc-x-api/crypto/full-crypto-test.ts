@@ -54,7 +54,10 @@ const facades: EntityFacades = {
     share: async (api, p, r, doId) => {
       const ownerId = await getDataOwnerId(api)
       const [dels, eks] = await api.cryptoApi.extractDelegationsSFKsAndEncryptionSKs(r, ownerId)
-      return api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, ownerId, doId, dels[0], eks[0])
+      return api.patientApi.modifyPatientWithUser(
+        await api.userApi.getCurrentUser(),
+        await api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, ownerId, doId, dels[0], eks[0])
+      )
     },
   } as EntityFacade<Patient>,
   Contact: {
@@ -63,7 +66,10 @@ const facades: EntityFacades = {
     share: async (api, p, r, doId) => {
       const ownerId = await getDataOwnerId(api)
       const [dels, eks] = await api.cryptoApi.extractDelegationsSFKsAndEncryptionSKs(r, ownerId)
-      return api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, ownerId, doId, dels[0], eks[0])
+      return api.contactApi.modifyContactWithUser(
+        await api.userApi.getCurrentUser(),
+        await api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, ownerId, doId, dels[0], eks[0])
+      )
     },
   } as EntityFacade<Contact>,
   HealthElement: {
@@ -72,7 +78,10 @@ const facades: EntityFacades = {
     share: async (api, p, r, doId) => {
       const ownerId = await getDataOwnerId(api)
       const [dels, eks] = await api.cryptoApi.extractDelegationsSFKsAndEncryptionSKs(r, ownerId)
-      return api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, ownerId, doId, dels[0], eks[0])
+      return api.healthcareElementApi.modifyHealthElementWithUser(
+        await api.userApi.getCurrentUser(),
+        await api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, ownerId, doId, dels[0], eks[0])
+      )
     },
   } as EntityFacade<HealthElement>,
 }
@@ -82,7 +91,8 @@ const AS_PORT = 16044
 
 const privateKeys = {} as Record<string, Record<string, string>>
 const users: User[] = []
-let delegate: HealthcareParty | undefined = undefined
+let delegateUser: User | undefined = undefined
+let delegateHcp: HealthcareParty | undefined = undefined
 
 const entities: EntityCreators = {
   Patient: ({ patientApi }, id, user) => {
@@ -106,21 +116,21 @@ const userDefinitions: Record<string, (user: User, api: ReturnType<typeof Api>) 
     return user
   },
   'a single available key in old format': async (user: User) => user,
-  'a single lost key': async (user: User) => {
+  /*'a single lost key': async (user: User) => {
     privateKeys[user.login!] = {}
     return user
-  },
+  },*/
   'one lost key and one available key': async (user: User, { cryptoApi, maintenanceTaskApi }) => {
     const { privateKey, publicKey } = await cryptoApi.addNewKeyPairForOwner(maintenanceTaskApi, user, (user.healthcarePartyId ?? user.patientId)!)
     privateKeys[user.login!] = { [publicKey]: privateKey }
     return user
-  },
+  } /*
   'one lost key recoverable through transfer keys': async (user: User) => {
     return user
   },
   'one available key and one lost key recoverable through transfer keys': async (user: User) => {
     return user
-  },
+  },*/,
 }
 
 async function makeKeyPair(cryptoApi: IccCryptoXApi, login: string) {
@@ -128,6 +138,15 @@ async function makeKeyPair(cryptoApi: IccCryptoXApi, login: string) {
   const publicKeyHex = ua2hex(await cryptoApi.RSA.exportKey(publicKey!, 'spki'))
   privateKeys[login] = { [publicKeyHex]: ua2hex((await cryptoApi.RSA.exportKey(privateKey!, 'pkcs8')) as ArrayBuffer) }
   return publicKeyHex
+}
+
+async function getApiAndAddPrivateKeysForUser(u: User) {
+  const api = Api(`http://127.0.0.1:${AS_PORT}/rest/v1`, u.login!, 'admin', webcrypto as unknown as Crypto)
+  await Object.entries(privateKeys[u.login!]).reduce(async (p, [pubKey, privKey]) => {
+    await p
+    await api.cryptoApi.cacheKeyPair({ publicKey: spkiToJwk(hex2ua(pubKey)), privateKey: pkcs8ToJwk(hex2ua(privKey)) })
+  }, Promise.resolve())
+  return api
 }
 
 describe('Full battery on tests on crypto and keys', async function () {
@@ -251,8 +270,17 @@ describe('Full battery on tests on crypto and keys', async function () {
       })
 
       const publicKeyDelegate = await makeKeyPair(cryptoApi, `hcp-delegate`)
-      delegate = await healthcarePartyApi.createHealthcareParty(
+      delegateHcp = await healthcarePartyApi.createHealthcareParty(
         new HealthcareParty({ id: uuid(), publicKey: publicKeyDelegate, firstName: 'test', lastName: 'test' }) //FIXME Shouldn't we call addNewKeyPair directly, instead of initialising like before ?
+      )
+      delegateUser = await userApi.createUser(
+        new User({
+          id: `user-${uuid()}-hcp`,
+          login: `hcp-delegate`,
+          status: 'ACTIVE',
+          passwordHash: hashedAdmin,
+          healthcarePartyId: delegateHcp.id,
+        })
       )
 
       await Object.entries(userDefinitions).reduce(async (p, [login, creationProcess]) => {
@@ -319,14 +347,7 @@ describe('Full battery on tests on crypto and keys', async function () {
         it(`Create ${f[0]} as a ${uType} with ${uId}`, async () => {
           const u = users.find((it) => it.login === `${uType}-${uId}`)!
           const facade: EntityFacade<any> = f[1]
-          const api = Api(`http://127.0.0.1:${AS_PORT}/rest/v1`, u.login!, 'admin', webcrypto as unknown as Crypto)
-
-          const dow = await api.cryptoApi.getDataOwner((u.healthcarePartyId ?? u.patientId)!)
-
-          await Object.entries(privateKeys[u.login!]).reduce(async (p, [pubKey, privKey]) => {
-            await p
-            await api.cryptoApi.cacheKeyPair({ publicKey: spkiToJwk(hex2ua(pubKey)), privateKey: pkcs8ToJwk(hex2ua(privKey)) })
-          }, Promise.resolve())
+          const api = await getApiAndAddPrivateKeysForUser(u)
 
           const parent = f[0] !== 'Patient' ? await api.patientApi.getPatientWithUser(u, `${u.id}-Patient`) : undefined
           const record = await entities[f[0] as 'Patient' | 'Contact' | 'HealthElement'](api, `${u.id}-${f[0]}`, u, parent)
@@ -339,11 +360,7 @@ describe('Full battery on tests on crypto and keys', async function () {
         it(`Read ${f[0]} as a ${uType} with ${uId}`, async () => {
           const u = users.find((it) => it.login === `${uType}-${uId}`)!
           const facade = f[1]
-          const api = Api(`http://127.0.0.1:${AS_PORT}/rest/v1`, u.login!, 'admin', webcrypto as unknown as Crypto)
-          await Object.entries(privateKeys[u.login!]).reduce(async (p, [pubKey, privKey]) => {
-            await p
-            await api.cryptoApi.cacheKeyPair({ publicKey: spkiToJwk(hex2ua(pubKey)), privateKey: pkcs8ToJwk(hex2ua(privKey)) })
-          }, Promise.resolve())
+          const api = await getApiAndAddPrivateKeysForUser(u)
 
           const entity = await facade.get(api, `${u.id}-${f[0]}`)
           expect(entity.id).to.equal(`${u.id}-${f[0]}`)
@@ -352,15 +369,15 @@ describe('Full battery on tests on crypto and keys', async function () {
         it(`Share ${f[0]} as a ${uType} with ${uId}`, async () => {
           const u = users.find((it) => it.login === `${uType}-${uId}`)!
           const facade = f[1]
-          const api = Api(`http://127.0.0.1:${AS_PORT}/rest/v1`, u.login!, 'admin', webcrypto as unknown as Crypto)
-          await Object.entries(privateKeys[u.login!]).reduce(async (p, [pubKey, privKey]) => {
-            await p
-            await api.cryptoApi.cacheKeyPair({ publicKey: spkiToJwk(hex2ua(pubKey)), privateKey: pkcs8ToJwk(hex2ua(privKey)) })
-          }, Promise.resolve())
+          const api = await getApiAndAddPrivateKeysForUser(u)
 
           const parent = f[0] !== 'Patient' ? await api.patientApi.getPatientWithUser(u, `${u.id}-Patient`) : undefined
-          const entity = await facade.share(api, parent, await facade.get(api, `${u.id}-${f[0]}`), delegate!.id)
-          expect(Object.keys(entity.delegations)).to.contain(delegate!.id)
+          const entity = await facade.share(api, parent, await facade.get(api, `${u.id}-${f[0]}`), delegateHcp!.id)
+          expect(Object.keys(entity.delegations)).to.contain(delegateHcp!.id)
+
+          const delApi = await getApiAndAddPrivateKeysForUser(delegateUser!)
+          const obj = await facade.get(delApi, `${u.id}-${f[0]}`)
+          expect(Object.keys(obj.delegations)).to.contain(delegateHcp!.id)
         })
       })
     })
