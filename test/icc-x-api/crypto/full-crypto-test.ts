@@ -365,19 +365,24 @@ describe('Full battery on tests on crypto and keys', async function () {
           const entity = await facade.get(api, `${u.id}-${f[0]}`)
           expect(entity.id).to.equal(`${u.id}-${f[0]}`)
         })
+        ;['patient', 'hcp'].forEach((duType) => {
+          Object.keys(userDefinitions).forEach((duId) => {
+            it(`Share ${f[0]} as a ${uType} with ${uId} to a ${duType} with ${duId}`, async () => {
+              const u = users.find((it) => it.login === `${uType}-${uId}`)!
+              const du = users.find((it) => it.login === `${duType}-${duId}`)!
+              const delegateDoId = du.healthcarePartyId ?? du.patientId
+              const facade = f[1]
+              const api = await getApiAndAddPrivateKeysForUser(u)
 
-        it(`Share ${f[0]} as a ${uType} with ${uId}`, async () => {
-          const u = users.find((it) => it.login === `${uType}-${uId}`)!
-          const facade = f[1]
-          const api = await getApiAndAddPrivateKeysForUser(u)
+              const parent = f[0] !== 'Patient' ? await api.patientApi.getPatientWithUser(u, `${u.id}-Patient`) : undefined
+              const entity = await facade.share(api, parent, await facade.get(api, `${u.id}-${f[0]}`), delegateDoId)
+              expect(Object.keys(entity.delegations)).to.contain(delegateDoId)
 
-          const parent = f[0] !== 'Patient' ? await api.patientApi.getPatientWithUser(u, `${u.id}-Patient`) : undefined
-          const entity = await facade.share(api, parent, await facade.get(api, `${u.id}-${f[0]}`), delegateHcp!.id)
-          expect(Object.keys(entity.delegations)).to.contain(delegateHcp!.id)
-
-          const delApi = await getApiAndAddPrivateKeysForUser(delegateUser!)
-          const obj = await facade.get(delApi, `${u.id}-${f[0]}`)
-          expect(Object.keys(obj.delegations)).to.contain(delegateHcp!.id)
+              const delApi = await getApiAndAddPrivateKeysForUser(du!)
+              const obj = await facade.get(delApi, `${u.id}-${f[0]}`)
+              expect(Object.keys(obj.delegations)).to.contain(delegateDoId)
+            })
+          })
         })
       })
     })
