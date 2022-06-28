@@ -121,16 +121,24 @@ const userDefinitions: Record<string, (user: User, api: ReturnType<typeof Api>) 
     return user
   },*/
   'one lost key and one available key': async (user: User, { cryptoApi, maintenanceTaskApi }) => {
-    const { privateKey, publicKey } = await cryptoApi.addNewKeyPairForOwnerId(maintenanceTaskApi, user, (user.healthcarePartyId ?? user.patientId)!)
+    const { privateKey, publicKey } = await cryptoApi.addNewKeyPairForOwnerId(
+      maintenanceTaskApi,
+      user,
+      (user.healthcarePartyId ?? user.patientId)!,
+      false
+    )
     privateKeys[user.login!] = { [publicKey]: privateKey }
     return user
-  } /*
-  'one lost key recoverable through transfer keys': async (user: User) => {
+  },
+  'one lost key recoverable through transfer keys': async (user: User, { cryptoApi, maintenanceTaskApi }) => {
+    const { privateKey, publicKey } = await cryptoApi.addNewKeyPairForOwnerId(maintenanceTaskApi, user, (user.healthcarePartyId ?? user.patientId)!)
     return user
   },
-  'one available key and one lost key recoverable through transfer keys': async (user: User) => {
+  'one available key and one lost key recoverable through transfer keys': async (user: User, { cryptoApi, maintenanceTaskApi }) => {
+    const { privateKey, publicKey } = await cryptoApi.addNewKeyPairForOwnerId(maintenanceTaskApi, user, (user.healthcarePartyId ?? user.patientId)!)
+    privateKeys[user.login!] = { ...(privateKeys[user.login!] ?? {}), [publicKey]: privateKey }
     return user
-  },*/,
+  },
 }
 
 async function makeKeyPair(cryptoApi: IccCryptoXApi, login: string) {
