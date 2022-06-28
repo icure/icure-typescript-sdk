@@ -12,7 +12,7 @@ import {
   EncryptedParentEntity,
   HealthcareParty,
   MaintenanceTask,
-  Patient,
+  Patient, PropertyStub, PropertyTypeStub, TypedValueObject,
   User,
 } from '../icc-api/model/models'
 import { b2a, b64_2uas, hex2ua, string2ua, ua2hex, ua2string, ua2utf8, utf8_2ua } from './utils/binary-utils'
@@ -1626,18 +1626,18 @@ export class IccCryptoXApi {
         .filter(([delegatorId]) => delegatorId != dataOwner.id)
         .flatMap(([delegatorId, delegatorKeys]) => {
           return Object.entries(delegatorKeys).flatMap(([, aesExchangeKeys]) => {
-            return Object.entries(aesExchangeKeys).map(() => {
-              return {delegateId: delegatorId, maintenanceTask: new MaintenanceTask({})}
+            return Object.keys(aesExchangeKeys).map((delegatePubKey) => {
+              return {delegateId: delegatorId, maintenanceTask: this.createMaintenanceTask(dataOwner, delegatePubKey)}
             })
           })
         })
 
       const tasksForDelegator = Object.entries(await this.getEncryptedAesExchangeKeys(dataOwner, dataOwner.id!))
-        .flatMap(([, delegateKeys]) => {
+        .flatMap(([doPubKey, delegateKeys]) => {
             return Object.keys(delegateKeys)
               .filter((delegateId) => delegateId != dataOwner.id)
               .map((delegateId) => {
-                return { delegateId: delegateId, maintenanceTask: new MaintenanceTask({}) }
+                return { delegateId: delegateId, maintenanceTask: this.createMaintenanceTask(dataOwner, doPubKey) }
               })
           }
         )
@@ -1655,6 +1655,33 @@ export class IccCryptoXApi {
       return []
     }
   }
+
+  private createMaintenanceTask(concernedDataOwner: HealthcareParty | Patient | Device, concernedPubKey: string) {
+    return new MaintenanceTask({
+      id: this.randomUuid(),
+      taskType: "updateAesExchangeKey",
+      status: MaintenanceTask.StatusEnum.Pending,
+      properties: [
+        new PropertyStub({
+          id: "dataOwnerConcernedId",
+          type: new PropertyTypeStub({type: PropertyTypeStub.TypeEnum.STRING}),
+          typedValue: new TypedValueObject({
+            type: TypedValueObject.TypeEnum.STRING,
+            stringValue: concernedDataOwner.id
+          })
+        }),
+        new PropertyStub({
+          id: "dataOwnerConcernedPubKey",
+          type: new PropertyTypeStub({type: PropertyTypeStub.TypeEnum.STRING}),
+          typedValue: new TypedValueObject({
+            type: TypedValueObject.TypeEnum.STRING,
+            stringValue: concernedPubKey
+          })
+        })
+      ]
+    })
+  }
+
 
   private getDataOwnerHexPublicKeys(dataOwner: HealthcareParty | Patient | Device): Set<string> {
     return new Set((dataOwner.publicKey ? [dataOwner.publicKey] : [])
