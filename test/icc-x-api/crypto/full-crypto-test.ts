@@ -111,7 +111,7 @@ const entities: EntityCreators = {
 }
 const userDefinitions: Record<string, (user: User, api: ReturnType<typeof Api>) => Promise<User>> = {
   'two available keys': async (user: User, { cryptoApi, maintenanceTaskApi }) => {
-    const { privateKey, publicKey } = await cryptoApi.addNewKeyPairForOwner(maintenanceTaskApi, user, (user.healthcarePartyId ?? user.patientId)!)
+    const { privateKey, publicKey } = await cryptoApi.addNewKeyPairForOwnerId(maintenanceTaskApi, user, (user.healthcarePartyId ?? user.patientId)!)
     privateKeys[user.login!] = { ...(privateKeys[user.login!] ?? {}), [publicKey]: privateKey }
     return user
   },
@@ -121,7 +121,7 @@ const userDefinitions: Record<string, (user: User, api: ReturnType<typeof Api>) 
     return user
   },*/
   'one lost key and one available key': async (user: User, { cryptoApi, maintenanceTaskApi }) => {
-    const { privateKey, publicKey } = await cryptoApi.addNewKeyPairForOwner(maintenanceTaskApi, user, (user.healthcarePartyId ?? user.patientId)!)
+    const { privateKey, publicKey } = await cryptoApi.addNewKeyPairForOwnerId(maintenanceTaskApi, user, (user.healthcarePartyId ?? user.patientId)!)
     privateKeys[user.login!] = { [publicKey]: privateKey }
     return user
   } /*
