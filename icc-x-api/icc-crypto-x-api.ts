@@ -150,15 +150,19 @@ export class IccCryptoXApi {
     return this._crypto.subtle.digest('SHA-256', data)
   }
 
+  private async getPublicKeys() {
+    return await Object.values(this.rsaKeyPairs).reduce(async (p, rsa) => {
+      return (await p).concat([jwk2spki(await this.RSA.exportKey(rsa.publicKey, 'jwk'))])
+    }, Promise.resolve([] as string[]))
+  }
+
   encryptShamirRSAKey(hcp: HealthcareParty, notaries: Array<HealthcareParty>, threshold?: number): Promise<HealthcareParty> {
     return this.loadKeyPairImported(hcp.id!).then((keyPair) =>
       this._RSA.exportKey(keyPair.privateKey, 'pkcs8').then(async (exportedKey) => {
         const privateKey = exportedKey as ArrayBuffer
         const nLen = notaries.length
         const shares = nLen == 1 ? [privateKey] : this._shamir.share(ua2hex(privateKey), nLen, threshold || nLen).map((share) => hex2ua(share))
-        const publicKeys = await Object.values(this.rsaKeyPairs).reduce(async (p, rsa) => {
-          return (await p).concat([jwk2spki(await this.RSA.exportKey(rsa.publicKey, 'jwk'))])
-        }, Promise.resolve([] as string[]))
+        const publicKeys = await this.getPublicKeys()
 
         return _.reduce(
           notaries,
@@ -200,9 +204,7 @@ export class IccCryptoXApi {
   **/
   async decryptShamirRSAKey(hcp: HealthcareParty, notaries: Array<HealthcareParty>): Promise<void> {
     try {
-      const publicKeys = await Object.values(this.rsaKeyPairs).reduce(async (p, rsa) => {
-        return (await p).concat([jwk2spki(await this.RSA.exportKey(rsa.publicKey, 'jwk'))])
-      }, Promise.resolve([] as string[]))
+      const publicKeys = await this.getPublicKeys()
       const nLen = notaries.length
       let decryptedPrivatedKey
       if (nLen == 1) {
@@ -334,7 +336,52 @@ export class IccCryptoXApi {
       }
     }, Promise.resolve() as Promise<DelegatorAndKeys | void>)
 
+    const availablePublicKeys = publicKeys.filter((pk) => this.rsaKeyPairs[pk.slice(-32)])
+
     if (!result) {
+      //Try to find another key from the transfer keys
+      const hcp = (await this.getDataOwner(loggedHcPartyId))!
+      const candidates = Object.entries(hcp.dataOwner.transferKeys ?? {})
+        .filter(([fp, _]) => availablePublicKeys.some((pk) => pk.slice(-32) === fp.slice(-32))) // only keep keys that we will be able to decrypt
+        .flatMap(([pk, keys]) => Object.entries(keys).map(([k, v]) => [pk, k, v]))
+        .filter(([_, k]) => !publicKeys.some((apk) => apk.slice(-32) === k.slice(-32)))
+      if (candidates.length) {
+        const newPublicKeys = await candidates.reduce(async (p, [decryptionKeyFingerprint, privateKeyFingerprint, encryptedPrivateKey]) => {
+          const newKeys = await p
+          const aesExchangeKeys = Object.entries(hcp.dataOwner.aesExchangeKeys!).find(
+            ([fp, _]) => fp.slice(-32) === privateKeyFingerprint.slice(-32)
+          )?.[1][loggedHcPartyId]
+          if (aesExchangeKeys) {
+            const encryptedAesExchangeKey = Object.entries(aesExchangeKeys).find(
+              ([fp, _]) => fp.slice(-32) === decryptionKeyFingerprint.slice(-32)
+            )?.[1]
+            if (encryptedAesExchangeKey) {
+              const keyPair = this.rsaKeyPairs[decryptionKeyFingerprint.slice(-32)]
+              if (!keyPair) {
+                return newKeys
+              }
+              const decryptedAesExchangeKey = await this._RSA.decrypt(keyPair.privateKey, hex2ua(encryptedAesExchangeKey))
+              const importedAesExchangeKey = await this._AES.importKey('raw', decryptedAesExchangeKey)
+
+              const decryptedPrivateKey = await this._AES.decrypt(importedAesExchangeKey, hex2ua(encryptedPrivateKey))
+
+              const newPublicKey = Object.keys(hcp.dataOwner.aesExchangeKeys!).find((fp) => fp.slice(-32) === privateKeyFingerprint.slice(-32))!
+              await this.cacheKeyPair({
+                publicKey: spkiToJwk(hex2ua(newPublicKey)),
+                privateKey: pkcs8ToJwk(decryptedPrivateKey),
+              })
+
+              return newKeys.concat([newPublicKey])
+            }
+          }
+          return newKeys
+        }, Promise.resolve([]) as Promise<string[]>)
+
+        if (newPublicKeys.length) {
+          return await this.decryptHcPartyKey(loggedHcPartyId, delegatorId, delegateHcPartyId, publicKey, encryptedHcPartyKeys, newPublicKeys)
+        }
+      }
+
       const reason = `Cannot decrypt RSA encrypted AES HcPartyKey from ${delegatorId} to ${delegateHcPartyId}: impossible to decrypt. No private key was found or could be used to decrypt the aes exchange keys`
       console.warn(reason)
       throw new Error(reason)
@@ -498,10 +545,7 @@ export class IccCryptoXApi {
     secretForeignKeys: any[]
     secretId: string
   }> {
-    const publicKeys = await Object.values(this.rsaKeyPairs).reduce(async (p, rsa) => {
-      const jwk = await this.RSA.exportKey(rsa.publicKey, 'jwk')
-      return (await p).concat([jwk2spki(jwk)])
-    }, Promise.resolve([] as string[]))
+    const publicKeys = await this.getPublicKeys()
 
     this.throwDetailedExceptionForInvalidParameter('createdObject.id', createdObject.id, 'initObjectDelegations', arguments)
 
@@ -610,9 +654,7 @@ export class IccCryptoXApi {
 
     return this.getDataOwner(ownerId)
       .then(async ({ dataOwner: owner }) => {
-        const publicKeys = await Object.values(this.rsaKeyPairs).reduce(async (p, rsa) => {
-          return (await p).concat([jwk2spki(await this.RSA.exportKey(rsa.publicKey, 'jwk'))])
-        }, Promise.resolve([] as string[]))
+        const publicKeys = await this.getPublicKeys()
         const { owner: modifiedOwner, aesExchangeKeys } = await this.getOrCreateHcPartyKeys(owner, delegateId)
         const [publicKeyIdentifier, hcPartyKeys] = Object.entries(aesExchangeKeys)[0]
         const importedAESHcPartyKey = await this.decryptHcPartyKey(ownerId, delegateId, ownerId, publicKeyIdentifier, hcPartyKeys, publicKeys)
@@ -748,9 +790,7 @@ export class IccCryptoXApi {
     owner: HealthcareParty | Patient | Device,
     delegateId: string
   ): Promise<{ [pubKeyIdentifier: string]: { [pubKeyFingerprint: string]: string } }> {
-    const publicKeys = await Object.values(this.rsaKeyPairs).reduce(async (p, rsa) => {
-      return (await p).concat([jwk2spki(await this.RSA.exportKey(rsa.publicKey, 'jwk'))])
-    }, Promise.resolve([] as string[]))
+    const publicKeys = await this.getPublicKeys()
     const mapOfAesExchangeKeys = Object.entries(owner.aesExchangeKeys ?? {})
       .filter((e) => e[1][delegateId] && Object.keys(e[1][delegateId]).some((k1) => publicKeys.some((pk) => pk.endsWith(k1))))
       .reduce((map, e) => {
@@ -798,9 +838,7 @@ export class IccCryptoXApi {
 
     const secretId = this.randomUuid()
     return this.getDataOwner(ownerId).then(async ({ dataOwner: owner }) => {
-      const publicKeys = await Object.values(this.rsaKeyPairs).reduce(async (p, rsa) => {
-        return (await p).concat([jwk2spki(await this.RSA.exportKey(rsa.publicKey, 'jwk'))])
-      }, Promise.resolve([] as string[]))
+      const publicKeys = await this.getPublicKeys()
       const { owner: modifiedOwner, aesExchangeKeys } = await this.getOrCreateHcPartyKeys(owner, ownerId)
       const [publicKeyIdentifier, hcPartyKeys] = Object.entries(aesExchangeKeys)[0]
       const importedAESHcPartyKey = await this.decryptHcPartyKey(ownerId, ownerId, ownerId, publicKeyIdentifier, hcPartyKeys, publicKeys)
@@ -850,9 +888,7 @@ export class IccCryptoXApi {
 
     return this.getDataOwner(ownerId)
       .then(async ({ dataOwner: owner }) => {
-        const publicKeys = await Object.values(this.rsaKeyPairs).reduce(async (p, rsa) => {
-          return (await p).concat([jwk2spki(await this.RSA.exportKey(rsa.publicKey, 'jwk'))])
-        }, Promise.resolve([] as string[]))
+        const publicKeys = await this.getPublicKeys()
         const { owner: modifiedOwner, aesExchangeKeys } = await this.getOrCreateHcPartyKeys(owner, delegateId)
         const [publicKeyIdentifier, hcPartyKeys] = Object.entries(aesExchangeKeys)[0]
         const importedAESHcPartyKey = await this.decryptHcPartyKey(ownerId, ownerId, delegateId, publicKeyIdentifier, hcPartyKeys, publicKeys)
@@ -1435,7 +1471,7 @@ export class IccCryptoXApi {
   }
 
   /**
-   * loads the RSA key pair (hcparty) in JWK, not imported
+   * loads the RSA key pair (hcparty) in JWK from local storage, not imported
    *
    * @param id  doc id - hcpartyId
    * @returns {Object} it is in JWK - not imported
@@ -1450,7 +1486,7 @@ export class IccCryptoXApi {
   }
 
   /**
-   * Loads and imports the RSA key pair (hcparty)
+   * Loads and imports the RSA key pair (hcparty) from local storage
    *
    * @param id  doc id - hcPartyId
    * @returns {Promise} -> {CryptoKey} - imported RSA
