@@ -109,7 +109,12 @@ const entities: EntityCreators = {
     return healthcareElementApi.newInstance(user, patient!, new HealthElement({ id, descr: 'HE' }))
   },
 }
+
 const userDefinitions: Record<string, (user: User, api: ReturnType<typeof Api>) => Promise<User>> = {
+  'one lost key recoverable through transfer keys': async (user: User, { cryptoApi, maintenanceTaskApi }) => {
+    const { privateKey, publicKey } = await cryptoApi.addNewKeyPairForOwnerId(maintenanceTaskApi, user, (user.healthcarePartyId ?? user.patientId)!)
+    return user
+  },
   'two available keys': async (user: User, { cryptoApi, maintenanceTaskApi }) => {
     const { privateKey, publicKey } = await cryptoApi.addNewKeyPairForOwnerId(maintenanceTaskApi, user, (user.healthcarePartyId ?? user.patientId)!)
     privateKeys[user.login!] = { ...(privateKeys[user.login!] ?? {}), [publicKey]: privateKey }
@@ -128,10 +133,6 @@ const userDefinitions: Record<string, (user: User, api: ReturnType<typeof Api>) 
       false
     )
     privateKeys[user.login!] = { [publicKey]: privateKey }
-    return user
-  },
-  'one lost key recoverable through transfer keys': async (user: User, { cryptoApi, maintenanceTaskApi }) => {
-    const { privateKey, publicKey } = await cryptoApi.addNewKeyPairForOwnerId(maintenanceTaskApi, user, (user.healthcarePartyId ?? user.patientId)!)
     return user
   },
   'one available key and one lost key recoverable through transfer keys': async (user: User, { cryptoApi, maintenanceTaskApi }) => {
@@ -323,6 +324,37 @@ describe('Full battery on tests on crypto and keys', async function () {
           })
         )
 
+        const ets = await Object.entries(facades).reduce(async (p, f) => {
+          const prev = await p
+          const type = f[0]
+          const facade = f[1]
+
+          const api1 = await getApiAndAddPrivateKeysForUser(newHcpUser)
+          const api2 = await getApiAndAddPrivateKeysForUser(newPatientUser)
+
+          const parent1 = type !== 'Patient' ? await api1.patientApi.getPatientWithUser(newHcpUser, `partial-${newHcpUser.id}-Patient`) : undefined
+          const parent2 =
+            type !== 'Patient' ? await api2.patientApi.getPatientWithUser(newPatientUser, `partial-${newPatientUser.id}-Patient`) : undefined
+
+          const record1 = await entities[type as 'Patient' | 'Contact' | 'HealthElement'](
+            api1,
+            `partial-${newHcpUser.id}-${type}`,
+            newHcpUser,
+            parent1
+          )
+          const record2 = await entities[type as 'Patient' | 'Contact' | 'HealthElement'](
+            api2,
+            `partial-${newPatientUser.id}-${type}`,
+            newPatientUser,
+            parent2
+          )
+
+          prev.push(await facade.create(api1, record1))
+          prev.push(await facade.create(api2, record2))
+
+          return prev
+        }, Promise.resolve([]) as Promise<EncryptedEntity[]>)
+
         users.push(await creationProcess(newPatientUser, api))
         users.push(await creationProcess(newHcpUser, api))
       }, Promise.resolve())
@@ -364,7 +396,14 @@ describe('Full battery on tests on crypto and keys', async function () {
           expect(entity.id).to.be.not.null
           expect(entity.rev).to.be.not.null
         })
+        it(`Read ${f[0]} as the initial ${uType} with ${uId}`, async () => {
+          const u = users.find((it) => it.login === `${uType}-${uId}`)!
+          const facade = f[1]
+          const api = await getApiAndAddPrivateKeysForUser(u)
 
+          const entity = await facade.get(api, `partial-${u.id}-${f[0]}`)
+          expect(entity.id).to.equal(`partial-${u.id}-${f[0]}`)
+        })
         it(`Read ${f[0]} as a ${uType} with ${uId}`, async () => {
           const u = users.find((it) => it.login === `${uType}-${uId}`)!
           const facade = f[1]
