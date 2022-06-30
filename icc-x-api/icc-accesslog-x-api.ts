@@ -180,12 +180,15 @@ export class IccAccesslogXApi extends IccAccesslogApi {
           .then((accessLog: AccessLog) =>
             this.crypto.extractKeysFromDelegationsForHcpHierarchy(this.userApi.getDataOwnerOf(user)!, accessLog.id!, accessLog.encryptionKeys!)
           )
-          .then((eks: { extractedKeys: Array<string>; hcpartyId: string }) =>
-            this.crypto.AES.importKey('raw', hex2ua(eks.extractedKeys[0].replace(/-/g, '')))
-          )
-          .then((key: CryptoKey) =>
-            crypt(accessLog, (obj: { [key: string]: string }) => this.crypto.AES.encrypt(key, utf8_2ua(JSON.stringify(obj))), this.cryptedKeys)
-          )
+          .then(async (eks: { extractedKeys: Array<string>; hcpartyId: string }) => {
+            const rawKey = eks.extractedKeys[0].replace(/-/g, '')
+            const key = await this.crypto.AES.importKey('raw', hex2ua(rawKey))
+            return crypt(
+              accessLog,
+              (obj: { [key: string]: string }) => this.crypto.AES.encrypt(key, utf8_2ua(JSON.stringify(obj)), rawKey),
+              this.cryptedKeys
+            )
+          })
       )
     )
   }

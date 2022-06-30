@@ -10,7 +10,7 @@ export class AESUtils {
     length: 256,
   }
   private crypto: Crypto
-  private _debug: boolean
+  private _debug: boolean = false
 
   set debug(value: boolean) {
     this._debug = value
@@ -18,7 +18,6 @@ export class AESUtils {
 
   constructor(crypto: Crypto = typeof window !== 'undefined' ? window.crypto : typeof self !== 'undefined' ? self.crypto : ({} as Crypto)) {
     this.crypto = crypto
-    this._debug = false
   }
 
   encrypt(cryptoKey: CryptoKey, plainData: ArrayBuffer | Uint8Array, rawKey = '<NA>'): Promise<ArrayBuffer> {
@@ -31,7 +30,7 @@ export class AESUtils {
         name: this.aesAlgorithmEncryptName,
         iv: this.generateIV(this.ivLength),
       }
-      this._debug && console.log(`encrypt ${plainData} with ${rawKey}`)
+      this._debug && console.log(`encrypt ${ua2hex(plainData)} with ${rawKey}`)
       this.crypto.subtle
         .encrypt(
           {
@@ -41,7 +40,10 @@ export class AESUtils {
           plainData
         )
         .then(
-          (cipherData) => resolve(appendBuffer(aesAlgorithmEncrypt.iv.buffer as ArrayBuffer, cipherData)),
+          (cipherData) => {
+            this._debug && console.log(`cipherData: ${ua2hex(cipherData)}`)
+            return resolve(appendBuffer(aesAlgorithmEncrypt.iv.buffer as ArrayBuffer, cipherData))
+          },
           (err) => reject('AES encryption failed: ' + err)
         )
     })
@@ -81,12 +83,16 @@ export class AESUtils {
          * var delegateHcPartyKey = hcparty.hcPartyKeys[delegatorId][1];
          */
       }
-      this._debug && console.log(`decrypt with ${rawKey}`)
-      this.crypto.subtle
-        .decrypt(aesAlgorithmEncrypt, cryptoKey, encryptedDataUint8.subarray(this.ivLength, encryptedDataUint8.length))
-        .then(resolve, (err) => {
+      this._debug && console.log(`decrypt ${ua2hex(encryptedData)} with ${rawKey}`)
+      this.crypto.subtle.decrypt(aesAlgorithmEncrypt, cryptoKey, encryptedDataUint8.subarray(this.ivLength, encryptedDataUint8.length)).then(
+        (decipheredData) => {
+          this._debug && console.log(`decipheredData: ${ua2hex(decipheredData)}`)
+          resolve(decipheredData)
+        },
+        (err) => {
           reject('AES decryption failed: ' + err)
-        })
+        }
+      )
     })
   }
 
