@@ -150,7 +150,7 @@ async function makeKeyPair(cryptoApi: IccCryptoXApi, login: string) {
 }
 
 async function getApiAndAddPrivateKeysForUser(u: User) {
-  const api = Api(`http://127.0.0.1:${AS_PORT}/rest/v1`, u.login!, 'admin', webcrypto as unknown as Crypto)
+  const api = await Api(`http://127.0.0.1:${AS_PORT}/rest/v1`, u.login!, 'admin', webcrypto as unknown as Crypto)
   await Object.entries(privateKeys[u.login!]).reduce(async (p, [pubKey, privKey]) => {
     await p
     await api.cryptoApi.cacheKeyPair({ publicKey: spkiToJwk(hex2ua(pubKey)), privateKey: pkcs8ToJwk(hex2ua(privKey)) })
@@ -267,7 +267,7 @@ describe('Full battery on tests on crypto and keys', async function () {
       100
     )
 
-    const api = Api(`http://127.0.0.1:${AS_PORT}/rest/v1`, 'admin', 'admin', webcrypto as unknown as Crypto)
+    const api = await Api(`http://127.0.0.1:${AS_PORT}/rest/v1`, 'admin', 'admin', webcrypto as unknown as Crypto)
     const { userApi, patientApi, healthcarePartyApi, cryptoApi } = api
     const user = await retry(() => {
       return userApi.getCurrentUser()

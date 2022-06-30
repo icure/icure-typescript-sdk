@@ -272,7 +272,7 @@ export class IccUserApi {
 
     const _url = this.host + `/user/current` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, true)
       .then((doc) => new User(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
