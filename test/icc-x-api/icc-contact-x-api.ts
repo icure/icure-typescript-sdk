@@ -124,7 +124,7 @@ describe('icc-x-contact-api Tests', () => {
       patientApi: patientApiForHcp,
       contactApi: contactApiForHcp,
       cryptoApi: cryptoApiForHcp,
-    } = Api(iCureUrl, hcpUserName!, hcpPassword!, crypto)
+    } = await Api(iCureUrl, hcpUserName!, hcpPassword!, crypto)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
     await initKey(userApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
@@ -159,7 +159,7 @@ describe('icc-x-contact-api Tests', () => {
       contactApi: contactApiForHcp,
       healthcareElementApi: hElementApiForHcp,
       cryptoApi: cryptoApiForHcp,
-    } = Api(iCureUrl, hcpUserName!, hcpPassword!, crypto)
+    } = await Api(iCureUrl, hcpUserName!, hcpPassword!, crypto)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
     await initKey(userApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)

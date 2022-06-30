@@ -40,7 +40,11 @@ before(() => {
 describe('icc-x-patient-api Tests', () => {
   it('CreatePatientWithUser Success for HCP', async () => {
     // Given
-    const { userApi: userApiForHcp, patientApi: patientApiForHcp, cryptoApi: cryptoApiForHcp } = Api(iCureUrl, hcpUserName!, hcpPassword!, crypto)
+    const {
+      userApi: userApiForHcp,
+      patientApi: patientApiForHcp,
+      cryptoApi: cryptoApiForHcp,
+    } = await Api(iCureUrl, hcpUserName!, hcpPassword!, crypto)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
     await initKey(userApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)

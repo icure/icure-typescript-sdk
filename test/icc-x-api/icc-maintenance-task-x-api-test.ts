@@ -105,7 +105,7 @@ describe('icc-x-maintenance-task-api Tests', () => {
       userApi: userApiForHcp1,
       maintenanceTaskApi: maintenanceTaskApiForHcp1,
       cryptoApi: cryptoApiForHcp1,
-    } = Api(iCureUrl, hcp1UserName!, hcp1Password!, crypto)
+    } = await Api(iCureUrl, hcp1UserName!, hcp1Password!, crypto)
 
     const hcp1User = await userApiForHcp1.getCurrentUser()
     await initKey(userApiForHcp1, cryptoApiForHcp1, hcp1User, hcp1PrivKey!)
@@ -114,7 +114,7 @@ describe('icc-x-maintenance-task-api Tests', () => {
       userApi: userApiForHcp2,
       healthcarePartyApi: hcPartyApiForHcp2,
       maintenanceTaskApi: maintenanceTaskApiForHcp2,
-    } = Api(iCureUrl, hcp1UserName!, hcp1Password!, crypto)
+    } = await Api(iCureUrl, hcp1UserName!, hcp1Password!, crypto)
 
     const hcp2User = await userApiForHcp2.getCurrentUser()
     const hcp2 = await hcPartyApiForHcp2.getCurrentHealthcareParty()
@@ -146,7 +146,7 @@ describe('icc-x-maintenance-task-api Tests', () => {
       healthcarePartyApi: hcPartyApiForHcp1,
       maintenanceTaskApi: maintenanceTaskApiForHcp1,
       cryptoApi: cryptoApiForHcp1,
-    } = Api(iCureUrl, hcp1UserName!, hcp1Password!, crypto)
+    } = await Api(iCureUrl, hcp1UserName!, hcp1Password!, crypto)
 
     const hcp1User = await userApiForHcp1.getCurrentUser()
     const hcp1 = await hcPartyApiForHcp1.getCurrentHealthcareParty()
@@ -179,7 +179,7 @@ describe('icc-x-maintenance-task-api Tests', () => {
       healthcarePartyApi: hcPartyApiForHcp1,
       maintenanceTaskApi: maintenanceTaskApiForHcp1,
       cryptoApi: cryptoApiForHcp1,
-    } = Api(iCureUrl, hcp1UserName!, hcp1Password!, crypto)
+    } = await Api(iCureUrl, hcp1UserName!, hcp1Password!, crypto)
 
     const hcp1User = await userApiForHcp1.getCurrentUser()
     const hcp1 = await hcPartyApiForHcp1.getCurrentHealthcareParty()
@@ -215,7 +215,7 @@ describe('icc-x-maintenance-task-api Tests', () => {
       healthcarePartyApi: hcPartyApiForHcp1,
       maintenanceTaskApi: maintenanceTaskApiForHcp1,
       cryptoApi: cryptoApiForHcp1,
-    } = Api(iCureUrl, hcp1UserName!, hcp1Password!, crypto)
+    } = await Api(iCureUrl, hcp1UserName!, hcp1Password!, crypto)
 
     const hcp1User = await userApiForHcp1.getCurrentUser()
     const hcp1 = await hcPartyApiForHcp1.getCurrentHealthcareParty()
