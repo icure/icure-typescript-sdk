@@ -127,31 +127,34 @@ export class IccPatientXApi extends IccPatientApi {
     return finalPatient
   }
 
-  initDelegations(
+  async initDelegations(
     patient: models.Patient,
     user: models.User,
     secretForeignKey: string | undefined = undefined,
     delegates: string[] = []
   ): Promise<models.Patient> {
     const dataOwnerId = this.userApi.getDataOwnerOf(user)
-    return this.crypto.initObjectDelegations(patient, null, dataOwnerId!, secretForeignKey || null).then((initData) => {
-      _.extend(patient, { delegations: initData.delegations })
+    const initialisedObjectDelegations = await this.crypto
+      .initObjectDelegations(patient, null, dataOwnerId!, secretForeignKey || null)
+      .then((initData) => {
+        _.extend(patient, { delegations: initData.delegations })
 
-      let promise = Promise.resolve(patient)
-      _.uniq(
-        delegates.concat(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : [])
-      ).forEach(
-        (delegateId) =>
-          (promise = promise
-            .then((patient) => this.crypto.extendedDelegationsAndCryptedForeignKeys(patient, null, dataOwnerId!, delegateId, initData.secretId))
-            .then((extraData) => _.extend(patient, { delegations: extraData.delegations }))
-            .catch((e) => {
-              console.log(e)
-              return patient
-            }))
-      )
-      return promise
-    })
+        let promise = Promise.resolve(patient)
+        _.uniq(
+          delegates.concat(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : [])
+        ).forEach(
+          (delegateId) =>
+            (promise = promise
+              .then((patient) => this.crypto.extendedDelegationsAndCryptedForeignKeys(patient, null, dataOwnerId!, delegateId, initData.secretId))
+              .then((extraData) => _.extend(patient, { delegations: extraData.delegations }))
+              .catch((e) => {
+                console.log(e)
+                return patient
+              }))
+        )
+        return promise
+      })
+    return initialisedObjectDelegations
   }
 
   initConfidentialDelegation(patient: models.Patient, user: models.User): Promise<models.Patient | null> {
@@ -484,9 +487,17 @@ export class IccPatientXApi extends IccPatientApi {
           ? Promise.resolve(p)
           : this.initEncryptionKeys(user, p)
         )
-          .then((p: Patient) => this.crypto.extractKeysFromDelegationsForHcpHierarchy(dataOwnerId!, p.id!, p.encryptionKeys!))
-          .then((sfks: { extractedKeys: Array<string>; hcpartyId: string }) =>
-            this.crypto.AES.importKey('raw', hex2ua(sfks.extractedKeys[0].replace(/-/g, '')))
+          .then(async (p: Patient) => {
+            try {
+              const seks = await this.crypto.extractKeysFromDelegationsForHcpHierarchy(dataOwnerId!, p.id!, p.encryptionKeys!)
+              return seks
+            } catch (e) {
+              console.error(e)
+              throw e
+            }
+          })
+          .then((seks: { extractedKeys: Array<string>; hcpartyId: string }) =>
+            this.crypto.AES.importKey('raw', hex2ua(seks.extractedKeys[0].replace(/-/g, '')))
           )
           .then((key: CryptoKey) =>
             crypt(
