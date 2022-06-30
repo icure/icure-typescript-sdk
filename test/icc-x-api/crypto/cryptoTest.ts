@@ -18,8 +18,8 @@ const privateKeys: { [key: string]: string } = {
     '***REMOVED***',
 }
 
-const api = Api('http://localhost:16043/rest/v1', 'abdemo', 'knalou', crypto)
-const mhapi = Api(
+const api = await Api('http://localhost:16043/rest/v1', 'abdemo', 'knalou', crypto)
+const mhapi = await Api(
   'https://kraken.icure.dev/rest/v1',
   'tz-dev-master-615cd8f9-4951-409b-87d8-116378c66f16/371279d6-cfdb-4ee8-b36d-b1ccb9b8568d',
   'Ztf993pf',

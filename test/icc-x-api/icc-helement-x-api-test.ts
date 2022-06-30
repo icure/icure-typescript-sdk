@@ -76,7 +76,7 @@ describe('icc-helement-x-api Tests', () => {
       patientApi: patientApiForHcp,
       healthcareElementApi: hElementApiForHcp,
       cryptoApi: cryptoApiForHcp,
-    } = Api(iCureUrl, hcpUserName!, hcpPassword!, crypto)
+    } = await Api(iCureUrl, hcpUserName!, hcpPassword!, crypto)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
     await initKey(userApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
@@ -104,7 +104,7 @@ describe('icc-helement-x-api Tests', () => {
       patientApi: patientApiForHcp,
       healthcareElementApi: hElementApiForHcp,
       cryptoApi: cryptoApiForHcp,
-    } = Api(iCureUrl, hcpUserName!, hcpPassword!, crypto)
+    } = await Api(iCureUrl, hcpUserName!, hcpPassword!, crypto)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
     await initKey(userApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
@@ -139,7 +139,7 @@ describe('icc-helement-x-api Tests', () => {
       patientApi: patientApiForHcp,
       healthcareElementApi: hElementApiForHcp,
       cryptoApi: cryptoApiForHcp,
-    } = Api(iCureUrl, hcpUserName!, hcpPassword!, crypto)
+    } = await Api(iCureUrl, hcpUserName!, hcpPassword!, crypto)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
     await initKey(userApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
