@@ -10,7 +10,7 @@ export class AESUtils {
     length: 256,
   }
   private crypto: Crypto
-  private _debug: boolean = true
+  private _debug: boolean = false
 
   set debug(value: boolean) {
     this._debug = value
