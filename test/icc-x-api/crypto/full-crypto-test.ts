@@ -150,7 +150,7 @@ async function makeKeyPair(cryptoApi: IccCryptoXApi, login: string) {
 }
 
 async function getApiAndAddPrivateKeysForUser(u: User) {
-  const api = await Api(`http://127.0.0.1:${AS_PORT}/rest/v1`, u.login!, 'admin', webcrypto as unknown as Crypto)
+  const api = await Api(`http://127.0.0.1:${AS_PORT}/rest/v1`, u.login!, 'admin', webcrypto as unknown as Crypto, fetch, true)
   await Object.entries(privateKeys[u.login!]).reduce(async (p, [pubKey, privKey]) => {
     await p
     await api.cryptoApi.cacheKeyPair({ publicKey: spkiToJwk(hex2ua(pubKey)), privateKey: pkcs8ToJwk(hex2ua(privKey)) })
@@ -246,7 +246,7 @@ describe('Full battery on tests on crypto and keys', async function () {
         '-d',
         '--name',
         'icure-oss-test',
-        'docker.taktik.be/icure-oss:2.4.2-kraken.8f6b845a8b',
+        'docker.taktik.be/icure-oss:2.4.23-kraken.c1b1db7acc',
       ])
       icureOss.stdout.on('data', (data) => console.log(`stdout: ${data}`))
       icureOss.stderr.on('data', (data) => console.error(`stderr: ${data}`))
