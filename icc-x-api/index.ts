@@ -47,6 +47,33 @@ export const apiHeaders = function (username: string, password: string) {
   }
 }
 
+export interface Apis {
+  authApi: IccAuthApi
+  codeApi: IccCodeXApi
+  entityReferenceApi: IccEntityrefApi
+  userApi: IccUserXApi
+  permissionApi: IccPermissionApi
+  healthcarePartyApi: IccHcpartyXApi
+  deviceApi: IccDeviceApi
+  cryptoApi: IccCryptoXApi
+  accessLogApi: IccAccesslogXApi
+  agendaApi: IccAgendaApi
+  contactApi: IccContactXApi
+  formApi: IccFormXApi
+  groupApi: IccGroupApi
+  invoiceApi: IccInvoiceXApi
+  insuranceApi: IccInsuranceApi
+  documentApi: IccDocumentXApi
+  healthcareElementApi: IccHelementXApi
+  classificationApi: IccClassificationXApi
+  calendarItemApi: IccCalendarItemXApi
+  receiptApi: IccReceiptXApi
+  timetableApi: IccTimeTableXApi
+  patientApi: IccPatientXApi
+  messageApi: IccMessageXApi
+  maintenanceTaskApi: IccMaintenanceTaskXApi
+}
+
 export const Api = async function (
   host: string,
   username: string,
@@ -57,7 +84,7 @@ export const Api = async function (
     : typeof self !== 'undefined'
     ? self.fetch
     : fetch
-) {
+): Promise<Apis> {
   const headers = apiHeaders(username, password)
   const authApi = new IccAuthApi(host, headers, fetchImpl)
   const codeApi = new IccCodeXApi(host, headers, fetchImpl)
