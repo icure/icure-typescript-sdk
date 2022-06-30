@@ -845,7 +845,11 @@ export class IccCryptoXApi {
       const { owner: modifiedOwner, aesExchangeKeys } = await this.getOrCreateHcPartyKeys(owner, ownerId)
       const [publicKeyIdentifier, hcPartyKeys] = Object.entries(aesExchangeKeys)[0]
       const importedAESHcPartyKey = await this.decryptHcPartyKey(ownerId, ownerId, ownerId, publicKeyIdentifier, hcPartyKeys, publicKeys)
-      const encryptedEncryptionKeys = await this._AES.encrypt(importedAESHcPartyKey.key, string2ua(createdObject.id + ':' + secretId))
+      const encryptedEncryptionKeys = await this._AES.encrypt(
+        importedAESHcPartyKey.key,
+        string2ua(createdObject.id + ':' + secretId),
+        importedAESHcPartyKey.rawKey
+      )
 
       return {
         encryptionKeys: _.fromPairs([
@@ -1241,6 +1245,8 @@ export class IccCryptoXApi {
               console.log(
                 `Could not decrypt generic delegation in object with ID: ${masterId} from ${genericDelegationItem.owner} to ${genericDelegationItem.delegatedTo}: ${err}`
               )
+              console.log(`AES key is: ${aesKey.rawKey}. Encrypted data is ${genericDelegationItem.key}.`)
+
               return undefined
             })
         )
