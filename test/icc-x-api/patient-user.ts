@@ -11,9 +11,9 @@ const hcpUserName = process.env.HCP_USERNAME!
 const hcpPassword = process.env.HCP_PASSWORD!
 const hcpPrivKey = process.env.HCP_PRIV_KEY!
 
-const patUserName = process.env.PAT_USERNAME!;
-const patPassword = process.env.PAT_PASSWORD!;
-const patPrivKey = process.env.PAT_PRIV_KEY!;
+const patUserName = process.env.PAT_USERNAME!
+const patPassword = process.env.PAT_PASSWORD!
+const patPrivKey = process.env.PAT_PRIV_KEY!
 
 describe('Patient', () => {
   it('should be capable of creating a patient from scratch', async () => {
@@ -47,11 +47,7 @@ describe('Patient', () => {
         )
 
         try {
-          const {
-            userApi,
-            patientApi,
-            cryptoApi: updatedCryptoApi,
-          } = Api('https://kraken.icure.dev/rest/v1', tmpUser.id!, pwd!, crypto)
+          const { userApi, patientApi, cryptoApi: updatedCryptoApi } = Api('https://kraken.icure.dev/rest/v1', tmpUser.id!, pwd!, crypto)
           const user = await userApi.getCurrentUser()
           let me = await patientApi.getPatientWithUser(user, user.patientId!)
           await updatedCryptoApi.getOrCreateHcPartyKeys(me, user.patientId!)
@@ -93,7 +89,6 @@ describe('Patient', () => {
       throw e
     }
   }).timeout(60000)
-
 
   it('should be capable of logging in and encryption', async () => {
     const {
@@ -144,7 +139,6 @@ describe('Patient', () => {
         [hcpUser.healthcarePartyId!]
       )
     )
-
 
     await cryptoApiForHcp.loadKeyPairsAsJwkInBrowserLocalStorage(hcpUser.healthcarePartyId!, pkcs8ToJwk(hex2ua(hcpPrivKey)))
     const pat2 = await patientApiForHcp.getPatientWithUser(hcpUser, patient.id!)
