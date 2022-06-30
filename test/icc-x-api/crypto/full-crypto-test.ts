@@ -1,5 +1,5 @@
 import { spawn, execSync } from 'child_process'
-import { Api, b2a, hex2ua, IccCryptoXApi, pkcs8ToJwk, retry, spkiToJwk, ua2hex } from '../../../icc-x-api'
+import { Api, Apis, b2a, hex2ua, IccCryptoXApi, pkcs8ToJwk, retry, spkiToJwk, ua2hex } from '../../../icc-x-api'
 import { v4 as uuid } from 'uuid'
 import { XHR } from '../../../icc-api/api/XHR'
 import { Patient } from '../../../icc-api/model/Patient'
@@ -23,12 +23,12 @@ import { TextDecoder, TextEncoder } from 'util'
 ;(global as any).TextEncoder = TextEncoder
 
 interface EntityFacade<T extends EncryptedEntity> {
-  create: (api: ReturnType<typeof Api>, record: Omit<T, 'rev'>) => Promise<T>
-  get: (api: ReturnType<typeof Api>, id: string) => Promise<T>
-  share: (api: ReturnType<typeof Api>, parent: EncryptedParentEntity | null, record: T, dataOwnerId: string) => Promise<T>
+  create: (api: Apis, record: Omit<T, 'rev'>) => Promise<T>
+  get: (api: Apis, id: string) => Promise<T>
+  share: (api: Apis, parent: EncryptedParentEntity | null, record: T, dataOwnerId: string) => Promise<T>
 }
 
-type EntityCreator<T> = (api: ReturnType<typeof Api>, id: string, user: User, patient?: Patient) => Promise<T>
+type EntityCreator<T> = (api: Apis, id: string, user: User, patient?: Patient) => Promise<T>
 
 interface EntityFacades {
   Patient: EntityFacade<Patient>
@@ -42,7 +42,7 @@ interface EntityCreators {
   HealthElement: EntityCreator<HealthElement>
 }
 
-async function getDataOwnerId(api: ReturnType<typeof Api>) {
+async function getDataOwnerId(api: Apis) {
   const user = await api.userApi.getCurrentUser()
   return (user.healthcarePartyId ?? user.patientId ?? user.deviceId)!
 }
@@ -110,7 +110,7 @@ const entities: EntityCreators = {
   },
 }
 
-const userDefinitions: Record<string, (user: User, api: ReturnType<typeof Api>) => Promise<User>> = {
+const userDefinitions: Record<string, (user: User, api: Apis) => Promise<User>> = {
   'one lost key recoverable through transfer keys': async (user: User, { cryptoApi, maintenanceTaskApi }) => {
     const { privateKey, publicKey } = await cryptoApi.addNewKeyPairForOwnerId(maintenanceTaskApi, user, (user.healthcarePartyId ?? user.patientId)!)
     return user
