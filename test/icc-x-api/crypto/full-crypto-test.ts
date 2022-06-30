@@ -5,6 +5,7 @@ import { XHR } from '../../../icc-api/api/XHR'
 import { Patient } from '../../../icc-api/model/Patient'
 import { Contact } from '../../../icc-api/model/Contact'
 import { HealthElement } from '../../../icc-api/model/HealthElement'
+import { CalendarItem } from '../../../icc-api/model/CalendarItem'
 import { EncryptedEntity, EncryptedParentEntity, HealthcareParty, Service, User } from '../../../icc-api/model/models'
 import { before, describe, it } from 'mocha'
 
@@ -22,24 +23,28 @@ import { TextDecoder, TextEncoder } from 'util'
 ;(global as any).TextDecoder = TextDecoder
 ;(global as any).TextEncoder = TextEncoder
 
+type TestedEntity = 'Patient' | 'Contact' | 'HealthElement' | 'CalendarItem'
+
 interface EntityFacade<T extends EncryptedEntity> {
   create: (api: Apis, record: Omit<T, 'rev'>) => Promise<T>
   get: (api: Apis, id: string) => Promise<T>
   share: (api: Apis, parent: EncryptedParentEntity | null, record: T, dataOwnerId: string) => Promise<T>
 }
 
-type EntityCreator<T> = (api: Apis, id: string, user: User, patient?: Patient) => Promise<T>
+type EntityCreator<T> = (api: Apis, id: string, user: User, patient?: Patient, delegateIds?: string[]) => Promise<T>
 
 interface EntityFacades {
   Patient: EntityFacade<Patient>
   Contact: EntityFacade<Contact>
   HealthElement: EntityFacade<HealthElement>
+  CalendarItem: EntityFacade<CalendarItem>
 }
 
 interface EntityCreators {
   Patient: EntityCreator<Patient>
   Contact: EntityCreator<Contact>
   HealthElement: EntityCreator<HealthElement>
+  CalendarItem: EntityCreator<CalendarItem>
 }
 
 async function getDataOwnerId(api: Apis) {
@@ -84,6 +89,18 @@ const facades: EntityFacades = {
       )
     },
   } as EntityFacade<HealthElement>,
+  CalendarItem: {
+    create: async (api, r) => api.calendarItemApi.createCalendarItemWithHcParty(await api.userApi.getCurrentUser(), r),
+    get: async (api, id) => api.calendarItemApi.getCalendarItemWithUser(await api.userApi.getCurrentUser(), id),
+    share: async (api, p, r, doId) => {
+      const ownerId = await getDataOwnerId(api)
+      const [dels, eks] = await api.cryptoApi.extractDelegationsSFKsAndEncryptionSKs(r, ownerId)
+      return api.calendarItemApi.modifyCalendarItemWithHcParty(
+        await api.userApi.getCurrentUser(),
+        await api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, ownerId, doId, dels[0], eks[0])
+      )
+    },
+  } as EntityFacade<CalendarItem>,
 }
 
 const DB_PORT = 15984
@@ -95,18 +112,23 @@ let delegateUser: User | undefined = undefined
 let delegateHcp: HealthcareParty | undefined = undefined
 
 const entities: EntityCreators = {
-  Patient: ({ patientApi }, id, user) => {
-    return patientApi.newInstance(user, new Patient({ id, firstName: 'test', lastName: 'test', dateOfBirth: 20000101 }))
+  Patient: ({ patientApi }, id, user, _, delegateIds) => {
+    return patientApi.newInstance(user, new Patient({ id, firstName: 'test', lastName: 'test', dateOfBirth: 20000101 }), delegateIds)
   },
-  Contact: ({ contactApi }, id, user, patient) => {
+  Contact: ({ contactApi }, id, user, patient, delegateIds) => {
     return contactApi.newInstance(
       user,
       patient!,
-      new Contact({ id, services: [new Service({ label: 'svc', content: { fr: { stringValue: 'data' } } })] })
+      new Contact({ id, services: [new Service({ label: 'svc', content: { fr: { stringValue: 'data' } } })] }),
+      false,
+      delegateIds
     )
   },
-  HealthElement: ({ healthcareElementApi }, id, user, patient) => {
-    return healthcareElementApi.newInstance(user, patient!, new HealthElement({ id, descr: 'HE' }))
+  HealthElement: ({ healthcareElementApi }, id, user, patient, delegateIds) => {
+    return healthcareElementApi.newInstance(user, patient!, new HealthElement({ id, descr: 'HE' }), false, delegateIds)
+  },
+  CalendarItem: ({ calendarItemApi }, id, user, patient, delegateIds) => {
+    return calendarItemApi.newInstancePatient(user, patient!, new CalendarItem({ id, title: 'CI' }), delegateIds)
   },
 }
 
@@ -336,18 +358,8 @@ describe('Full battery on tests on crypto and keys', async function () {
           const parent2 =
             type !== 'Patient' ? await api2.patientApi.getPatientWithUser(newPatientUser, `partial-${newPatientUser.id}-Patient`) : undefined
 
-          const record1 = await entities[type as 'Patient' | 'Contact' | 'HealthElement'](
-            api1,
-            `partial-${newHcpUser.id}-${type}`,
-            newHcpUser,
-            parent1
-          )
-          const record2 = await entities[type as 'Patient' | 'Contact' | 'HealthElement'](
-            api2,
-            `partial-${newPatientUser.id}-${type}`,
-            newPatientUser,
-            parent2
-          )
+          const record1 = await entities[type as TestedEntity](api1, `partial-${newHcpUser.id}-${type}`, newHcpUser, parent1)
+          const record2 = await entities[type as TestedEntity](api2, `partial-${newPatientUser.id}-${type}`, newPatientUser, parent2)
 
           prev.push(await facade.create(api1, record1))
           prev.push(await facade.create(api2, record2))
@@ -390,7 +402,21 @@ describe('Full battery on tests on crypto and keys', async function () {
           const api = await getApiAndAddPrivateKeysForUser(u)
 
           const parent = f[0] !== 'Patient' ? await api.patientApi.getPatientWithUser(u, `${u.id}-Patient`) : undefined
-          const record = await entities[f[0] as 'Patient' | 'Contact' | 'HealthElement'](api, `${u.id}-${f[0]}`, u, parent)
+          const record = await entities[f[0] as TestedEntity](api, `${u.id}-${f[0]}`, u, parent)
+          const entity = await facade.create(api, record)
+
+          expect(entity.id).to.be.not.null
+          expect(entity.rev).to.be.not.null
+        })
+        it(`Create ${f[0]} as delegate with delegation for ${uType} with ${uId}`, async () => {
+          const u = users.find((it) => it.login === `${uType}-${uId}`)!
+          const facade: EntityFacade<any> = f[1]
+
+          const api = await getApiAndAddPrivateKeysForUser(delegateUser!)
+          const parent = f[0] !== 'Patient' ? await api.patientApi.getPatientWithUser(delegateUser!, `delegate-${u.id}-Patient`) : undefined
+          const record = await entities[f[0] as TestedEntity](api, `delegate-${u.id}-${f[0]}`, delegateUser!, parent, [
+            (u.patientId ?? u.healthcarePartyId ?? u.deviceId)!,
+          ])
           const entity = await facade.create(api, record)
 
           expect(entity.id).to.be.not.null
@@ -411,6 +437,14 @@ describe('Full battery on tests on crypto and keys', async function () {
 
           const entity = await facade.get(api, `${u.id}-${f[0]}`)
           expect(entity.id).to.equal(`${u.id}-${f[0]}`)
+        })
+        it(`Read ${f[0]} shared by delegate as a ${uType} with ${uId}`, async () => {
+          const u = users.find((it) => it.login === `${uType}-${uId}`)!
+          const facade = f[1]
+          const api = await getApiAndAddPrivateKeysForUser(u)
+
+          const entity = await facade.get(api, `delegate-${u.id}-${f[0]}`)
+          expect(entity.id).to.equal(`delegate-${u.id}-${f[0]}`)
         })
         ;['patient', 'hcp'].forEach((duType) => {
           Object.keys(userDefinitions).forEach((duId) => {
