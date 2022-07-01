@@ -133,8 +133,9 @@ const entities: EntityCreators = {
 }
 
 const userDefinitions: Record<string, (user: User, api: Apis) => Promise<User>> = {
-  'one lost key recoverable through transfer keys': async (user: User, { cryptoApi, maintenanceTaskApi }) => {
+  'one available key and one lost key recoverable through transfer keys': async (user: User, { cryptoApi, maintenanceTaskApi }) => {
     const { privateKey, publicKey } = await cryptoApi.addNewKeyPairForOwnerId(maintenanceTaskApi, user, (user.healthcarePartyId ?? user.patientId)!)
+    delete privateKeys[user.login!][publicKey]
     return user
   },
   'two available keys': async (user: User, { cryptoApi, maintenanceTaskApi }) => {
@@ -143,10 +144,6 @@ const userDefinitions: Record<string, (user: User, api: Apis) => Promise<User>> 
     return user
   },
   'a single available key in old format': async (user: User) => user,
-  /*'a single lost key': async (user: User) => {
-    privateKeys[user.login!] = {}
-    return user
-  },*/
   'one lost key and one available key': async (user: User, { cryptoApi, maintenanceTaskApi }) => {
     const { privateKey, publicKey } = await cryptoApi.addNewKeyPairForOwnerId(
       maintenanceTaskApi,
@@ -155,11 +152,6 @@ const userDefinitions: Record<string, (user: User, api: Apis) => Promise<User>> 
       false
     )
     privateKeys[user.login!] = { [publicKey]: privateKey }
-    return user
-  },
-  'one available key and one lost key recoverable through transfer keys': async (user: User, { cryptoApi, maintenanceTaskApi }) => {
-    const { privateKey, publicKey } = await cryptoApi.addNewKeyPairForOwnerId(maintenanceTaskApi, user, (user.healthcarePartyId ?? user.patientId)!)
-    privateKeys[user.login!] = { ...(privateKeys[user.login!] ?? {}), [publicKey]: privateKey }
     return user
   },
 }
