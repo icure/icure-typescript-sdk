@@ -29,6 +29,7 @@ interface EntityFacade<T extends EncryptedEntity> {
   create: (api: Apis, record: Omit<T, 'rev'>) => Promise<T>
   get: (api: Apis, id: string) => Promise<T>
   share: (api: Apis, parent: EncryptedParentEntity | null, record: T, dataOwnerId: string) => Promise<T>
+  isDecrypted: (entityToCheck: T) => Promise<boolean>
 }
 
 type EntityCreator<T> = (api: Apis, id: string, user: User, patient?: Patient, delegateIds?: string[]) => Promise<T>
@@ -64,6 +65,7 @@ const facades: EntityFacades = {
         await api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, ownerId, doId, dels[0], eks[0])
       )
     },
+    isDecrypted: async (entityToCheck) => { return entityToCheck.note != undefined }
   } as EntityFacade<Patient>,
   Contact: {
     create: async (api, r) => api.contactApi.createContactWithUser(await api.userApi.getCurrentUser(), r),
@@ -76,6 +78,7 @@ const facades: EntityFacades = {
         await api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, ownerId, doId, dels[0], eks[0])
       )
     },
+    isDecrypted: async (entityToCheck) => { return entityToCheck.services?.[0].content != undefined && Object.entries(entityToCheck.services?.[0].content).length > 0 }
   } as EntityFacade<Contact>,
   HealthElement: {
     create: async (api, r) => api.healthcareElementApi.createHealthElementWithUser(await api.userApi.getCurrentUser(), r),
@@ -88,6 +91,7 @@ const facades: EntityFacades = {
         await api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, ownerId, doId, dels[0], eks[0])
       )
     },
+    isDecrypted: async () => { return true }
   } as EntityFacade<HealthElement>,
   CalendarItem: {
     create: async (api, r) => api.calendarItemApi.createCalendarItemWithHcParty(await api.userApi.getCurrentUser(), r),
@@ -100,6 +104,7 @@ const facades: EntityFacades = {
         await api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, ownerId, doId, dels[0], eks[0])
       )
     },
+    isDecrypted: async () => { return true }
   } as EntityFacade<CalendarItem>,
 }
 
@@ -113,7 +118,7 @@ let delegateHcp: HealthcareParty | undefined = undefined
 
 const entities: EntityCreators = {
   Patient: ({ patientApi }, id, user, _, delegateIds) => {
-    return patientApi.newInstance(user, new Patient({ id, firstName: 'test', lastName: 'test', dateOfBirth: 20000101 }), delegateIds)
+    return patientApi.newInstance(user, new Patient({ id, firstName: 'test', lastName: 'test', note: 'data', dateOfBirth: 20000101 }), delegateIds)
   },
   Contact: ({ contactApi }, id, user, patient, delegateIds) => {
     return contactApi.newInstance(
@@ -399,6 +404,7 @@ describe('Full battery on tests on crypto and keys', async function () {
 
           expect(entity.id).to.be.not.null
           expect(entity.rev).to.be.not.null
+          expect(await facade.isDecrypted(entity)).to.equal(true)
         })
         it(`Create ${f[0]} as delegate with delegation for ${uType} with ${uId}`, async () => {
           const u = users.find((it) => it.login === `${uType}-${uId}`)!
@@ -425,6 +431,7 @@ describe('Full battery on tests on crypto and keys', async function () {
 
           expect(entity.id).to.be.not.null
           expect(entity.rev).to.be.not.null
+          expect(await facade.isDecrypted(entity)).to.equal(true)
         })
         it(`Read ${f[0]} as the initial ${uType} with ${uId}`, async () => {
           const u = users.find((it) => it.login === `${uType}-${uId}`)!
@@ -433,6 +440,7 @@ describe('Full battery on tests on crypto and keys', async function () {
 
           const entity = await facade.get(api, `partial-${u.id}-${f[0]}`)
           expect(entity.id).to.equal(`partial-${u.id}-${f[0]}`)
+          expect(await facade.isDecrypted(entity)).to.equal(true)
         })
         it(`Read ${f[0]} as a ${uType} with ${uId}`, async () => {
           const u = users.find((it) => it.login === `${uType}-${uId}`)!
@@ -441,6 +449,7 @@ describe('Full battery on tests on crypto and keys', async function () {
 
           const entity = await facade.get(api, `${u.id}-${f[0]}`)
           expect(entity.id).to.equal(`${u.id}-${f[0]}`)
+          expect(await facade.isDecrypted(entity)).to.equal(true)
         })
         it(`Read ${f[0]} shared by delegate as a ${uType} with ${uId}`, async () => {
           const u = users.find((it) => it.login === `${uType}-${uId}`)!
@@ -449,6 +458,7 @@ describe('Full battery on tests on crypto and keys', async function () {
 
           const entity = await facade.get(api, `delegate-${u.id}-${f[0]}`)
           expect(entity.id).to.equal(`delegate-${u.id}-${f[0]}`)
+          expect(await facade.isDecrypted(entity)).to.equal(true)
         })
         ;['patient', 'hcp'].forEach((duType) => {
           Object.keys(userDefinitions).forEach((duId) => {
@@ -466,6 +476,7 @@ describe('Full battery on tests on crypto and keys', async function () {
               const delApi = await getApiAndAddPrivateKeysForUser(du!)
               const obj = await facade.get(delApi, `${u.id}-${f[0]}`)
               expect(Object.keys(obj.delegations)).to.contain(delegateDoId)
+              expect(await facade.isDecrypted(obj)).to.equal(true)
             })
           })
         })
