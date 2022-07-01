@@ -413,11 +413,23 @@ describe('Full battery on tests on crypto and keys', async function () {
           const facade: EntityFacade<any> = f[1]
 
           const api = await getApiAndAddPrivateKeysForUser(delegateUser!)
+          const patApi = await getApiAndAddPrivateKeysForUser(u!)
+          const dataOwnerId = (await getDataOwnerId(patApi))!
+          const dataOwner = (await patApi.cryptoApi.getDataOwner(dataOwnerId))!
+
           const parent = f[0] !== 'Patient' ? await api.patientApi.getPatientWithUser(delegateUser!, `delegate-${u.id}-Patient`) : undefined
           const record = await entities[f[0] as TestedEntity](api, `delegate-${u.id}-${f[0]}`, delegateUser!, parent, [
             (u.patientId ?? u.healthcarePartyId ?? u.deviceId)!,
           ])
           const entity = await facade.create(api, record)
+          const hcp = await api.healthcarePartyApi.getCurrentHealthcareParty()
+
+          const shareKeys = hcp.aesExchangeKeys[hcp.publicKey][dataOwnerId]
+          if (Object.keys(shareKeys).length > 2) {
+            delete shareKeys[dataOwner.dataOwner.publicKey!.slice(-32)]
+          }
+          hcp.aesExchangeKeys = { ...hcp.aesExchangeKeys, [hcp.publicKey!]: { ...hcp.aesExchangeKeys[hcp.publicKey], [dataOwnerId]: shareKeys } }
+          await api.healthcarePartyApi.modifyHealthcareParty(hcp)
 
           expect(entity.id).to.be.not.null
           expect(entity.rev).to.be.not.null
