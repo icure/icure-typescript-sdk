@@ -55,7 +55,7 @@ describe('Patient', () => {
           await updatedCryptoApi.getOrCreateHcPartyKeys(me, '171f186a-7a2a-40f0-b842-b486428c771b')
 
           me = await patientApi.getPatientWithUser(user, user.patientId!)
-          me = await patientApi.modifyPatientWithUser(user, await patientApi.initDelegations(me, user))
+          me = await patientApi.modifyPatientWithUser(user, await patientApi.initDelegationsAndEncryptionKeys(me, user))
 
           const sek = await updatedCryptoApi.extractKeysFromDelegationsForHcpHierarchy(me.id, me.id, me.encryptionKeys)
           const sdk = await updatedCryptoApi.extractKeysFromDelegationsForHcpHierarchy(me.id, me.id, me.delegations)
