@@ -1630,12 +1630,14 @@ export class IccCryptoXApi {
       )
     )
 
-    const dataOwnerExistingPubKeys = Array.from(await this.getDataOwnerHexPublicKeys(dataOwner))
+    const dataOwnerExistingPubKeys = Array.from(await this.getDataOwnerHexPublicKeys(dataOwner.dataOwner))
 
     const transferKeys = fold(dataOwnerExistingPubKeys, dataOwner.dataOwner.transferKeys ?? {}, (pubAcc, pubKeyHex) => {
-      const existingKeys = pubAcc[pubKeyHex] ?? {}
-      existingKeys[pubKeyToEncryptHex] = encryptedKey
-      pubAcc[pubKeyHex] = existingKeys
+      if (pubKeyHex !== pubKeyToEncryptHex) {
+        const existingKeys = pubAcc[pubKeyHex] ?? {}
+        existingKeys[pubKeyToEncryptHex] = encryptedKey
+        pubAcc[pubKeyHex] = existingKeys
+      }
       return pubAcc
     })
 
@@ -1766,7 +1768,7 @@ export class IccCryptoXApi {
     return new Set(
       (dataOwner.publicKey ? [dataOwner.publicKey] : [])
         .concat(dataOwner.aesExchangeKeys ? Object.keys(dataOwner.aesExchangeKeys) : [])
-        .filter((pubKey) => pubKey)
+        .filter((pubKey) => !!pubKey)
     )
   }
 
