@@ -817,7 +817,7 @@ export class IccPatientXApi extends IccPatientApi {
                   ctcs.forEach(
                     (c: models.Contact) =>
                       c.services &&
-                      c.services.forEach((s) => s.content && Object.values(s.content).forEach((c) => c.documentId && (docIds[c.documentId] = 1)))
+                      c.services.forEach((s) => s.content && Object.values(s.content).forEach((c) => c && c.documentId && (docIds[c.documentId] = 1)))
                   )
 
                   return retry(() => this.documentApi.getDocuments(new ListOfIds({ ids: Object.keys(docIds) }))).then((docs: Array<Document>) => {
@@ -1125,7 +1125,7 @@ export class IccPatientXApi extends IccPatientApi {
                   ctcs.forEach(
                     (c: models.Contact) =>
                       c.services &&
-                      c.services.forEach((s) => s.content && Object.values(s.content).forEach((c) => c.documentId && (docIds[c.documentId] = 1)))
+                      c.services.forEach((s) => s.content && Object.values(s.content).forEach((c) => c && c.documentId && (docIds[c.documentId] = 1)))
                   )
 
                   return retry(() => this.documentApi.getDocuments(new ListOfIds({ ids: Object.keys(docIds) }))).then((docs: Array<Document>) => {
