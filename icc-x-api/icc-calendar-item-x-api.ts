@@ -12,13 +12,14 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
   i18n: any = i18n
   crypto: IccCryptoXApi
   userApi: IccUserXApi
-  cryptedKeys = ['details', 'title', 'patientId']
+  encryptedKeys = ['details', 'title', 'patientId']
 
   constructor(
     host: string,
     headers: { [key: string]: string },
     crypto: IccCryptoXApi,
     userApi: IccUserXApi,
+    encryptedKeys: Array<string> = ['details', 'title', 'patientId'],
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
@@ -28,6 +29,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
     super(host, headers, fetchImpl)
     this.crypto = crypto
     this.userApi = userApi
+    this.encryptedKeys = encryptedKeys
   }
 
   newInstance(user: User, ci: CalendarItem, delegates: string[] = []) {
@@ -232,7 +234,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
             this.crypto.AES.importKey('raw', hex2ua(eks.extractedKeys[0].replace(/-/g, '')))
           )
           .then((key: CryptoKey) =>
-            crypt(calendarItem, (obj: { [key: string]: string }) => this.crypto.AES.encrypt(key, utf8_2ua(JSON.stringify(obj))), this.cryptedKeys)
+            crypt(calendarItem, (obj: { [key: string]: string }) => this.crypto.AES.encrypt(key, utf8_2ua(JSON.stringify(obj))), this.encryptedKeys)
           )
       )
     )
