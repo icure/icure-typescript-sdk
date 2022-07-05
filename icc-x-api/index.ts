@@ -17,6 +17,7 @@ import { IccTimeTableXApi } from './icc-time-table-x-api'
 import { IccDeviceApi } from '../icc-api/api/IccDeviceApi'
 import { IccCodeXApi } from './icc-code-x-api'
 import { IccMaintenanceTaskXApi } from './icc-maintenance-task-x-api'
+import { retry } from './utils'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -128,7 +129,7 @@ export const Api = async function (
   const maintenanceTaskApi = new IccMaintenanceTaskXApi(host, headers, cryptoApi, userApi, healthcarePartyApi, ['properties'], fetchImpl)
 
   try {
-    await authApi.login({ username, password })
+    await retry(() => authApi.login({ username, password }), 3, 1000, 1.5)
   } catch (e) {
     console.error('Incorrect user and password used to instantiate Api, or network problem', e)
   }
