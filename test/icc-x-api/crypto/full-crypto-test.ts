@@ -448,7 +448,7 @@ describe('Full battery of tests on crypto and keys', async function () {
 
           const entity = await facade.get(api, `partial-${u.id}-${f[0]}`)
           expect(entity.id).to.equal(`partial-${u.id}-${f[0]}`)
-          expect(await facade.isDecrypted(entity)).to.equal(false)
+          expect(await facade.isDecrypted(entity)).to.equal(true)
         })
         it(`Read ${f[0]} as a ${uType} with ${uId}`, async () => {
           const u = users.find((it) => it.login === `${uType}-${uId}`)!
@@ -466,7 +466,7 @@ describe('Full battery of tests on crypto and keys', async function () {
 
           const entity = await facade.get(api, `delegate-${u.id}-${f[0]}`)
           expect(entity.id).to.equal(`delegate-${u.id}-${f[0]}`)
-          expect(await facade.isDecrypted(entity)).to.equal(true)
+          expect(await facade.isDecrypted(entity)).to.equal(false)
         })
         ;['patient', 'hcp'].forEach((duType) => {
           Object.keys(userDefinitions).forEach((duId) => {
