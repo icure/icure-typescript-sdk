@@ -315,7 +315,7 @@ export class IccCryptoXApi {
       }
 
       const fingerprint = pk.slice(-32)
-      const keyPair = this.rsaKeyPairs[fingerprint] ?? (await this.cacheKeyPair(this.loadKeyPairNotImported(loggedHcPartyId)))
+      const keyPair = this.rsaKeyPairs[fingerprint] ?? (await this.cacheKeyPair(this.loadKeyPairNotImported(loggedHcPartyId, fingerprint)))
       if (!keyPair) {
         return
       }
@@ -1279,42 +1279,62 @@ export class IccCryptoXApi {
     return Promise.all(decryptPromises).then((genericSecretId) => genericSecretId.filter((id) => !!id) as string[])
   }
 
-  loadKeyPairsAsTextInBrowserLocalStorage(healthcarePartyId: string, privateKey: Uint8Array) {
-    return this.getDataOwner(healthcarePartyId)
-      .then(async ({ dataOwner }) => {
-        const publicKey = await dataOwner.publicKey
-        if (!publicKey) {
-          throw new Error('No public key has been defined for hcp')
-        }
-        return this._RSA.importKeyPair('jwk', pkcs8ToJwk(privateKey), 'jwk', spkiToJwk(hex2ua(publicKey)))
-      })
-      .then((keyPair: { publicKey: CryptoKey; privateKey: CryptoKey }) => {
-        this.rsaKeyPairs[healthcarePartyId] = keyPair
-        return this._RSA.exportKeys(keyPair, 'jwk', 'jwk')
-      })
-      .then((exportedKeyPair) => {
-        return this.storeKeyPair(healthcarePartyId, exportedKeyPair)
-      })
+  getPublicKeyFromPrivateKey(privateKey: JsonWebKey, dataOwner: Patient | Device | HealthcareParty) {
+    if (!privateKey.n || !privateKey.e) {
+      throw new Error('No public key can be deduced from incomplete private key')
+    }
+
+    const publicKeyFromPrivateKey = jwk2spki(privateKey)
+    const publicKeys = [dataOwner.publicKey].concat(Object.keys(dataOwner.aesExchangeKeys ?? {})).filter((x) => !!x)
+
+    if (!publicKeys.length) {
+      throw new Error('No public key has been defined for hcp')
+    }
+
+    const publicKey = publicKeys.find((it) => it === publicKeyFromPrivateKey)
+    if (!publicKey) {
+      throw new Error('No public key can be found for this private key')
+    }
+
+    return publicKey
   }
 
-  // noinspection JSUnusedGlobalSymbols
-  loadKeyPairsAsJwkInBrowserLocalStorage(healthcarePartyId: string, privKey: JsonWebKey) {
-    return this.getDataOwner(healthcarePartyId)
-      .then(({ dataOwner }) => {
-        const pubKey = spkiToJwk(hex2ua(dataOwner.publicKey!))
+  async loadKeyPairsAsTextInBrowserLocalStorage(healthcarePartyId: string, privateKey: Uint8Array) {
+    const { dataOwner } = await this.getDataOwner(healthcarePartyId)
 
-        privKey.n = pubKey.n
-        privKey.e = pubKey.e
+    const privateKeyInJwk = pkcs8ToJwk(privateKey)
+    const publicKey = this.getPublicKeyFromPrivateKey(privateKeyInJwk, dataOwner)
 
-        return this._RSA.importKeyPair('jwk', privKey, 'jwk', pubKey)
-      })
-      .then((keyPair: { publicKey: CryptoKey; privateKey: CryptoKey }) => {
-        this.rsaKeyPairs[healthcarePartyId] = keyPair
-        return this._RSA.exportKeys(keyPair, 'jwk', 'jwk')
-      })
-      .then((exportedKeyPair: { publicKey: any; privateKey: any }) => {
-        return this.storeKeyPair(healthcarePartyId, exportedKeyPair)
-      })
+    const keyPair: { publicKey: CryptoKey; privateKey: CryptoKey } = await this._RSA.importKeyPair(
+      'jwk',
+      privateKeyInJwk,
+      'jwk',
+      spkiToJwk(hex2ua(publicKey))
+    )
+    this.rsaKeyPairs[healthcarePartyId] = keyPair
+    const exportedKeyPair = await this._RSA.exportKeys(keyPair, 'jwk', 'jwk')
+
+    return this.storeKeyPair(healthcarePartyId, exportedKeyPair)
+  }
+
+  async loadKeyPairsAsJwkInBrowserLocalStorage(healthcarePartyId: string, privateKey: JsonWebKey) {
+    const { dataOwner } = await this.getDataOwner(healthcarePartyId)
+
+    if ((!privateKey.n || !privateKey.e) && dataOwner.publicKey) {
+      //Fallback on default publicKey
+      console.warn('An incomplete key has been completed using the default public key of the data owner')
+      const publicKeyInJwk = spkiToJwk(hex2ua(dataOwner.publicKey))
+      privateKey.n = publicKeyInJwk.n
+      privateKey.e = publicKeyInJwk.e
+    }
+
+    const publicKey = this.getPublicKeyFromPrivateKey(privateKey, dataOwner)
+
+    const keyPair = await this._RSA.importKeyPair('jwk', privateKey, 'jwk', spkiToJwk(hex2ua(publicKey)))
+    this.rsaKeyPairs[healthcarePartyId] = keyPair
+    const exportedKeyPair = await this._RSA.exportKeys(keyPair, 'jwk', 'jwk')
+
+    return this.storeKeyPair(healthcarePartyId, exportedKeyPair)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -1504,15 +1524,22 @@ export class IccCryptoXApi {
    * loads the RSA key pair (hcparty) in JWK from local storage, not imported
    *
    * @param id  doc id - hcpartyId
+   * @param publicKeyFingerPrint the 32 last characters of public key this private key is associated with
    * @returns {Object} it is in JWK - not imported
    */
-  loadKeyPairNotImported(id: string): { publicKey: JsonWebKey; privateKey: JsonWebKey } {
+  loadKeyPairNotImported(id: string, publicKeyFingerPrint?: string): { publicKey: JsonWebKey; privateKey: JsonWebKey } {
     if (typeof Storage === 'undefined') {
       console.log('Your browser does not support HTML5 Browser Local Storage !')
       throw 'Your browser does not support HTML5 Browser Local Storage !'
     }
     //TODO decryption
-    return JSON.parse((localStorage.getItem(this.rsaLocalStoreIdPrefix + id) as string) || '{}')
+    const item =
+      (publicKeyFingerPrint && localStorage.getItem(this.rsaLocalStoreIdPrefix + id + '.' + publicKeyFingerPrint)) ??
+      localStorage.getItem(this.rsaLocalStoreIdPrefix + id)
+    if (!item) {
+      console.warn(`No key can be found in local storage for id ${id} and publicKeyFingerPrint ${publicKeyFingerPrint}`)
+    }
+    return JSON.parse(item!)
   }
 
   /**
@@ -1901,24 +1928,27 @@ export class IccCryptoXApi {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  checkPrivateKeyValidity(dataOwner: HealthcareParty | Patient | Device): Promise<boolean> {
-    return new Promise<boolean>((resolve) => {
-      this._RSA
-        .importKey('jwk', spkiToJwk(hex2ua(dataOwner.publicKey!)), ['encrypt'])
-        .then((k) => this._RSA.encrypt(k, utf8_2ua('shibboleth')))
-        .then((cipher) => {
-          const kp = this.loadKeyPairNotImported(dataOwner.id!)
-          return this._RSA
-            .importKeyPair('jwk', kp.privateKey, 'jwk', kp.publicKey)
-            .then((ikp) => this._RSA.decrypt(ikp.privateKey, new Uint8Array(cipher)))
-        })
-        .then((plainText) => {
-          const pt = ua2utf8(plainText)
-          console.log(pt)
-          resolve(pt === 'shibboleth')
-        })
-        .catch(() => resolve(false))
-    })
+  async checkPrivateKeyValidity(dataOwner: HealthcareParty | Patient | Device): Promise<boolean> {
+    const publicKeys = Array.from(new Set([dataOwner.publicKey].concat(Object.keys(dataOwner.aesExchangeKeys ?? {})).filter((x) => !!x))) as string[]
+
+    return await publicKeys.reduce(async (pres, publicKey) => {
+      const res = await pres
+      if (res) {
+        return true
+      }
+      try {
+        const k = await this._RSA.importKey('jwk', spkiToJwk(hex2ua(publicKey)), ['encrypt'])
+        const cipher = await this._RSA.encrypt(k, utf8_2ua('shibboleth'))
+        const kp = this.loadKeyPairNotImported(dataOwner.id!, publicKey.slice(-32))
+        const plainText = await this._RSA
+          .importKeyPair('jwk', kp.privateKey, 'jwk', kp.publicKey)
+          .then((ikp) => this._RSA.decrypt(ikp.privateKey, new Uint8Array(cipher)))
+          .then((x) => ua2utf8(x))
+        return plainText === 'shibboleth'
+      } catch (e) {
+        return false
+      }
+    }, Promise.resolve(false))
   }
 
   private throwDetailedExceptionForInvalidParameter(argName: string, argValue: any, methodName: string, methodArgs: any) {

@@ -400,6 +400,31 @@ describe('Full battery of tests on crypto and keys', async function () {
   })
   ;['patient', 'hcp'].forEach((uType) => {
     Object.keys(userDefinitions).forEach((uId) => {
+      it(`Import from local storage for ${uId}`, async () => {
+        const u = users.find((it) => it.login === `${uType}-${uId}`)!
+        const api = await Api(`http://127.0.0.1:${AS_PORT}/rest/v1`, u.login!, 'admin', webcrypto as unknown as Crypto, fetch, true)
+        const dataOwnerId = (await getDataOwnerId(api))!
+        Object.entries(privateKeys[u.login!]).reduce(async (p, [pubKey, privKey]) => {
+          await p
+          await api.cryptoApi.loadKeyPairsAsTextInBrowserLocalStorage(dataOwnerId, hex2ua(privKey))
+        }, Promise.resolve())
+      })
+      it(`Check key validity ${uId}`, async () => {
+        const u = users.find((it) => it.login === `${uType}-${uId}`)!
+        const api = await Api(`http://127.0.0.1:${AS_PORT}/rest/v1`, u.login!, 'admin', webcrypto as unknown as Crypto, fetch, true)
+        const dataOwnerId = (await getDataOwnerId(api))!
+        const { dataOwner } = (await api.cryptoApi.getDataOwner(dataOwnerId))!
+        Object.entries(privateKeys[u.login!]).reduce(async (p, [pubKey, privKey]) => {
+          await p
+          await api.cryptoApi.loadKeyPairsAsTextInBrowserLocalStorage(dataOwnerId, hex2ua(privKey))
+        }, Promise.resolve())
+        const validity = await api.cryptoApi.checkPrivateKeyValidity(dataOwner)
+        expect(validity).to.be.true
+      })
+    })
+  })
+  ;['patient', 'hcp'].forEach((uType) => {
+    Object.keys(userDefinitions).forEach((uId) => {
       Object.entries(facades).forEach((f) => {
         it(`Create ${f[0]} as a ${uType} with ${uId}`, async () => {
           const u = users.find((it) => it.login === `${uType}-${uId}`)!
@@ -448,7 +473,9 @@ describe('Full battery of tests on crypto and keys', async function () {
 
           const entity = await facade.get(api, `partial-${u.id}-${f[0]}`)
           expect(entity.id).to.equal(`partial-${u.id}-${f[0]}`)
-          expect(await facade.isDecrypted(entity)).to.equal(true)
+          expect(await facade.isDecrypted(entity)).to.equal(
+            !uId.includes('one lost key and one available key') /* data shared only with lost key... So false */
+          )
         })
         it(`Read ${f[0]} as a ${uType} with ${uId}`, async () => {
           const u = users.find((it) => it.login === `${uType}-${uId}`)!
@@ -466,7 +493,7 @@ describe('Full battery of tests on crypto and keys', async function () {
 
           const entity = await facade.get(api, `delegate-${u.id}-${f[0]}`)
           expect(entity.id).to.equal(`delegate-${u.id}-${f[0]}`)
-          expect(await facade.isDecrypted(entity)).to.equal(false)
+          expect(await facade.isDecrypted(entity)).to.equal(true)
         })
         ;['patient', 'hcp'].forEach((duType) => {
           Object.keys(userDefinitions).forEach((duId) => {
