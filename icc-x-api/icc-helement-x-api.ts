@@ -52,10 +52,10 @@ export class IccHelementXApi extends IccHelementApi {
       h || {}
     )
 
-    return this.initDelegationsAndCryptedForeignKeys(helement, patient, user, confidential, delegates)
+    return this.initDelegationsAndEncryptionKeys(helement, patient, user, confidential, delegates)
   }
 
-  initDelegationsAndCryptedForeignKeys(
+  initDelegationsAndEncryptionKeys(
     healthElement: models.HealthElement,
     patient: models.Patient,
     user: models.User,
@@ -64,44 +64,42 @@ export class IccHelementXApi extends IccHelementApi {
   ): Promise<models.HealthElement> {
     let dataOwnerId = this.userApi.getDataOwnerOf(user)
 
-    return this.crypto
-      .extractPreferredSfk(patient, dataOwnerId, confidential)
-      .then((key) => {
-        if (!key) {
-          console.error(`SFK cannot be found for HealthElement ${healthElement.id}. The health element will not be reachable from the patient side`)
-        }
-
-        return this.crypto.initObjectDelegations(healthElement, patient, dataOwnerId, key ?? null)
+    return this.crypto.extractPreferredSfk(patient, dataOwnerId!, confidential).then(async (key) => {
+      if (!key) {
+        console.error(`SFK cannot be found for Health element ${key}. The healthElement will not be reachable from the patient side`)
+      }
+      const dels = await this.crypto.initObjectDelegations(healthElement, patient, dataOwnerId!, key ?? null)
+      const eks = await this.crypto.initEncryptionKeys(healthElement, dataOwnerId!)
+      _.extend(healthElement, {
+        delegations: dels.delegations,
+        cryptedForeignKeys: dels.cryptedForeignKeys,
+        secretForeignKeys: dels.secretForeignKeys,
+        encryptionKeys: eks.encryptionKeys,
       })
-      .then((initData) => {
-        _.extend(healthElement, {
-          delegations: initData.delegations,
-          cryptedForeignKeys: initData.cryptedForeignKeys,
-          secretForeignKeys: initData.secretForeignKeys,
-        })
 
-        let promise = Promise.resolve(healthElement)
-        _.uniq(
-          delegates.concat(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : [])
-        ).forEach(
-          (delegateId) =>
-            (promise = promise.then((helement) =>
-              this.crypto
-                .extendedDelegationsAndCryptedForeignKeys(helement, patient, dataOwnerId, delegateId, initData.secretId)
-                .then((extraData) =>
-                  _.extend(helement, {
-                    delegations: extraData.delegations,
-                    cryptedForeignKeys: extraData.cryptedForeignKeys,
-                  })
-                )
-                .catch((e) => {
-                  console.log(e)
-                  return helement
-                })
-            ))
-        )
-        return promise
-      })
+      let promise = Promise.resolve(healthElement)
+      _.uniq(
+        delegates.concat(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : [])
+      ).forEach(
+        (delegateId) =>
+          (promise = promise.then((healthElement) =>
+            this.crypto.addDelegationsAndEncryptionKeys(patient, healthElement, dataOwnerId!, delegateId, dels.secretId, eks.secretId).catch((e) => {
+              console.log(e)
+              return healthElement
+            })
+          ))
+      )
+      ;(user.autoDelegations && user.autoDelegations.anonymousMedicalInformation ? user.autoDelegations.anonymousMedicalInformation : []).forEach(
+        (delegateId) =>
+          (promise = promise.then((healthElement) =>
+            this.crypto.addDelegationsAndEncryptionKeys(patient, healthElement, dataOwnerId!, delegateId, null, eks.secretId).catch((e) => {
+              console.log(e)
+              return healthElement
+            })
+          ))
+      )
+      return promise
+    })
   }
 
   createHealthElement(body?: models.HealthElement): never {
@@ -364,7 +362,7 @@ export class IccHelementXApi extends IccHelementApi {
                         resolve(he)
                       },
                       () => {
-                        console.log('Cannot decrypt contact', he.id)
+                        console.log('Cannot decrypt health element', he.id)
                         resolve(he)
                       }
                     )
