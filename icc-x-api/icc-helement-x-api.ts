@@ -21,7 +21,7 @@ export class IccHelementXApi extends IccHelementApi {
     headers: { [key: string]: string },
     crypto: IccCryptoXApi,
     userApi: IccUserXApi,
-    encryptedKeys: Array<string> = [],
+    encryptedKeys: Array<string> = ['descr', 'note'],
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'

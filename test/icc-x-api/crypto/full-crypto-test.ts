@@ -65,7 +65,9 @@ const facades: EntityFacades = {
         await api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, ownerId, doId, dels[0], eks[0])
       )
     },
-    isDecrypted: async (entityToCheck) => { return entityToCheck.note != undefined }
+    isDecrypted: async (entityToCheck) => {
+      return entityToCheck.note != undefined
+    },
   } as EntityFacade<Patient>,
   Contact: {
     create: async (api, r) => api.contactApi.createContactWithUser(await api.userApi.getCurrentUser(), r),
@@ -78,7 +80,9 @@ const facades: EntityFacades = {
         await api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, ownerId, doId, dels[0], eks[0])
       )
     },
-    isDecrypted: async (entityToCheck) => { return entityToCheck.services?.[0].content != undefined && Object.entries(entityToCheck.services?.[0].content).length > 0 }
+    isDecrypted: async (entityToCheck) => {
+      return entityToCheck.services?.[0].content != undefined && Object.entries(entityToCheck.services?.[0].content).length > 0
+    },
   } as EntityFacade<Contact>,
   HealthElement: {
     create: async (api, r) => api.healthcareElementApi.createHealthElementWithUser(await api.userApi.getCurrentUser(), r),
@@ -91,7 +95,9 @@ const facades: EntityFacades = {
         await api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, ownerId, doId, dels[0], eks[0])
       )
     },
-    isDecrypted: async () => { return true }
+    isDecrypted: async (entityToCheck) => {
+      return entityToCheck.descr != undefined
+    },
   } as EntityFacade<HealthElement>,
   CalendarItem: {
     create: async (api, r) => api.calendarItemApi.createCalendarItemWithHcParty(await api.userApi.getCurrentUser(), r),
@@ -104,7 +110,9 @@ const facades: EntityFacades = {
         await api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, ownerId, doId, dels[0], eks[0])
       )
     },
-    isDecrypted: async () => { return true }
+    isDecrypted: async (entityToCheck) => {
+      return entityToCheck.title != undefined
+    },
   } as EntityFacade<CalendarItem>,
 }
 
@@ -177,7 +185,7 @@ async function getApiAndAddPrivateKeysForUser(u: User) {
   return api
 }
 
-describe('Full battery on tests on crypto and keys', async function () {
+describe('Full battery of tests on crypto and keys', async function () {
   this.timeout(600000)
 
   before(async function () {
@@ -440,7 +448,7 @@ describe('Full battery on tests on crypto and keys', async function () {
 
           const entity = await facade.get(api, `partial-${u.id}-${f[0]}`)
           expect(entity.id).to.equal(`partial-${u.id}-${f[0]}`)
-          expect(await facade.isDecrypted(entity)).to.equal(true)
+          expect(await facade.isDecrypted(entity)).to.equal(false)
         })
         it(`Read ${f[0]} as a ${uType} with ${uId}`, async () => {
           const u = users.find((it) => it.login === `${uType}-${uId}`)!
