@@ -394,10 +394,6 @@ describe('Full battery of tests on crypto and keys', async function () {
     */
     console.log('Cleanup complete')
   })
-
-  it('Wait for test to start', () => {
-    console.log('Everything is ready')
-  })
   ;['patient', 'hcp'].forEach((uType) => {
     Object.keys(userDefinitions).forEach((uId) => {
       it(`Import from local storage for ${uId}`, async () => {

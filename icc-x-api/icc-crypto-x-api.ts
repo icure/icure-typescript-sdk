@@ -1314,7 +1314,7 @@ export class IccCryptoXApi {
     this.rsaKeyPairs[healthcarePartyId] = keyPair
     const exportedKeyPair = await this._RSA.exportKeys(keyPair, 'jwk', 'jwk')
 
-    return this.storeKeyPair(healthcarePartyId, exportedKeyPair)
+    return this.storeKeyPair(`${healthcarePartyId}.${publicKey.slice(-32)}`, exportedKeyPair)
   }
 
   async loadKeyPairsAsJwkInBrowserLocalStorage(healthcarePartyId: string, privateKey: JsonWebKey) {
@@ -1334,7 +1334,7 @@ export class IccCryptoXApi {
     this.rsaKeyPairs[healthcarePartyId] = keyPair
     const exportedKeyPair = await this._RSA.exportKeys(keyPair, 'jwk', 'jwk')
 
-    return this.storeKeyPair(healthcarePartyId, exportedKeyPair)
+    return this.storeKeyPair(`${healthcarePartyId}.${publicKey.slice(-32)}`, exportedKeyPair)
   }
 
   // noinspection JSUnusedGlobalSymbols
