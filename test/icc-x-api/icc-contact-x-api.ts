@@ -1,26 +1,26 @@
-import { before } from 'mocha'
+import {before} from 'mocha'
 
 import 'isomorphic-fetch'
 
-import { LocalStorage } from 'node-localstorage'
+import {LocalStorage} from 'node-localstorage'
 import * as os from 'os'
-import { Api, IccContactXApi, IccHelementXApi, IccPatientXApi } from '../../icc-x-api'
-import { crypto } from '../../node-compat'
-import { Patient } from '../../icc-api/model/Patient'
-import { assert } from 'chai'
-import { randomUUID } from 'crypto'
-import { TestUtils } from '../utils/test_utils'
+import {Api, IccContactXApi, IccHelementXApi, IccPatientXApi} from '../../icc-x-api'
+import {crypto} from '../../node-compat'
+import {Patient} from '../../icc-api/model/Patient'
+import {assert} from 'chai'
+import {randomUUID} from 'crypto'
+import {TestUtils} from '../utils/test_utils'
+import {Code} from '../../icc-api/model/Code'
+import {Contact} from '../../icc-api/model/Contact'
+import {Service} from '../../icc-api/model/Service'
+import {Content} from '../../icc-api/model/Content'
+import {User} from '../../icc-api/model/User'
+import {HealthElement} from '../../icc-api/model/HealthElement'
+import {SubContact} from '../../icc-api/model/SubContact'
+import {ServiceLink} from '../../icc-api/model/ServiceLink'
+import {FilterChainService} from '../../icc-api/model/FilterChainService'
+import {ServiceByHcPartyHealthElementIdsFilter} from '../../icc-x-api/filters/ServiceByHcPartyHealthElementIdsFilter'
 import initKey = TestUtils.initKey
-import { Code } from '../../icc-api/model/Code'
-import { Contact } from '../../icc-api/model/Contact'
-import { Service } from '../../icc-api/model/Service'
-import { Content } from '../../icc-api/model/Content'
-import { User } from '../../icc-api/model/User'
-import { HealthElement } from '../../icc-api/model/HealthElement'
-import { SubContact } from '../../icc-api/model/SubContact'
-import { ServiceLink } from '../../icc-api/model/ServiceLink'
-import { FilterChainService } from '../../icc-api/model/FilterChainService'
-import { ServiceByHcPartyHealthElementIdsFilter } from '../../icc-x-api/filters/ServiceByHcPartyHealthElementIdsFilter'
 
 const tmp = os.tmpdir()
 console.log('Saving keys in ' + tmp)
@@ -124,7 +124,7 @@ describe('icc-x-contact-api Tests', () => {
       patientApi: patientApiForHcp,
       contactApi: contactApiForHcp,
       cryptoApi: cryptoApiForHcp,
-    } = Api(iCureUrl, hcpUserName!, hcpPassword!, crypto)
+    } = await Api(iCureUrl, hcpUserName!, hcpPassword!, crypto)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
     await initKey(userApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
@@ -159,7 +159,7 @@ describe('icc-x-contact-api Tests', () => {
       contactApi: contactApiForHcp,
       healthcareElementApi: hElementApiForHcp,
       cryptoApi: cryptoApiForHcp,
-    } = Api(iCureUrl, hcpUserName!, hcpPassword!, crypto)
+    } = await Api(iCureUrl, hcpUserName!, hcpPassword!, crypto)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
     await initKey(userApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)

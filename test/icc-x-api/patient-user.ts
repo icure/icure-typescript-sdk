@@ -1,12 +1,12 @@
-import { expect, use } from 'chai'
+import {expect} from 'chai'
 import 'mocha'
-import { Api } from '../../icc-x-api'
-import { IccPatientApi } from '../../icc-api'
-import { User } from '../../icc-api/model/User'
-import { crypto } from '../../node-compat'
-import { b2a, ua2hex } from '../../icc-x-api/utils/binary-utils'
-import { Patient } from '../../icc-api/model/Patient'
-import { TestUtils } from '../utils/test_utils'
+import {Api} from '../../icc-x-api'
+import {IccPatientApi} from '../../icc-api'
+import {User} from '../../icc-api/model/User'
+import {crypto} from '../../node-compat'
+import {b2a, ua2hex} from '../../icc-x-api/utils/binary-utils'
+import {Patient} from '../../icc-api/model/Patient'
+import {TestUtils} from '../utils/test_utils'
 import initKey = TestUtils.initKey
 
 const hcpUserName = process.env.HCP_USERNAME!
@@ -23,7 +23,7 @@ describe('Patient', () => {
       patientApi: patientApiForHcp,
       userApi: userApiForHcp,
       cryptoApi: cryptoApiForHcp,
-    } = Api('https://kraken.icure.dev/rest/v1', hcpUserName, hcpPassword, crypto)
+    } = await Api('https://kraken.icure.dev/rest/v1', hcpUserName, hcpPassword, crypto)
     const hcpUser = await userApiForHcp.getCurrentUser()
     await initKey(userApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
 
@@ -38,7 +38,7 @@ describe('Patient', () => {
       )
 
       try {
-        const { cryptoApi } = Api('https://kraken.icure.dev/rest/v1', tmpUser.id!, pwd, crypto)
+        const { cryptoApi } = await Api('https://kraken.icure.dev/rest/v1', tmpUser.id!, pwd, crypto)
         const rawPatientApi = new IccPatientApi('https://kraken.icure.dev/rest/v1', { Authorization: `Basic ${b2a(`${tmpUser.id!}:${pwd}`)}` })
         const { publicKey, privateKey } = await cryptoApi.RSA.generateKeyPair()
         const publicKeyHex = ua2hex(await cryptoApi.RSA.exportKey(publicKey!, 'spki'))
@@ -49,7 +49,7 @@ describe('Patient', () => {
         )
 
         try {
-          const { userApi, patientApi, cryptoApi: updatedCryptoApi } = Api('https://kraken.icure.dev/rest/v1', tmpUser.id!, pwd!, crypto)
+          const { userApi, patientApi, cryptoApi: updatedCryptoApi } = await Api('https://kraken.icure.dev/rest/v1', tmpUser.id!, pwd!, crypto)
           const user = await userApi.getCurrentUser()
           let me = await patientApi.getPatientWithUser(user, user.patientId!)
           await updatedCryptoApi.getOrCreateHcPartyKey(me, user.patientId!)
@@ -98,12 +98,12 @@ describe('Patient', () => {
       patientApi: patientApiForHcp,
       userApi: userApiForHcp,
       cryptoApi: cryptoApiForHcp,
-    } = Api('https://kraken.icure.dev/rest/v1', hcpUserName, hcpPassword, crypto)
+    } = await Api('https://kraken.icure.dev/rest/v1', hcpUserName, hcpPassword, crypto)
     const hcpUser = await userApiForHcp.getCurrentUser()
 
     const patientLogin = patUserName
     const token = patPassword
-    const { cryptoApi, userApi } = Api('https://kraken.icure.dev/rest/v1', patientLogin, token, crypto)
+    const { cryptoApi, userApi } = await Api('https://kraken.icure.dev/rest/v1', patientLogin, token, crypto)
     const rawPatientApi = new IccPatientApi('https://kraken.icure.dev/rest/v1', { Authorization: `Basic ${b2a(`${patientLogin}:${token}`)}` })
 
     const user = await userApi.getCurrentUser()
@@ -119,7 +119,7 @@ describe('Patient', () => {
         new Uint8Array((await cryptoApi.RSA.exportKey(privateKey!, 'pkcs8')) as ArrayBuffer)
       )
     }
-    const { calendarItemApi, patientApi, cryptoApi: updatedCryptoApi } = Api('https://kraken.icure.dev/rest/v1', patientLogin, token!, crypto)
+    const { calendarItemApi, patientApi, cryptoApi: updatedCryptoApi } = await Api('https://kraken.icure.dev/rest/v1', patientLogin, token!, crypto)
 
     await patientApi.modifyPatientWithUser(
       user,
