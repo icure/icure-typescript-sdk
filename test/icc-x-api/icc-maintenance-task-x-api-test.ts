@@ -1,25 +1,25 @@
-import {before} from 'mocha'
+import { before } from 'mocha'
 
 import 'isomorphic-fetch'
 
-import {LocalStorage} from 'node-localstorage'
+import { LocalStorage } from 'node-localstorage'
 import * as os from 'os'
-import {Api} from '../../icc-x-api'
-import {crypto} from '../../node-compat'
-import {assert} from 'chai'
-import {randomUUID} from 'crypto'
-import {TestUtils} from '../utils/test_utils'
-import {User} from '../../icc-api/model/User'
-import {IccMaintenanceTaskXApi} from '../../icc-x-api/icc-maintenance-task-x-api'
-import {MaintenanceTask} from '../../icc-api/model/MaintenanceTask'
-import {PropertyStub} from '../../icc-api/model/PropertyStub'
-import {PropertyTypeStub} from '../../icc-api/model/PropertyTypeStub'
-import {TypedValueObject} from '../../icc-api/model/TypedValueObject'
-import {HealthcareParty} from '../../icc-api/model/HealthcareParty'
-import {Identifier} from '../../icc-api/model/Identifier'
-import {FilterChainMaintenanceTask} from '../../icc-api/model/FilterChainMaintenanceTask'
-import {MaintenanceTaskByIdsFilter} from '../../icc-x-api/filters/MaintenanceTaskByIdsFilter'
-import {MaintenanceTaskByHcPartyAndTypeFilter} from '../../icc-x-api/filters/MaintenanceTaskByHcPartyAndTypeFilter'
+import { Api } from '../../icc-x-api'
+import { crypto } from '../../node-compat'
+import { assert } from 'chai'
+import { randomUUID } from 'crypto'
+import { TestUtils } from '../utils/test_utils'
+import { User } from '../../icc-api/model/User'
+import { IccMaintenanceTaskXApi } from '../../icc-x-api/icc-maintenance-task-x-api'
+import { MaintenanceTask } from '../../icc-api/model/MaintenanceTask'
+import { PropertyStub } from '../../icc-api/model/PropertyStub'
+import { PropertyTypeStub } from '../../icc-api/model/PropertyTypeStub'
+import { TypedValueObject } from '../../icc-api/model/TypedValueObject'
+import { HealthcareParty } from '../../icc-api/model/HealthcareParty'
+import { Identifier } from '../../icc-api/model/Identifier'
+import { FilterChainMaintenanceTask } from '../../icc-api/model/FilterChainMaintenanceTask'
+import { MaintenanceTaskByIdsFilter } from '../../icc-x-api/filters/MaintenanceTaskByIdsFilter'
+import { MaintenanceTaskByHcPartyAndTypeFilter } from '../../icc-x-api/filters/MaintenanceTaskByHcPartyAndTypeFilter'
 import initKey = TestUtils.initKey
 
 const tmp = os.tmpdir()
@@ -133,7 +133,7 @@ describe('icc-x-maintenance-task-api Tests', () => {
     assert(foundTask.id == createdTask.id)
     assert(foundTask.properties?.find((prop: PropertyStub) => prop.typedValue?.stringValue == hcp2.id) != undefined)
     assert(foundTask.properties?.find((prop: PropertyStub) => prop.typedValue?.stringValue == hcp2.publicKey) != undefined)
-  }).timeout(10000)
+  })
 
   it('ModifyMaintenanceTaskWithUser Success for HCP', async () => {
     // Given
@@ -166,7 +166,7 @@ describe('icc-x-maintenance-task-api Tests', () => {
     assert(updatedTask.identifier?.[0].value == identifierToAdd.value)
     assert(updatedTask.identifier?.[0].id == identifierToAdd.id)
     assert(updatedTask.status == MaintenanceTask.StatusEnum.Ongoing)
-  }).timeout(10000)
+  })
 
   it('FilterMaintenanceTaskByWithUser By Ids Success for HCP', async () => {
     // Given
