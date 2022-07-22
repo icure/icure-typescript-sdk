@@ -9,6 +9,7 @@ import {Patient} from '../../icc-api/model/Patient'
 import {TestUtils} from '../utils/test_utils'
 import initKey = TestUtils.initKey
 
+const iCureUrl = process.env.ICURE_URL ?? 'https://kraken.icure.dev/rest/v1'
 const hcpUserName = process.env.HCP_USERNAME!
 const hcpPassword = process.env.HCP_PASSWORD!
 const hcpPrivKey = process.env.HCP_PRIV_KEY!
@@ -23,12 +24,12 @@ describe('Patient', () => {
       patientApi: patientApiForHcp,
       userApi: userApiForHcp,
       cryptoApi: cryptoApiForHcp,
-    } = await Api('https://kraken.icure.dev/rest/v1', hcpUserName, hcpPassword, crypto)
+    } = await Api(iCureUrl, hcpUserName, hcpPassword, crypto)
     const hcpUser = await userApiForHcp.getCurrentUser()
     await initKey(userApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
 
     try {
-      const rawPatientApiForHcp = new IccPatientApi('https://kraken.icure.dev/rest/v1', {
+      const rawPatientApiForHcp = new IccPatientApi(iCureUrl, {
         Authorization: `Basic ${b2a(`${hcpUserName}:${hcpPassword}`)}`,
       })
       const patient = await rawPatientApiForHcp.createPatient(new Patient({ id: cryptoApiForHcp.randomUuid(), firstName: 'Tasty', lastName: 'Test' }))
@@ -38,8 +39,8 @@ describe('Patient', () => {
       )
 
       try {
-        const { cryptoApi } = await Api('https://kraken.icure.dev/rest/v1', tmpUser.id!, pwd, crypto)
-        const rawPatientApi = new IccPatientApi('https://kraken.icure.dev/rest/v1', { Authorization: `Basic ${b2a(`${tmpUser.id!}:${pwd}`)}` })
+        const { cryptoApi } = await Api(iCureUrl, tmpUser.id!, pwd, crypto)
+        const rawPatientApi = new IccPatientApi(iCureUrl, { Authorization: `Basic ${b2a(`${tmpUser.id!}:${pwd}`)}` })
         const { publicKey, privateKey } = await cryptoApi.RSA.generateKeyPair()
         const publicKeyHex = ua2hex(await cryptoApi.RSA.exportKey(publicKey!, 'spki'))
         await rawPatientApi.modifyPatient({ ...patient, publicKey: publicKeyHex })
@@ -49,12 +50,12 @@ describe('Patient', () => {
         )
 
         try {
-          const { userApi, patientApi, cryptoApi: updatedCryptoApi } = await Api('https://kraken.icure.dev/rest/v1', tmpUser.id!, pwd!, crypto)
+          const { userApi, patientApi, cryptoApi: updatedCryptoApi } = await Api(iCureUrl, tmpUser.id!, pwd!, crypto)
           const user = await userApi.getCurrentUser()
           let me = await patientApi.getPatientWithUser(user, user.patientId!)
           await updatedCryptoApi.getOrCreateHcPartyKey(me, user.patientId!)
           me = await patientApi.getPatientWithUser(user, user.patientId!)
-          await updatedCryptoApi.getOrCreateHcPartyKey(me, '171f186a-7a2a-40f0-b842-b486428c771b')
+          await updatedCryptoApi.getOrCreateHcPartyKey(me, hcpUser.healthcarePartyId!)
 
           me = await patientApi.getPatientWithUser(user, user.patientId!)
           me = await patientApi.modifyPatientWithUser(user, await patientApi.initDelegations(me, user))
@@ -68,7 +69,7 @@ describe('Patient', () => {
               null,
               me,
               user.patientId!,
-              '171f186a-7a2a-40f0-b842-b486428c771b',
+              hcpUser.healthcarePartyId!,
               sdk.extractedKeys[0],
               sek.extractedKeys[0]
             )
@@ -98,13 +99,13 @@ describe('Patient', () => {
       patientApi: patientApiForHcp,
       userApi: userApiForHcp,
       cryptoApi: cryptoApiForHcp,
-    } = await Api('https://kraken.icure.dev/rest/v1', hcpUserName, hcpPassword, crypto)
+    } = await Api(iCureUrl, hcpUserName, hcpPassword, crypto)
     const hcpUser = await userApiForHcp.getCurrentUser()
 
     const patientLogin = patUserName
     const token = patPassword
-    const { cryptoApi, userApi } = await Api('https://kraken.icure.dev/rest/v1', patientLogin, token, crypto)
-    const rawPatientApi = new IccPatientApi('https://kraken.icure.dev/rest/v1', { Authorization: `Basic ${b2a(`${patientLogin}:${token}`)}` })
+    const { cryptoApi, userApi } = await Api(iCureUrl, patientLogin, token, crypto)
+    const rawPatientApi = new IccPatientApi(iCureUrl, { Authorization: `Basic ${b2a(`${patientLogin}:${token}`)}` })
 
     const user = await userApi.getCurrentUser()
     const patient = await rawPatientApi.getPatient(user.patientId!)
@@ -119,7 +120,7 @@ describe('Patient', () => {
         new Uint8Array((await cryptoApi.RSA.exportKey(privateKey!, 'pkcs8')) as ArrayBuffer)
       )
     }
-    const { calendarItemApi, patientApi, cryptoApi: updatedCryptoApi } = await Api('https://kraken.icure.dev/rest/v1', patientLogin, token!, crypto)
+    const { calendarItemApi, patientApi, cryptoApi: updatedCryptoApi } = await Api(iCureUrl, patientLogin, token!, crypto)
 
     await patientApi.modifyPatientWithUser(
       user,
