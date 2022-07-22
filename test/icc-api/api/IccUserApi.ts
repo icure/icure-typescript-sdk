@@ -1,15 +1,17 @@
-import { Api } from '../../../icc-x-api'
-import { crypto } from '../../../node-compat'
-import { expect } from 'chai'
+import {Api} from '../../../icc-x-api'
+import {crypto} from '../../../node-compat'
+import {expect} from 'chai'
+import {randomUUID} from 'crypto'
+
+const iCureUrl = process.env.ICURE_URL ?? 'https://kraken.icure.dev/rest/v1'
+const hcp1UserName = process.env.HCP_USERNAME!
+const hcp1Password = process.env.HCP_PASSWORD!
 
 describe('User', () => {
   it('should be capable of creating a token', async () => {
-    const { userApi } = Api('https://kraken.icure.dev/rest/v1', process.env.USER_LOGIN!, process.env.USER_PW!, crypto)
-    const token = await userApi.getTokenInGroup(
-      'ic-anotherdb-733fe193-cc7f-44fa-9fbd-38001d279995',
-      'd922a448-b516-4f25-85b8-cbe73a20037a',
-      'e2eTestUser'
-    )
+    const { userApi } = await Api(iCureUrl, hcp1UserName, hcp1Password, crypto)
+    const currentUser = await userApi.getCurrentUser()
+    const token = await userApi.getTokenInGroup(currentUser.groupId!, currentUser.id!, `e2eTestTS-${randomUUID()}`, undefined, 3)
     expect(token.match(/[a-fA-F0-9]+/))
   })
 })
