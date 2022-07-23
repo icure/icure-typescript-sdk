@@ -1,14 +1,13 @@
-import { IccHcpartyApi, IccPatientApi } from '../icc-api'
-import { AESUtils } from './crypto/AES'
-import { RSAUtils } from './crypto/RSA'
-import { UtilsClass } from './crypto/utils'
-import { ShamirClass } from './crypto/shamir'
+import {IccDeviceApi, IccHcpartyApi, IccPatientApi} from '../icc-api'
+import {AESUtils} from './crypto/AES'
+import {RSAUtils} from './crypto/RSA'
+import {UtilsClass} from './crypto/utils'
+import {ShamirClass} from './crypto/shamir'
 
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import { Delegation, Device, HealthcareParty, Patient, User } from '../icc-api/model/models'
-import { b2a, b64_2uas, hex2ua, string2ua, ua2hex, ua2string, ua2utf8, utf8_2ua } from './utils/binary-utils'
-import { IccDeviceApi } from '../icc-api'
+import {Delegation, Device, HealthcareParty, Patient, User} from '../icc-api/model/models'
+import {b2a, b64_2uas, hex2ua, string2ua, ua2hex, ua2string, ua2utf8, utf8_2ua} from './utils/binary-utils'
 
 interface DelegatorAndKeys {
   delegatorId: string
@@ -1470,7 +1469,7 @@ export class IccCryptoXApi {
     if (edKey) {
       const importedEdKey = await this._AES.importKey('raw', hex2ua(edKey.replace(/-/g, '')))
       try {
-        return this._AES[method](importedEdKey, content)
+        return await this._AES[method](importedEdKey, content)
       } catch (e) {
         return content
       }
@@ -1479,7 +1478,7 @@ export class IccCryptoXApi {
     const sfks = await this.extractKeysFromDelegationsForHcpHierarchy(user?.healthcarePartyId!, documentObject?.id!, documentObject?.encryptionKeys!)
     const importedEdKey = await this._AES.importKey('raw', hex2ua(sfks.extractedKeys[0].replace(/-/g, '')))
     try {
-      return this._AES[method](importedEdKey, content)
+      return await this._AES[method](importedEdKey, content)
     } catch (e) {
       return content
     }
