@@ -1,25 +1,25 @@
-import {before} from 'mocha'
+import { before } from 'mocha'
 
 import 'isomorphic-fetch'
 
-import {LocalStorage} from 'node-localstorage'
+import { LocalStorage } from 'node-localstorage'
 import * as os from 'os'
-import {Api} from '../../icc-x-api'
-import {crypto} from '../../node-compat'
-import {assert} from 'chai'
-import {randomUUID} from 'crypto'
-import {TestUtils} from '../utils/test_utils'
-import {User} from '../../icc-api/model/User'
-import {IccMaintenanceTaskXApi} from '../../icc-x-api/icc-maintenance-task-x-api'
-import {MaintenanceTask} from '../../icc-api/model/MaintenanceTask'
-import {PropertyStub} from '../../icc-api/model/PropertyStub'
-import {PropertyTypeStub} from '../../icc-api/model/PropertyTypeStub'
-import {TypedValueObject} from '../../icc-api/model/TypedValueObject'
-import {HealthcareParty} from '../../icc-api/model/HealthcareParty'
-import {Identifier} from '../../icc-api/model/Identifier'
-import {FilterChainMaintenanceTask} from '../../icc-api/model/FilterChainMaintenanceTask'
-import {MaintenanceTaskByIdsFilter} from '../../icc-x-api/filters/MaintenanceTaskByIdsFilter'
-import {MaintenanceTaskByHcPartyAndTypeFilter} from '../../icc-x-api/filters/MaintenanceTaskByHcPartyAndTypeFilter'
+import { Api, Apis } from '../../icc-x-api'
+import { crypto } from '../../node-compat'
+import { assert } from 'chai'
+import { randomUUID } from 'crypto'
+import { TestUtils } from '../utils/test_utils'
+import { User } from '../../icc-api/model/User'
+import { IccMaintenanceTaskXApi } from '../../icc-x-api/icc-maintenance-task-x-api'
+import { MaintenanceTask } from '../../icc-api/model/MaintenanceTask'
+import { PropertyStub } from '../../icc-api/model/PropertyStub'
+import { PropertyTypeStub } from '../../icc-api/model/PropertyTypeStub'
+import { TypedValueObject } from '../../icc-api/model/TypedValueObject'
+import { HealthcareParty } from '../../icc-api/model/HealthcareParty'
+import { Identifier } from '../../icc-api/model/Identifier'
+import { FilterChainMaintenanceTask } from '../../icc-api/model/FilterChainMaintenanceTask'
+import { MaintenanceTaskByIdsFilter } from '../../icc-x-api/filters/MaintenanceTaskByIdsFilter'
+import { MaintenanceTaskByHcPartyAndTypeFilter } from '../../icc-x-api/filters/MaintenanceTaskByHcPartyAndTypeFilter'
 import initKey = TestUtils.initKey
 
 const tmp = os.tmpdir()
@@ -35,6 +35,14 @@ const hcp1PrivKey = process.env.HCP_PRIV_KEY!
 const hcp2UserName = process.env.HCP_2_USERNAME!
 const hcp2Password = process.env.HCP_2_PASSWORD!
 const hcp2PrivKey = process.env.HCP_2_PRIV_KEY!
+
+let apiForHcp1: Apis
+let hcp1User: User
+let hcp1: HealthcareParty
+
+let apiForHcp2: Apis
+let hcp2User: User
+let hcp2: HealthcareParty
 
 function maintenanceTaskToCreate(mTaskApiForHcp: IccMaintenanceTaskXApi, hcpUser: User, delegatedTo: HealthcareParty) {
   return mTaskApiForHcp.newInstance(
@@ -62,11 +70,11 @@ function maintenanceTaskToCreate(mTaskApiForHcp: IccMaintenanceTaskXApi, hcpUser
         }),
       ],
     }),
-    delegatedTo.id
+    [delegatedTo.id!]
   )
 }
 
-before(() => {
+before(async () => {
   console.info(`Starting tests using iCure URL : ${iCureUrl}`)
 
   if (hcp1UserName == undefined) {
@@ -92,33 +100,27 @@ before(() => {
   if (hcp2PrivKey == undefined) {
     throw Error(`To run tests, you need to provide environment variable HCP_2_PRIV_KEY`)
   }
+
+  // Init HCP1
+  apiForHcp1 = await Api(iCureUrl, hcp1UserName, hcp1Password, crypto)
+  hcp1User = await apiForHcp1.userApi.getCurrentUser()
+  hcp1 = await apiForHcp1.healthcarePartyApi.getCurrentHealthcareParty()
+
+  await initKey(apiForHcp1.userApi, apiForHcp1.cryptoApi, hcp1User, hcp1PrivKey)
+
+  // Init HCP2
+  apiForHcp2 = await Api(iCureUrl, hcp2UserName, hcp2Password, crypto)
+  hcp2User = await apiForHcp2.userApi.getCurrentUser()
+  hcp2 = await apiForHcp2.healthcarePartyApi.getCurrentHealthcareParty()
 })
 
 describe('icc-x-maintenance-task-api Tests', () => {
   it('CreateMaintenanceTaskWithUser Success for HCP', async () => {
     // Given
-    const {
-      userApi: userApiForHcp1,
-      maintenanceTaskApi: maintenanceTaskApiForHcp1,
-      cryptoApi: cryptoApiForHcp1,
-    } = await Api(iCureUrl, hcp1UserName!, hcp1Password!, crypto)
-
-    const hcp1User = await userApiForHcp1.getCurrentUser()
-    await initKey(userApiForHcp1, cryptoApiForHcp1, hcp1User, hcp1PrivKey!)
-
-    const {
-      userApi: userApiForHcp2,
-      healthcarePartyApi: hcPartyApiForHcp2,
-      maintenanceTaskApi: maintenanceTaskApiForHcp2,
-    } = await Api(iCureUrl, hcp1UserName!, hcp1Password!, crypto)
-
-    const hcp2User = await userApiForHcp2.getCurrentUser()
-    const hcp2 = await hcPartyApiForHcp2.getCurrentHealthcareParty()
-
-    const taskToCreate = await maintenanceTaskToCreate(maintenanceTaskApiForHcp1, hcp1User, hcp2)
+    const taskToCreate = await maintenanceTaskToCreate(apiForHcp1.maintenanceTaskApi, hcp1User, hcp2)
 
     // When
-    const createdTask = await maintenanceTaskApiForHcp1.createMaintenanceTaskWithUser(hcp1User, taskToCreate)
+    const createdTask = await apiForHcp1.maintenanceTaskApi.createMaintenanceTaskWithUser(hcp1User, taskToCreate)
 
     // Then
     assert(createdTask != null)
@@ -128,34 +130,23 @@ describe('icc-x-maintenance-task-api Tests', () => {
     assert(createdTask.encryptionKeys[hcp1User.healthcarePartyId!] != undefined)
     assert(createdTask.encryptionKeys[hcp2User.healthcarePartyId!] != undefined)
 
-    const foundTask: MaintenanceTask = await maintenanceTaskApiForHcp2.getMaintenanceTaskWithUser(hcp2User, createdTask.id)
+    const foundTask: MaintenanceTask = await apiForHcp2.maintenanceTaskApi.getMaintenanceTaskWithUser(hcp2User, createdTask.id)
 
     assert(foundTask.id == createdTask.id)
     assert(foundTask.properties?.find((prop: PropertyStub) => prop.typedValue?.stringValue == hcp2.id) != undefined)
     assert(foundTask.properties?.find((prop: PropertyStub) => prop.typedValue?.stringValue == hcp2.publicKey) != undefined)
-  }).timeout(10000)
+  })
 
   it('ModifyMaintenanceTaskWithUser Success for HCP', async () => {
     // Given
-    const {
-      userApi: userApiForHcp1,
-      healthcarePartyApi: hcPartyApiForHcp1,
-      maintenanceTaskApi: maintenanceTaskApiForHcp1,
-      cryptoApi: cryptoApiForHcp1,
-    } = await Api(iCureUrl, hcp1UserName!, hcp1Password!, crypto)
-
-    const hcp1User = await userApiForHcp1.getCurrentUser()
-    const hcp1 = await hcPartyApiForHcp1.getCurrentHealthcareParty()
-    await initKey(userApiForHcp1, cryptoApiForHcp1, hcp1User, hcp1PrivKey!)
-
-    const createdTask: MaintenanceTask = await maintenanceTaskApiForHcp1.createMaintenanceTaskWithUser(
+    const createdTask: MaintenanceTask = await apiForHcp1.maintenanceTaskApi.createMaintenanceTaskWithUser(
       hcp1User,
-      await maintenanceTaskToCreate(maintenanceTaskApiForHcp1, hcp1User, hcp1)
+      await maintenanceTaskToCreate(apiForHcp1.maintenanceTaskApi, hcp1User, hcp1)
     )
     const identifierToAdd = new Identifier({ id: 'SYSTEM-TEST|VALUE-TEST', system: 'SYSTEM-TEST', value: 'VALUE-TEST' })
 
     // When
-    const updatedTask: MaintenanceTask = await maintenanceTaskApiForHcp1.modifyMaintenanceTaskWithUser(
+    const updatedTask: MaintenanceTask = await apiForHcp1.maintenanceTaskApi.modifyMaintenanceTaskWithUser(
       hcp1User,
       new MaintenanceTask({ ...createdTask, identifier: [identifierToAdd], status: MaintenanceTask.StatusEnum.Ongoing })
     )
@@ -166,29 +157,18 @@ describe('icc-x-maintenance-task-api Tests', () => {
     assert(updatedTask.identifier?.[0].value == identifierToAdd.value)
     assert(updatedTask.identifier?.[0].id == identifierToAdd.id)
     assert(updatedTask.status == MaintenanceTask.StatusEnum.Ongoing)
-  }).timeout(10000)
+  })
 
   it('FilterMaintenanceTaskByWithUser By Ids Success for HCP', async () => {
     // Given
-    const {
-      userApi: userApiForHcp1,
-      healthcarePartyApi: hcPartyApiForHcp1,
-      maintenanceTaskApi: maintenanceTaskApiForHcp1,
-      cryptoApi: cryptoApiForHcp1,
-    } = await Api(iCureUrl, hcp1UserName!, hcp1Password!, crypto)
-
-    const hcp1User = await userApiForHcp1.getCurrentUser()
-    const hcp1 = await hcPartyApiForHcp1.getCurrentHealthcareParty()
-    await initKey(userApiForHcp1, cryptoApiForHcp1, hcp1User, hcp1PrivKey!)
-
-    const createdTask: MaintenanceTask = await maintenanceTaskApiForHcp1.createMaintenanceTaskWithUser(
+    const createdTask: MaintenanceTask = await apiForHcp1.maintenanceTaskApi.createMaintenanceTaskWithUser(
       hcp1User,
-      await maintenanceTaskToCreate(maintenanceTaskApiForHcp1, hcp1User, hcp1)
+      await maintenanceTaskToCreate(apiForHcp1.maintenanceTaskApi, hcp1User, hcp1)
     )
 
     // When
     const foundTask = (
-      await maintenanceTaskApiForHcp1.filterMaintenanceTasksByWithUser(
+      await apiForHcp1.maintenanceTaskApi.filterMaintenanceTasksByWithUser(
         hcp1User,
         undefined,
         undefined,
@@ -206,25 +186,14 @@ describe('icc-x-maintenance-task-api Tests', () => {
 
   it('FilterMaintenanceTaskByWithUser By Type Success for HCP', async () => {
     // Given
-    const {
-      userApi: userApiForHcp1,
-      healthcarePartyApi: hcPartyApiForHcp1,
-      maintenanceTaskApi: maintenanceTaskApiForHcp1,
-      cryptoApi: cryptoApiForHcp1,
-    } = await Api(iCureUrl, hcp1UserName!, hcp1Password!, crypto)
-
-    const hcp1User = await userApiForHcp1.getCurrentUser()
-    const hcp1 = await hcPartyApiForHcp1.getCurrentHealthcareParty()
-    await initKey(userApiForHcp1, cryptoApiForHcp1, hcp1User, hcp1PrivKey!)
-
-    const createdTask: MaintenanceTask = await maintenanceTaskApiForHcp1.createMaintenanceTaskWithUser(
+    const createdTask: MaintenanceTask = await apiForHcp1.maintenanceTaskApi.createMaintenanceTaskWithUser(
       hcp1User,
-      await maintenanceTaskToCreate(maintenanceTaskApiForHcp1, hcp1User, hcp1)
+      await maintenanceTaskToCreate(apiForHcp1.maintenanceTaskApi, hcp1User, hcp1)
     )
 
     // When
     const foundTask = (
-      await maintenanceTaskApiForHcp1.filterMaintenanceTasksByWithUser(
+      await apiForHcp1.maintenanceTaskApi.filterMaintenanceTasksByWithUser(
         hcp1User,
         undefined,
         undefined,

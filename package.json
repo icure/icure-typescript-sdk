@@ -49,6 +49,7 @@
     "node-fetch": "^2.6.1",
     "node-jq": "^2.1.0",
     "node-localstorage": "^2.2.1",
+    "nyc": "^15.1.0",
     "prettier": "^2.2.1",
     "pretty-quick": "^3.1.0",
     "rimraf": "^3.0.2",
@@ -61,12 +62,12 @@
     "gen": "java -classpath swagger-codegen-generators.jar io.swagger.codegen.v3.cli.SwaggerCodegen generate -i https://kraken.svc.icure.cloud/v3/api-docs/v1 -l typescript --additional-properties classPrefix=Icc skipPathPrefix=/rest/v1 -o ./icc-api/",
     "genloc": "java -classpath swagger-codegen-generators.jar io.swagger.codegen.v3.cli.SwaggerCodegen generate -i http://127.0.0.1:16043/v3/api-docs/v1 -l typescript --additional-properties classPrefix=Icc skipPathPrefix=/rest/v1 -o ./icc-api/",
     "gendev": "java -classpath swagger-codegen-generators.jar io.swagger.codegen.v3.cli.SwaggerCodegen generate -i https://kraken.icure.dev/v3/api-docs/v1 -l typescript --additional-properties classPrefix=Icc skipPathPrefix=/rest/v1 -o ./icc-api/",
-    "test": "echo \"Error: no test specified\" && exit 1",
     "eslint": "eslint --fix icc-api/* icc-x-api/*",
     "build": "tsc",
     "prepare": "rimraf dist && npm run build && jq '{name:.name, version:.version, description:.description, main:\"index.js\", types:\"index.d.ts\", dependencies:.dependencies, author:.author, license:.license, bugs:.bugs, homepage:.homepage}' < package.json > dist/package.json",
     "publish": "yarn version && yarn run prepare && cd dist && yarn publish --no-git-tag-version --new-version `git describe --abbrev=0 --tags` && cd ..",
-    "precommit": "pretty-quick --staged"
+    "precommit": "pretty-quick --staged",
+    "test": "nyc mocha test/**/*.ts --require ts-node/register --require source-map-support/register --timeout=15000 --recursive"
   },
   "repository": {
     "type": "git",
@@ -76,6 +77,20 @@
     "semi": false,
     "printWidth": 150,
     "singleQuote": true
+  },
+  "nyc": {
+    "extension": [
+      ".ts",
+      ".tsx"
+    ],
+    "exclude": [
+      "**/*.d.ts"
+    ],
+    "reporter": [
+      "html",
+      "lcov"
+    ],
+    "all": true
   },
   "author": "Taktik sa - B12 Consulting",
   "license": "MIT",
