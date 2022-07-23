@@ -18,9 +18,6 @@ const hcp2UserName = process.env.HCP_2_USERNAME!
 const hcp2Password = process.env.HCP_2_PASSWORD!
 const hcp2PrivKey = process.env.HCP_2_PRIV_KEY!
 
-const api = Api(iCureUrl, hcp1UserName, hcp1Password, crypto)
-const mhapi = Api(iCureUrl, hcp2UserName, hcp2Password, crypto)
-
 describe('Create a patient from scratch', () => {
   it('should create a patient in the database', async () => {
     try {
