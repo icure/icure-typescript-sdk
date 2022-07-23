@@ -35,7 +35,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
     this.encryptedKeys = encryptedKeys
   }
 
-  newInstance(user: models.User, m: any, taskDelegatedTo: string | undefined = undefined, delegates: string[] = []) {
+  newInstance(user: models.User, m: any, delegates: string[] = []) {
     const dataOwnerId = this.userApi.getDataOwnerOf(user)
     const maintenanceTask = _.assign(
       {
@@ -49,7 +49,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
       m || {}
     )
 
-    return this.initDelegations(user, maintenanceTask, delegates)
+    return this.initDelegations(user, maintenanceTask, delegates).then((task) => this.initEncryptionKeys(user, task, delegates))
   }
 
   initDelegations(user: models.User, maintenanceTask: models.MaintenanceTask, delegates: string[] = []): Promise<models.MaintenanceTask> {
@@ -72,7 +72,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
     })
   }
 
-  initEncryptionKeys(user: models.User, maintenanceTask: models.MaintenanceTask): Promise<models.MaintenanceTask> {
+  initEncryptionKeys(user: models.User, maintenanceTask: models.MaintenanceTask, delegates: string[] = []): Promise<models.MaintenanceTask> {
     const dataOwnerId = this.userApi.getDataOwnerOf(user)
     return this.crypto.initEncryptionKeys(maintenanceTask, dataOwnerId!).then((eks) => {
       let promise = Promise.resolve(
@@ -80,7 +80,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
           encryptionKeys: eks.encryptionKeys,
         })
       )
-      ;(user.autoDelegations ? user.autoDelegations.all || [] : []).forEach(
+      _.uniq(delegates.concat(user.autoDelegations ? user.autoDelegations.all || [] : [])).forEach(
         (delegateId) =>
           (promise = promise.then((patient) =>
             this.crypto
