@@ -825,7 +825,7 @@ export class IccCryptoXApi {
         return { ...map, [e[0]]: { [publicKeyFingerprint]: encryptedAesExchangeKey } }
       }, {} as { [pubKeyIdentifier: string]: { [pubKeyFingerprint: string]: string } })
 
-    return !owner.publicKey || mapOfAesExchangeKeys[owner.publicKey] || !owner.hcPartyKeys?.[delegateId]
+    return !owner.publicKey || mapOfAesExchangeKeys[owner.publicKey] || !owner.hcPartyKeys?.[delegateId] || (publicKeys.find((p) => p == owner.publicKey!) == undefined)
       ? mapOfAesExchangeKeys
       : { ...mapOfAesExchangeKeys, [owner.publicKey]: { [owner.publicKey.slice(-32)]: owner.hcPartyKeys[delegateId][0] } }
   }
@@ -1311,7 +1311,7 @@ export class IccCryptoXApi {
       'jwk',
       spkiToJwk(hex2ua(publicKey))
     )
-    this.rsaKeyPairs[healthcarePartyId] = keyPair
+    this.rsaKeyPairs[publicKey.slice(-32)] = keyPair
     const exportedKeyPair = await this._RSA.exportKeys(keyPair, 'jwk', 'jwk')
 
     return this.storeKeyPair(`${healthcarePartyId}.${publicKey.slice(-32)}`, exportedKeyPair)
