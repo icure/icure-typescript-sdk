@@ -43,7 +43,9 @@ export class IccAuthApi {
 
     const _url = this.host + `/auth/login` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    headers = headers
+      .filter((h) => h.header !== 'Content-Type' && h.header?.toLowerCase() !== 'authorization')
+      .concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, true)
       .then((doc) => new AuthenticationResponse(doc.body as JSON))
       .catch((err) => this.handleError(err))

@@ -1,7 +1,7 @@
-import { IccDeviceApi, IccHcpartyApi, IccPatientApi } from '../icc-api'
-import { AESUtils } from './crypto/AES'
-import { RSAUtils } from './crypto/RSA'
-import { ShamirClass } from './crypto/shamir'
+import {IccDeviceApi, IccHcpartyApi, IccPatientApi} from '../icc-api'
+import {AESUtils} from './crypto/AES'
+import {RSAUtils} from './crypto/RSA'
+import {ShamirClass} from './crypto/shamir'
 
 import * as _ from 'lodash'
 import {
@@ -1755,7 +1755,7 @@ export class IccCryptoXApi {
         tasksForDelegates
           .concat(tasksForDelegator)
           .map(async ({ delegateId, maintenanceTask }) => {
-            const taskToCreate = await maintenanceTaskApi?.newInstance(user, maintenanceTask, delegateId)
+            const taskToCreate = await maintenanceTaskApi?.newInstance(user, maintenanceTask, [delegateId])
             return taskToCreate ? maintenanceTaskApi?.createMaintenanceTaskWithUser(user, taskToCreate) : undefined
           })
           .filter((createdTask) => createdTask != undefined)
@@ -1998,7 +1998,7 @@ export class IccCryptoXApi {
     if (edKey) {
       const importedEdKey = await this._AES.importKey('raw', hex2ua(edKey.replace(/-/g, '')))
       try {
-        return this._AES[method](importedEdKey, content)
+        return await this._AES[method](importedEdKey, content)
       } catch (e) {
         return content
       }
@@ -2007,7 +2007,7 @@ export class IccCryptoXApi {
     const sfks = await this.extractKeysFromDelegationsForHcpHierarchy(user?.healthcarePartyId!, documentObject?.id!, documentObject?.encryptionKeys!)
     const importedEdKey = await this._AES.importKey('raw', hex2ua(sfks.extractedKeys[0].replace(/-/g, '')))
     try {
-      return this._AES[method](importedEdKey, content)
+      return await this._AES[method](importedEdKey, content)
     } catch (e) {
       return content
     }

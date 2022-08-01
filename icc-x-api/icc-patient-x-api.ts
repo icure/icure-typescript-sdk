@@ -488,7 +488,10 @@ export class IccPatientXApi extends IccPatientApi {
 
   encrypt(user: models.User, pats: Array<models.Patient>): Promise<Array<models.Patient>> {
     const dataOwnerId = this.userApi.getDataOwnerOf(user)
-
+    const fixEncryptionKeys = (p: models.Patient) => {
+      if (p.delegations && p.delegations[dataOwnerId]) return this.initEncryptionKeys(user, p, Object.keys(p.delegations)) as Promise<any>
+      else throw new Error(`Patient ${p.id} has no delegation or encryption key for hcp ${dataOwnerId}`)
+    }
     return Promise.all(
       pats.map((p) =>
         (p.encryptionKeys && Object.keys(p.encryptionKeys).some((k) => !!p.encryptionKeys![k].length)
@@ -605,15 +608,18 @@ export class IccPatientXApi extends IccPatientApi {
     )
   }
 
-  initEncryptionKeys(user: models.User, pat: models.Patient): Promise<models.Patient> {
+  /** By default, an encryptionKey will be added for every hcp in the autoDelegations of the provided user.
+   * In optional field additionalDelegateIds, you can ask the method to create encryptionKeys for additional hcps */
+  initEncryptionKeys(user: models.User, pat: models.Patient, additionalDelegateIds?: string[]): Promise<models.Patient> {
     const dataOwnerId = this.userApi.getDataOwnerOf(user)
+    const userAutoDelegations = user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []
     return this.crypto.initEncryptionKeys(pat, dataOwnerId!).then((eks) => {
       let promise = Promise.resolve(
         _.extend(pat, {
           encryptionKeys: eks.encryptionKeys,
         })
       )
-      ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
+      new Set([...userAutoDelegations, ...(additionalDelegateIds || [])]).forEach(
         (delegateId) =>
           (promise = promise.then((patient) =>
             this.crypto
@@ -830,7 +836,7 @@ export class IccPatientXApi extends IccPatientApi {
                   ctcs.forEach(
                     (c: models.Contact) =>
                       c.services &&
-                      c.services.forEach((s) => s.content && Object.values(s.content).forEach((c) => c.documentId && (docIds[c.documentId] = 1)))
+                      c.services.forEach((s) => s.content && Object.values(s.content).forEach((c) => c && c.documentId && (docIds[c.documentId] = 1)))
                   )
 
                   return retry(() => this.documentApi.getDocuments(new ListOfIds({ ids: Object.keys(docIds) }))).then((docs: Array<Document>) => {
@@ -1138,7 +1144,7 @@ export class IccPatientXApi extends IccPatientApi {
                   ctcs.forEach(
                     (c: models.Contact) =>
                       c.services &&
-                      c.services.forEach((s) => s.content && Object.values(s.content).forEach((c) => c.documentId && (docIds[c.documentId] = 1)))
+                      c.services.forEach((s) => s.content && Object.values(s.content).forEach((c) => c && c.documentId && (docIds[c.documentId] = 1)))
                   )
 
                   return retry(() => this.documentApi.getDocuments(new ListOfIds({ ids: Object.keys(docIds) }))).then((docs: Array<Document>) => {
