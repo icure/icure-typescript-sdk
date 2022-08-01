@@ -1,19 +1,20 @@
-import { before } from 'mocha'
+import {before} from 'mocha'
 
 import 'isomorphic-fetch'
 
-import { LocalStorage } from 'node-localstorage'
+import {LocalStorage} from 'node-localstorage'
 import * as os from 'os'
-import { Api, IccHelementXApi, IccPatientXApi } from '../../icc-x-api'
-import { crypto } from '../../node-compat'
-import { Patient } from '../../icc-api/model/Patient'
-import { assert } from 'chai'
-import { randomUUID } from 'crypto'
-import { TestUtils } from '../utils/test_utils'
+import {Api, IccHelementXApi, IccPatientXApi} from '../../icc-x-api'
+import {crypto} from '../../node-compat'
+import {Patient} from '../../icc-api/model/Patient'
+import {assert} from 'chai'
+import {randomUUID} from 'crypto'
+import {TestUtils} from '../utils/test_utils'
+import {HealthElement} from '../../icc-api/model/HealthElement'
+import {Code} from '../../icc-api/model/Code'
+import {User} from '../../icc-api/model/User'
 import initKey = TestUtils.initKey
-import { HealthElement } from '../../icc-api/model/HealthElement'
-import { Code } from '../../icc-api/model/Code'
-import { User } from '../../icc-api/model/User'
+
 const tmp = os.tmpdir()
 console.log('Saving keys in ' + tmp)
 ;(global as any).localStorage = new LocalStorage(tmp, 5 * 1024 * 1024 * 1024)
