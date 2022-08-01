@@ -1,3 +1,5 @@
+import { AbstractFilterUser } from '../../icc-api/model/AbstractFilterUser'
+
 /**
  * iCure Data Stack API Documentation
  * The iCure Data Stack Application API is the native interface to iCure. This version is obsolete, please use v2.
@@ -10,19 +12,14 @@
  * Do not edit the class manually.
  */
 
-export class UserGroup {
+export class UsersByPatientIdFilter extends AbstractFilterUser {
+  $type: string = 'UsersByPatientIdFilter'
   constructor(json: JSON | any) {
-    Object.assign(this as UserGroup, json)
+    super(json)
+
+    Object.assign(this as UsersByPatientIdFilter, json)
   }
 
-  groupId?: string
-  groupName?: string
-  userId?: string
-  login?: string
-  name?: string
-  email?: string
-  phone?: string
   patientId?: string
-  healthcarePartyId?: string
-  deviceId?: string
+  desc?: string
 }

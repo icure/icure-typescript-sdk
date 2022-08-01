@@ -53,6 +53,23 @@ export class IccCodeApi {
   }
 
   /**
+   * Create a batch of code entities. Fields Type, Code and Version are required for each code.
+   * @summary Create a batch of codes
+   * @param body
+   */
+  createCodes(body?: Array<Code>): Promise<Array<Code>> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/code/batch` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Code(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    * Returns a list of codes along with next start keys and Document ID. If the nextStartKey is Null it means that this is the last page.
    * @summary Filter codes
    * @param body
@@ -188,6 +205,7 @@ export class IccCodeApi {
    * @param types
    * @param language
    * @param label
+   * @param version
    * @param startKey The start key for pagination: a JSON representation of an array containing all the necessary components to form the Complex Key&#x27;s startKey
    * @param startDocumentId A code document ID
    * @param limit Number of rows
@@ -197,6 +215,7 @@ export class IccCodeApi {
     types?: string,
     language?: string,
     label?: string,
+    version?: string,
     startKey?: string,
     startDocumentId?: string,
     limit?: number
@@ -212,6 +231,7 @@ export class IccCodeApi {
       (types ? '&types=' + encodeURIComponent(String(types)) : '') +
       (language ? '&language=' + encodeURIComponent(String(language)) : '') +
       (label ? '&label=' + encodeURIComponent(String(label)) : '') +
+      (version ? '&version=' + encodeURIComponent(String(version)) : '') +
       (startKey ? '&startKey=' + encodeURIComponent(String(startKey)) : '') +
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
@@ -373,6 +393,23 @@ export class IccCodeApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
       .then((doc) => new Code(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Modification of (type, code, version) is not allowed.
+   * @summary Modify a batch of codes
+   * @param body
+   */
+  modifyCodes(body?: Array<Code>): Promise<Array<Code>> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/code/batch` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Code(it)))
       .catch((err) => this.handleError(err))
   }
 }
