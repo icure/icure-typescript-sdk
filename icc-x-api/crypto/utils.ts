@@ -28,7 +28,7 @@ export class UtilsClass {
       0x30,
       [
         [0x02, '00'],
-        [0x30, [[0x06, '2a864886f70d010101'], [0x05]]],
+        [0x30, [[0x06, '2a864886f70d010101'], [0x05]]], // pragma: allowlist secret (object identifier of RSA)
         [
           0x04,
           [
@@ -73,7 +73,7 @@ export class UtilsClass {
     return pack([
       0x30,
       [
-        [0x30, [[0x06, '2a864886f70d010101'], [0x05]]],
+        [0x30, [[0x06, '2a864886f70d010101'], [0x05]]], // pragma: allowlist secret (object identifier of RSA)
         [
           0x03,
           [
@@ -99,7 +99,7 @@ export class UtilsClass {
       asn1.type === 0x30 &&
       asn1.children?.[0]?.type === 0x30 &&
       asn1.children?.[0]?.children?.[0]?.type === 0x06 &&
-      ua2hex(asn1.children?.[0]?.children?.[0]?.value ?? new Uint8Array()) === '2a864886f70d010101'
+      ua2hex(asn1.children?.[0]?.children?.[0]?.value ?? new Uint8Array()) === '2a864886f70d010101' // pragma: allowlist secret (object identifier of RSA)
     ) {
       modulus = asn1.children?.[1]?.children?.[0]?.children?.[0]?.value
       exponent = asn1.children?.[1]?.children?.[0]?.children?.[1]?.value
