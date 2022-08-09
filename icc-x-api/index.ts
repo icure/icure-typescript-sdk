@@ -128,10 +128,12 @@ export const Api = async function (
   const messageApi = new IccMessageXApi(host, headers, cryptoApi, userApi, fetchImpl)
   const maintenanceTaskApi = new IccMaintenanceTaskXApi(host, headers, cryptoApi, userApi, healthcarePartyApi, ['properties'], fetchImpl)
 
-  try {
-    await authApi.login({ username, password })
-  } catch (e) {
-    console.error('Incorrect user and password used to instantiate Api, or network problem', e)
+  if (username != undefined && password != undefined) {
+    try {
+      await authApi.login({username, password})
+    } catch (e) {
+      console.error('Incorrect user and password used to instantiate Api, or network problem', e)
+    }
   }
 
   return {
