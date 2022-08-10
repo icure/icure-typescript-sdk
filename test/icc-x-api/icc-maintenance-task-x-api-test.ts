@@ -21,6 +21,7 @@ import { FilterChainMaintenanceTask } from '../../icc-api/model/FilterChainMaint
 import { MaintenanceTaskByIdsFilter } from '../../icc-x-api/filters/MaintenanceTaskByIdsFilter'
 import { MaintenanceTaskByHcPartyAndTypeFilter } from '../../icc-x-api/filters/MaintenanceTaskByHcPartyAndTypeFilter'
 import initKey = TestUtils.initKey
+import { DocIdentifier } from '../../icc-api/model/DocIdentifier'
 
 const tmp = os.tmpdir()
 console.log('Saving keys in ' + tmp)
@@ -36,6 +37,10 @@ const hcp2UserName = process.env.HCP_2_USERNAME!
 const hcp2Password = process.env.HCP_2_PASSWORD!
 const hcp2PrivKey = process.env.HCP_2_PRIV_KEY!
 
+const hcp3UserName = process.env.HCP_3_USERNAME!
+const hcp3Password = process.env.HCP_3_PASSWORD!
+const hcp3PrivKey = process.env.HCP_3_PRIV_KEY!
+
 let apiForHcp1: Apis
 let hcp1User: User
 let hcp1: HealthcareParty
@@ -43,6 +48,10 @@ let hcp1: HealthcareParty
 let apiForHcp2: Apis
 let hcp2User: User
 let hcp2: HealthcareParty
+
+let apiForHcp3: Apis
+let hcp3User: User
+let hcp3: HealthcareParty
 
 function maintenanceTaskToCreate(mTaskApiForHcp: IccMaintenanceTaskXApi, hcpUser: User, delegatedTo: HealthcareParty) {
   return mTaskApiForHcp.newInstance(
@@ -101,6 +110,18 @@ before(async () => {
     throw Error(`To run tests, you need to provide environment variable HCP_2_PRIV_KEY`)
   }
 
+  if (hcp3UserName == undefined) {
+    throw Error(`To run tests, you need to provide environment variable HCP_3_USERNAME`)
+  }
+
+  if (hcp3Password == undefined) {
+    throw Error(`To run tests, you need to provide environment variable HCP_3_PASSWORD`)
+  }
+
+  if (hcp3PrivKey == undefined) {
+    throw Error(`To run tests, you need to provide environment variable HCP_3_PRIV_KEY`)
+  }
+
   // Init HCP1
   apiForHcp1 = await Api(iCureUrl, hcp1UserName, hcp1Password, crypto)
   hcp1User = await apiForHcp1.userApi.getCurrentUser()
@@ -112,6 +133,11 @@ before(async () => {
   apiForHcp2 = await Api(iCureUrl, hcp2UserName, hcp2Password, crypto)
   hcp2User = await apiForHcp2.userApi.getCurrentUser()
   hcp2 = await apiForHcp2.healthcarePartyApi.getCurrentHealthcareParty()
+
+  // Init HCP3
+  apiForHcp3 = await Api(iCureUrl, hcp3UserName, hcp3Password, crypto)
+  hcp3User = await apiForHcp3.userApi.getCurrentUser()
+  hcp3 = await apiForHcp3.healthcarePartyApi.getCurrentHealthcareParty()
 })
 
 describe('icc-x-maintenance-task-api Tests', () => {
@@ -157,6 +183,60 @@ describe('icc-x-maintenance-task-api Tests', () => {
     assert(updatedTask.identifier?.[0].value == identifierToAdd.value)
     assert(updatedTask.identifier?.[0].id == identifierToAdd.id)
     assert(updatedTask.status == MaintenanceTask.StatusEnum.Ongoing)
+  })
+
+  it('DeleteMaintenanceTaskWithUser Success for delegated HCP', async () => {
+    // Given
+    const createdTask: MaintenanceTask = await apiForHcp1.maintenanceTaskApi.createMaintenanceTaskWithUser(
+      hcp1User,
+      await maintenanceTaskToCreate(apiForHcp1.maintenanceTaskApi, hcp1User, hcp1)
+    )
+    assert(!!createdTask.id)
+
+    // When
+    const deletedTask: DocIdentifier[] = await apiForHcp1.maintenanceTaskApi.deleteMaintenanceTaskWithUser(hcp1User, createdTask.id!)
+
+    // Then
+    assert(!!deletedTask)
+    assert(deletedTask.length == 1)
+    assert(deletedTask[0].id === createdTask.id)
+  })
+
+  it('DeleteMaintenanceTaskWithUser Success for HCP that which parent has delegation', async () => {
+    // Given
+    const createdTask: MaintenanceTask = await apiForHcp1.maintenanceTaskApi.createMaintenanceTaskWithUser(
+      hcp1User,
+      await maintenanceTaskToCreate(apiForHcp1.maintenanceTaskApi, hcp1User, hcp1)
+    )
+    assert(!!createdTask.id)
+
+    // When
+    const deletedTask: DocIdentifier[] = await apiForHcp2.maintenanceTaskApi.deleteMaintenanceTaskWithUser(hcp1User, createdTask.id!)
+
+    // Then
+    assert(!!deletedTask)
+    assert(deletedTask.length == 1)
+    assert(deletedTask[0].id === createdTask.id)
+  })
+
+  it('DeleteMaintenanceTaskWithUser Fails for non-delegated HCP', async () => {
+    // Given
+    const createdTask: MaintenanceTask = await apiForHcp1.maintenanceTaskApi.createMaintenanceTaskWithUser(
+      hcp1User,
+      await maintenanceTaskToCreate(apiForHcp1.maintenanceTaskApi, hcp1User, hcp1)
+    )
+    assert(!!createdTask.id)
+
+    // When
+    const deletedTask: DocIdentifier[] = await apiForHcp3.maintenanceTaskApi.deleteMaintenanceTaskWithUser(hcp3User, createdTask.id!)
+
+    // Then
+    assert(!!deletedTask)
+    assert(deletedTask.length == 0)
+
+    const actualTask: MaintenanceTask = await apiForHcp1.maintenanceTaskApi.getMaintenanceTaskWithUser(hcp1User, createdTask.id!)
+    assert(!!actualTask)
+    assert(!actualTask.deletionDate)
   })
 
   it('FilterMaintenanceTaskByWithUser By Ids Success for HCP', async () => {

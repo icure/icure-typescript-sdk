@@ -7,6 +7,8 @@ import { a2b, b2a, string2ua } from '../icc-api/model/ModelHelper'
 import { hex2ua, ua2utf8, utf8_2ua } from './utils'
 import { utils } from './crypto/utils'
 import { IccHcpartyXApi } from './icc-hcparty-x-api'
+import { DocIdentifier } from '../icc-api/model/models'
+import { hasAccessTo } from './utils/data-owner-util'
 
 export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
   crypto: IccCryptoXApi
@@ -115,6 +117,18 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
 
   filterMaintenanceTasksBy(startDocumentId?: string, limit?: number, body?: models.FilterChainMaintenanceTask): never {
     throw new Error('Cannot call a method that returns maintenance tasks without providing a user for de/encryption')
+  }
+
+  deleteMaintenanceTask(maintenanceTaskIds: string): never {
+    throw new Error('Cannot call a method that returns maintenance tasks without providing a user for de/encryption')
+  }
+
+  deleteMaintenanceTaskWithUser(user: models.User, maintenanceTaskId: string): Promise<Array<DocIdentifier>> {
+    return this.crypto.getDataOwner(this.userApi.getDataOwnerOf(user)).then(({ dataOwner: hcp }) => {
+      return super
+        .getMaintenanceTask(maintenanceTaskId)
+        .then((mt) => (!!mt.delegations && hasAccessTo(hcp, mt.delegations) ? super.deleteMaintenanceTask(maintenanceTaskId) : []))
+    })
   }
 
   filterMaintenanceTasksByWithUser(
