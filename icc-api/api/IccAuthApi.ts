@@ -33,6 +33,23 @@ export class IccAuthApi {
   }
 
   /**
+   * Check login using groupId/userId and password
+   * @summary check
+   * @param body
+   */
+  check(body?: LoginCredentials): Promise<AuthenticationResponse> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/auth/check` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+      .then((doc) => new AuthenticationResponse(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    * Login using username and password
    * @summary login
    * @param body
