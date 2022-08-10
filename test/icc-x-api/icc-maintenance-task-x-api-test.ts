@@ -228,12 +228,16 @@ describe('icc-x-maintenance-task-api Tests', () => {
     assert(!!createdTask.id)
 
     // When
-    const deletedTask: DocIdentifier[] = await apiForHcp3.maintenanceTaskApi.deleteMaintenanceTaskWithUser(hcp3User, createdTask.id!)
+    apiForHcp3.maintenanceTaskApi.deleteMaintenanceTaskWithUser(hcp3User, createdTask.id!).then(
+      () => {
+        throw new Error('You should not be here')
+      },
+      (e) => {
+        assert(!!e)
+      }
+    )
 
     // Then
-    assert(!!deletedTask)
-    assert(deletedTask.length == 0)
-
     const actualTask: MaintenanceTask = await apiForHcp1.maintenanceTaskApi.getMaintenanceTaskWithUser(hcp1User, createdTask.id!)
     assert(!!actualTask)
     assert(!actualTask.deletionDate)
