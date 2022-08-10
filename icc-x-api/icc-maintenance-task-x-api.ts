@@ -123,11 +123,12 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
     throw new Error('Cannot call a method that returns maintenance tasks without providing a user for de/encryption')
   }
 
-  deleteMaintenanceTaskWithUser(user: models.User, maintenanceTaskId: string): Promise<Array<DocIdentifier>> {
+  deleteMaintenanceTaskWithUser(user: models.User, maintenanceTaskId: string): Promise<Array<DocIdentifier>> | never {
     return this.crypto.getDataOwner(this.userApi.getDataOwnerOf(user)).then(({ dataOwner: hcp }) => {
-      return super
-        .getMaintenanceTask(maintenanceTaskId)
-        .then((mt) => (!!mt.delegations && hasAccessTo(hcp, mt.delegations) ? super.deleteMaintenanceTask(maintenanceTaskId) : []))
+      return super.getMaintenanceTask(maintenanceTaskId).then((mt) => {
+        if (!!mt.delegations && hasAccessTo(hcp, mt.delegations)) return super.deleteMaintenanceTask(maintenanceTaskId)
+        else throw new Error('User does not have a delegation for this maintenanceTask')
+      })
     })
   }
 

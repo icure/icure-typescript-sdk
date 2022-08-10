@@ -29,6 +29,9 @@ jobs:
           HCP_2_USERNAME: ${{ secrets.TEST_HCP_2_USER }}
           HCP_2_PASSWORD: ${{ secrets.TEST_HCP_2_PWD }}
           HCP_2_PRIV_KEY: ${{ secrets.TEST_HCP_2_PRIV_KEY }}
+          HCP_3_USERNAME: ${{ secrets.TEST_HCP_3_USER }}
+          HCP_3_PASSWORD: ${{ secrets.TEST_HCP_3_PWD }}
+          HCP_3_PRIV_KEY: ${{ secrets.TEST_HCP_3_PRIV_KEY }}
         run: yarn test
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
