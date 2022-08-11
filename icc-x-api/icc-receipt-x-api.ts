@@ -2,16 +2,16 @@ import { IccReceiptApi } from '../icc-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import { IccUserXApi } from './icc-user-x-api'
+import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 
 export class IccReceiptXApi extends IccReceiptApi {
-  userApi: IccUserXApi
+  dataOwnerApi: IccDataOwnerXApi
 
   constructor(
     host: string,
     headers: { [key: string]: string },
     private crypto: IccCryptoXApi,
-    userApi: IccUserXApi,
+    dataOwnerApi: IccDataOwnerXApi,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
@@ -19,7 +19,7 @@ export class IccReceiptXApi extends IccReceiptApi {
       : fetch
   ) {
     super(host, headers, fetchImpl)
-    this.userApi = userApi
+    this.dataOwnerApi = dataOwnerApi
   }
 
   newInstance(user: models.User, r: any): Promise<models.Receipt> {
@@ -30,7 +30,7 @@ export class IccReceiptXApi extends IccReceiptApi {
           _type: 'org.taktik.icure.entities.Receipt',
           created: new Date().getTime(),
           modified: new Date().getTime(),
-          responsible: this.userApi.getDataOwnerOf(user),
+          responsible: this.dataOwnerApi.getDataOwnerOf(user),
           author: user.id,
           codes: [],
           tags: [],
@@ -43,7 +43,7 @@ export class IccReceiptXApi extends IccReceiptApi {
   }
 
   initEncryptionKeys(user: models.User, rcpt: models.Receipt) {
-    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
 
     return this.crypto.initEncryptionKeys(rcpt, dataOwnerId).then((eks) => {
       let promise = Promise.resolve(
@@ -66,7 +66,7 @@ export class IccReceiptXApi extends IccReceiptApi {
   }
 
   private initDelegationsAndEncryptionKeys(user: models.User, receipt: models.Receipt): Promise<models.Receipt> {
-    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
 
     return Promise.all([
       this.crypto.initObjectDelegations(receipt, null, dataOwnerId, null),

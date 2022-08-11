@@ -17,11 +17,5 @@ export class IccUserXApi extends IccUserApi {
     this.fetchImpl = fetchImpl
   }
 
-  getDataOwnerOf(user: User): string {
-    const dataOwnerId = user.healthcarePartyId ?? user.patientId ?? user.deviceId
-    if (dataOwnerId == undefined) {
-      throw Error(`User ${user.id} is not a data owner`)
-    }
-    return dataOwnerId
-  }
+
 }

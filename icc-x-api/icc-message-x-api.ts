@@ -5,15 +5,16 @@ import * as _ from 'lodash'
 
 import { Patient, User } from '../icc-api/model/models'
 import { IccUserXApi } from './icc-user-x-api'
+import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 
 export class IccMessageXApi extends IccMessageApi {
-  userApi: IccUserXApi
+  dataOwnerApi: IccDataOwnerXApi
 
   constructor(
     host: string,
     headers: { [key: string]: string },
     private crypto: IccCryptoXApi,
-    userApi: IccUserXApi,
+    dataOwnerApi: IccDataOwnerXApi,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
@@ -22,7 +23,7 @@ export class IccMessageXApi extends IccMessageApi {
   ) {
     super(host, headers, fetchImpl)
     this.crypto = crypto
-    this.userApi = userApi
+    this.dataOwnerApi = dataOwnerApi
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -37,7 +38,7 @@ export class IccMessageXApi extends IccMessageApi {
         _type: 'org.taktik.icure.entities.Message',
         created: new Date().getTime(),
         modified: new Date().getTime(),
-        responsible: this.userApi.getDataOwnerOf(user),
+        responsible: this.dataOwnerApi.getDataOwnerOf(user),
         author: user.id,
         codes: [],
         tags: [],
@@ -45,7 +46,7 @@ export class IccMessageXApi extends IccMessageApi {
       m || {}
     )
 
-    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
 
     return this.crypto
       .extractDelegationsSFKs(patient, dataOwnerId)

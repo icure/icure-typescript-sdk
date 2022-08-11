@@ -127,7 +127,7 @@ before(async () => {
   hcp1User = await apiForHcp1.userApi.getCurrentUser()
   hcp1 = await apiForHcp1.healthcarePartyApi.getCurrentHealthcareParty()
 
-  await initKey(apiForHcp1.userApi, apiForHcp1.cryptoApi, hcp1User, hcp1PrivKey)
+  await initKey(apiForHcp1.dataOwnerApi, apiForHcp1.cryptoApi, hcp1User, hcp1PrivKey)
 
   // Init HCP2
   apiForHcp2 = await Api(iCureUrl, hcp2UserName, hcp2Password, crypto)

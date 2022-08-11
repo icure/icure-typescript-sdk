@@ -5,17 +5,17 @@ import * as models from '../icc-api/model/models'
 
 import * as _ from 'lodash'
 import * as moment from 'moment'
-import { IccUserXApi } from './icc-user-x-api'
+import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 
 export class IccClassificationXApi extends IccClassificationApi {
   crypto: IccCryptoXApi
-  userApi: IccUserXApi
+  dataOwnerApi: IccDataOwnerXApi
 
   constructor(
     host: string,
     headers: { [key: string]: string },
     crypto: IccCryptoXApi,
-    userApi: IccUserXApi,
+    dataOwnerApi: IccDataOwnerXApi,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
@@ -24,7 +24,7 @@ export class IccClassificationXApi extends IccClassificationApi {
   ) {
     super(host, headers, fetchImpl)
     this.crypto = crypto
-    this.userApi = userApi
+    this.dataOwnerApi = dataOwnerApi
   }
 
   newInstance(user: models.User, patient: models.Patient, c: any = {}, delegates: string[] = []): Promise<models.Classification> {
@@ -34,7 +34,7 @@ export class IccClassificationXApi extends IccClassificationApi {
         _type: 'org.taktik.icure.entities.Classification',
         created: new Date().getTime(),
         modified: new Date().getTime(),
-        responsible: this.userApi.getDataOwnerOf(user),
+        responsible: this.dataOwnerApi.getDataOwnerOf(user),
         author: user.id,
         codes: [],
         tags: [],
@@ -53,7 +53,7 @@ export class IccClassificationXApi extends IccClassificationApi {
     classification: models.Classification,
     delegates: string[] = []
   ): Promise<models.Classification> {
-    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
     return this.crypto
       .extractDelegationsSFKs(patient, dataOwnerId!)
       .then((secretForeignKeys) => this.crypto.initObjectDelegations(classification, patient, dataOwnerId!, secretForeignKeys.extractedKeys[0]))

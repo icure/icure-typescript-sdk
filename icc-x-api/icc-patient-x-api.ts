@@ -17,7 +17,7 @@ import { b64_2ab } from '../icc-api/model/ModelHelper'
 import { b2a, hex2ua, string2ua, ua2hex, ua2utf8, utf8_2ua } from './utils/binary-utils'
 import { findName, garnishPersonWithName, hasName } from './utils/person-util'
 import { retry } from './utils/net-utils'
-import { IccUserXApi } from './icc-user-x-api'
+import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccPatientXApi extends IccPatientApi {
@@ -30,7 +30,7 @@ export class IccPatientXApi extends IccPatientApi {
   documentApi: IccDocumentXApi
   classificationApi: IccClassificationXApi
   calendarItemApi: IccCalendarItemXApi
-  userApi: IccUserXApi
+  dataOwnerApi: IccDataOwnerXApi
 
   private readonly encryptedKeys: Array<string>
 
@@ -45,7 +45,7 @@ export class IccPatientXApi extends IccPatientApi {
     documentApi: IccDocumentXApi,
     hcpartyApi: IccHcpartyXApi,
     classificationApi: IccClassificationXApi,
-    userApi: IccUserXApi,
+    dataOwnerApi: IccDataOwnerXApi,
     calendarItemaApi: IccCalendarItemXApi,
     encryptedKeys: Array<string> = ['note'],
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
@@ -64,7 +64,7 @@ export class IccPatientXApi extends IccPatientApi {
     this.documentApi = documentApi
     this.classificationApi = classificationApi
     this.calendarItemApi = calendarItemaApi
-    this.userApi = userApi
+    this.dataOwnerApi = dataOwnerApi
 
     this.encryptedKeys = encryptedKeys
   }
@@ -77,7 +77,7 @@ export class IccPatientXApi extends IccPatientApi {
         _type: 'org.taktik.icure.entities.Patient',
         created: new Date().getTime(),
         modified: new Date().getTime(),
-        responsible: this.userApi.getDataOwnerOf(user),
+        responsible: this.dataOwnerApi.getDataOwnerOf(user),
         author: user.id,
         codes: [],
         tags: [],
@@ -103,7 +103,7 @@ export class IccPatientXApi extends IccPatientApi {
     }
 
     if (!finalPatient.lastName && !!hasName(finalPatient, models.PersonName.UseEnum.Official)) {
-      let officialName = findName(finalPatient, models.PersonName.UseEnum.Official)
+      const officialName = findName(finalPatient, models.PersonName.UseEnum.Official)
       finalPatient = {
         ...finalPatient,
         lastName: officialName!.lastName,
@@ -134,7 +134,7 @@ export class IccPatientXApi extends IccPatientApi {
     secretForeignKey: string | undefined = undefined,
     delegates: string[] = []
   ): Promise<models.Patient> {
-    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
     return this.crypto.initObjectDelegations(patient, null, dataOwnerId!, secretForeignKey || null).then((initData) => {
       _.extend(patient, { delegations: initData.delegations })
 
@@ -156,7 +156,7 @@ export class IccPatientXApi extends IccPatientApi {
   }
 
   initConfidentialDelegation(patient: models.Patient, user: models.User): Promise<models.Patient | null> {
-    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
     return this.crypto.extractPreferredSfk(patient, dataOwnerId!, true).then((k) => {
       if (!k) {
         const secretId = this.crypto.randomUuid()
@@ -477,7 +477,7 @@ export class IccPatientXApi extends IccPatientApi {
   }
 
   encrypt(user: models.User, pats: Array<models.Patient>): Promise<Array<models.Patient>> {
-    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
     const fixEncryptionKeys = (p: models.Patient) => {
       if (p.delegations && p.delegations[dataOwnerId]) return this.initEncryptionKeys(user, p, Object.keys(p.delegations)) as Promise<any>
       else throw new Error(`Patient ${p.id} has no delegation or encryption key for hcp ${dataOwnerId}`)
@@ -511,7 +511,7 @@ export class IccPatientXApi extends IccPatientApi {
   }
 
   decrypt(user: models.User, pats: Array<models.Patient>, fillDelegations = true): Promise<Array<models.Patient>> {
-    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
 
     return (user.healthcarePartyId ? this.hcpartyApi.getHealthcarePartyHierarchyIds(user.healthcarePartyId) : Promise.resolve([dataOwnerId])).then(
       (ids) => {
@@ -592,7 +592,7 @@ export class IccPatientXApi extends IccPatientApi {
   /** By default, an encryptionKey will be added for every hcp in the autoDelegations of the provided user.
    * In optional field additionalDelegateIds, you can ask the method to create encryptionKeys for additional hcps */
   initEncryptionKeys(user: models.User, pat: models.Patient, additionalDelegateIds?: string[]): Promise<models.Patient> {
-    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
     const userAutoDelegations = user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []
     return this.crypto.initEncryptionKeys(pat, dataOwnerId!).then((eks) => {
       let promise = Promise.resolve(
