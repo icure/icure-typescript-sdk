@@ -5,7 +5,6 @@ import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
 
 import { a2b, hex2ua, string2ua, ua2string } from './utils/binary-utils'
-import { IccUserXApi } from './icc-user-x-api'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 
 // noinspection JSUnusedGlobalSymbols
