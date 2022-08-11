@@ -129,15 +129,7 @@ export const Api = async function (
     fetchImpl
   )
   const messageApi = new IccMessageXApi(host, headers, cryptoApi, dataOwnerApi, fetchImpl)
-  const maintenanceTaskApi = new IccMaintenanceTaskXApi(
-    host,
-    headers,
-    cryptoApi,
-    healthcarePartyApi,
-    dataOwnerApi,
-    ['properties'],
-    fetchImpl
-  )
+  const maintenanceTaskApi = new IccMaintenanceTaskXApi(host, headers, cryptoApi, healthcarePartyApi, dataOwnerApi, ['properties'], fetchImpl)
 
   if (username != undefined && password != undefined) {
     try {
