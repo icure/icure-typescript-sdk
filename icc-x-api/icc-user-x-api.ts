@@ -1,5 +1,4 @@
 import { IccUserApi } from '../icc-api/api/IccUserApi'
-import { User } from '../icc-api/model/User'
 
 export class IccUserXApi extends IccUserApi {
   fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response>

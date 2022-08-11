@@ -11,7 +11,6 @@ import { Contact, FilterChainService, ListOfIds, Service } from '../icc-api/mode
 import { PaginatedListContact } from '../icc-api/model/PaginatedListContact'
 import { a2b, b2a, hex2ua, string2ua, ua2string, ua2utf8, utf8_2ua } from './utils/binary-utils'
 import { ServiceByIdsFilter } from './filters/ServiceByIdsFilter'
-import { IccUserXApi } from './icc-user-x-api'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 
 export class IccContactXApi extends IccContactApi {

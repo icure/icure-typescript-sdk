@@ -4,7 +4,6 @@ import { IccCryptoXApi } from './icc-crypto-x-api'
 import * as _ from 'lodash'
 
 import { Patient, User } from '../icc-api/model/models'
-import { IccUserXApi } from './icc-user-x-api'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 
 export class IccMessageXApi extends IccMessageApi {
