@@ -1,18 +1,18 @@
-import {before} from 'mocha'
+import { before } from 'mocha'
 
 import 'isomorphic-fetch'
 
-import {LocalStorage} from 'node-localstorage'
+import { LocalStorage } from 'node-localstorage'
 import * as os from 'os'
-import {Api, IccHelementXApi, IccPatientXApi} from '../../icc-x-api'
-import {crypto} from '../../node-compat'
-import {Patient} from '../../icc-api/model/Patient'
-import {assert} from 'chai'
-import {randomUUID} from 'crypto'
-import {TestUtils} from '../utils/test_utils'
-import {HealthElement} from '../../icc-api/model/HealthElement'
-import {Code} from '../../icc-api/model/Code'
-import {User} from '../../icc-api/model/User'
+import { Api, IccHelementXApi, IccPatientXApi } from '../../icc-x-api'
+import { crypto } from '../../node-compat'
+import { Patient } from '../../icc-api/model/Patient'
+import { assert } from 'chai'
+import { randomUUID } from 'crypto'
+import { TestUtils } from '../utils/test_utils'
+import { HealthElement } from '../../icc-api/model/HealthElement'
+import { Code } from '../../icc-api/model/Code'
+import { User } from '../../icc-api/model/User'
 import initKey = TestUtils.initKey
 
 const tmp = os.tmpdir()
@@ -74,13 +74,14 @@ describe('icc-helement-x-api Tests', () => {
     // Given
     const {
       userApi: userApiForHcp,
+      dataOwnerApi: dataOwnerApiForHcp,
       patientApi: patientApiForHcp,
       healthcareElementApi: hElementApiForHcp,
       cryptoApi: cryptoApiForHcp,
     } = await Api(iCureUrl, hcpUserName!, hcpPassword!, crypto)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
-    await initKey(userApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
+    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
 
     const patient = await createPatient(patientApiForHcp, hcpUser)
     const hElementToCreate = await healthElementToCreate(hElementApiForHcp, hcpUser, patient)
@@ -102,13 +103,14 @@ describe('icc-helement-x-api Tests', () => {
     // Given
     const {
       userApi: userApiForHcp,
+      dataOwnerApi: dataOwnerApiForHcp,
       patientApi: patientApiForHcp,
       healthcareElementApi: hElementApiForHcp,
       cryptoApi: cryptoApiForHcp,
     } = await Api(iCureUrl, hcpUserName!, hcpPassword!, crypto)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
-    await initKey(userApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
+    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
 
     const patient = await createPatient(patientApiForHcp, hcpUser)
     const createdHealthElement = await hElementApiForHcp.createHealthElementWithUser(
@@ -137,13 +139,14 @@ describe('icc-helement-x-api Tests', () => {
     // Given
     const {
       userApi: userApiForHcp,
+      dataOwnerApi: dataOwnerApiForHcp,
       patientApi: patientApiForHcp,
       healthcareElementApi: hElementApiForHcp,
       cryptoApi: cryptoApiForHcp,
     } = await Api(iCureUrl, hcpUserName!, hcpPassword!, crypto)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
-    await initKey(userApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
+    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
 
     const patient = (await createPatient(patientApiForHcp, hcpUser)) as Patient
     const createdHealthElement = await hElementApiForHcp.createHealthElementWithUser(
