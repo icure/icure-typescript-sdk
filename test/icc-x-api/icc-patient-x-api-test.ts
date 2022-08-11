@@ -1,15 +1,15 @@
-import {before} from 'mocha'
+import { before } from 'mocha'
 
 import 'isomorphic-fetch'
 
-import {LocalStorage} from 'node-localstorage'
+import { LocalStorage } from 'node-localstorage'
 import * as os from 'os'
-import {Api} from '../../icc-x-api'
-import {crypto} from '../../node-compat'
-import {Patient} from '../../icc-api/model/Patient'
-import {assert} from 'chai'
-import {randomUUID} from 'crypto'
-import {TestUtils} from '../utils/test_utils'
+import { Api } from '../../icc-x-api'
+import { crypto } from '../../node-compat'
+import { Patient } from '../../icc-api/model/Patient'
+import { assert } from 'chai'
+import { randomUUID } from 'crypto'
+import { TestUtils } from '../utils/test_utils'
 import initKey = TestUtils.initKey
 
 const tmp = os.tmpdir()
@@ -43,12 +43,13 @@ describe('icc-x-patient-api Tests', () => {
     // Given
     const {
       userApi: userApiForHcp,
+      dataOwnerApi: dataOwnerApiForHcp,
       patientApi: patientApiForHcp,
       cryptoApi: cryptoApiForHcp,
     } = await Api(iCureUrl, hcpUserName!, hcpPassword!, crypto)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
-    await initKey(userApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
+    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
 
     const patientToCreate = await patientApiForHcp.newInstance(
       hcpUser,
