@@ -25,7 +25,7 @@ export function jwk2pkcs8(jwk: any): string {
     0x30,
     [
       [0x02, '00'],
-      [0x30, [[0x06, '2a864886f70d010101'], [0x05]]],
+      [0x30, [[0x06, '2a864886f70d010101'], [0x05]]], // pragma: allowlist secret
       [
         0x04,
         [
@@ -53,7 +53,7 @@ export function jwk2spki(jwk: any): string {
   return pack([
     0x30,
     [
-      [0x30, [[0x06, '2a864886f70d010101'], [0x05]]],
+      [0x30, [[0x06, '2a864886f70d010101'], [0x05]]], // pragma: allowlist secret
       [
         0x03,
         [
@@ -79,7 +79,7 @@ export function spkiToJwk(buf: Uint8Array): { kty: string; alg: string; n: strin
     asn1.type === 0x30 &&
     asn1.children?.[0]?.type === 0x30 &&
     asn1.children?.[0]?.children?.[0]?.type === 0x06 &&
-    ua2hex(asn1.children?.[0]?.children?.[0]?.value ?? new Uint8Array(0)) === '2a864886f70d010101'
+    ua2hex(asn1.children?.[0]?.children?.[0]?.value ?? new Uint8Array(0)) === '2a864886f70d010101' // pragma: allowlist secret
   ) {
     modulus = asn1.children?.[1]?.children?.[0]?.children?.[0]?.value
     exponent = asn1.children?.[1]?.children?.[0]?.children?.[1]?.value

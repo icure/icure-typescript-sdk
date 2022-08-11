@@ -1,12 +1,19 @@
 import * as bigInt from 'big-integer'
 
 const knownBases: { [key: string]: string } = {
+  // pragma: allowlist nextline secret
   base64: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+/',
+  // pragma: allowlist nextline secret
   base62: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
+  // pragma: allowlist nextline secret
   base58: '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz', // Bitcoin base58
+  // pragma: allowlist nextline secret
   base36: '0123456789abcdefghijklmnopqrstuvwxyz',
+  // pragma: allowlist nextline secret
   base32: '0123456789abcdefghjkmnpqrstvwxyz', // Crockford's base32
+  // pragma: allowlist nextline secret
   base16: '0123456789abcdef',
+  // pragma: allowlist nextline secret
   base10: '0123456789',
   base2: '01',
 }
