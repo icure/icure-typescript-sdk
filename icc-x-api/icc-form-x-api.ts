@@ -6,17 +6,18 @@ import * as models from '../icc-api/model/models'
 
 import { a2b, hex2ua, string2ua, ua2string } from './utils/binary-utils'
 import { IccUserXApi } from './icc-user-x-api'
+import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccFormXApi extends IccFormApi {
   crypto: IccCryptoXApi
-  userApi: IccUserXApi
+  dataOwnerApi: IccDataOwnerXApi
 
   constructor(
     host: string,
     headers: { [key: string]: string },
     crypto: IccCryptoXApi,
-    userApi: IccUserXApi,
+    dataOwnerApi: IccDataOwnerXApi,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
@@ -25,7 +26,7 @@ export class IccFormXApi extends IccFormApi {
   ) {
     super(host, headers, fetchImpl)
     this.crypto = crypto
-    this.userApi = userApi
+    this.dataOwnerApi = dataOwnerApi
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -36,7 +37,7 @@ export class IccFormXApi extends IccFormApi {
         _type: 'org.taktik.icure.entities.Form',
         created: new Date().getTime(),
         modified: new Date().getTime(),
-        responsible: this.userApi.getDataOwnerOf(user),
+        responsible: this.dataOwnerApi.getDataOwnerOf(user),
         author: user.id,
         codes: [],
         tags: [],
@@ -48,7 +49,7 @@ export class IccFormXApi extends IccFormApi {
   }
 
   initEncryptionKeys(user: models.User, form: models.Form) {
-    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
     return this.crypto.initEncryptionKeys(form, dataOwnerId!).then((eks) => {
       let promise = Promise.resolve(
         _.extend(form, {
@@ -75,7 +76,7 @@ export class IccFormXApi extends IccFormApi {
     form: models.Form,
     delegates: string[] = []
   ): Promise<models.Form> {
-    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
     return this.crypto
       .extractDelegationsSFKs(patient, dataOwnerId!)
       .then((secretForeignKeys) =>
