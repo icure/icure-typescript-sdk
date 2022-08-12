@@ -87,7 +87,8 @@ export const Api = async function (
     : typeof self !== 'undefined'
     ? self.fetch
     : fetch,
-  forceBasic = false
+  forceBasic = false,
+  autoLogin = true
 ): Promise<Apis> {
   const headers = apiHeaders(username, password, forceBasic)
   const authApi = new IccAuthApi(host, headers, fetchImpl)
@@ -131,12 +132,17 @@ export const Api = async function (
   const messageApi = new IccMessageXApi(host, headers, cryptoApi, dataOwnerApi, fetchImpl)
   const maintenanceTaskApi = new IccMaintenanceTaskXApi(host, headers, cryptoApi, healthcarePartyApi, dataOwnerApi, ['properties'], fetchImpl)
 
-  if (username != undefined && password != undefined) {
-    try {
-      await authApi.login({ username, password })
-    } catch (e) {
-      console.error('Incorrect user and password used to instantiate Api, or network problem', e)
+  if (autoLogin) {
+    if (username != undefined && password != undefined) {
+      try {
+        await authApi.login({ username, password })
+      } catch (e) {
+        console.error('Incorrect user and password used to instantiate Api, or network problem', e)
+      }
     }
+  }
+  else {
+    console.info("Auto login skipped")
   }
 
   return {
