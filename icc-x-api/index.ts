@@ -39,7 +39,7 @@ export * from './icc-time-table-x-api'
 export * from './icc-receipt-x-api'
 export * from './utils'
 
-export const apiHeaders = function (username: string, password: string, forceBasic: boolean = false) {
+export const apiHeaders = function (username: string, password: string, forceBasic = false) {
   return {
     Authorization: `Basic ${
       typeof btoa !== 'undefined' ? btoa(`${username}:${password}`) : Buffer.from(`${username}:${password}`).toString('base64')
@@ -85,7 +85,8 @@ export const Api = async function (
     : typeof self !== 'undefined'
     ? self.fetch
     : fetch,
-  forceBasic: boolean = false
+  forceBasic = false,
+  autoLogin = true
 ): Promise<Apis> {
   const headers = apiHeaders(username, password, forceBasic)
   const authApi = new IccAuthApi(host, headers, fetchImpl)
@@ -128,10 +129,14 @@ export const Api = async function (
   const messageApi = new IccMessageXApi(host, headers, cryptoApi, userApi, fetchImpl)
   const maintenanceTaskApi = new IccMaintenanceTaskXApi(host, headers, cryptoApi, userApi, healthcarePartyApi, ['properties'], fetchImpl)
 
-  try {
-    await retry(() => authApi.login({ username, password }), 3, 1000, 1.5)
-  } catch (e) {
-    console.error('Incorrect user and password used to instantiate Api, or network problem', e)
+  if (autoLogin) {
+    try {
+      await retry(() => authApi.login({ username, password }), 3, 1000, 1.5)
+    } catch (e) {
+      console.error('Incorrect user and password used to instantiate Api, or network problem', e)
+    }
+  } else {
+    console.info('Auto login skipped')
   }
 
   return {
