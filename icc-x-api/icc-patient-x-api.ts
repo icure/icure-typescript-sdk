@@ -465,7 +465,10 @@ export class IccPatientXApi extends IccPatientApi {
       ? this.encrypt(user, [_.cloneDeep(this.completeNames(body))])
           .then((pats) => super.modifyPatient(pats[0]))
           .then((p) => this.decrypt(user, [p]))
-          .then((pats) => pats[0])
+          .then((pats) => {
+            pats[0]?.id && this.crypto.emptyHcpCache(pats[0].id!)
+            return pats[0]
+          })
       : Promise.resolve(null)
   }
 
@@ -483,7 +486,10 @@ export class IccPatientXApi extends IccPatientApi {
     return super
       .modifyPatientReferral(patientId, referralId, start, end)
       .then((p) => this.decrypt(user, [p]))
-      .then((pats) => pats[0])
+      .then((pats) => {
+        pats[0]?.id && this.crypto.emptyHcpCache(pats[0].id!)
+        return pats[0]
+      })
   }
 
   encrypt(user: models.User, pats: Array<models.Patient>): Promise<Array<models.Patient>> {
