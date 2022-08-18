@@ -1,7 +1,7 @@
-import {IccDeviceApi, IccHcpartyApi, IccPatientApi} from '../icc-api'
-import {AESUtils} from './crypto/AES'
-import {RSAUtils} from './crypto/RSA'
-import {ShamirClass} from './crypto/shamir'
+import { IccDeviceApi, IccHcpartyApi, IccPatientApi } from '../icc-api'
+import { AESUtils } from './crypto/AES'
+import { RSAUtils } from './crypto/RSA'
+import { ShamirClass } from './crypto/shamir'
 
 import * as _ from 'lodash'
 import {
@@ -825,7 +825,10 @@ export class IccCryptoXApi {
         return { ...map, [e[0]]: { [publicKeyFingerprint]: encryptedAesExchangeKey } }
       }, {} as { [pubKeyIdentifier: string]: { [pubKeyFingerprint: string]: string } })
 
-    return !owner.publicKey || mapOfAesExchangeKeys[owner.publicKey] || !owner.hcPartyKeys?.[delegateId] || (publicKeys.find((p) => p == owner.publicKey!) == undefined)
+    return !owner.publicKey ||
+      mapOfAesExchangeKeys[owner.publicKey] ||
+      !owner.hcPartyKeys?.[delegateId] ||
+      publicKeys.find((p) => p == owner.publicKey!) == undefined
       ? mapOfAesExchangeKeys
       : { ...mapOfAesExchangeKeys, [owner.publicKey]: { [owner.publicKey.slice(-32)]: owner.hcPartyKeys[delegateId][0] } }
   }
@@ -1006,11 +1009,11 @@ export class IccCryptoXApi {
     return (
       secretDelegationKey
         ? this.extendedDelegationsAndCryptedForeignKeys(child, parent, ownerId, delegateId, secretDelegationKey)
-        : Promise.resolve({ delegations: {}, cryptedForeignKeys: {} })
+        : Promise.resolve({ modifiedObject: child, delegations: {}, cryptedForeignKeys: {}, secretId: null })
     )
       .then((extendedChildObjectSPKsAndCFKs) =>
         secretEncryptionKey
-          ? this.appendEncryptionKeys(child, ownerId, delegateId, secretEncryptionKey).then(
+          ? this.appendEncryptionKeys(extendedChildObjectSPKsAndCFKs.modifiedObject, ownerId, delegateId, secretEncryptionKey).then(
               //TODO: extendedDelegationsAndCryptedForeignKeys and appendEncryptionKeys can be done in parallel
               (extendedChildObjectEKs) => ({
                 extendedSPKsAndCFKs: extendedChildObjectSPKsAndCFKs,
@@ -1023,7 +1026,7 @@ export class IccCryptoXApi {
             })
       )
       .then(({ extendedSPKsAndCFKs: extendedChildObjectSPKsAndCFKs, extendedEKs: extendedChildObjectEKs }) => {
-        return _.assign(child, {
+        return _.assign(extendedChildObjectSPKsAndCFKs.modifiedObject, {
           // Conservative version ... We might want to be more aggressive with the deduplication of keys
           // For each delegate, we are going to concatenate to the src (the new delegations), the object in dest (the current delegations)
           // for which we do not find an equivalent delegation (same delegator, same delegate)
@@ -1829,7 +1832,7 @@ export class IccCryptoXApi {
       }
 
       if (
-        (owner.hcPartyKeys || {})[delegateId] ||
+        ((owner.hcPartyKeys || {})[delegateId] && owner.publicKey && availablePublicKeysFingerprints.includes(owner.publicKey.slice(-32))) ||
         Object.values(owner.aesExchangeKeys || {}).some(
           (x) => x[delegateId] && Object.keys(x[delegateId]).some((k) => availablePublicKeysFingerprints.includes(k))
         )

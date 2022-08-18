@@ -125,6 +125,9 @@ const AS_PORT = 16044
 
 const privateKeys = {} as Record<string, Record<string, string>>
 const users: User[] = []
+
+let newPatientUser: User | undefined = undefined
+let newPatient: Patient | undefined = undefined
 let delegateUser: User | undefined = undefined
 let delegateHcp: HealthcareParty | undefined = undefined
 
@@ -146,30 +149,6 @@ const entities: EntityCreators = {
   },
   CalendarItem: ({ calendarItemApi }, id, user, patient, delegateIds) => {
     return calendarItemApi.newInstancePatient(user, patient!, new CalendarItem({ id, title: 'CI' }), delegateIds)
-  },
-}
-
-const userDefinitions: Record<string, (user: User, api: Apis) => Promise<User>> = {
-  'one available key and one lost key recoverable through transfer keys': async (user: User, { cryptoApi, maintenanceTaskApi }) => {
-    const { privateKey, publicKey } = await cryptoApi.addNewKeyPairForOwnerId(maintenanceTaskApi, user, (user.healthcarePartyId ?? user.patientId)!)
-    delete privateKeys[user.login!][publicKey]
-    return user
-  },
-  'two available keys': async (user: User, { cryptoApi, maintenanceTaskApi }) => {
-    const { privateKey, publicKey } = await cryptoApi.addNewKeyPairForOwnerId(maintenanceTaskApi, user, (user.healthcarePartyId ?? user.patientId)!)
-    privateKeys[user.login!] = { ...(privateKeys[user.login!] ?? {}), [publicKey]: privateKey }
-    return user
-  },
-  'a single available key in old format': async (user: User) => user,
-  'one lost key and one available key': async (user: User, { cryptoApi, maintenanceTaskApi }) => {
-    const { privateKey, publicKey } = await cryptoApi.addNewKeyPairForOwnerId(
-      maintenanceTaskApi,
-      user,
-      (user.healthcarePartyId ?? user.patientId)!,
-      false
-    )
-    privateKeys[user.login!] = { [publicKey]: privateKey }
-    return user
   },
 }
 
@@ -323,62 +302,18 @@ describe('Full battery of tests on crypto and keys', async function () {
         })
       )
 
-      await Object.entries(userDefinitions).reduce(async (p, [login, creationProcess]) => {
-        await p
+      const publicKeyPatient = await makeKeyPair(cryptoApi, `patient`)
+      newPatient = await patientBaseApi.createPatient(new Patient({ id: uuid(), publicKey: publicKeyPatient, firstName: 'test', lastName: 'test' }))
 
-        const publicKeyPatient = await makeKeyPair(cryptoApi, `patient-${login}`)
-        const patient = await patientBaseApi.createPatient(
-          new Patient({ id: uuid(), publicKey: publicKeyPatient, firstName: 'test', lastName: 'test' })
-        )
-
-        const publicKeyHcp = await makeKeyPair(cryptoApi, `hcp-${login}`)
-        const hcp = await healthcarePartyApi.createHealthcareParty(
-          new Patient({ id: uuid(), publicKey: publicKeyHcp, firstName: 'test', lastName: 'test' })
-        )
-
-        const newPatientUser = await userApi.createUser(
-          new User({
-            id: `user-${uuid()}-patient`,
-            login: `patient-${login}`,
-            status: 'ACTIVE',
-            passwordHash: hashedAdmin,
-            patientId: patient.id,
-          })
-        )
-        const newHcpUser = await userApi.createUser(
-          new User({
-            id: `user-${uuid()}-hcp`,
-            login: `hcp-${login}`,
-            status: 'ACTIVE',
-            passwordHash: hashedAdmin,
-            healthcarePartyId: hcp.id,
-          })
-        )
-
-        const ets = await Object.entries(facades).reduce(async (p, f) => {
-          const prev = await p
-          const type = f[0]
-          const facade = f[1]
-
-          const api1 = await getApiAndAddPrivateKeysForUser(newHcpUser)
-          const api2 = await getApiAndAddPrivateKeysForUser(newPatientUser)
-
-          const parent1 = type !== 'Patient' ? await api1.patientApi.getPatientWithUser(newHcpUser, `partial-${newHcpUser.id}-Patient`) : undefined
-          const parent2 =
-            type !== 'Patient' ? await api2.patientApi.getPatientWithUser(newPatientUser, `partial-${newPatientUser.id}-Patient`) : undefined
-
-          const record1 = await entities[type as TestedEntity](api1, `partial-${newHcpUser.id}-${type}`, newHcpUser, parent1)
-          const record2 = await entities[type as TestedEntity](api2, `partial-${newPatientUser.id}-${type}`, newPatientUser, parent2)
-
-          prev.push(await facade.create(api1, record1))
-          prev.push(await facade.create(api2, record2))
-
-          return prev
-        }, Promise.resolve([]) as Promise<EncryptedEntity[]>)
-
-        users.push(await creationProcess(newPatientUser, api))
-        users.push(await creationProcess(newHcpUser, api))
-      }, Promise.resolve())
+      newPatientUser = await userApi.createUser(
+        new User({
+          id: `user-${uuid()}-patient`,
+          login: `patient`,
+          status: 'ACTIVE',
+          passwordHash: hashedAdmin,
+          patientId: newPatient.id,
+        })
+      )
     }
 
     console.log('All prerequisites are started')
@@ -398,124 +333,37 @@ describe('Full battery of tests on crypto and keys', async function () {
     */
     console.log('Cleanup complete')
   })
-  ;['patient', 'hcp'].forEach((uType) => {
-    Object.keys(userDefinitions).forEach((uId) => {
-      it(`Import from local storage for ${uId}`, async () => {
-        const u = users.find((it) => it.login === `${uType}-${uId}`)!
-        const api = await Api(`http://127.0.0.1:${AS_PORT}/rest/v1`, u.login!, 'admin', webcrypto as unknown as Crypto, fetch, true)
-        const dataOwnerId = (await getDataOwnerId(api))!
-        Object.entries(privateKeys[u.login!]).reduce(async (p, [pubKey, privKey]) => {
-          await p
-          await api.cryptoApi.loadKeyPairsAsTextInBrowserLocalStorage(dataOwnerId, hex2ua(privKey))
-        }, Promise.resolve())
-      })
-      it(`Check key validity ${uId}`, async () => {
-        const u = users.find((it) => it.login === `${uType}-${uId}`)!
-        const api = await Api(`http://127.0.0.1:${AS_PORT}/rest/v1`, u.login!, 'admin', webcrypto as unknown as Crypto, fetch, true)
-        const dataOwnerId = (await getDataOwnerId(api))!
-        const { dataOwner } = (await api.cryptoApi.getDataOwner(dataOwnerId))!
-        Object.entries(privateKeys[u.login!]).reduce(async (p, [pubKey, privKey]) => {
-          await p
-          await api.cryptoApi.loadKeyPairsAsTextInBrowserLocalStorage(dataOwnerId, hex2ua(privKey))
-        }, Promise.resolve())
-        const validity = await api.cryptoApi.checkPrivateKeyValidity(dataOwner)
-        expect(validity).to.be.true
-      })
-    })
-  })
-  ;['patient', 'hcp'].forEach((uType) => {
-    Object.keys(userDefinitions).forEach((uId) => {
-      Object.entries(facades).forEach((f) => {
-        it(`Create ${f[0]} as a ${uType} with ${uId}`, async () => {
-          const u = users.find((it) => it.login === `${uType}-${uId}`)!
-          const facade: EntityFacade<any> = f[1]
-          const api = await getApiAndAddPrivateKeysForUser(u)
+  it(`Create calendar item as a patient}`, async () => {
+    const u = newPatientUser!
+    const api = await getApiAndAddPrivateKeysForUser(u)
 
-          const parent = f[0] !== 'Patient' ? await api.patientApi.getPatientWithUser(u, `${u.id}-Patient`) : undefined
-          const record = await entities[f[0] as TestedEntity](api, `${u.id}-${f[0]}`, u, parent)
-          const entity = await facade.create(api, record)
+    const patient = await api.patientApi.getPatientWithUser(u, u.patientId!)
 
-          expect(entity.id).to.be.not.null
-          expect(entity.rev).to.be.not.null
-          expect(await facade.isDecrypted(entity)).to.equal(true)
-        })
-        it(`Create ${f[0]} as delegate with delegation for ${uType} with ${uId}`, async () => {
-          const u = users.find((it) => it.login === `${uType}-${uId}`)!
-          const facade: EntityFacade<any> = f[1]
+    const patientWithDelegation = await api.patientApi.modifyPatientWithUser(
+      u,
+      await api.patientApi.initDelegationsAndEncryptionKeys(patient, u, undefined, [delegateUser!.healthcarePartyId!])
+    )
 
-          const api = await getApiAndAddPrivateKeysForUser(delegateUser!)
-          const patApi = await getApiAndAddPrivateKeysForUser(u!)
-          const dataOwnerId = (await getDataOwnerId(patApi))!
-          const dataOwner = (await patApi.cryptoApi.getDataOwner(dataOwnerId))!
+    privateKeys['patient'] = {}
 
-          const parent = f[0] !== 'Patient' ? await api.patientApi.getPatientWithUser(delegateUser!, `delegate-${u.id}-Patient`) : undefined
-          const record = await entities[f[0] as TestedEntity](api, `delegate-${u.id}-${f[0]}`, delegateUser!, parent, [
-            (u.patientId ?? u.healthcarePartyId ?? u.deviceId)!,
-          ])
-          const entity = await facade.create(api, record)
-          const hcp = await api.healthcarePartyApi.getCurrentHealthcareParty()
+    const apiAfterLossOfKey = await getApiAndAddPrivateKeysForUser(u)
+    const user = await apiAfterLossOfKey.userApi.getCurrentUser()
+    const { privateKey, publicKey } = await apiAfterLossOfKey.cryptoApi.addNewKeyPairForOwnerId(
+      apiAfterLossOfKey.maintenanceTaskApi,
+      user,
+      (user.healthcarePartyId ?? user.patientId)!,
+      false
+    )
+    privateKeys[user.login!] = { [publicKey]: privateKey }
 
-          const shareKeys = hcp.aesExchangeKeys[hcp.publicKey][dataOwnerId]
-          if (Object.keys(shareKeys).length > 2) {
-            delete shareKeys[dataOwner.dataOwner.publicKey!.slice(-32)]
-          }
-          hcp.aesExchangeKeys = { ...hcp.aesExchangeKeys, [hcp.publicKey!]: { ...hcp.aesExchangeKeys[hcp.publicKey], [dataOwnerId]: shareKeys } }
-          await api.healthcarePartyApi.modifyHealthcareParty(hcp)
+    const apiAfterNewKey = await getApiAndAddPrivateKeysForUser(user)
 
-          expect(entity.id).to.be.not.null
-          expect(entity.rev).to.be.not.null
-          expect(await facade.isDecrypted(entity)).to.equal(true)
-        })
-        it(`Read ${f[0]} as the initial ${uType} with ${uId}`, async () => {
-          const u = users.find((it) => it.login === `${uType}-${uId}`)!
-          const facade = f[1]
-          const api = await getApiAndAddPrivateKeysForUser(u)
+    const record = await apiAfterNewKey.calendarItemApi.newInstance(u, new CalendarItem({ id: `${u.id}-ci`, title: 'CI' }), [
+      delegateUser!.healthcarePartyId!,
+    ])
+    const entity = await apiAfterNewKey.calendarItemApi.createCalendarItemWithHcParty(u, record)
 
-          const entity = await facade.get(api, `partial-${u.id}-${f[0]}`)
-          expect(entity.id).to.equal(`partial-${u.id}-${f[0]}`)
-          expect(await facade.isDecrypted(entity)).to.equal(
-            !uId.includes('one lost key and one available key') /* data shared only with lost key... So false */
-          )
-        })
-        it(`Read ${f[0]} as a ${uType} with ${uId}`, async () => {
-          const u = users.find((it) => it.login === `${uType}-${uId}`)!
-          const facade = f[1]
-          const api = await getApiAndAddPrivateKeysForUser(u)
-
-          const entity = await facade.get(api, `${u.id}-${f[0]}`)
-          expect(entity.id).to.equal(`${u.id}-${f[0]}`)
-          expect(await facade.isDecrypted(entity)).to.equal(true)
-        })
-        it(`Read ${f[0]} shared by delegate as a ${uType} with ${uId}`, async () => {
-          const u = users.find((it) => it.login === `${uType}-${uId}`)!
-          const facade = f[1]
-          const api = await getApiAndAddPrivateKeysForUser(u)
-
-          const entity = await facade.get(api, `delegate-${u.id}-${f[0]}`)
-          expect(entity.id).to.equal(`delegate-${u.id}-${f[0]}`)
-          expect(await facade.isDecrypted(entity)).to.equal(true)
-        })
-        ;['patient', 'hcp'].forEach((duType) => {
-          Object.keys(userDefinitions).forEach((duId) => {
-            it(`Share ${f[0]} as a ${uType} with ${uId} to a ${duType} with ${duId}`, async () => {
-              const u = users.find((it) => it.login === `${uType}-${uId}`)!
-              const du = users.find((it) => it.login === `${duType}-${duId}`)!
-              const delegateDoId = du.healthcarePartyId ?? du.patientId
-              const facade = f[1]
-              const api = await getApiAndAddPrivateKeysForUser(u)
-
-              const parent = f[0] !== 'Patient' ? await api.patientApi.getPatientWithUser(u, `${u.id}-Patient`) : undefined
-              const entity = await facade.share(api, parent, await facade.get(api, `${u.id}-${f[0]}`), delegateDoId)
-              expect(Object.keys(entity.delegations)).to.contain(delegateDoId)
-
-              const delApi = await getApiAndAddPrivateKeysForUser(du!)
-              const obj = await facade.get(delApi, `${u.id}-${f[0]}`)
-              expect(Object.keys(obj.delegations)).to.contain(delegateDoId)
-              expect(await facade.isDecrypted(obj)).to.equal(true)
-            })
-          })
-        })
-      })
-    })
+    expect(entity.id).to.be.not.null
+    expect(entity.rev).to.be.not.null
   })
 })
