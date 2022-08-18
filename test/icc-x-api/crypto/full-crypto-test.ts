@@ -100,11 +100,7 @@ const facades: EntityFacades = {
     },
   } as EntityFacade<HealthElement>,
   CalendarItem: {
-    create: async (api, r) =>
-      api.calendarItemApi.createCalendarItemWithHcParty(
-        await api.userApi.getCurrentUser(),
-        await api.calendarItemApi.newInstance(await api.userApi.getCurrentUser(), r)
-      ),
+    create: async (api, r) => api.calendarItemApi.createCalendarItemWithHcParty(await api.userApi.getCurrentUser(), r),
     get: async (api, id) => api.calendarItemApi.getCalendarItemWithUser(await api.userApi.getCurrentUser(), id),
     share: async (api, p, r, doId) => {
       const ownerId = await getDataOwnerId(api)

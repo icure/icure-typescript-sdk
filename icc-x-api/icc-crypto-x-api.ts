@@ -76,7 +76,6 @@ export class IccCryptoXApi {
   emptyHcpCache(hcpartyId: string) {
     delete this.hcPartyKeysRequestsCache[hcpartyId]
     delete this.dataOwnerCache[hcpartyId]
-    delete this.dataOwnerCache[hcpartyId]
   }
 
   /**
