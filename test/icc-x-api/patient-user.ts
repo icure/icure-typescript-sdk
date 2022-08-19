@@ -20,6 +20,7 @@ describe('Patient', () => {
   it('should be capable of creating a patient from scratch', async () => {
     const {
       patientApi: patientApiForHcp,
+      dataOwnerApi: dataOwnerApiForHcp,
       userApi: userApiForHcp,
       cryptoApi: cryptoApiForHcp,
     } = await Api(iCureUrl, hcpUserName, hcpPassword, crypto)
@@ -94,6 +95,7 @@ describe('Patient', () => {
   it('should be capable of logging in and encryption', async () => {
     const {
       calendarItemApi: calendarItemApiForHcp,
+      dataOwnerApi: dataOwnerApiForHcp,
       patientApi: patientApiForHcp,
       userApi: userApiForHcp,
       cryptoApi: cryptoApiForHcp,

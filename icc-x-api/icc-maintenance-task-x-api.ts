@@ -1,16 +1,17 @@
 import { IccMaintenanceTaskApi } from '../icc-api/api/IccMaintenanceTaskApi'
 import { IccCryptoXApi } from './icc-crypto-x-api'
-import { IccUserXApi } from './icc-user-x-api'
 import * as models from '../icc-api/model/models'
 import * as _ from 'lodash'
 import { a2b, b2a, string2ua } from '../icc-api/model/ModelHelper'
 import { hex2ua, ua2utf8, utf8_2ua, crypt } from './utils'
 import { IccHcpartyXApi } from './icc-hcparty-x-api'
+import { DocIdentifier } from '../icc-api/model/models'
+import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 
 export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
   crypto: IccCryptoXApi
-  userApi: IccUserXApi
   hcPartyApi: IccHcpartyXApi
+  dataOwnerApi: IccDataOwnerXApi
 
   private readonly encryptedKeys: Array<string>
 
@@ -18,8 +19,8 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
     host: string,
     headers: { [key: string]: string },
     crypto: IccCryptoXApi,
-    userApi: IccUserXApi,
     hcPartyApi: IccHcpartyXApi,
+    dataOwnerApi: IccDataOwnerXApi,
     encryptedKeys: Array<string> = [],
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
@@ -29,13 +30,13 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
   ) {
     super(host, headers, fetchImpl)
     this.crypto = crypto
-    this.userApi = userApi
     this.hcPartyApi = hcPartyApi
+    this.dataOwnerApi = dataOwnerApi
     this.encryptedKeys = encryptedKeys
   }
 
   newInstance(user: models.User, m: any, delegates: string[] = []) {
-    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
     const maintenanceTask = _.assign(
       {
         id: this.crypto.randomUuid(),
@@ -52,7 +53,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
   }
 
   initDelegations(user: models.User, maintenanceTask: models.MaintenanceTask, delegates: string[] = []): Promise<models.MaintenanceTask> {
-    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
     return this.crypto.initObjectDelegations(maintenanceTask, null, dataOwnerId!, null).then((initData) => {
       _.extend(maintenanceTask, { delegations: initData.delegations })
 
@@ -72,7 +73,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
   }
 
   initEncryptionKeys(user: models.User, maintenanceTask: models.MaintenanceTask, delegates: string[] = []): Promise<models.MaintenanceTask> {
-    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
     return this.crypto.initEncryptionKeys(maintenanceTask, dataOwnerId!).then((eks) => {
       let promise = Promise.resolve(
         _.extend(maintenanceTask, {
@@ -116,6 +117,19 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
     throw new Error('Cannot call a method that returns maintenance tasks without providing a user for de/encryption')
   }
 
+  deleteMaintenanceTask(_maintenanceTaskIds: string): never {
+    throw new Error('Cannot call a method that returns maintenance tasks without providing a user for de/encryption')
+  }
+
+  deleteMaintenanceTaskWithUser(user: models.User, maintenanceTaskId: string): Promise<Array<DocIdentifier>> | never {
+    return super.getMaintenanceTask(maintenanceTaskId).then((mt) => {
+      return this.dataOwnerApi.hasAccessTo(user, mt.delegations ?? {}).then((hasAccess) => {
+        if (hasAccess) return super.deleteMaintenanceTask(maintenanceTaskId)
+        else throw new Error('User does not have a delegation for this maintenanceTask')
+      })
+    })
+  }
+
   filterMaintenanceTasksByWithUser(
     user: models.User,
     startDocumentId?: string,
@@ -152,7 +166,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
   }
 
   encrypt(user: models.User, maintenanceTasks: Array<models.MaintenanceTask>): Promise<Array<models.MaintenanceTask>> {
-    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
 
     return Promise.all(
       maintenanceTasks.map((m) =>
@@ -186,7 +200,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
   }
 
   decrypt(user: models.User, maintenanceTasks: Array<models.MaintenanceTask>): Promise<Array<models.MaintenanceTask>> {
-    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
 
     return Promise.all(
       maintenanceTasks.map((mT) =>

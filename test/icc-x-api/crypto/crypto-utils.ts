@@ -1,4 +1,4 @@
-import {Api, b64Url2ua} from '../../../icc-x-api'
+import {Api, b64_2ua, b64Url2ua} from '../../../icc-x-api'
 import {expect} from 'chai'
 
 import 'mocha'
@@ -62,8 +62,8 @@ describe('ArrayBuffer methods', () => {
     it('should convert spki to jwk in a coherent way', async () => {
       const { healthcarePartyApi } = await Api(iCureUrl, hcpUserName, hcpPassword, crypto)
       const pubKey = await healthcarePartyApi.getCurrentHealthcareParty().then((hcp) => hcp.publicKey)
-
       const jwk1 = spkiToJwk(hex2ua(pubKey))
+
       const rsaKey1 = await rsa.importKey('jwk', jwk1, ['encrypt'])
       const rsaKey2 = await rsa.importKey('spki', hex2ua(pubKey), ['encrypt'])
       const jwk2 = await rsa.exportKey(rsaKey2, 'jwk')
