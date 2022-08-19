@@ -7,12 +7,12 @@ import * as _ from 'lodash'
 import * as moment from 'moment'
 import { a2b, b2a, hex2ua, string2ua, ua2utf8, utf8_2ua } from './utils/binary-utils'
 import { HealthElement } from '../icc-api/model/models'
-import { IccUserXApi } from './icc-user-x-api'
+import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { crypt } from './utils'
 
 export class IccHelementXApi extends IccHelementApi {
   crypto: IccCryptoXApi
-  userApi: IccUserXApi
+  dataOwnerApi: IccDataOwnerXApi
 
   private readonly encryptedKeys: Array<string>
 
@@ -20,7 +20,7 @@ export class IccHelementXApi extends IccHelementApi {
     host: string,
     headers: { [key: string]: string },
     crypto: IccCryptoXApi,
-    userApi: IccUserXApi,
+    dataOwnerApi: IccDataOwnerXApi,
     encryptedKeys: Array<string> = ['descr', 'note'],
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
@@ -30,12 +30,12 @@ export class IccHelementXApi extends IccHelementApi {
   ) {
     super(host, headers, fetchImpl)
     this.crypto = crypto
-    this.userApi = userApi
+    this.dataOwnerApi = dataOwnerApi
     this.encryptedKeys = encryptedKeys
   }
 
   newInstance(user: models.User, patient: models.Patient, h: any, confidential = false, delegates: string[] = []) {
-    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
     const helement = _.assign(
       {
         id: this.crypto.randomUuid(),
@@ -62,7 +62,7 @@ export class IccHelementXApi extends IccHelementApi {
     confidential: boolean,
     delegates: string[] = []
   ): Promise<models.HealthElement> {
-    let dataOwnerId = this.userApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
 
     return this.crypto.extractPreferredSfk(patient, dataOwnerId!, confidential).then(async (key) => {
       if (!key) {
@@ -126,7 +126,7 @@ export class IccHelementXApi extends IccHelementApi {
           bodies.map((c) => _.cloneDeep(c))
         )
           .then((hes) => super.createHealthElements(hes))
-          .then((hes) => this.decrypt(this.userApi.getDataOwnerOf(user), hes))
+          .then((hes) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user), hes))
       : Promise.resolve(null)
   }
 
@@ -146,7 +146,7 @@ export class IccHelementXApi extends IccHelementApi {
   }
 
   getHealthElementsWithUser(user: models.User, body?: models.ListOfIds): Promise<models.HealthElement[]> {
-    return super.getHealthElements(body).then((hes) => this.decrypt(this.userApi.getDataOwnerOf(user), hes))
+    return super.getHealthElements(body).then((hes) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user), hes))
   }
 
   newHealthElementDelegations(healthElementId: string, body?: Array<models.Delegation>): never {
@@ -204,7 +204,7 @@ export class IccHelementXApi extends IccHelementApi {
           bodies.map((c) => _.cloneDeep(c))
         )
           .then((hes) => super.modifyHealthElements(hes))
-          .then((hes) => this.decrypt(this.userApi.getDataOwnerOf(user), hes))
+          .then((hes) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user), hes))
       : Promise.resolve(null)
   }
 
@@ -270,7 +270,7 @@ export class IccHelementXApi extends IccHelementApi {
   }
 
   encrypt(user: models.User, healthElements: Array<models.HealthElement>): Promise<Array<models.HealthElement>> {
-    let dataOwnerId = this.userApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
     return Promise.all(
       healthElements.map((he) =>
         (he.encryptionKeys && Object.keys(he.encryptionKeys).some((k) => !!he.encryptionKeys![k].length)
@@ -305,7 +305,7 @@ export class IccHelementXApi extends IccHelementApi {
   }
 
   initEncryptionKeys(user: models.User, he: models.HealthElement): Promise<models.HealthElement> {
-    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
     return this.crypto.initEncryptionKeys(he, dataOwnerId!).then((eks) => {
       let promise = Promise.resolve(
         _.extend(he, {
@@ -333,7 +333,7 @@ export class IccHelementXApi extends IccHelementApi {
   }
 
   decryptWithUser(user: models.User, hes: Array<models.HealthElement>): Promise<Array<models.HealthElement>> {
-    return this.decrypt(this.userApi.getDataOwnerOf(user), hes)
+    return this.decrypt(this.dataOwnerApi.getDataOwnerOf(user), hes)
   }
 
   decrypt(dataOwnerId: string, hes: Array<models.HealthElement>): Promise<Array<models.HealthElement>> {

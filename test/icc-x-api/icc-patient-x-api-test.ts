@@ -11,6 +11,7 @@ import { assert } from 'chai'
 import { randomUUID } from 'crypto'
 import { TestUtils } from '../utils/test_utils'
 import initKey = TestUtils.initKey
+
 const tmp = os.tmpdir()
 console.log('Saving keys in ' + tmp)
 ;(global as any).localStorage = new LocalStorage(tmp, 5 * 1024 * 1024 * 1024)
@@ -42,12 +43,13 @@ describe('icc-x-patient-api Tests', () => {
     // Given
     const {
       userApi: userApiForHcp,
+      dataOwnerApi: dataOwnerApiForHcp,
       patientApi: patientApiForHcp,
       cryptoApi: cryptoApiForHcp,
     } = await Api(iCureUrl, hcpUserName!, hcpPassword!, crypto)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
-    await initKey(userApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
+    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
 
     const patientToCreate = await patientApiForHcp.newInstance(
       hcpUser,

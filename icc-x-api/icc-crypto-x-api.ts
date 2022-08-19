@@ -900,8 +900,10 @@ export class IccCryptoXApi {
    * @param ownerId : delegator HcP id
    * @param delegateId : delegate HcP id
    * @param secretEncryptionKeyOfObject : secret Id for the EK (Content Encryption Key)
-   * @returns - **encryptionKeys** existing EKs of the `modifiedObject`, appended with a new EK item (owner: `ownerId`, delegatedTo: `delegateId`, encrypted key with secretId: `secretEncryptionKeyOfObject` )
-   * - **secretId** which is the given input parameter `secretEncryptionKeyOfObject`
+   * @returns
+   *   - **encryptionKeys** existing EKs of the `modifiedObject`, appended with a new EK item (owner: `ownerId`, delegatedTo: `delegateId`, encrypted key with secretId:
+   *     `secretEncryptionKeyOfObject` )
+   *   - **secretId** which is the given input parameter `secretEncryptionKeyOfObject`
    */
   async appendEncryptionKeys(
     //TODO: suggested name: getExtendedEKwithDelegationFromDelegatorToDelegate

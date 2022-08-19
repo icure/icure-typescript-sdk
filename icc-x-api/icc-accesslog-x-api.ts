@@ -6,7 +6,7 @@ import { AccessLog, PaginatedListAccessLog } from '../icc-api/model/models'
 
 import * as _ from 'lodash'
 import { crypt, decrypt, hex2ua, ua2utf8, utf8_2ua } from './utils'
-import { IccUserXApi } from './icc-user-x-api'
+import {IccDataOwnerXApi} from "./icc-data-owner-x-api"
 
 export interface AccessLogWithPatientId extends AccessLog {
   patientId: string
@@ -15,13 +15,13 @@ export interface AccessLogWithPatientId extends AccessLog {
 export class IccAccesslogXApi extends IccAccesslogApi {
   crypto: IccCryptoXApi
   cryptedKeys = ['detail', 'objectId']
-  userApi: IccUserXApi
+  dataOwnerApi: IccDataOwnerXApi
 
   constructor(
     host: string,
     headers: { [key: string]: string },
     crypto: IccCryptoXApi,
-    userApi: IccUserXApi,
+    dataOwnerApi: IccDataOwnerXApi,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
@@ -30,11 +30,11 @@ export class IccAccesslogXApi extends IccAccesslogApi {
   ) {
     super(host, headers, fetchImpl)
     this.crypto = crypto
-    this.userApi = userApi
+    this.dataOwnerApi = dataOwnerApi
   }
 
   newInstance(user: models.User, patient: models.Patient, h: any) {
-    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
 
     const accessslog = _.assign(
       {
@@ -148,7 +148,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
   }
 
   initEncryptionKeys(user: models.User, accessLog: models.AccessLog): Promise<models.AccessLog> {
-    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
 
     return this.crypto.initEncryptionKeys(accessLog, dataOwnerId!).then((eks) => {
       let promise = Promise.resolve(
@@ -178,7 +178,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
           : this.initEncryptionKeys(user, accessLog)
         )
           .then((accessLog: AccessLog) =>
-            this.crypto.extractKeysFromDelegationsForHcpHierarchy(this.userApi.getDataOwnerOf(user)!, accessLog.id!, accessLog.encryptionKeys!)
+            this.crypto.extractKeysFromDelegationsForHcpHierarchy(this.dataOwnerApi.getDataOwnerOf(user)!, accessLog.id!, accessLog.encryptionKeys!)
           )
           .then(async (eks: { extractedKeys: Array<string>; hcpartyId: string }) => {
             const rawKey = eks.extractedKeys[0].replace(/-/g, '')
@@ -201,7 +201,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
     return body
       ? this.encrypt(user, [_.cloneDeep(body)])
           .then((als) => super.createAccessLog(als[0]))
-          .then((accessLog) => this.decrypt(this.userApi.getDataOwnerOf(user)!, [accessLog]))
+          .then((accessLog) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, [accessLog]))
           .then((als) => als[0])
       : Promise.resolve()
   }
@@ -213,7 +213,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
   getAccessLogWithUser(user: models.User, accessLogId: string): Promise<models.AccessLog | any> {
     return super
       .getAccessLog(accessLogId)
-      .then((accessLog) => this.decrypt(this.userApi.getDataOwnerOf(user)!, [accessLog]))
+      .then((accessLog) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, [accessLog]))
       .then((als) => als[0])
   }
 
@@ -232,7 +232,9 @@ export class IccAccesslogXApi extends IccAccesslogApi {
   ): Promise<PaginatedListAccessLog> {
     return super
       .listAccessLogs(fromEpoch, toEpoch, startKey, startDocumentId, limit, descending)
-      .then((accessLog) => this.decrypt(this.userApi.getDataOwnerOf(user)!, accessLog.rows!).then((dr) => Object.assign(accessLog, { rows: dr })))
+      .then((accessLog) =>
+        this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, accessLog.rows!).then((dr) => Object.assign(accessLog, { rows: dr }))
+      )
   }
 
   modifyAccessLog(body?: models.AccessLog): never {
@@ -243,7 +245,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
     return body
       ? this.encrypt(user, [_.cloneDeep(body)])
           .then((als) => super.modifyAccessLog(als[0]))
-          .then((accessLog) => this.decrypt(this.userApi.getDataOwnerOf(user)!, [accessLog]))
+          .then((accessLog) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, [accessLog]))
           .then((als) => als[0])
       : null
   }
@@ -272,7 +274,9 @@ export class IccAccesslogXApi extends IccAccesslogApi {
   ): Promise<models.AccessLog | any> {
     return super
       .findByUserAfterDate(userId, accessType, startDate, startKey, startDocumentId, limit, descending)
-      .then((accessLog) => this.decrypt(this.userApi.getDataOwnerOf(user)!, accessLog.rows!).then((dr) => Object.assign(accessLog, { rows: dr })))
+      .then((accessLog) =>
+        this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, accessLog.rows!).then((dr) => Object.assign(accessLog, { rows: dr }))
+      )
   }
 
   async findLatestAccessLogsOfPatientsWithUser(user: models.User, userId: string, limit = 100, startDate?: number): Promise<models.AccessLog[]> {
@@ -292,7 +296,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
         numberRequestedAccessLogs,
         true
       )) as models.PaginatedListAccessLog
-      const logsWithPatientId: AccessLogWithPatientId[] = await this.decrypt(this.userApi.getDataOwnerOf(user)!, logs as AccessLog[]).then(
+      const logsWithPatientId: AccessLogWithPatientId[] = await this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, logs as AccessLog[]).then(
         (decryptedLogs) =>
           Promise.all(
             _.map(decryptedLogs, (decryptedLog) => {
