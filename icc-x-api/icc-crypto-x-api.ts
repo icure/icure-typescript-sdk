@@ -1459,6 +1459,17 @@ export class IccCryptoXApi {
           .catch(() => null)
   }
 
+
+  async dataOwnerCanDecryptPatient(dataOwnerId: string, p: models.Patient): Promise<boolean> {
+    if (p.encryptionKeys && p.encryptionKeys[dataOwnerId]?.length)
+      return true
+
+    const dataOwner = (await this.getDataOwner(dataOwnerId))
+    if (dataOwner.type === 'hcp' && p.encryptionKeys && p.encryptionKeys[dataOwner.dataOwner.parentId!]?.length) return true
+
+    return false
+  }
+
   async encryptDecrypt(
     method: 'encrypt' | 'decrypt',
     content: Uint8Array | ArrayBuffer,
