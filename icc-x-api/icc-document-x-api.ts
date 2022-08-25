@@ -6,7 +6,7 @@ import { XHR } from '../icc-api/api/XHR'
 import * as models from '../icc-api/model/models'
 
 import { a2b, hex2ua, string2ua, ua2string } from './utils/binary-utils'
-import { IccUserXApi } from './icc-user-x-api'
+import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccDocumentXApi extends IccDocumentApi {
@@ -541,14 +541,14 @@ export class IccDocumentXApi extends IccDocumentApi {
     'x-msdos-program': 'com.microsoft.windows-executable',
     'x-music/x-midi': 'public.midi',
   }
-  userApi: IccUserXApi
+  dataOwnerApi: IccDataOwnerXApi
 
   constructor(
     host: string,
     headers: { [key: string]: string },
     private crypto: IccCryptoXApi,
     private authApi: IccAuthApi,
-    userApi: IccUserXApi,
+    dataOwnerApi: IccDataOwnerXApi,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
@@ -557,7 +557,7 @@ export class IccDocumentXApi extends IccDocumentApi {
   ) {
     super(host, headers, fetchImpl)
     this.fetchImpl = fetchImpl
-    this.userApi = userApi
+    this.dataOwnerApi = dataOwnerApi
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -568,7 +568,7 @@ export class IccDocumentXApi extends IccDocumentApi {
         _type: 'org.taktik.icure.entities.Document',
         created: new Date().getTime(),
         modified: new Date().getTime(),
-        responsible: this.userApi.getDataOwnerOf(user),
+        responsible: this.dataOwnerApi.getDataOwnerOf(user),
         author: user.id,
         codes: [],
         tags: [],
@@ -580,7 +580,7 @@ export class IccDocumentXApi extends IccDocumentApi {
   }
 
   initEncryptionKeys(user: models.User, document: models.Document) {
-    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
     return this.crypto.initEncryptionKeys(document, dataOwnerId!).then((eks) => {
       let promise = Promise.resolve(
         _.extend(document, {
@@ -606,7 +606,7 @@ export class IccDocumentXApi extends IccDocumentApi {
     message: models.Message | undefined = undefined,
     document: models.Document
   ): Promise<models.Document> {
-    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
     return this.crypto
       .extractDelegationsSFKs(message || null, dataOwnerId)
       .then((secretForeignKeys) =>

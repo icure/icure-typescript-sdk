@@ -74,13 +74,14 @@ describe('icc-helement-x-api Tests', () => {
     // Given
     const {
       userApi: userApiForHcp,
+      dataOwnerApi: dataOwnerApiForHcp,
       patientApi: patientApiForHcp,
       healthcareElementApi: hElementApiForHcp,
       cryptoApi: cryptoApiForHcp,
     } = await Api(iCureUrl, hcpUserName!, hcpPassword!, crypto)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
-    await initKey(userApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
+    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
 
     const patient = await createPatient(patientApiForHcp, hcpUser)
     const hElementToCreate = await healthElementToCreate(hElementApiForHcp, hcpUser, patient)
@@ -102,13 +103,14 @@ describe('icc-helement-x-api Tests', () => {
     // Given
     const {
       userApi: userApiForHcp,
+      dataOwnerApi: dataOwnerApiForHcp,
       patientApi: patientApiForHcp,
       healthcareElementApi: hElementApiForHcp,
       cryptoApi: cryptoApiForHcp,
     } = await Api(iCureUrl, hcpUserName!, hcpPassword!, crypto)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
-    await initKey(userApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
+    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
 
     const patient = await createPatient(patientApiForHcp, hcpUser)
     const createdHealthElement = await hElementApiForHcp.createHealthElementWithUser(
@@ -137,13 +139,14 @@ describe('icc-helement-x-api Tests', () => {
     // Given
     const {
       userApi: userApiForHcp,
+      dataOwnerApi: dataOwnerApiForHcp,
       patientApi: patientApiForHcp,
       healthcareElementApi: hElementApiForHcp,
       cryptoApi: cryptoApiForHcp,
     } = await Api(iCureUrl, hcpUserName!, hcpPassword!, crypto)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
-    await initKey(userApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
+    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
 
     const patient = (await createPatient(patientApiForHcp, hcpUser)) as Patient
     const createdHealthElement = await hElementApiForHcp.createHealthElementWithUser(

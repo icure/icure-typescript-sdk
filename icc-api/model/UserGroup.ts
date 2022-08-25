@@ -22,4 +22,7 @@ export class UserGroup {
   name?: string
   email?: string
   phone?: string
+  patientId?: string
+  healthcarePartyId?: string
+  deviceId?: string
 }

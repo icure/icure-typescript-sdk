@@ -17,6 +17,7 @@ import { IccTimeTableXApi } from './icc-time-table-x-api'
 import { IccDeviceApi } from '../icc-api/api/IccDeviceApi'
 import { IccCodeXApi } from './icc-code-x-api'
 import { IccMaintenanceTaskXApi } from './icc-maintenance-task-x-api'
+import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { retry } from './utils'
 
 export * from './icc-accesslog-x-api'
@@ -73,6 +74,7 @@ export interface Apis {
   patientApi: IccPatientXApi
   messageApi: IccMessageXApi
   maintenanceTaskApi: IccMaintenanceTaskXApi
+  dataOwnerApi: IccDataOwnerXApi
 }
 
 export const Api = async function (
@@ -97,19 +99,20 @@ export const Api = async function (
   const healthcarePartyApi = new IccHcpartyXApi(host, headers, fetchImpl)
   const deviceApi = new IccDeviceApi(host, headers, fetchImpl)
   const cryptoApi = new IccCryptoXApi(host, headers, healthcarePartyApi, new IccPatientApi(host, headers, fetchImpl), deviceApi, crypto)
-  const accessLogApi = new IccAccesslogXApi(host, headers, cryptoApi, userApi, fetchImpl)
+  const dataOwnerApi = new IccDataOwnerXApi(cryptoApi, new IccPatientApi(host, headers, fetchImpl))
+  const accessLogApi = new IccAccesslogXApi(host, headers, cryptoApi, dataOwnerApi, fetchImpl)
   const agendaApi = new IccAgendaApi(host, headers, fetchImpl)
-  const contactApi = new IccContactXApi(host, headers, cryptoApi, userApi, fetchImpl)
-  const formApi = new IccFormXApi(host, headers, cryptoApi, userApi, fetchImpl)
+  const contactApi = new IccContactXApi(host, headers, cryptoApi, dataOwnerApi, fetchImpl)
+  const formApi = new IccFormXApi(host, headers, cryptoApi, dataOwnerApi, fetchImpl)
   const groupApi = new IccGroupApi(host, headers)
-  const invoiceApi = new IccInvoiceXApi(host, headers, cryptoApi, entityReferenceApi, userApi, fetchImpl)
+  const invoiceApi = new IccInvoiceXApi(host, headers, cryptoApi, entityReferenceApi, dataOwnerApi, fetchImpl)
   const insuranceApi = new IccInsuranceApi(host, headers, fetchImpl)
-  const documentApi = new IccDocumentXApi(host, headers, cryptoApi, authApi, userApi, fetchImpl)
-  const healthcareElementApi = new IccHelementXApi(host, headers, cryptoApi, userApi, ['descr', 'note'], fetchImpl)
-  const classificationApi = new IccClassificationXApi(host, headers, cryptoApi, userApi, fetchImpl)
-  const calendarItemApi = new IccCalendarItemXApi(host, headers, cryptoApi, userApi, ['details', 'title', 'patientId'], fetchImpl)
-  const receiptApi = new IccReceiptXApi(host, headers, cryptoApi, userApi, fetchImpl)
-  const timetableApi = new IccTimeTableXApi(host, headers, cryptoApi, userApi, fetchImpl)
+  const documentApi = new IccDocumentXApi(host, headers, cryptoApi, authApi, dataOwnerApi, fetchImpl)
+  const healthcareElementApi = new IccHelementXApi(host, headers, cryptoApi, dataOwnerApi, ['descr', 'note'], fetchImpl)
+  const classificationApi = new IccClassificationXApi(host, headers, cryptoApi, dataOwnerApi, fetchImpl)
+  const calendarItemApi = new IccCalendarItemXApi(host, headers, cryptoApi, dataOwnerApi, ['details', 'title', 'patientId'], fetchImpl)
+  const receiptApi = new IccReceiptXApi(host, headers, cryptoApi, dataOwnerApi, fetchImpl)
+  const timetableApi = new IccTimeTableXApi(host, headers, cryptoApi, dataOwnerApi, fetchImpl)
   const patientApi = new IccPatientXApi(
     host,
     headers,
@@ -121,22 +124,25 @@ export const Api = async function (
     documentApi,
     healthcarePartyApi,
     classificationApi,
-    userApi,
+    dataOwnerApi,
     calendarItemApi,
     ['note'],
     fetchImpl
   )
-  const messageApi = new IccMessageXApi(host, headers, cryptoApi, userApi, fetchImpl)
-  const maintenanceTaskApi = new IccMaintenanceTaskXApi(host, headers, cryptoApi, userApi, healthcarePartyApi, ['properties'], fetchImpl)
+  const messageApi = new IccMessageXApi(host, headers, cryptoApi, dataOwnerApi, fetchImpl)
+  const maintenanceTaskApi = new IccMaintenanceTaskXApi(host, headers, cryptoApi, healthcarePartyApi, dataOwnerApi, ['properties'], fetchImpl)
 
   if (autoLogin) {
-    try {
-      await retry(() => authApi.login({ username, password }), 3, 1000, 1.5)
-    } catch (e) {
-      console.error('Incorrect user and password used to instantiate Api, or network problem', e)
+    if (username != undefined && password != undefined) {
+      try {
+        await retry(() => authApi.login({ username, password }), 3, 1000, 1.5)
+      } catch (e) {
+        console.error('Incorrect user and password used to instantiate Api, or network problem', e)
+      }
     }
-  } else {
-    console.info('Auto login skipped')
+  }
+  else {
+    console.info("Auto login skipped")
   }
 
   return {
@@ -164,5 +170,6 @@ export const Api = async function (
     timetableApi,
     groupApi,
     maintenanceTaskApi,
+    dataOwnerApi,
   }
 }

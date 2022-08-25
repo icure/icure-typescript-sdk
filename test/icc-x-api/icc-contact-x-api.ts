@@ -121,13 +121,14 @@ describe('icc-x-contact-api Tests', () => {
     // Given
     const {
       userApi: userApiForHcp,
+      dataOwnerApi: dataOwnerApiForHcp,
       patientApi: patientApiForHcp,
       contactApi: contactApiForHcp,
       cryptoApi: cryptoApiForHcp,
     } = await Api(iCureUrl, hcpUserName!, hcpPassword!, crypto)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
-    await initKey(userApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
+    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
 
     const patient = await createPatient(patientApiForHcp, hcpUser)
     const contactToCreate = await createBasicContact(contactApiForHcp, hcpUser, patient)
@@ -155,6 +156,7 @@ describe('icc-x-contact-api Tests', () => {
     // Given
     const {
       userApi: userApiForHcp,
+      dataOwnerApi: dataOwnerApiForHcp,
       patientApi: patientApiForHcp,
       contactApi: contactApiForHcp,
       healthcareElementApi: hElementApiForHcp,
@@ -162,7 +164,7 @@ describe('icc-x-contact-api Tests', () => {
     } = await Api(iCureUrl, hcpUserName!, hcpPassword!, crypto)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
-    await initKey(userApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
+    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
 
     const patient = await createPatient(patientApiForHcp, hcpUser)
     const healthElement = await createHealthElement(hElementApiForHcp, hcpUser, patient)
