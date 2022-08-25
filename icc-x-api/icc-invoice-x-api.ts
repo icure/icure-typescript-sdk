@@ -4,19 +4,19 @@ import { IccCryptoXApi } from './icc-crypto-x-api'
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
 import { Invoice } from '../icc-api/model/models'
-import { IccUserXApi } from './icc-user-x-api'
+import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 
 export class IccInvoiceXApi extends IccInvoiceApi {
   crypto: IccCryptoXApi
   entityrefApi: IccEntityrefApi
-  userApi: IccUserXApi
+  dataOwnerApi: IccDataOwnerXApi
 
   constructor(
     host: string,
     headers: { [key: string]: string },
     crypto: IccCryptoXApi,
     entityrefApi: IccEntityrefApi,
-    userApi: IccUserXApi,
+    dataOwnerApi: IccDataOwnerXApi,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
@@ -26,7 +26,7 @@ export class IccInvoiceXApi extends IccInvoiceApi {
     super(host, headers, fetchImpl)
     this.crypto = crypto
     this.entityrefApi = entityrefApi
-    this.userApi = userApi
+    this.dataOwnerApi = dataOwnerApi
   }
 
   newInstance(user: models.User, patient: models.Patient, inv: any = {}, delegates: string[] = []): Promise<models.Invoice> {
@@ -38,7 +38,7 @@ export class IccInvoiceXApi extends IccInvoiceApi {
           _type: 'org.taktik.icure.entities.Invoice',
           created: new Date().getTime(),
           modified: new Date().getTime(),
-          responsible: this.userApi.getDataOwnerOf(user),
+          responsible: this.dataOwnerApi.getDataOwnerOf(user),
           author: user.id,
           codes: [],
           tags: [],
@@ -52,7 +52,7 @@ export class IccInvoiceXApi extends IccInvoiceApi {
   }
 
   initEncryptionKeys(user: models.User, invoice: models.Invoice) {
-    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
     return this.crypto.initEncryptionKeys(invoice, dataOwnerId!).then((eks) => {
       let promise = Promise.resolve(
         _.extend(invoice, {
@@ -79,7 +79,7 @@ export class IccInvoiceXApi extends IccInvoiceApi {
     invoice: models.Invoice,
     delegates: string[] = []
   ): Promise<models.Invoice> {
-    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
     return this.crypto
       .extractDelegationsSFKs(patient, dataOwnerId)
       .then((secretForeignKeys) =>

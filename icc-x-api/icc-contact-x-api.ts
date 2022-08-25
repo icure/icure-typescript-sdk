@@ -10,19 +10,19 @@ import { Contact, FilterChainService, ListOfIds, Service } from '../icc-api/mode
 import { PaginatedListContact } from '../icc-api/model/PaginatedListContact'
 import { a2b, b2a, hex2ua, string2ua, ua2string, ua2utf8, utf8_2ua } from './utils/binary-utils'
 import { ServiceByIdsFilter } from './filters/ServiceByIdsFilter'
-import { IccUserXApi } from './icc-user-x-api'
+import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { truncateTrailingNulls, before } from './utils'
 
 export class IccContactXApi extends IccContactApi {
   i18n: any = i18n
   crypto: IccCryptoXApi
-  userApi: IccUserXApi
+  dataOwnerApi: IccDataOwnerXApi
 
   constructor(
     host: string,
     headers: { [key: string]: string },
     crypto: IccCryptoXApi,
-    userApi: IccUserXApi,
+    dataOwnerApi: IccDataOwnerXApi,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
@@ -31,7 +31,7 @@ export class IccContactXApi extends IccContactApi {
   ) {
     super(host, headers, fetchImpl)
     this.crypto = crypto
-    this.userApi = userApi
+    this.dataOwnerApi = dataOwnerApi
   }
 
   newInstance(user: models.User, patient: models.Patient, c: any, confidential = false, delegates: string[] = []): Promise<models.Contact> {
@@ -42,7 +42,7 @@ export class IccContactXApi extends IccContactApi {
           _type: 'org.taktik.icure.entities.Contact',
           created: new Date().getTime(),
           modified: new Date().getTime(),
-          responsible: this.userApi.getDataOwnerOf(user),
+          responsible: this.dataOwnerApi.getDataOwnerOf(user),
           author: user.id,
           codes: [],
           tags: [],
@@ -73,7 +73,7 @@ export class IccContactXApi extends IccContactApi {
     confidential = false,
     delegates: string[] = []
   ): Promise<models.Contact> {
-    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
 
     return this.crypto.extractPreferredSfk(patient, dataOwnerId!, confidential).then(async (key) => {
       if (!key) {
@@ -114,7 +114,7 @@ export class IccContactXApi extends IccContactApi {
   }
 
   initEncryptionKeys(user: models.User, ctc: models.Contact) {
-    const dataOwnerId = this.userApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
 
     return this.crypto.initEncryptionKeys(ctc, dataOwnerId!).then((eks) => {
       let promise = Promise.resolve(
@@ -303,29 +303,29 @@ export class IccContactXApi extends IccContactApi {
   }
 
   findByHCPartyFormIdWithUser(user: models.User, hcPartyId: string, formId: string): Promise<Array<models.Contact> | any> {
-    return super.findByHCPartyFormId(hcPartyId, formId).then((ctcs) => this.decrypt(this.userApi.getDataOwnerOf(user)!, ctcs))
+    return super.findByHCPartyFormId(hcPartyId, formId).then((ctcs) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, ctcs))
   }
 
   findByHCPartyFormIdsWithUser(user: models.User, hcPartyId: string, body: models.ListOfIds): Promise<Array<models.Contact> | any> {
-    return super.findByHCPartyFormIds(hcPartyId, body).then((ctcs) => this.decrypt(this.userApi.getDataOwnerOf(user)!, ctcs))
+    return super.findByHCPartyFormIds(hcPartyId, body).then((ctcs) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, ctcs))
   }
 
   getContactWithUser(user: models.User, contactId: string): Promise<models.Contact | any> {
     return super
       .getContact(contactId)
-      .then((ctc) => this.decrypt(this.userApi.getDataOwnerOf(user)!, [ctc]))
+      .then((ctc) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, [ctc]))
       .then((ctcs) => ctcs[0])
   }
 
   getContactsWithUser(user: models.User, body?: models.ListOfIds): Promise<Array<models.Contact> | any> {
-    return super.getContacts(body).then((ctcs) => this.decrypt(this.userApi.getDataOwnerOf(user)!, ctcs))
+    return super.getContacts(body).then((ctcs) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, ctcs))
   }
 
   async modifyContactWithUser(user: models.User, body?: models.Contact): Promise<models.Contact | any> {
     return body
       ? this.encrypt(user, [_.cloneDeep(body)])
           .then((ctcs) => super.modifyContact(ctcs[0]))
-          .then((ctc) => this.decrypt(this.userApi.getDataOwnerOf(user)!, [ctc]))
+          .then((ctc) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, [ctc]))
           .then((ctcs) => ctcs[0])
       : null
   }
@@ -337,7 +337,7 @@ export class IccContactXApi extends IccContactApi {
           bodies.map((c) => _.cloneDeep(c))
         )
           .then((ctcs) => super.modifyContacts(ctcs))
-          .then((ctcs) => this.decrypt(this.userApi.getDataOwnerOf(user)!, ctcs))
+          .then((ctcs) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, ctcs))
       : null
   }
 
@@ -345,7 +345,7 @@ export class IccContactXApi extends IccContactApi {
     return body
       ? this.encrypt(user, [_.cloneDeep(body)])
           .then((ctcs) => super.createContact(ctcs[0]))
-          .then((ctc) => this.decrypt(this.userApi.getDataOwnerOf(user)!, [ctc]))
+          .then((ctc) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, [ctc]))
           .then((ctcs) => ctcs[0])
       : null
   }
@@ -357,7 +357,7 @@ export class IccContactXApi extends IccContactApi {
           bodies.map((c) => _.cloneDeep(c))
         )
           .then((ctcs) => super.createContacts(ctcs))
-          .then((ctcs) => this.decrypt(this.userApi.getDataOwnerOf(user)!, ctcs))
+          .then((ctcs) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, ctcs))
       : null
   }
 
@@ -403,7 +403,7 @@ export class IccContactXApi extends IccContactApi {
   }
 
   encrypt(user: models.User, ctcs: Array<models.Contact>) {
-    const hcpartyId = this.userApi.getDataOwnerOf(user)!
+    const hcpartyId = this.dataOwnerApi.getDataOwnerOf(user)!
     const bypassEncryption = false //Used for debug
 
     return Promise.all(
@@ -648,7 +648,7 @@ export class IccContactXApi extends IccContactApi {
     const existing = ctc.services!.find((s) => s.id === svc.id)
     const promoted = _.extend(_.extend(existing || {}, svc), {
       author: user.id,
-      responsible: this.userApi.getDataOwnerOf(user),
+      responsible: this.dataOwnerApi.getDataOwnerOf(user),
       modified: new Date().getTime(),
     })
     if (!existing) {
@@ -768,7 +768,7 @@ export class IccContactXApi extends IccContactApi {
             _type: 'org.taktik.icure.entities.embed.Service',
             created: new Date().getTime(),
             modified: new Date().getTime(),
-            responsible: this.userApi.getDataOwnerOf(user),
+            responsible: this.dataOwnerApi.getDataOwnerOf(user),
             author: user.id,
             codes: [],
             tags: [],
