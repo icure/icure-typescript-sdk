@@ -157,6 +157,12 @@ export class IccCryptoXApi {
     return this.rsaKeyPairs[fingerprint] ?? this.cacheKeyPair(this.loadKeyPairNotImported(dataOwnerId, fingerprint))
   }
 
+  async getPublicKeys() {
+    return await Object.values(this.rsaKeyPairs).reduce(async (p, rsa) => {
+      return (await p).concat([jwk2spki(await this.RSA.exportKey(rsa.publicKey, 'jwk'))])
+    }, Promise.resolve([] as string[]))
+  }
+
   randomUuid() {
     return ((1e7).toString() + -1e3 + -4e3 + -8e3 + -1e11).replace(
       /[018]/g,
@@ -166,12 +172,6 @@ export class IccCryptoXApi {
 
   sha256(data: ArrayBuffer | Uint8Array) {
     return this._crypto.subtle.digest('SHA-256', data)
-  }
-
-  private async getPublicKeys() {
-    return await Object.values(this.rsaKeyPairs).reduce(async (p, rsa) => {
-      return (await p).concat([jwk2spki(await this.RSA.exportKey(rsa.publicKey, 'jwk'))])
-    }, Promise.resolve([] as string[]))
   }
 
   encryptShamirRSAKey(hcp: HealthcareParty, notaries: Array<HealthcareParty>, threshold?: number): Promise<HealthcareParty> {
@@ -1953,9 +1953,6 @@ export class IccCryptoXApi {
 
     return await publicKeys.reduce(async (pres, publicKey) => {
       const res = await pres
-      if (res) {
-        return true
-      }
       try {
         const k = await this._RSA.importKey('jwk', spkiToJwk(hex2ua(publicKey)), ['encrypt'])
         const cipher = await this._RSA.encrypt(k, utf8_2ua('shibboleth'))
@@ -1964,9 +1961,9 @@ export class IccCryptoXApi {
           .importKeyPair('jwk', kp.privateKey, 'jwk', kp.publicKey)
           .then((ikp) => this._RSA.decrypt(ikp.privateKey, new Uint8Array(cipher)))
           .then((x) => ua2utf8(x))
-        return plainText === 'shibboleth'
+        return plainText === 'shibboleth' || res
       } catch (e) {
-        return false
+        return res
       }
     }, Promise.resolve(false))
   }
