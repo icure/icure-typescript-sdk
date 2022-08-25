@@ -1554,7 +1554,7 @@ export class IccCryptoXApi {
     }
     //TODO decryption
     const item =
-      (publicKeyFingerPrint && localStorage.getItem(this.rsaLocalStoreIdPrefix + id + '.' + publicKeyFingerPrint)) ??
+      (publicKeyFingerPrint && localStorage.getItem(this.rsaLocalStoreIdPrefix + id + '.' + publicKeyFingerPrint.slice(-32))) ??
       localStorage.getItem(this.rsaLocalStoreIdPrefix + id)
     if (!item) {
       console.warn(`No key can be found in local storage for id ${id} and publicKeyFingerPrint ${publicKeyFingerPrint}`)
