@@ -141,6 +141,22 @@ export class IccCryptoXApi {
     this._shamir = new ShamirClass(crypto)
   }
 
+  async loadAllKeysFromLocalStorage(dataOwnerId: string): Promise<void> {
+    const pubKeys = await this.getDataOwnerHexPublicKeys((await this.getDataOwner(dataOwnerId)).dataOwner)
+
+    for (const pk of pubKeys) {
+      const fingerprint = pk.slice(-32)
+      if (!this.rsaKeyPairs[fingerprint]) {
+        await this.cacheKeyPair(this.loadKeyPairNotImported(dataOwnerId, fingerprint))
+      }
+    }
+  }
+
+  getCachedRsaKeyPairForFingerprint(dataOwnerId: string, pubKeyOrFingerprint: string): { publicKey: CryptoKey; privateKey: CryptoKey } {
+    const fingerprint = pubKeyOrFingerprint.slice(-32)
+    return this.rsaKeyPairs[fingerprint] ?? this.cacheKeyPair(this.loadKeyPairNotImported(dataOwnerId, fingerprint))
+  }
+
   randomUuid() {
     return ((1e7).toString() + -1e3 + -4e3 + -8e3 + -1e11).replace(
       /[018]/g,
