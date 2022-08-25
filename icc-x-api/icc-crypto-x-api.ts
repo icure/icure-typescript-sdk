@@ -1957,6 +1957,7 @@ export class IccCryptoXApi {
         const k = await this._RSA.importKey('jwk', spkiToJwk(hex2ua(publicKey)), ['encrypt'])
         const cipher = await this._RSA.encrypt(k, utf8_2ua('shibboleth'))
         const kp = this.loadKeyPairNotImported(dataOwner.id!, publicKey.slice(-32))
+        await this.cacheKeyPair(kp)
         const plainText = await this._RSA
           .importKeyPair('jwk', kp.privateKey, 'jwk', kp.publicKey)
           .then((ikp) => this._RSA.decrypt(ikp.privateKey, new Uint8Array(cipher)))
