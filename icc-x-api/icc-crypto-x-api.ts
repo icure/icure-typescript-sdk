@@ -335,9 +335,14 @@ export class IccCryptoXApi {
         return
       }
 
-      const encryptedHcPartyKey = encryptedHcPartyKeys[fingerprint]
+      let encryptedHcPartyKey = encryptedHcPartyKeys[fingerprint]
       if (!encryptedHcPartyKey) {
-        return
+        const delegate = await this.getDataOwner(delegateHcPartyId, false) //it is faster to just try to decrypt if not in cache
+        if (!delegate?.dataOwner || delegate.dataOwner.publicKey?.endsWith(fingerprint)) {
+          encryptedHcPartyKey = encryptedHcPartyKeys['']
+        } else {
+          return
+        }
       }
 
       try {
@@ -1180,7 +1185,10 @@ export class IccCryptoXApi {
         delegations,
         false
       )
-      const collatedAesKeysFromDelegatorToHcpartyId = decryptedAndImportedAesHcPartyKeys.reduce((map, k) => ({ ...map, [k.delegatorId]: k }), {})
+      const collatedAesKeysFromDelegatorToHcpartyId = decryptedAndImportedAesHcPartyKeys.reduce(
+        (map, k) => ({ ...map, [k.delegatorId]: (map[k.delegatorId] ?? []).concat([k]) }),
+        {} as { [key: string]: { key: CryptoKey; rawKey: string }[] }
+      )
       extractedKeys.push(...(await this.decryptKeyInDelegationLikes(delegations[hcpartyId], collatedAesKeysFromDelegatorToHcpartyId, objectId)))
     }
 
@@ -1932,18 +1940,20 @@ export class IccCryptoXApi {
     })
   }
 
-  getDataOwner(ownerId: string) {
+  getDataOwner(ownerId: string, loadIfMissingFromCache: boolean = true) {
     return (
       this.dataOwnerCache[ownerId] ??
-      (this.dataOwnerCache[ownerId] = this.patientBaseApi
-        .getPatient(ownerId)
-        .then((x) => ({ type: 'patient', dataOwner: x } as CachedDataOwner))
-        .catch(() => this.deviceBaseApi.getDevice(ownerId).then((x) => ({ type: 'device', dataOwner: x } as CachedDataOwner)))
-        .catch(() => this.hcpartyBaseApi.getHealthcareParty(ownerId).then((x) => ({ type: 'hcp', dataOwner: x } as CachedDataOwner)))
-        .catch((e) => {
-          delete this.dataOwnerCache[ownerId]
-          throw e
-        }))
+      (loadIfMissingFromCache
+        ? (this.dataOwnerCache[ownerId] = this.patientBaseApi
+            .getPatient(ownerId)
+            .then((x) => ({ type: 'patient', dataOwner: x } as CachedDataOwner))
+            .catch(() => this.deviceBaseApi.getDevice(ownerId).then((x) => ({ type: 'device', dataOwner: x } as CachedDataOwner)))
+            .catch(() => this.hcpartyBaseApi.getHealthcareParty(ownerId).then((x) => ({ type: 'hcp', dataOwner: x } as CachedDataOwner)))
+            .catch((e) => {
+              delete this.dataOwnerCache[ownerId]
+              throw e
+            }))
+        : undefined)
     )
   }
 
