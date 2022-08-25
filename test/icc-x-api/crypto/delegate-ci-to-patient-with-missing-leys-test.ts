@@ -358,9 +358,10 @@ describe('Full battery of tests on crypto and keys', async function () {
 
     const apiAfterNewKey = await getApiAndAddPrivateKeysForUser(user)
 
-    const record = await apiAfterNewKey.calendarItemApi.newInstance(u, new CalendarItem({ id: `${u.id}-ci`, title: 'CI' }), [
-      delegateUser!.healthcarePartyId!,
-    ])
+    // ICI LE CHANGEMENT
+    const hcp = await apiAfterNewKey.healthcarePartyApi.getHealthcareParty(delegateUser!.healthcarePartyId!)
+
+    const record = await apiAfterNewKey.calendarItemApi.newInstance(u, new CalendarItem({ id: `${u.id}-ci`, title: 'CI' }), [hcp!.id!])
     const entity = await apiAfterNewKey.calendarItemApi.createCalendarItemWithHcParty(u, record)
 
     expect(entity.id).to.be.not.null
