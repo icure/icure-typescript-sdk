@@ -152,9 +152,12 @@ export class IccCryptoXApi {
     }
   }
 
-  getCachedRsaKeyPairForFingerprint(dataOwnerId: string, pubKeyOrFingerprint: string): { publicKey: CryptoKey; privateKey: CryptoKey } {
+  async getCachedRsaKeyPairForFingerprint(
+    dataOwnerId: string,
+    pubKeyOrFingerprint: string
+  ): Promise<{ publicKey: CryptoKey; privateKey: CryptoKey }> {
     const fingerprint = pubKeyOrFingerprint.slice(-32)
-    return this.rsaKeyPairs[fingerprint] ?? this.cacheKeyPair(this.loadKeyPairNotImported(dataOwnerId, fingerprint))
+    return this.rsaKeyPairs[fingerprint] ?? (await this.cacheKeyPair(this.loadKeyPairNotImported(dataOwnerId, fingerprint)))
   }
 
   async getPublicKeys() {
@@ -416,7 +419,7 @@ export class IccCryptoXApi {
   /**
    * Cache the RSA private/public key pair for the HcP with the given id `hcPartyKeyOwner`
    */
-  cacheKeyPair(keyPairInJwk: { publicKey: JsonWebKey; privateKey: JsonWebKey }) {
+  cacheKeyPair(keyPairInJwk: { publicKey: JsonWebKey; privateKey: JsonWebKey }): Promise<{ publicKey: CryptoKey; privateKey: CryptoKey }> {
     return this._RSA.importKeyPair('jwk', keyPairInJwk.privateKey, 'jwk', keyPairInJwk.publicKey).then((importedKeyPair) => {
       const pk = jwk2spki(keyPairInJwk.publicKey)
       return (this.rsaKeyPairs[pk.slice(-32)] = importedKeyPair)
@@ -1966,7 +1969,7 @@ export class IccCryptoXApi {
       try {
         const k = await this._RSA.importKey('jwk', spkiToJwk(hex2ua(publicKey)), ['encrypt'])
         const cipher = await this._RSA.encrypt(k, utf8_2ua('shibboleth'))
-        const ikp = this.getCachedRsaKeyPairForFingerprint(dataOwner.id!, publicKey.slice(-32))
+        const ikp = await this.getCachedRsaKeyPairForFingerprint(dataOwner.id!, publicKey.slice(-32))
         const plainText = ua2utf8(await this._RSA.decrypt(ikp.privateKey, new Uint8Array(cipher)))
         return plainText === 'shibboleth' || res
       } catch (e) {
