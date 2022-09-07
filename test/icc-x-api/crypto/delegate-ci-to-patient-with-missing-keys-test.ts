@@ -177,36 +177,15 @@ describe('Full battery of tests on crypto and keys', async function () {
     const couchdbUser = process.env['ICURE_COUCHDB_USERNAME'] ?? 'icure'
     const couchdbPassword = process.env['ICURE_COUCHDB_PASSWORD'] ?? 'icure'
 
-    try {
-      execSync('docker network create network-test')
-    } catch (e) {}
-
     let dbLaunched = false
     try {
       dbLaunched = !!(await XHR.sendCommand('GET', `http://127.0.0.1:${DB_PORT}`, null))
     } catch (e) {}
 
     if (!dbLaunched) {
-      const couchdb = spawn('docker', [
-        'run',
-        '--network',
-        'network-test',
-        '-p',
-        `${DB_PORT}:5984`,
-        '-e',
-        `COUCHDB_USER=${couchdbUser}`,
-        '-e',
-        `COUCHDB_PASSWORD=${couchdbPassword}`,
-        '-d',
-        '--name',
-        'couchdb-test',
-        'couchdb:3.2.2',
-      ])
-      couchdb.stdout.on('data', (data) => console.log(`stdout: ${data}`))
-      couchdb.stderr.on('data', (data) => console.error(`stderr: ${data}`))
-      couchdb.on('close', (code) => console.log(`child process exited with code ${code}`))
-
-      await retry(() => XHR.sendCommand('GET', `http://127.0.0.1:${DB_PORT}`, null), 10)
+      try {
+        execSync('docker compose up -d')
+      } catch (e) {}
     } else {
       try {
         //Cleanup
@@ -229,41 +208,7 @@ describe('Full battery of tests on crypto and keys', async function () {
       }
     }
 
-    let asLaunched = false
-    try {
-      asLaunched = !!(await XHR.sendCommand('GET', `http://127.0.0.1:${AS_PORT}/rest/v1/icure/v`, null))
-    } catch (e) {}
-
-    if (!asLaunched) {
-      const icureOss = spawn('docker', [
-        'run',
-        '--network',
-        'network-test',
-        '-p',
-        `5005:5005`,
-        '-p',
-        `${AS_PORT}:16043`,
-        '-e',
-        'JAVA_OPTS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005',
-        '-e',
-        `ICURE_COUCHDB_URL=http://couchdb-test:5984`,
-        '-e',
-        `ICURE_COUCHDB_USERNAME=${couchdbUser}`,
-        '-e',
-        `ICURE_COUCHDB_PASSWORD=${couchdbPassword}`,
-        '-e',
-        'ICURE_AUTHENTICATION_LOCAL=true',
-        '-d',
-        '--name',
-        'icure-oss-test',
-        'docker.taktik.be/icure-oss:2.4.23-kraken.c1b1db7acc',
-      ])
-      icureOss.stdout.on('data', (data) => console.log(`stdout: ${data}`))
-      icureOss.stderr.on('data', (data) => console.error(`stderr: ${data}`))
-      icureOss.on('close', (code) => console.log(`child process exited with code ${code}`))
-
-      await retry(() => XHR.sendCommand('GET', `http://127.0.0.1:${AS_PORT}/rest/v1/icure/v`, null), 100, 5000)
-    }
+    await retry(() => XHR.sendCommand('GET', `http://127.0.0.1:${AS_PORT}/rest/v1/icure/v`, null), 100, 5000)
     const hashedAdmin = '{R0DLKxxRDxdtpfY542gOUZbvWkfv1KWO9QOi9yvr/2c=}39a484cbf9057072623177422172e8a173bd826d68a2b12fa8e36ff94a44a0d7'
 
     await retry(
@@ -289,9 +234,16 @@ describe('Full battery of tests on crypto and keys', async function () {
       })
 
       const publicKeyDelegate = await makeKeyPair(cryptoApi, `hcp-delegate`)
-      delegateHcp = await healthcarePartyApi.createHealthcareParty(
-        new HealthcareParty({ id: uuid(), publicKey: publicKeyDelegate, firstName: 'test', lastName: 'test' }) //FIXME Shouldn't we call addNewKeyPair directly, instead of initialising like before ?
+      const publicKeyParent = await makeKeyPair(cryptoApi, `hcp-parent`)
+
+      const parentHcp = await healthcarePartyApi.createHealthcareParty(
+        new HealthcareParty({ id: uuid(), publicKey: publicKeyParent, firstName: 'parent', lastName: 'parent' }) //FIXME Shouldn't we call addNewKeyPair directly, instead of initialising like before ?
       )
+
+      delegateHcp = await healthcarePartyApi.createHealthcareParty(
+        new HealthcareParty({ id: uuid(), publicKey: publicKeyDelegate, firstName: 'test', lastName: 'test', parentId: parentHcp.id }) //FIXME Shouldn't we call addNewKeyPair directly, instead of initialising like before ?
+      )
+
       delegateUser = await userApi.createUser(
         new User({
           id: `user-${uuid()}-hcp`,
@@ -315,6 +267,9 @@ describe('Full battery of tests on crypto and keys', async function () {
         })
       )
     }
+
+    delete privateKeys['hcp-delegate']
+    delete privateKeys['hcp-parent']
 
     console.log('All prerequisites are started')
   })
@@ -358,10 +313,12 @@ describe('Full battery of tests on crypto and keys', async function () {
 
     const apiAfterNewKey = await getApiAndAddPrivateKeysForUser(user)
 
-    // ICI LE CHANGEMENT
     const hcp = await apiAfterNewKey.healthcarePartyApi.getHealthcareParty(delegateUser!.healthcarePartyId!)
 
-    const record = await apiAfterNewKey.calendarItemApi.newInstance(u, new CalendarItem({ id: `${u.id}-ci`, title: 'CI' }), [hcp!.id!])
+    const record = await apiAfterNewKey.calendarItemApi.newInstance(u, new CalendarItem({ id: `${u.id}-ci`, title: 'CI' }), [
+      hcp!.id!,
+      hcp!.parentId!,
+    ])
     const entity = await apiAfterNewKey.calendarItemApi.createCalendarItemWithHcParty(u, record)
 
     expect(entity.id).to.be.not.null
