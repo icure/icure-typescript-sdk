@@ -19,6 +19,7 @@ export class MaintenanceTaskAfterDateFilter extends AbstractFilterMaintenanceTas
     Object.assign(this as MaintenanceTaskAfterDateFilter, json)
   }
 
+  healthcarePartyId?: string
   date?: number
   desc?: string
 }
