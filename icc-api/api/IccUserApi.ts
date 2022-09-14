@@ -286,7 +286,7 @@ export class IccUserApi {
 
     const _url = this.host + `/user/matches` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, true)
       .then((doc) => (doc.body as Array<JSON>).map((it) => new UserGroup(it)))
       .catch((err) => this.handleError(err))
   }

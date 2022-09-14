@@ -843,17 +843,24 @@ export class IccCryptoXApi {
     const mapOfAesExchangeKeys = Object.entries(owner.aesExchangeKeys ?? {})
       .filter((e) => e[1][delegateId] && Object.keys(e[1][delegateId]).some((k1) => publicKeys.some((pk) => pk.endsWith(k1))))
       .reduce((map, e) => {
-        const candidates = Object.entries(e[1][delegateId])
+        const candidates = Object.entries(e[1][delegateId]) //[fingerprint of delegate pub key, key], [fingerprint of owner pub key, key]
         const [publicKeyFingerprint, encryptedAesExchangeKey] = candidates[candidates.findIndex(([k, v]) => publicKeys.some((pk) => pk.endsWith(k)))]
         return { ...map, [e[0]]: { [publicKeyFingerprint]: encryptedAesExchangeKey } }
       }, {} as { [pubKeyIdentifier: string]: { [pubKeyFingerprint: string]: string } })
 
-    return !owner.publicKey ||
-      mapOfAesExchangeKeys[owner.publicKey] ||
-      !owner.hcPartyKeys?.[delegateId] ||
-      publicKeys.find((p) => p == owner.publicKey!) == undefined
-      ? mapOfAesExchangeKeys
-      : { ...mapOfAesExchangeKeys, [owner.publicKey]: { [owner.publicKey.slice(-32)]: owner.hcPartyKeys[delegateId][0] } }
+    if (!owner.publicKey || mapOfAesExchangeKeys[owner.publicKey] || !owner.hcPartyKeys?.[delegateId]) {
+      return mapOfAesExchangeKeys
+    }
+    const delegate = (await this.getDataOwner(delegateId)).dataOwner
+    if (delegate.publicKey && publicKeys.includes(delegate.publicKey)) {
+      return {
+        ...mapOfAesExchangeKeys,
+        [owner.publicKey]: { [(await this.getDataOwner(delegateId)).dataOwner.publicKey?.slice(-32)!]: owner.hcPartyKeys[delegateId][1] },
+      }
+    } else if (publicKeys.includes(owner.publicKey)) {
+      return { ...mapOfAesExchangeKeys, [owner.publicKey]: { [owner.publicKey.slice(-32)]: owner.hcPartyKeys[delegateId][0] } }
+    }
+    return mapOfAesExchangeKeys
   }
 
   async getOrCreateHcPartyKeys(
