@@ -1229,30 +1229,32 @@ export class IccCryptoXApi {
     objectId: string,
     delegations: { [key: string]: Array<Delegation> }
   ): Promise<{ extractedKeys: Array<string>; hcpartyId: string }> {
-    return this.getDataOwner(dataOwnerId).then(({ dataOwner: hcp }) =>
-      (delegations[dataOwnerId] && delegations[dataOwnerId].length
-        ? this.getDecryptedAesExchangeKeysOfDelegateAndParentsFromGenericDelegations(dataOwnerId, delegations, false).then(
-            (decryptedAndImportedAesHcPartyKeys) => {
-              const collatedAesKeysFromDelegatorToHcpartyId: {
-                [key: string]: { key: CryptoKey; rawKey: string }[]
-              } = {}
-              decryptedAndImportedAesHcPartyKeys.forEach((k) => {
-                ;(collatedAesKeysFromDelegatorToHcpartyId[k.delegatorId] ?? (collatedAesKeysFromDelegatorToHcpartyId[k.delegatorId] = [])).push(k)
-              })
-              return this.decryptKeyInDelegationLikes(delegations[dataOwnerId], collatedAesKeysFromDelegatorToHcpartyId, objectId!)
-            }
-          )
-        : Promise.resolve([])
-      ).then((extractedKeys) =>
-        (hcp as HealthcareParty).parentId
-          ? this.extractKeysFromDelegationsForHcpHierarchy((hcp as HealthcareParty).parentId!, objectId, delegations).then((parentResponse) =>
-              _.assign(parentResponse, {
-                extractedKeys: parentResponse.extractedKeys.concat(extractedKeys),
-              })
+    return this.getDataOwner(dataOwnerId)
+      .then(({ dataOwner: hcp }) =>
+        (delegations[dataOwnerId] && delegations[dataOwnerId].length
+          ? this.getDecryptedAesExchangeKeysOfDelegateAndParentsFromGenericDelegations(dataOwnerId, delegations, false).then(
+              (decryptedAndImportedAesHcPartyKeys) => {
+                const collatedAesKeysFromDelegatorToHcpartyId: {
+                  [key: string]: { key: CryptoKey; rawKey: string }[]
+                } = {}
+                decryptedAndImportedAesHcPartyKeys.forEach((k) => {
+                  ;(collatedAesKeysFromDelegatorToHcpartyId[k.delegatorId] ?? (collatedAesKeysFromDelegatorToHcpartyId[k.delegatorId] = [])).push(k)
+                })
+                return this.decryptKeyInDelegationLikes(delegations[dataOwnerId], collatedAesKeysFromDelegatorToHcpartyId, objectId!)
+              }
             )
-          : { extractedKeys: extractedKeys, hcpartyId: dataOwnerId }
+          : Promise.resolve([])
+        ).then(async (extractedKeys) => {
+          const parentExtractedKeys = (hcp as HealthcareParty).parentId
+            ? await this.extractKeysFromDelegationsForHcpHierarchy((hcp as HealthcareParty).parentId!, objectId, delegations)
+            : { extractedKeys: [], hcpartyId: undefined }
+          return { extractedKeys: extractedKeys.concat(parentExtractedKeys.extractedKeys), hcpartyId: parentExtractedKeys.hcpartyId ?? dataOwnerId }
+        })
       )
-    )
+      .catch((e) => {
+        console.error(`Dataowner with id ${dataOwnerId} cannot be resolved`)
+        throw e
+      })
   }
 
   /**
