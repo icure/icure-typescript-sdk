@@ -16,7 +16,7 @@ import { IccPatientApi } from '../../../icc-api'
 import { expect } from 'chai'
 
 import { TextDecoder, TextEncoder } from 'util'
-import { bootstrapOssKraken, setup, setupCouchDb } from '@icure/test-setup'
+import { bootstrapOssKraken, cleanup, setup, setupCouchDb } from '@icure/test-setup'
 ;(global as any).localStorage = new (require('node-localstorage').LocalStorage)(tmpdir(), 5 * 1024 * 1024 * 1024)
 ;(global as any).fetch = fetch
 ;(global as any).Storage = ''
@@ -121,17 +121,7 @@ describe('Full battery of tests on crypto and keys', async function () {
   })
 
   after(async () => {
-    /*
-    try {
-      execSync('docker rm -f couchdb-test')
-    } catch (e) {}
-    try {
-      execSync('docker rm -f icure-oss-test')
-    } catch (e) {}
-    try {
-      execSync('docker network rm network-test')
-    } catch (e) {}
-    */
+    await cleanup('test/scratchDir', 'docker-compose')
     console.log('Cleanup complete')
   })
   it(`Share patient from hcp to patient`, async () => {
