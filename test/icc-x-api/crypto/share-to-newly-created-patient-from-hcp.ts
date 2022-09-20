@@ -111,7 +111,7 @@ describe('Full battery of tests on crypto and keys', async function () {
           id: `user-${uuid()}-hcp`,
           login: hcpLogin,
           status: 'ACTIVE',
-          passwordHash: 'LetMeInForReal', //pragma: allowlist secret
+          passwordHash: 'LetMeInForReal',
           healthcarePartyId: delegateHcp.id,
         })
       )
