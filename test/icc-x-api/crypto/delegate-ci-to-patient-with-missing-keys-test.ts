@@ -6,7 +6,15 @@ import { Patient } from '../../../icc-api/model/Patient'
 import { Contact } from '../../../icc-api/model/Contact'
 import { HealthElement } from '../../../icc-api/model/HealthElement'
 import { CalendarItem } from '../../../icc-api/model/CalendarItem'
-import { EncryptedEntity, EncryptedParentEntity, HealthcareParty, Service, User } from '../../../icc-api/model/models'
+import {
+  EncryptedEntity,
+  EncryptedParentEntity,
+  FilterChainMaintenanceTask,
+  HealthcareParty, MaintenanceTask,
+  PropertyStub,
+  Service,
+  User
+} from '../../../icc-api/model/models'
 import { before, describe, it } from 'mocha'
 
 import { webcrypto } from 'crypto'
@@ -17,7 +25,10 @@ import { IccPatientApi } from '../../../icc-api'
 import { expect } from 'chai'
 
 import { TextDecoder, TextEncoder } from 'util'
-;(global as any).localStorage = new (require('node-localstorage').LocalStorage)(tmpdir(), 5 * 1024 * 1024 * 1024)
+  ;
+import {MaintenanceTaskByHcPartyAndTypeFilter} from "../../../icc-x-api/filters/MaintenanceTaskByHcPartyAndTypeFilter"
+
+(global as any).localStorage = new (require('node-localstorage').LocalStorage)(tmpdir(), 5 * 1024 * 1024 * 1024)
 ;(global as any).fetch = fetch
 ;(global as any).Storage = ''
 ;(global as any).TextDecoder = TextDecoder
@@ -268,9 +279,6 @@ describe('Full battery of tests on crypto and keys', async function () {
       )
     }
 
-    delete privateKeys['hcp-delegate']
-    delete privateKeys['hcp-parent']
-
     console.log('All prerequisites are started')
   })
 
@@ -290,17 +298,32 @@ describe('Full battery of tests on crypto and keys', async function () {
   })
   it(`Create calendar item as a patient}`, async () => {
     const u = newPatientUser!
+    const previousPubKey = Object.keys(privateKeys[u.login!])[0]
     const api = await getApiAndAddPrivateKeysForUser(u)
 
     const patient = await api.patientApi.getPatientWithUser(u, u.patientId!)
-
     const patientWithDelegation = await api.patientApi.modifyPatientWithUser(
       u,
       await api.patientApi.initDelegationsAndEncryptionKeys(patient, u, undefined, [delegateUser!.healthcarePartyId!])
     )
 
+    // Decrypting AES Key to compare it with AES key decrypted with new key in the next steps
+    const decryptedAesWithPreviousKey = await api.cryptoApi.decryptHcPartyKey(
+      patientWithDelegation!.id!, patientWithDelegation!.id!, delegateUser!.healthcarePartyId!, previousPubKey,
+      patientWithDelegation!.aesExchangeKeys![previousPubKey][delegateUser!.healthcarePartyId!], [previousPubKey]
+    )
+
+    // Create a Record with original key
+    const initialRecord = await api.calendarItemApi.newInstance(u, new CalendarItem({ id: `${u.id}-ci-initial`, title: 'CI-INITIAL' }), [
+      delegateHcp!.id!,
+      delegateHcp!.parentId!,
+    ])
+    const savedInitialRecord = await api.calendarItemApi.createCalendarItemWithHcParty(u, initialRecord)
+
+    // User lost his key
     privateKeys['patient'] = {}
 
+    // And creates a new one
     const apiAfterLossOfKey = await getApiAndAddPrivateKeysForUser(u)
     const user = await apiAfterLossOfKey.userApi.getCurrentUser()
     const { privateKey, publicKey } = await apiAfterLossOfKey.cryptoApi.addNewKeyPairForOwnerId(
@@ -313,15 +336,54 @@ describe('Full battery of tests on crypto and keys', async function () {
 
     const apiAfterNewKey = await getApiAndAddPrivateKeysForUser(user)
 
+    // User can get not encrypted information from iCure (HCP, ...)
     const hcp = await apiAfterNewKey.healthcarePartyApi.getHealthcareParty(delegateUser!.healthcarePartyId!)
 
-    const record = await apiAfterNewKey.calendarItemApi.newInstance(u, new CalendarItem({ id: `${u.id}-ci`, title: 'CI' }), [
+    // User can create new data, using its new keyPair
+    const newRecord = await apiAfterNewKey.calendarItemApi.newInstance(u, new CalendarItem({ id: `${u.id}-ci`, title: 'CI' }), [
       hcp!.id!,
       hcp!.parentId!,
     ])
-    const entity = await apiAfterNewKey.calendarItemApi.createCalendarItemWithHcParty(u, record)
-
+    const entity = await apiAfterNewKey.calendarItemApi.createCalendarItemWithHcParty(u, newRecord)
     expect(entity.id).to.be.not.null
     expect(entity.rev).to.be.not.null
+
+    // But user can not decrypt data he previously created
+    const initialRecordAfterNewKey = await apiAfterNewKey.calendarItemApi.getCalendarItemWithUser(u, initialRecord.id!)
+    expect(initialRecordAfterNewKey.id).to.be.equal(savedInitialRecord.id)
+    expect(initialRecordAfterNewKey.rev).to.be.equal(savedInitialRecord.rev)
+    expect(initialRecordAfterNewKey.title).to.be.undefined
+
+    // Delegate user will therefore give user access back to data he previously created
+    // (Maintenance tasks mechanism not part of the test)
+    const delegateApi = await getApiAndAddPrivateKeysForUser(delegateUser!)
+    const updatedDataOwner = await delegateApi.cryptoApi.giveAccessBackTo(delegateUser!, patient.id!, publicKey)
+
+    expect(updatedDataOwner.type).to.be.equal('patient')
+    expect(updatedDataOwner.dataOwner).to.not.be.undefined
+    expect(updatedDataOwner.dataOwner).to.not.be.null
+    expect(updatedDataOwner.dataOwner.aesExchangeKeys![previousPubKey][delegateUser!.healthcarePartyId!][publicKey.slice(-32)]).to.be.not.undefined
+    expect(updatedDataOwner.dataOwner.aesExchangeKeys![previousPubKey][delegateUser!.healthcarePartyId!][publicKey.slice(-32)]).to.be.not.null
+
+    const apiAfterSharedBack = await getApiAndAddPrivateKeysForUser(user)
+
+    const decryptedAesWithNewKey = await apiAfterSharedBack.cryptoApi.decryptHcPartyKey(
+      user.patientId!, user.patientId!, delegateUser!.healthcarePartyId!, publicKey,
+      updatedDataOwner.dataOwner.aesExchangeKeys![previousPubKey][delegateUser!.healthcarePartyId!], [publicKey]
+    )
+
+    // Patient can decrypt the new hcPartyKey
+    expect(decryptedAesWithNewKey.rawKey).to.not.be.undefined
+    expect(decryptedAesWithNewKey.rawKey).to.not.be.null
+
+    expect(decryptedAesWithNewKey.rawKey).to.be.equal(decryptedAesWithPreviousKey.rawKey)
+
+    // User can access his previous data again
+    apiAfterSharedBack.cryptoApi.emptyHcpCache(patient.id)
+
+    const initialRecordAfterSharedBack = await apiAfterSharedBack.calendarItemApi.getCalendarItemWithUser(u, initialRecord.id!)
+    expect(initialRecordAfterSharedBack.id).to.be.equal(savedInitialRecord.id)
+    expect(initialRecordAfterSharedBack.rev).to.be.equal(savedInitialRecord.rev)
+    expect(initialRecordAfterSharedBack.title).to.be.equal(savedInitialRecord.title)
   })
 })
