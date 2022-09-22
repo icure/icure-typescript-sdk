@@ -8,3 +8,9 @@ export function fold<T, R>(whereToFold: Array<T>, initial: R, operation: (acc: R
   for (let i = 0; i < whereToFold.length; i++) accumulator = operation(accumulator, whereToFold[i])
   return accumulator
 }
+
+export async function foldAsync<T, R>(whereToFold: Array<T>, initial: R, operation: (acc: R, element: T) => Promise<R>): Promise<R> {
+  let accumulator = initial
+  for (let i = 0; i < whereToFold.length; i++) accumulator = await operation(accumulator, whereToFold[i])
+  return accumulator
+}
