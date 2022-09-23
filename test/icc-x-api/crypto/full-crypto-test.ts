@@ -124,6 +124,9 @@ const users: User[] = []
 let delegateUser: User | undefined = undefined
 let delegateHcp: HealthcareParty | undefined = undefined
 
+let userGivingAccessBack: User | undefined = undefined
+let hcpGivingAccessBack: HealthcareParty | undefined = undefined
+
 const entities: EntityCreators = {
   Patient: ({ patientApi }, id, user, _, delegateIds) => {
     return patientApi.newInstance(user, new Patient({ id, firstName: 'test', lastName: 'test', note: 'data', dateOfBirth: 20000101 }), delegateIds)
@@ -167,6 +170,17 @@ const userDefinitions: Record<string, (user: User, api: Apis) => Promise<User>> 
     privateKeys[user.login!] = { [publicKey]: privateKey }
     return user
   },
+  'one lost key and one upgraded available key thanks to delegate who gave access back to previous data': async (user: User, api) => {
+    const userDataOwnerId = api.dataOwnerApi.getDataOwnerOf(user)
+
+    const { privateKey, publicKey } = await api.cryptoApi.addNewKeyPairForOwnerId(api.maintenanceTaskApi, user, api.dataOwnerApi.getDataOwnerOf(user), true)
+    privateKeys[user.login!] = { [publicKey]: privateKey }
+
+    const delegateApi = await getApiAndAddPrivateKeysForUser(userGivingAccessBack!)
+    await delegateApi.cryptoApi.giveAccessBackTo(userGivingAccessBack!, userDataOwnerId, publicKey)
+
+    return user
+  }
 }
 
 async function makeKeyPair(cryptoApi: IccCryptoXApi, login: string) {
@@ -319,6 +333,20 @@ describe('Full battery of tests on crypto and keys', async function () {
         })
       )
 
+      const publicKeyHcpGivingAccessBack = await makeKeyPair(cryptoApi, `hcp-giving-access-back`)
+      hcpGivingAccessBack = await healthcarePartyApi.createHealthcareParty(
+        new HealthcareParty({ id: uuid(), publicKey: publicKeyHcpGivingAccessBack, firstName: 'test', lastName: 'test' })
+      )
+      userGivingAccessBack = await userApi.createUser(
+        new User({
+          id: `user-${uuid()}-hcp`,
+          login: `hcp-giving-access-back`,
+          status: 'ACTIVE',
+          passwordHash: hashedAdmin,
+          healthcarePartyId: hcpGivingAccessBack.id,
+        })
+      )
+
       await Object.entries(userDefinitions).reduce(async (p, [login, creationProcess]) => {
         await p
 
@@ -363,8 +391,8 @@ describe('Full battery of tests on crypto and keys', async function () {
           const parent2 =
             type !== 'Patient' ? await api2.patientApi.getPatientWithUser(newPatientUser, `partial-${newPatientUser.id}-Patient`) : undefined
 
-          const record1 = await entities[type as TestedEntity](api1, `partial-${newHcpUser.id}-${type}`, newHcpUser, parent1)
-          const record2 = await entities[type as TestedEntity](api2, `partial-${newPatientUser.id}-${type}`, newPatientUser, parent2)
+          const record1 = await entities[type as TestedEntity](api1, `partial-${newHcpUser.id}-${type}`, newHcpUser, parent1, [hcpGivingAccessBack!.id!])
+          const record2 = await entities[type as TestedEntity](api2, `partial-${newPatientUser.id}-${type}`, newPatientUser, parent2, [hcpGivingAccessBack!.id!])
 
           prev.push(await facade.create(api1, record1))
           prev.push(await facade.create(api2, record2))
