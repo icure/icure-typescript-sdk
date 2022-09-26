@@ -10,10 +10,11 @@ import {
   EncryptedEntity,
   EncryptedParentEntity,
   FilterChainMaintenanceTask,
-  HealthcareParty, MaintenanceTask,
+  HealthcareParty,
+  MaintenanceTask,
   PropertyStub,
   Service,
-  User
+  User,
 } from '../../../icc-api/model/models'
 import { before, describe, it } from 'mocha'
 
@@ -25,10 +26,8 @@ import { IccPatientApi } from '../../../icc-api'
 import { expect } from 'chai'
 
 import { TextDecoder, TextEncoder } from 'util'
-  ;
-import {MaintenanceTaskByHcPartyAndTypeFilter} from "../../../icc-x-api/filters/MaintenanceTaskByHcPartyAndTypeFilter"
-
-(global as any).localStorage = new (require('node-localstorage').LocalStorage)(tmpdir(), 5 * 1024 * 1024 * 1024)
+import { MaintenanceTaskByHcPartyAndTypeFilter } from '../../../icc-x-api/filters/MaintenanceTaskByHcPartyAndTypeFilter'
+;(global as any).localStorage = new (require('node-localstorage').LocalStorage)(tmpdir(), 5 * 1024 * 1024 * 1024)
 ;(global as any).fetch = fetch
 ;(global as any).Storage = ''
 ;(global as any).TextDecoder = TextDecoder
@@ -313,8 +312,12 @@ describe('Full battery of tests on crypto and keys', async function () {
 
     // Decrypting AES Key to compare it with AES key decrypted with new key in the next steps
     const decryptedAesWithPreviousKey = await api.cryptoApi.decryptHcPartyKey(
-      patientWithDelegation!.id!, patientWithDelegation!.id!, delegateUser!.healthcarePartyId!, previousPubKey,
-      patientWithDelegation!.aesExchangeKeys![previousPubKey][delegateUser!.healthcarePartyId!], [previousPubKey]
+      patientWithDelegation!.id!,
+      patientWithDelegation!.id!,
+      delegateUser!.healthcarePartyId!,
+      previousPubKey,
+      patientWithDelegation!.aesExchangeKeys![previousPubKey][delegateUser!.healthcarePartyId!],
+      [previousPubKey]
     )
 
     // Create a Record with original key
@@ -372,8 +375,12 @@ describe('Full battery of tests on crypto and keys', async function () {
     const apiAfterSharedBack = await getApiAndAddPrivateKeysForUser(user)
 
     const decryptedAesWithNewKey = await apiAfterSharedBack.cryptoApi.decryptHcPartyKey(
-      user.patientId!, user.patientId!, delegateUser!.healthcarePartyId!, publicKey,
-      updatedDataOwner.dataOwner.aesExchangeKeys![previousPubKey][delegateUser!.healthcarePartyId!], [publicKey]
+      user.patientId!,
+      user.patientId!,
+      delegateUser!.healthcarePartyId!,
+      publicKey,
+      updatedDataOwner.dataOwner.aesExchangeKeys![previousPubKey][delegateUser!.healthcarePartyId!],
+      [publicKey]
     )
 
     // Patient can decrypt the new hcPartyKey
