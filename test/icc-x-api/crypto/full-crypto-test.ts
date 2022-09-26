@@ -173,14 +173,19 @@ const userDefinitions: Record<string, (user: User, api: Apis) => Promise<User>> 
   'one lost key and one upgraded available key thanks to delegate who gave access back to previous data': async (user: User, api) => {
     const userDataOwnerId = api.dataOwnerApi.getDataOwnerOf(user)
 
-    const { privateKey, publicKey } = await api.cryptoApi.addNewKeyPairForOwnerId(api.maintenanceTaskApi, user, api.dataOwnerApi.getDataOwnerOf(user), true)
+    const { privateKey, publicKey } = await api.cryptoApi.addNewKeyPairForOwnerId(
+      api.maintenanceTaskApi,
+      user,
+      api.dataOwnerApi.getDataOwnerOf(user),
+      true
+    )
     privateKeys[user.login!] = { [publicKey]: privateKey }
 
     const delegateApi = await getApiAndAddPrivateKeysForUser(userGivingAccessBack!)
     await delegateApi.cryptoApi.giveAccessBackTo(userGivingAccessBack!, userDataOwnerId, publicKey)
 
     return user
-  }
+  },
 }
 
 async function makeKeyPair(cryptoApi: IccCryptoXApi, login: string) {
@@ -391,8 +396,12 @@ describe('Full battery of tests on crypto and keys', async function () {
           const parent2 =
             type !== 'Patient' ? await api2.patientApi.getPatientWithUser(newPatientUser, `partial-${newPatientUser.id}-Patient`) : undefined
 
-          const record1 = await entities[type as TestedEntity](api1, `partial-${newHcpUser.id}-${type}`, newHcpUser, parent1, [hcpGivingAccessBack!.id!])
-          const record2 = await entities[type as TestedEntity](api2, `partial-${newPatientUser.id}-${type}`, newPatientUser, parent2, [hcpGivingAccessBack!.id!])
+          const record1 = await entities[type as TestedEntity](api1, `partial-${newHcpUser.id}-${type}`, newHcpUser, parent1, [
+            hcpGivingAccessBack!.id!,
+          ])
+          const record2 = await entities[type as TestedEntity](api2, `partial-${newPatientUser.id}-${type}`, newPatientUser, parent2, [
+            hcpGivingAccessBack!.id!,
+          ])
 
           prev.push(await facade.create(api1, record1))
           prev.push(await facade.create(api2, record2))
@@ -447,7 +456,7 @@ describe('Full battery of tests on crypto and keys', async function () {
       })
     })
   })
-  ;['patient','hcp'].forEach((uType) => {
+  ;['patient', 'hcp'].forEach((uType) => {
     Object.keys(userDefinitions).forEach((uId) => {
       Object.entries(facades).forEach((f) => {
         it(`Create ${f[0]} as a ${uType} with ${uId}`, async () => {

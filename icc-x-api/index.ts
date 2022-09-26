@@ -140,9 +140,8 @@ export const Api = async function (
         console.error('Incorrect user and password used to instantiate Api, or network problem', e)
       }
     }
-  }
-  else {
-    console.info("Auto login skipped")
+  } else {
+    console.info('Auto login skipped')
   }
 
   return {

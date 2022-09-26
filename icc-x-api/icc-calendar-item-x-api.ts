@@ -6,7 +6,7 @@ import { CalendarItem, User } from '../icc-api/model/models'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 import { IccCalendarItemApi } from '../icc-api'
 import { crypt, decrypt, hex2ua, ua2utf8, utf8_2ua } from './utils'
-import {IccDataOwnerXApi} from "./icc-data-owner-x-api"
+import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 
 export class IccCalendarItemXApi extends IccCalendarItemApi {
   i18n: any = i18n
@@ -228,7 +228,11 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
           : this.initEncryptionKeys(user, calendarItem)
         )
           .then((calendarItem: CalendarItem) =>
-            this.crypto.extractKeysFromDelegationsForHcpHierarchy(this.dataOwnerApi.getDataOwnerOf(user)!, calendarItem.id!, calendarItem.encryptionKeys!)
+            this.crypto.extractKeysFromDelegationsForHcpHierarchy(
+              this.dataOwnerApi.getDataOwnerOf(user)!,
+              calendarItem.id!,
+              calendarItem.encryptionKeys!
+            )
           )
           .then((eks: { extractedKeys: Array<string>; hcpartyId: string }) =>
             this.crypto.AES.importKey('raw', hex2ua(eks.extractedKeys[0].replace(/-/g, '')))

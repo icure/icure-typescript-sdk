@@ -21,7 +21,7 @@ import { FilterChainMaintenanceTask } from '../../icc-api/model/FilterChainMaint
 import { MaintenanceTaskByIdsFilter } from '../../icc-x-api/filters/MaintenanceTaskByIdsFilter'
 import { MaintenanceTaskByHcPartyAndTypeFilter } from '../../icc-x-api/filters/MaintenanceTaskByHcPartyAndTypeFilter'
 import initKey = TestUtils.initKey
-import {DocIdentifier} from "../../icc-api/model/DocIdentifier"
+import { DocIdentifier } from '../../icc-api/model/DocIdentifier'
 
 const tmp = os.tmpdir()
 console.log('Saving keys in ' + tmp)
