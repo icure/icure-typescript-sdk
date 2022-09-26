@@ -1252,16 +1252,17 @@ export class IccCryptoXApi {
 
           return extractedKeys
         })
-        .then((extractedKeys) =>
-          (hcp as HealthcareParty).parentId
-            ? this.extractKeysFromDelegationsForHcpHierarchy((hcp as HealthcareParty).parentId!, objectId, delegations).then((parentResponse) =>
-                _.assign(parentResponse, {
-                  extractedKeys: parentResponse.extractedKeys.concat(extractedKeys),
-                })
-              )
-            : { extractedKeys: extractedKeys, hcpartyId: dataOwnerId }
-        )
+        .then(async (extractedKeys) => {
+          const parentExtractedKeys = (hcp as HealthcareParty).parentId
+            ? await this.extractKeysFromDelegationsForHcpHierarchy((hcp as HealthcareParty).parentId!, objectId, delegations)
+            : { extractedKeys: [], hcpartyId: undefined }
+          return { extractedKeys: extractedKeys.concat(parentExtractedKeys.extractedKeys), hcpartyId: parentExtractedKeys.hcpartyId ?? dataOwnerId }
+        })
     )
+      .catch((e) => {
+        console.error(`Dataowner with id ${dataOwnerId} cannot be resolved`)
+        throw e
+      })
   }
 
   /**

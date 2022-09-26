@@ -15,7 +15,7 @@ import { IccCalendarItemXApi } from './icc-calendar-item-x-api'
 import { b64_2ab } from '../icc-api/model/ModelHelper'
 import { b2a, hex2ua, string2ua, ua2hex, ua2utf8, utf8_2ua } from './utils/binary-utils'
 import { findName, garnishPersonWithName, hasName } from './utils/person-util'
-import { retry, crypt, decrypt } from './utils'
+import { crypt, decrypt, retry } from './utils'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 
 // noinspection JSUnusedGlobalSymbols
@@ -537,79 +537,73 @@ export class IccPatientXApi extends IccPatientApi {
     )
   }
 
-  decrypt(user: models.User, pats: Array<models.Patient>, fillDelegations = true): Promise<Array<models.Patient>> {
+  decrypt(user: models.User, patients: Array<models.Patient>, fillDelegations = true): Promise<Array<models.Patient>> {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
 
     return (user.healthcarePartyId ? this.hcpartyApi.getHealthcarePartyHierarchyIds(user.healthcarePartyId) : Promise.resolve([dataOwnerId])).then(
-      (ids) => {
-        const hcpId = ids[0]
+      async (ids) => {
         //First check that we have no dangling delegation
-        const patsWithMissingDelegations = pats.filter(
+        const patsWithMissingDelegations = patients.filter(
           (p) =>
             p.delegations &&
             ids.some((id) => p.delegations![id!] && !p.delegations![id!].length) &&
             !Object.values(p.delegations).some((d) => d.length > 0)
         )
 
-        let prom: Promise<{ [key: string]: models.Patient }> = Promise.resolve({})
-        fillDelegations &&
-          patsWithMissingDelegations.forEach((p) => {
-            prom = prom.then((acc) =>
-              this.initDelegationsAndEncryptionKeys(p, user).then((p) =>
-                this.modifyPatientWithUser(user, p).then((mp) => {
-                  acc[p.id!] = mp || p
-                  return acc
-                })
-              )
-            )
-          })
+        const acc: { [key: string]: models.Patient } = fillDelegations
+          ? await patsWithMissingDelegations.reduce(async (acc, p) => {
+              const pats = await acc
+              const pat = await this.initDelegationsAndEncryptionKeys(p, user)
+              const mp = await this.modifyPatientWithUser(user, pat)
+              return { ...pats, [pat.id!]: mp || pat }
+            }, Promise.resolve({} as { [key: string]: models.Patient }))
+          : {}
 
-        return prom
-          .then((acc: { [key: string]: models.Patient }) =>
-            pats.map((p) => {
-              const fixedPatient = acc[p.id!]
-              return fixedPatient || p
-            })
-          )
-          .then((pats) => {
-            return Promise.all(
-              pats.map((p) => {
-                return p.encryptedSelf
-                  ? this.crypto
-                      .extractKeysFromDelegationsForHcpHierarchy(hcpId!, p.id!, _.size(p.encryptionKeys) ? p.encryptionKeys! : p.delegations!)
-                      .then(({ extractedKeys: sfks }) => {
-                        if (!sfks || !sfks.length) {
-                          //console.log("Cannot decrypt contact", ctc.id)
-                          return Promise.resolve(p)
-                        }
-                        return this.crypto.AES.importKey('raw', hex2ua(sfks[0].replace(/-/g, ''))).then((key) =>
-                          decrypt(p, (ec) =>
-                            this.crypto.AES.decrypt(key, ec)
-                              .then((dec) => {
-                                const jsonContent = dec && ua2utf8(dec)
-                                try {
-                                  return JSON.parse(jsonContent)
-                                } catch (e) {
-                                  console.log('Cannot parse patient', p.id, jsonContent || 'Invalid content')
-                                  return p
+        return Promise.all(
+          patients
+            .map((p) => acc[p.id!] || p)
+            .map(async (p): Promise<Patient> => {
+              return (
+                (await ids.reduce(async (decP, hcpId) => {
+                  return (
+                    (await decP) ??
+                    (p.encryptedSelf
+                      ? await this.crypto
+                          .extractKeysFromDelegationsForHcpHierarchy(hcpId!, p.id!, _.size(p.encryptionKeys) ? p.encryptionKeys! : p.delegations!)
+                          .then(({ extractedKeys: sfks }) => {
+                            if (!sfks || !sfks.length) {
+                              return Promise.resolve(undefined)
+                            }
+                            return this.crypto.AES.importKey('raw', hex2ua(sfks[0].replace(/-/g, ''))).then((key) =>
+                              decrypt(p, (ec) =>
+                                this.crypto.AES.decrypt(key, ec)
+                                  .then((dec) => {
+                                    const jsonContent = dec && ua2utf8(dec)
+                                    try {
+                                      return JSON.parse(jsonContent)
+                                    } catch (e) {
+                                      console.log('Cannot parse patient', p.id, jsonContent || 'Invalid content')
+                                      return Promise.resolve(undefined)
+                                    }
+                                  })
+                                  .catch((err) => {
+                                    console.log('Cannot decrypt patient', p.id, err)
+                                    return Promise.resolve(undefined)
+                                  })
+                              ).then((p) => {
+                                if (p.picture && !(p.picture instanceof ArrayBuffer)) {
+                                  p.picture = b64_2ab(p.picture)
                                 }
-                              })
-                              .catch((err) => {
-                                console.log('Cannot decrypt patient', p.id, err)
                                 return p
                               })
-                          ).then((p) => {
-                            if (p.picture && !(p.picture instanceof ArrayBuffer)) {
-                              p.picture = b64_2ab(p.picture)
-                            }
-                            return p
+                            )
                           })
-                        )
-                      })
-                  : Promise.resolve(p)
-              })
-            )
-          })
+                      : p)
+                  )
+                }, Promise.resolve(undefined as Patient | undefined))) ?? p
+              )
+            })
+        )
       }
     )
   }
