@@ -307,6 +307,10 @@ describe('Full battery of tests on crypto and keys', async function () {
       await api.patientApi.initDelegationsAndEncryptionKeys(patient, u, undefined, [delegateUser!.healthcarePartyId!])
     )
 
+    console.log(`Patient = ${patient.id}`)
+    console.log(`Delegate HCP = ${delegateHcp!.id}`)
+    console.log(`Delegate HCP Parent = ${delegateHcp!.parentId}`)
+
     // Decrypting AES Key to compare it with AES key decrypted with new key in the next steps
     const decryptedAesWithPreviousKey = await api.cryptoApi.decryptHcPartyKey(
       patientWithDelegation!.id!, patientWithDelegation!.id!, delegateUser!.healthcarePartyId!, previousPubKey,

@@ -422,7 +422,7 @@ describe('Full battery of tests on crypto and keys', async function () {
     */
     console.log('Cleanup complete')
   })
-  ;['patient', 'hcp'].forEach((uType) => {
+  ;['hcp'].forEach((uType) => {
     Object.keys(userDefinitions).forEach((uId) => {
       it(`Import from local storage for ${uId}`, async () => {
         const u = users.find((it) => it.login === `${uType}-${uId}`)!
@@ -447,7 +447,7 @@ describe('Full battery of tests on crypto and keys', async function () {
       })
     })
   })
-  ;['patient', 'hcp'].forEach((uType) => {
+  ;['patient','hcp'].forEach((uType) => {
     Object.keys(userDefinitions).forEach((uId) => {
       Object.entries(facades).forEach((f) => {
         it(`Create ${f[0]} as a ${uType} with ${uId}`, async () => {

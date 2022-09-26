@@ -1273,43 +1273,49 @@ export class IccCryptoXApi {
   private async _extractDelegationsKeysUsingDataOwnerDelegateAesExchangeKeys(dataOwner: Patient | Device | HealthcareParty, delegations: { [p: string]: Array<Delegation> }, objectId: string) {
     // Find other keys through aesExchangeKeys
     const dataOwnerPubKeys = await this.getPublicKeys()
-    const delegateIdsWithNewExtractedAesKeys = [] as string[]
+    const keysToDecrypt = fold(Object.entries(dataOwner.aesExchangeKeys!), {} as { [delegateId: string] : { [pubKey: string]: { [pubKeyFingerprint: string]: string } } }, (acc, [pub, aesForPub]) => {
+      Object.entries(aesForPub)
+        .forEach(([delegateId, aesKeys]) => {
+          if (delegateId != dataOwner.id) {
+            const aesAcc = {} as { [pubKeyFingerprint: string]: string };
+            Object.entries(aesKeys)
+              .filter(([encrPubKey]) => dataOwnerPubKeys.find((pubKey) => pubKey.slice(-32) == encrPubKey) != undefined)
+              .forEach(([pubKeyFingerprint, aesEncr]) => {
+                aesAcc[pubKeyFingerprint] = aesEncr
+              })
 
-    const keysToDecrypt = fold(Object.entries(dataOwner.aesExchangeKeys!), {} as { [pubKey: string]: { [pubKeyFingerprint: string]: string } }, (acc, [pub, aesForPub]) => {
-      acc[pub] = fold(Object.entries(aesForPub), {} as { [pubKeyFingerprint: string]: string }, (aesAcc, [delegateId, aesKeys]) => {
-        if (delegateId != dataOwner.id) {
-          Object.entries(aesKeys)
-            .filter(([encrPubKey]) => dataOwnerPubKeys.find((pubKey) => pubKey.slice(-32) == encrPubKey) != undefined)
-            .forEach(([pubKeyFingerprint, aesEncr]) => {
-              aesAcc[pubKeyFingerprint] = aesEncr
-              delegateIdsWithNewExtractedAesKeys.push(delegateId)
-            })
-        }
-        return aesAcc
-      })
+              if (acc[delegateId] == undefined) {
+                acc[delegateId] = {}
+              }
+              acc[delegateId][pub] = aesAcc
+          }
+        })
       return acc
     })
 
-    return await this.decryptAnyAesExchangeKeyForOwner(keysToDecrypt, dataOwner.id!, dataOwner.id!, dataOwner.id!, dataOwnerPubKeys).then(
-      (decryptedAndImportedAesHcPartyKeys) => {
-        const collatedAesKeysFromDelegatorToHcpartyId: {
-          [key: string]: { key: CryptoKey; rawKey: string }[]
-        } = {}
-
-        collatedAesKeysFromDelegatorToHcpartyId[decryptedAndImportedAesHcPartyKeys.delegatorId] = [{
-          key: decryptedAndImportedAesHcPartyKeys.key,
-          rawKey: decryptedAndImportedAesHcPartyKeys.rawKey
-        }]
-
-        const delegationsToDecrypt = fold(Object.entries(delegations), [] as Delegation[], (acc, [delegateId, del]) => {
-          if (delegateIdsWithNewExtractedAesKeys.find((id) => id == delegateId) != undefined) {
-            acc.push(...delegations[delegateId])
-          }
-          return acc
-        })
-        return this.decryptKeyInDelegationLikes(delegationsToDecrypt, collatedAesKeysFromDelegatorToHcpartyId, objectId!)
+    const decryptedAndImportedAesHcPartyKeys = await foldAsync(Object.entries(keysToDecrypt), [] as DelegatorAndKeys[], async (delKeysAcc, [delegateId, keysForDelegate]) => {
+      try {
+        delKeysAcc.push(await this.decryptAnyAesExchangeKeyForOwner(keysForDelegate, dataOwner.id!, dataOwner.id!, delegateId, dataOwnerPubKeys))
+      } catch (e) {
+        console.log(`Could not decrypt aesExchangeKeys for delegate ${delegateId}`)
       }
+      return delKeysAcc
+    })
+
+    const collatedAesKeysFromDelegatorToHcpartyId = decryptedAndImportedAesHcPartyKeys.reduce(
+      (map, k) => ({ ...map, [k.delegatorId]: (map[k.delegatorId] ?? []).concat([k]) }),
+      {} as { [key: string]: { key: CryptoKey; rawKey: string }[] }
     )
+
+    const delegateIdsWithNewExtractedAesKeys = Object.keys(keysToDecrypt)
+    const delegationsToDecrypt = fold(Object.entries(delegations), [] as Delegation[], (acc, [delegateId, del]) => {
+      if (delegateIdsWithNewExtractedAesKeys.find((id) => id == delegateId) != undefined) {
+        acc.push(...delegations[delegateId])
+      }
+      return acc
+    })
+
+    return this.decryptKeyInDelegationLikes(delegationsToDecrypt, collatedAesKeysFromDelegatorToHcpartyId, objectId!)
   }
 
   /**
