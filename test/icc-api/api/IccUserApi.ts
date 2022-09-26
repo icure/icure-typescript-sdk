@@ -1,7 +1,7 @@
-import {Api} from '../../../icc-x-api'
-import {crypto} from '../../../node-compat'
-import {expect} from 'chai'
-import {randomUUID} from 'crypto'
+import { Api } from '../../../icc-x-api'
+import { crypto } from '../../../node-compat'
+import { expect } from 'chai'
+import { randomUUID } from 'crypto'
 
 const iCureUrl = process.env.ICURE_URL ?? 'https://kraken.icure.dev/rest/v1'
 const hcp1UserName = process.env.HCP_USERNAME!
