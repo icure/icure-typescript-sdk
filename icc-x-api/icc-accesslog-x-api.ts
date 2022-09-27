@@ -6,7 +6,7 @@ import { AccessLog, PaginatedListAccessLog } from '../icc-api/model/models'
 
 import * as _ from 'lodash'
 import { crypt, decrypt, hex2ua, ua2utf8, utf8_2ua } from './utils'
-import {IccDataOwnerXApi} from "./icc-data-owner-x-api"
+import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 
 export interface AccessLogWithPatientId extends AccessLog {
   patientId: string

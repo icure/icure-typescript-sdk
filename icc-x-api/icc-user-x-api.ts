@@ -15,6 +15,4 @@ export class IccUserXApi extends IccUserApi {
     super(host, headers, fetchImpl)
     this.fetchImpl = fetchImpl
   }
-
-
 }
