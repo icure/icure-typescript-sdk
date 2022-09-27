@@ -1447,7 +1447,7 @@ export class IccCryptoXApi {
     const publicKey = this.getPublicKeyFromPrivateKey(privateKey, dataOwner)
 
     const keyPair = await this._RSA.importKeyPair('jwk', privateKey, 'jwk', spkiToJwk(hex2ua(publicKey)))
-    this.rsaKeyPairs[healthcarePartyId] = keyPair
+    this.rsaKeyPairs[publicKey.slice(-32)] = keyPair
     const exportedKeyPair = await this._RSA.exportKeys(keyPair, 'jwk', 'jwk')
 
     return this.storeKeyPair(`${healthcarePartyId}.${publicKey.slice(-32)}`, exportedKeyPair)
