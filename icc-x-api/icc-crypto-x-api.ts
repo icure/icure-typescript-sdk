@@ -2098,6 +2098,7 @@ export class IccCryptoXApi {
     if (!this.secureDelegationEntryKeysCache[delegateId]) {
       const delegators = Object.keys(await this.getEncryptedAesExchangeKeysForDelegate(delegateId))
       if (!this.secureDelegationEntryKeysCache[delegateId]) {
+        this.secureDelegationEntryKeysCache[delegateId] = {}
         this.rebuildSecureDelegationsCacheFor(delegators, delegateId)
       }
     }
@@ -2126,7 +2127,7 @@ export class IccCryptoXApi {
                 async (keyAcc, key) => {
                   return {
                     ...(await keyAcc),
-                    [key.rawKey]: await this.getSecureDelegationEntryKeyFor(key, delegateId, entityClass)
+                    [key.rawKey]: await this.createSecureDelegationEntryKey(key, entityClass)
                   }
                 },
                 Promise.resolve({} as {[rawKey: string]: string})
@@ -2249,7 +2250,7 @@ export class IccCryptoXApi {
           )
         } else return acc
       },
-      [...delegationsLike[delegateId]] ?? []
+      [...(delegationsLike[delegateId] ?? [])]
     )
   }
 
