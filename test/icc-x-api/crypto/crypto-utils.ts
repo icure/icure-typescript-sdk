@@ -1,5 +1,5 @@
-import {Api, b64_2ua, b64Url2ua} from '../../../icc-x-api'
-import {expect} from 'chai'
+import { Api, b64_2ua, b64Url2ua } from '../../../icc-x-api'
+import { expect } from 'chai'
 
 import 'mocha'
 import { hex2ua, jwk2pkcs8, jwk2spki, pkcs8ToJwk, spkiToJwk, truncateTrailingNulls, ua2hex } from '../../../index'
