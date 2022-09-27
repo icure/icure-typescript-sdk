@@ -53,7 +53,7 @@ export class IccInvoiceXApi extends IccInvoiceApi {
 
   initEncryptionKeys(user: models.User, invoice: models.Invoice) {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-    return this.crypto.initEncryptionKeys(invoice, dataOwnerId!).then((eks) => {
+    return this.crypto.initEncryptionKeys(invoice, dataOwnerId!, "Invoice").then((eks) => {
       let promise = Promise.resolve(
         _.extend(invoice, {
           encryptionKeys: eks.encryptionKeys,
@@ -62,7 +62,7 @@ export class IccInvoiceXApi extends IccInvoiceApi {
       ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.financialInformation || []) : []).forEach(
         (delegateId) =>
           (promise = promise.then((invoice) =>
-            this.crypto.appendEncryptionKeys(invoice, dataOwnerId!, delegateId, eks.secretId).then((extraEks) => {
+            this.crypto.appendEncryptionKeys(invoice, dataOwnerId!, delegateId, eks.secretId, "Invoice").then((extraEks) => {
               return _.extend(invoice, {
                 encryptionKeys: extraEks.encryptionKeys,
               })
@@ -84,8 +84,8 @@ export class IccInvoiceXApi extends IccInvoiceApi {
       .extractDelegationsSFKs(patient, dataOwnerId)
       .then((secretForeignKeys) =>
         Promise.all([
-          this.crypto.initObjectDelegations(invoice, patient, dataOwnerId!, secretForeignKeys.extractedKeys[0]),
-          this.crypto.initEncryptionKeys(invoice, dataOwnerId!),
+          this.crypto.initObjectDelegations(invoice, patient, dataOwnerId!, secretForeignKeys.extractedKeys[0], "Invoice"),
+          this.crypto.initEncryptionKeys(invoice, dataOwnerId!, "Invoice"),
         ])
       )
       .then((initData) => {
@@ -104,7 +104,7 @@ export class IccInvoiceXApi extends IccInvoiceApi {
         ).forEach(
           (delegateId) =>
             (promise = promise.then((invoice) =>
-              this.crypto.addDelegationsAndEncryptionKeys(patient, invoice, dataOwnerId!, delegateId, dels.secretId, eks.secretId).catch((e) => {
+              this.crypto.addDelegationsAndEncryptionKeys(patient, invoice, dataOwnerId!, delegateId, dels.secretId, eks.secretId, "Invoice").catch((e) => {
                 console.log(e)
                 return invoice
               })

@@ -63,8 +63,8 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
 
     return this.crypto.extractDelegationsSFKs(patient, dataOwnerId!).then(async (secretForeignKeys) => {
-      const dels = await this.crypto.initObjectDelegations(calendarItem, patient, dataOwnerId!, secretForeignKeys.extractedKeys[0])
-      const eks = await this.crypto.initEncryptionKeys(calendarItem, dataOwnerId!)
+      const dels = await this.crypto.initObjectDelegations(calendarItem, patient, dataOwnerId!, secretForeignKeys.extractedKeys[0], "CalendarItem")
+      const eks = await this.crypto.initEncryptionKeys(calendarItem, dataOwnerId!, "CalendarItem")
 
       _.extend(calendarItem, {
         delegations: dels.delegations,
@@ -78,8 +78,8 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
         delegates.concat(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : [])
       ).forEach(
         (delegateId) =>
-          (promise = promise.then((contact) =>
-            this.crypto.addDelegationsAndEncryptionKeys(patient, contact, dataOwnerId!, delegateId, dels.secretId, eks.secretId)
+          (promise = promise.then((calendarItem) =>
+            this.crypto.addDelegationsAndEncryptionKeys(patient, calendarItem, dataOwnerId!, delegateId, dels.secretId, eks.secretId, "CalendarItem")
           ))
       )
       return promise
@@ -200,7 +200,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
   initEncryptionKeys(user: models.User, calendarItem: models.CalendarItem): Promise<models.CalendarItem> {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
 
-    return this.crypto.initEncryptionKeys(calendarItem, dataOwnerId!).then((eks) => {
+    return this.crypto.initEncryptionKeys(calendarItem, dataOwnerId!, "CalendarItem").then((eks) => {
       let promise = Promise.resolve(
         _.extend(calendarItem, {
           encryptionKeys: eks.encryptionKeys,
@@ -209,7 +209,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
       ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
         (delegateId) =>
           (promise = promise.then((item) =>
-            this.crypto.appendEncryptionKeys(item, dataOwnerId!, delegateId, eks.secretId).then((extraEks) => {
+            this.crypto.appendEncryptionKeys(item, dataOwnerId!, delegateId, eks.secretId, "CalendarItem").then((extraEks) => {
               return _.extend(item, {
                 encryptionKeys: extraEks.encryptionKeys,
               })

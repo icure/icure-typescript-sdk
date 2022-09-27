@@ -45,7 +45,7 @@ export class IccReceiptXApi extends IccReceiptApi {
   initEncryptionKeys(user: models.User, rcpt: models.Receipt) {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
 
-    return this.crypto.initEncryptionKeys(rcpt, dataOwnerId).then((eks) => {
+    return this.crypto.initEncryptionKeys(rcpt, dataOwnerId, "Receipt").then((eks) => {
       let promise = Promise.resolve(
         _.extend(rcpt, {
           encryptionKeys: eks.encryptionKeys,
@@ -54,7 +54,7 @@ export class IccReceiptXApi extends IccReceiptApi {
       ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
         (delegateId) =>
           (promise = promise.then((receipt) =>
-            this.crypto.appendEncryptionKeys(receipt, dataOwnerId, delegateId, eks.secretId).then((extraEks) => {
+            this.crypto.appendEncryptionKeys(receipt, dataOwnerId, delegateId, eks.secretId, "Receipt").then((extraEks) => {
               return _.extend(receipt, {
                 encryptionKeys: extraEks.encryptionKeys,
               })
@@ -69,8 +69,8 @@ export class IccReceiptXApi extends IccReceiptApi {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
 
     return Promise.all([
-      this.crypto.initObjectDelegations(receipt, null, dataOwnerId, null),
-      this.crypto.initEncryptionKeys(receipt, dataOwnerId),
+      this.crypto.initObjectDelegations(receipt, null, dataOwnerId, null, "Receipt"),
+      this.crypto.initEncryptionKeys(receipt, dataOwnerId, "Receipt"),
     ]).then((initData) => {
       const dels = initData[0]
       const eks = initData[1]
@@ -85,7 +85,7 @@ export class IccReceiptXApi extends IccReceiptApi {
       ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
         (delegateId) =>
           (promise = promise.then((receipt) =>
-            this.crypto.addDelegationsAndEncryptionKeys(null, receipt, dataOwnerId, delegateId, dels.secretId, eks.secretId).catch((e) => {
+            this.crypto.addDelegationsAndEncryptionKeys(null, receipt, dataOwnerId, delegateId, dels.secretId, eks.secretId, "Receipt").catch((e) => {
               console.log(e)
               return receipt
             })

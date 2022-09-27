@@ -134,8 +134,8 @@ export class IccPatientXApi extends IccPatientApi {
     delegates: string[] = []
   ): Promise<models.Patient> {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-    const dels = await this.crypto.initObjectDelegations(patient, null, dataOwnerId!, null)
-    const eks = await this.crypto.initEncryptionKeys(patient, dataOwnerId!)
+    const dels = await this.crypto.initObjectDelegations(patient, null, dataOwnerId!, null, "Patient")
+    const eks = await this.crypto.initEncryptionKeys(patient, dataOwnerId!, "Patient")
     _.extend(patient, {
       delegations: dels.delegations,
       encryptionKeys: eks.encryptionKeys,
@@ -147,7 +147,7 @@ export class IccPatientXApi extends IccPatientApi {
     ).forEach(
       (delegateId) =>
         (promise = promise.then((patient) =>
-          this.crypto.addDelegationsAndEncryptionKeys(null, patient, dataOwnerId!, delegateId, dels.secretId, eks.secretId).catch((e) => {
+          this.crypto.addDelegationsAndEncryptionKeys(null, patient, dataOwnerId!, delegateId, dels.secretId, eks.secretId, "Patient").catch((e) => {
             console.log(e)
             return patient
           })
@@ -156,7 +156,7 @@ export class IccPatientXApi extends IccPatientApi {
     ;(user.autoDelegations && user.autoDelegations.anonymousMedicalInformation ? user.autoDelegations.anonymousMedicalInformation : []).forEach(
       (delegateId) =>
         (promise = promise.then((patient) =>
-          this.crypto.addDelegationsAndEncryptionKeys(null, patient, dataOwnerId!, delegateId, null, eks.secretId).catch((e) => {
+          this.crypto.addDelegationsAndEncryptionKeys(null, patient, dataOwnerId!, delegateId, null, eks.secretId, "Patient").catch((e) => {
             console.log(e)
             return patient
           })
@@ -613,7 +613,7 @@ export class IccPatientXApi extends IccPatientApi {
   initEncryptionKeys(user: models.User, pat: models.Patient, additionalDelegateIds?: string[]): Promise<models.Patient> {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
     const userAutoDelegations = user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []
-    return this.crypto.initEncryptionKeys(pat, dataOwnerId!).then((eks) => {
+    return this.crypto.initEncryptionKeys(pat, dataOwnerId!, "Patient").then((eks) => {
       let promise = Promise.resolve(
         _.extend(pat, {
           encryptionKeys: eks.encryptionKeys,
@@ -623,7 +623,7 @@ export class IccPatientXApi extends IccPatientApi {
         (delegateId) =>
           (promise = promise.then((patient) =>
             this.crypto
-              .appendEncryptionKeys(patient, dataOwnerId!, delegateId, eks.secretId)
+              .appendEncryptionKeys(patient, dataOwnerId!, delegateId, eks.secretId, "Patient")
               .then((extraEks) => {
                 return _.extend(patient, {
                   encryptionKeys: extraEks.encryptionKeys,
@@ -661,7 +661,7 @@ export class IccPatientXApi extends IccPatientApi {
             Promise.all([this.crypto.extractDelegationsSFKs(x, ownerId), this.crypto.extractEncryptionsSKs(x, ownerId)]).then(([sfks, eks]) => {
               //console.log(`share ${x.id} to ${delegateId}`)
               return this.crypto
-                .addDelegationsAndEncryptionKeys(patient, x, ownerId, delegateId, sfks.extractedKeys[0], eks.extractedKeys[0])
+                .addDelegationsAndEncryptionKeys(patient, x, ownerId, delegateId, sfks.extractedKeys[0], eks.extractedKeys[0], "Patient")
                 .catch((e: any) => {
                   console.log(e)
                   return x
@@ -851,7 +851,7 @@ export class IccPatientXApi extends IccPatientApi {
                         return shareAnonymously
                           ? patient
                           : this.crypto
-                              .addDelegationsAndEncryptionKeys(null, patient, ownerId, delegateId, delSfks[0], ecKeys[0])
+                              .addDelegationsAndEncryptionKeys(null, patient, ownerId, delegateId, delSfks[0], ecKeys[0], "Patient")
                               .then(async (patient) => {
                                 if (delSfks.length > 1) {
                                   return delSfks.slice(1).reduce(async (patientPromise: Promise<models.Patient>, delSfk: string) => {
@@ -859,7 +859,7 @@ export class IccPatientXApi extends IccPatientApi {
                                     return shareAnonymously
                                       ? patient
                                       : this.crypto
-                                          .addDelegationsAndEncryptionKeys(null, patient, ownerId, delegateId, delSfk, null)
+                                          .addDelegationsAndEncryptionKeys(null, patient, ownerId, delegateId, delSfk, null, "Patient")
                                           .catch((e: any) => {
                                             console.log(e)
                                             return patient

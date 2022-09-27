@@ -56,7 +56,9 @@ export class IccClassificationXApi extends IccClassificationApi {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
     return this.crypto
       .extractDelegationsSFKs(patient, dataOwnerId!)
-      .then((secretForeignKeys) => this.crypto.initObjectDelegations(classification, patient, dataOwnerId!, secretForeignKeys.extractedKeys[0]))
+      .then((secretForeignKeys) =>
+        this.crypto.initObjectDelegations(classification, patient, dataOwnerId!, secretForeignKeys.extractedKeys[0], "Classification")
+      )
       .then((initData) => {
         _.extend(classification, {
           delegations: initData.delegations,
@@ -71,7 +73,7 @@ export class IccClassificationXApi extends IccClassificationApi {
           (delegateId) =>
             (promise = promise.then((classification) =>
               this.crypto
-                .extendedDelegationsAndCryptedForeignKeys(classification, patient, dataOwnerId!, delegateId, initData.secretId)
+                .extendedDelegationsAndCryptedForeignKeys(classification, patient, dataOwnerId!, delegateId, initData.secretId, "Classification")
                 .then((extraData) =>
                   _.extend(classification, {
                     delegations: extraData.delegations,

@@ -68,8 +68,8 @@ export class IccHelementXApi extends IccHelementApi {
       if (!key) {
         console.error(`SFK cannot be found for Health element ${key}. The healthElement will not be reachable from the patient side`)
       }
-      const dels = await this.crypto.initObjectDelegations(healthElement, patient, dataOwnerId!, key ?? null)
-      const eks = await this.crypto.initEncryptionKeys(healthElement, dataOwnerId!)
+      const dels = await this.crypto.initObjectDelegations(healthElement, patient, dataOwnerId!, key ?? null, "HealthElement")
+      const eks = await this.crypto.initEncryptionKeys(healthElement, dataOwnerId!, "HealthElement")
       _.extend(healthElement, {
         delegations: dels.delegations,
         cryptedForeignKeys: dels.cryptedForeignKeys,
@@ -83,7 +83,7 @@ export class IccHelementXApi extends IccHelementApi {
       ).forEach(
         (delegateId) =>
           (promise = promise.then((healthElement) =>
-            this.crypto.addDelegationsAndEncryptionKeys(patient, healthElement, dataOwnerId!, delegateId, dels.secretId, eks.secretId).catch((e) => {
+            this.crypto.addDelegationsAndEncryptionKeys(patient, healthElement, dataOwnerId!, delegateId, dels.secretId, eks.secretId, "HealthElement").catch((e) => {
               console.log(e)
               return healthElement
             })
@@ -92,7 +92,7 @@ export class IccHelementXApi extends IccHelementApi {
       ;(user.autoDelegations && user.autoDelegations.anonymousMedicalInformation ? user.autoDelegations.anonymousMedicalInformation : []).forEach(
         (delegateId) =>
           (promise = promise.then((healthElement) =>
-            this.crypto.addDelegationsAndEncryptionKeys(patient, healthElement, dataOwnerId!, delegateId, null, eks.secretId).catch((e) => {
+            this.crypto.addDelegationsAndEncryptionKeys(patient, healthElement, dataOwnerId!, delegateId, null, eks.secretId, "HealthElement").catch((e) => {
               console.log(e)
               return healthElement
             })
@@ -306,7 +306,7 @@ export class IccHelementXApi extends IccHelementApi {
 
   initEncryptionKeys(user: models.User, he: models.HealthElement): Promise<models.HealthElement> {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-    return this.crypto.initEncryptionKeys(he, dataOwnerId!).then((eks) => {
+    return this.crypto.initEncryptionKeys(he, dataOwnerId!, "HealthElement").then((eks) => {
       let promise = Promise.resolve(
         _.extend(he, {
           encryptionKeys: eks.encryptionKeys,
@@ -316,7 +316,7 @@ export class IccHelementXApi extends IccHelementApi {
         (delegateId) =>
           (promise = promise.then((healthElement) =>
             this.crypto
-              .appendEncryptionKeys(healthElement, dataOwnerId!, delegateId, eks.secretId)
+              .appendEncryptionKeys(healthElement, dataOwnerId!, delegateId, eks.secretId, "HealthElement")
               .then((extraEks) => {
                 return _.extend(healthElement, {
                   encryptionKeys: extraEks.encryptionKeys,

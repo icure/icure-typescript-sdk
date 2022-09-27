@@ -49,7 +49,7 @@ export class IccFormXApi extends IccFormApi {
 
   initEncryptionKeys(user: models.User, form: models.Form) {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-    return this.crypto.initEncryptionKeys(form, dataOwnerId!).then((eks) => {
+    return this.crypto.initEncryptionKeys(form, dataOwnerId!, "Form").then((eks) => {
       let promise = Promise.resolve(
         _.extend(form, {
           encryptionKeys: eks.encryptionKeys,
@@ -57,9 +57,9 @@ export class IccFormXApi extends IccFormApi {
       )
       ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
         (delegateId) =>
-          (promise = promise.then((contact) =>
-            this.crypto.appendEncryptionKeys(contact, dataOwnerId!, delegateId, eks.secretId).then((extraEks) => {
-              return _.extend(contact, {
+          (promise = promise.then((form) =>
+            this.crypto.appendEncryptionKeys(form, dataOwnerId!, delegateId, eks.secretId, "Form").then((extraEks) => {
+              return _.extend(form, {
                 encryptionKeys: extraEks.encryptionKeys,
               })
             })
@@ -80,8 +80,8 @@ export class IccFormXApi extends IccFormApi {
       .extractDelegationsSFKs(patient, dataOwnerId!)
       .then((secretForeignKeys) =>
         Promise.all([
-          this.crypto.initObjectDelegations(form, patient, dataOwnerId!, secretForeignKeys.extractedKeys[0]),
-          this.crypto.initEncryptionKeys(form, dataOwnerId!),
+          this.crypto.initObjectDelegations(form, patient, dataOwnerId!, secretForeignKeys.extractedKeys[0], "Form"),
+          this.crypto.initEncryptionKeys(form, dataOwnerId!, "Form"),
         ])
       )
       .then((initData) => {
@@ -100,7 +100,7 @@ export class IccFormXApi extends IccFormApi {
         ).forEach(
           (delegateId) =>
             (promise = promise.then((form) =>
-              this.crypto.addDelegationsAndEncryptionKeys(patient, form, dataOwnerId!, delegateId, dels.secretId, eks.secretId).catch((e) => {
+              this.crypto.addDelegationsAndEncryptionKeys(patient, form, dataOwnerId!, delegateId, dels.secretId, eks.secretId, "Form").catch((e) => {
                 console.log(e)
                 return form
               })

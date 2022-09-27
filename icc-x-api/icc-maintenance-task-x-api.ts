@@ -54,14 +54,14 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
 
   initDelegations(user: models.User, maintenanceTask: models.MaintenanceTask, delegates: string[] = []): Promise<models.MaintenanceTask> {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-    return this.crypto.initObjectDelegations(maintenanceTask, null, dataOwnerId!, null).then((initData) => {
+    return this.crypto.initObjectDelegations(maintenanceTask, null, dataOwnerId!, null, "MaintenanceTask").then((initData) => {
       _.extend(maintenanceTask, { delegations: initData.delegations })
 
       let promise = Promise.resolve(maintenanceTask)
       _.uniq(delegates.concat(user.autoDelegations ? user.autoDelegations.all || [] : [])).forEach(
         (delegateId) =>
           (promise = promise
-            .then((patient) => this.crypto.extendedDelegationsAndCryptedForeignKeys(patient, null, dataOwnerId!, delegateId, initData.secretId))
+            .then((maintenanceTask) => this.crypto.extendedDelegationsAndCryptedForeignKeys(maintenanceTask, null, dataOwnerId!, delegateId, initData.secretId, "MaintenanceTask"))
             .then((extraData) => _.extend(maintenanceTask, { delegations: extraData.delegations }))
             .catch((e) => {
               console.log(e)
@@ -74,7 +74,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
 
   initEncryptionKeys(user: models.User, maintenanceTask: models.MaintenanceTask, delegates: string[] = []): Promise<models.MaintenanceTask> {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-    return this.crypto.initEncryptionKeys(maintenanceTask, dataOwnerId!).then((eks) => {
+    return this.crypto.initEncryptionKeys(maintenanceTask, dataOwnerId!, "MaintenanceTask").then((eks) => {
       let promise = Promise.resolve(
         _.extend(maintenanceTask, {
           encryptionKeys: eks.encryptionKeys,
@@ -82,17 +82,17 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
       )
       _.uniq(delegates.concat(user.autoDelegations ? user.autoDelegations.all || [] : [])).forEach(
         (delegateId) =>
-          (promise = promise.then((patient) =>
+          (promise = promise.then((maintenanceTask) =>
             this.crypto
-              .appendEncryptionKeys(patient, dataOwnerId!, delegateId, eks.secretId)
+              .appendEncryptionKeys(maintenanceTask, dataOwnerId!, delegateId, eks.secretId, "MaintenanceTask")
               .then((extraEks) => {
-                return _.extend(patient, {
+                return _.extend(maintenanceTask, {
                   encryptionKeys: extraEks.encryptionKeys,
                 })
               })
               .catch((e) => {
                 console.log(e.message)
-                return patient
+                return maintenanceTask
               })
           ))
       )

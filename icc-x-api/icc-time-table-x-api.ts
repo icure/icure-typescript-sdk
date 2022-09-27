@@ -43,20 +43,21 @@ export class IccTimeTableXApi extends IccTimeTableApi {
       tt || {}
     )
 
-    return this.crypto.initObjectDelegations(timeTable, null, this.dataOwnerApi.getDataOwnerOf(user), null).then((initData) => {
+    return this.crypto.initObjectDelegations(timeTable, null, this.dataOwnerApi.getDataOwnerOf(user), null, "TimeTable").then((initData) => {
       _.extend(timeTable, { delegations: initData.delegations })
 
       let promise = Promise.resolve(timeTable)
       ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
         (delegateId) =>
           (promise = promise
-            .then((patient) =>
+            .then((timeTable) =>
               this.crypto.extendedDelegationsAndCryptedForeignKeys(
-                patient,
+                timeTable,
                 null,
                 this.dataOwnerApi.getDataOwnerOf(user),
                 delegateId,
-                initData.secretId
+                initData.secretId,
+                "TimeTable"
               )
             )
             .then((extraData) => _.extend(timeTable, { delegations: extraData.delegations })))

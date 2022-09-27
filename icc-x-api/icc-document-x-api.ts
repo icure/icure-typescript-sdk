@@ -581,7 +581,7 @@ export class IccDocumentXApi extends IccDocumentApi {
 
   initEncryptionKeys(user: models.User, document: models.Document) {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-    return this.crypto.initEncryptionKeys(document, dataOwnerId!).then((eks) => {
+    return this.crypto.initEncryptionKeys(document, dataOwnerId!, "Document").then((eks) => {
       let promise = Promise.resolve(
         _.extend(document, {
           encryptionKeys: eks.encryptionKeys,
@@ -590,7 +590,7 @@ export class IccDocumentXApi extends IccDocumentApi {
       ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
         (delegateId) =>
           (promise = promise.then((document) =>
-            this.crypto.appendEncryptionKeys(document, dataOwnerId!, delegateId, eks.secretId).then((extraEks) => {
+            this.crypto.appendEncryptionKeys(document, dataOwnerId!, delegateId, eks.secretId, "Document").then((extraEks) => {
               return _.extend(document, {
                 encryptionKeys: extraEks.encryptionKeys,
               })
@@ -611,8 +611,8 @@ export class IccDocumentXApi extends IccDocumentApi {
       .extractDelegationsSFKs(message || null, dataOwnerId)
       .then((secretForeignKeys) =>
         Promise.all([
-          this.crypto.initObjectDelegations(document, message, dataOwnerId!, secretForeignKeys.extractedKeys[0]),
-          this.crypto.initEncryptionKeys(document, dataOwnerId!),
+          this.crypto.initObjectDelegations(document, message, dataOwnerId!, secretForeignKeys.extractedKeys[0], "Document"),
+          this.crypto.initEncryptionKeys(document, dataOwnerId!, "Document"),
         ])
       )
       .then((initData) => {
@@ -630,7 +630,7 @@ export class IccDocumentXApi extends IccDocumentApi {
           (delegateId) =>
             (promise = promise.then((document) =>
               this.crypto
-                .addDelegationsAndEncryptionKeys(message || null, document, dataOwnerId!, delegateId, dels.secretId, eks.secretId)
+                .addDelegationsAndEncryptionKeys(message || null, document, dataOwnerId!, delegateId, dels.secretId, eks.secretId, "Document")
                 .catch((e) => {
                   console.log(e)
                   return document

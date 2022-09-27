@@ -79,8 +79,8 @@ export class IccContactXApi extends IccContactApi {
       if (!key) {
         console.error(`SFK cannot be found for Contact ${key}. The contact will not be reachable from the patient side`)
       }
-      const dels = await this.crypto.initObjectDelegations(contact, patient, dataOwnerId!, key ?? null)
-      const eks = await this.crypto.initEncryptionKeys(contact, dataOwnerId!)
+      const dels = await this.crypto.initObjectDelegations(contact, patient, dataOwnerId!, key ?? null, "Contact")
+      const eks = await this.crypto.initEncryptionKeys(contact, dataOwnerId!, "Contact")
       _.extend(contact, {
         delegations: dels.delegations,
         cryptedForeignKeys: dels.cryptedForeignKeys,
@@ -94,7 +94,7 @@ export class IccContactXApi extends IccContactApi {
       ).forEach(
         (delegateId) =>
           (promise = promise.then((contact) =>
-            this.crypto.addDelegationsAndEncryptionKeys(patient, contact, dataOwnerId!, delegateId, dels.secretId, eks.secretId).catch((e) => {
+            this.crypto.addDelegationsAndEncryptionKeys(patient, contact, dataOwnerId!, delegateId, dels.secretId, eks.secretId, "Contact").catch((e) => {
               console.log(e)
               return contact
             })
@@ -103,7 +103,7 @@ export class IccContactXApi extends IccContactApi {
       ;(user.autoDelegations && user.autoDelegations.anonymousMedicalInformation ? user.autoDelegations.anonymousMedicalInformation : []).forEach(
         (delegateId) =>
           (promise = promise.then((contact) =>
-            this.crypto.addDelegationsAndEncryptionKeys(patient, contact, dataOwnerId!, delegateId, null, eks.secretId).catch((e) => {
+            this.crypto.addDelegationsAndEncryptionKeys(patient, contact, dataOwnerId!, delegateId, null, eks.secretId, "Contact").catch((e) => {
               console.log(e)
               return contact
             })
@@ -116,7 +116,7 @@ export class IccContactXApi extends IccContactApi {
   initEncryptionKeys(user: models.User, ctc: models.Contact) {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
 
-    return this.crypto.initEncryptionKeys(ctc, dataOwnerId!).then((eks) => {
+    return this.crypto.initEncryptionKeys(ctc, dataOwnerId!, "Contact").then((eks) => {
       let promise = Promise.resolve(
         _.extend(ctc, {
           encryptionKeys: eks.encryptionKeys,
@@ -131,7 +131,7 @@ export class IccContactXApi extends IccContactApi {
         (delegateId) =>
           (promise = promise.then((contact) =>
             this.crypto
-              .appendEncryptionKeys(contact, dataOwnerId!, delegateId, eks.secretId)
+              .appendEncryptionKeys(contact, dataOwnerId!, delegateId, eks.secretId, "Contact")
               .then((extraEks) => {
                 return _.extend(contact, {
                   encryptionKeys: extraEks.encryptionKeys,

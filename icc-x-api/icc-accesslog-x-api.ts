@@ -36,7 +36,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
   newInstance(user: models.User, patient: models.Patient, h: any) {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
 
-    const accessslog = _.assign(
+    const accessLog: AccessLog = _.assign(
       {
         id: this.crypto.randomUuid(),
         _type: 'org.taktik.icure.entities.AccessLog',
@@ -55,23 +55,23 @@ export class IccAccesslogXApi extends IccAccesslogApi {
     )
 
     return this.crypto.extractDelegationsSFKs(patient, dataOwnerId).then(async (secretForeignKeys) => {
-      const dels = await this.crypto.initObjectDelegations(accessslog, patient, dataOwnerId!, secretForeignKeys.extractedKeys[0])
-      const eks = await this.crypto.initEncryptionKeys(accessslog, dataOwnerId!)
+      const dels = await this.crypto.initObjectDelegations(accessLog, patient, dataOwnerId!, secretForeignKeys.extractedKeys[0], "AccessLog")
+      const eks = await this.crypto.initEncryptionKeys(accessLog, dataOwnerId!, "AccessLog")
 
-      _.extend(accessslog, {
+      _.extend(accessLog, {
         delegations: dels.delegations,
         cryptedForeignKeys: dels.cryptedForeignKeys,
         secretForeignKeys: dels.secretForeignKeys,
         encryptionKeys: eks.encryptionKeys,
       })
 
-      let promise = Promise.resolve(accessslog)
+      let promise = Promise.resolve(accessLog)
       ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
         (delegateId) =>
           (promise = promise.then(() =>
-            this.crypto.addDelegationsAndEncryptionKeys(patient, accessslog, dataOwnerId!, delegateId, dels.secretId, eks.secretId).catch((e) => {
+            this.crypto.addDelegationsAndEncryptionKeys(patient, accessLog, dataOwnerId!, delegateId, dels.secretId, eks.secretId, "AccessLog").catch((e) => {
               console.log(e)
-              return accessslog
+              return accessLog
             })
           ))
       )
@@ -84,7 +84,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
    * 1. Check whether there is a delegation with 'hcpartyId' or not.
    * 2. 'fetchHcParty[hcpartyId][1]': is encrypted AES exchange key by RSA public key of him.
    * 3. Obtain the AES exchange key, by decrypting the previous step value with hcparty private key
-   *      3.1.  KeyPair should be fetch from cache (in jwk)
+   *      3.1.  KeyPair should be fetched from cache (in jwk)
    *      3.2.  if it doesn't exist in the cache, it has to be loaded from Browser Local store, and then import it to WebCrypto
    * 4. Obtain the array of delegations which are delegated to his ID (hcpartyId) in this patient
    * 5. Decrypt and collect all keys (secretForeignKeys) within delegations of previous step (with obtained AES key of step 4)
@@ -150,7 +150,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
   initEncryptionKeys(user: models.User, accessLog: models.AccessLog): Promise<models.AccessLog> {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
 
-    return this.crypto.initEncryptionKeys(accessLog, dataOwnerId!).then((eks) => {
+    return this.crypto.initEncryptionKeys(accessLog, dataOwnerId!, "AccessLog").then((eks) => {
       let promise = Promise.resolve(
         _.extend(accessLog, {
           encryptionKeys: eks.encryptionKeys,
@@ -159,7 +159,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
       ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
         (delegateId) =>
           (promise = promise.then((accessLog) =>
-            this.crypto.appendEncryptionKeys(accessLog, dataOwnerId!, delegateId, eks.secretId).then((extraEks) => {
+            this.crypto.appendEncryptionKeys(accessLog, dataOwnerId!, delegateId, eks.secretId, "AccessLog").then((extraEks) => {
               return _.extend(accessLog, {
                 encryptionKeys: extraEks.encryptionKeys,
               })
