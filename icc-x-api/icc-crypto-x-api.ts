@@ -19,7 +19,7 @@ import {
   User,
 } from '../icc-api/model/models'
 import { b2a, b64_2uas, hex2ua, string2ua, ua2hex, ua2string, ua2utf8, utf8_2ua } from './utils/binary-utils'
-import {fold, jwk2spki, notConcurrent, pkcs8ToJwk, spkiToJwk, mergeMapArrays, terminalNodes, graphFromEdges} from './utils'
+import {fold, jwk2spki, notConcurrent, pkcs8ToJwk, spkiToJwk, terminalNodes, graphFromEdges} from './utils'
 import { IccMaintenanceTaskXApi } from './icc-maintenance-task-x-api'
 
 /**
@@ -908,7 +908,7 @@ export class IccCryptoXApi {
   }> {
     const aesExchangeKeys = await this.getEncryptedAesExchangeKeys(owner, delegateId) // These are only keys we can decrypt
     if (Object.keys(aesExchangeKeys).length) {
-      return this.ensureDelegateCanAccessKeys(owner, delegateId, aesExchangeKeys)
+      return await this.ensureDelegateCanAccessKeys(owner, delegateId, aesExchangeKeys)
     }
     const modifiedOwner = await this.generateKeyForDelegate(owner.id!, delegateId)
     return { owner: modifiedOwner, aesExchangeKeys: await this.getEncryptedAesExchangeKeys(modifiedOwner, delegateId) }
@@ -1163,16 +1163,7 @@ export class IccCryptoXApi {
   ): Promise<Array<{ hcpartyId: string; extractedKeys: Array<string> }>> {
     const { dataOwner: hcp } = await this.getDataOwner(hcpartyId)
     const extractedKeys = []
-    const possibleDelegationsEntryKeysForHcParty = [hcpartyId, ...(await this.getSecureDelegationEntryKeysFor(hcpartyId))]
-    const delegationsForHcParty = possibleDelegationsEntryKeysForHcParty.reduce<Delegation[]>(
-      (acc, entryKey) => {
-        const matchingDelegations = delegations[entryKey]
-        if (matchingDelegations) {
-          return acc.concat(matchingDelegations.filter((nd) => !acc.some((ed) => ed.key === nd.key)))
-        } else return acc
-      },
-      []
-    )
+    const delegationsForHcParty = await this.getDelegationsOf(delegations, hcpartyId)
     if (delegationsForHcParty.length) {
       const decryptedAndImportedAesHcPartyKeys = await this.getDecryptedAesExchangeKeysOfDelegateAndParentsFromGenericDelegations(
         hcpartyId,
@@ -1215,16 +1206,7 @@ export class IccCryptoXApi {
     objectId: string,
     delegations: { [key: string]: Array<Delegation> }
   ): Promise<{ extractedKeys: Array<string>; hcpartyId: string }> {
-    const possibleDelegationsEntryKeysForDataOwner = [dataOwnerId, ...(await this.getSecureDelegationEntryKeysFor(dataOwnerId))]
-    const delegationsForDataOwner = possibleDelegationsEntryKeysForDataOwner.reduce<Delegation[]>(
-      (acc, entryKey) => {
-        const matchingDelegations = delegations[entryKey]
-        if (matchingDelegations) {
-          return acc.concat(matchingDelegations.filter((nd) => !acc.some((ed) => ed.key === nd.key)))
-        } else return acc
-      },
-      []
-    )
+    const delegationsForDataOwner = await this.getDelegationsOf(delegations, dataOwnerId)
     const { dataOwner: hcp } = await this.getDataOwner(dataOwnerId).catch((e) => {
       console.error(`Dataowner with id ${dataOwnerId} cannot be resolved`)
       throw e
@@ -2202,24 +2184,28 @@ export class IccCryptoXApi {
    * @param optionalParameters may contain:
    * - **ownerId**: id of the owner/delegator of the exchange key used to encrypt the secure delegation key.
    * - **entityClass**: if present limits the result to only secure delegation keys for the specific entity class.
-   * @return the secure delegation entry keys for the provided delegate and entity class.
+   * @return the secure delegation entry keys and corresponding delegator/owner for the provided delegate (and entity class and/owner if provided).
    */
   private async getSecureDelegationEntryKeysFor(
     delegateId: string,
     optionalParameters: { ownerId?: string, entityClass?: EncryptedEntityTypeName} = {}
-  ): Promise<string[]> {
+  ): Promise<{ secureDelegationKey: string, delegator: string }[]> {
     const secureDelegations = await this.getOrBuildSecureDelegationsCacheFor(delegateId)
-    const byDelegator: SecureDelegationPairEntryKeys[] =
+    const byDelegator: [string, SecureDelegationPairEntryKeys][] =
       optionalParameters.ownerId
-        ? [await secureDelegations[optionalParameters.ownerId]]
-        : (await Promise.all(Object.values(secureDelegations)))
-    const res: string[] = []
-    byDelegator.filter((x) => !!x).forEach((secureDelegationPairEntryKeys) => {
+        ? [[optionalParameters.ownerId, await secureDelegations[optionalParameters.ownerId]]]
+        : await Promise.all(Object.entries(secureDelegations).map(
+          ([owner, promise]) => promise.then((res) => [owner, res] as [string, SecureDelegationPairEntryKeys])
+        ))
+    const res: { secureDelegationKey: string, delegator: string }[] = []
+    byDelegator.filter((x) => !!x).forEach(([delegator, secureDelegationPairEntryKeys]) => {
       if (optionalParameters.entityClass) {
-        Object.values(secureDelegationPairEntryKeys[optionalParameters.entityClass]).forEach((secureDelegationKey) => res.push(secureDelegationKey))
+        Object.values(secureDelegationPairEntryKeys[optionalParameters.entityClass]).forEach((secureDelegationKey) =>
+          res.push({ secureDelegationKey, delegator })
+        )
       } else {
         Object.values(secureDelegationPairEntryKeys).forEach((entityClassSecureDelegations) => {
-          Object.values(entityClassSecureDelegations).forEach((secureDelegationKey) => res.push(secureDelegationKey))
+          Object.values(entityClassSecureDelegations).forEach((secureDelegationKey) => res.push({ secureDelegationKey, delegator }))
         })
       }
     })
@@ -2227,7 +2213,8 @@ export class IccCryptoXApi {
   }
 
   /**
-   * Extract the delegations for a specific delegate from a map of all delegations of an entity.
+   * Extract the delegations for a specific delegate from a map of all delegations of an entity. Automatically enriches Delegation objects with the
+   * owner and delegate.
    * @param delegationsLike delegations (can be SPKs, CFKs, EKs) for all delegates.
    * @param delegateId the id of the delegate for which you want to get the delegations.
    * @param entityClass class of the entity these delegations belong to, not necessary but could help slightly improve performances.
@@ -2239,7 +2226,19 @@ export class IccCryptoXApi {
     entityClass?: EncryptedEntityTypeName
   ): Promise<Delegation[]> {
     const secureDelegationKeys = await this.getSecureDelegationEntryKeysFor(delegateId)
-    return mergeMapArrays(delegationsLike, [delegateId, ...secureDelegationKeys])
+    return secureDelegationKeys.reduce<Delegation[]>(
+      (acc, { secureDelegationKey, delegator }) => {
+        const matchingDelegations = delegationsLike[secureDelegationKey]
+        if (matchingDelegations) {
+          return acc.concat(
+            matchingDelegations.map((d) => {
+              return { ...d, owner: delegator, delegatedTo: delegateId } as Delegation
+            })
+          )
+        } else return acc
+      },
+      [...delegationsLike[delegateId]] ?? []
+    )
   }
 
   /**
@@ -2377,7 +2376,10 @@ export class IccCryptoXApi {
     const ownerId = owner.id!
     const allKeys = await this.decryptAllAesExchangeKeyForOwner(aesExchangeKeys, ownerId, ownerId, delegateId, publicKeys)
     const favouredKey = allKeys[0]
-    const possibleDelegationEntryKeys = [delegateId, ...(await this.getSecureDelegationEntryKeysFor(delegateId, { ownerId, entityClass }))]
+    const possibleDelegationEntryKeys = [
+      delegateId,
+      ...(await this.getSecureDelegationEntryKeysFor(delegateId, { ownerId, entityClass })).map((x) => x.secureDelegationKey)
+    ]
     const favouredDelegationKey = await this.getSecureDelegationEntryKeyFor(favouredKey, delegateId, entityClass)
     type DelegationInfo = { delegation: Delegation, originalDelegationEntryKey: string, decryptedDelegationValue: string, decryptionKey: DelegatorAndKeys }
     const existingDecryptedDelegations = await possibleDelegationEntryKeys.reduce<Promise<DelegationInfo[]>>(
@@ -2392,7 +2394,12 @@ export class IccCryptoXApi {
                 if (prev) return prev
                 try {
                   const decryptedDelegationValue = ua2hex(await this._AES.decrypt(key.key, hex2ua(delegation.key!), key.rawKey))
-                  return { delegation, originalDelegationEntryKey: delegationKey, decryptedDelegationValue, decryptionKey: key }
+                  return {
+                    delegation: { ...delegation, owner: ownerId, delegatedTo: delegateId } as Delegation,
+                    originalDelegationEntryKey: delegationKey,
+                    decryptedDelegationValue,
+                    decryptionKey: key
+                  }
                 } catch (e) {
                   return undefined
                 }
@@ -2415,7 +2422,10 @@ export class IccCryptoXApi {
       },
       Promise.resolve([])
     )
-    const uniqueDecryptedDelegationValues = existingDecryptedDelegations.map((di) => di.decryptedDelegationValue)
+    const uniqueDecryptedDelegationValues = _.uniq([
+      ua2hex(newEntryValue),
+      ...existingDecryptedDelegations.map((di) => di.decryptedDelegationValue)
+    ])
     const delegationsToKeep = uniqueDecryptedDelegationValues.reduce<[string, Delegation][]>(
       (acc, decryptedValue) => {
         const matchingDelegation = existingDecryptedDelegations.find((di) =>
@@ -2437,7 +2447,7 @@ export class IccCryptoXApi {
           const newDelegation: Delegation = {
             owner: ownerId,
             delegatedTo: delegateId,
-            key: ua2hex(await this._AES.encrypt(favouredKey.key, newEntryValue, favouredKey.rawKey)),
+            key: ua2hex(await this._AES.encrypt(favouredKey.key, hex2ua(decryptedValue), favouredKey.rawKey)),
           }
           return [...awaitedAcc, newDelegation]
         },
@@ -2446,6 +2456,7 @@ export class IccCryptoXApi {
     const possibleDelegationEntryKeysSet = new Set(possibleDelegationEntryKeys)
     const decryptedDelegationsSet = new Set(existingDecryptedDelegations.map((di) => di.delegation))
     const updatedDelegations: { [key: string]: Array<Delegation> } = {}
+    const anonymizeDelegation = (d: Delegation) => _.omit(d, ["delegatedTo", "owner"]) as Delegation
     for (const [delegationEntryKey, delegationEntryValues] of Object.entries(delegations)) {
       if (!possibleDelegationEntryKeysSet.has(delegationEntryKey)) {
         // Leave delegations of entries for other delegator-delegate pairs as is.
@@ -2453,15 +2464,17 @@ export class IccCryptoXApi {
       } else if (delegationEntryKey !== favouredDelegationKey) {
         // Remove delegations that I'm moving to the favoured secure delegation key.
         // TODO secure delegations: add an option to avoid removing from the delegateId
-        updatedDelegations[delegationEntryKey] = delegationEntryValues.filter((d) => !decryptedDelegationsSet.has(d))
+        updatedDelegations[delegationEntryKey] = delegationEntryValues
+          .filter((d) => !decryptedDelegationsSet.has(d))
+          .map(anonymizeDelegation)
       } else {
         const delegationsToKeepSet = new Set(delegationsToKeep.map((x) => x[1]))
         const oldDelegations = delegationEntryValues.filter((d) => delegationsToKeepSet.has(d) || !decryptedDelegationsSet.has(d))
-        updatedDelegations[delegationEntryKey] = oldDelegations.concat(newDelegations)
+        updatedDelegations[delegationEntryKey] = oldDelegations.concat(newDelegations).map(anonymizeDelegation)
       }
     }
     if (!updatedDelegations[favouredDelegationKey]) {
-      updatedDelegations[favouredDelegationKey] = delegationsToKeep.map((x) => x[1]).concat(newDelegations)
+      updatedDelegations[favouredDelegationKey] = delegationsToKeep.map((x) => x[1]).concat(newDelegations).map(anonymizeDelegation)
     }
     return {
       owner: modifiedOwner,
