@@ -14,3 +14,9 @@ repos:
         exclude: ^.*\.mustache$
       - id: trailing-whitespace
         exclude: ^.*\.mustache$
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: '' # Use the sha / tag you want to point at
+    hooks:
+      - id: prettier
+        additional_dependencies:
+          - prettier@2.6.2
