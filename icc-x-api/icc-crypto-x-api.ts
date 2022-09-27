@@ -19,8 +19,42 @@ import {
   User,
 } from '../icc-api/model/models'
 import { b2a, b64_2uas, hex2ua, string2ua, ua2hex, ua2string, ua2utf8, utf8_2ua } from './utils/binary-utils'
-import { fold, jwk2spki, notConcurrent, pkcs8ToJwk, spkiToJwk } from './utils'
+import {fold, jwk2spki, notConcurrent, pkcs8ToJwk, spkiToJwk, mergeMapArrays, terminalNodes, graphFromEdges} from './utils'
 import { IccMaintenanceTaskXApi } from './icc-maintenance-task-x-api'
+
+/**
+ * Names of all possible encrypted entity types.
+ */
+const encryptedEntityTypeNames: Set<EncryptedEntityTypeName> = new Set([
+  "AccessLog",
+  "Article",
+  "CalendarItem",
+  "Classification",
+  "Contact",
+  "Document",
+  "Form",
+  "HealthElement",
+  "Invoice",
+  "MaintenanceTask",
+  "Message",
+  "Patient",
+  "Receipt",
+  "TimeTable"
+])
+type EncryptedEntityTypeName = "AccessLog"
+  | "Article"
+  | "CalendarItem"
+  | "Classification"
+  | "Contact"
+  | "Document"
+  | "Form"
+  | "HealthElement"
+  | "Invoice"
+  | "MaintenanceTask"
+  | "Message"
+  | "Patient"
+  | "Receipt"
+  | "TimeTable"
 
 interface DelegatorAndKeys {
   delegatorId: string
@@ -80,6 +114,16 @@ type KeyPair = { publicKey: CryptoKey; privateKey: CryptoKey }
  */
 type JwkKeyPair = { publicKey: JsonWebKey; privateKey: JsonWebKey }
 
+/**
+ * Secure delegation entry keys map for a specific delegate-delegator pair.
+ * Map in the form `entityClass` -> `rawEncryptionKey` -> `encrypted/secure delegation key`.
+ */
+type SecureDelegationPairEntryKeys = {
+  [entityClass in EncryptedEntityTypeName]: {
+    [rawEncryptionKey: string]: string
+  }
+}
+
 export class IccCryptoXApi {
   get crypto(): Crypto {
     return this._crypto
@@ -101,10 +145,18 @@ export class IccCryptoXApi {
     [key: string]: DelegatorAndKeys
   } = {}
 
-
-
   //[delegateId][delegatorId] = delegateEncryptedHcPartyKey
   hcPartyKeysRequestsCache: { [delegateId: string]: Promise<DelegatedKeys> } = {}
+
+  /**
+   * Cache for potential keys in delegations map entries (excluding the delegateId key).
+   * map in the form `delegateId` -> `delegatorId` -> `entityClass` -> `rawEncryptionKey` -> `encrypted/secure delegation key`.
+   */
+  secureDelegationEntryKeysCache: {
+    [delegateId: string]: {
+      [delegatorId: string]: Promise<SecureDelegationPairEntryKeys>
+    }
+  } = {}
 
   cacheLastDeletionTimestamp: number | undefined = undefined
 
@@ -113,6 +165,7 @@ export class IccCryptoXApi {
   emptyHcpCache(hcpartyId: string) {
     delete this.hcPartyKeysRequestsCache[hcpartyId]
     delete this.dataOwnerCache[hcpartyId]
+    delete this.secureDelegationEntryKeysCache[hcpartyId]
   }
 
   /**
@@ -127,7 +180,8 @@ export class IccCryptoXApi {
   ): Promise<DelegatedKeys> {
     return (
       this.hcPartyKeysRequestsCache[delegateHcPartyId] ||
-      (this.hcPartyKeysRequestsCache[delegateHcPartyId] = this.forceGetEncryptedAesExchangeKeysForDelegate(delegateHcPartyId))
+      (this.hcPartyKeysRequestsCache[delegateHcPartyId] =
+        Promise.resolve().then(() => this.forceGetEncryptedAesExchangeKeysForDelegate(delegateHcPartyId)))
     )
   }
 
@@ -342,7 +396,8 @@ export class IccCryptoXApi {
    * @param encryptedHcPartyKeys The encryptedHcPartyKeys to be decrypted
    * @param publicKeys The public keys for which we might have a private key
    *
-   * @returns - **delegatorId** the input param  `delegatorId`
+   * @returns
+   * - **delegatorId** the input param  `delegatorId`
    * - **key** the decrypted `encryptedHcPartyKey`
    */
 
@@ -557,6 +612,7 @@ export class IccCryptoXApi {
     const nowTimestamp = +new Date()
     if (!this.cacheLastDeletionTimestamp || (nowTimestamp - this.cacheLastDeletionTimestamp) / 1000 >= minCacheDurationInSeconds) {
       delete this.hcPartyKeysRequestsCache[delegateHcPartyId]
+      delete this.secureDelegationEntryKeysCache[delegateHcPartyId]
       this.cacheLastDeletionTimestamp = nowTimestamp
       return this.decryptAndImportAesHcPartyKeysForDelegators(delegatorsHcPartyIdsSet, delegateHcPartyId, minCacheDurationInSeconds)
     }
@@ -585,7 +641,7 @@ export class IccCryptoXApi {
     delegations: { [key: string]: Array<Delegation> },
     fallbackOnParent = true
   ): Promise<Array<DelegatorAndKeys>> {
-    const delegationsArray = delegations[dataOwnerId] ?? [] // TODO secure delegations
+    const delegationsArray = await this.getDelegationsOf(delegations, dataOwnerId)
 
     if (!delegationsArray.length && fallbackOnParent) {
       const { dataOwner: hcp } = await this.getDataOwner(dataOwnerId)
@@ -604,12 +660,19 @@ export class IccCryptoXApi {
    * Retrieve the owner HealthCareParty key and use it to encrypt
    * both the delegations (createdObject.id) and the cryptedForeignKeys
    * (parentObject.id), and returns them in an object.
+   * @param createdObject the object which needs initialized delegations
+   * @param parentObject parent of createdObject, if applicable. Used for initialization of `cryptedForeignKeys`
+   * @param ownerId id of the object owner
+   * @param secretForeignKeyOfParent secretForeignKeys of the parent object, if applicable.
+   * @param entityTypeName name of the class/entity type of {@link createdObject}, must be one of {@link encryptedEntityTypeNames}. This parameter is
+   * optional, but it should always be provided in order for minified code to work properly.
    */
   async initObjectDelegations(
-    createdObject: any,
+    createdObject: EncryptedEntity,
     parentObject: any,
     ownerId: string,
-    secretForeignKeyOfParent: string | null
+    secretForeignKeyOfParent: string | null,
+    entityTypeName?: EncryptedEntityTypeName
   ): Promise<{
     owner: HealthcareParty | Device | Patient
     delegations: any
@@ -617,7 +680,7 @@ export class IccCryptoXApi {
     secretForeignKeys: any[]
     secretId: string
   }> {
-    // TODO secure delegations
+    const entityClass = this.encryptedEntityClassOf(createdObject, entityTypeName)
     const publicKeys = await this.getPublicKeys()
 
     this.throwDetailedExceptionForInvalidParameter('createdObject.id', createdObject.id, 'initObjectDelegations', arguments)
@@ -641,36 +704,29 @@ export class IccCryptoXApi {
         string2ua(createdObject.id + ':' + parentObject.id).buffer as ArrayBuffer,
         importedAESHcPartyKey.rawKey
       )
+    const secureDelegationEntryKey = await this.getSecureDelegationEntryKeyFor(importedAESHcPartyKey, ownerId, entityClass)
 
     return {
       owner: modifiedOwner,
-      delegations: _.fromPairs([
-        [
-          ownerId, // TODO secure delegations
-          [
+      delegations: {
+        [secureDelegationEntryKey]: [
+          {
+            owner: ownerId,
+            delegatedTo: ownerId,
+            key: ua2hex(encryptedDelegation!),
+          },
+        ]
+      },
+      cryptedForeignKeys:
+        (encryptedSecretForeignKey && {
+          [secureDelegationEntryKey]: [
             {
               owner: ownerId,
               delegatedTo: ownerId,
-              key: ua2hex(encryptedDelegation!),
+              key: ua2hex(encryptedSecretForeignKey!),
             },
-          ],
-        ],
-      ]),
-      cryptedForeignKeys:
-        (encryptedSecretForeignKey &&
-          _.fromPairs([
-            [
-              ownerId, // TODO secure delegations
-              [
-                {
-                  owner: ownerId,
-                  delegatedTo: ownerId,
-                  key: ua2hex(encryptedSecretForeignKey!),
-                },
-              ],
-            ],
-          ])) ||
-        {},
+          ]
+        }) || {},
       secretForeignKeys: (secretForeignKeyOfParent && [secretForeignKeyOfParent]) || [],
       secretId: secretId,
     }
@@ -682,7 +738,8 @@ export class IccCryptoXApi {
     delegatorId: string,
     delegateHcPartyId: string,
     publicKeys: string[]
-  ) {
+  ): Promise<DelegatorAndKeys> {
+    // TODO could reuse more with decryptAllAesExchangeKeyForOwner if we had lazy evaluation
     const importedAESHcPartyKey = await Object.entries(aesExchangeKeys).reduce(async (acc, [publicKeyIdentifier, hcPartyKeys]) => {
       const accValue = await acc
       if (accValue) {
@@ -696,6 +753,34 @@ export class IccCryptoXApi {
     }, Promise.resolve() as Promise<DelegatorAndKeys | undefined>)
 
     if (!importedAESHcPartyKey) {
+      throw new Error(`No hcParty key can be decrypted from ${delegatorId} to ${delegateHcPartyId} using currently available private keys`)
+    }
+    return importedAESHcPartyKey
+  }
+
+  private async decryptAllAesExchangeKeyForOwner(
+    aesExchangeKeys: { [p: string]: { [p: string]: string } },
+    loggedHcPartyId: string,
+    delegatorId: string,
+    delegateHcPartyId: string,
+    publicKeys: string[]
+  ): Promise<DelegatorAndKeys[]> {
+    const importedAESHcPartyKey = await Object.entries(aesExchangeKeys).reduce(
+      async (acc, [publicKeyIdentifier, hcPartyKeys]) => {
+        const accValue = await acc
+        try {
+          return [
+            ...accValue,
+            await this.decryptHcPartyKey(loggedHcPartyId, delegatorId, delegateHcPartyId, publicKeyIdentifier, hcPartyKeys, publicKeys)
+          ]
+        } catch (e) {
+          return accValue
+        }
+      },
+      Promise.resolve([] as DelegatorAndKeys[])
+    )
+
+    if (!importedAESHcPartyKey.length) {
       throw new Error(`No hcParty key can be decrypted from ${delegatorId} to ${delegateHcPartyId} using currently available private keys`)
     }
     return importedAESHcPartyKey
@@ -719,6 +804,8 @@ export class IccCryptoXApi {
    * @param ownerId the HcP id of the delegator
    * @param delegateId the HcP id of the delegate
    * @param secretIdOfModifiedObject the secret id used in the child object to generate its SPK
+   * @param entityTypeName name of the class/entity type of {@link modifiedObject}, must be one of {@link encryptedEntityTypeNames}. This parameter is
+   * optional, but it should always be provided in order for minified code to work properly.
    * @returns
    * - **delegations**  existing delegations (SPKs) of the `modifiedObject`, appended with results from step 5
    * - **cryptedForeignKeys** existing CFKs of the `modifiedObject`, appended with results from steps 6
@@ -730,14 +817,16 @@ export class IccCryptoXApi {
     parentObject: P | null,
     ownerId: string,
     delegateId: string,
-    secretIdOfModifiedObject: string | null
+    secretIdOfModifiedObject: string | null,
+    entityTypeName?: EncryptedEntityTypeName
   ): Promise<{
     modifiedObject: T
     delegations: { [key: string]: Array<Delegation> }
     cryptedForeignKeys: { [key: string]: Array<Delegation> }
     secretId: string | null //TODO: why input parameter secretIdOfModifiedObject is returned?
   }> {
-    // TODO secure delegations
+    const entityClass = this.encryptedEntityClassOf(modifiedObject, entityTypeName)
+
     this.throwDetailedExceptionForInvalidParameter('modifiedObject.id', modifiedObject.id, 'extendedDelegationsAndCryptedForeignKeys', arguments) //modifiedObject should never be null
 
     if (parentObject)
@@ -751,126 +840,36 @@ export class IccCryptoXApi {
     )
 
     const { dataOwner: owner } = await this.getDataOwner(ownerId)
-    const publicKeys = await this.getPublicKeys()
-    const { owner: modifiedOwner, aesExchangeKeys } = await this.getOrCreateHcPartyKeys(owner, delegateId)
-    const importedAESHcPartyKey = await this.decryptAnyAesExchangeKeyForOwner(aesExchangeKeys, ownerId, delegateId, ownerId, publicKeys)
-
+    const newDelegation = string2ua(modifiedObject.id + ':' + secretIdOfModifiedObject!).buffer as ArrayBuffer
+    const newCryptedForeignKey = parentObject ? string2ua(modifiedObject.id + ':' + parentObject.id).buffer as ArrayBuffer : undefined
+    let modifiedOwner: DataOwner = owner
+    const updatedOwnerAndDelegations = await this.addEntryAndDeduplicateDelegationLike(
+      modifiedOwner,
+      delegateId,
+      entityClass,
+      modifiedObject.delegations || {},
+      newDelegation
+    )
+    modifiedOwner = updatedOwnerAndDelegations.owner
     modifiedObject = modifiedObject?.id === owner.id ? (modifiedOwner as T) : modifiedObject
-    const previousDecryptedDelegations = await Promise.all(
-      ((modifiedObject.delegations || {})[delegateId] || []).map(
-        (d: Delegation) =>
-          (d.key &&
-            d.owner === ownerId &&
-            this._AES.decrypt(importedAESHcPartyKey.key, hex2ua(d.key), importedAESHcPartyKey.rawKey).catch(() => {
-              console.log(
-                `Cannot decrypt delegation from ${d.owner} to ${d.delegatedTo} for object with id ${modifiedObject.id}:`,
-                modifiedObject
-              )
-              return Promise.resolve()
-            })) ||
-          Promise.resolve()
-      ) as Array<Promise<ArrayBuffer>>
-    )
-    const previousDecryptedCryptedForeignKeys = await Promise.all(
-      ((modifiedObject.cryptedForeignKeys || {})[delegateId] || []).map( // TODO secure delegations: move from delegateId to entity:owner->delegateId
-        (d: Delegation) =>
-          (d.key &&
-            d.owner === ownerId &&
-            this._AES.decrypt(importedAESHcPartyKey.key, hex2ua(d.key), importedAESHcPartyKey.rawKey).catch(() => {
-              console.log(
-                `Cannot decrypt cryptedForeignKeys from ${d.owner} to ${d.delegatedTo} for object with id ${modifiedObject.id}:`,
-                modifiedObject
-              )
-              return Promise.resolve()
-            })) ||
-          Promise.resolve()
-      ) as Array<Promise<ArrayBuffer>>
-    )
-    const cryptedDelegation = await this._AES.encrypt(
-      importedAESHcPartyKey.key,
-      string2ua(modifiedObject.id + ':' + secretIdOfModifiedObject!).buffer as ArrayBuffer,
-      importedAESHcPartyKey.rawKey
-    )
-    const cryptedForeignKey = parentObject
-      ? await this._AES.encrypt(
-        importedAESHcPartyKey.key,
-        string2ua(modifiedObject.id + ':' + parentObject.id).buffer as ArrayBuffer,
-        importedAESHcPartyKey.rawKey
-      )
-      : undefined
-      //try to limit the extent of the modifications to the delegations by preserving the redundant delegation already present and removing duplicates
-      //For delegate delegateId, we create:
-      // 1. an array of objects { d : {owner,delegatedTo,encrypted(key)}} with one object for each existing delegation and the new key concatenated
-      // 2. an array of objects { k : decrypted(key)} with one object for the existing delegations and the new key concatenated
-      // We merge them to get one array of objects: { d: {owner,delegatedTo,encrypted(key)}, k: decrypted(key)}
-      const delegationCryptedDecrypted = (
-        _.merge(
-          ((modifiedObject.delegations || {})[delegateId] || []).map((d: Delegation) => ({
-            d,
-          })),
-          (previousDecryptedDelegations || []).map((dd) => (dd ? ua2string(dd) : null)).map((k) => ({ k }))
-        ) as { d: Delegation; k: string }[]
-      )
-        .filter(({ d, k }) => !!k || d.owner !== ownerId) //Only keep the ones created by us that can still be decrypted
-        .map(({ d, k }) => ({
-          d,
-          k: k || this.randomUuid(),
-        })) // Use some unique id that ensures the delegation not created by us are going to be held
-        .concat([
-          {
-            d: {
-              owner: ownerId,
-              delegatedTo: delegateId,
-              key: ua2hex(cryptedDelegation!),
-            },
-            k: modifiedObject.id + ':' + secretIdOfModifiedObject!,
-          },
-        ])
+    const updatedOwnerAndCFK = newCryptedForeignKey ? await this.addEntryAndDeduplicateDelegationLike(
+      modifiedOwner,
+      delegateId,
+      entityClass,
+      modifiedObject.cryptedForeignKeys || {},
+      newCryptedForeignKey
+    ) : undefined
+    if (updatedOwnerAndCFK) {
+      modifiedOwner = updatedOwnerAndCFK.owner
+      modifiedObject = modifiedObject?.id === owner.id ? (modifiedOwner as T) : modifiedObject
+    }
 
-      const allDelegations = _.cloneDeep(modifiedObject.delegations || {})
-
-      //Only keep one version of the decrypted key
-      allDelegations[delegateId] = _.uniqBy(delegationCryptedDecrypted, (x: any) => x.k).map((x: any) => x.d)
-
-      const cryptedForeignKeysCryptedDecrypted = (
-        _.merge(
-          ((modifiedObject.cryptedForeignKeys || {})[delegateId] || []).map((d: Delegation) => ({
-            d,
-          })),
-          (previousDecryptedCryptedForeignKeys || []).map((dd) => (dd ? ua2string(dd) : null)).map((k) => ({ k }))
-        ) as { d: Delegation; k: string }[]
-      )
-        .filter(({ d, k }) => !!k || d.owner !== ownerId) //Only keep the ones created by us that can still be decrypted
-        .map(({ d, k }: { d: Delegation; k: string }) => ({
-          d,
-          k: k || this.randomUuid(),
-        })) // Use some unique id that ensures the delegation not created by us are going to be held
-        .concat(
-          cryptedForeignKey
-            ? [
-                {
-                  d: {
-                    owner: ownerId,
-                    delegatedTo: delegateId,
-                    key: ua2hex(cryptedForeignKey),
-                  },
-                  k: modifiedObject.id + ':' + parentObject?.id,
-                },
-              ]
-            : []
-        )
-
-      const allCryptedForeignKeys = _.cloneDeep(modifiedObject.cryptedForeignKeys || {})
-      if (cryptedForeignKeysCryptedDecrypted.length > 0) {
-        allCryptedForeignKeys[delegateId] = _.uniqBy(cryptedForeignKeysCryptedDecrypted, (x: any) => x.k).map((x: any) => x.d)
-      }
-
-      return {
-        modifiedObject,
-        delegations: allDelegations,
-        cryptedForeignKeys: allCryptedForeignKeys,
-        secretId: secretIdOfModifiedObject,
-      }
+    return {
+      modifiedObject,
+      delegations: updatedOwnerAndDelegations.delegations,
+      cryptedForeignKeys: updatedOwnerAndCFK?.delegations ?? {},
+      secretId: secretIdOfModifiedObject,
+    }
   }
 
   async getEncryptedAesExchangeKeys(
@@ -882,10 +881,9 @@ export class IccCryptoXApi {
       .filter((e) => e[1][delegateId] && Object.keys(e[1][delegateId]).some((k1) => publicKeys.some((pk) => pk.endsWith(k1))))
       .reduce((map, e) => {
         const candidates = Object.entries(e[1][delegateId]) //[fingerprint of delegate pub key, key], [fingerprint of owner pub key, key]
-        const [publicKeyFingerprint, encryptedAesExchangeKey] = candidates[candidates.findIndex(([k, v]) => publicKeys.some((pk) => pk.endsWith(k)))]
+        const [publicKeyFingerprint, encryptedAesExchangeKey] = candidates[candidates.findIndex(([k, _]) => publicKeys.some((pk) => pk.endsWith(k)))]
         return { ...map, [e[0]]: { [publicKeyFingerprint]: encryptedAesExchangeKey } }
       }, {} as { [pubKeyIdentifier: string]: { [pubKeyFingerprint: string]: string } })
-
     if (!owner.publicKey || mapOfAesExchangeKeys[owner.publicKey] || !owner.hcPartyKeys?.[delegateId]) {
       return mapOfAesExchangeKeys
     }
@@ -902,17 +900,16 @@ export class IccCryptoXApi {
   }
 
   async getOrCreateHcPartyKeys(
-    owner: HealthcareParty | Patient | Device,
+    owner: DataOwner,
     delegateId: string
   ): Promise<{
-    owner: HealthcareParty | Patient | Device
+    owner: DataOwner
     aesExchangeKeys: { [pubKeyIdentifier: string]: { [pubKeyFingerprint: string]: string } }
   }> {
-    const aesExchangeKeys = await this.getEncryptedAesExchangeKeys(owner, delegateId)
+    const aesExchangeKeys = await this.getEncryptedAesExchangeKeys(owner, delegateId) // These are only keys we can decrypt
     if (Object.keys(aesExchangeKeys).length) {
-      return { owner, aesExchangeKeys }
+      return this.ensureDelegateCanAccessKeys(owner, delegateId, aesExchangeKeys)
     }
-
     const modifiedOwner = await this.generateKeyForDelegate(owner.id!, delegateId)
     return { owner: modifiedOwner, aesExchangeKeys: await this.getEncryptedAesExchangeKeys(modifiedOwner, delegateId) }
   }
@@ -923,30 +920,37 @@ export class IccCryptoXApi {
    * and return it.
    * @param createdObject
    * @param ownerId
+   * @param entityTypeName name of the class/entity type of {@link createdObject}, must be one of {@link encryptedEntityTypeNames}. This parameter is
+   * optional, but it should always be provided in order for minified code to work properly.
    */
   initEncryptionKeys(
-    createdObject: any,
-    ownerId: string
+    createdObject: EncryptedEntity,
+    ownerId: string,
+    entityTypeName?: EncryptedEntityTypeName
   ): Promise<{
     encryptionKeys: any
     secretId: string
   }> {
+    const entityClass = this.encryptedEntityClassOf(createdObject, entityTypeName)
+
     this.throwDetailedExceptionForInvalidParameter('createdObject.id', createdObject.id, 'initEncryptionKeys', arguments)
 
     const secretId = this.randomUuid()
     return this.getDataOwner(ownerId).then(async ({ dataOwner: owner }) => {
       const publicKeys = await this.getPublicKeys()
-      const { owner: modifiedOwner, aesExchangeKeys } = await this.getOrCreateHcPartyKeys(owner, ownerId)
+      // TODO should we check if owner is created object like in initObjectDelegations? If yes we need to take and propagate the modified owner.
+      const { aesExchangeKeys } = await this.getOrCreateHcPartyKeys(owner, ownerId)
       const importedAESHcPartyKey = await this.decryptAnyAesExchangeKeyForOwner(aesExchangeKeys, ownerId, ownerId, ownerId, publicKeys)
       const encryptedEncryptionKeys = await this._AES.encrypt(
         importedAESHcPartyKey.key,
         string2ua(createdObject.id + ':' + secretId),
         importedAESHcPartyKey.rawKey
       )
+      const secureDelegationEntryKey = await this.getSecureDelegationEntryKeyFor(importedAESHcPartyKey, ownerId, entityClass)
 
       return {
         encryptionKeys: {
-          [ownerId]: [ // TODO secure delegations?
+          [secureDelegationEntryKey]: [
             {
               owner: ownerId,
               delegatedTo: ownerId,
@@ -965,7 +969,9 @@ export class IccCryptoXApi {
    * @param modifiedObject the object of which EKs will be cloned, the clone will be used to append the new EK, and then used as return value; will NOT be mutated
    * @param ownerId delegator HcP id
    * @param delegateId delegate HcP id
-   * @param secretEncryptionKeyOfObject secret Id for the EK (Content Encryption Key)
+   * @param secretEncryptionKeyOfObject secret id for the EK (Content Encryption Key)
+   * @param entityTypeName name of the class/entity type of {@link modifiedObject}, must be one of {@link encryptedEntityTypeNames}. This parameter is
+   * optional, but it should always be provided in order for minified code to work properly.
    * @returns
    *   - **encryptionKeys** existing EKs of the `modifiedObject`, appended with a new EK item (owner: `ownerId`, delegatedTo: `delegateId`, encrypted key with secretId:
    *     `secretEncryptionKeyOfObject` )
@@ -973,73 +979,32 @@ export class IccCryptoXApi {
    */
   async appendEncryptionKeys(
     //TODO: suggested name: getExtendedEKwithDelegationFromDelegatorToDelegate
-    modifiedObject: any,
+    modifiedObject: EncryptedEntity,
     ownerId: string,
     delegateId: string,
-    secretEncryptionKeyOfObject: string
+    secretEncryptionKeyOfObject: string,
+    entityTypeName?: EncryptedEntityTypeName
   ): Promise<{
     encryptionKeys: { [key: string]: Array<Delegation> }
     secretId: string | null //secretEncryptionKeyOfObject is returned to avoid the need for a new decryption when chaining calls
   }> {
-    // TODO secure delegations
+    const entityClass = this.encryptedEntityClassOf(modifiedObject, entityTypeName)
+
     this.throwDetailedExceptionForInvalidParameter('modifiedObject.id', modifiedObject.id, 'appendEncryptionKeys', arguments) //modifiedObject should never be null
 
     this.throwDetailedExceptionForInvalidParameter('secretEncryptionKeyOfObject', secretEncryptionKeyOfObject, 'appendEncryptionKeys', arguments)
 
     const { dataOwner: owner } = await this.getDataOwner(ownerId)
-    const publicKeys = await this.getPublicKeys()
-    const { owner: modifiedOwner, aesExchangeKeys } = await this.getOrCreateHcPartyKeys(owner, delegateId)
-    const importedAESHcPartyKey = await this.decryptAnyAesExchangeKeyForOwner(aesExchangeKeys, ownerId, ownerId, delegateId, publicKeys)
-    const previousDecryptedEncryptionKeys = await Promise.all(
-      ((modifiedObject.encryptionKeys || {})[delegateId] || []).map(
-        (d: Delegation) =>
-          (d.key &&
-            d.owner === ownerId &&
-            this._AES.decrypt(importedAESHcPartyKey.key, hex2ua(d.key), importedAESHcPartyKey.rawKey).catch(() => {
-              console.log(
-                `Cannot decrypt encryption key from ${d.owner} to ${d.delegatedTo} for object with id ${modifiedObject.id}:`,
-                modifiedObject
-              )
-              return Promise.resolve()
-            })) ||
-          Promise.resolve()
-      ) as Array<Promise<ArrayBuffer>>
-    )
-
-    const encryptedEncryptionKey = await this._AES.encrypt(
-      importedAESHcPartyKey.key,
+    const { owner: modifiedOwner, delegations: updatedEncryptionKeys } = await this.addEntryAndDeduplicateDelegationLike(
+      owner,
+      delegateId,
+      entityClass,
+      modifiedObject.encryptionKeys || {},
       string2ua(modifiedObject.id + ':' + secretEncryptionKeyOfObject)
     )
 
-    //try to limit the extent of the modifications to the delegations by preserving the redundant encryption keys already present and removing duplicates
-    //For delegate delegateId, we create:
-    // 1. an array of objects { d : {owner,delegatedTo,encrypted(key)}} with one object for the existing encryption keys and the new key concatenated
-    // 2. an array of objects { k : decrypted(key)} with one object for the existing delegations and the new key concatenated
-    // We merge them to get one array of objects: { d: {owner,delegatedTo,encrypted(key)}, k: decrypted(key)}
-    const encryptionKeysCryptedDecrypted = _.merge(
-      ((modifiedObject.encryptionKeys || {})[delegateId] || []).map((d: Delegation) => ({
-        d,
-      })),
-      (previousDecryptedEncryptionKeys || []).map((dd) => (dd ? ua2string(dd) : null)).map((k) => ({ k }))
-    )
-      .filter(({ d, k }: { d: Delegation; k: string }) => !!k || d.owner !== ownerId) //Only keep the ones created by us that can still be decrypted
-      .map(({ d, k }: { d: Delegation; k: string }) => ({ d, k: k || this.randomUuid() }))
-      .concat([
-        {
-          d: {
-            owner: ownerId,
-            delegatedTo: delegateId,
-            key: ua2hex(encryptedEncryptionKey),
-          },
-          k: modifiedObject.id + ':' + secretEncryptionKeyOfObject!,
-        },
-      ])
-
-    const allEncryptionKeys = _.cloneDeep(modifiedObject.encryptionKeys)
-    allEncryptionKeys[delegateId] = _.uniqBy(encryptionKeysCryptedDecrypted, (x: any) => x.k).map((x: any) => x.d)
-
     return {
-      encryptionKeys: allEncryptionKeys,
+      encryptionKeys: updatedEncryptionKeys,
       secretId: secretEncryptionKeyOfObject,
     }
   }
@@ -1048,12 +1013,15 @@ export class IccCryptoXApi {
    * Gets an updated `child` object that will have its SPKs, CFKs, KSs updated to include delegations from delegator HcP with id `ownerId` to delegate HcP with id `delegateId`
    * The SFKs of `child` are not updated, so this method assumes this is not the initial delegation on the `child` object
    * The method also performs some deduplication of all types of delegations.
+   * Note: this method mutates the {@link child} object.
    * @param parent the parent object of `child`; will NOT be mutated
    * @param child the object that will be mutated and returned
    * @param ownerId delegator HcP id
    * @param delegateId delegate HcP id
    * @param secretDelegationKey  the secret id used in the child object to generate the SPK
    * @param secretEncryptionKey  the secret id used in the child object to generate the EK (Content Encryption Key)
+   * @param childEntityTypeName name of the class/entity type of {@link modifiedObject}, must be one of {@link encryptedEntityTypeNames}. This parameter is
+   * optional, but it should always be provided in order for minified code to work properly.
    * @returns - an updated `child` object that will contain updated SPKs, CFKs, EKs
    */
   async addDelegationsAndEncryptionKeys<T extends EncryptedEntity>(
@@ -1063,39 +1031,25 @@ export class IccCryptoXApi {
     ownerId: string,
     delegateId: string,
     secretDelegationKey: string | null,
-    secretEncryptionKey: string | null
+    secretEncryptionKey: string | null,
+    childEntityTypeName?: EncryptedEntityTypeName
   ): Promise<T> {
-    // TODO secure delegations
+    const entityClass = this.encryptedEntityClassOf(child, childEntityTypeName)
     if (parent) this.throwDetailedExceptionForInvalidParameter('parent.id', parent.id, 'addDelegationsAndEncryptionKeys', arguments)
 
     this.throwDetailedExceptionForInvalidParameter('child.id', child.id, 'addDelegationsAndEncryptionKeys', arguments)
 
     const extendedChildObjectSPKsAndCFKs = secretDelegationKey
-      ? await this.extendedDelegationsAndCryptedForeignKeys(child, parent, ownerId, delegateId, secretDelegationKey)
-      : { modifiedObject: child, delegations: {}, cryptedForeignKeys: {}, secretId: null }
+      ? await this.extendedDelegationsAndCryptedForeignKeys(child, parent, ownerId, delegateId, secretDelegationKey, entityClass)
+      : { modifiedObject: child, delegations: child.delegations, cryptedForeignKeys: child.cryptedForeignKeys, secretId: null }
     const extendedChildObjectEKs = secretEncryptionKey
-      ? await this.appendEncryptionKeys(extendedChildObjectSPKsAndCFKs.modifiedObject, ownerId, delegateId, secretEncryptionKey)
-      : { encryptionKeys: {} }
+      ? await this.appendEncryptionKeys(extendedChildObjectSPKsAndCFKs.modifiedObject, ownerId, delegateId, secretEncryptionKey, entityClass)
+      : { encryptionKeys: child.encryptionKeys }
 
     return _.assign(extendedChildObjectSPKsAndCFKs.modifiedObject, {
-      // Conservative version ... We might want to be more aggressive with the deduplication of keys
-      // For each delegate, we are going to concatenate to the src (the new delegations), the object in dest (the current delegations)
-      // for which we do not find an equivalent delegation (same delegator, same delegate)
-      delegations: _.assignWith(child.delegations, extendedChildObjectSPKsAndCFKs.delegations, (dest, src) =>
-        (src || []).concat(
-          _.filter(dest, (d: Delegation) => !src.some((s: Delegation) => s.owner === d.owner && s.delegatedTo === d.delegatedTo))
-        )
-      ),
-      cryptedForeignKeys: _.assignWith(child.cryptedForeignKeys, extendedChildObjectSPKsAndCFKs.cryptedForeignKeys, (dest, src) =>
-        (src || []).concat(
-          _.filter(dest, (d: Delegation) => !src.some((s: Delegation) => s.owner === d.owner && s.delegatedTo === d.delegatedTo))
-        )
-      ),
-      encryptionKeys: _.assignWith(child.encryptionKeys, extendedChildObjectEKs.encryptionKeys, (dest, src) =>
-        (src || []).concat(
-          _.filter(dest, (d: Delegation) => !src.some((s: Delegation) => s.owner === d.owner && s.delegatedTo === d.delegatedTo))
-        )
-      )
+      delegations: extendedChildObjectSPKsAndCFKs.delegations,
+      cryptedForeignKeys: extendedChildObjectSPKsAndCFKs.cryptedForeignKeys,
+      encryptionKeys: extendedChildObjectEKs.encryptionKeys
     })
   }
 
@@ -1209,7 +1163,17 @@ export class IccCryptoXApi {
   ): Promise<Array<{ hcpartyId: string; extractedKeys: Array<string> }>> {
     const { dataOwner: hcp } = await this.getDataOwner(hcpartyId)
     const extractedKeys = []
-    if (delegations[hcpartyId]?.length) { // TODO secure delegations
+    const possibleDelegationsEntryKeysForHcParty = [hcpartyId, ...(await this.getSecureDelegationEntryKeysFor(hcpartyId))]
+    const delegationsForHcParty = possibleDelegationsEntryKeysForHcParty.reduce<Delegation[]>(
+      (acc, entryKey) => {
+        const matchingDelegations = delegations[entryKey]
+        if (matchingDelegations) {
+          return acc.concat(matchingDelegations.filter((nd) => !acc.some((ed) => ed.key === nd.key)))
+        } else return acc
+      },
+      []
+    )
+    if (delegationsForHcParty.length) {
       const decryptedAndImportedAesHcPartyKeys = await this.getDecryptedAesExchangeKeysOfDelegateAndParentsFromGenericDelegations(
         hcpartyId,
         delegations,
@@ -1219,8 +1183,7 @@ export class IccCryptoXApi {
         (map, k) => ({ ...map, [k.delegatorId]: (map[k.delegatorId] ?? []).concat([k]) }),
         {} as { [key: string]: { key: CryptoKey; rawKey: string }[] }
       )
-      // TODO secure delegations
-      extractedKeys.push(...(await this.decryptKeyInDelegationLikes(delegations[hcpartyId], collatedAesKeysFromDelegatorToHcpartyId, objectId)))
+      extractedKeys.push(...(await this.decryptKeyInDelegationLikes(delegationsForHcParty, collatedAesKeysFromDelegatorToHcpartyId, objectId)))
     }
 
     const parentId = (hcp as HealthcareParty).parentId
@@ -1252,33 +1215,37 @@ export class IccCryptoXApi {
     objectId: string,
     delegations: { [key: string]: Array<Delegation> }
   ): Promise<{ extractedKeys: Array<string>; hcpartyId: string }> {
-    // TODO secure delegations
-    return this.getDataOwner(dataOwnerId)
-      .then(({ dataOwner: hcp }) =>
-        (delegations[dataOwnerId] && delegations[dataOwnerId].length
-          ? this.getDecryptedAesExchangeKeysOfDelegateAndParentsFromGenericDelegations(dataOwnerId, delegations, false).then(
-              (decryptedAndImportedAesHcPartyKeys) => {
-                const collatedAesKeysFromDelegatorToHcpartyId: {
-                  [key: string]: { key: CryptoKey; rawKey: string }[]
-                } = {}
-                decryptedAndImportedAesHcPartyKeys.forEach((k) => {
-                  ;(collatedAesKeysFromDelegatorToHcpartyId[k.delegatorId] ?? (collatedAesKeysFromDelegatorToHcpartyId[k.delegatorId] = [])).push(k)
-                })
-                return this.decryptKeyInDelegationLikes(delegations[dataOwnerId], collatedAesKeysFromDelegatorToHcpartyId, objectId!)
-              }
-            )
-          : Promise.resolve([])
-        ).then(async (extractedKeys) => {
-          const parentExtractedKeys = (hcp as HealthcareParty).parentId
-            ? await this.extractKeysFromDelegationsForHcpHierarchy((hcp as HealthcareParty).parentId!, objectId, delegations)
-            : { extractedKeys: [], hcpartyId: undefined }
-          return { extractedKeys: extractedKeys.concat(parentExtractedKeys.extractedKeys), hcpartyId: parentExtractedKeys.hcpartyId ?? dataOwnerId }
-        })
+    const possibleDelegationsEntryKeysForDataOwner = [dataOwnerId, ...(await this.getSecureDelegationEntryKeysFor(dataOwnerId))]
+    const delegationsForDataOwner = possibleDelegationsEntryKeysForDataOwner.reduce<Delegation[]>(
+      (acc, entryKey) => {
+        const matchingDelegations = delegations[entryKey]
+        if (matchingDelegations) {
+          return acc.concat(matchingDelegations.filter((nd) => !acc.some((ed) => ed.key === nd.key)))
+        } else return acc
+      },
+      []
+    )
+    const { dataOwner: hcp } = await this.getDataOwner(dataOwnerId).catch((e) => {
+      console.error(`Dataowner with id ${dataOwnerId} cannot be resolved`)
+      throw e
+    })
+    const extractedKeys = delegationsForDataOwner.length
+      ? await this.getDecryptedAesExchangeKeysOfDelegateAndParentsFromGenericDelegations(dataOwnerId, delegations, false).then(
+        (decryptedAndImportedAesHcPartyKeys) => {
+          const collatedAesKeysFromDelegatorToHcpartyId: {
+            [key: string]: { key: CryptoKey; rawKey: string }[]
+          } = {}
+          decryptedAndImportedAesHcPartyKeys.forEach((k) => {
+            ;(collatedAesKeysFromDelegatorToHcpartyId[k.delegatorId] ?? (collatedAesKeysFromDelegatorToHcpartyId[k.delegatorId] = [])).push(k)
+          })
+          return this.decryptKeyInDelegationLikes(delegationsForDataOwner, collatedAesKeysFromDelegatorToHcpartyId, objectId!)
+        }
       )
-      .catch((e) => {
-        console.error(`Dataowner with id ${dataOwnerId} cannot be resolved`)
-        throw e
-      })
+      : []
+    const parentExtractedKeys = (hcp as HealthcareParty).parentId
+      ? await this.extractKeysFromDelegationsForHcpHierarchy((hcp as HealthcareParty).parentId!, objectId, delegations)
+      : { extractedKeys: [], hcpartyId: undefined }
+    return { extractedKeys: extractedKeys.concat(parentExtractedKeys.extractedKeys), hcpartyId: parentExtractedKeys.hcpartyId ?? dataOwnerId }
   }
 
   /**
@@ -1300,9 +1267,9 @@ export class IccCryptoXApi {
     masterId: string
   ): Promise<Array<string>> {
     const decryptPromises: Array<Promise<string | undefined>> = delegationsArray.map(async (genericDelegationItem) => {
-      const aesKeys = aesKeysForDataOwnerId[genericDelegationItem.owner!] // TODO secure delegations
+      const aesKeys = aesKeysForDataOwnerId[genericDelegationItem.owner!]
       if (aesKeys?.length) {
-        return aesKeys.reduce(async (acc, aesKey) => {
+        return await aesKeys.reduce<Promise<undefined | string>>(async (acc, aesKey) => {
           const accValue = await acc
           if (accValue) {
             return accValue
@@ -1335,7 +1302,7 @@ export class IccCryptoXApi {
 
             return undefined
           }
-        }, Promise.resolve() as Promise<string | undefined>)
+        }, Promise.resolve(undefined))
       } else {
         console.log(`Could not find aes key for object with ID: ${masterId}`)
       }
@@ -1721,7 +1688,7 @@ export class IccCryptoXApi {
       )
     )
 
-    const dataOwnerExistingPubKeys = Array.from(await this.getDataOwnerHexPublicKeys(dataOwner.dataOwner))
+    const dataOwnerExistingPubKeys = Array.from(this.getDataOwnerHexPublicKeys(dataOwner.dataOwner))
 
     const transferKeys = fold(dataOwnerExistingPubKeys, dataOwner.dataOwner.transferKeys ?? {}, (pubAcc, pubKeyHex) => {
       if (pubKeyHex !== pubKeyToEncryptHex) {
@@ -1915,8 +1882,7 @@ export class IccCryptoXApi {
           [ownerLegacyPublicKey]: Object.entries(owner.hcPartyKeys ?? {}).reduce(
             (map, [hcpId, keys]) => ({
               ...map,
-              [hcpId]: { [ownerLegacyPublicKey]: keys[0], [counterParts.find((x) => x.id === hcpId)?.publicKey ?? '']: keys[1] },
-              ...{},
+              [hcpId]: { [ownerLegacyPublicKey]: keys[0], [counterParts.find((x) => x.id === hcpId)?.publicKey ?? '']: keys[1] }
             }),
             {}
           ),
@@ -1970,6 +1936,9 @@ export class IccCryptoXApi {
       this.hcPartyKeysRequestsCache[delegateId] = genProm.then(() => {
         return this.forceGetEncryptedAesExchangeKeysForDelegate(delegateId)
       })
+      if (this.secureDelegationEntryKeysCache[delegateId]) {
+        this.rebuildSecureDelegationsCacheFor([ownerId], delegateId)
+      }
       return genProm.then((res) => {
         return res[1]
       })
@@ -2070,6 +2039,433 @@ export class IccCryptoXApi {
       return await this._AES[method](importedEdKey, content)
     } catch (e) {
       return content
+    }
+  }
+
+  /**
+   * Gets the class of an encrypted entity. Throws error if the class can't be retrieved.
+   * @param entity the entity object
+   * @param declaredClassName the declared type of the entity, to use as a fallback in case the original class name can't be retrieved (for example
+   * due to the use of minified code).
+   * @return the class of the encrypted entity
+   */
+  private encryptedEntityClassOf(entity: EncryptedEntity, declaredClassName: EncryptedEntityTypeName | undefined): EncryptedEntityTypeName {
+    const entityClass = this.tryGetEncryptedEntityClassOf(entity, declaredClassName)
+    if (entityClass) {
+      return entityClass
+    } else throw new Error(
+      `No valid encrypted entity class name (constructor: "${entity.constructor.name}", declared: "${declaredClassName}").` +
+        `Please specify a valid class name. Valid class names are ${encryptedEntityTypeNames}.`
+    )
+  }
+
+  /**
+   * Gets the class of an encrypted entity. Returns undefined if the class can't be retrieved.
+   * @param entity the entity object
+   * @param declaredClassName the declared type of the entity, to use as a fallback in case the original class name can't be retrieved (for example
+   * due to the use of minified code).
+   * @return the class of the encrypted entity
+   */
+  private tryGetEncryptedEntityClassOf(
+    entity: EncryptedEntity,
+    declaredClassName: EncryptedEntityTypeName | undefined
+  ): EncryptedEntityTypeName | undefined {
+    const _type = (entity as any)._type
+    if (_type && (typeof _type === 'string' || _type instanceof String)) {
+      const splitType = _type.split(".")
+      const candidate = splitType[splitType.length - 1]
+      if (encryptedEntityTypeNames.has(candidate as any)) {
+        if (declaredClassName && declaredClassName !== candidate) throw new Error(
+          `Declared type name "${declaredClassName}" does not match type detected from field \`_type:"${_type}"\` ("${candidate}")`
+        )
+        return candidate as EncryptedEntityTypeName
+      }
+    }
+    if (!declaredClassName) console.warn(
+      "Usage of a delegation-related method without specifying the entity class name, and input object does not have a `_type` value. " +
+      "Will use constructor name as fallback, but this may not work with minified code."
+    )
+    const constructorName = entity.constructor?.name
+    if (encryptedEntityTypeNames.has(constructorName as any)) {
+      if (declaredClassName && declaredClassName !== constructorName) throw new Error(
+        `Declared type name "${declaredClassName}" does not match valid constructor name "${constructorName}"`
+      )
+      return constructorName as EncryptedEntityTypeName
+    } else if (declaredClassName && encryptedEntityTypeNames.has(declaredClassName)) {
+      return declaredClassName
+    } else return undefined
+  }
+
+  /**
+   * Gets the secure delegation entry keys cache, building it if not cached.
+   * @param delegateId id of the delegate.
+   */
+  private async getOrBuildSecureDelegationsCacheFor(delegateId: string): Promise<{ [delegatorId: string]: Promise<SecureDelegationPairEntryKeys> }> {
+    if (!this.secureDelegationEntryKeysCache[delegateId]) {
+      const delegators = Object.keys(await this.getEncryptedAesExchangeKeysForDelegate(delegateId))
+      if (!this.secureDelegationEntryKeysCache[delegateId]) {
+        this.rebuildSecureDelegationsCacheFor(delegators, delegateId)
+      }
+    }
+    return this.secureDelegationEntryKeysCache[delegateId]
+  }
+
+  /**
+   * Rebuilds the secure delegation entry keys cache for a delegate and one or more delegators, while leaving the cache for other delegators
+   * unaltered. The cache for the delegate must already exist, if it doesn't this method will throw an error.
+   * @param delegatorsIds ids of the delegators to include in the cache.
+   * @param delegateId id of the delegate
+   */
+  private rebuildSecureDelegationsCacheFor(delegatorsIds: string[], delegateId: string) {
+    if (!this.secureDelegationEntryKeysCache[delegateId]) throw Error(
+      "Can't rebuild cache for a specific delegator since no cache for delegate exists yet."
+    )
+    const keysPromise = this.decryptAndImportAesHcPartyKeysForDelegators(delegatorsIds, delegateId)
+    delegatorsIds.forEach((delegatorId) => {
+      this.secureDelegationEntryKeysCache[delegateId][delegatorId] = Promise.resolve().then(async () => {
+        const delegatorKeys = (await keysPromise).filter((x) => x.delegatorId === delegatorId)
+        return await Array.from(encryptedEntityTypeNames).reduce(
+          async (entityAcc, entityClass) => {
+            return {
+              ...(await entityAcc),
+              [entityClass]: await delegatorKeys.reduce(
+                async (keyAcc, key) => {
+                  return {
+                    ...(await keyAcc),
+                    [key.rawKey]: await this.getSecureDelegationEntryKeyFor(key, delegateId, entityClass)
+                  }
+                },
+                Promise.resolve({} as {[rawKey: string]: string})
+              )
+            }
+          },
+          Promise.resolve({} as SecureDelegationPairEntryKeys)
+        )
+      })
+    })
+  }
+
+  /**
+   * Get a secure delegation entry key for a specific exchange key, delegate and entity class. Updates cached values if the required value is absent.
+   * @param delegatorKey the exchange key used for the encryption of the secure delegation.
+   * @param delegateId id of the delegate which uses the key.
+   * @param entityClass class of the entity.
+   * @return the secure key for the delegation entry.
+   */
+  private async getSecureDelegationEntryKeyFor(
+    delegatorKey: DelegatorAndKeys,
+    delegateId: string,
+    entityClass: EncryptedEntityTypeName
+  ): Promise<string> {
+    const secureDelegations = await this.getOrBuildSecureDelegationsCacheFor(delegateId)
+    const res = (await secureDelegations[delegatorKey.delegatorId])?.[entityClass]?.[delegatorKey.rawKey]
+    if (res) {
+      // In almost all cases we should be here
+      return res
+    } else {
+      // If the cache was build when the private key corresponding to `delegatorKey` was not available and we get access to it later we may get here
+      if (!this.secureDelegationEntryKeysCache[delegateId]) {
+        // The cache may have been deleted since when we awaited last, in this case rebuild it
+        await this.getOrBuildSecureDelegationsCacheFor(delegateId)
+      } else {
+        this.rebuildSecureDelegationsCacheFor([delegatorKey.delegatorId], delegateId)
+      }
+      this.secureDelegationEntryKeysCache[delegateId][delegatorKey.delegatorId].then((delegationPairCache) => {
+        if (!Object.values(delegationPairCache).every((entityKeys) => !!entityKeys[delegatorKey.rawKey])) {
+          console.warn("Cache rebuild was necessary due to missing key, but after rebuild key is still missing. " + delegatorKey + " " + delegateId)
+        }
+      })
+      return this.createSecureDelegationEntryKey(delegatorKey, entityClass)
+    }
+  }
+
+  /**
+   * Creates key to be used in delegation entries in order to avoid leaking relationships between entities of different types.
+   * The value of this entry key depends on the provided exchange key (therefore implicitly on the delegator-delegate) and on the entity class.
+   * @param exchangeKey key to use for the creation of the secure delegation entry key.
+   * @param entityClass class of entity this key will be for
+   * @return the created key.
+   */
+  private async createSecureDelegationEntryKey(exchangeKey: DelegatorAndKeys, entityClass: EncryptedEntityTypeName): Promise<string> {
+    // Implicitly includes the owner id and delegate id as it is encrypted using owner-delegate key
+    const secureDelegationKey = await this._AES.encrypt(
+        exchangeKey.key,
+        string2ua(entityClass),
+        exchangeKey.rawKey
+    )
+    return ua2hex(secureDelegationKey)
+  }
+
+  /**
+   * Get all possible secure delegation entry keys for a specific delegate and optionally for a specific owner/delegator and entity class.
+   * @param delegateId the id of the delegate for which you want to get the secure delegation keys.
+   * @param optionalParameters may contain:
+   * - **ownerId**: id of the owner/delegator of the exchange key used to encrypt the secure delegation key.
+   * - **entityClass**: if present limits the result to only secure delegation keys for the specific entity class.
+   * @return the secure delegation entry keys for the provided delegate and entity class.
+   */
+  private async getSecureDelegationEntryKeysFor(
+    delegateId: string,
+    optionalParameters: { ownerId?: string, entityClass?: EncryptedEntityTypeName} = {}
+  ): Promise<string[]> {
+    const secureDelegations = await this.getOrBuildSecureDelegationsCacheFor(delegateId)
+    const byDelegator: SecureDelegationPairEntryKeys[] =
+      optionalParameters.ownerId
+        ? [await secureDelegations[optionalParameters.ownerId]]
+        : (await Promise.all(Object.values(secureDelegations)))
+    const res: string[] = []
+    byDelegator.filter((x) => !!x).forEach((secureDelegationPairEntryKeys) => {
+      if (optionalParameters.entityClass) {
+        Object.values(secureDelegationPairEntryKeys[optionalParameters.entityClass]).forEach((secureDelegationKey) => res.push(secureDelegationKey))
+      } else {
+        Object.values(secureDelegationPairEntryKeys).forEach((entityClassSecureDelegations) => {
+          Object.values(entityClassSecureDelegations).forEach((secureDelegationKey) => res.push(secureDelegationKey))
+        })
+      }
+    })
+    return res
+  }
+
+  /**
+   * Extract the delegations for a specific delegate from a map of all delegations of an entity.
+   * @param delegationsLike delegations (can be SPKs, CFKs, EKs) for all delegates.
+   * @param delegateId the id of the delegate for which you want to get the delegations.
+   * @param entityClass class of the entity these delegations belong to, not necessary but could help slightly improve performances.
+   * @return all delegations for the provided delegate
+   */
+  private async getDelegationsOf(
+    delegationsLike: { [key: string]: Array<Delegation> },
+    delegateId: string,
+    entityClass?: EncryptedEntityTypeName
+  ): Promise<Delegation[]> {
+    const secureDelegationKeys = await this.getSecureDelegationEntryKeysFor(delegateId)
+    return mergeMapArrays(delegationsLike, [delegateId, ...secureDelegationKeys])
+  }
+
+  /**
+   * Get the public keys corresponding to the weakest private key of the provided data owner. Normally this should only be one.
+   * The weakest keys are all keys which may be recovered from other private keys the data owner has, but can't be used to recover any other key.
+   * For example initially a user may only have a key `K1` which is by definition the weakest key. At some point the user may lose `K1` and will
+   * create a new key `K2`. At this moment he will also add a new `transferKey` which will allow him to recover `K2` from `K1` in case he finds back
+   * `K1` and loses `K2`. In this situation the weakest key is `K2`. If later the user loses both `K1` and `K2` he will create a new key `K3`, and add
+   * transfer keys to allow the recovery of `K3` from `K1` or `K2`, therefore `K3` is the new weakest key.
+   * @param dataOwner a data owner.
+   * @return the public keys of the weakest keys of the provided data owner, or an empty set if the data owner has no transfer keys.
+   */
+  private weakestKeysOf(dataOwner: DataOwner): Set<string> {
+    if (dataOwner.transferKeys) {
+      const edges = Object.entries(dataOwner.transferKeys).flatMap(([keyFrom, keysTo]) => {
+        return Object.keys(keysTo).map((keyTo) => [keyFrom, keyTo] as [string, string])
+      })
+      return terminalNodes(graphFromEdges(edges))
+    } else return new Set([])
+  }
+
+  private async ensureDelegateCanAccessKeys(
+    owner: DataOwner,
+    delegateId: string,
+    encryptedAesKeyMap: { [pubKeyIdentifier: string]: { [pubKeyFingerprint: string]: string } }
+  ): Promise<{
+    owner: DataOwner
+    aesExchangeKeys: { [pubKeyIdentifier: string]: { [pubKeyFingerprint: string]: string } }
+  }> {
+    /*
+    // TODO does it need non-concurrency?
+    const delegate = await this.getDataOwner(delegateId)
+    const weakestDelegateKeys = Array.from(this.weakestKeysOf(delegate))
+    const validKeyIdentifiers = new Set(Object.keys(encryptedAesKeyMap))
+    const inaccessibleKeys = Object.entries(owner.aesExchangeKeys ?? {})
+      .filter(([identifier]) => validKeyIdentifiers.has(identifier))
+      .filter(([, delegateToKeys]) => {
+        const availableFingerprints = new Set(Object.keys(delegateToKeys[delegateId]).map((x) => x.slice(-32)))
+        return weakestDelegateKeys.some((weakKey) => !availableFingerprints.has(weakKey.slice(-32)))
+      })
+    if (inaccessibleKeys.length === 0) {
+      return { owner, aesExchangeKeys: encryptedAesKeyMap }
+    }
+    // TODO need double check on this: do I need to maintenance task? Or is that for something else?
+    const weakCryptoKeys = await weakestDelegateKeys.reduce<Promise<{ [keyHex: string]: CryptoKey }>>(
+      async (acc, keyHex) => {
+        return {
+          ...(await acc),
+          [keyHex]: await this._RSA.importKey('jwk', spkiToJwk(hex2ua(keyHex)), ['encrypt'])
+        }
+      },
+      Promise.resolve({})
+    )
+    const inaccessibleKeysIdentifiers = new Set(inaccessibleKeys.map((x) => x[0]))
+    const decryptedInaccessibleKeys = await Object.entries(encryptedAesKeyMap)
+      .filter((x) => inaccessibleKeysIdentifiers.has(x[0]))
+      .reduce<Promise<{ [keyIdentifier: string]: string}>>(
+        async (acc, [identifier, encryptedKeys]) => {
+          const awaitedAcc = await acc
+          // TODO do i swap delegator and delegate? Like in extendedDelegationsAndCryptedForeignKeys when it calls decrypt any.
+          const decrypted = await this.decryptHcPartyKey(owner.id!, owner.id!, delegateId, identifier, encryptedKeys, await this.getPublicKeys())
+          return {
+            ...awaitedAcc,
+            [identifier]: decrypted.rawKey
+          }
+        },
+        Promise.resolve({})
+      )
+    const newAesKeyEntries = await inaccessibleKeys.reduce<Promise<{ [pubKeyIdentifier: string]: { [pubKeyFingerprint: string]: string }}>>(
+      async (acc, [pubKeyIdentifier,]) => {
+        const weakKeyEntries = await weakestDelegateKeys.reduce<Promise<{ [pubKeyFingerprint: string]: string }>>(
+          async (wAcc, wKey) => {
+            return {
+              ...(await wAcc),
+              // TODO is this ok or should i not encrypt the raw key?
+              [wKey.slice(-32)]: ua2hex(await this._RSA.encrypt(weakCryptoKeys[wKey], hex2ua(decryptedInaccessibleKeys[pubKeyIdentifier])))
+            }
+          },
+          Promise.resolve({})
+        )
+        return {
+          ...(await acc),
+          [pubKeyIdentifier]: weakKeyEntries
+        }
+      },
+      Promise.resolve({})
+    )
+    const updatedOwner = await this.getDataOwner(owner.id!)
+    const updatedAesKeyEntries = Object.entries(updatedOwner.dataOwner.aesExchangeKeys!).reduce(
+      (accById, [identifier, delegateToKeys]) => {
+        const updatedDelegateKeys = { ...delegateToKeys[delegateId] }
+        if (newAesKeyEntries[identifier]) {
+          Object.entries(newAesKeyEntries[identifier]).forEach(([k, v]) => { updatedDelegateKeys[k] = v })
+        }
+        return {
+          ...accById,
+          [identifier]: {
+            ...delegateToKeys,
+            [delegateId]: updatedDelegateKeys
+          }
+        }
+      },
+      {}
+    )
+    // TODO update owner
+    return "TODO actually use give access back if possible"
+     */
+    return { owner, aesExchangeKeys: encryptedAesKeyMap }
+  }
+
+  /**
+   * Adds new entries to a delegation-like value and removes duplications. This method also:
+   * - creates a new key from owner to delegate if no key is provided
+   * - moves existing delegations for the owner-delegate pair which use unsecure delegation keys to the most appropriate secure delegation key.
+   * @param owner the owner of the delegations.
+   * @param delegateId id of the delegate for the new delegation entry.
+   * @param entityClass class of the entity these delegations belong to.
+   * @param delegations a delegation-like object, to be updated by this method.
+   * @param newEntryValue the value of {@link Delegation.key} for the new delegation to add. Will be encrypted with an appropriate key and then the
+   * hex representation of its result will be added to the delegation
+   * @return the updated owner and delegations
+   */
+  async addEntryAndDeduplicateDelegationLike(
+    owner: DataOwner,
+    delegateId: string,
+    entityClass: EncryptedEntityTypeName,
+    delegations: { [key: string]: Array<Delegation> },
+    newEntryValue: ArrayBuffer,
+  ): Promise<{
+    owner: DataOwner,
+    delegations: { [key: string]: Array<Delegation> }
+  }> {
+    const publicKeys = await this.getPublicKeys()
+    const { owner: modifiedOwner, aesExchangeKeys } = await this.getOrCreateHcPartyKeys(owner, delegateId)
+    const ownerId = owner.id!
+    const allKeys = await this.decryptAllAesExchangeKeyForOwner(aesExchangeKeys, ownerId, ownerId, delegateId, publicKeys)
+    const favouredKey = allKeys[0]
+    const possibleDelegationEntryKeys = [delegateId, ...(await this.getSecureDelegationEntryKeysFor(delegateId, { ownerId, entityClass }))]
+    const favouredDelegationKey = await this.getSecureDelegationEntryKeyFor(favouredKey, delegateId, entityClass)
+    type DelegationInfo = { delegation: Delegation, originalDelegationEntryKey: string, decryptedDelegationValue: string, decryptionKey: DelegatorAndKeys }
+    const existingDecryptedDelegations = await possibleDelegationEntryKeys.reduce<Promise<DelegationInfo[]>>(
+      async (accByKey, delegationKey) => {
+        const resultsByKey = await accByKey
+        const currentResults = await delegations[delegationKey].reduce<Promise<DelegationInfo[]>>(
+          async (accByDelegations, delegation) => {
+            const resultsByDelegations = await accByDelegations
+            const currDecryptedDelegationInfo = await allKeys.reduce<Promise<undefined | DelegationInfo>>(
+              async (prevPromise, key) => {
+                const prev = await prevPromise
+                if (prev) return prev
+                try {
+                  const decryptedDelegationValue = ua2hex(await this._AES.decrypt(key.key, hex2ua(delegation.key!), key.rawKey))
+                  return { delegation, originalDelegationEntryKey: delegationKey, decryptedDelegationValue, decryptionKey: key }
+                } catch (e) {
+                  return undefined
+                }
+              },
+              Promise.resolve(undefined)
+            )
+            if (currDecryptedDelegationInfo) {
+              return [...resultsByDelegations, currDecryptedDelegationInfo]
+            } else {
+              return resultsByDelegations
+            }
+          },
+          Promise.resolve([])
+        )
+        if (currentResults.length) {
+          return [...resultsByKey, ...currentResults]
+        } else {
+          return resultsByKey
+        }
+      },
+      Promise.resolve([])
+    )
+    const uniqueDecryptedDelegationValues = existingDecryptedDelegations.map((di) => di.decryptedDelegationValue)
+    const delegationsToKeep = uniqueDecryptedDelegationValues.reduce<[string, Delegation][]>(
+      (acc, decryptedValue) => {
+        const matchingDelegation = existingDecryptedDelegations.find((di) =>
+          // If there was already a delegation with the same decrypted value encrypted using the favoured key let's reuse it.
+          di.decryptedDelegationValue === decryptedValue && di.decryptionKey === favouredKey
+        )?.delegation
+        if (matchingDelegation) {
+          return [...acc, [decryptedValue, matchingDelegation]]
+        } else return acc
+      },
+      []
+    )
+    const reusedDecryptedDelegationValuesSet = new Set(delegationsToKeep.map((x) => x[0]))
+    const newDelegations = await uniqueDecryptedDelegationValues
+      .filter((v) => !reusedDecryptedDelegationValuesSet.has(v))
+      .reduce<Promise<Delegation[]>>(
+        async (acc, decryptedValue) => {
+          const awaitedAcc = await acc
+          const newDelegation: Delegation = {
+            owner: ownerId,
+            delegatedTo: delegateId,
+            key: ua2hex(await this._AES.encrypt(favouredKey.key, newEntryValue, favouredKey.rawKey)),
+          }
+          return [...awaitedAcc, newDelegation]
+        },
+        Promise.resolve([])
+      )
+    const possibleDelegationEntryKeysSet = new Set(possibleDelegationEntryKeys)
+    const decryptedDelegationsSet = new Set(existingDecryptedDelegations.map((di) => di.delegation))
+    const updatedDelegations: { [key: string]: Array<Delegation> } = {}
+    for (const [delegationEntryKey, delegationEntryValues] of Object.entries(delegations)) {
+      if (!possibleDelegationEntryKeysSet.has(delegationEntryKey)) {
+        // Leave delegations of entries for other delegator-delegate pairs as is.
+        updatedDelegations[delegationEntryKey] = delegationEntryValues
+      } else if (delegationEntryKey !== favouredDelegationKey) {
+        // Remove delegations that I'm moving to the favoured secure delegation key.
+        // TODO secure delegations: add an option to avoid removing from the delegateId
+        updatedDelegations[delegationEntryKey] = delegationEntryValues.filter((d) => !decryptedDelegationsSet.has(d))
+      } else {
+        const delegationsToKeepSet = new Set(delegationsToKeep.map((x) => x[1]))
+        const oldDelegations = delegationEntryValues.filter((d) => delegationsToKeepSet.has(d) || !decryptedDelegationsSet.has(d))
+        updatedDelegations[delegationEntryKey] = oldDelegations.concat(newDelegations)
+      }
+    }
+    if (!updatedDelegations[favouredDelegationKey]) {
+      updatedDelegations[favouredDelegationKey] = delegationsToKeep.map((x) => x[1]).concat(newDelegations)
+    }
+    return {
+      owner: modifiedOwner,
+      delegations: updatedDelegations
     }
   }
 }

@@ -35,7 +35,7 @@ export function graphFromEdges(edges: [string, string][], additionalNodes?: stri
 
 /**
  * Returns "terminal" nodes, nodes from which you can't reach anything else. In case of terminal cycles (cycles from which you can't reach any other
- * node outside the cycle) returns a random node part of the cycle as terminal node.
+ * node outside the cycle) returns a node part of the cycle as terminal node (the way the node is chosen is implementation-dependant).
  * @param graph a graph.
  * @return the terminal nodes of the graph.
  */
@@ -45,7 +45,8 @@ export function terminalNodes(graph: Graph): Set<string> {
 }
 
 /**
- * Returns a new graph where each cycle has been replaced by a single node, with label chosen at random from labels of nodes in the cycle.
+ * Returns a new graph where each cycle has been replaced by a single node, with label chosen from the labels of nodes in the cycle (the specific way
+ * the label is chosen is implementation-dependant).
  * @param graph a graph.
  * @return a new acyclic version of the graph.
  */
@@ -131,7 +132,7 @@ function stronglyConnectedComponents(adjList: number[][]): {components: number[]
           const links = []
           let linkCount = 0
           for(let i=S.length-1; i>=0; --i) {
-            var w = S[i]
+            const w = S[i]
             active[w] = false
             component.push(w)
             links.push(sccLinks[w])
