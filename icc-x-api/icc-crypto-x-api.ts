@@ -1229,36 +1229,36 @@ export class IccCryptoXApi {
     objectId: string,
     delegations: { [key: string]: Array<Delegation> }
   ): Promise<{ extractedKeys: Array<string>; hcpartyId: string }> {
-    return this.getDataOwner(dataOwnerId).then(({ dataOwner: hcp }) =>
-      (delegations[dataOwnerId] && delegations[dataOwnerId].length
-        ? this.getDecryptedAesExchangeKeysOfDelegateAndParentsFromGenericDelegations(dataOwnerId, delegations, false).then(
-            (decryptedAndImportedAesHcPartyKeys) => {
-              const collatedAesKeysFromDelegatorToHcpartyId: {
-                [key: string]: { key: CryptoKey; rawKey: string }[]
-              } = {}
-              decryptedAndImportedAesHcPartyKeys.forEach((k) => {
-                ;(collatedAesKeysFromDelegatorToHcpartyId[k.delegatorId] ?? (collatedAesKeysFromDelegatorToHcpartyId[k.delegatorId] = [])).push(k)
-              })
-              return this.decryptKeyInDelegationLikes(delegations[dataOwnerId], collatedAesKeysFromDelegatorToHcpartyId, objectId!)
+    return this.getDataOwner(dataOwnerId)
+      .then(({ dataOwner: hcp }) =>
+        (delegations[dataOwnerId] && delegations[dataOwnerId].length
+          ? this.getDecryptedAesExchangeKeysOfDelegateAndParentsFromGenericDelegations(dataOwnerId, delegations, false).then(
+              (decryptedAndImportedAesHcPartyKeys) => {
+                const collatedAesKeysFromDelegatorToHcpartyId: {
+                  [key: string]: { key: CryptoKey; rawKey: string }[]
+                } = {}
+                decryptedAndImportedAesHcPartyKeys.forEach((k) => {
+                  ;(collatedAesKeysFromDelegatorToHcpartyId[k.delegatorId] ?? (collatedAesKeysFromDelegatorToHcpartyId[k.delegatorId] = [])).push(k)
+                })
+                return this.decryptKeyInDelegationLikes(delegations[dataOwnerId], collatedAesKeysFromDelegatorToHcpartyId, objectId!)
+              }
+            )
+          : Promise.resolve([])
+        )
+          .then(async (extractedKeys) => {
+            if (extractedKeys.length == 0) {
+              return await this._extractDelegationsKeysUsingDataOwnerDelegateAesExchangeKeys(hcp, delegations, objectId)
             }
-          )
-        : Promise.resolve([])
-      )
-        .then(async (extractedKeys) => {
-          if (extractedKeys.length == 0) {
-            const newExtractedKeys = await this._extractDelegationsKeysUsingDataOwnerDelegateAesExchangeKeys(hcp, delegations, objectId)
-            extractedKeys.push(...newExtractedKeys)
-          }
 
-          return extractedKeys
-        })
-        .then(async (extractedKeys) => {
-          const parentExtractedKeys = (hcp as HealthcareParty).parentId
-            ? await this.extractKeysFromDelegationsForHcpHierarchy((hcp as HealthcareParty).parentId!, objectId, delegations)
-            : { extractedKeys: [], hcpartyId: undefined }
-          return { extractedKeys: extractedKeys.concat(parentExtractedKeys.extractedKeys), hcpartyId: parentExtractedKeys.hcpartyId ?? dataOwnerId }
-        })
-    )
+            return extractedKeys
+          })
+          .then(async (extractedKeys) => {
+            const parentExtractedKeys = (hcp as HealthcareParty).parentId
+              ? await this.extractKeysFromDelegationsForHcpHierarchy((hcp as HealthcareParty).parentId!, objectId, delegations)
+              : { extractedKeys: [], hcpartyId: undefined }
+            return { extractedKeys: extractedKeys.concat(parentExtractedKeys.extractedKeys), hcpartyId: parentExtractedKeys.hcpartyId ?? dataOwnerId }
+          })
+      )
       .catch((e) => {
         console.error(`Dataowner with id ${dataOwnerId} cannot be resolved`)
         throw e
@@ -1289,7 +1289,7 @@ export class IccCryptoXApi {
           if (delegateId != dataOwner.id) {
             const aesAcc = {} as { [pubKeyFingerprint: string]: string }
             Object.entries(aesKeys)
-              .filter(([encrPubKey]) => dataOwnerPubKeys.find((pubKey) => pubKey.slice(-32) == encrPubKey) != undefined)
+              .filter(([encrPubKey]) => dataOwnerPubKeys.some((pubKey) => pubKey.slice(-32) == encrPubKey))
               .forEach(([pubKeyFingerprint, aesEncr]) => {
                 aesAcc[pubKeyFingerprint] = aesEncr
               })
