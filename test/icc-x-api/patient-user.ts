@@ -43,13 +43,13 @@ describe('Patient', () => {
         const { publicKey, privateKey } = await cryptoApi.RSA.generateKeyPair()
         const publicKeyHex = ua2hex(await cryptoApi.RSA.exportKey(publicKey!, 'spki'))
         await rawPatientApi.modifyPatient({ ...patient, publicKey: publicKeyHex })
-        await cryptoApi.loadKeyPairsAsTextInBrowserLocalStorage(
-          patient.id!,
-          new Uint8Array((await cryptoApi.RSA.exportKey(privateKey!, 'pkcs8')) as ArrayBuffer)
-        )
 
         try {
           const { userApi, patientApi, cryptoApi: updatedCryptoApi } = await Api(iCureUrl, tmpUser.id!, pwd!, crypto)
+          await updatedCryptoApi.loadKeyPairsAsTextInBrowserLocalStorage(
+            patient.id!,
+            new Uint8Array((await updatedCryptoApi.RSA.exportKey(privateKey!, 'pkcs8')) as ArrayBuffer)
+          )
           const user = await userApi.getCurrentUser()
           let me = await patientApi.getPatientWithUser(user, user.patientId!)
           await updatedCryptoApi.getOrCreateHcPartyKeys(me, user.patientId!)
@@ -109,7 +109,6 @@ describe('Patient', () => {
 
     const user = await userApi.getCurrentUser()
     const patient = await rawPatientApi.getPatient(user.patientId!)
-    await cryptoApiForHcp.loadKeyPairsAsJwkInBrowserLocalStorage(user.patientId!, pkcs8ToJwk(hex2ua(patPrivKey)))
 
     if (!patient.publicKey) {
       const { publicKey, privateKey } = await cryptoApi.RSA.generateKeyPair()
@@ -121,6 +120,7 @@ describe('Patient', () => {
       )
     }
     const { calendarItemApi, patientApi, cryptoApi: updatedCryptoApi } = await Api(iCureUrl, patientLogin, token!, crypto)
+    await updatedCryptoApi.loadKeyPairsAsJwkInBrowserLocalStorage(user.patientId!, pkcs8ToJwk(hex2ua(patPrivKey)))
 
     await patientApi.modifyPatientWithUser(
       user,
