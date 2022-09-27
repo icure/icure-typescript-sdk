@@ -21,6 +21,7 @@ import {
 import { b2a, b64_2uas, hex2ua, string2ua, ua2hex, ua2string, ua2utf8, utf8_2ua } from './utils/binary-utils'
 import {fold, jwk2spki, notConcurrent, pkcs8ToJwk, spkiToJwk, terminalNodes, graphFromEdges} from './utils'
 import { IccMaintenanceTaskXApi } from './icc-maintenance-task-x-api'
+import {update} from "lodash"
 
 /**
  * Names of all possible encrypted entity types.
@@ -205,6 +206,7 @@ export class IccCryptoXApi {
   private patientBaseApi: IccPatientApi
   private deviceBaseApi: IccDeviceApi
   private readonly _crypto: Crypto
+  private readonly enforceSecureDelegationsMigration: boolean
 
   private generateKeyConcurrencyMap: { [key: string]: PromiseLike<HealthcareParty | Patient> }
   private rsaKeyPairs: { [pubKeyFingerprint: PublicKeyFingerprint]: KeyPair } = {}
@@ -219,13 +221,23 @@ export class IccCryptoXApi {
     hcpartyBaseApi: IccHcpartyApi, //Init with a hcparty x api for better performances
     patientBaseApi: IccPatientApi,
     deviceBaseApi: IccDeviceApi,
-    crypto: Crypto = typeof window !== 'undefined' ? window.crypto : typeof self !== 'undefined' ? self.crypto : ({} as Crypto)
+    crypto: Crypto = typeof window !== 'undefined' ? window.crypto : typeof self !== 'undefined' ? self.crypto : ({} as Crypto),
+    /**
+     * @param enforceSecureDelegationsMigration if true the methods that update delegation-like fields will move delegations from the unsecure
+     * delegateId-based entry key to the secure encrypted delegation entry key. If false these methods will just replicate the delegations at the
+     * secure delegation entry key without removing the original values.
+     * Newly created data will only use secure delegation entry keys, regardless of the value of this parameter.
+     * The purpose of this parameter is to allow having a transitory period where users without the latest version of the sdk may still access data
+     * they could use before the secure delegations update.
+     */
+    enforceSecureDelegationsMigration: boolean = false,
   ) {
     this.hcpartyBaseApi = hcpartyBaseApi
     this.patientBaseApi = patientBaseApi
     this.deviceBaseApi = deviceBaseApi
     this._crypto = crypto
     this.generateKeyConcurrencyMap = {}
+    this.enforceSecureDelegationsMigration = enforceSecureDelegationsMigration
 
     this._AES = new AESUtils(crypto)
     this._RSA = new RSAUtils(crypto)
@@ -2458,22 +2470,26 @@ export class IccCryptoXApi {
     const updatedDelegations: { [key: string]: Array<Delegation> } = {}
     const anonymizeDelegation = (d: Delegation) => _.omit(d, ["delegatedTo", "owner"]) as Delegation
     for (const [delegationEntryKey, delegationEntryValues] of Object.entries(delegations)) {
-      if (!possibleDelegationEntryKeysSet.has(delegationEntryKey)) {
+      if (!this.enforceSecureDelegationsMigration && delegationEntryKey === delegateId) {
+        // If we don't want to enforce migration we leave the delegations at the unsafe entry key `delegateId` as is.
+        updatedDelegations[delegationEntryKey] = delegationEntryValues
+      } else if (!possibleDelegationEntryKeysSet.has(delegationEntryKey)) {
         // Leave delegations of entries for other delegator-delegate pairs as is.
         updatedDelegations[delegationEntryKey] = delegationEntryValues
       } else if (delegationEntryKey !== favouredDelegationKey) {
         // Remove delegations that I'm moving to the favoured secure delegation key.
-        // TODO secure delegations: add an option to avoid removing from the delegateId
         updatedDelegations[delegationEntryKey] = delegationEntryValues
           .filter((d) => !decryptedDelegationsSet.has(d))
           .map(anonymizeDelegation)
       } else {
+        // Update the delegations at the favoured key.
         const delegationsToKeepSet = new Set(delegationsToKeep.map((x) => x[1]))
         const oldDelegations = delegationEntryValues.filter((d) => delegationsToKeepSet.has(d) || !decryptedDelegationsSet.has(d))
         updatedDelegations[delegationEntryKey] = oldDelegations.concat(newDelegations).map(anonymizeDelegation)
       }
     }
     if (!updatedDelegations[favouredDelegationKey]) {
+      // If there were no delegations at the favoured key we will not encounter them during the previous iterations: we have to add them.
       updatedDelegations[favouredDelegationKey] = delegationsToKeep.map((x) => x[1]).concat(newDelegations).map(anonymizeDelegation)
     }
     return {
