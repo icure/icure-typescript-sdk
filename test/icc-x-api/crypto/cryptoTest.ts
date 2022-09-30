@@ -1,7 +1,7 @@
 /* make node behave */
-import {IccPatientApi} from '../../../icc-api/api/IccPatientApi'
-import {crypto} from '../../../node-compat'
-import {expect} from 'chai'
+import { IccPatientApi } from '../../../icc-api/api/IccPatientApi'
+import { crypto } from '../../../node-compat'
+import { expect } from 'chai'
 import 'mocha'
 
 import { Api, pkcs8ToJwk } from '../../../icc-x-api'
