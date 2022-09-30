@@ -19,7 +19,7 @@ import {
   User,
 } from '../icc-api/model/models'
 import { b2a, b64_2uas, hex2ua, string2ua, ua2hex, ua2string, ua2utf8, utf8_2ua } from './utils/binary-utils'
-import { fold, jwk2spki, notConcurrent, pkcs8ToJwk, spkiToJwk } from './utils'
+import { fold, foldAsync, jwk2spki, notConcurrent, pkcs8ToJwk, spkiToJwk } from './utils'
 import { IccMaintenanceTaskXApi } from './icc-maintenance-task-x-api'
 
 interface DelegatorAndKeys {
@@ -1244,17 +1244,93 @@ export class IccCryptoXApi {
               }
             )
           : Promise.resolve([])
-        ).then(async (extractedKeys) => {
-          const parentExtractedKeys = (hcp as HealthcareParty).parentId
-            ? await this.extractKeysFromDelegationsForHcpHierarchy((hcp as HealthcareParty).parentId!, objectId, delegations)
-            : { extractedKeys: [], hcpartyId: undefined }
-          return { extractedKeys: extractedKeys.concat(parentExtractedKeys.extractedKeys), hcpartyId: parentExtractedKeys.hcpartyId ?? dataOwnerId }
-        })
+        )
+          .then(async (extractedKeys) => {
+            if (extractedKeys.length == 0) {
+              return await this._extractDelegationsKeysUsingDataOwnerDelegateAesExchangeKeys(hcp, delegations, objectId)
+            }
+
+            return extractedKeys
+          })
+          .then(async (extractedKeys) => {
+            const parentExtractedKeys = (hcp as HealthcareParty).parentId
+              ? await this.extractKeysFromDelegationsForHcpHierarchy((hcp as HealthcareParty).parentId!, objectId, delegations)
+              : { extractedKeys: [], hcpartyId: undefined }
+            return { extractedKeys: extractedKeys.concat(parentExtractedKeys.extractedKeys), hcpartyId: parentExtractedKeys.hcpartyId ?? dataOwnerId }
+          })
       )
       .catch((e) => {
         console.error(`Dataowner with id ${dataOwnerId} cannot be resolved`)
         throw e
       })
+  }
+
+  /**
+   * This method covers the use case when a DataOwner found back access to its data, and needs to use the delegations of its delegates instead
+   * of its own ones
+   *
+   * @param dataOwner The current data owner from whom we want to decrypt the aesExchangeKeys
+   * @param delegations The object delegations to decrypt
+   * @param objectId The object to decrypt id
+   * @private
+   */
+  private async _extractDelegationsKeysUsingDataOwnerDelegateAesExchangeKeys(
+    dataOwner: Patient | Device | HealthcareParty,
+    delegations: { [p: string]: Array<Delegation> },
+    objectId: string
+  ) {
+    // Find other keys through aesExchangeKeys
+    const dataOwnerPubKeys = await this.getPublicKeys()
+    const keysToDecrypt = fold(
+      Object.entries(dataOwner.aesExchangeKeys!),
+      {} as { [delegateId: string]: { [pubKey: string]: { [pubKeyFingerprint: string]: string } } },
+      (acc, [pub, aesForPub]) => {
+        Object.entries(aesForPub).forEach(([delegateId, aesKeys]) => {
+          if (delegateId != dataOwner.id) {
+            const aesAcc = {} as { [pubKeyFingerprint: string]: string }
+            Object.entries(aesKeys)
+              .filter(([encrPubKey]) => dataOwnerPubKeys.some((pubKey) => pubKey.slice(-32) == encrPubKey))
+              .forEach(([pubKeyFingerprint, aesEncr]) => {
+                aesAcc[pubKeyFingerprint] = aesEncr
+              })
+
+            if (acc[delegateId] == undefined) {
+              acc[delegateId] = {}
+            }
+            acc[delegateId][pub] = aesAcc
+          }
+        })
+        return acc
+      }
+    )
+
+    const decryptedAndImportedAesHcPartyKeys = await foldAsync(
+      Object.entries(keysToDecrypt),
+      [] as DelegatorAndKeys[],
+      async (delKeysAcc, [delegateId, keysForDelegate]) => {
+        try {
+          delKeysAcc.push(await this.decryptAnyAesExchangeKeyForOwner(keysForDelegate, dataOwner.id!, dataOwner.id!, delegateId, dataOwnerPubKeys))
+        } catch (e) {
+          console.log(`Could not decrypt aesExchangeKeys for delegate ${delegateId}`)
+        }
+        return delKeysAcc
+      }
+    )
+
+    const collatedAesKeysFromDelegatorToHcpartyId = decryptedAndImportedAesHcPartyKeys.reduce(
+      (map, k) => ({ ...map, [k.delegatorId]: (map[k.delegatorId] ?? []).concat([k]) }),
+      {} as { [key: string]: { key: CryptoKey; rawKey: string }[] }
+    )
+
+    const delegateIdsWithNewExtractedAesKeys = Object.keys(keysToDecrypt)
+    const delegationsToDecrypt = fold(Object.entries(delegations), [] as Delegation[], (acc, [delegateId, del]) => {
+      if (delegateIdsWithNewExtractedAesKeys.find((id) => id == delegateId) != undefined) {
+        acc.push(...delegations[delegateId])
+      }
+      return acc
+    })
+
+    return this.decryptKeyInDelegationLikes(delegationsToDecrypt, collatedAesKeysFromDelegatorToHcpartyId, objectId!)
   }
 
   /**
@@ -1371,7 +1447,7 @@ export class IccCryptoXApi {
     const publicKey = this.getPublicKeyFromPrivateKey(privateKey, dataOwner)
 
     const keyPair = await this._RSA.importKeyPair('jwk', privateKey, 'jwk', spkiToJwk(hex2ua(publicKey)))
-    this.rsaKeyPairs[healthcarePartyId] = keyPair
+    this.rsaKeyPairs[publicKey.slice(-32)] = keyPair
     const exportedKeyPair = await this._RSA.exportKeys(keyPair, 'jwk', 'jwk')
 
     return this.storeKeyPair(`${healthcarePartyId}.${publicKey.slice(-32)}`, exportedKeyPair)
@@ -1615,6 +1691,76 @@ export class IccCryptoXApi {
     })
   }
 
+  /**
+   * When a user lost his keys, people to whom he shared information may call this method to give access back to him, re-encrypting their common
+   * AES key using the new user public key.
+   *
+   * @param delegateUser Delegate Data Owner User, in charge of giving access back to the person who previously gave him some access
+   * @param ownerId Id of the data owner to which we would like to give access back
+   * @param ownerNewPublicKey New Data Owner Public Key we want to use to re-encrypt previously created AES key
+   *
+   * @return The DataOwner, updated by the delegateUser to add the new encrypted AES Key using the new provided public key
+   */
+  async giveAccessBackTo(delegateUser: User, ownerId: string, ownerNewPublicKey: string): Promise<CachedDataOwner> {
+    const delegateId = delegateUser.healthcarePartyId ?? delegateUser.patientId ?? delegateUser.deviceId
+    if (!delegateId) {
+      throw new Error(`DelegateUser ${delegateUser.id} must be a data Owner`)
+    }
+
+    const delegatePublicKeys = await this.getPublicKeys()
+    const newPubKeyCryptoKey = await this._RSA.importKey('jwk', spkiToJwk(hex2ua(ownerNewPublicKey)), ['encrypt'])
+    const dataOwnerToUpdate = await this.getDataOwner(ownerId)
+
+    const newAesExchangeKeys = await foldAsync(
+      Object.entries(dataOwnerToUpdate.dataOwner.aesExchangeKeys ?? {}),
+      dataOwnerToUpdate.dataOwner.aesExchangeKeys ?? {},
+      async (pubAcc, [pubKey, newAesExcKeys]) => {
+        const existingKeys = pubAcc[pubKey] ?? {}
+
+        pubAcc[pubKey] = await foldAsync(Object.entries(newAesExcKeys), existingKeys, async (delAcc, [delId, delKeys]) => {
+          if (delId == delegateId && pubKey != ownerNewPublicKey) {
+            // Add the AES Key encrypted with the new public key in the aesExchangeKeys
+            try {
+              // First, we decrypt it using the delegate RSA Public Key
+              const encrAesKeyInfo = await this.decryptHcPartyKey(
+                delegateId,
+                dataOwnerToUpdate.dataOwner.id!,
+                delegateId,
+                pubKey,
+                delKeys,
+                delegatePublicKeys
+              ).then(async (delegatorAndKeys) => {
+                // Then, we encrypt it using the owner new RSA Public Key (provided in argument)
+                return await this.encryptAesKeyOnlyForProvidedKeys(delegatorAndKeys?.rawKey, dataOwnerToUpdate, [newPubKeyCryptoKey])
+                  .then((encrAes) => Object.values(encrAes)[0])
+                  .then((encrAesInfo) => {
+                    return { pubKeyUsedToEncryptAes: Object.keys(encrAesInfo)[0], encryptedAes: Object.values(encrAesInfo)[0] }
+                  })
+              })
+
+              delKeys[encrAesKeyInfo.pubKeyUsedToEncryptAes] = encrAesKeyInfo.encryptedAes
+            } catch (e) {
+              console.log(`${delegateId} could not re-encrypt AES Key of ${dataOwnerToUpdate.dataOwner.id}`)
+            } finally {
+              delAcc[delId] = delKeys
+            }
+          } else {
+            // Otherwise, we don't transform the aesExchangeKeys for this delegate
+            delAcc[delId] = delKeys
+          }
+          return delAcc
+        })
+        return pubAcc
+      }
+    )
+
+    // After adding the potential new aesExchangeKeys, we save the updated data owner
+    return this._saveDataOwner({
+      type: dataOwnerToUpdate.type,
+      dataOwner: { ...dataOwnerToUpdate.dataOwner, aesExchangeKeys: newAesExchangeKeys },
+    } as CachedDataOwner)
+  }
+
   async addNewKeyPairForOwnerId(
     maintenanceTasksApi: IccMaintenanceTaskXApi,
     user: User,
@@ -1646,19 +1792,7 @@ export class IccCryptoXApi {
         : dataOwnerWithUpdatedAesKeys
     )
 
-    const modifiedDataOwnerAndType =
-      ownerType === 'hcp'
-        ? await (this.dataOwnerCache[ownerToUpdate.id!] = this.hcpartyBaseApi
-            .modifyHealthcareParty(ownerToUpdate as HealthcareParty)
-            .then((x) => ({ type: 'hcp', dataOwner: x } as CachedDataOwner)))
-        : ownerType === 'patient'
-        ? await (this.dataOwnerCache[ownerToUpdate.id!] = this.patientBaseApi
-            .modifyPatient(ownerToUpdate as Patient)
-            .then((x) => ({ type: 'patient', dataOwner: x } as CachedDataOwner)))
-        : await (this.dataOwnerCache[ownerToUpdate.id!] = this.deviceBaseApi
-            .updateDevice(ownerToUpdate as Device)
-            .then((x) => ({ type: 'device', dataOwner: x } as CachedDataOwner)))
-
+    const modifiedDataOwnerAndType = await this._saveDataOwner({ type: ownerType, dataOwner: ownerToUpdate })
     const sentMaintenanceTasks = await this.sendMaintenanceTasks(maintenanceTasksApi, user, modifiedDataOwnerAndType.dataOwner, publicKey)
 
     return {
@@ -1668,6 +1802,23 @@ export class IccCryptoXApi {
       publicKey: publicKeyHex,
       privateKey: ua2hex((await this.RSA.exportKey(privateKey!, 'pkcs8')) as ArrayBuffer),
     }
+  }
+
+  private async _saveDataOwner(dataOwner: CachedDataOwner): Promise<CachedDataOwner> {
+    const ownerType = dataOwner.type
+    const ownerToUpdate = dataOwner.dataOwner
+
+    return ownerType === 'hcp'
+      ? await (this.dataOwnerCache[ownerToUpdate.id!] = this.hcpartyBaseApi
+          .modifyHealthcareParty(ownerToUpdate as HealthcareParty)
+          .then((x) => ({ type: 'hcp', dataOwner: x } as CachedDataOwner)))
+      : ownerType === 'patient'
+      ? await (this.dataOwnerCache[ownerToUpdate.id!] = this.patientBaseApi
+          .modifyPatient(ownerToUpdate as Patient)
+          .then((x) => ({ type: 'patient', dataOwner: x } as CachedDataOwner)))
+      : await (this.dataOwnerCache[ownerToUpdate.id!] = this.deviceBaseApi
+          .updateDevice(ownerToUpdate as Device)
+          .then((x) => ({ type: 'device', dataOwner: x } as CachedDataOwner)))
   }
 
   private async createOrUpdateAesExchangeKeysFor(
@@ -1717,13 +1868,20 @@ export class IccCryptoXApi {
     doNewPublicKey: CryptoKey
   ): Promise<{ [delId: string]: { [pk: string]: string } }> {
     const dataOwnerAllPubKeys = [doNewPublicKey].concat(await this.getDataOwnerPublicKeys(dataOwner))
+    return this.encryptAesKeyOnlyForProvidedKeys(aesKey, dataOwner, dataOwnerAllPubKeys)
+  }
 
-    const encrAes: { [pubKeyFingerprint: string]: string } = {}
-    for (const pubKey of dataOwnerAllPubKeys) {
+  private async encryptAesKeyOnlyForProvidedKeys(
+    aesKey: string,
+    dataOwner: HealthcareParty | Patient | Device,
+    dataOwnerPubKeys: CryptoKey[]
+  ): Promise<{ [delId: string]: { [pk: string]: string } }> {
+    const encryptedAesForDataOwner = await foldAsync(dataOwnerPubKeys, {} as { [pubKeyFingerprint: string]: string }, async (encrAes, pubKey) => {
       encrAes[ua2hex(await this.RSA.exportKey(pubKey, 'spki')).slice(-32)] = ua2hex(await this._RSA.encrypt(pubKey, hex2ua(aesKey)))
-    }
+      return encrAes
+    })
 
-    return { [dataOwner.id!]: encrAes }
+    return { [dataOwner.id!]: encryptedAesForDataOwner }
   }
 
   private retrieveDataOwnerInfoAfterPotentialUpdate(dataOwnerToUpdate: HealthcareParty | Patient | Device): Promise<CachedDataOwner> {
