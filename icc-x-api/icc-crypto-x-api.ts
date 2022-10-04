@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { IccDeviceApi, IccHcpartyApi, IccPatientApi } from '../icc-api'
 import { AESUtils } from './crypto/AES'
 import { RSAUtils } from './crypto/RSA'
@@ -936,13 +937,14 @@ export class IccCryptoXApi {
    *     `secretEncryptionKeyOfObject` )
    *   - **secretId** which is the given input parameter `secretEncryptionKeyOfObject`
    */
-  async appendEncryptionKeys(
+  async appendEncryptionKeys<T extends EncryptedEntity>(
     //TODO: suggested name: getExtendedEKwithDelegationFromDelegatorToDelegate
-    modifiedObject: any,
+    modifiedObject: T,
     ownerId: string,
     delegateId: string,
     secretEncryptionKeyOfObject: string
   ): Promise<{
+    modifiedObject: T
     encryptionKeys: { [key: string]: Array<Delegation> }
     secretId: string | null //secretEncryptionKeyOfObject is returned to avoid the need for a new decryption when chaining calls
   }> {
@@ -950,67 +952,64 @@ export class IccCryptoXApi {
 
     this.throwDetailedExceptionForInvalidParameter('secretEncryptionKeyOfObject', secretEncryptionKeyOfObject, 'appendEncryptionKeys', arguments)
 
-    return this.getDataOwner(ownerId)
-      .then(async ({ dataOwner: owner }) => {
-        const publicKeys = await this.getPublicKeys()
-        const { owner: modifiedOwner, aesExchangeKeys } = await this.getOrCreateHcPartyKeys(owner, delegateId)
-        const importedAESHcPartyKey = await this.decryptAnyAesExchangeKeyForOwner(aesExchangeKeys, ownerId, ownerId, delegateId, publicKeys)
+    const owner = (await this.getDataOwner(ownerId)).dataOwner
+    const publicKeys = await this.getPublicKeys()
+    const { owner: modifiedOwner, aesExchangeKeys } = await this.getOrCreateHcPartyKeys(owner, delegateId)
+    modifiedObject = modifiedObject?.id === owner.id ? (modifiedOwner as T) : modifiedObject
+    const importedAESHcPartyKey = await this.decryptAnyAesExchangeKeyForOwner(aesExchangeKeys, ownerId, ownerId, delegateId, publicKeys)
+    const previousDecryptedEncryptionKeys = await Promise.all(
+      ((modifiedObject.encryptionKeys || {})[delegateId] || []).map(
+        (d: Delegation) =>
+          (d.key &&
+            d.owner === ownerId &&
+            this._AES.decrypt(importedAESHcPartyKey.key, hex2ua(d.key), importedAESHcPartyKey.rawKey).catch(() => {
+              console.log(
+                `Cannot decrypt encryption key from ${d.owner} to ${d.delegatedTo} for object with id ${modifiedObject.id}:`,
+                modifiedObject
+              )
+              return Promise.resolve()
+            })) ||
+          Promise.resolve()
+      ) as Array<Promise<ArrayBuffer>>
+    )
+    const encryptedEncryptionKey = await this._AES.encrypt(
+      importedAESHcPartyKey.key,
+      string2ua(modifiedObject.id + ':' + secretEncryptionKeyOfObject)
+    )
+    //try to limit the extent of the modifications to the delegations by preserving the redundant encryption keys already present and removing duplicates
+    //For delegate delegateId, we create:
+    // 1. an array of objects { d : {owner,delegatedTo,encrypted(key)}} with one object for the existing encryption keys and the new key concatenated
+    // 2. an array of objects { k : decrypted(key)} with one object for the existing delegations and the new key concatenated
+    // We merge them to get one array of objects: { d: {owner,delegatedTo,encrypted(key)}, k: decrypted(key)}
+    const encryptionKeysCryptedDecrypted = (
+      _.merge(
+        ((modifiedObject.encryptionKeys || {})[delegateId] || []).map((d: Delegation) => ({
+          d,
+        })),
+        (previousDecryptedEncryptionKeys || []).map((dd) => (dd ? ua2string(dd) : null)).map((k) => ({ k }))
+      ) as { d: Delegation; k: string }[]
+    )
+      .filter(({ d, k }: { d: Delegation; k: string }) => !!k || d.owner !== ownerId) //Only keep the ones created by us that can still be decrypted
+      .map(({ d, k }: { d: Delegation; k: string }) => ({ d, k: k || this.randomUuid() }))
+      .concat([
+        {
+          d: {
+            owner: ownerId,
+            delegatedTo: delegateId,
+            key: ua2hex(encryptedEncryptionKey),
+          },
+          k: modifiedObject.id + ':' + secretEncryptionKeyOfObject!,
+        },
+      ])
 
-        return {
-          previousDecryptedEncryptionKeys: await Promise.all(
-            ((modifiedObject.encryptionKeys || {})[delegateId] || []).map(
-              (d: Delegation) =>
-                (d.key &&
-                  d.owner === ownerId &&
-                  this._AES.decrypt(importedAESHcPartyKey.key, hex2ua(d.key), importedAESHcPartyKey.rawKey).catch(() => {
-                    console.log(
-                      `Cannot decrypt encryption key from ${d.owner} to ${d.delegatedTo} for object with id ${modifiedObject.id}:`,
-                      modifiedObject
-                    )
-                    return Promise.resolve()
-                  })) ||
-                Promise.resolve()
-            ) as Array<Promise<ArrayBuffer>>
-          ),
-          encryptedEncryptionKey: await this._AES.encrypt(
-            importedAESHcPartyKey.key,
-            string2ua(modifiedObject.id + ':' + secretEncryptionKeyOfObject)
-          ),
-        }
-      })
-      .then(({ previousDecryptedEncryptionKeys, encryptedEncryptionKey }) => {
-        //try to limit the extent of the modifications to the delegations by preserving the redundant encryption keys already present and removing duplicates
-        //For delegate delegateId, we create:
-        // 1. an array of objects { d : {owner,delegatedTo,encrypted(key)}} with one object for the existing encryption keys and the new key concatenated
-        // 2. an array of objects { k : decrypted(key)} with one object for the existing delegations and the new key concatenated
-        // We merge them to get one array of objects: { d: {owner,delegatedTo,encrypted(key)}, k: decrypted(key)}
-        const encryptionKeysCryptedDecrypted = _.merge(
-          ((modifiedObject.encryptionKeys || {})[delegateId] || []).map((d: Delegation) => ({
-            d,
-          })),
-          (previousDecryptedEncryptionKeys || []).map((dd) => (dd ? ua2string(dd) : null)).map((k) => ({ k }))
-        )
-          .filter(({ d, k }: { d: Delegation; k: string }) => !!k || d.owner !== ownerId) //Only keep the ones created by us that can still be decrypted
-          .map(({ d, k }: { d: Delegation; k: string }) => ({ d, k: k || this.randomUuid() }))
-          .concat([
-            {
-              d: {
-                owner: ownerId,
-                delegatedTo: delegateId,
-                key: ua2hex(encryptedEncryptionKey),
-              },
-              k: modifiedObject.id + ':' + secretEncryptionKeyOfObject!,
-            },
-          ])
+    const allEncryptionKeys = _.cloneDeep(modifiedObject.encryptionKeys || {})
+    allEncryptionKeys[delegateId] = _.uniqBy(encryptionKeysCryptedDecrypted, (x: any) => x.k).map((x: any) => x.d)
 
-        const allEncryptionKeys = _.cloneDeep(modifiedObject.encryptionKeys)
-        allEncryptionKeys[delegateId] = _.uniqBy(encryptionKeysCryptedDecrypted, (x: any) => x.k).map((x: any) => x.d)
-
-        return {
-          encryptionKeys: allEncryptionKeys,
-          secretId: secretEncryptionKeyOfObject,
-        }
-      })
+    return {
+      modifiedObject: modifiedObject,
+      encryptionKeys: allEncryptionKeys,
+      secretId: secretEncryptionKeyOfObject,
+    }
   }
 
   /**
@@ -1026,7 +1025,7 @@ export class IccCryptoXApi {
    * @returns - an updated `child` object that will contain updated SPKs, CFKs, EKs
    *  */
 
-  addDelegationsAndEncryptionKeys<T extends EncryptedEntity>(
+  async addDelegationsAndEncryptionKeys<T extends EncryptedEntity>(
     //TODO: suggested name: updateChildGenericDelegationsFromDelegatorToDelegate
     parent: EncryptedParentEntity | null,
     child: T,
@@ -1038,47 +1037,31 @@ export class IccCryptoXApi {
     if (parent) this.throwDetailedExceptionForInvalidParameter('parent.id', parent.id, 'addDelegationsAndEncryptionKeys', arguments)
 
     this.throwDetailedExceptionForInvalidParameter('child.id', child.id, 'addDelegationsAndEncryptionKeys', arguments)
-    return (
-      secretDelegationKey
-        ? this.extendedDelegationsAndCryptedForeignKeys(child, parent, ownerId, delegateId, secretDelegationKey)
-        : Promise.resolve({ modifiedObject: child, delegations: {}, cryptedForeignKeys: {}, secretId: null })
-    )
-      .then((extendedChildObjectSPKsAndCFKs) =>
-        secretEncryptionKey
-          ? this.appendEncryptionKeys(extendedChildObjectSPKsAndCFKs.modifiedObject, ownerId, delegateId, secretEncryptionKey).then(
-              //TODO: extendedDelegationsAndCryptedForeignKeys and appendEncryptionKeys can be done in parallel
-              (extendedChildObjectEKs) => ({
-                extendedSPKsAndCFKs: extendedChildObjectSPKsAndCFKs,
-                extendedEKs: extendedChildObjectEKs,
-              })
-            )
-          : Promise.resolve({
-              extendedSPKsAndCFKs: extendedChildObjectSPKsAndCFKs,
-              extendedEKs: { encryptionKeys: {} },
-            })
-      )
-      .then(({ extendedSPKsAndCFKs: extendedChildObjectSPKsAndCFKs, extendedEKs: extendedChildObjectEKs }) => {
-        return _.assign(extendedChildObjectSPKsAndCFKs.modifiedObject, {
-          // Conservative version ... We might want to be more aggressive with the deduplication of keys
-          // For each delegate, we are going to concatenate to the src (the new delegations), the object in dest (the current delegations)
-          // for which we do not find an equivalent delegation (same delegator, same delegate)
-          delegations: _.assignWith(child.delegations, extendedChildObjectSPKsAndCFKs.delegations, (dest, src) =>
-            (src || []).concat(
-              _.filter(dest, (d: Delegation) => !src.some((s: Delegation) => s.owner === d.owner && s.delegatedTo === d.delegatedTo))
-            )
-          ),
-          cryptedForeignKeys: _.assignWith(child.cryptedForeignKeys, extendedChildObjectSPKsAndCFKs.cryptedForeignKeys, (dest, src) =>
-            (src || []).concat(
-              _.filter(dest, (d: Delegation) => !src.some((s: Delegation) => s.owner === d.owner && s.delegatedTo === d.delegatedTo))
-            )
-          ),
-          encryptionKeys: _.assignWith(child.encryptionKeys, extendedChildObjectEKs.encryptionKeys, (dest, src) =>
-            (src || []).concat(
-              _.filter(dest, (d: Delegation) => !src.some((s: Delegation) => s.owner === d.owner && s.delegatedTo === d.delegatedTo))
-            )
-          ),
-        })
-      })
+
+    const extendedChildObjectSPKsAndCFKs = secretDelegationKey
+      ? await this.extendedDelegationsAndCryptedForeignKeys(child, parent, ownerId, delegateId, secretDelegationKey)
+      : { modifiedObject: child, delegations: {}, cryptedForeignKeys: {}, secretId: null }
+
+    const extendedChildObjectEKs = secretEncryptionKey
+      ? await this.appendEncryptionKeys(extendedChildObjectSPKsAndCFKs.modifiedObject, ownerId, delegateId, secretEncryptionKey)
+      : { encryptionKeys: {}, modifiedObject: extendedChildObjectSPKsAndCFKs.modifiedObject }
+
+    const latestObject = extendedChildObjectEKs.modifiedObject
+
+    return _.assign(latestObject, {
+      // Conservative version ... We might want to be more aggressive with the deduplication of keys
+      // For each delegate, we are going to concatenate to the src (the new delegations), the object in dest (the current delegations)
+      // for which we do not find an equivalent delegation (same delegator, same delegate)
+      delegations: _.assignWith(child.delegations, extendedChildObjectSPKsAndCFKs.delegations, (dest, src) =>
+        (src || []).concat(_.filter(dest, (d: Delegation) => !src.some((s: Delegation) => s.owner === d.owner && s.delegatedTo === d.delegatedTo)))
+      ),
+      cryptedForeignKeys: _.assignWith(child.cryptedForeignKeys, extendedChildObjectSPKsAndCFKs.cryptedForeignKeys, (dest, src) =>
+        (src || []).concat(_.filter(dest, (d: Delegation) => !src.some((s: Delegation) => s.owner === d.owner && s.delegatedTo === d.delegatedTo)))
+      ),
+      encryptionKeys: _.assignWith(child.encryptionKeys, extendedChildObjectEKs.encryptionKeys, (dest, src) =>
+        (src || []).concat(_.filter(dest, (d: Delegation) => !src.some((s: Delegation) => s.owner === d.owner && s.delegatedTo === d.delegatedTo)))
+      ),
+    })
   }
 
   /**

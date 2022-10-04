@@ -63,7 +63,7 @@ export class IccInvoiceXApi extends IccInvoiceApi {
         (delegateId) =>
           (promise = promise.then((invoice) =>
             this.crypto.appendEncryptionKeys(invoice, dataOwnerId!, delegateId, eks.secretId).then((extraEks) => {
-              return _.extend(invoice, {
+              return _.extend(extraEks.modifiedObject, {
                 encryptionKeys: extraEks.encryptionKeys,
               })
             })

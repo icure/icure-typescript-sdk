@@ -210,7 +210,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
         (delegateId) =>
           (promise = promise.then((item) =>
             this.crypto.appendEncryptionKeys(item, dataOwnerId!, delegateId, eks.secretId).then((extraEks) => {
-              return _.extend(item, {
+              return _.extend(extraEks.modifiedObject, {
                 encryptionKeys: extraEks.encryptionKeys,
               })
             })
