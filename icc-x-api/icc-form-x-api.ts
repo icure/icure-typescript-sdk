@@ -59,7 +59,7 @@ export class IccFormXApi extends IccFormApi {
         (delegateId) =>
           (promise = promise.then((contact) =>
             this.crypto.appendEncryptionKeys(contact, dataOwnerId!, delegateId, eks.secretId).then((extraEks) => {
-              return _.extend(contact, {
+              return _.extend(extraEks.modifiedObject, {
                 encryptionKeys: extraEks.encryptionKeys,
               })
             })
