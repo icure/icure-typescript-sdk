@@ -478,13 +478,9 @@ export class IccPatientXApi extends IccPatientApi {
 
   encrypt(user: models.User, pats: Array<models.Patient>): Promise<Array<models.Patient>> {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-    const fixEncryptionKeys = (p: models.Patient) => {
-      if (p.delegations && p.delegations[dataOwnerId]) return this.initEncryptionKeys(user, p, Object.keys(p.delegations)) as Promise<any>
-      else throw new Error(`Patient ${p.id} has no delegation or encryption key for hcp ${dataOwnerId}`)
-    }
     return Promise.all(
-      pats.map((p) =>
-        (p.encryptionKeys && p.encryptionKeys[dataOwnerId]?.length ? Promise.resolve(p) : fixEncryptionKeys(p))
+      pats.map(async (p) =>
+        ((await this.crypto.dataOwnerCanDecryptPatient(dataOwnerId, p)) ? Promise.resolve(p) : this.initEncryptionKeys(user, p, Object.keys(p.delegations || {})))
           .then((p: Patient) => this.crypto.extractKeysFromDelegationsForHcpHierarchy(dataOwnerId, p.id!, p.encryptionKeys!))
           .then((sfks: { extractedKeys: Array<string>; hcpartyId: string }) =>
             this.crypto.AES.importKey('raw', hex2ua(sfks.extractedKeys[0].replace(/-/g, '')))
