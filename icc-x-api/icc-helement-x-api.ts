@@ -318,7 +318,7 @@ export class IccHelementXApi extends IccHelementApi {
             this.crypto
               .appendEncryptionKeys(healthElement, dataOwnerId!, delegateId, eks.secretId)
               .then((extraEks) => {
-                return _.extend(healthElement, {
+                return _.extend(extraEks.modifiedObject, {
                   encryptionKeys: extraEks.encryptionKeys,
                 })
               })

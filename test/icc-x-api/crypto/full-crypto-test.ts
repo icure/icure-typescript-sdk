@@ -467,9 +467,10 @@ describe('Full battery of tests on crypto and keys', async function () {
           const parent = f[0] !== 'Patient' ? await api.patientApi.getPatientWithUser(u, `${u.id}-Patient`) : undefined
           const record = await entities[f[0] as TestedEntity](api, `${u.id}-${f[0]}`, u, parent)
           const entity = await facade.create(api, record)
+          const retrieved = await facade.get(api, entity.id)
 
           expect(entity.id).to.be.not.null
-          expect(entity.rev).to.be.not.null
+          expect(entity.rev).to.equal(retrieved.rev)
           expect(await facade.isDecrypted(entity)).to.equal(true)
         })
         it(`Create ${f[0]} as delegate with delegation for ${uType} with ${uId}`, async () => {
@@ -486,6 +487,7 @@ describe('Full battery of tests on crypto and keys', async function () {
             (u.patientId ?? u.healthcarePartyId ?? u.deviceId)!,
           ])
           const entity = await facade.create(api, record)
+          const retrieved = await facade.get(api, entity.id)
           const hcp = await api.healthcarePartyApi.getCurrentHealthcareParty()
 
           const shareKeys = hcp.aesExchangeKeys[hcp.publicKey][dataOwnerId]
@@ -496,7 +498,7 @@ describe('Full battery of tests on crypto and keys', async function () {
           await api.healthcarePartyApi.modifyHealthcareParty(hcp)
 
           expect(entity.id).to.be.not.null
-          expect(entity.rev).to.be.not.null
+          expect(entity.rev).to.equal(retrieved.rev)
           expect(await facade.isDecrypted(entity)).to.equal(true)
         })
         it(`Read ${f[0]} as the initial ${uType} with ${uId}`, async () => {
@@ -539,6 +541,8 @@ describe('Full battery of tests on crypto and keys', async function () {
 
               const parent = f[0] !== 'Patient' ? await api.patientApi.getPatientWithUser(u, `${u.id}-Patient`) : undefined
               const entity = await facade.share(api, parent, await facade.get(api, `${u.id}-${f[0]}`), delegateDoId)
+              const retrieved = await facade.get(api, entity.id)
+              expect(entity.rev).to.equal(retrieved.rev)
               expect(Object.keys(entity.delegations)).to.contain(delegateDoId)
 
               const delApi = await getApiAndAddPrivateKeysForUser(du!)
