@@ -586,13 +586,13 @@ export class IccCryptoXApi {
         string2ua(createdObject.id + ':' + secretId).buffer as ArrayBuffer,
         importedAESHcPartyKey.rawKey
       )
-      const encryptedSecretForeignKey =
-        parentObject &&
-        this._AES.encrypt(
-          importedAESHcPartyKey.key,
-          string2ua(createdObject.id + ':' + parentObject.id).buffer as ArrayBuffer,
-          importedAESHcPartyKey.rawKey
-        )
+      const encryptedSecretForeignKey = parentObject
+        ? await this._AES.encrypt(
+            importedAESHcPartyKey.key,
+            string2ua(createdObject.id + ':' + parentObject.id).buffer as ArrayBuffer,
+            importedAESHcPartyKey.rawKey
+          )
+        : undefined
 
       return {
         owner: modifiedOwner,
@@ -609,20 +609,20 @@ export class IccCryptoXApi {
           ],
         ]),
         cryptedForeignKeys:
-          (encryptedSecretForeignKey &&
-            _.fromPairs([
-              [
-                ownerId,
+          (encryptedSecretForeignKey
+            ? _.fromPairs([
                 [
-                  {
-                    owner: ownerId,
-                    delegatedTo: ownerId,
-                    key: ua2hex(encryptedSecretForeignKey!),
-                  },
+                  ownerId,
+                  [
+                    {
+                      owner: ownerId,
+                      delegatedTo: ownerId,
+                      key: ua2hex(encryptedSecretForeignKey!),
+                    },
+                  ],
                 ],
-              ],
-            ])) ||
-          {},
+              ])
+            : _) || {},
         secretForeignKeys: (secretForeignKeyOfParent && [secretForeignKeyOfParent]) || [],
         secretId: secretId,
       }
