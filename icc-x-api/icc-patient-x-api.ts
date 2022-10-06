@@ -625,7 +625,7 @@ export class IccPatientXApi extends IccPatientApi {
             this.crypto
               .appendEncryptionKeys(patient, dataOwnerId!, delegateId, eks.secretId)
               .then((extraEks) => {
-                return _.extend(patient, {
+                return _.extend(extraEks.modifiedObject, {
                   encryptionKeys: extraEks.encryptionKeys,
                 })
               })

@@ -591,7 +591,7 @@ export class IccDocumentXApi extends IccDocumentApi {
         (delegateId) =>
           (promise = promise.then((document) =>
             this.crypto.appendEncryptionKeys(document, dataOwnerId!, delegateId, eks.secretId).then((extraEks) => {
-              return _.extend(document, {
+              return _.extend(extraEks.modifiedObject, {
                 encryptionKeys: extraEks.encryptionKeys,
               })
             })

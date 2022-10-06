@@ -133,7 +133,7 @@ export class IccContactXApi extends IccContactApi {
             this.crypto
               .appendEncryptionKeys(contact, dataOwnerId!, delegateId, eks.secretId)
               .then((extraEks) => {
-                return _.extend(contact, {
+                return _.extend(extraEks.modifiedObject, {
                   encryptionKeys: extraEks.encryptionKeys,
                 })
               })
