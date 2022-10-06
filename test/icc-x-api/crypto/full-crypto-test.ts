@@ -155,7 +155,14 @@ const userDefinitions: Record<string, (user: User, api: Apis) => Promise<User>> 
     return user
   },
   'two available keys': async (user: User, { cryptoApi, maintenanceTaskApi }) => {
-    const { privateKey, publicKey } = await cryptoApi.addNewKeyPairForOwnerId(maintenanceTaskApi, user, (user.healthcarePartyId ?? user.patientId)!)
+    const { publicKey: newPubKey, privateKey: newPrivKey } = await cryptoApi.RSA.generateKeyPair()
+    const newPublicKeyHex = ua2hex(await cryptoApi.RSA.exportKey(newPubKey, 'spki'))
+    const newPrivateKeyHex = ua2hex(await cryptoApi.RSA.exportKey(newPrivKey, 'pkcs8'))
+
+    const { privateKey, publicKey } = await cryptoApi.addRawKeyPairForOwnerId(maintenanceTaskApi, user, (user.healthcarePartyId ?? user.patientId)!, {
+      publicKey: newPublicKeyHex,
+      privateKey: newPrivateKeyHex,
+    })
     privateKeys[user.login!] = { ...(privateKeys[user.login!] ?? {}), [publicKey]: privateKey }
     return user
   },

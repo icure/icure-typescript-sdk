@@ -1759,31 +1759,73 @@ export class IccCryptoXApi {
     cdo: CachedDataOwner,
     generateTransferKey: boolean = true
   ): Promise<{ dataOwner: HealthcareParty | Patient | Device; publicKey: string; privateKey: string }> {
-    const { publicKey, privateKey } = await this.RSA.generateKeyPair()
-    const publicKeyHex = ua2hex(await this.RSA.exportKey(publicKey!, 'spki'))
+    const generatedKeypair = await this.RSA.generateKeyPair()
+    return this.addKeyPairForOwner(maintenanceTasksApi, user, cdo, generatedKeypair, generateTransferKey)
+  }
+
+  async addRawKeyPairForOwnerId(
+    maintenanceTasksApi: IccMaintenanceTaskXApi,
+    user: User,
+    ownerId: string,
+    keypair: { publicKey: string; privateKey: string },
+    generateTransferKey: boolean = true
+  ): Promise<{ dataOwner: HealthcareParty | Patient | Device; publicKey: string; privateKey: string }> {
+    return this.addRawKeyPairForOwner(maintenanceTasksApi, user, await this.getDataOwner(ownerId), keypair, generateTransferKey)
+  }
+
+  async addRawKeyPairForOwner(
+    maintenanceTasksApi: IccMaintenanceTaskXApi,
+    user: User,
+    cdo: CachedDataOwner,
+    keypair: { publicKey: string; privateKey: string },
+    generateTransferKey: boolean = true
+  ): Promise<{ dataOwner: HealthcareParty | Patient | Device; publicKey: string; privateKey: string }> {
+    const importedPrivateKey = await this._RSA.importKey('pkcs8', hex2ua(keypair.privateKey), ['decrypt'])
+    const importedPublicKey = await this._RSA.importKey('spki', hex2ua(keypair.publicKey), ['encrypt'])
+
+    return this.addKeyPairForOwner(
+      maintenanceTasksApi,
+      user,
+      cdo,
+      { publicKey: importedPublicKey, privateKey: importedPrivateKey },
+      generateTransferKey
+    )
+  }
+
+  async addKeyPairForOwner(
+    maintenanceTasksApi: IccMaintenanceTaskXApi,
+    user: User,
+    cdo: CachedDataOwner,
+    keypair: { publicKey: CryptoKey; privateKey: CryptoKey },
+    generateTransferKey: boolean = true
+  ): Promise<{ dataOwner: HealthcareParty | Patient | Device; publicKey: string; privateKey: string }> {
+    const publicKeyHex = ua2hex(await this.RSA.exportKey(keypair.publicKey!, 'spki'))
 
     const gen = (await this._AES.generateCryptoKey(true)) as string
 
-    await this.cacheKeyPair({ publicKey: await this.RSA.exportKey(publicKey!, 'jwk'), privateKey: await this.RSA.exportKey(privateKey!, 'jwk') })
+    await this.cacheKeyPair({
+      publicKey: await this.RSA.exportKey(keypair.publicKey!, 'jwk'),
+      privateKey: await this.RSA.exportKey(keypair.privateKey!, 'jwk'),
+    })
 
     const { type: ownerType, dataOwner: ownerToUpdate } = await this.createOrUpdateAesExchangeKeysFor(cdo, gen, {
-      pubKey: publicKey,
-      privKey: privateKey,
+      pubKey: keypair.publicKey,
+      privKey: keypair.privateKey,
     }).then((dataOwnerWithUpdatedAesKeys) =>
       generateTransferKey
-        ? this.createOrUpdateTransferKeysFor(dataOwnerWithUpdatedAesKeys, gen, { pubKey: publicKey, privKey: privateKey })
+        ? this.createOrUpdateTransferKeysFor(dataOwnerWithUpdatedAesKeys, gen, { pubKey: keypair.publicKey, privKey: keypair.privateKey })
         : dataOwnerWithUpdatedAesKeys
     )
 
     const modifiedDataOwnerAndType = await this._saveDataOwner({ type: ownerType, dataOwner: ownerToUpdate })
-    const sentMaintenanceTasks = await this.sendMaintenanceTasks(maintenanceTasksApi, user, modifiedDataOwnerAndType.dataOwner, publicKey)
+    const sentMaintenanceTasks = await this.sendMaintenanceTasks(maintenanceTasksApi, user, modifiedDataOwnerAndType.dataOwner, keypair.publicKey)
 
     return {
       dataOwner: sentMaintenanceTasks.length
         ? await this.retrieveDataOwnerInfoAfterPotentialUpdate(modifiedDataOwnerAndType.dataOwner)
         : modifiedDataOwnerAndType.dataOwner,
       publicKey: publicKeyHex,
-      privateKey: ua2hex((await this.RSA.exportKey(privateKey!, 'pkcs8')) as ArrayBuffer),
+      privateKey: ua2hex((await this.RSA.exportKey(keypair.privateKey!, 'pkcs8')) as ArrayBuffer),
     }
   }
 
