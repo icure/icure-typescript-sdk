@@ -1991,7 +1991,7 @@ export class IccCryptoXApi {
   private createMaintenanceTask(concernedDataOwner: HealthcareParty | Patient | Device, concernedPubKey: string) {
     return new MaintenanceTask({
       id: this.randomUuid(),
-      taskType: 'updateAesExchangeKey',
+      taskType: 'KEY_PAIR_UPDATE',
       status: MaintenanceTask.StatusEnum.Pending,
       properties: [
         new PropertyStub({
