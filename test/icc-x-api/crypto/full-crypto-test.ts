@@ -150,7 +150,13 @@ const entities: EntityCreators = {
 
 const userDefinitions: Record<string, (user: User, api: Apis) => Promise<User>> = {
   'one available key and one lost key recoverable through transfer keys': async (user: User, { cryptoApi, maintenanceTaskApi }) => {
-    const { privateKey, publicKey } = await cryptoApi.addNewKeyPairForOwnerId(maintenanceTaskApi, user, (user.healthcarePartyId ?? user.patientId)!)
+    const { privateKey, publicKey } = await cryptoApi.addNewKeyPairForOwnerId(
+      maintenanceTaskApi,
+      user,
+      (user.healthcarePartyId ?? user.patientId)!,
+      true,
+      false
+    )
     delete privateKeys[user.login!][publicKey]
     return user
   },
@@ -172,6 +178,7 @@ const userDefinitions: Record<string, (user: User, api: Apis) => Promise<User>> 
       maintenanceTaskApi,
       user,
       (user.healthcarePartyId ?? user.patientId)!,
+      false,
       false
     )
     privateKeys[user.login!] = { [publicKey]: privateKey }
@@ -184,7 +191,8 @@ const userDefinitions: Record<string, (user: User, api: Apis) => Promise<User>> 
       api.maintenanceTaskApi,
       user,
       api.dataOwnerApi.getDataOwnerOf(user),
-      true
+      true,
+      false
     )
     privateKeys[user.login!] = { [publicKey]: privateKey }
 
@@ -296,10 +304,14 @@ describe('Full battery of tests on crypto and keys', async function () {
         `ICURE_COUCHDB_PASSWORD=${couchdbPassword}`,
         '-e',
         'ICURE_AUTHENTICATION_LOCAL=true',
+        '-e',
+        'ICURE_OBJECTSTORAGE_ICURECLOUDURL=http://icure-oss-test:16043',
+        '-e',
+        'ICURE_OBJECTSTORAGE_CACHELOCATION=/tmp',
         '-d',
         '--name',
         'icure-oss-test',
-        'docker.taktik.be/icure-oss:2.4.23-kraken.c1b1db7acc',
+        'docker.taktik.be/icure-oss:latest',
       ])
       icureOss.stdout.on('data', (data) => console.log(`stdout: ${data}`))
       icureOss.stderr.on('data', (data) => console.error(`stderr: ${data}`))
