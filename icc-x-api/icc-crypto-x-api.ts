@@ -167,6 +167,12 @@ export class IccCryptoXApi {
     }, Promise.resolve([] as string[]))
   }
 
+  async getPublicKeysAsSpki(): Promise<string[]> {
+    return await Object.values(this.rsaKeyPairs).reduce(async (p, rsa) => {
+      return (await p).concat([ua2hex(await this.RSA.exportKey(rsa.publicKey, 'spki'))])
+    }, Promise.resolve([] as string[]))
+  }
+
   randomUuid() {
     return ((1e7).toString() + -1e3 + -4e3 + -8e3 + -1e11).replace(
       /[018]/g,
@@ -1748,19 +1754,21 @@ export class IccCryptoXApi {
     maintenanceTasksApi: IccMaintenanceTaskXApi,
     user: User,
     ownerId: string,
-    generateTransferKey: boolean = true
+    generateTransferKey: boolean = true,
+    sendMaintenanceTasks: boolean = true
   ): Promise<{ dataOwner: HealthcareParty | Patient | Device; publicKey: string; privateKey: string }> {
-    return this.addNewKeyPairForOwner(maintenanceTasksApi, user, await this.getDataOwner(ownerId), generateTransferKey)
+    return this.addNewKeyPairForOwner(maintenanceTasksApi, user, await this.getDataOwner(ownerId), generateTransferKey, sendMaintenanceTasks)
   }
 
   async addNewKeyPairForOwner(
     maintenanceTasksApi: IccMaintenanceTaskXApi,
     user: User,
     cdo: CachedDataOwner,
-    generateTransferKey: boolean = true
+    generateTransferKey: boolean = true,
+    sendMaintenanceTasks: boolean = true
   ): Promise<{ dataOwner: HealthcareParty | Patient | Device; publicKey: string; privateKey: string }> {
     const generatedKeypair = await this.RSA.generateKeyPair()
-    return this.addKeyPairForOwner(maintenanceTasksApi, user, cdo, generatedKeypair, generateTransferKey)
+    return this.addKeyPairForOwner(maintenanceTasksApi, user, cdo, generatedKeypair, generateTransferKey, sendMaintenanceTasks)
   }
 
   async addRawKeyPairForOwnerId(
@@ -1768,9 +1776,10 @@ export class IccCryptoXApi {
     user: User,
     ownerId: string,
     keypair: { publicKey: string; privateKey: string },
-    generateTransferKey: boolean = true
+    generateTransferKey: boolean = true,
+    sendMaintenanceTasks: boolean = true
   ): Promise<{ dataOwner: HealthcareParty | Patient | Device; publicKey: string; privateKey: string }> {
-    return this.addRawKeyPairForOwner(maintenanceTasksApi, user, await this.getDataOwner(ownerId), keypair, generateTransferKey)
+    return this.addRawKeyPairForOwner(maintenanceTasksApi, user, await this.getDataOwner(ownerId), keypair, generateTransferKey, sendMaintenanceTasks)
   }
 
   async addRawKeyPairForOwner(
@@ -1778,7 +1787,8 @@ export class IccCryptoXApi {
     user: User,
     cdo: CachedDataOwner,
     keypair: { publicKey: string; privateKey: string },
-    generateTransferKey: boolean = true
+    generateTransferKey: boolean = true,
+    sendMaintenanceTasks: boolean = true
   ): Promise<{ dataOwner: HealthcareParty | Patient | Device; publicKey: string; privateKey: string }> {
     const importedPrivateKey = await this._RSA.importKey('pkcs8', hex2ua(keypair.privateKey), ['decrypt'])
     const importedPublicKey = await this._RSA.importKey('spki', hex2ua(keypair.publicKey), ['encrypt'])
@@ -1788,7 +1798,8 @@ export class IccCryptoXApi {
       user,
       cdo,
       { publicKey: importedPublicKey, privateKey: importedPrivateKey },
-      generateTransferKey
+      generateTransferKey,
+      sendMaintenanceTasks
     )
   }
 
@@ -1797,7 +1808,8 @@ export class IccCryptoXApi {
     user: User,
     cdo: CachedDataOwner,
     keypair: { publicKey: CryptoKey; privateKey: CryptoKey },
-    generateTransferKey: boolean = true
+    generateTransferKey: boolean = true,
+    sendMaintenanceTasks: boolean = true
   ): Promise<{ dataOwner: HealthcareParty | Patient | Device; publicKey: string; privateKey: string }> {
     const publicKeyHex = ua2hex(await this.RSA.exportKey(keypair.publicKey!, 'spki'))
 
@@ -1818,7 +1830,9 @@ export class IccCryptoXApi {
     )
 
     const modifiedDataOwnerAndType = await this._saveDataOwner({ type: ownerType, dataOwner: ownerToUpdate })
-    const sentMaintenanceTasks = await this.sendMaintenanceTasks(maintenanceTasksApi, user, modifiedDataOwnerAndType.dataOwner, keypair.publicKey)
+    const sentMaintenanceTasks = sendMaintenanceTasks
+      ? await this.sendMaintenanceTasks(maintenanceTasksApi, user, modifiedDataOwnerAndType.dataOwner, keypair.publicKey)
+      : []
 
     return {
       dataOwner: sentMaintenanceTasks.length
@@ -1946,12 +1960,7 @@ export class IccCryptoXApi {
     const hexNewPubKey = ua2hex(await this.RSA.exportKey(newPublicKey, 'spki'))
     const nonAccessiblePubKeys = Array.from(this.getDataOwnerHexPublicKeys(dataOwner).values())
       .filter((existingPubKey) => existingPubKey != hexNewPubKey)
-      .filter(
-        (existingPubKey) =>
-          !Object.values(this.rsaKeyPairs).find(
-            async ({ publicKey, privateKey }) => ua2hex(await this.RSA.exportKey(publicKey, 'spki')) == existingPubKey
-          )
-      )
+      .filter(async (existingPubKey) => (await this.getPublicKeysAsSpki()).find((pubKey) => pubKey == existingPubKey) == undefined)
 
     if (nonAccessiblePubKeys.length) {
       const tasksForDelegates = Object.entries(await this.getEncryptedAesExchangeKeysForDelegate(dataOwner.id!))
@@ -1964,15 +1973,10 @@ export class IccCryptoXApi {
           })
         })
 
-      const tasksForDelegator = Object.entries(await this.getEncryptedAesExchangeKeys(dataOwner, dataOwner.id!)).flatMap(
-        ([doPubKey, delegateKeys]) => {
-          return Object.keys(delegateKeys)
-            .filter((delegateId) => delegateId != dataOwner.id)
-            .map((delegateId) => {
-              return { delegateId: delegateId, maintenanceTask: this.createMaintenanceTask(dataOwner, doPubKey) }
-            })
-        }
-      )
+      const tasksForDelegator = Object.entries(await this.getEncryptedAesExchangeKeys(dataOwner, dataOwner.id!)).map(([doPubKey]) => ({
+        delegateId: dataOwner.id!,
+        maintenanceTask: this.createMaintenanceTask(dataOwner, doPubKey),
+      }))
 
       return Promise.all(
         tasksForDelegates
