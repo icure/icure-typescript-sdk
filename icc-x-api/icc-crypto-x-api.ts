@@ -629,7 +629,7 @@ export class IccCryptoXApi {
                   ],
                 ],
               ])
-            : _) || {},
+            : {}) || {},
         secretForeignKeys: (secretForeignKeyOfParent && [secretForeignKeyOfParent]) || [],
         secretId: secretId,
       }
@@ -840,6 +840,18 @@ export class IccCryptoXApi {
           secretId: secretIdOfModifiedObject,
         }
       })
+  }
+
+  // What we need is to find aes exchange keys on the owner ! Even just with whom he shared information, we don't care about aes exchange keys
+  private async _getDelegateIdsOf(owner: HealthcareParty | Patient | Device): Promise<string[]> {
+    const mapOfAesExchKeysDelegates = Object.entries(owner.aesExchangeKeys ?? {}).reduce(
+      (map, [, aesExchKeys]) => map.concat(Object.keys(aesExchKeys).filter((delegateId) => !map.includes(delegateId))),
+      [] as string[]
+    )
+
+    return owner.hcPartyKeys
+      ? mapOfAesExchKeysDelegates.concat(Object.keys(owner.hcPartyKeys).filter((delegateId) => !mapOfAesExchKeysDelegates.includes(delegateId)))
+      : mapOfAesExchKeysDelegates
   }
 
   async getEncryptedAesExchangeKeys(
@@ -1973,10 +1985,9 @@ export class IccCryptoXApi {
           })
         })
 
-      const tasksForDelegator = Object.entries(await this.getEncryptedAesExchangeKeys(dataOwner, dataOwner.id!)).map(([doPubKey]) => ({
-        delegateId: dataOwner.id!,
-        maintenanceTask: this.createMaintenanceTask(dataOwner, doPubKey),
-      }))
+      const tasksForDelegator = (await this._getDelegateIdsOf(dataOwner)).map((delegateId) => {
+        return { delegateId: delegateId, maintenanceTask: this.createMaintenanceTask(dataOwner, hexNewPubKey) }
+      })
 
       return Promise.all(
         tasksForDelegates
