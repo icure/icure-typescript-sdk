@@ -12,6 +12,7 @@ import {
   FilterChainMaintenanceTask,
   HealthcareParty,
   MaintenanceTask,
+  PaginatedListMaintenanceTask,
   PropertyStub,
   Service,
   User,
@@ -27,6 +28,8 @@ import { expect } from 'chai'
 
 import { TextDecoder, TextEncoder } from 'util'
 import { MaintenanceTaskByHcPartyAndTypeFilter } from '../../../icc-x-api/filters/MaintenanceTaskByHcPartyAndTypeFilter'
+import { MaintenanceTaskByIdsFilter } from '../../../icc-x-api/filters/MaintenanceTaskByIdsFilter'
+import { MaintenanceTaskAfterDateFilter } from '../../../icc-x-api/filters/MaintenanceTaskAfterDateFilter'
 ;(global as any).localStorage = new (require('node-localstorage').LocalStorage)(tmpdir(), 5 * 1024 * 1024 * 1024)
 ;(global as any).fetch = fetch
 ;(global as any).Storage = ''
@@ -176,6 +179,21 @@ async function getApiAndAddPrivateKeysForUser(u: User) {
     await api.cryptoApi.cacheKeyPair({ publicKey: spkiToJwk(hex2ua(pubKey)), privateKey: pkcs8ToJwk(hex2ua(privKey)) })
   }, Promise.resolve())
   return api
+}
+
+async function _getHcpKeyUpdateMaintenanceTask(delegateApi: Apis): Promise<MaintenanceTask> {
+  const notifs: PaginatedListMaintenanceTask = await delegateApi.maintenanceTaskApi.filterMaintenanceTasksByWithUser(
+    delegateUser!,
+    undefined,
+    undefined,
+    new FilterChainMaintenanceTask({
+      filter: new MaintenanceTaskAfterDateFilter({
+        date: new Date().getTime() - 100000,
+      }),
+    })
+  )
+
+  return notifs.rows!.sort((a, b) => a.created! - b.created!)[notifs.rows!.length - 1]
 }
 
 describe('Full battery of tests on crypto and keys', async function () {
@@ -362,9 +380,21 @@ describe('Full battery of tests on crypto and keys', async function () {
     expect(initialRecordAfterNewKey.title).to.be.undefined
 
     // Delegate user will therefore give user access back to data he previously created
-    // (Maintenance tasks mechanism not part of the test)
     const delegateApi = await getApiAndAddPrivateKeysForUser(delegateUser!)
-    const updatedDataOwner = await delegateApi.cryptoApi.giveAccessBackTo(delegateUser!, patient.id!, publicKey)
+
+    // Hcp gets his maintenance tasks
+    const maintenanceTask = await _getHcpKeyUpdateMaintenanceTask(delegateApi)
+    const patientId = maintenanceTask.properties!.find((prop) => prop.id === 'dataOwnerConcernedId')
+    const patientPubKey = maintenanceTask.properties!.find((prop) => prop.id === 'dataOwnerConcernedPubKey')
+
+    expect(patientId!.typedValue!.stringValue!).equals(patient.id)
+    expect(patientPubKey!.typedValue!.stringValue!).equals(publicKey)
+
+    const updatedDataOwner = await delegateApi.cryptoApi.giveAccessBackTo(
+      delegateUser!,
+      patientId!.typedValue!.stringValue!,
+      patientPubKey!.typedValue!.stringValue!
+    )
 
     expect(updatedDataOwner.type).to.be.equal('patient')
     expect(updatedDataOwner.dataOwner).to.not.be.undefined
