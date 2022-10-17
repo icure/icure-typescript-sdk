@@ -149,13 +149,13 @@ const entities: EntityCreators = {
 }
 
 const userDefinitions: Record<string, (user: User, api: Apis) => Promise<User>> = {
-  /*'one available key and one lost key recoverable through transfer keys': async (user: User, { cryptoApi, maintenanceTaskApi }) => {
+  'one available key and one lost key recoverable through transfer keys': async (user: User, { cryptoApi, maintenanceTaskApi }) => {
     const { privateKey, publicKey } = await cryptoApi.addNewKeyPairForOwnerId(
       maintenanceTaskApi,
       user,
       (user.healthcarePartyId ?? user.patientId)!,
       true,
-      true
+      false
     )
     delete privateKeys[user.login!][publicKey]
     return user
@@ -179,20 +179,19 @@ const userDefinitions: Record<string, (user: User, api: Apis) => Promise<User>> 
       user,
       (user.healthcarePartyId ?? user.patientId)!,
       false,
-      true
+      false
     )
     privateKeys[user.login!] = { [publicKey]: privateKey }
     return user
-  },*/
+  },
   'one lost key and one upgraded available key thanks to delegate who gave access back to previous data': async (user: User, api) => {
     const userDataOwnerId = api.dataOwnerApi.getDataOwnerOf(user)
-
     const { privateKey, publicKey } = await api.cryptoApi.addNewKeyPairForOwnerId(
       api.maintenanceTaskApi,
       user,
       api.dataOwnerApi.getDataOwnerOf(user),
       true,
-      true
+      false
     )
     privateKeys[user.login!] = { [publicKey]: privateKey }
 
@@ -531,7 +530,7 @@ describe('Full battery of tests on crypto and keys', async function () {
             !uId.includes('one lost key and one available key') /* data shared only with lost key... So false */
           )
         })
-        /*it(`Read ${f[0]} as a ${uType} with ${uId}`, async () => {
+        it(`Read ${f[0]} as a ${uType} with ${uId}`, async () => {
           const u = users.find((it) => it.login === `${uType}-${uId}`)!
           const facade = f[1]
           const api = await getApiAndAddPrivateKeysForUser(u)
@@ -548,8 +547,8 @@ describe('Full battery of tests on crypto and keys', async function () {
           const entity = await facade.get(api, `delegate-${u.id}-${f[0]}`)
           expect(entity.id).to.equal(`delegate-${u.id}-${f[0]}`)
           expect(await facade.isDecrypted(entity)).to.equal(true)
-        })*/
-        /*;['patient', 'hcp'].forEach((duType) => {
+        })
+        ;['patient', 'hcp'].forEach((duType) => {
           Object.keys(userDefinitions).forEach((duId) => {
             it(`Share ${f[0]} as a ${uType} with ${uId} to a ${duType} with ${duId}`, async () => {
               const u = users.find((it) => it.login === `${uType}-${uId}`)!
@@ -570,7 +569,7 @@ describe('Full battery of tests on crypto and keys', async function () {
               expect(await facade.isDecrypted(obj)).to.equal(true)
             })
           })
-        })*/
+        })
       })
     })
   })

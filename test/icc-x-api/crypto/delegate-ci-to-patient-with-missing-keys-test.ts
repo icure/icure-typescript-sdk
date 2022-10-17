@@ -191,10 +191,6 @@ describe('Full battery of tests on crypto and keys', async function () {
       await api.patientApi.initDelegationsAndEncryptionKeys(patient, u, undefined, [delegateUser!.healthcarePartyId!])
     )
 
-    console.log(`Patient = ${patient.id}`)
-    console.log(`Delegate HCP = ${delegateHcp!.id}`)
-    console.log(`Delegate HCP Parent = ${delegateHcp!.parentId}`)
-
     // Decrypting AES Key to compare it with AES key decrypted with new key in the next steps
     const decryptedAesWithPreviousKey = await api.cryptoApi.decryptHcPartyKey(
       patientWithDelegation!.id!,
@@ -224,8 +220,6 @@ describe('Full battery of tests on crypto and keys', async function () {
       (user.healthcarePartyId ?? user.patientId)!,
       false
     )
-
-    console.info(`Created new keypair ${publicKey}`)
 
     privateKeys[user.login!] = { [publicKey]: privateKey }
 
@@ -274,23 +268,23 @@ describe('Full battery of tests on crypto and keys', async function () {
 
     const apiAfterSharedBack = await getApiAndAddPrivateKeysForUser(user)
 
-    // const decryptedAesWithNewKey = await apiAfterSharedBack.cryptoApi.decryptHcPartyKey(
-    //   user.patientId!,
-    //   user.patientId!,
-    //   delegateUser!.healthcarePartyId!,
-    //   publicKey,
-    //   updatedDataOwner.dataOwner.aesExchangeKeys![previousPubKey][delegateUser!.healthcarePartyId!],
-    //   [publicKey]
-    // )
-    //
-    // // Patient can decrypt the new hcPartyKey
-    // expect(decryptedAesWithNewKey.rawKey).to.not.be.undefined
-    // expect(decryptedAesWithNewKey.rawKey).to.not.be.null
-    //
-    // expect(decryptedAesWithNewKey.rawKey).to.be.equal(decryptedAesWithPreviousKey.rawKey)
-    //
-    // // User can access his previous data again
-    // apiAfterSharedBack.cryptoApi.emptyHcpCache(patient.id)
+    const decryptedAesWithNewKey = await apiAfterSharedBack.cryptoApi.decryptHcPartyKey(
+      user.patientId!,
+      user.patientId!,
+      delegateUser!.healthcarePartyId!,
+      publicKey,
+      updatedDataOwner.dataOwner.aesExchangeKeys![previousPubKey][delegateUser!.healthcarePartyId!],
+      [publicKey]
+    )
+
+    // Patient can decrypt the new hcPartyKey
+    expect(decryptedAesWithNewKey.rawKey).to.not.be.undefined
+    expect(decryptedAesWithNewKey.rawKey).to.not.be.null
+
+    expect(decryptedAesWithNewKey.rawKey).to.be.equal(decryptedAesWithPreviousKey.rawKey)
+
+    // User can access his previous data again
+    apiAfterSharedBack.cryptoApi.emptyHcpCache(patient.id)
 
     const initialRecordAfterSharedBack = await apiAfterSharedBack.calendarItemApi.getCalendarItemWithUser(u, initialRecord.id!)
     expect(initialRecordAfterSharedBack.id).to.be.equal(savedInitialRecord.id)
