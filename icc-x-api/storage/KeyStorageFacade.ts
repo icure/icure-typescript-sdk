@@ -32,19 +32,4 @@ export interface KeyStorageFacade {
    * @param keyPair should be JWK
    */
   storeKeyPair(key: string, keyPair: { publicKey: JsonWebKey; privateKey: JsonWebKey }): void
-
-  /**
-   * Store the given keychain under the given key in the storage.
-   * @param key The key of the entry in storage
-   * @param keychain should be a number or a base64 string
-   */
-  storeKeychain(key: string, keychain: number | string): void
-
-  /**
-   * Returns the keychain of the provided key from the storage
-   * @param key Key of the value to retrieve
-   * @return The keychain associated to the provided key as base64 string or undefined if not found.
-   */
-  getKeychain(key: string): string | undefined
 }
-

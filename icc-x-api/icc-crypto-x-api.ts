@@ -19,7 +19,7 @@ import {
   TypedValueObject,
   User,
 } from '../icc-api/model/models'
-import { b64_2uas, hex2ua, string2ua, ua2hex, ua2string, ua2utf8, utf8_2ua } from './utils/binary-utils'
+import { b2a, b64_2uas, hex2ua, string2ua, ua2hex, ua2string, ua2utf8, utf8_2ua } from './utils/binary-utils'
 import { fold, foldAsync, jwk2spki, notConcurrent, pkcs8ToJwk, spkiToJwk } from './utils'
 import { IccMaintenanceTaskXApi } from './icc-maintenance-task-x-api'
 import { StorageFacade } from './storage/StorageFacade'
@@ -1484,11 +1484,14 @@ export class IccCryptoXApi {
 
   // noinspection JSUnusedGlobalSymbols
   saveKeychainInBrowserLocalStorage(id: string, keychain: number) {
-    this._keyStorage.storeKeychain(`${this.rsaLocalStoreIdPrefix}${id}`, keychain)
+    this._storage.setItem(
+      this.keychainLocalStoreIdPrefix + id,
+      b2a(new Uint8Array(keychain).reduce((data, byte) => data + String.fromCharCode(byte), ''))
+    )
   }
 
   saveKeychainInBrowserLocalStorageAsBase64(id: string, keyChainB64: string) {
-    this._keyStorage.storeKeychain(`${this.rsaLocalStoreIdPrefix}${id}`, keyChainB64)
+    this._storage.setItem(this.keychainLocalStoreIdPrefix + id, keyChainB64)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -1618,7 +1621,7 @@ export class IccCryptoXApi {
   }
 
   getKeychainInBrowserLocalStorageAsBase64(id: string) {
-    return this._keyStorage.getKeychain(this.keychainLocalStoreIdPrefix + id)
+    return this._storage.getItem(this.keychainLocalStoreIdPrefix + id)
   }
 
   getKeychainValidityDateInBrowserLocalStorage(id: string) {
