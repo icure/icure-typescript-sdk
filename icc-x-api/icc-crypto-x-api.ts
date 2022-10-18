@@ -22,6 +22,10 @@ import {
 import { b2a, b64_2uas, hex2ua, string2ua, ua2hex, ua2string, ua2utf8, utf8_2ua } from './utils/binary-utils'
 import { fold, foldAsync, jwk2spki, notConcurrent, pkcs8ToJwk, spkiToJwk } from './utils'
 import { IccMaintenanceTaskXApi } from './icc-maintenance-task-x-api'
+import { StorageFacade } from './storage/StorageFacade'
+import { LocalStorageImpl } from './storage/LocalStorageImpl'
+import { KeyStorageFacade } from './storage/KeyStorageFacade'
+import { KeyStorageImpl } from './storage/KeyStorageImpl'
 
 interface DelegatorAndKeys {
   delegatorId: string
@@ -122,6 +126,8 @@ export class IccCryptoXApi {
   private readonly _AES: AESUtils
   private readonly _RSA: RSAUtils
   private readonly _shamir: ShamirClass
+  private readonly _storage: StorageFacade<string>
+  private readonly _keyStorage: KeyStorageFacade
 
   constructor(
     host: string,
@@ -129,7 +135,9 @@ export class IccCryptoXApi {
     hcpartyBaseApi: IccHcpartyApi, //Init with a hcparty x api for better performances
     patientBaseApi: IccPatientApi,
     deviceBaseApi: IccDeviceApi,
-    crypto: Crypto = typeof window !== 'undefined' ? window.crypto : typeof self !== 'undefined' ? self.crypto : ({} as Crypto)
+    crypto: Crypto = typeof window !== 'undefined' ? window.crypto : typeof self !== 'undefined' ? self.crypto : ({} as Crypto),
+    storage?: StorageFacade<string>,
+    keyStorage?: KeyStorageFacade
   ) {
     this.hcpartyBaseApi = hcpartyBaseApi
     this.patientBaseApi = patientBaseApi
@@ -140,6 +148,8 @@ export class IccCryptoXApi {
     this._AES = new AESUtils(crypto)
     this._RSA = new RSAUtils(crypto)
     this._shamir = new ShamirClass(crypto)
+    this._storage = storage || new LocalStorageImpl()
+    this._keyStorage = keyStorage || new KeyStorageImpl(this._storage)
   }
 
   async loadAllKeysFromLocalStorage(dataOwnerId: string): Promise<void> {
@@ -289,7 +299,7 @@ export class IccCryptoXApi {
       const importedPublicKey = await this._RSA.importKey('spki', hex2ua(hcp.publicKey!), ['encrypt'])
 
       const exportedKeyPair = await this._RSA.exportKeys({ publicKey: importedPublicKey, privateKey: importedPrivateKey }, 'jwk', 'jwk')
-      this.storeKeyPair(hcp.id!, exportedKeyPair)
+      this._keyStorage.storeKeyPair(`${this.rsaLocalStoreIdPrefix}${hcp.id!}`, exportedKeyPair)
     } catch (e) {
       console.log('Cannot decrypt shamir RSA key')
     }
@@ -1432,7 +1442,7 @@ export class IccCryptoXApi {
     this.rsaKeyPairs[publicKey.slice(-32)] = keyPair
     const exportedKeyPair = await this._RSA.exportKeys(keyPair, 'jwk', 'jwk')
 
-    return this.storeKeyPair(`${healthcarePartyId}.${publicKey.slice(-32)}`, exportedKeyPair)
+    return this._keyStorage.storeKeyPair(`${this.rsaLocalStoreIdPrefix}${healthcarePartyId}.${publicKey.slice(-32)}`, exportedKeyPair)
   }
 
   async loadKeyPairsAsJwkInBrowserLocalStorage(healthcarePartyId: string, privateKey: JsonWebKey) {
@@ -1452,7 +1462,7 @@ export class IccCryptoXApi {
     this.rsaKeyPairs[publicKey.slice(-32)] = keyPair
     const exportedKeyPair = await this._RSA.exportKeys(keyPair, 'jwk', 'jwk')
 
-    return this.storeKeyPair(`${healthcarePartyId}.${publicKey.slice(-32)}`, exportedKeyPair)
+    return this._keyStorage.storeKeyPair(`${this.rsaLocalStoreIdPrefix}${healthcarePartyId}.${publicKey.slice(-32)}`, exportedKeyPair)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -1474,14 +1484,14 @@ export class IccCryptoXApi {
 
   // noinspection JSUnusedGlobalSymbols
   saveKeychainInBrowserLocalStorage(id: string, keychain: number) {
-    localStorage.setItem(
+    this._storage.setItem(
       this.keychainLocalStoreIdPrefix + id,
       b2a(new Uint8Array(keychain).reduce((data, byte) => data + String.fromCharCode(byte), ''))
     )
   }
 
   saveKeychainInBrowserLocalStorageAsBase64(id: string, keyChainB64: string) {
-    localStorage.setItem(this.keychainLocalStoreIdPrefix + id, keyChainB64)
+    this._storage.setItem(this.keychainLocalStoreIdPrefix + id, keyChainB64)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -1489,9 +1499,9 @@ export class IccCryptoXApi {
     if (!id) return
 
     if (!date) {
-      localStorage.removeItem(this.keychainValidityDateLocalStoreIdPrefix + id)
+      this._storage.deleteItem(this.keychainValidityDateLocalStoreIdPrefix + id)
     } else {
-      localStorage.setItem(this.keychainValidityDateLocalStoreIdPrefix + id, date)
+      this._storage.setItem(this.keychainValidityDateLocalStoreIdPrefix + id, date)
     }
   }
 
@@ -1611,31 +1621,17 @@ export class IccCryptoXApi {
   }
 
   getKeychainInBrowserLocalStorageAsBase64(id: string) {
-    return localStorage.getItem(this.keychainLocalStoreIdPrefix + id)
+    return this._storage.getItem(this.keychainLocalStoreIdPrefix + id)
   }
 
   getKeychainValidityDateInBrowserLocalStorage(id: string) {
-    return localStorage.getItem(this.keychainValidityDateLocalStoreIdPrefix + id)
+    return this._storage.getItem(this.keychainValidityDateLocalStoreIdPrefix + id)
   }
 
   // noinspection JSUnusedGlobalSymbols
   loadKeychainFromBrowserLocalStorage(id: string) {
-    const lsItem = localStorage.getItem('org.taktik.icure.ehealth.keychain.' + id)
-    return lsItem !== null ? b64_2uas(lsItem) : null
-  }
-
-  /**
-   *
-   * @param id
-   * @param keyPair should be JWK
-   */
-  storeKeyPair(id: string, keyPair: { publicKey: any; privateKey: any }) {
-    if (typeof Storage === 'undefined') {
-      console.log('Your browser does not support HTML5 Browser Local Storage !')
-      throw 'Your browser does not support HTML5 Browser Local Storage !'
-    }
-    //TODO encryption
-    localStorage.setItem(this.rsaLocalStoreIdPrefix + id, JSON.stringify(keyPair))
+    const lsItem = this._storage.getItem(this.keychainLocalStoreIdPrefix + id)
+    return lsItem !== undefined ? b64_2uas(lsItem) : null
   }
 
   /**
@@ -1651,13 +1647,14 @@ export class IccCryptoXApi {
       throw 'Your browser does not support HTML5 Browser Local Storage !'
     }
     //TODO decryption
-    const item =
-      (publicKeyFingerPrint && localStorage.getItem(this.rsaLocalStoreIdPrefix + id + '.' + publicKeyFingerPrint.slice(-32))) ??
-      localStorage.getItem(this.rsaLocalStoreIdPrefix + id)
+    const item = publicKeyFingerPrint
+      ? this._keyStorage.getKeypair(this.rsaLocalStoreIdPrefix + id + '.' + publicKeyFingerPrint.slice(-32)) ??
+        this._keyStorage.getKeypair(this.rsaLocalStoreIdPrefix + id)
+      : this._keyStorage.getKeypair(this.rsaLocalStoreIdPrefix + id)
     if (!item) {
       console.warn(`No key can be found in local storage for id ${id} and publicKeyFingerPrint ${publicKeyFingerPrint}`)
     }
-    return JSON.parse(item!)
+    return item!
   }
 
   /**
@@ -1669,22 +1666,21 @@ export class IccCryptoXApi {
   loadKeyPairImported(id: string) {
     return new Promise((resolve: (value: { publicKey: CryptoKey; privateKey: CryptoKey }) => any, reject) => {
       try {
-        const jwkKey = localStorage.getItem(this.rsaLocalStoreIdPrefix + id) as string
-        if (jwkKey) {
-          const jwkKeyPair = JSON.parse(jwkKey)
+        const jwkKeyPair = this._keyStorage.getKeypair(this.rsaLocalStoreIdPrefix + id)
+        if (jwkKeyPair !== undefined) {
           if (jwkKeyPair.publicKey && jwkKeyPair.privateKey) {
             this._RSA.importKeyPair('jwk', jwkKeyPair.privateKey, 'jwk', jwkKeyPair.publicKey).then(resolve, (err) => {
-              console.log('Error in RSA.importKeyPair: ' + err)
+              console.error('Error in RSA.importKeyPair: ' + err)
               reject(err)
             })
           } else {
             const message = 'Error in RSA.importKeyPair: Invalid key'
-            console.log(message)
+            console.error(message)
             reject(Error(message))
           }
         } else {
           const message = 'Error in RSA.importKeyPair: Missing key'
-          console.log(message)
+          console.error(message)
           reject(Error(message))
         }
       } catch (err) {
