@@ -39,6 +39,10 @@ export * from './icc-user-x-api'
 export * from './icc-time-table-x-api'
 export * from './icc-receipt-x-api'
 export * from './utils'
+export { KeyStorageFacade } from './storage/KeyStorageFacade'
+export { LocalStorageImpl } from './storage/LocalStorageImpl'
+export { StorageFacade } from './storage/StorageFacade'
+export { KeyStorageImpl } from './storage/KeyStorageImpl'
 
 export const apiHeaders = function (username: string, password: string, forceBasic = false) {
   return {
