@@ -1,22 +1,10 @@
-import { spawn, execSync } from 'child_process'
+import { execSync } from 'child_process'
 import { Api, Apis, b2a, hex2ua, IccCryptoXApi, pkcs8ToJwk, retry, spkiToJwk, ua2hex } from '../../../icc-x-api'
 import { v4 as uuid } from 'uuid'
 import { XHR } from '../../../icc-api/api/XHR'
 import { Patient } from '../../../icc-api/model/Patient'
-import { Contact } from '../../../icc-api/model/Contact'
-import { HealthElement } from '../../../icc-api/model/HealthElement'
 import { CalendarItem } from '../../../icc-api/model/CalendarItem'
-import {
-  EncryptedEntity,
-  EncryptedParentEntity,
-  FilterChainMaintenanceTask,
-  HealthcareParty,
-  MaintenanceTask,
-  PaginatedListMaintenanceTask,
-  PropertyStub,
-  Service,
-  User,
-} from '../../../icc-api/model/models'
+import { FilterChainMaintenanceTask, HealthcareParty, MaintenanceTask, PaginatedListMaintenanceTask, User } from '../../../icc-api/model/models'
 import { before, describe, it } from 'mocha'
 
 import { webcrypto } from 'crypto'
@@ -27,8 +15,6 @@ import { IccPatientApi } from '../../../icc-api'
 import { expect } from 'chai'
 
 import { TextDecoder, TextEncoder } from 'util'
-import { MaintenanceTaskByHcPartyAndTypeFilter } from '../../../icc-x-api/filters/MaintenanceTaskByHcPartyAndTypeFilter'
-import { MaintenanceTaskByIdsFilter } from '../../../icc-x-api/filters/MaintenanceTaskByIdsFilter'
 import { MaintenanceTaskAfterDateFilter } from '../../../icc-x-api/filters/MaintenanceTaskAfterDateFilter'
 ;(global as any).localStorage = new (require('node-localstorage').LocalStorage)(tmpdir(), 5 * 1024 * 1024 * 1024)
 ;(global as any).fetch = fetch
@@ -36,134 +22,15 @@ import { MaintenanceTaskAfterDateFilter } from '../../../icc-x-api/filters/Maint
 ;(global as any).TextDecoder = TextDecoder
 ;(global as any).TextEncoder = TextEncoder
 
-type TestedEntity = 'Patient' | 'Contact' | 'HealthElement' | 'CalendarItem'
-
-interface EntityFacade<T extends EncryptedEntity> {
-  create: (api: Apis, record: Omit<T, 'rev'>) => Promise<T>
-  get: (api: Apis, id: string) => Promise<T>
-  share: (api: Apis, parent: EncryptedParentEntity | null, record: T, dataOwnerId: string) => Promise<T>
-  isDecrypted: (entityToCheck: T) => Promise<boolean>
-}
-
-type EntityCreator<T> = (api: Apis, id: string, user: User, patient?: Patient, delegateIds?: string[]) => Promise<T>
-
-interface EntityFacades {
-  Patient: EntityFacade<Patient>
-  Contact: EntityFacade<Contact>
-  HealthElement: EntityFacade<HealthElement>
-  CalendarItem: EntityFacade<CalendarItem>
-}
-
-interface EntityCreators {
-  Patient: EntityCreator<Patient>
-  Contact: EntityCreator<Contact>
-  HealthElement: EntityCreator<HealthElement>
-  CalendarItem: EntityCreator<CalendarItem>
-}
-
-async function getDataOwnerId(api: Apis) {
-  const user = await api.userApi.getCurrentUser()
-  return (user.healthcarePartyId ?? user.patientId ?? user.deviceId)!
-}
-
-const facades: EntityFacades = {
-  Patient: {
-    create: async (api, r) => api.patientApi.createPatientWithUser(await api.userApi.getCurrentUser(), r),
-    get: async (api, id) => api.patientApi.getPatientWithUser(await api.userApi.getCurrentUser(), id),
-    share: async (api, p, r, doId) => {
-      const ownerId = await getDataOwnerId(api)
-      const [dels, eks] = await api.cryptoApi.extractDelegationsSFKsAndEncryptionSKs(r, ownerId)
-      return api.patientApi.modifyPatientWithUser(
-        await api.userApi.getCurrentUser(),
-        await api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, ownerId, doId, dels[0], eks[0])
-      )
-    },
-    isDecrypted: async (entityToCheck) => {
-      return entityToCheck.note != undefined
-    },
-  } as EntityFacade<Patient>,
-  Contact: {
-    create: async (api, r) => api.contactApi.createContactWithUser(await api.userApi.getCurrentUser(), r),
-    get: async (api, id) => api.contactApi.getContactWithUser(await api.userApi.getCurrentUser(), id),
-    share: async (api, p, r, doId) => {
-      const ownerId = await getDataOwnerId(api)
-      const [dels, eks] = await api.cryptoApi.extractDelegationsSFKsAndEncryptionSKs(r, ownerId)
-      return api.contactApi.modifyContactWithUser(
-        await api.userApi.getCurrentUser(),
-        await api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, ownerId, doId, dels[0], eks[0])
-      )
-    },
-    isDecrypted: async (entityToCheck) => {
-      return entityToCheck.services?.[0].content != undefined && Object.entries(entityToCheck.services?.[0].content).length > 0
-    },
-  } as EntityFacade<Contact>,
-  HealthElement: {
-    create: async (api, r) => api.healthcareElementApi.createHealthElementWithUser(await api.userApi.getCurrentUser(), r),
-    get: async (api, id) => api.healthcareElementApi.getHealthElementWithUser(await api.userApi.getCurrentUser(), id),
-    share: async (api, p, r, doId) => {
-      const ownerId = await getDataOwnerId(api)
-      const [dels, eks] = await api.cryptoApi.extractDelegationsSFKsAndEncryptionSKs(r, ownerId)
-      return api.healthcareElementApi.modifyHealthElementWithUser(
-        await api.userApi.getCurrentUser(),
-        await api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, ownerId, doId, dels[0], eks[0])
-      )
-    },
-    isDecrypted: async (entityToCheck) => {
-      return entityToCheck.descr != undefined
-    },
-  } as EntityFacade<HealthElement>,
-  CalendarItem: {
-    create: async (api, r) =>
-      api.calendarItemApi.createCalendarItemWithHcParty(
-        await api.userApi.getCurrentUser(),
-        await api.calendarItemApi.newInstance(await api.userApi.getCurrentUser(), r)
-      ),
-    get: async (api, id) => api.calendarItemApi.getCalendarItemWithUser(await api.userApi.getCurrentUser(), id),
-    share: async (api, p, r, doId) => {
-      const ownerId = await getDataOwnerId(api)
-      const [dels, eks] = await api.cryptoApi.extractDelegationsSFKsAndEncryptionSKs(r, ownerId)
-      return api.calendarItemApi.modifyCalendarItemWithHcParty(
-        await api.userApi.getCurrentUser(),
-        await api.cryptoApi.addDelegationsAndEncryptionKeys(p, r, ownerId, doId, dels[0], eks[0])
-      )
-    },
-    isDecrypted: async (entityToCheck) => {
-      return entityToCheck.title != undefined
-    },
-  } as EntityFacade<CalendarItem>,
-}
-
 const DB_PORT = 15984
 const AS_PORT = 16044
 
 const privateKeys = {} as Record<string, Record<string, string>>
-const users: User[] = []
 
 let newPatientUser: User | undefined = undefined
 let newPatient: Patient | undefined = undefined
 let delegateUser: User | undefined = undefined
 let delegateHcp: HealthcareParty | undefined = undefined
-
-const entities: EntityCreators = {
-  Patient: ({ patientApi }, id, user, _, delegateIds) => {
-    return patientApi.newInstance(user, new Patient({ id, firstName: 'test', lastName: 'test', note: 'data', dateOfBirth: 20000101 }), delegateIds)
-  },
-  Contact: ({ contactApi }, id, user, patient, delegateIds) => {
-    return contactApi.newInstance(
-      user,
-      patient!,
-      new Contact({ id, services: [new Service({ label: 'svc', content: { fr: { stringValue: 'data' } } })] }),
-      false,
-      delegateIds
-    )
-  },
-  HealthElement: ({ healthcareElementApi }, id, user, patient, delegateIds) => {
-    return healthcareElementApi.newInstance(user, patient!, new HealthElement({ id, descr: 'HE' }), false, delegateIds)
-  },
-  CalendarItem: ({ calendarItemApi }, id, user, patient, delegateIds) => {
-    return calendarItemApi.newInstancePatient(user, patient!, new CalendarItem({ id, title: 'CI' }), delegateIds)
-  },
-}
 
 async function makeKeyPair(cryptoApi: IccCryptoXApi, login: string) {
   const { publicKey, privateKey } = await cryptoApi.RSA.generateKeyPair()
@@ -251,7 +118,7 @@ describe('Full battery of tests on crypto and keys', async function () {
     )
 
     const api = await Api(`http://127.0.0.1:${AS_PORT}/rest/v1`, 'admin', 'admin', webcrypto as unknown as Crypto)
-    const { userApi, patientApi, healthcarePartyApi, cryptoApi } = api
+    const { userApi, healthcarePartyApi, cryptoApi } = api
     const user = await retry(() => {
       return userApi.getCurrentUser()
     }, 100)
@@ -324,10 +191,6 @@ describe('Full battery of tests on crypto and keys', async function () {
       await api.patientApi.initDelegationsAndEncryptionKeys(patient, u, undefined, [delegateUser!.healthcarePartyId!])
     )
 
-    console.log(`Patient = ${patient.id}`)
-    console.log(`Delegate HCP = ${delegateHcp!.id}`)
-    console.log(`Delegate HCP Parent = ${delegateHcp!.parentId}`)
-
     // Decrypting AES Key to compare it with AES key decrypted with new key in the next steps
     const decryptedAesWithPreviousKey = await api.cryptoApi.decryptHcPartyKey(
       patientWithDelegation!.id!,
@@ -346,7 +209,7 @@ describe('Full battery of tests on crypto and keys', async function () {
     const savedInitialRecord = await api.calendarItemApi.createCalendarItemWithHcParty(u, initialRecord)
 
     // User lost his key
-    privateKeys['patient'] = {}
+    privateKeys[u.login!] = {}
 
     // And creates a new one
     const apiAfterLossOfKey = await getApiAndAddPrivateKeysForUser(u)
@@ -357,6 +220,7 @@ describe('Full battery of tests on crypto and keys', async function () {
       (user.healthcarePartyId ?? user.patientId)!,
       false
     )
+
     privateKeys[user.login!] = { [publicKey]: privateKey }
 
     const apiAfterNewKey = await getApiAndAddPrivateKeysForUser(user)
