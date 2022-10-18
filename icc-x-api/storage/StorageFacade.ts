@@ -1,5 +1,4 @@
 export interface StorageFacade<T> {
-
   /**
    * Returns the value of the provided key from the storage
    * @param key Key of the value to retrieve
@@ -19,7 +18,4 @@ export interface StorageFacade<T> {
    * @param key The key of the item to remove.
    */
   deleteItem(key: string): void
-
-
 }
-

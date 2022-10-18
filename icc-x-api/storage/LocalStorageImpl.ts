@@ -1,4 +1,4 @@
-import {StorageFacade} from "./StorageFacade"
+import { StorageFacade } from './StorageFacade'
 
 export class LocalStorageImpl implements StorageFacade<string> {
   getItem(key: string): string | undefined {
