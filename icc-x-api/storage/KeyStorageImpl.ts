@@ -1,9 +1,8 @@
-import {StorageFacade} from "./StorageFacade"
-import {KeyStorageFacade} from "./KeyStorageFacade"
-import {b2a} from "../../icc-api/model/ModelHelper"
+import { StorageFacade } from './StorageFacade'
+import { KeyStorageFacade } from './KeyStorageFacade'
+import { b2a } from '../../icc-api/model/ModelHelper'
 
 export class KeyStorageImpl implements KeyStorageFacade {
-
   private readonly _storage: StorageFacade<string>
 
   constructor(storage: StorageFacade<string>) {
@@ -15,11 +14,13 @@ export class KeyStorageImpl implements KeyStorageFacade {
   }
 
   getKeypair(key: string): { publicKey: JsonWebKey; privateKey: JsonWebKey } | undefined {
-    const keyPair = JSON.parse(this._storage.getItem(key) ?? "")
-    return keyPair.hasOwnProperty("publicKey") && keyPair.hasOwnProperty("privateKey") ? {
-      publicKey: keyPair.publicKey as JsonWebKey,
-      privateKey: keyPair.privateKey as JsonWebKey
-    } : undefined
+    const keyPair = JSON.parse(this._storage.getItem(key) ?? '')
+    return keyPair.hasOwnProperty('publicKey') && keyPair.hasOwnProperty('privateKey')
+      ? {
+          publicKey: keyPair.publicKey as JsonWebKey,
+          privateKey: keyPair.privateKey as JsonWebKey,
+        }
+      : undefined
   }
 
   getPrivateKey(key: string): JsonWebKey | undefined {
@@ -36,8 +37,9 @@ export class KeyStorageImpl implements KeyStorageFacade {
 
   storeKeychain(key: string, keychain: number | string): void {
     const handlers = {
-      number: (keychainNumber: number) => this._storage.setItem(key, b2a(new Uint8Array(keychainNumber).reduce((data, byte) => data + String.fromCharCode(byte), ''))),
-      string: (keychainB64: string) => this._storage.setItem(key, keychainB64)
+      number: (keychainNumber: number) =>
+        this._storage.setItem(key, b2a(new Uint8Array(keychainNumber).reduce((data, byte) => data + String.fromCharCode(byte), ''))),
+      string: (keychainB64: string) => this._storage.setItem(key, keychainB64),
     }
 
     // @ts-ignore
