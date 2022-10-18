@@ -186,7 +186,6 @@ const userDefinitions: Record<string, (user: User, api: Apis) => Promise<User>> 
   },
   'one lost key and one upgraded available key thanks to delegate who gave access back to previous data': async (user: User, api) => {
     const userDataOwnerId = api.dataOwnerApi.getDataOwnerOf(user)
-
     const { privateKey, publicKey } = await api.cryptoApi.addNewKeyPairForOwnerId(
       api.maintenanceTaskApi,
       user,
@@ -426,7 +425,7 @@ describe('Full battery of tests on crypto and keys', async function () {
           prev.push(await facade.create(api2, record2))
 
           return prev
-        }, Promise.resolve([]) as Promise<EncryptedEntity[]>)
+        }, Promise.resolve([] as EncryptedEntity[]))
 
         users.push(await creationProcess(newPatientUser, api))
         users.push(await creationProcess(newHcpUser, api))
