@@ -19,6 +19,10 @@ import { IccCodeXApi } from './icc-code-x-api'
 import { IccMaintenanceTaskXApi } from './icc-maintenance-task-x-api'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { retry } from './utils'
+import { StorageFacade } from './storage/StorageFacade'
+import { KeyStorageFacade } from './storage/KeyStorageFacade'
+import { LocalStorageImpl } from './storage/LocalStorageImpl'
+import { KeyStorageImpl } from './storage/KeyStorageImpl'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -92,8 +96,13 @@ export const Api = async function (
     ? self.fetch
     : fetch,
   forceBasic = false,
-  autoLogin = true
+  autoLogin = true,
+  storage?: StorageFacade<string>,
+  keyStorage?: KeyStorageFacade
 ): Promise<Apis> {
+  const _storage = storage || new LocalStorageImpl()
+  const _keyStorage = keyStorage || new KeyStorageImpl(_storage)
+
   const headers = apiHeaders(username, password, forceBasic)
   const authApi = new IccAuthApi(host, headers, fetchImpl)
   const codeApi = new IccCodeXApi(host, headers, fetchImpl)
@@ -102,7 +111,16 @@ export const Api = async function (
   const permissionApi = new IccPermissionApi(host, headers, fetchImpl)
   const healthcarePartyApi = new IccHcpartyXApi(host, headers, fetchImpl)
   const deviceApi = new IccDeviceApi(host, headers, fetchImpl)
-  const cryptoApi = new IccCryptoXApi(host, headers, healthcarePartyApi, new IccPatientApi(host, headers, fetchImpl), deviceApi, crypto)
+  const cryptoApi = new IccCryptoXApi(
+    host,
+    headers,
+    healthcarePartyApi,
+    new IccPatientApi(host, headers, fetchImpl),
+    deviceApi,
+    crypto,
+    _storage,
+    _keyStorage
+  )
   const dataOwnerApi = new IccDataOwnerXApi(cryptoApi, new IccPatientApi(host, headers, fetchImpl))
   const accessLogApi = new IccAccesslogXApi(host, headers, cryptoApi, dataOwnerApi, fetchImpl)
   const agendaApi = new IccAgendaApi(host, headers, fetchImpl)
