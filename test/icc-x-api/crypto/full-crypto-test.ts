@@ -1,4 +1,4 @@
-import { spawn, execSync } from 'child_process'
+import { execSync, spawn } from 'child_process'
 import { Api, Apis, b2a, hex2ua, IccCryptoXApi, pkcs8ToJwk, retry, spkiToJwk, ua2hex } from '../../../icc-x-api'
 import { v4 as uuid } from 'uuid'
 import { XHR } from '../../../icc-api/api/XHR'
