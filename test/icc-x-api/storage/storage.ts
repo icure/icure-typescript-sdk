@@ -1,27 +1,15 @@
-import {LocalStorageFacade} from "../../../icc-x-api/storage/LocalStorageFacade"
 import {expect} from "chai"
+import {LocalStorageImpl} from "../../../icc-x-api/storage/LocalStorageImpl"
+import {tmpdir} from "os"
 
-const storage: Record<string, string> = {}
+import {TextDecoder, TextEncoder} from 'util'
 
-class TestStorage implements LocalStorageFacade {
-  getItem(key: string): string | null {
-    return storage[key] ?? null
-  }
-
-  removeItem(key: string): void {
-    delete storage[key]
-  }
-
-  setItem(key: string, value: string): void {
-    storage[key] = value
-  }
-
-  storeKeyPair(key: string, keyPair: { publicKey: any; privateKey: any }): void {
-    storage[key] = JSON.stringify(keyPair)
-  }
-}
-
-const testStorage = new TestStorage()
+(global as any).localStorage = new (require('node-localstorage').LocalStorage)(tmpdir(), 5 * 1024 * 1024 * 1024)
+;(global as any).fetch = fetch
+;(global as any).Storage = ''
+;(global as any).TextDecoder = TextDecoder
+;(global as any).TextEncoder = TextEncoder
+const testStorage = new LocalStorageImpl()
 
 describe("Test LocalStorageFacade abstraction", () => {
   it("should store and retrieve a keypair", () => {
@@ -32,7 +20,6 @@ describe("Test LocalStorageFacade abstraction", () => {
     }
     testStorage.storeKeyPair(key, keyPair)
     expect(testStorage.getItem(key)).to.eq(JSON.stringify(keyPair))
-    expect(storage[key]).to.eq(JSON.stringify(keyPair))
   })
 
   it("should store and retrieve a string", () => {
@@ -40,17 +27,15 @@ describe("Test LocalStorageFacade abstraction", () => {
     const value = "value"
     testStorage.setItem(key, value)
     expect(testStorage.getItem(key)).to.eq(value)
-    expect(storage[key]).to.eq(value)
   })
 
   it("should remove a key", () => {
     const key = "key"
     const value = "value"
     testStorage.setItem(key, value)
-    expect(storage[key]).to.eq(value)
-    testStorage.removeItem(key)
-    expect(testStorage.getItem(key)).to.be.null
-    expect(storage[key]).to.be.undefined
+    expect(testStorage.getItem(key)).to.eq(value)
+    testStorage.deleteItem(key)
+    expect(testStorage.getItem(key)).to.be.undefined
   })
 
   it("should remove a keypair", () => {
@@ -60,9 +45,8 @@ describe("Test LocalStorageFacade abstraction", () => {
       privateKey: "privateKey",
     }
     testStorage.storeKeyPair(key, keyPair)
-    expect(storage[key]).to.eq(JSON.stringify(keyPair))
-    testStorage.removeItem(key)
-    expect(testStorage.getItem(key)).to.be.null
-    expect(storage[key]).to.be.undefined
+    expect(testStorage.getItem(key)).to.eq(JSON.stringify(keyPair))
+    testStorage.deleteItem(key)
+    expect(testStorage.getItem(key)).to.be.undefined
   })
 })
