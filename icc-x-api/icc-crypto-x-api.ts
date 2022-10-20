@@ -64,6 +64,14 @@ export class IccCryptoXApi {
     return this._AES
   }
 
+  get keyStorage(): KeyStorageFacade {
+    return this._keyStorage
+  }
+
+  get storage(): StorageFacade<string> {
+    return this._storage
+  }
+
   hcPartyKeysCache: {
     [key: string]: DelegatorAndKeys
   } = {}
@@ -136,8 +144,8 @@ export class IccCryptoXApi {
     patientBaseApi: IccPatientApi,
     deviceBaseApi: IccDeviceApi,
     crypto: Crypto = typeof window !== 'undefined' ? window.crypto : typeof self !== 'undefined' ? self.crypto : ({} as Crypto),
-    storage?: StorageFacade<string>,
-    keyStorage?: KeyStorageFacade
+    storage: StorageFacade<string>,
+    keyStorage: KeyStorageFacade
   ) {
     this.hcpartyBaseApi = hcpartyBaseApi
     this.patientBaseApi = patientBaseApi
@@ -148,8 +156,8 @@ export class IccCryptoXApi {
     this._AES = new AESUtils(crypto)
     this._RSA = new RSAUtils(crypto)
     this._shamir = new ShamirClass(crypto)
-    this._storage = storage || new LocalStorageImpl()
-    this._keyStorage = keyStorage || new KeyStorageImpl(this._storage)
+    this._storage = storage
+    this._keyStorage = keyStorage
   }
 
   async loadAllKeysFromLocalStorage(dataOwnerId: string): Promise<void> {
