@@ -14,7 +14,7 @@ export class KeyStorageImpl implements KeyStorageFacade {
   }
 
   getKeypair(key: string): { publicKey: JsonWebKey; privateKey: JsonWebKey } | undefined {
-    const keyPair = JSON.parse(this._storage.getItem(key) ?? '')
+    const keyPair = JSON.parse(this._storage.getItem(key) ?? '{}')
     return keyPair.hasOwnProperty('publicKey') && keyPair.hasOwnProperty('privateKey')
       ? {
           publicKey: keyPair.publicKey as JsonWebKey,
