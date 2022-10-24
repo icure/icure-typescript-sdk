@@ -1,24 +1,24 @@
 import { StorageFacade } from './StorageFacade'
 
 export class LocalStorageImpl implements StorageFacade<string> {
-  getItem(key: string): string | undefined {
+  async getItem(key: string): Promise<string | undefined> {
     return localStorage.getItem(key) ?? undefined
   }
 
-  deleteItem(key: string): void {
+  async deleteItem(key: string): Promise<void> {
     return localStorage.removeItem(key)
   }
 
-  setItem(key: string, valueToStore: string): void {
+  async setItem(key: string, valueToStore: string): Promise<void> {
     return localStorage.setItem(key, valueToStore)
   }
 
-  storeKeyPair(key: string, keyPair: { publicKey: any; privateKey: any }): void {
+  async storeKeyPair(key: string, keyPair: { publicKey: any; privateKey: any }): Promise<void> {
     if (typeof Storage === 'undefined') {
       console.error('Your browser does not support HTML5 Browser Local Storage !')
       throw 'Your browser does not support HTML5 Browser Local Storage !'
     }
     //TODO: encryption
-    this.setItem(key, JSON.stringify(keyPair))
+    await this.setItem(key, JSON.stringify(keyPair))
   }
 }
