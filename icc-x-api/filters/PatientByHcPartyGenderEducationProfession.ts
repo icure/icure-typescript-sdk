@@ -1,8 +1,8 @@
 /*
  * Copyright (c) 2020. Taktik SA, All rights reserved.
  */
-import {AbstractFilterPatient} from '../../icc-api/model/AbstractFilterPatient'
-import {Patient} from '../../icc-api/model/Patient'
+import { AbstractFilterPatient } from '../../icc-api/model/AbstractFilterPatient'
+import { Patient } from '../../icc-api/model/Patient'
 import GenderEnum = Patient.GenderEnum
 
 export class PatientByHcPartyGenderEducationProfession extends AbstractFilterPatient {

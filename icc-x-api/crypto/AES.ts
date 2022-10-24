@@ -1,5 +1,4 @@
-import { utils } from './utils'
-import { ua2hex } from '../utils/binary-utils'
+import { appendBuffer, ua2hex } from '../utils'
 
 export class AESUtils {
   /********* AES Config **********/
@@ -11,7 +10,7 @@ export class AESUtils {
     length: 256,
   }
   private crypto: Crypto
-  private _debug: boolean
+  private _debug: boolean = false
 
   set debug(value: boolean) {
     this._debug = value
@@ -19,7 +18,6 @@ export class AESUtils {
 
   constructor(crypto: Crypto = typeof window !== 'undefined' ? window.crypto : typeof self !== 'undefined' ? self.crypto : ({} as Crypto)) {
     this.crypto = crypto
-    this._debug = false
   }
 
   encrypt(cryptoKey: CryptoKey, plainData: ArrayBuffer | Uint8Array, rawKey = '<NA>'): Promise<ArrayBuffer> {
@@ -32,7 +30,7 @@ export class AESUtils {
         name: this.aesAlgorithmEncryptName,
         iv: this.generateIV(this.ivLength),
       }
-      this._debug && console.log(`encrypt ${plainData} with ${rawKey}`)
+      this._debug && console.log(`encrypt ${ua2hex(plainData)} with ${rawKey}`)
       this.crypto.subtle
         .encrypt(
           {
@@ -42,7 +40,10 @@ export class AESUtils {
           plainData
         )
         .then(
-          (cipherData) => resolve(utils.appendBuffer(aesAlgorithmEncrypt.iv.buffer as ArrayBuffer, cipherData)),
+          (cipherData) => {
+            this._debug && console.log(`cipherData: ${ua2hex(cipherData)}`)
+            return resolve(appendBuffer(aesAlgorithmEncrypt.iv.buffer as ArrayBuffer, cipherData))
+          },
           (err) => reject('AES encryption failed: ' + err)
         )
     })
@@ -82,13 +83,29 @@ export class AESUtils {
          * var delegateHcPartyKey = hcparty.hcPartyKeys[delegatorId][1];
          */
       }
-      this._debug && console.log(`decrypt with ${rawKey}`)
-      this.crypto.subtle
-        .decrypt(aesAlgorithmEncrypt, cryptoKey, encryptedDataUint8.subarray(this.ivLength, encryptedDataUint8.length))
-        .then(resolve, (err) => {
+      this._debug && console.log(`decrypt ${ua2hex(encryptedData)} with ${rawKey}`)
+      this.crypto.subtle.decrypt(aesAlgorithmEncrypt, cryptoKey, encryptedDataUint8.subarray(this.ivLength, encryptedDataUint8.length)).then(
+        (decipheredData) => {
+          this._debug && console.log(`decipheredData: ${ua2hex(decipheredData)}`)
+          resolve(decipheredData)
+        },
+        (err) => {
           reject('AES decryption failed: ' + err)
-        })
+        }
+      )
     })
+  }
+
+  async decryptSome(cryptoKeys: CryptoKey[], uint8Array: Uint8Array): Promise<ArrayBuffer> {
+    try {
+      return this.decrypt(cryptoKeys[0], uint8Array)
+    } catch (e) {
+      if (cryptoKeys.length > 1) {
+        return this.decryptSome(cryptoKeys.slice(1), uint8Array)
+      } else {
+        throw e
+      }
+    }
   }
 
   // generate an AES key
@@ -126,7 +143,7 @@ export class AESUtils {
    */
   exportKey(cryptoKey: CryptoKey, format: 'raw'): Promise<ArrayBuffer>
   exportKey(cryptoKey: CryptoKey, format: 'jwk'): Promise<JsonWebKey>
-  exportKey(cryptoKey: CryptoKey, format: string): Promise<ArrayBuffer | JsonWebKey> {
+  exportKey(cryptoKey: CryptoKey, format: 'jwk' | 'raw'): Promise<ArrayBuffer | JsonWebKey> {
     return new Promise((resolve: (value: ArrayBuffer | JsonWebKey) => any, reject: (reason: any) => any) => {
       return this.crypto.subtle.exportKey(format as any, cryptoKey).then(resolve, reject)
     })
@@ -144,7 +161,7 @@ export class AESUtils {
    * @param aesKey
    * @returns {*}
    */
-  importKey(format: string, aesKey: JsonWebKey | ArrayBuffer | Uint8Array): Promise<CryptoKey> {
+  importKey(format: 'jwk' | 'raw', aesKey: JsonWebKey | ArrayBuffer | Uint8Array): Promise<CryptoKey> {
     return new Promise((resolve: (value: CryptoKey) => any, reject: (reason: any) => any) => {
       const extractable = true
       const keyUsages: KeyUsage[] = ['decrypt', 'encrypt']

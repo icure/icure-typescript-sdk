@@ -15,6 +15,9 @@ export class AuthenticationResponse {
     Object.assign(this as AuthenticationResponse, json)
   }
 
+  groupId?: string
+  userId?: string
+  dataOwnerId?: string
   healthcarePartyId?: string
   reason?: string
   successful?: boolean
