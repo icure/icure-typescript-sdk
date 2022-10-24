@@ -1,3 +1,17 @@
+import { AccessLog } from './AccessLog'
+import { Article } from './Article'
+import { Classification } from './Classification'
+import { Document } from './Document'
+import { HealthElement } from './HealthElement'
+import { Invoice } from './Invoice'
+import { Form } from './Form'
+import { Contact } from './Contact'
+import { CalendarItem } from './CalendarItem'
+import { MaintenanceTask } from './MaintenanceTask'
+import { Message } from './Message'
+import { Receipt } from './Receipt'
+import { Patient } from './Patient'
+
 export * from './AbstractFilterCode'
 export * from './AbstractFilterContact'
 export * from './AbstractFilterDevice'
@@ -249,3 +263,19 @@ export * from './VmpStub'
 export * from './Vtm'
 export * from './Wada'
 export * from './Weekday'
+
+export type EncryptedEntity =
+  | AccessLog
+  | Article
+  | CalendarItem
+  | Classification
+  | Contact
+  | Document
+  | Form
+  | HealthElement
+  | Invoice
+  | MaintenanceTask
+  | Message
+  | Patient
+  | Receipt
+export type EncryptedParentEntity = Message | Patient
