@@ -163,7 +163,7 @@ describe('icc-x-maintenance-task-api Tests', () => {
     assert(foundTask.id == createdTask.id)
     assert(foundTask.properties?.find((prop: PropertyStub) => prop.typedValue?.stringValue == hcp2.id) != undefined)
     assert(foundTask.properties?.find((prop: PropertyStub) => prop.typedValue?.stringValue == hcp2.publicKey) != undefined)
-  })
+  }).timeout(30000)
 
   it('ModifyMaintenanceTaskWithUser Success for HCP', async () => {
     // Given
