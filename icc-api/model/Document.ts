@@ -11,6 +11,8 @@
  */
 import { CodeStub } from './CodeStub'
 import { Delegation } from './Delegation'
+import { DataAttachment } from './DataAttachment'
+import { DeletedAttachment } from './DeletedAttachment'
 
 /**
  * This entity is a root level object. It represents a Document. It is serialized in JSON and saved in the underlying CouchDB database.
@@ -71,10 +73,6 @@ export class Document {
    */
   deletionDate?: number
   /**
-   * Reference in object store
-   */
-  objectStoreReference?: string
-  /**
    * Location of the document
    */
   documentLocation?: Document.DocumentLocationEnum
@@ -127,9 +125,21 @@ export class Document {
    */
   openingContactId?: string
   /**
-   * Id of attachment to this document
+   * Id of the main attachment of this document, if stored as a couchdb attachment
    */
   attachmentId?: string
+  /**
+   * Id of the main attachment of this document, if stored using the object storage service
+   */
+  objectStoreReference?: string
+  /**
+   * Secondary attachments for this document
+   */
+  secondaryAttachments?: { [key: string]: DataAttachment }
+  /**
+   * Information on past attachments for this document
+   */
+  deletedAttachments?: Array<DeletedAttachment>
   encryptedAttachment?: ArrayBuffer
   decryptedAttachment?: ArrayBuffer
   /**
