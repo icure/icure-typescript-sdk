@@ -308,7 +308,7 @@ export class IccUserApi {
       '?ts=' +
       new Date().getTime() +
       (tokenValidity ? '&tokenValidity=' + encodeURIComponent(String(tokenValidity)) : '')
-    let headers = this.headers
+    let headers = this.headers.concat(new XHR.Header('Accept', '*'), new XHR.Header('Content-type', 'application/json'))
     token && (headers = headers.concat(new XHR.Header('token', token)))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
       .then((doc) => JSON.parse(JSON.stringify(doc.body)))
