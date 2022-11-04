@@ -2,6 +2,7 @@ import { AuthService } from './AuthService'
 import { XHR } from '../../icc-api/api/XHR'
 import { IccAuthApi } from '../../icc-api'
 import { LoginCredentials } from '../../icc-api/model/LoginCredentials'
+import Header = XHR.Header
 
 export class JwtAuthService implements AuthService {
   private static _instance: JwtAuthService | null = null
@@ -25,7 +26,7 @@ export class JwtAuthService implements AuthService {
     return JwtAuthService._instance
   }
 
-  async getAuthHeader(): Promise<Array<XHR.Header> | null> {
+  async getAuthHeaders(): Promise<Array<Header> | null> {
     return this._currentPromise.then(() => {
       // If it is in a suspension status, the next link will handle the call
       if (!!this._suspensionEnd && new Date() < this._suspensionEnd) {
@@ -37,7 +38,7 @@ export class JwtAuthService implements AuthService {
         this._currentPromise = this._refreshAuthJwt().then((updatedTokens) => {
           // If here the token is null,
           // it goes in a suspension status
-          if (!!updatedTokens.token) {
+          if (!updatedTokens.token) {
             this._suspensionEnd = new Date(new Date().getTime() + this.suspensionIntervalSeconds * 1000)
             return Promise.resolve(null)
           }
@@ -91,6 +92,6 @@ export class JwtAuthService implements AuthService {
   }
 
   private _base64Decode(encodedString: string): any {
-    return JSON.parse(!!window.atob ? window.atob(encodedString) : new Buffer(encodedString, 'base64').toString())
+    return JSON.parse(Buffer.from(encodedString, 'base64').toString())
   }
 }

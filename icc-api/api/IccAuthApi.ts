@@ -65,7 +65,7 @@ export class IccAuthApi {
     headers = headers
       .filter((h) => h.header !== 'Content-Type' && h.header?.toLowerCase() !== 'authorization')
       .concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, true)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined)
       .then((doc) => new AuthenticationResponse(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }

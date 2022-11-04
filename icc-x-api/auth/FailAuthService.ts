@@ -1,5 +1,6 @@
 import { AuthService } from './AuthService'
 import { XHR } from '../../icc-api/api/XHR'
+import Header = XHR.Header
 
 export class FailAuthService implements AuthService {
   private static _instance: FailAuthService | null = null
@@ -11,7 +12,7 @@ export class FailAuthService implements AuthService {
     return FailAuthService._instance
   }
 
-  getAuthHeader(): Promise<Array<XHR.Header> | null> {
+  getAuthHeaders(): Promise<Array<Header> | null> {
     return Promise.resolve(null)
   }
 }
