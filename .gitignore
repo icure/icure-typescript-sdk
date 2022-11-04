@@ -4,4 +4,4 @@ dist/
 scratchDir/
 coverage/
 .nyc_output/
-/test/scratch
+/test/scratch/
