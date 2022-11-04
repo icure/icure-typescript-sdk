@@ -125,4 +125,44 @@ export class IccAuthApi {
       .then((doc) => JSON.parse(JSON.stringify(doc.body)))
       .catch((err) => this.handleError(err))
   }
+
+  /**
+   * Gets a new authentication JWT using the refresh JWT
+   * @summary refresh
+   */
+  refreshAuthenticationJWT(refreshJWT: string): Promise<AuthenticationResponse> {
+    let _body = null
+
+    const _url = this.host + `/auth/refresh` + '?ts=' + new Date().getTime()
+    let headers = [...this.headers, new XHR.Header('Refresh-Token', refreshJWT)]
+    return XHR.sendCommand(
+      'POST',
+      _url,
+      headers.filter((h) => h.header?.toLowerCase() !== 'authorization'),
+      _body,
+      this.fetchImpl
+    )
+      .then((doc) => new AuthenticationResponse(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Invalidates a refresh JWT
+   * @summary invalidate
+   */
+  invalidateRefreshJWT(refreshJWT: string): Promise<AuthenticationResponse> {
+    let _body = null
+
+    const _url = this.host + `/auth/invalidate` + '?ts=' + new Date().getTime()
+    let headers = [...this.headers, new XHR.Header('Refresh-Token', refreshJWT)]
+    return XHR.sendCommand(
+      'POST',
+      _url,
+      headers.filter((h) => h.header?.toLowerCase() !== 'authorization'),
+      _body,
+      this.fetchImpl
+    )
+      .then((doc) => new AuthenticationResponse(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
 }
