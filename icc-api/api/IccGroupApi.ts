@@ -21,15 +21,23 @@ import { RegistrationInformation } from '../model/RegistrationInformation'
 import { RegistrationSuccess } from '../model/RegistrationSuccess'
 import { ReplicationInfo } from '../model/ReplicationInfo'
 import { Unit } from '../model/Unit'
+import { AuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 
 export class IccGroupApi {
   host: string
   headers: Array<XHR.Header>
+  authenticationProvider: AuthenticationProvider
   fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
 
-  constructor(host: string, headers: any, fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>) {
+  constructor(
+    host: string,
+    headers: any,
+    authenticationProvider: AuthenticationProvider,
+    fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
+  ) {
     this.host = host
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
+    this.authenticationProvider = authenticationProvider
     this.fetchImpl = fetchImpl
   }
 
@@ -82,7 +90,7 @@ export class IccGroupApi {
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     password && (headers = headers.concat(new XHR.Header('password', password)))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Group(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -97,7 +105,7 @@ export class IccGroupApi {
 
     const _url = this.host + `/group/${encodeURIComponent(String(id))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Group(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -120,7 +128,7 @@ export class IccGroupApi {
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListGroup(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -147,7 +155,7 @@ export class IccGroupApi {
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListGroup(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -162,7 +170,7 @@ export class IccGroupApi {
 
     const _url = this.host + `/group/${encodeURIComponent(String(id))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Group(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -179,7 +187,7 @@ export class IccGroupApi {
     const _url = this.host + `/group/storage/info` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new GroupDatabasesInfo(it)))
       .catch((err) => this.handleError(err))
   }
@@ -194,7 +202,7 @@ export class IccGroupApi {
 
     const _url = this.host + `/group/${encodeURIComponent(String(id))}/r` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new ReplicationInfo(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -217,7 +225,7 @@ export class IccGroupApi {
       (clazz ? '&clazz=' + encodeURIComponent(String(clazz)) : '') +
       (warmup ? '&warmup=' + encodeURIComponent(String(warmup)) : '')
     let headers = this.headers
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Unit(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -231,7 +239,7 @@ export class IccGroupApi {
 
     const _url = this.host + `/group/apps` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Group(it)))
       .catch((err) => this.handleError(err))
   }
@@ -245,7 +253,7 @@ export class IccGroupApi {
 
     const _url = this.host + `/group` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Group(it)))
       .catch((err) => this.handleError(err))
   }
@@ -261,7 +269,7 @@ export class IccGroupApi {
 
     const _url = this.host + `/group/${encodeURIComponent(String(id))}/name/${encodeURIComponent(String(name))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Group(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -279,7 +287,7 @@ export class IccGroupApi {
     const _url = this.host + `/group/${encodeURIComponent(String(id))}/properties` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Group(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -296,7 +304,7 @@ export class IccGroupApi {
     const _url = this.host + `/group/register/trial` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new RegistrationSuccess(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -322,7 +330,7 @@ export class IccGroupApi {
       (n ? '&n=' + encodeURIComponent(String(n)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Unit(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -339,7 +347,7 @@ export class IccGroupApi {
     const _url = this.host + `/group/${encodeURIComponent(String(id))}/password` + '?ts=' + new Date().getTime()
     let headers = this.headers
     password && (headers = headers.concat(new XHR.Header('password', password)))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Group(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -362,7 +370,7 @@ export class IccGroupApi {
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '') +
       (warmup ? '&warmup=' + encodeURIComponent(String(warmup)) : '')
     let headers = this.headers
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new IdWithRev(it)))
       .catch((err) => this.handleError(err))
   }

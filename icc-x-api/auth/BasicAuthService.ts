@@ -1,5 +1,6 @@
 import { AuthService } from './AuthService'
 import { XHR } from '../../icc-api/api/XHR'
+import Header = XHR.Header
 
 export class BasicAuthService implements AuthService {
   private static _instance: BasicAuthService | null
@@ -13,12 +14,12 @@ export class BasicAuthService implements AuthService {
     return BasicAuthService._instance
   }
 
-  getAuthHeader(): Promise<Array<XHR.Header> | null> {
+  getAuthHeaders(): Promise<Array<Header> | null> {
     const encodedUsernamePassword = this._base64Encode(`${this.username}:${this.password}`)
-    return Promise.resolve([new XHR.Header('Authorization', `Basic ${encodedUsernamePassword}`)])
+    return Promise.resolve([new Header('Authorization', `Basic ${encodedUsernamePassword}`)])
   }
 
   private _base64Encode(decodedString: string): string {
-    return JSON.parse(!!window.btoa ? window.btoa(decodedString) : Buffer.from(decodedString).toString('base64'))
+    return JSON.parse(Buffer.from(decodedString).toString('base64'))
   }
 }

@@ -1,4 +1,6 @@
 import { ua2b64 } from '../model/ModelHelper'
+import { NoAuthService } from '../../icc-x-api/auth/NoAuthService'
+import { AuthService } from '../../icc-x-api/auth/AuthService'
 
 export namespace XHR {
   export class Header {
@@ -65,7 +67,7 @@ export namespace XHR {
     })
   }
 
-  export function sendCommand(
+  export async function sendCommand(
     method: string,
     url: string,
     headers: Array<Header> | null,
@@ -76,9 +78,11 @@ export namespace XHR {
       ? self.fetch
       : fetch,
     contentTypeOverride?: 'application/json' | 'text/plain' | 'application/octet-stream',
-    forceAuthentication = false
+    headerProvider: AuthService = new NoAuthService(),
+    pastError = new Error('Something went wrong, try again later.')
   ): Promise<Data> {
-    const forceSendAuthorization = forceAuthentication || headers?.find((it) => it.header?.toLowerCase() === 'force-authentication')?.data === 'true'
+    const authHeaders = await headerProvider.getAuthHeaders()
+    if (!authHeaders) throw pastError
     const contentType = headers && headers.find((it) => (it.header ? it.header.toLowerCase() === 'content-type' : false))
     const clientTimeout = headers && headers.find((it) => (it.header ? it.header.toUpperCase() === 'X-CLIENT-SIDE-TIMEOUT' : false))
     const timeout = clientTimeout ? Number(clientTimeout.data) : 600000
@@ -89,9 +93,9 @@ export namespace XHR {
           method: method,
           credentials: 'include' as RequestCredentials,
           headers: (headers ?? [])
+            .concat(authHeaders)
             .filter(
               (h) =>
-                (forceSendAuthorization || h.header.toLowerCase() !== 'authorization') &&
                 (h.header?.toLowerCase() !== 'content-type' || h.data !== 'multipart/form-data') &&
                 h.header?.toUpperCase() !== 'X-CLIENT-SIDE-TIMEOUT' &&
                 h.header?.toLowerCase() !== 'force-authentication'
@@ -117,44 +121,36 @@ export namespace XHR {
       ),
       timeout,
       fetchImpl
-    )
-      .catch(async (e) => {
-        if (!forceSendAuthorization) {
-          //Might be due to a 401
-          return {
-            status: 401,
-            statusText: e.message,
-            arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
-            json: () => Promise.resolve({}),
-            text: () => Promise.resolve(''),
-            headers: new Headers(),
-          }
-        } else {
-          throw e
-        }
-      })
-      .then(async function (response) {
-        if (response.status === 401 && !forceSendAuthorization) {
-          return sendCommand(method, url, headers, data, fetchImpl, contentTypeOverride, true)
-        } else {
-          if (response.status >= 400) {
-            const error: {
-              error: string
-              message: string
-              status: number
-            } = { error: response.statusText, message: await response.text(), status: response.status }
-            console.warn(`XHR Error: ${error.status} - ${error.error}`, error.message)
-            throw new XHRError(url, error.message, error.status, error.error, response.headers)
-          }
-          const ct = contentTypeOverride || response.headers.get('content-type') || 'text/plain'
-          return (
-            ct.startsWith('application/json')
-              ? response.json()
-              : ct.startsWith('application/xml') || ct.startsWith('text/')
-              ? response.text()
-              : response.arrayBuffer()
-          ).then((d) => new Data(response.status, ct, d))
-        }
-      })
+    ).then(async function (response) {
+      if (response.status === 401) {
+        return sendCommand(
+          method,
+          url,
+          headers,
+          data,
+          fetchImpl,
+          contentTypeOverride,
+          headerProvider,
+          new XHRError(url, await response.text(), response.status, response.statusText, response.headers)
+        )
+      } else if (response.status >= 400) {
+        const error: {
+          error: string
+          message: string
+          status: number
+        } = { error: response.statusText, message: await response.text(), status: response.status }
+        console.warn(`XHR Error: ${error.status} - ${error.error}`, error.message)
+        throw new XHRError(url, error.message, error.status, error.error, response.headers)
+      } else {
+        const ct = contentTypeOverride || response.headers.get('content-type') || 'text/plain'
+        return (
+          ct.startsWith('application/json')
+            ? response.json()
+            : ct.startsWith('application/xml') || ct.startsWith('text/')
+            ? response.text()
+            : response.arrayBuffer()
+        ).then((d) => new Data(response.status, ct, d))
+      }
+    })
   }
 }

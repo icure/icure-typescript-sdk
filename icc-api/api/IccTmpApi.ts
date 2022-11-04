@@ -29,15 +29,23 @@ import { PaginatedListPatient } from '../model/PaginatedListPatient'
 import { Patient } from '../model/Patient'
 import { ReplicatorDocument } from '../model/ReplicatorDocument'
 import { Unit } from '../model/Unit'
+import { AuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 
 export class IccTmpApi {
   host: string
   headers: Array<XHR.Header>
+  authenticationProvider: AuthenticationProvider
   fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
 
-  constructor(host: string, headers: any, fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>) {
+  constructor(
+    host: string,
+    headers: any,
+    authenticationProvider: AuthenticationProvider,
+    fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
+  ) {
     this.host = host
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
+    this.authenticationProvider = authenticationProvider
     this.fetchImpl = fetchImpl
   }
 
@@ -61,7 +69,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/classification` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Classification(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -78,7 +86,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/classification/batch` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Classification(it)))
       .catch((err) => this.handleError(err))
   }
@@ -95,7 +103,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/contact` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Contact(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -112,7 +120,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/contact/batch` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Contact(it)))
       .catch((err) => this.handleError(err))
   }
@@ -126,7 +134,7 @@ export class IccTmpApi {
 
     const _url = this.host + `/tmp` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Unit(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -143,7 +151,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/document` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Document(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -160,7 +168,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/document/batch` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Document(it)))
       .catch((err) => this.handleError(err))
   }
@@ -177,7 +185,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/entityTemplate` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new EntityTemplate(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -194,7 +202,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/entityTemplate/batch` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new EntityTemplate(it)))
       .catch((err) => this.handleError(err))
   }
@@ -211,7 +219,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/form` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Form(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -228,7 +236,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/form/batch` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Form(it)))
       .catch((err) => this.handleError(err))
   }
@@ -245,7 +253,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/healthElement` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new HealthElement(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -262,7 +270,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/healthElement/batch` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new HealthElement(it)))
       .catch((err) => this.handleError(err))
   }
@@ -279,7 +287,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/invoice` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Invoice(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -296,7 +304,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/invoice/batch` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
       .catch((err) => this.handleError(err))
   }
@@ -313,7 +321,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/message` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Message(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -330,7 +338,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/message/batch` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Message(it)))
       .catch((err) => this.handleError(err))
   }
@@ -347,7 +355,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/patient` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Patient(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -364,7 +372,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/patient/batch` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Patient(it)))
       .catch((err) => this.handleError(err))
   }
@@ -379,7 +387,7 @@ export class IccTmpApi {
 
     const _url = this.host + `/tmp/document/${encodeURIComponent(String(documentId))}/attachment` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Document(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -396,7 +404,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/batch/delete` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
       .catch((err) => this.handleError(err))
   }
@@ -410,7 +418,7 @@ export class IccTmpApi {
 
     const _url = this.host + `/tmp` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Unit(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -425,7 +433,7 @@ export class IccTmpApi {
 
     const _url = this.host + `/tmp/classification/byId/${encodeURIComponent(String(id))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Classification(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -442,7 +450,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/classification/get` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Classification(it)))
       .catch((err) => this.handleError(err))
   }
@@ -457,7 +465,7 @@ export class IccTmpApi {
 
     const _url = this.host + `/tmp/contact/byId/${encodeURIComponent(String(id))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Contact(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -474,7 +482,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/contact/get` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Contact(it)))
       .catch((err) => this.handleError(err))
   }
@@ -489,7 +497,7 @@ export class IccTmpApi {
 
     const _url = this.host + `/tmp/document/byId/${encodeURIComponent(String(id))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Document(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -512,7 +520,7 @@ export class IccTmpApi {
       (enckeys ? '&enckeys=' + encodeURIComponent(String(enckeys)) : '') +
       (fileName ? '&fileName=' + encodeURIComponent(String(fileName)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => true)
       .catch((err) => this.handleError(err))
   }
@@ -529,7 +537,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/document/get` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Document(it)))
       .catch((err) => this.handleError(err))
   }
@@ -544,7 +552,7 @@ export class IccTmpApi {
 
     const _url = this.host + `/tmp/entityTemplate/byId/${encodeURIComponent(String(id))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new EntityTemplate(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -561,7 +569,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/entityTemplate/get` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new EntityTemplate(it)))
       .catch((err) => this.handleError(err))
   }
@@ -576,7 +584,7 @@ export class IccTmpApi {
 
     const _url = this.host + `/tmp/form/byId/${encodeURIComponent(String(id))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Form(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -593,7 +601,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/form/get` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Form(it)))
       .catch((err) => this.handleError(err))
   }
@@ -608,7 +616,7 @@ export class IccTmpApi {
 
     const _url = this.host + `/tmp/healthElement/byId/${encodeURIComponent(String(id))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new HealthElement(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -625,7 +633,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/healthElement/get` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new HealthElement(it)))
       .catch((err) => this.handleError(err))
   }
@@ -640,7 +648,7 @@ export class IccTmpApi {
 
     const _url = this.host + `/tmp/invoice/byId/${encodeURIComponent(String(id))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Invoice(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -657,7 +665,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/invoice/get` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
       .catch((err) => this.handleError(err))
   }
@@ -672,7 +680,7 @@ export class IccTmpApi {
 
     const _url = this.host + `/tmp/message/byId/${encodeURIComponent(String(id))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Message(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -689,7 +697,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/message/get` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Message(it)))
       .catch((err) => this.handleError(err))
   }
@@ -704,7 +712,7 @@ export class IccTmpApi {
 
     const _url = this.host + `/tmp/patient/byId/${encodeURIComponent(String(id))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Patient(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -721,7 +729,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/patient/get` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Patient(it)))
       .catch((err) => this.handleError(err))
   }
@@ -743,7 +751,7 @@ export class IccTmpApi {
       (firstClassificationId ? '&firstClassificationId=' + encodeURIComponent(String(firstClassificationId)) : '') +
       (pageSize ? '&pageSize=' + encodeURIComponent(String(pageSize)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListClassification(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -765,7 +773,7 @@ export class IccTmpApi {
       (firstContactId ? '&firstContactId=' + encodeURIComponent(String(firstContactId)) : '') +
       (pageSize ? '&pageSize=' + encodeURIComponent(String(pageSize)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListInvoice(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -787,7 +795,7 @@ export class IccTmpApi {
       (firstDocumentId ? '&firstDocumentId=' + encodeURIComponent(String(firstDocumentId)) : '') +
       (pageSize ? '&pageSize=' + encodeURIComponent(String(pageSize)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListDocument(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -809,7 +817,7 @@ export class IccTmpApi {
       (firstEntityTemplateId ? '&firstEntityTemplateId=' + encodeURIComponent(String(firstEntityTemplateId)) : '') +
       (pageSize ? '&pageSize=' + encodeURIComponent(String(pageSize)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListEntityTemplate(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -831,7 +839,7 @@ export class IccTmpApi {
       (firstFormId ? '&firstFormId=' + encodeURIComponent(String(firstFormId)) : '') +
       (pageSize ? '&pageSize=' + encodeURIComponent(String(pageSize)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListForm(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -853,7 +861,7 @@ export class IccTmpApi {
       (firstHealthElementId ? '&firstHealthElementId=' + encodeURIComponent(String(firstHealthElementId)) : '') +
       (pageSize ? '&pageSize=' + encodeURIComponent(String(pageSize)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListHealthElement(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -875,7 +883,7 @@ export class IccTmpApi {
       (firstInvoiceId ? '&firstInvoiceId=' + encodeURIComponent(String(firstInvoiceId)) : '') +
       (pageSize ? '&pageSize=' + encodeURIComponent(String(pageSize)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListInvoice(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -897,7 +905,7 @@ export class IccTmpApi {
       (firstMessageId ? '&firstMessageId=' + encodeURIComponent(String(firstMessageId)) : '') +
       (pageSize ? '&pageSize=' + encodeURIComponent(String(pageSize)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListInvoice(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -919,7 +927,7 @@ export class IccTmpApi {
       (firstPatientId ? '&firstPatientId=' + encodeURIComponent(String(firstPatientId)) : '') +
       (pageSize ? '&pageSize=' + encodeURIComponent(String(pageSize)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListPatient(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -936,7 +944,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/classification` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Classification(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -953,7 +961,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/classification/batch` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Classification(it)))
       .catch((err) => this.handleError(err))
   }
@@ -970,7 +978,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/contact` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Contact(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -987,7 +995,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/contact/batch` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Contact(it)))
       .catch((err) => this.handleError(err))
   }
@@ -1004,7 +1012,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/document` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Document(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -1021,7 +1029,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/document/batch` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Document(it)))
       .catch((err) => this.handleError(err))
   }
@@ -1038,7 +1046,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/entityTemplate` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new EntityTemplate(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -1055,7 +1063,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/entityTemplate/batch` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new EntityTemplate(it)))
       .catch((err) => this.handleError(err))
   }
@@ -1072,7 +1080,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/form` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Form(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -1089,7 +1097,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/form/batch` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Form(it)))
       .catch((err) => this.handleError(err))
   }
@@ -1106,7 +1114,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/healthElement` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new HealthElement(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -1123,7 +1131,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/healthElement/batch` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new HealthElement(it)))
       .catch((err) => this.handleError(err))
   }
@@ -1140,7 +1148,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/invoice` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Invoice(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -1157,7 +1165,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/invoice/batch` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
       .catch((err) => this.handleError(err))
   }
@@ -1174,7 +1182,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/message` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Message(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -1191,7 +1199,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/message/batch` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Message(it)))
       .catch((err) => this.handleError(err))
   }
@@ -1208,7 +1216,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/patient` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Patient(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -1225,7 +1233,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/patient/batch` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Patient(it)))
       .catch((err) => this.handleError(err))
   }
@@ -1242,7 +1250,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/batch/purge` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
       .catch((err) => this.handleError(err))
   }
@@ -1259,7 +1267,7 @@ export class IccTmpApi {
     const _url = this.host + `/tmp/replicate/from/${encodeURIComponent(String(from))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new ReplicatorDocument(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -1283,7 +1291,7 @@ export class IccTmpApi {
       (enckeys ? '&enckeys=' + encodeURIComponent(String(enckeys)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Document(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
