@@ -213,12 +213,29 @@
   dependencies:
     "@cspotcode/source-map-consumer" "0.8.0"
 
-"@icure/test-setup@^0.0.15":
-  version "0.0.15"
-  resolved "https://registry.yarnpkg.com/@icure/test-setup/-/test-setup-0.0.15.tgz#33d3a5888a241258e5933dca3efa7139ce7820fd"
-  integrity sha512-fbk/guwyxLq5DPS5lRuytgT1ywUyESbdF0mVxatZagrQGCDhalcw57zE7J577E8Ep+M2rbflVxnA9d2Ml48cbQ==
+"@icure/api@^6.0.0":
+  version "6.0.1"
+  resolved "https://registry.yarnpkg.com/@icure/api/-/api-6.0.1.tgz#18dc9c5a2f3527a55d7480f282eab220da4c8048"
+  integrity sha512-FlRuhwdtdmirBDXBHWkR5N0DbAtPZOIX5IHp/KAuz6zXjmDaL+6KB17NmhKDXMtHO0PD3uwnJ7SkAb2XJxsaoQ==
   dependencies:
+    date-fns "^2.23.0"
+    libphonenumber-js "^1.7.18"
+    lodash "^4.17.21"
+    moment "^2.22.1"
+    text-encoding "^0.7.0"
+    uuid "^8.3.2"
+    uuid-encoder "^1.1.0"
+
+"@icure/test-setup@^0.0.25":
+  version "0.0.25"
+  resolved "https://registry.yarnpkg.com/@icure/test-setup/-/test-setup-0.0.25.tgz#4b872f374f48475c89e04a9de71e4d9de2b8c294"
+  integrity sha512-wLjuuHbpeHlGay+Zr6tF8Tq9zCKD86cdceEYnIMzPDDiWIK1CgGRxpwVzbTesTIIGafs0WD7luFkSIPv2uYz9g==
+  dependencies:
+    "@icure/api" "^6.0.0"
+    "@types/react-dom" "^18.0.6"
     date-fns "^2.3.0"
+    isomorphic-fetch "^3.0.0"
+    node-localstorage "^2.2.1"
     uuid "^3.3.2"
 
 "@istanbuljs/load-nyc-config@^1.0.0":
@@ -314,7 +331,7 @@
   resolved "https://registry.yarnpkg.com/@types/prop-types/-/prop-types-15.7.5.tgz#5f19d2b85a98e9558036f6a3cacc8819420f05cf"
   integrity sha512-JCB8C6SnDoQf0cNycqd/35A7MjcnK+ZTqE7judS6o7utxUCg6imJg3QK2qzHKszlTjcj2cn+NwMB2i96ubpj7w==
 
-"@types/react-dom@^18.0.8":
+"@types/react-dom@^18.0.6", "@types/react-dom@^18.0.8":
   version "18.0.8"
   resolved "https://registry.yarnpkg.com/@types/react-dom/-/react-dom-18.0.8.tgz#d2606d855186cd42cc1b11e63a71c39525441685"
   integrity sha512-C3GYO0HLaOkk9dDAz3Dl4sbe4AKUGTCfFIZsz3n/82dPNN8Du533HzKatDxeUYWu24wJgMP1xICqkWk1YOLOIw==
