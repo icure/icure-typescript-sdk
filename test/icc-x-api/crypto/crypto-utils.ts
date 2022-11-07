@@ -1,4 +1,4 @@
-import { Api, b64_2ua, b64Url2ua } from '../../../icc-x-api'
+import { Api, b64Url2ua } from '../../../icc-x-api'
 import { expect } from 'chai'
 
 import 'mocha'
@@ -6,16 +6,17 @@ import { hex2ua, jwk2pkcs8, jwk2spki, pkcs8ToJwk, spkiToJwk, truncateTrailingNul
 import { crypto } from '../../../node-compat'
 import { RSAUtils } from '../../../icc-x-api/crypto/RSA'
 import { parseAsn1 } from '../../../icc-x-api/utils/asn1-parser'
+import { getEnvironmentInitializer, getEnvVariables, hcp1Username, TestVars } from '../../utils/test_utils'
 
-const iCureUrl = process.env.ICURE_URL ?? 'https://kraken.icure.dev/rest/v1'
-const hcpUserName = process.env.HCP_USERNAME!
-const hcpPassword = process.env.HCP_PASSWORD!
-const hcpPrivKey = process.env.HCP_PRIV_KEY!
+let env: TestVars | undefined
 
 describe('ArrayBuffer methods', () => {
   let rsa: RSAUtils
 
-  before(() => {
+  before(async function () {
+    this.timeout(600000)
+    const initializer = await getEnvironmentInitializer()
+    env = await initializer.execute(getEnvVariables())
     rsa = new RSAUtils(crypto)
   })
 
@@ -41,8 +42,13 @@ describe('ArrayBuffer methods', () => {
 
   describe('convertKeysFormat', () => {
     it('should manage jwk conversions for private keys gracefully', async () => {
-      const { healthcarePartyApi } = await Api(iCureUrl, hcpUserName, hcpPassword, crypto)
-      const privKey = hcpPrivKey
+      const { healthcarePartyApi } = await Api(
+        env!.iCureUrl,
+        env!.dataOwnerDetails[hcp1Username].user,
+        env!.dataOwnerDetails[hcp1Username].password,
+        crypto
+      )
+      const privKey = env!.dataOwnerDetails[hcp1Username].privateKey
       const parsed = parseAsn1(new Uint8Array(hex2ua(privKey)))
 
       const jwk1 = pkcs8ToJwk(hex2ua(privKey))
@@ -60,7 +66,12 @@ describe('ArrayBuffer methods', () => {
     })
 
     it('should convert spki to jwk in a coherent way', async () => {
-      const { healthcarePartyApi } = await Api(iCureUrl, hcpUserName, hcpPassword, crypto)
+      const { healthcarePartyApi } = await Api(
+        env!.iCureUrl,
+        env!.dataOwnerDetails[hcp1Username].user,
+        env!.dataOwnerDetails[hcp1Username].password,
+        crypto
+      )
       const pubKey = await healthcarePartyApi.getCurrentHealthcareParty().then((hcp) => hcp.publicKey)
       const jwk1 = spkiToJwk(hex2ua(pubKey))
 
