@@ -27,3 +27,11 @@ export class EnsembleAuthenticationProvider implements AuthenticationProvider {
     return new EnsembleAuthService(this.jwtAuth, this.sessionAuth, this.basicAuth, this.failAuth)
   }
 }
+
+export class BasicAuthenticationProvider implements AuthenticationProvider {
+  constructor(private username: string, private password: string) {}
+
+  getAuthService(): AuthService {
+    return new BasicAuthService(this.username, this.password)
+  }
+}

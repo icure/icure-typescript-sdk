@@ -1,5 +1,5 @@
 import { User } from '../../icc-api/model/User'
-import { hex2ua, IccCryptoXApi } from '../../icc-x-api'
+import { Api, Apis, hex2ua, IccCryptoXApi, pkcs8ToJwk, spkiToJwk } from '../../icc-x-api'
 import { IccDataOwnerXApi } from '../../icc-x-api/icc-data-owner-x-api'
 import { AuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { AuthService } from '../../icc-x-api/auth/AuthService'
@@ -21,6 +21,7 @@ import {
   SafeguardInitializer,
   UserInitializerComposite,
 } from './test-utils-decorators'
+import { webcrypto } from 'crypto'
 
 export function getTempEmail(): string {
   return `${uuid().substring(0, 8)}@icure.com`
@@ -130,10 +131,27 @@ export namespace TestUtils {
   }
 }
 
-export class BasicAuthenticationProvider implements AuthenticationProvider {
-  constructor(private username: string, private password: string) {}
-
-  getAuthService(): AuthService {
-    return BasicAuthService.getInstance(this.username, this.password)
+export async function getApiAndAddPrivateKeysForUser(iCureUrl: string, details: UserDetails) {
+  const api = await Api(iCureUrl, details.user, details.password, webcrypto as unknown as Crypto, fetch)
+  const user = await api.userApi.getCurrentUser()
+  const dataOwnerId = api.dataOwnerApi.getDataOwnerOf(user)
+  const jwk = {
+    publicKey: spkiToJwk(hex2ua(details.publicKey)),
+    privateKey: pkcs8ToJwk(hex2ua(details.privateKey)),
   }
+  await api.cryptoApi.cacheKeyPair(jwk)
+  await api.cryptoApi.keyStorage.storeKeyPair(`${dataOwnerId}.${details.publicKey.slice(-32)}`, jwk)
+  return api
+}
+
+export async function initKeys(api: Apis, userPrivKey: string, userPublicKey: string) {
+  const currentUser = await api.userApi.getCurrentUser()
+  const dataOwner = api.dataOwnerApi.getDataOwnerOf(currentUser)
+
+  const jwk = {
+    publicKey: spkiToJwk(hex2ua(userPublicKey)),
+    privateKey: pkcs8ToJwk(hex2ua(userPrivKey)),
+  }
+  await api.cryptoApi.cacheKeyPair(jwk)
+  await api.cryptoApi.keyStorage.storeKeyPair(`${dataOwner}.${userPublicKey.slice(-32)}`, jwk)
 }

@@ -5,32 +5,18 @@ import { LoginCredentials } from '../../icc-api/model/LoginCredentials'
 import Header = XHR.Header
 
 export class JwtAuthService implements AuthService {
-  private static _instance: JwtAuthService | null = null
-
   private _authJwt: string | undefined
   private _refreshJwt: string | undefined
   private _suspensionEnd: Date | undefined
   private _currentPromise: Promise<Array<XHR.Header> | null> = Promise.resolve(null)
 
-  private constructor(
-    private authApi: IccAuthApi,
-    private username: string,
-    private password: string,
-    private suspensionIntervalSeconds: number = 3600
-  ) {}
-
-  static getInstance(authApi: IccAuthApi, username: string, password: string, suspensionIntervalSeconds: number = 3600) {
-    if (!JwtAuthService._instance) {
-      JwtAuthService._instance = new JwtAuthService(authApi, username, password, suspensionIntervalSeconds)
-    }
-    return JwtAuthService._instance
-  }
+  constructor(private authApi: IccAuthApi, private username: string, private password: string, private suspensionIntervalSeconds: number = 3600) {}
 
   async getAuthHeaders(): Promise<Array<Header> | null> {
     return this._currentPromise.then(() => {
       // If it is in a suspension status, the next link will handle the call
       if (!!this._suspensionEnd && new Date() < this._suspensionEnd) {
-        this._currentPromise = Promise.resolve(null)
+        this._currentPromise = Promise.resolve([])
       } else if (!this._authJwt || this._isJwtExpired(this._authJwt)) {
         // If it does not have the JWT, tries to get it
         // If the JWT is expired, tries to refresh it
@@ -40,7 +26,7 @@ export class JwtAuthService implements AuthService {
           // it goes in a suspension status
           if (!updatedTokens.token) {
             this._suspensionEnd = new Date(new Date().getTime() + this.suspensionIntervalSeconds * 1000)
-            return Promise.resolve(null)
+            return Promise.resolve([])
           }
 
           this._authJwt = updatedTokens.token
