@@ -12,19 +12,17 @@ export interface AuthenticationProvider {
 
 export class EnsembleAuthenticationProvider implements AuthenticationProvider {
   private readonly jwtAuth: JwtAuthService
-  private readonly sessionAuth: NoAuthService
   private readonly basicAuth: BasicAuthService
   private readonly failAuth: FailAuthService
 
   constructor(authApi: IccAuthApi, username: string, password: string) {
     this.jwtAuth = new JwtAuthService(authApi, username, password)
-    this.sessionAuth = new NoAuthService()
     this.basicAuth = new BasicAuthService(username, password)
     this.failAuth = new FailAuthService()
   }
 
   getAuthService(): AuthService {
-    return new EnsembleAuthService(this.jwtAuth, this.sessionAuth, this.basicAuth, this.failAuth)
+    return new EnsembleAuthService(this.jwtAuth, new NoAuthService(), this.basicAuth, this.failAuth)
   }
 }
 
