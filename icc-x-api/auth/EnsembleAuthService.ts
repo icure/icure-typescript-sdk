@@ -8,18 +8,15 @@ import { IccAuthApi } from '../../icc-api'
 import Header = XHR.Header
 
 export class EnsembleAuthService implements AuthService {
-  private readonly jwtAuth: JwtAuthService
-  private readonly sessionAuth: NoAuthService
-  private readonly basicAuth: BasicAuthService
-  private readonly failAuth: FailAuthService
   private currentState: string
   private stateMap: { [key: string]: { state: AuthService; next: string } }
 
-  constructor(authApi: IccAuthApi, username: string, password: string) {
-    this.jwtAuth = JwtAuthService.getInstance(authApi, username, password)
-    this.sessionAuth = new NoAuthService()
-    this.basicAuth = BasicAuthService.getInstance(username, password)
-    this.failAuth = FailAuthService.getInstance()
+  constructor(
+    private readonly jwtAuth: JwtAuthService,
+    private readonly sessionAuth: NoAuthService,
+    private readonly basicAuth: BasicAuthService,
+    private readonly failAuth: FailAuthService
+  ) {
     this.stateMap = {
       jwt: { state: this.jwtAuth, next: 'session' },
       session: { state: this.sessionAuth, next: 'basic' },
