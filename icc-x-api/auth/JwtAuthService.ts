@@ -5,19 +5,16 @@ import { LoginCredentials } from '../../icc-api/model/LoginCredentials'
 import Header = XHR.Header
 
 export class JwtAuthService implements AuthService {
+  private error: Error | null = null
   private _authJwt: string | undefined
   private _refreshJwt: string | undefined
-  private _suspensionEnd: Date | undefined
-  private _currentPromise: Promise<Array<XHR.Header> | null> = Promise.resolve(null)
+  private _currentPromise: Promise<Array<XHR.Header>> = Promise.resolve([])
 
-  constructor(private authApi: IccAuthApi, private username: string, private password: string, private suspensionIntervalSeconds: number = 3600) {}
+  constructor(private authApi: IccAuthApi, private username: string, private password: string) {}
 
-  async getAuthHeaders(): Promise<Array<Header> | null> {
+  async getAuthHeaders(): Promise<Array<Header>> {
     return this._currentPromise.then(() => {
-      // If it is in a suspension status, the next link will handle the call
-      if (!!this._suspensionEnd && new Date() < this._suspensionEnd) {
-        this._currentPromise = Promise.resolve([])
-      } else if (!this._authJwt || this._isJwtExpired(this._authJwt)) {
+      if (!this._authJwt || this._isJwtExpired(this._authJwt)) {
         // If it does not have the JWT, tries to get it
         // If the JWT is expired, tries to refresh it
 
@@ -25,14 +22,15 @@ export class JwtAuthService implements AuthService {
           // If here the token is null,
           // it goes in a suspension status
           if (!updatedTokens.token) {
-            this._suspensionEnd = new Date(new Date().getTime() + this.suspensionIntervalSeconds * 1000)
-            return Promise.resolve([])
+            throw new Error('Your iCure back-end version does not support JWT authentication')
           }
 
           this._authJwt = updatedTokens.token
           this._refreshJwt = updatedTokens.refreshToken
           return Promise.resolve([new XHR.Header('Authorization', `Bearer ${this._authJwt}`)])
         })
+      } else if (!!this.error) {
+        throw this.error
       } else {
         this._currentPromise = Promise.resolve([new XHR.Header('Authorization', `Bearer ${this._authJwt}`)])
       }
@@ -79,5 +77,13 @@ export class JwtAuthService implements AuthService {
 
   private _base64Decode(encodedString: string): any {
     return JSON.parse(Buffer.from(encodedString, 'base64').toString())
+  }
+
+  invalidateHeader(error: Error): void {
+    this.error = error
+  }
+
+  isInErrorState(): boolean {
+    return !!this.error
   }
 }
