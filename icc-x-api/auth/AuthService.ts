@@ -7,5 +7,12 @@ export interface AuthService {
    * It can throw an error if is not possible to get the headers.
    * @return an array of headers for authentication.
    */
-  getAuthHeaders(): Promise<Array<Header> | null>
+  getAuthHeaders(): Promise<Array<Header>>
+
+  /**
+   * If the headers are invalidated, you can set the error to throw
+   * the next time the headers are requested.
+   * @param error the error to throw
+   */
+  invalidateHeader(error: Error): void
 }

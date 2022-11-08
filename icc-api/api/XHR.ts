@@ -78,11 +78,9 @@ export namespace XHR {
       ? self.fetch
       : fetch,
     contentTypeOverride?: 'application/json' | 'text/plain' | 'application/octet-stream',
-    headerProvider: AuthService = new NoAuthService(),
-    pastError = new Error('Something went wrong, try again later.')
+    headerProvider: AuthService = new NoAuthService()
   ): Promise<Data> {
     const authHeaders = await headerProvider.getAuthHeaders()
-    if (!authHeaders) throw pastError
     const contentType = headers && headers.find((it) => (it.header ? it.header.toLowerCase() === 'content-type' : false))
     const clientTimeout = headers && headers.find((it) => (it.header ? it.header.toUpperCase() === 'X-CLIENT-SIDE-TIMEOUT' : false))
     const timeout = clientTimeout ? Number(clientTimeout.data) : 600000
@@ -123,16 +121,8 @@ export namespace XHR {
       fetchImpl
     ).then(async function (response) {
       if (response.status === 401) {
-        return sendCommand(
-          method,
-          url,
-          headers,
-          data,
-          fetchImpl,
-          contentTypeOverride,
-          headerProvider,
-          new XHRError(url, await response.text(), response.status, response.statusText, response.headers)
-        )
+        headerProvider.invalidateHeader(new XHRError(url, await response.text(), response.status, response.statusText, response.headers))
+        return sendCommand(method, url, headers, data, fetchImpl, contentTypeOverride, headerProvider)
       } else if (response.status >= 400) {
         const error: {
           error: string
