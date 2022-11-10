@@ -28,8 +28,6 @@ export class JwtAuthService implements AuthService {
           })
         } else if (!!this._error) {
           throw this._error
-        } else {
-          this._currentPromise = Promise.resolve({})
         }
 
         return this._currentPromise
