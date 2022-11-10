@@ -6,24 +6,28 @@ import * as models from '../icc-api/model/models'
 import { DocumentTemplate } from '../icc-api/model/models'
 import { string2ua } from './utils/binary-utils'
 import { XHR } from '../icc-api/api/XHR'
+import { AuthenticationProvider } from './auth/AuthenticationProvider'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccDoctemplateXApi extends IccDoctemplateApi {
   crypto: IccCryptoXApi
+  authenticationProvider: AuthenticationProvider
   fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response>
 
   constructor(
     host: string,
     headers: { [key: string]: string },
     crypto: IccCryptoXApi,
+    authenticationProvider: AuthenticationProvider,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
       ? self.fetch
       : fetch
   ) {
-    super(host, headers, fetchImpl)
+    super(host, headers, authenticationProvider, fetchImpl)
     this.crypto = crypto
+    this.authenticationProvider = authenticationProvider
     this.fetchImpl = fetchImpl
   }
 
@@ -83,7 +87,7 @@ export class IccDoctemplateXApi extends IccDoctemplateApi {
       '?ts=' +
       new Date().getTime()
 
-    return XHR.sendCommand('GET', _url, this.headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, this.headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => {
         if (doc.contentType.startsWith('application/octet-stream')) {
           const enc = new TextDecoder('utf-8')

@@ -24,15 +24,23 @@ import { Substance } from '../model/Substance'
 import { Verse } from '../model/Verse'
 import { Vmp } from '../model/Vmp'
 import { VmpGroup } from '../model/VmpGroup'
+import { AuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 
 export class IccBesamv2Api {
   host: string
   headers: Array<XHR.Header>
+  authenticationProvider: AuthenticationProvider
   fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
 
-  constructor(host: string, headers: any, fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>) {
+  constructor(
+    host: string,
+    headers: any,
+    authenticationProvider: AuthenticationProvider,
+    fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
+  ) {
     this.host = host
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
+    this.authenticationProvider = authenticationProvider
     this.fetchImpl = fetchImpl
   }
 
@@ -54,7 +62,7 @@ export class IccBesamv2Api {
 
     const _url = this.host + `/be_samv2/amp/byDmppCode/${encodeURIComponent(String(dmppCode))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Amp(it)))
       .catch((err) => this.handleError(err))
   }
@@ -79,7 +87,7 @@ export class IccBesamv2Api {
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListAmp(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -104,7 +112,7 @@ export class IccBesamv2Api {
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListAmp(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -129,7 +137,7 @@ export class IccBesamv2Api {
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListAmp(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -154,7 +162,7 @@ export class IccBesamv2Api {
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListAmp(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -188,7 +196,7 @@ export class IccBesamv2Api {
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListAmp(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -213,7 +221,7 @@ export class IccBesamv2Api {
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListAmp(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -238,7 +246,7 @@ export class IccBesamv2Api {
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListAmp(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -272,7 +280,7 @@ export class IccBesamv2Api {
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListNmp(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -306,7 +314,7 @@ export class IccBesamv2Api {
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListVmpGroup(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -336,7 +344,7 @@ export class IccBesamv2Api {
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListVmpGroup(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -361,7 +369,7 @@ export class IccBesamv2Api {
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListVmp(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -386,7 +394,7 @@ export class IccBesamv2Api {
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListVmp(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -420,7 +428,7 @@ export class IccBesamv2Api {
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListVmp(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -445,7 +453,7 @@ export class IccBesamv2Api {
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListVmp(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -464,7 +472,7 @@ export class IccBesamv2Api {
       '?ts=' +
       new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Paragraph(it)))
       .catch((err) => this.handleError(err))
   }
@@ -480,7 +488,7 @@ export class IccBesamv2Api {
     const _url =
       this.host + `/be_samv2/chap/bycnk/${encodeURIComponent(String(cnk))}/${encodeURIComponent(String(language))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Paragraph(it)))
       .catch((err) => this.handleError(err))
   }
@@ -505,7 +513,7 @@ export class IccBesamv2Api {
       '?ts=' +
       new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
   }
@@ -524,7 +532,7 @@ export class IccBesamv2Api {
       '?ts=' +
       new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Amp(it)))
       .catch((err) => this.handleError(err))
   }
@@ -538,7 +546,7 @@ export class IccBesamv2Api {
 
     const _url = this.host + `/be_samv2/v` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new SamVersion(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -557,7 +565,7 @@ export class IccBesamv2Api {
       '?ts=' +
       new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Verse(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -579,7 +587,7 @@ export class IccBesamv2Api {
       '?ts=' +
       new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
       .catch((err) => this.handleError(err))
   }
@@ -596,7 +604,7 @@ export class IccBesamv2Api {
     const _url = this.host + `/be_samv2/amp/byDmppCodes` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Amp(it)))
       .catch((err) => this.handleError(err))
   }
@@ -613,7 +621,7 @@ export class IccBesamv2Api {
     const _url = this.host + `/be_samv2/amp/byGroupCodes` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Amp(it)))
       .catch((err) => this.handleError(err))
   }
@@ -630,7 +638,7 @@ export class IccBesamv2Api {
     const _url = this.host + `/be_samv2/amp/byGroupIds` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Amp(it)))
       .catch((err) => this.handleError(err))
   }
@@ -647,7 +655,7 @@ export class IccBesamv2Api {
     const _url = this.host + `/be_samv2/amp/byVmpCodes` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Amp(it)))
       .catch((err) => this.handleError(err))
   }
@@ -664,7 +672,7 @@ export class IccBesamv2Api {
     const _url = this.host + `/be_samv2/amp/byVmpIds` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Amp(it)))
       .catch((err) => this.handleError(err))
   }
@@ -681,7 +689,7 @@ export class IccBesamv2Api {
     const _url = this.host + `/be_samv2/nmp/byCnks` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Nmp(it)))
       .catch((err) => this.handleError(err))
   }
@@ -695,7 +703,7 @@ export class IccBesamv2Api {
 
     const _url = this.host + `/be_samv2/pharmaform` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new PharmaceuticalForm(it)))
       .catch((err) => this.handleError(err))
   }
@@ -709,7 +717,7 @@ export class IccBesamv2Api {
 
     const _url = this.host + `/be_samv2/substance` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Substance(it)))
       .catch((err) => this.handleError(err))
   }
@@ -726,7 +734,7 @@ export class IccBesamv2Api {
     const _url = this.host + `/be_samv2/vmpgroup/byGroupCodes` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new VmpGroup(it)))
       .catch((err) => this.handleError(err))
   }
@@ -743,7 +751,7 @@ export class IccBesamv2Api {
     const _url = this.host + `/be_samv2/vmp/byGroupIds` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Vmp(it)))
       .catch((err) => this.handleError(err))
   }
@@ -760,7 +768,7 @@ export class IccBesamv2Api {
     const _url = this.host + `/be_samv2/vmp/byVmpCodes` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Vmp(it)))
       .catch((err) => this.handleError(err))
   }

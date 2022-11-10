@@ -21,15 +21,23 @@ import { SoftwareMedicalFileExport } from '../model/SoftwareMedicalFileExport'
 import { SumehrContent } from '../model/SumehrContent'
 import { SumehrExportInfo } from '../model/SumehrExportInfo'
 import { SumehrValidity } from '../model/SumehrValidity'
+import { AuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 
 export class IccBekmehrApi {
   host: string
   headers: Array<XHR.Header>
+  authenticationProvider: AuthenticationProvider
   fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
 
-  constructor(host: string, headers: any, fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>) {
+  constructor(
+    host: string,
+    headers: any,
+    authenticationProvider: AuthenticationProvider,
+    fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
+  ) {
     this.host = host
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
+    this.authenticationProvider = authenticationProvider
     this.fetchImpl = fetchImpl
   }
 
@@ -70,7 +78,7 @@ export class IccBekmehrApi {
       (language ? '&language=' + encodeURIComponent(String(language)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new CheckSMFPatientResult(it)))
       .catch((err) => this.handleError(err))
   }
@@ -118,7 +126,7 @@ export class IccBekmehrApi {
       (mimeType ? '&mimeType=' + encodeURIComponent(String(mimeType)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
   }
@@ -142,7 +150,7 @@ export class IccBekmehrApi {
       (language ? '&language=' + encodeURIComponent(String(language)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
   }
@@ -168,7 +176,7 @@ export class IccBekmehrApi {
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     xTimezoneOffset && (headers = headers.concat(new XHR.Header('X-Timezone-Offset', xTimezoneOffset)))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
   }
@@ -216,7 +224,7 @@ export class IccBekmehrApi {
       (mimeType ? '&mimeType=' + encodeURIComponent(String(mimeType)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
   }
@@ -254,7 +262,7 @@ export class IccBekmehrApi {
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     xTimezoneOffset && (headers = headers.concat(new XHR.Header('X-Timezone-Offset', xTimezoneOffset)))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
   }
@@ -302,7 +310,7 @@ export class IccBekmehrApi {
       (mimeType ? '&mimeType=' + encodeURIComponent(String(mimeType)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
   }
@@ -323,7 +331,7 @@ export class IccBekmehrApi {
       new Date().getTime() +
       (language ? '&language=' + encodeURIComponent(String(language)) : '')
     let headers = this.headers
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
   }
@@ -371,7 +379,7 @@ export class IccBekmehrApi {
       (mimeType ? '&mimeType=' + encodeURIComponent(String(mimeType)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
   }
@@ -419,7 +427,7 @@ export class IccBekmehrApi {
       (mimeType ? '&mimeType=' + encodeURIComponent(String(mimeType)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
   }
@@ -467,7 +475,7 @@ export class IccBekmehrApi {
       (mimeType ? '&mimeType=' + encodeURIComponent(String(mimeType)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
   }
@@ -515,7 +523,7 @@ export class IccBekmehrApi {
       (mimeType ? '&mimeType=' + encodeURIComponent(String(mimeType)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
   }
@@ -539,7 +547,7 @@ export class IccBekmehrApi {
       (language ? '&language=' + encodeURIComponent(String(language)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
   }
@@ -563,7 +571,7 @@ export class IccBekmehrApi {
       (language ? '&language=' + encodeURIComponent(String(language)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
   }
@@ -587,7 +595,7 @@ export class IccBekmehrApi {
       (language ? '&language=' + encodeURIComponent(String(language)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
   }
@@ -605,7 +613,7 @@ export class IccBekmehrApi {
     const _url = this.host + `/be_kmehr/sumehr/${encodeURIComponent(String(patientId))}/content` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new SumehrContent(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -623,7 +631,7 @@ export class IccBekmehrApi {
     const _url = this.host + `/be_kmehr/sumehr/${encodeURIComponent(String(patientId))}/md5` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Content(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -641,7 +649,7 @@ export class IccBekmehrApi {
     const _url = this.host + `/be_kmehr/sumehrv2/${encodeURIComponent(String(patientId))}/content` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new SumehrContent(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -659,7 +667,7 @@ export class IccBekmehrApi {
     const _url = this.host + `/be_kmehr/sumehrv2/${encodeURIComponent(String(patientId))}/md5` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Content(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -696,7 +704,7 @@ export class IccBekmehrApi {
       (language ? '&language=' + encodeURIComponent(String(language)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new ImportResult(it)))
       .catch((err) => this.handleError(err))
   }
@@ -733,7 +741,7 @@ export class IccBekmehrApi {
       (dryRun ? '&dryRun=' + encodeURIComponent(String(dryRun)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new ImportResult(it)))
       .catch((err) => this.handleError(err))
   }
@@ -770,7 +778,7 @@ export class IccBekmehrApi {
       (language ? '&language=' + encodeURIComponent(String(language)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new ImportResult(it)))
       .catch((err) => this.handleError(err))
   }
@@ -810,7 +818,7 @@ export class IccBekmehrApi {
       (language ? '&language=' + encodeURIComponent(String(language)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new ImportResult(it)))
       .catch((err) => this.handleError(err))
   }
@@ -828,7 +836,7 @@ export class IccBekmehrApi {
     const _url = this.host + `/be_kmehr/sumehrv2/${encodeURIComponent(String(patientId))}/valid` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new SumehrValidity(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -846,7 +854,7 @@ export class IccBekmehrApi {
     const _url = this.host + `/be_kmehr/sumehr/${encodeURIComponent(String(patientId))}/valid` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new SumehrValidity(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -870,7 +878,7 @@ export class IccBekmehrApi {
       (language ? '&language=' + encodeURIComponent(String(language)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
   }
@@ -894,7 +902,7 @@ export class IccBekmehrApi {
       (language ? '&language=' + encodeURIComponent(String(language)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
   }

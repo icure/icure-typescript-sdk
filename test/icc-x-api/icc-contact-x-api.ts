@@ -2,14 +2,12 @@ import { before } from 'mocha'
 
 import 'isomorphic-fetch'
 
-import { LocalStorage } from 'node-localstorage'
-import * as os from 'os'
 import { Api, IccContactXApi, IccHelementXApi, IccPatientXApi } from '../../icc-x-api'
 import { crypto } from '../../node-compat'
 import { Patient } from '../../icc-api/model/Patient'
 import { assert, expect } from 'chai'
 import { randomUUID } from 'crypto'
-import { TestUtils } from '../utils/test_utils'
+import { getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStorage, TestUtils, TestVars } from '../utils/test_utils'
 import { Code } from '../../icc-api/model/Code'
 import { Contact } from '../../icc-api/model/Contact'
 import { Service } from '../../icc-api/model/Service'
@@ -22,30 +20,13 @@ import { FilterChainService } from '../../icc-api/model/FilterChainService'
 import { ServiceByHcPartyHealthElementIdsFilter } from '../../icc-x-api/filters/ServiceByHcPartyHealthElementIdsFilter'
 import initKey = TestUtils.initKey
 
-const tmp = os.tmpdir()
-console.log('Saving keys in ' + tmp)
-;(global as any).localStorage = new LocalStorage(tmp, 5 * 1024 * 1024 * 1024)
-;(global as any).Storage = ''
+setLocalStorage(fetch)
+let env: TestVars | undefined
 
-const iCureUrl = process.env.ICURE_URL ?? 'https://kraken.icure.dev/rest/v1'
-const hcpUserName = process.env.HCP_USERNAME
-const hcpPassword = process.env.HCP_PASSWORD
-const hcpPrivKey = process.env.HCP_PRIV_KEY
-
-before(() => {
-  console.info(`Starting tests using iCure URL : ${iCureUrl}`)
-
-  if (hcpUserName == undefined) {
-    throw Error(`To run tests, you need to provide environment variable HCP_USER_NAME`)
-  }
-
-  if (hcpPassword == undefined) {
-    throw Error(`To run tests, you need to provide environment variable HCP_PASSWORD`)
-  }
-
-  if (hcpPrivKey == undefined) {
-    throw Error(`To run tests, you need to provide environment variable HCP_PRIV_KEY`)
-  }
+before(async function () {
+  this.timeout(600000)
+  const initializer = await getEnvironmentInitializer()
+  env = await initializer.execute(getEnvVariables())
 })
 
 async function createPatient(patientApiForHcp: IccPatientXApi, hcpUser: User) {
@@ -125,10 +106,10 @@ describe('icc-x-contact-api Tests', () => {
       patientApi: patientApiForHcp,
       contactApi: contactApiForHcp,
       cryptoApi: cryptoApiForHcp,
-    } = await Api(iCureUrl, hcpUserName!, hcpPassword!, crypto)
+    } = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password, crypto)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
-    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
+    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, env!.dataOwnerDetails[hcp1Username].privateKey)
 
     const patient = await createPatient(patientApiForHcp, hcpUser)
     const contactToCreate = await createBasicContact(contactApiForHcp, hcpUser, patient)
@@ -168,10 +149,10 @@ describe('icc-x-contact-api Tests', () => {
       contactApi: contactApiForHcp,
       healthcareElementApi: hElementApiForHcp,
       cryptoApi: cryptoApiForHcp,
-    } = await Api(iCureUrl, hcpUserName!, hcpPassword!, crypto)
+    } = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password, crypto)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
-    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
+    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, env!.dataOwnerDetails[hcp1Username].privateKey)
 
     const patient = await createPatient(patientApiForHcp, hcpUser)
     const healthElement = await createHealthElement(hElementApiForHcp, hcpUser, patient)

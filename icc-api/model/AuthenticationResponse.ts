@@ -22,4 +22,6 @@ export class AuthenticationResponse {
   reason?: string
   successful?: boolean
   username?: string
+  token?: string
+  refreshToken?: string
 }

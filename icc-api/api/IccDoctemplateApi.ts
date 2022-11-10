@@ -13,15 +13,23 @@ import { XHR } from './XHR'
 import { ByteArray } from '../model/ByteArray'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { DocumentTemplate } from '../model/DocumentTemplate'
+import { AuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 
 export class IccDoctemplateApi {
   host: string
   headers: Array<XHR.Header>
+  authenticationProvider: AuthenticationProvider
   fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
 
-  constructor(host: string, headers: any, fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>) {
+  constructor(
+    host: string,
+    headers: any,
+    authenticationProvider: AuthenticationProvider,
+    fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
+  ) {
     this.host = host
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
+    this.authenticationProvider = authenticationProvider
     this.fetchImpl = fetchImpl
   }
 
@@ -45,7 +53,7 @@ export class IccDoctemplateApi {
     const _url = this.host + `/doctemplate` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new DocumentTemplate(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -60,7 +68,7 @@ export class IccDoctemplateApi {
 
     const _url = this.host + `/doctemplate/${encodeURIComponent(String(documentTemplateIds))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
       .catch((err) => this.handleError(err))
   }
@@ -74,7 +82,7 @@ export class IccDoctemplateApi {
 
     const _url = this.host + `/doctemplate/find/all` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocumentTemplate(it)))
       .catch((err) => this.handleError(err))
   }
@@ -88,7 +96,7 @@ export class IccDoctemplateApi {
 
     const _url = this.host + `/doctemplate` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocumentTemplate(it)))
       .catch((err) => this.handleError(err))
   }
@@ -103,7 +111,7 @@ export class IccDoctemplateApi {
 
     const _url = this.host + `/doctemplate/byDocumentType/${encodeURIComponent(String(documentTypeCode))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocumentTemplate(it)))
       .catch((err) => this.handleError(err))
   }
@@ -119,7 +127,7 @@ export class IccDoctemplateApi {
     const _url =
       this.host + `/doctemplate/byDocumentTypeForCurrentUser/${encodeURIComponent(String(documentTypeCode))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocumentTemplate(it)))
       .catch((err) => this.handleError(err))
   }
@@ -134,7 +142,7 @@ export class IccDoctemplateApi {
 
     const _url = this.host + `/doctemplate/bySpecialty/${encodeURIComponent(String(specialityCode))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocumentTemplate(it)))
       .catch((err) => this.handleError(err))
   }
@@ -154,7 +162,7 @@ export class IccDoctemplateApi {
       '?ts=' +
       new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
   }
@@ -169,7 +177,7 @@ export class IccDoctemplateApi {
 
     const _url = this.host + `/doctemplate/${encodeURIComponent(String(documentTemplateId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new DocumentTemplate(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -189,7 +197,7 @@ export class IccDoctemplateApi {
       '?ts=' +
       new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
   }
@@ -207,7 +215,7 @@ export class IccDoctemplateApi {
     const _url = this.host + `/doctemplate/${encodeURIComponent(String(documentTemplateId))}/attachment` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new DocumentTemplate(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -225,7 +233,7 @@ export class IccDoctemplateApi {
     const _url = this.host + `/doctemplate/${encodeURIComponent(String(documentTemplateId))}/attachmentJson` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new DocumentTemplate(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -243,7 +251,7 @@ export class IccDoctemplateApi {
     const _url = this.host + `/doctemplate/${encodeURIComponent(String(documentTemplateId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new DocumentTemplate(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }

@@ -12,15 +12,23 @@
 import { XHR } from './XHR'
 import { AppointmentTypeAndPlace } from '../model/AppointmentTypeAndPlace'
 import { UserAndHealthcareParty } from '../model/UserAndHealthcareParty'
+import { AuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 
 export class IccAnonymousAccessApi {
   host: string
   headers: Array<XHR.Header>
+  authenticationProvider: AuthenticationProvider
   fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
 
-  constructor(host: string, headers: any, fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>) {
+  constructor(
+    host: string,
+    headers: any,
+    authenticationProvider: AuthenticationProvider,
+    fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
+  ) {
     this.host = host
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
+    this.authenticationProvider = authenticationProvider
     this.fetchImpl = fetchImpl
   }
 
@@ -72,7 +80,7 @@ export class IccAnonymousAccessApi {
       (placeId ? '&placeId=' + encodeURIComponent(String(placeId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
       .catch((err) => this.handleError(err))
   }
@@ -96,7 +104,7 @@ export class IccAnonymousAccessApi {
       (startDate ? '&startDate=' + encodeURIComponent(String(startDate)) : '') +
       (endDate ? '&endDate=' + encodeURIComponent(String(endDate)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new AppointmentTypeAndPlace(it)))
       .catch((err) => this.handleError(err))
   }
@@ -111,7 +119,7 @@ export class IccAnonymousAccessApi {
 
     const _url = this.host + `/aa/hcparty/inGroup/${encodeURIComponent(String(groupId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new UserAndHealthcareParty(it)))
       .catch((err) => this.handleError(err))
   }
