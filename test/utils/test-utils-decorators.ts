@@ -165,7 +165,7 @@ export class GroupInitializer implements EnvInitializer {
 
   async execute(env: TestVars): Promise<TestVars> {
     const updatedEnvs = !!this.initializer ? await this.initializer.execute(env) : env
-    const api = await Api(updatedEnvs.iCureUrl, updatedEnvs.adminLogin, updatedEnvs.adminPassword, webcrypto as any, this.fetchImpl)
+    const api = await Api(updatedEnvs.iCureUrl, updatedEnvs.adminLogin, updatedEnvs.adminPassword, webcrypto as any, this.fetchImpl, true, false)
     await createGroup(api, updatedEnvs.testGroupId)
     return updatedEnvs
   }
@@ -218,7 +218,7 @@ export class MasterUserInitializer implements EnvInitializer {
 
   async execute(env: TestVars): Promise<TestVars> {
     const updatedEnvs = !!this.initializer ? await this.initializer.execute(env) : env
-    const api = await Api(env.iCureUrl, env.adminLogin, env.adminPassword, webcrypto as any, this.fetchImpl)
+    const api = await Api(env.iCureUrl, env.adminLogin, env.adminPassword, webcrypto as any, this.fetchImpl, true, false)
     const masterLogin = `master-${uuid().substring(0, 8)}@icure.com`
     const masterCredentials = await createHealthcarePartyUser(api, masterLogin, uuid())
     return {
@@ -252,7 +252,15 @@ export class UserInitializerComposite implements EnvInitializer, EnvComponent {
 
   async execute(env: TestVars): Promise<TestVars> {
     const updatedEnvs = !!this.initializer ? await this.initializer.execute(env) : env
-    const api = await Api(updatedEnvs.iCureUrl, updatedEnvs.masterHcp?.user!, updatedEnvs.masterHcp?.password!, webcrypto as any, this.fetchImpl)
+    const api = await Api(
+      updatedEnvs.iCureUrl,
+      updatedEnvs.masterHcp?.user!,
+      updatedEnvs.masterHcp?.password!,
+      webcrypto as any,
+      this.fetchImpl,
+      true,
+      false
+    )
     const masterUser = await api.userApi.getUserByEmail(updatedEnvs.masterHcp?.user!)
     const jwk = {
       publicKey: spkiToJwk(hex2ua(updatedEnvs.masterHcp!.publicKey!)),

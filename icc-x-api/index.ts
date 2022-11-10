@@ -88,7 +88,7 @@ export const Api = async function (
     ? self.fetch
     : fetch,
   forceBasic = false,
-  autoLogin = true,
+  autoLogin = false,
   storage?: StorageFacade<string>,
   keyStorage?: KeyStorageFacade
 ): Promise<Apis> {

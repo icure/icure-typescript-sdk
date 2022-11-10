@@ -1,3 +1,4 @@
+import 'isomorphic-fetch'
 import { expect } from 'chai'
 import 'mocha'
 import { Api, Apis, pkcs8ToJwk } from '../../icc-x-api'
