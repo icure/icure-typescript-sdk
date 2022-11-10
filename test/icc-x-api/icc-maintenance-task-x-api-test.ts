@@ -2,13 +2,11 @@ import { before } from 'mocha'
 
 import 'isomorphic-fetch'
 
-import { LocalStorage } from 'node-localstorage'
-import * as os from 'os'
-import { Api, Apis } from '../../icc-x-api'
+import { Api, Apis, hex2ua, pkcs8ToJwk, spkiToJwk } from '../../icc-x-api'
 import { crypto } from '../../node-compat'
 import { assert } from 'chai'
 import { randomUUID } from 'crypto'
-import { TestUtils } from '../utils/test_utils'
+import { getEnvironmentInitializer, getEnvVariables, hcp1Username, hcp2Username, hcp3Username, setLocalStorage, TestVars } from '../utils/test_utils'
 import { User } from '../../icc-api/model/User'
 import { IccMaintenanceTaskXApi } from '../../icc-x-api/icc-maintenance-task-x-api'
 import { MaintenanceTask } from '../../icc-api/model/MaintenanceTask'
@@ -20,38 +18,10 @@ import { Identifier } from '../../icc-api/model/Identifier'
 import { FilterChainMaintenanceTask } from '../../icc-api/model/FilterChainMaintenanceTask'
 import { MaintenanceTaskByIdsFilter } from '../../icc-x-api/filters/MaintenanceTaskByIdsFilter'
 import { MaintenanceTaskByHcPartyAndTypeFilter } from '../../icc-x-api/filters/MaintenanceTaskByHcPartyAndTypeFilter'
-import initKey = TestUtils.initKey
 import { DocIdentifier } from '../../icc-api/model/DocIdentifier'
 
-const tmp = os.tmpdir()
-console.log('Saving keys in ' + tmp)
-;(global as any).localStorage = new LocalStorage(tmp, 5 * 1024 * 1024 * 1024)
-;(global as any).Storage = ''
-
-const iCureUrl = process.env.ICURE_URL ?? 'https://kraken.icure.dev/rest/v1'
-const hcp1UserName = process.env.HCP_USERNAME!
-const hcp1Password = process.env.HCP_PASSWORD!
-const hcp1PrivKey = process.env.HCP_PRIV_KEY!
-
-const hcp2UserName = process.env.HCP_2_USERNAME!
-const hcp2Password = process.env.HCP_2_PASSWORD!
-const hcp2PrivKey = process.env.HCP_2_PRIV_KEY!
-
-const hcp3UserName = process.env.HCP_3_USERNAME!
-const hcp3Password = process.env.HCP_3_PASSWORD!
-const hcp3PrivKey = process.env.HCP_3_PRIV_KEY!
-
-let apiForHcp1: Apis
-let hcp1User: User
-let hcp1: HealthcareParty
-
-let apiForHcp2: Apis
-let hcp2User: User
-let hcp2: HealthcareParty
-
-let apiForHcp3: Apis
-let hcp3User: User
-let hcp3: HealthcareParty
+setLocalStorage(fetch)
+let env: TestVars
 
 function maintenanceTaskToCreate(mTaskApiForHcp: IccMaintenanceTaskXApi, hcpUser: User, delegatedTo: HealthcareParty) {
   return mTaskApiForHcp.newInstance(
@@ -83,66 +53,41 @@ function maintenanceTaskToCreate(mTaskApiForHcp: IccMaintenanceTaskXApi, hcpUser
   )
 }
 
-before(async () => {
-  console.info(`Starting tests using iCure URL : ${iCureUrl}`)
+let apiForHcp1: Apis
+let hcp1User: User
+let hcp1: HealthcareParty
 
-  if (hcp1UserName == undefined) {
-    throw Error(`To run tests, you need to provide environment variable HCP_USERNAME`)
-  }
-
-  if (hcp1Password == undefined) {
-    throw Error(`To run tests, you need to provide environment variable HCP_PASSWORD`)
-  }
-
-  if (hcp1PrivKey == undefined) {
-    throw Error(`To run tests, you need to provide environment variable HCP_PRIV_KEY`)
-  }
-
-  if (hcp2UserName == undefined) {
-    throw Error(`To run tests, you need to provide environment variable HCP_2_USERNAME`)
-  }
-
-  if (hcp2Password == undefined) {
-    throw Error(`To run tests, you need to provide environment variable HCP_2_PASSWORD`)
-  }
-
-  if (hcp2PrivKey == undefined) {
-    throw Error(`To run tests, you need to provide environment variable HCP_2_PRIV_KEY`)
-  }
-
-  if (hcp3UserName == undefined) {
-    throw Error(`To run tests, you need to provide environment variable HCP_3_USERNAME`)
-  }
-
-  if (hcp3Password == undefined) {
-    throw Error(`To run tests, you need to provide environment variable HCP_3_PASSWORD`)
-  }
-
-  if (hcp3PrivKey == undefined) {
-    throw Error(`To run tests, you need to provide environment variable HCP_3_PRIV_KEY`)
-  }
-
-  // Init HCP1
-  apiForHcp1 = await Api(iCureUrl, hcp1UserName, hcp1Password, crypto)
-  hcp1User = await apiForHcp1.userApi.getCurrentUser()
-  hcp1 = await apiForHcp1.healthcarePartyApi.getCurrentHealthcareParty()
-
-  await initKey(apiForHcp1.dataOwnerApi, apiForHcp1.cryptoApi, hcp1User, hcp1PrivKey)
-
-  // Init HCP2
-  apiForHcp2 = await Api(iCureUrl, hcp2UserName, hcp2Password, crypto)
-  hcp2User = await apiForHcp2.userApi.getCurrentUser()
-  hcp2 = await apiForHcp2.healthcarePartyApi.getCurrentHealthcareParty()
-
-  await initKey(apiForHcp2.dataOwnerApi, apiForHcp2.cryptoApi, hcp2User, hcp2PrivKey)
-
-  // Init HCP3
-  apiForHcp3 = await Api(iCureUrl, hcp3UserName, hcp3Password, crypto)
-  hcp3User = await apiForHcp3.userApi.getCurrentUser()
-  hcp3 = await apiForHcp3.healthcarePartyApi.getCurrentHealthcareParty()
-})
+let apiForHcp2: Apis
+let hcp2User: User
+let hcp2: HealthcareParty
 
 describe('icc-x-maintenance-task-api Tests', () => {
+  before(async function () {
+    this.timeout(600000)
+    const initializer = await getEnvironmentInitializer()
+    env = await initializer.execute(getEnvVariables())
+
+    apiForHcp1 = await Api(env.iCureUrl, env.dataOwnerDetails[hcp1Username].user, env.dataOwnerDetails[hcp1Username].password, crypto)
+    hcp1User = await apiForHcp1.userApi.getCurrentUser()
+    hcp1 = await apiForHcp1.healthcarePartyApi.getCurrentHealthcareParty()
+    const jwk = {
+      publicKey: spkiToJwk(hex2ua(env.dataOwnerDetails[hcp1Username].publicKey)),
+      privateKey: pkcs8ToJwk(hex2ua(env.dataOwnerDetails[hcp1Username].privateKey)),
+    }
+    await apiForHcp1.cryptoApi.cacheKeyPair(jwk)
+    await apiForHcp1.cryptoApi.keyStorage.storeKeyPair(`${hcp1.id}.${env.dataOwnerDetails[hcp1Username].publicKey.slice(-32)}`, jwk)
+
+    apiForHcp2 = await Api(env.iCureUrl, env.dataOwnerDetails[hcp2Username].user, env.dataOwnerDetails[hcp2Username].password, crypto)
+    hcp2User = await apiForHcp2.userApi.getCurrentUser()
+    hcp2 = await apiForHcp2.healthcarePartyApi.getCurrentHealthcareParty()
+    const jwk2 = {
+      publicKey: spkiToJwk(hex2ua(env.dataOwnerDetails[hcp2Username].publicKey)),
+      privateKey: pkcs8ToJwk(hex2ua(env.dataOwnerDetails[hcp2Username].privateKey)),
+    }
+    await apiForHcp2.cryptoApi.cacheKeyPair(jwk2)
+    await apiForHcp2.cryptoApi.keyStorage.storeKeyPair(`${hcp2.id}.${env.dataOwnerDetails[hcp2Username].publicKey.slice(-32)}`, jwk)
+  })
+
   it('CreateMaintenanceTaskWithUser Success for HCP', async () => {
     // Given
     const taskToCreate = await maintenanceTaskToCreate(apiForHcp1.maintenanceTaskApi, hcp1User, hcp2)
@@ -163,7 +108,7 @@ describe('icc-x-maintenance-task-api Tests', () => {
     assert(foundTask.id == createdTask.id)
     assert(foundTask.properties?.find((prop: PropertyStub) => prop.typedValue?.stringValue == hcp2.id) != undefined)
     assert(foundTask.properties?.find((prop: PropertyStub) => prop.typedValue?.stringValue == hcp2.publicKey) != undefined)
-  })
+  }).timeout(30000)
 
   it('ModifyMaintenanceTaskWithUser Success for HCP', async () => {
     // Given
@@ -222,6 +167,9 @@ describe('icc-x-maintenance-task-api Tests', () => {
   })
 
   it('DeleteMaintenanceTaskWithUser Fails for non-delegated HCP', async () => {
+    const apiForHcp3 = await Api(env.iCureUrl, env.dataOwnerDetails[hcp3Username].user, env.dataOwnerDetails[hcp3Username].password, crypto)
+    const hcp3User = await apiForHcp3.userApi.getCurrentUser()
+
     // Given
     const createdTask: MaintenanceTask = await apiForHcp1.maintenanceTaskApi.createMaintenanceTaskWithUser(
       hcp1User,

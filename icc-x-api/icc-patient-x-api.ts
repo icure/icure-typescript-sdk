@@ -17,6 +17,7 @@ import { b2a, hex2ua, string2ua, ua2hex, ua2utf8, utf8_2ua } from './utils/binar
 import { findName, garnishPersonWithName, hasName } from './utils/person-util'
 import { crypt, decrypt, retry } from './utils'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
+import { AuthenticationProvider } from './auth/AuthenticationProvider'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccPatientXApi extends IccPatientApi {
@@ -47,13 +48,14 @@ export class IccPatientXApi extends IccPatientApi {
     dataOwnerApi: IccDataOwnerXApi,
     calendarItemaApi: IccCalendarItemXApi,
     encryptedKeys: Array<string> = ['note'],
+    authenticationProvider: AuthenticationProvider,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
       ? self.fetch
       : fetch
   ) {
-    super(host, headers, fetchImpl)
+    super(host, headers, authenticationProvider, fetchImpl)
     this.crypto = crypto
     this.contactApi = contactApi
     this.formApi = formApi
