@@ -35,7 +35,7 @@ describe('Test LocalStorageFacade abstraction', () => {
     const value = 'value'
     await testStorage.setItem(key, value)
     expect(await testStorage.getItem(key)).to.eq(value)
-    await testStorage.deleteItem(key)
+    await testStorage.removeItem(key)
     expect(await testStorage.getItem(key)).to.be.undefined
   })
 })

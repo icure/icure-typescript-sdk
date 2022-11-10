@@ -8,8 +8,8 @@ export class KeyStorageImpl implements KeyStorageFacade {
     this._storage = storage
   }
 
-  deleteKeypair(key: string): Promise<void> {
-    return this._storage.deleteItem(key)
+  async deleteKeypair(key: string): Promise<void> {
+    return await this._storage.removeItem(key)
   }
 
   async getKeypair(key: string): Promise<{ publicKey: JsonWebKey; privateKey: JsonWebKey } | undefined> {
