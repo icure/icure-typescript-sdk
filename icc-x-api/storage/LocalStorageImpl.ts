@@ -5,7 +5,7 @@ export class LocalStorageImpl implements StorageFacade<string> {
     return localStorage.getItem(key) ?? undefined
   }
 
-  async deleteItem(key: string): Promise<void> {
+  async removeItem(key: string): Promise<void> {
     return localStorage.removeItem(key)
   }
 

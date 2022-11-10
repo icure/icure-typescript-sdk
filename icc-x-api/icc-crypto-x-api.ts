@@ -1501,13 +1501,13 @@ export class IccCryptoXApi {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  saveKeychainValidityDateInBrowserLocalStorage(id: string, date: string) {
+  async saveKeychainValidityDateInBrowserLocalStorage(id: string, date: string) {
     if (!id) return
 
     if (!date) {
-      this._storage.deleteItem(this.keychainValidityDateLocalStoreIdPrefix + id)
+      await this._storage.removeItem(this.keychainValidityDateLocalStoreIdPrefix + id)
     } else {
-      this._storage.setItem(this.keychainValidityDateLocalStoreIdPrefix + id, date)
+      await this._storage.setItem(this.keychainValidityDateLocalStoreIdPrefix + id, date)
     }
   }
 
