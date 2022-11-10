@@ -16,15 +16,23 @@ import { Form } from '../model/Form'
 import { FormTemplate } from '../model/FormTemplate'
 import { IcureStub } from '../model/IcureStub'
 import { ListOfIds } from '../model/ListOfIds'
+import { AuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 
 export class IccFormApi {
   host: string
   headers: Array<XHR.Header>
+  authenticationProvider: AuthenticationProvider
   fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
 
-  constructor(host: string, headers: any, fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>) {
+  constructor(
+    host: string,
+    headers: any,
+    authenticationProvider: AuthenticationProvider,
+    fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
+  ) {
     this.host = host
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
+    this.authenticationProvider = authenticationProvider
     this.fetchImpl = fetchImpl
   }
 
@@ -48,7 +56,7 @@ export class IccFormApi {
     const _url = this.host + `/form` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Form(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -65,7 +73,7 @@ export class IccFormApi {
     const _url = this.host + `/form/template` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new FormTemplate(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -82,7 +90,7 @@ export class IccFormApi {
     const _url = this.host + `/form/batch` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Form(it)))
       .catch((err) => this.handleError(err))
   }
@@ -97,7 +105,7 @@ export class IccFormApi {
 
     const _url = this.host + `/form/template/${encodeURIComponent(String(formTemplateId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new DocIdentifier(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -112,7 +120,7 @@ export class IccFormApi {
 
     const _url = this.host + `/form/${encodeURIComponent(String(formIds))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
       .catch((err) => this.handleError(err))
   }
@@ -128,7 +136,7 @@ export class IccFormApi {
     const _url =
       this.host + `/form/template` + '?ts=' + new Date().getTime() + (loadLayout ? '&loadLayout=' + encodeURIComponent(String(loadLayout)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new FormTemplate(it)))
       .catch((err) => this.handleError(err))
   }
@@ -149,7 +157,7 @@ export class IccFormApi {
       new Date().getTime() +
       (loadLayout ? '&loadLayout=' + encodeURIComponent(String(loadLayout)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new FormTemplate(it)))
       .catch((err) => this.handleError(err))
   }
@@ -183,7 +191,7 @@ export class IccFormApi {
       (planOfActionId ? '&planOfActionId=' + encodeURIComponent(String(planOfActionId)) : '') +
       (formTemplateId ? '&formTemplateId=' + encodeURIComponent(String(formTemplateId)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Form(it)))
       .catch((err) => this.handleError(err))
   }
@@ -205,7 +213,7 @@ export class IccFormApi {
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
       (secretFKeys ? '&secretFKeys=' + encodeURIComponent(String(secretFKeys)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
       .catch((err) => this.handleError(err))
   }
@@ -222,7 +230,7 @@ export class IccFormApi {
     const _url =
       this.host + `/form/childrenOf/${encodeURIComponent(String(formId))}/${encodeURIComponent(String(hcPartyId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Form(it)))
       .catch((err) => this.handleError(err))
   }
@@ -237,7 +245,7 @@ export class IccFormApi {
 
     const _url = this.host + `/form/${encodeURIComponent(String(formId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Form(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -252,7 +260,7 @@ export class IccFormApi {
 
     const _url = this.host + `/form/logicalUuid/${encodeURIComponent(String(logicalUuid))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Form(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -267,7 +275,7 @@ export class IccFormApi {
 
     const _url = this.host + `/form/uniqueId/${encodeURIComponent(String(uniqueId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Form(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -282,7 +290,7 @@ export class IccFormApi {
 
     const _url = this.host + `/form/template/${encodeURIComponent(String(formTemplateId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new FormTemplate(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -302,7 +310,7 @@ export class IccFormApi {
       '?ts=' +
       new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new FormTemplate(it)))
       .catch((err) => this.handleError(err))
   }
@@ -319,7 +327,7 @@ export class IccFormApi {
     const _url = this.host + `/form/byIds` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Form(it)))
       .catch((err) => this.handleError(err))
   }
@@ -334,7 +342,7 @@ export class IccFormApi {
 
     const _url = this.host + `/form/all/logicalUuid/${encodeURIComponent(String(logicalUuid))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Form(it)))
       .catch((err) => this.handleError(err))
   }
@@ -349,7 +357,7 @@ export class IccFormApi {
 
     const _url = this.host + `/form/all/uniqueId/${encodeURIComponent(String(uniqueId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Form(it)))
       .catch((err) => this.handleError(err))
   }
@@ -366,7 +374,7 @@ export class IccFormApi {
     const _url = this.host + `/form` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Form(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -383,7 +391,7 @@ export class IccFormApi {
     const _url = this.host + `/form/batch` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Form(it)))
       .catch((err) => this.handleError(err))
   }
@@ -401,7 +409,7 @@ export class IccFormApi {
     const _url = this.host + `/form/delegate/${encodeURIComponent(String(formId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Form(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -418,7 +426,7 @@ export class IccFormApi {
     const _url = this.host + `/form/delegations` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
       .catch((err) => this.handleError(err))
   }
@@ -441,7 +449,7 @@ export class IccFormApi {
     const _url = this.host + `/form/template/${encodeURIComponent(String(formTemplateId))}/attachment/multipart` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'multipart/form-data'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => JSON.parse(JSON.stringify(doc.body)))
       .catch((err) => this.handleError(err))
   }
@@ -459,7 +467,7 @@ export class IccFormApi {
     const _url = this.host + `/form/template/${encodeURIComponent(String(formTemplateId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new FormTemplate(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
