@@ -13,7 +13,7 @@
     "uuid-encoder": "^1.1.0"
   },
   "devDependencies": {
-    "@icure/test-setup": "^0.0.15",
+    "@icure/test-setup": "^0.0.25",
     "@types/chai": "^4.3.0",
     "@types/isomorphic-fetch": "^0.0.36",
     "@types/lodash": "^4.14.182",
@@ -21,6 +21,7 @@
     "@types/mocha": "^9.1.0",
     "@types/node": "^16.11.41",
     "@types/node-localstorage": "^1.3.0",
+    "@types/react-dom": "^18.0.8",
     "@types/rsocket-core": "^0.0.7",
     "@types/rsocket-websocket-client": "^0.0.4",
     "@types/uuid": "^8.3.4",
