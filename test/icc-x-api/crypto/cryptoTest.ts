@@ -1,29 +1,28 @@
 /* make node behave */
-import { IccPatientApi } from '../../../icc-api/api/IccPatientApi'
+import { IccPatientApi } from '../../../icc-api'
 import { crypto } from '../../../node-compat'
 import { expect } from 'chai'
 import 'mocha'
 
-import { Api, pkcs8ToJwk } from '../../../icc-x-api'
-import { User } from '../../../icc-api/model/User'
+import { Api } from '../../../icc-x-api'
 import { Patient } from '../../../icc-api/model/Patient'
-import { hex2ua } from '../../../icc-x-api/utils/binary-utils'
+import { getEnvironmentInitializer, getEnvVariables, hcp1Username, hcp2Username, initKeys, TestVars } from '../../utils/test_utils'
+import { BasicAuthenticationProvider } from '../../../icc-x-api/auth/AuthenticationProvider'
 
-const iCureUrl = process.env.ICURE_URL ?? 'https://kraken.icure.dev/rest/v1'
-const hcp1UserName = process.env.HCP_USERNAME!
-const hcp1Password = process.env.HCP_PASSWORD!
-const hcp1PrivKey = process.env.HCP_PRIV_KEY!
-
-const hcp2UserName = process.env.HCP_2_USERNAME!
-const hcp2Password = process.env.HCP_2_PASSWORD!
-const hcp2PrivKey = process.env.HCP_2_PRIV_KEY!
+let env: TestVars | undefined
 
 describe('Create a patient from scratch', () => {
+  before(async function () {
+    this.timeout(600000)
+    const initializer = await getEnvironmentInitializer()
+    env = await initializer.execute(getEnvVariables())
+  })
+
   it('should create a patient in the database', async () => {
     try {
-      const api = await Api(iCureUrl, hcp1UserName, hcp1Password, crypto)
+      const api = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password, crypto)
       const user = await api.userApi.getCurrentUser()
-      await initKeys(api, user, hcp1PrivKey)
+      await initKeys(api, env!.dataOwnerDetails[hcp1Username].privateKey, env!.dataOwnerDetails[hcp1Username].publicKey)
 
       const patient = await api.patientApi.createPatientWithUser(
         user,
@@ -47,10 +46,9 @@ describe('Create a patient from scratch', () => {
       )
 
       const fetchedWithoutDecryption = await new IccPatientApi(
-        iCureUrl,
-        {
-          Authorization: `Basic ${Buffer.from(`${hcp1UserName}:${hcp1Password}`).toString('base64')}`,
-        },
+        env!.iCureUrl,
+        {},
+        new BasicAuthenticationProvider(env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password),
         fetch as any
       ).getPatient(patient.id)
 
@@ -64,14 +62,20 @@ describe('Create a patient from scratch', () => {
 })
 
 describe('Init confidential delegation in patient', () => {
+  before(async function () {
+    this.timeout(600000)
+    const initializer = await getEnvironmentInitializer()
+    env = await initializer.execute(getEnvVariables())
+  })
+
   it('should return a patient with a confidential delegation', async () => {
     try {
-      const api = await Api(iCureUrl, hcp1UserName, hcp1Password, crypto)
+      const api = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password, crypto)
       const user = await api.userApi.getCurrentUser()
-      await initKeys(api, user, hcp1PrivKey)
+      await initKeys(api, env!.dataOwnerDetails[hcp1Username].privateKey, env!.dataOwnerDetails[hcp1Username].publicKey)
 
       const pat = await api.patientApi.newInstance(user, { firstName: 'John', lastName: 'Doe' })
-      const modifiedPatient = await api.patientApi.initConfidentialDelegation(pat, user)
+      await api.patientApi.initConfidentialDelegation(pat, user)
 
       const confidentialDelegationKey = await api.cryptoApi.extractPreferredSfk(pat, user.healthcarePartyId!, true)
       const nonConfidentialDelegationKey = await api.cryptoApi.extractPreferredSfk(pat, user.healthcarePartyId!, false)
@@ -83,24 +87,18 @@ describe('Init confidential delegation in patient', () => {
   })
 })
 
-async function initKeys(api: any, user: User, userPrivKey: string) {
-  let id = api.userApi.getDataOwnerOf(user)!
-  while (id) {
-    await api.cryptoApi.loadKeyPairsAsTextInBrowserLocalStorage(id, hex2ua(userPrivKey)).catch((error: any) => {
-      console.error('Error: in loadKeyPairsAsTextInBrowserLocalStorage')
-      console.error(error)
-    })
-
-    id = (await api.cryptoApi.getDataOwner(id)).parentId
-  }
-}
-
 describe('Test that patient information can be decrypted', () => {
+  before(async function () {
+    this.timeout(600000)
+    const initializer = await getEnvironmentInitializer()
+    env = await initializer.execute(getEnvVariables())
+  })
+
   it('should return a contact with decrypted information', async () => {
     try {
-      const api = await Api(iCureUrl, hcp1UserName, hcp1Password, crypto)
+      const api = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password, crypto)
       const user = await api.userApi.getCurrentUser()
-      await initKeys(api, user, hcp1PrivKey)
+      await initKeys(api, env!.dataOwnerDetails[hcp1Username].privateKey, env!.dataOwnerDetails[hcp1Username].publicKey)
 
       const createdPat = await api.patientApi.createPatientWithUser(
         user,
@@ -130,11 +128,17 @@ describe('Test that patient information can be decrypted', () => {
 })
 
 describe('Test that contact information can be decrypted', () => {
+  before(async function () {
+    this.timeout(600000)
+    const initializer = await getEnvironmentInitializer()
+    env = await initializer.execute(getEnvVariables())
+  })
+
   it('should return a contact with decrypted information', async () => {
     try {
-      const api = await Api(iCureUrl, hcp1UserName, hcp1Password, crypto)
+      const api = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password, crypto)
       const user = await api.userApi.getCurrentUser()
-      await initKeys(api, user, hcp1PrivKey)
+      await initKeys(api, env!.dataOwnerDetails[hcp1Username].privateKey, env!.dataOwnerDetails[hcp1Username].publicKey)
 
       const pat = await api.patientApi.createPatientWithUser(user, await api.patientApi.newInstance(user, { firstName: 'John', lastName: 'Doe' }))
       const ctc = await api.contactApi.createContactWithUser(
@@ -178,14 +182,20 @@ describe('Test that contact information can be decrypted', () => {
   })
 })
 describe('test that confidential helement information cannot be retrieved at MH level', () => {
+  before(async function () {
+    this.timeout(600000)
+    const initializer = await getEnvironmentInitializer()
+    env = await initializer.execute(getEnvVariables())
+  })
+
   it('should find the confidential data only when logged as the user', async () => {
     try {
-      const api = await Api(iCureUrl, hcp1UserName, hcp1Password, crypto)
-      const mhapi = await Api(iCureUrl, hcp2UserName, hcp2Password, crypto)
+      const api = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password, crypto)
+      const mhapi = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp2Username].user, env!.dataOwnerDetails[hcp2Username].password, crypto)
       const user = await api.userApi.getCurrentUser()
       const mhUser = await mhapi.userApi.getCurrentUser()
-      await initKeys(api, user, hcp1PrivKey)
-      await initKeys(mhapi, mhUser, hcp2PrivKey)
+      await initKeys(api, env!.dataOwnerDetails[hcp1Username].privateKey, env!.dataOwnerDetails[hcp1Username].publicKey)
+      await initKeys(api, env!.dataOwnerDetails[hcp2Username].privateKey, env!.dataOwnerDetails[hcp2Username].publicKey)
 
       const pat = await api.patientApi.newInstance(user, { firstName: 'John', lastName: 'Doe' })
       const modifiedPatient = (await api.patientApi.initConfidentialDelegation(pat, user))!
@@ -206,14 +216,20 @@ describe('test that confidential helement information cannot be retrieved at MH 
 })
 
 describe('test that confidential contact information cannot be retrieved at MH level', () => {
+  before(async function () {
+    this.timeout(600000)
+    const initializer = await getEnvironmentInitializer()
+    env = await initializer.execute(getEnvVariables())
+  })
+
   it('should find the confidential data only when logged as the user', async () => {
     try {
-      const api = await Api(iCureUrl, hcp1UserName, hcp1Password, crypto)
-      const mhapi = await Api(iCureUrl, hcp2UserName, hcp2Password, crypto)
+      const api = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password, crypto)
+      const mhapi = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp2Username].user, env!.dataOwnerDetails[hcp2Username].password, crypto)
       const user = await api.userApi.getCurrentUser()
       const mhUser = await mhapi.userApi.getCurrentUser()
-      await initKeys(api, user, hcp1PrivKey)
-      await initKeys(mhapi, mhUser, hcp2PrivKey)
+      await initKeys(api, env!.dataOwnerDetails[hcp1Username].privateKey, env!.dataOwnerDetails[hcp1Username].publicKey)
+      await initKeys(api, env!.dataOwnerDetails[hcp2Username].privateKey, env!.dataOwnerDetails[hcp2Username].publicKey)
 
       const pat = await api.patientApi.newInstance(user, { firstName: 'John', lastName: 'Doe' })
       const modifiedPatient = (await api.patientApi.initConfidentialDelegation(pat, user))!
