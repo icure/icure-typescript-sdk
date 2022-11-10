@@ -5,54 +5,54 @@ import { LoginCredentials } from '../../icc-api/model/LoginCredentials'
 import Header = XHR.Header
 
 export class JwtAuthService implements AuthService {
-  private error: Error | null = null
-  private _authJwt: string | undefined
-  private _refreshJwt: string | undefined
-  private _currentPromise: Promise<Array<XHR.Header>> = Promise.resolve([])
+  private _error: Error | null = null
+  private _currentPromise: Promise<{ authJwt?: string; refreshJwt?: string }> = Promise.resolve({})
 
   constructor(private authApi: IccAuthApi, private username: string, private password: string) {}
 
   async getAuthHeaders(): Promise<Array<Header>> {
-    return this._currentPromise.then(() => {
-      if (!this._authJwt || this._isJwtExpired(this._authJwt)) {
-        // If it does not have the JWT, tries to get it
-        // If the JWT is expired, tries to refresh it
+    return this._currentPromise
+      .then(({ authJwt, refreshJwt }) => {
+        if (!authJwt || this._isJwtExpired(authJwt)) {
+          // If it does not have the JWT, tries to get it
+          // If the JWT is expired, tries to refresh it
 
-        this._currentPromise = this._refreshAuthJwt().then((updatedTokens) => {
-          // If here the token is null,
-          // it goes in a suspension status
-          if (!updatedTokens.token) {
-            throw new Error('Your iCure back-end version does not support JWT authentication')
-          }
+          this._currentPromise = this._refreshAuthJwt(refreshJwt).then((updatedTokens) => {
+            // If here the token is null,
+            // it goes in a suspension status
+            if (!updatedTokens.authJwt) {
+              throw new Error('Your iCure back-end version does not support JWT authentication')
+            }
 
-          this._authJwt = updatedTokens.token
-          this._refreshJwt = updatedTokens.refreshToken
-          return Promise.resolve([new XHR.Header('Authorization', `Bearer ${this._authJwt}`)])
-        })
-      } else if (!!this.error) {
-        throw this.error
-      } else {
-        this._currentPromise = Promise.resolve([new XHR.Header('Authorization', `Bearer ${this._authJwt}`)])
-      }
+            return updatedTokens
+          })
+        } else if (!!this._error) {
+          throw this._error
+        } else {
+          this._currentPromise = Promise.resolve({})
+        }
 
-      return this._currentPromise
-    })
+        return this._currentPromise
+      })
+      .then(({ authJwt }) => {
+        return [new XHR.Header('Authorization', `Bearer ${authJwt}`)]
+      })
   }
 
-  private async _refreshAuthJwt(): Promise<{ token: string | undefined; refreshToken: string | undefined }> {
+  private async _refreshAuthJwt(refreshJwt: string | undefined): Promise<{ authJwt?: string; refreshJwt?: string }> {
     // If I do not have a refresh JWT or the refresh JWT is expired,
     // I have to log in again
-    if (!this._refreshJwt || this._isJwtExpired(this._refreshJwt)) {
+    if (!refreshJwt || this._isJwtExpired(refreshJwt)) {
       return this._loginAndGetTokens()
     } else {
-      return this.authApi.refreshAuthenticationJWT(this._refreshJwt).then((refreshResponse) => ({
-        token: refreshResponse.token,
-        refreshToken: this._refreshJwt,
+      return this.authApi.refreshAuthenticationJWT(refreshJwt).then((refreshResponse) => ({
+        authJwt: refreshResponse.token,
+        refreshJwt: refreshJwt,
       }))
     }
   }
 
-  private async _loginAndGetTokens(): Promise<{ token: string | undefined; refreshToken: string | undefined }> {
+  private async _loginAndGetTokens(): Promise<{ authJwt?: string; refreshJwt?: string }> {
     return this.authApi
       .login(
         new LoginCredentials({
@@ -61,8 +61,8 @@ export class JwtAuthService implements AuthService {
         })
       )
       .then((authResponse) => ({
-        token: authResponse.token,
-        refreshToken: authResponse.refreshToken,
+        authJwt: authResponse.token,
+        refreshJwt: authResponse.refreshToken,
       }))
   }
 
@@ -80,10 +80,10 @@ export class JwtAuthService implements AuthService {
   }
 
   invalidateHeader(error: Error): void {
-    this.error = error
+    this._error = error
   }
 
   isInErrorState(): boolean {
-    return !!this.error
+    return !!this._error
   }
 }
