@@ -1,55 +1,26 @@
-import { execSync } from 'child_process'
-import { Api, Apis, b2a, hex2ua, IccCryptoXApi, pkcs8ToJwk, retry, spkiToJwk, ua2hex } from '../../../icc-x-api'
-import { v4 as uuid } from 'uuid'
-import { XHR } from '../../../icc-api/api/XHR'
-import { Patient } from '../../../icc-api/model/Patient'
+import { Api, Apis, hex2ua, pkcs8ToJwk, spkiToJwk } from '../../../icc-x-api'
 import { CalendarItem } from '../../../icc-api/model/CalendarItem'
-import { FilterChainMaintenanceTask, HealthcareParty, MaintenanceTask, PaginatedListMaintenanceTask, User } from '../../../icc-api/model/models'
+import { FilterChainMaintenanceTask, MaintenanceTask, PaginatedListMaintenanceTask } from '../../../icc-api/model/models'
 import { before, describe, it } from 'mocha'
 
 import { webcrypto } from 'crypto'
 import 'isomorphic-fetch'
-import { tmpdir } from 'os'
 
-import { IccPatientApi } from '../../../icc-api'
 import { expect } from 'chai'
-
-import { TextDecoder, TextEncoder } from 'util'
 import { MaintenanceTaskAfterDateFilter } from '../../../icc-x-api/filters/MaintenanceTaskAfterDateFilter'
-;(global as any).localStorage = new (require('node-localstorage').LocalStorage)(tmpdir(), 5 * 1024 * 1024 * 1024)
-;(global as any).fetch = fetch
-;(global as any).Storage = ''
-;(global as any).TextDecoder = TextDecoder
-;(global as any).TextEncoder = TextEncoder
-
-const DB_PORT = 15984
-const AS_PORT = 16044
-
-const privateKeys = {} as Record<string, Record<string, string>>
-
-let newPatientUser: User | undefined = undefined
-let newPatient: Patient | undefined = undefined
-let delegateUser: User | undefined = undefined
-let delegateHcp: HealthcareParty | undefined = undefined
-
-async function makeKeyPair(cryptoApi: IccCryptoXApi, login: string) {
-  const { publicKey, privateKey } = await cryptoApi.RSA.generateKeyPair()
-  const publicKeyHex = ua2hex(await cryptoApi.RSA.exportKey(publicKey!, 'spki'))
-  privateKeys[login] = { [publicKeyHex]: ua2hex((await cryptoApi.RSA.exportKey(privateKey!, 'pkcs8')) as ArrayBuffer) }
-  return publicKeyHex
-}
-
-async function getApiAndAddPrivateKeysForUser(u: User) {
-  const api = await Api(`http://127.0.0.1:${AS_PORT}/rest/v1`, u.login!, 'admin', webcrypto as unknown as Crypto, fetch, true)
-  await Object.entries(privateKeys[u.login!]).reduce(async (p, [pubKey, privKey]) => {
-    await p
-    await api.cryptoApi.cacheKeyPair({ publicKey: spkiToJwk(hex2ua(pubKey)), privateKey: pkcs8ToJwk(hex2ua(privKey)) })
-  }, Promise.resolve())
-  return api
-}
+import {
+  getApiAndAddPrivateKeysForUser,
+  getEnvironmentInitializer,
+  getEnvVariables,
+  hcp1Username,
+  patUsername,
+  setLocalStorage,
+  TestVars,
+} from '../../utils/test_utils'
 
 async function _getHcpKeyUpdateMaintenanceTask(delegateApi: Apis): Promise<MaintenanceTask> {
-  const notifs: PaginatedListMaintenanceTask = await delegateApi.maintenanceTaskApi.filterMaintenanceTasksByWithUser(
+  const delegateUser = await delegateApi.userApi.getCurrentUser()
+  const notifications: PaginatedListMaintenanceTask = await delegateApi.maintenanceTaskApi.filterMaintenanceTasksByWithUser(
     delegateUser!,
     undefined,
     undefined,
@@ -60,130 +31,28 @@ async function _getHcpKeyUpdateMaintenanceTask(delegateApi: Apis): Promise<Maint
     })
   )
 
-  return notifs.rows!.sort((a, b) => a.created! - b.created!)[notifs.rows!.length - 1]
+  return notifications.rows!.sort((a, b) => a.created! - b.created!)[notifications.rows!.length - 1]
 }
 
+setLocalStorage(fetch)
+
+let env: TestVars | undefined
+
 describe('Full battery of tests on crypto and keys', async function () {
-  this.timeout(600000)
-
   before(async function () {
-    this.timeout(300000)
-
-    const couchdbUser = process.env['ICURE_COUCHDB_USERNAME'] ?? 'icure'
-    const couchdbPassword = process.env['ICURE_COUCHDB_PASSWORD'] ?? 'icure'
-
-    let dbLaunched = false
-    try {
-      dbLaunched = !!(await XHR.sendCommand('GET', `http://127.0.0.1:${DB_PORT}`, null))
-    } catch (e) {}
-
-    if (!dbLaunched) {
-      try {
-        execSync('docker compose up -d')
-      } catch (e) {}
-    } else {
-      try {
-        //Cleanup
-        const tbd = (
-          await XHR.sendCommand('GET', `http://127.0.0.1:${DB_PORT}/icure-base/_all_docs`, [
-            new XHR.Header('Content-type', 'application/json'),
-            new XHR.Header('Authorization', `Basic ${b2a(`${couchdbUser}:${couchdbPassword}`)}`),
-          ])
-        ).body.rows
-          .filter((r: any) => r.id.startsWith('user-'))
-          .map((it: any) => ({ _id: it.id, _rev: it.value.rev, deleted: true }))
-        await XHR.sendCommand(
-          'POST',
-          `http://127.0.0.1:${DB_PORT}/icure-base/_bulk_docs`,
-          [new XHR.Header('Content-type', 'application/json'), new XHR.Header('Authorization', `Basic ${b2a(`${couchdbUser}:${couchdbPassword}`)}`)],
-          { docs: tbd }
-        )
-      } catch (e) {
-        //ignore
-      }
-    }
-
-    await retry(() => XHR.sendCommand('GET', `http://127.0.0.1:${AS_PORT}/rest/v1/icure/v`, null), 100, 5000)
-    const hashedAdmin = '{R0DLKxxRDxdtpfY542gOUZbvWkfv1KWO9QOi9yvr/2c=}39a484cbf9057072623177422172e8a173bd826d68a2b12fa8e36ff94a44a0d7'
-
-    await retry(
-      () =>
-        XHR.sendCommand(
-          'POST',
-          `http://127.0.0.1:${DB_PORT}/icure-base`,
-          [new XHR.Header('Content-type', 'application/json'), new XHR.Header('Authorization', `Basic ${b2a(`${couchdbUser}:${couchdbPassword}`)}`)],
-          { _id: uuid(), login: 'admin', status: 'ACTIVE', java_type: 'org.taktik.icure.entities.User', passwordHash: hashedAdmin }
-        ),
-      100
-    )
-
-    const api = await Api(`http://127.0.0.1:${AS_PORT}/rest/v1`, 'admin', 'admin', webcrypto as unknown as Crypto)
-    const { userApi, healthcarePartyApi, cryptoApi } = api
-    const user = await retry(() => {
-      return userApi.getCurrentUser()
-    }, 100)
-
-    if (user) {
-      const patientBaseApi = new IccPatientApi(`http://127.0.0.1:${AS_PORT}/rest/v1`, {
-        Authorization: `Basic ${b2a(`${user.id}:admin`)}`,
-      })
-
-      const publicKeyDelegate = await makeKeyPair(cryptoApi, `hcp-delegate`)
-      const publicKeyParent = await makeKeyPair(cryptoApi, `hcp-parent`)
-
-      const parentHcp = await healthcarePartyApi.createHealthcareParty(
-        new HealthcareParty({ id: uuid(), publicKey: publicKeyParent, firstName: 'parent', lastName: 'parent' }) //FIXME Shouldn't we call addNewKeyPair directly, instead of initialising like before ?
-      )
-
-      delegateHcp = await healthcarePartyApi.createHealthcareParty(
-        new HealthcareParty({ id: uuid(), publicKey: publicKeyDelegate, firstName: 'test', lastName: 'test', parentId: parentHcp.id }) //FIXME Shouldn't we call addNewKeyPair directly, instead of initialising like before ?
-      )
-
-      delegateUser = await userApi.createUser(
-        new User({
-          id: `user-${uuid()}-hcp`,
-          login: `hcp-delegate`,
-          status: 'ACTIVE',
-          passwordHash: hashedAdmin,
-          healthcarePartyId: delegateHcp.id,
-        })
-      )
-
-      const publicKeyPatient = await makeKeyPair(cryptoApi, `patient`)
-      newPatient = await patientBaseApi.createPatient(new Patient({ id: uuid(), publicKey: publicKeyPatient, firstName: 'test', lastName: 'test' }))
-
-      newPatientUser = await userApi.createUser(
-        new User({
-          id: `user-${uuid()}-patient`,
-          login: `patient`,
-          status: 'ACTIVE',
-          passwordHash: hashedAdmin,
-          patientId: newPatient.id,
-        })
-      )
-    }
-
-    console.log('All prerequisites are started')
+    this.timeout(600000)
+    const initializer = await getEnvironmentInitializer()
+    env = await initializer.execute(getEnvVariables())
   })
 
-  after(async () => {
-    /*
-    try {
-      execSync('docker rm -f couchdb-test')
-    } catch (e) {}
-    try {
-      execSync('docker rm -f icure-oss-test')
-    } catch (e) {}
-    try {
-      execSync('docker network rm network-test')
-    } catch (e) {}
-    */
-    console.log('Cleanup complete')
-  })
-  it(`Create calendar item as a patient}`, async () => {
-    const u = newPatientUser!
-    const previousPubKey = Object.keys(privateKeys[u.login!])[0]
-    const api = await getApiAndAddPrivateKeysForUser(u)
+  it(`Create calendar item as a patient`, async () => {
+    const previousPubKey = env!.dataOwnerDetails[patUsername].publicKey
+    const api = await getApiAndAddPrivateKeysForUser(env!.iCureUrl, env!.dataOwnerDetails[patUsername])
+    const u = await api.userApi.getCurrentUser()
+
+    const delegateApi = await getApiAndAddPrivateKeysForUser(env!.iCureUrl, env!.dataOwnerDetails[hcp1Username])
+    const delegateUser = await delegateApi.userApi.getCurrentUser()
+    const delegateHcp = await delegateApi.healthcarePartyApi.getHealthcareParty(delegateUser.healthcarePartyId!)
 
     const patient = await api.patientApi.getPatientWithUser(u, u.patientId!)
     const patientWithDelegation = await api.patientApi.modifyPatientWithUser(
@@ -204,35 +73,37 @@ describe('Full battery of tests on crypto and keys', async function () {
     // Create a Record with original key
     const initialRecord = await api.calendarItemApi.newInstance(u, new CalendarItem({ id: `${u.id}-ci-initial`, title: 'CI-INITIAL' }), [
       delegateHcp!.id!,
-      delegateHcp!.parentId!,
     ])
     const savedInitialRecord = await api.calendarItemApi.createCalendarItemWithHcParty(u, initialRecord)
 
-    // User lost his key
-    privateKeys[u.login!] = {}
-
     // And creates a new one
-    const apiAfterLossOfKey = await getApiAndAddPrivateKeysForUser(u)
-    const user = await apiAfterLossOfKey.userApi.getCurrentUser()
-    const { privateKey, publicKey } = await apiAfterLossOfKey.cryptoApi.addNewKeyPairForOwnerId(
-      apiAfterLossOfKey.maintenanceTaskApi,
+    const apiAfterNewKey = await Api(
+      env!.iCureUrl,
+      env!.dataOwnerDetails[patUsername].user,
+      env!.dataOwnerDetails[patUsername].password,
+      webcrypto as unknown as Crypto,
+      fetch
+    )
+    const user = await apiAfterNewKey.userApi.getCurrentUser()
+    const { privateKey, publicKey } = await apiAfterNewKey.cryptoApi.addNewKeyPairForOwnerId(
+      apiAfterNewKey.maintenanceTaskApi,
       user,
       (user.healthcarePartyId ?? user.patientId)!,
       false
     )
 
-    privateKeys[user.login!] = { [publicKey]: privateKey }
-
-    const apiAfterNewKey = await getApiAndAddPrivateKeysForUser(user)
+    const jwk = {
+      publicKey: spkiToJwk(hex2ua(publicKey)),
+      privateKey: pkcs8ToJwk(hex2ua(privateKey)),
+    }
+    await apiAfterNewKey.cryptoApi.cacheKeyPair(jwk)
+    await apiAfterNewKey.cryptoApi.keyStorage.storeKeyPair(`${user.patientId!}.${publicKey.slice(-32)}`, jwk)
 
     // User can get not encrypted information from iCure (HCP, ...)
     const hcp = await apiAfterNewKey.healthcarePartyApi.getHealthcareParty(delegateUser!.healthcarePartyId!)
 
     // User can create new data, using its new keyPair
-    const newRecord = await apiAfterNewKey.calendarItemApi.newInstance(u, new CalendarItem({ id: `${u.id}-ci`, title: 'CI' }), [
-      hcp!.id!,
-      hcp!.parentId!,
-    ])
+    const newRecord = await apiAfterNewKey.calendarItemApi.newInstance(u, new CalendarItem({ id: `${u.id}-ci`, title: 'CI' }), [hcp!.id!])
     const entity = await apiAfterNewKey.calendarItemApi.createCalendarItemWithHcParty(u, newRecord)
     expect(entity.id).to.be.not.null
     expect(entity.rev).to.be.not.null
@@ -244,7 +115,6 @@ describe('Full battery of tests on crypto and keys', async function () {
     expect(initialRecordAfterNewKey.title).to.be.undefined
 
     // Delegate user will therefore give user access back to data he previously created
-    const delegateApi = await getApiAndAddPrivateKeysForUser(delegateUser!)
 
     // Hcp gets his maintenance tasks
     const maintenanceTask = await _getHcpKeyUpdateMaintenanceTask(delegateApi)
@@ -266,7 +136,19 @@ describe('Full battery of tests on crypto and keys', async function () {
     expect(updatedDataOwner.dataOwner.aesExchangeKeys![previousPubKey][delegateUser!.healthcarePartyId!][publicKey.slice(-32)]).to.be.not.undefined
     expect(updatedDataOwner.dataOwner.aesExchangeKeys![previousPubKey][delegateUser!.healthcarePartyId!][publicKey.slice(-32)]).to.be.not.null
 
-    const apiAfterSharedBack = await getApiAndAddPrivateKeysForUser(user)
+    const apiAfterSharedBack = await Api(
+      env!.iCureUrl,
+      env!.dataOwnerDetails[patUsername].user,
+      env!.dataOwnerDetails[patUsername].password,
+      webcrypto as unknown as Crypto,
+      fetch
+    )
+    const newJwk = {
+      publicKey: spkiToJwk(hex2ua(publicKey)),
+      privateKey: pkcs8ToJwk(hex2ua(privateKey)),
+    }
+    await apiAfterSharedBack.cryptoApi.cacheKeyPair(newJwk)
+    await apiAfterSharedBack.cryptoApi.keyStorage.storeKeyPair(`${user.patientId!}.${publicKey.slice(-32)}`, newJwk)
 
     const decryptedAesWithNewKey = await apiAfterSharedBack.cryptoApi.decryptHcPartyKey(
       user.patientId!,
