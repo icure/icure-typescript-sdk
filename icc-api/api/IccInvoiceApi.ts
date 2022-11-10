@@ -19,15 +19,23 @@ import { InvoicingCode } from '../model/InvoicingCode'
 import { LabelledOccurence } from '../model/LabelledOccurence'
 import { ListOfIds } from '../model/ListOfIds'
 import { PaginatedListInvoice } from '../model/PaginatedListInvoice'
+import { AuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 
 export class IccInvoiceApi {
   host: string
   headers: Array<XHR.Header>
+  authenticationProvider: AuthenticationProvider
   fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
 
-  constructor(host: string, headers: any, fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>) {
+  constructor(
+    host: string,
+    headers: any,
+    authenticationProvider: AuthenticationProvider,
+    fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
+  ) {
     this.host = host
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
+    this.authenticationProvider = authenticationProvider
     this.fetchImpl = fetchImpl
   }
 
@@ -77,7 +85,7 @@ export class IccInvoiceApi {
       (gracePeriod ? '&gracePeriod=' + encodeURIComponent(String(gracePeriod)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
       .catch((err) => this.handleError(err))
   }
@@ -94,7 +102,7 @@ export class IccInvoiceApi {
     const _url = this.host + `/invoice` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Invoice(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -111,7 +119,7 @@ export class IccInvoiceApi {
     const _url = this.host + `/invoice/batch` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
       .catch((err) => this.handleError(err))
   }
@@ -126,7 +134,7 @@ export class IccInvoiceApi {
 
     const _url = this.host + `/invoice/${encodeURIComponent(String(invoiceId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new DocIdentifier(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -143,7 +151,7 @@ export class IccInvoiceApi {
     const _url = this.host + `/invoice/filter` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
       .catch((err) => this.handleError(err))
   }
@@ -179,7 +187,7 @@ export class IccInvoiceApi {
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListInvoice(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -201,7 +209,7 @@ export class IccInvoiceApi {
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
       (secretFKeys ? '&secretFKeys=' + encodeURIComponent(String(secretFKeys)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
       .catch((err) => this.handleError(err))
   }
@@ -223,7 +231,7 @@ export class IccInvoiceApi {
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
       (secretFKeys ? '&secretFKeys=' + encodeURIComponent(String(secretFKeys)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
       .catch((err) => this.handleError(err))
   }
@@ -238,7 +246,7 @@ export class IccInvoiceApi {
 
     const _url = this.host + `/invoice/${encodeURIComponent(String(invoiceId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Invoice(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -255,7 +263,7 @@ export class IccInvoiceApi {
     const _url = this.host + `/invoice/byIds` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
       .catch((err) => this.handleError(err))
   }
@@ -270,7 +278,7 @@ export class IccInvoiceApi {
 
     const _url = this.host + `/invoice/codes/${encodeURIComponent(String(minOccurences))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new LabelledOccurence(it)))
       .catch((err) => this.handleError(err))
   }
@@ -296,7 +304,7 @@ export class IccInvoiceApi {
       (to ? '&to=' + encodeURIComponent(String(to)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
       .catch((err) => this.handleError(err))
   }
@@ -313,7 +321,7 @@ export class IccInvoiceApi {
     const _url = this.host + `/invoice/byCtcts` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
       .catch((err) => this.handleError(err))
   }
@@ -333,7 +341,7 @@ export class IccInvoiceApi {
       '?ts=' +
       new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
       .catch((err) => this.handleError(err))
   }
@@ -368,7 +376,7 @@ export class IccInvoiceApi {
       (from ? '&from=' + encodeURIComponent(String(from)) : '') +
       (to ? '&to=' + encodeURIComponent(String(to)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
       .catch((err) => this.handleError(err))
   }
@@ -395,7 +403,7 @@ export class IccInvoiceApi {
       (from ? '&from=' + encodeURIComponent(String(from)) : '') +
       (to ? '&to=' + encodeURIComponent(String(to)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
       .catch((err) => this.handleError(err))
   }
@@ -410,7 +418,7 @@ export class IccInvoiceApi {
 
     const _url = this.host + `/invoice/byIds/${encodeURIComponent(String(invoiceIds))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
       .catch((err) => this.handleError(err))
   }
@@ -425,7 +433,7 @@ export class IccInvoiceApi {
 
     const _url = this.host + `/invoice/to/${encodeURIComponent(String(recipientIds))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
       .catch((err) => this.handleError(err))
   }
@@ -440,7 +448,7 @@ export class IccInvoiceApi {
 
     const _url = this.host + `/invoice/byServiceIds/${encodeURIComponent(String(serviceIds))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
       .catch((err) => this.handleError(err))
   }
@@ -456,7 +464,7 @@ export class IccInvoiceApi {
     const _url =
       this.host + `/invoice/toInsurances` + '?ts=' + new Date().getTime() + (userIds ? '&userIds=' + encodeURIComponent(String(userIds)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
       .catch((err) => this.handleError(err))
   }
@@ -472,7 +480,7 @@ export class IccInvoiceApi {
     const _url =
       this.host + `/invoice/toInsurances/unsent` + '?ts=' + new Date().getTime() + (userIds ? '&userIds=' + encodeURIComponent(String(userIds)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
       .catch((err) => this.handleError(err))
   }
@@ -488,7 +496,7 @@ export class IccInvoiceApi {
     const _url =
       this.host + `/invoice/toPatients` + '?ts=' + new Date().getTime() + (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
       .catch((err) => this.handleError(err))
   }
@@ -508,7 +516,7 @@ export class IccInvoiceApi {
       new Date().getTime() +
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
       .catch((err) => this.handleError(err))
   }
@@ -526,7 +534,7 @@ export class IccInvoiceApi {
     const _url = this.host + `/invoice/mergeTo/${encodeURIComponent(String(invoiceId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Invoice(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -543,7 +551,7 @@ export class IccInvoiceApi {
     const _url = this.host + `/invoice` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Invoice(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -560,7 +568,7 @@ export class IccInvoiceApi {
     const _url = this.host + `/invoice/batch` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
       .catch((err) => this.handleError(err))
   }
@@ -578,7 +586,7 @@ export class IccInvoiceApi {
     const _url = this.host + `/invoice/${encodeURIComponent(String(invoiceId))}/delegate` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Invoice(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -595,7 +603,7 @@ export class IccInvoiceApi {
     const _url = this.host + `/invoice/reassign` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Invoice(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -620,7 +628,7 @@ export class IccInvoiceApi {
       (secretFKeys ? '&secretFKeys=' + encodeURIComponent(String(secretFKeys)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
       .catch((err) => this.handleError(err))
   }
@@ -637,7 +645,7 @@ export class IccInvoiceApi {
     const _url = this.host + `/invoice/delegations` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
       .catch((err) => this.handleError(err))
   }
@@ -660,7 +668,7 @@ export class IccInvoiceApi {
       (scheme ? '&scheme=' + encodeURIComponent(String(scheme)) : '') +
       (forcedValue ? '&forcedValue=' + encodeURIComponent(String(forcedValue)) : '')
     let headers = this.headers
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Invoice(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }

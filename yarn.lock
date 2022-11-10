@@ -213,12 +213,29 @@
   dependencies:
     "@cspotcode/source-map-consumer" "0.8.0"
 
-"@icure/test-setup@^0.0.15":
-  version "0.0.15"
-  resolved "https://registry.yarnpkg.com/@icure/test-setup/-/test-setup-0.0.15.tgz#33d3a5888a241258e5933dca3efa7139ce7820fd"
-  integrity sha512-fbk/guwyxLq5DPS5lRuytgT1ywUyESbdF0mVxatZagrQGCDhalcw57zE7J577E8Ep+M2rbflVxnA9d2Ml48cbQ==
+"@icure/api@^6.0.0":
+  version "6.0.1"
+  resolved "https://registry.yarnpkg.com/@icure/api/-/api-6.0.1.tgz#18dc9c5a2f3527a55d7480f282eab220da4c8048"
+  integrity sha512-FlRuhwdtdmirBDXBHWkR5N0DbAtPZOIX5IHp/KAuz6zXjmDaL+6KB17NmhKDXMtHO0PD3uwnJ7SkAb2XJxsaoQ==
   dependencies:
+    date-fns "^2.23.0"
+    libphonenumber-js "^1.7.18"
+    lodash "^4.17.21"
+    moment "^2.22.1"
+    text-encoding "^0.7.0"
+    uuid "^8.3.2"
+    uuid-encoder "^1.1.0"
+
+"@icure/test-setup@^0.0.27":
+  version "0.0.27"
+  resolved "https://registry.yarnpkg.com/@icure/test-setup/-/test-setup-0.0.27.tgz#6e8249d9f48ea3d90c9b6529c2d026f7bed139bd"
+  integrity sha512-O96DZipbuq8edg61B04d9tGq21NPLnHP0ao1t3P0YxqFTaBPMZBCGvQQnfUc5z7kwiwcoY9VJlFBTu+Xg+cqiw==
+  dependencies:
+    "@icure/api" "^6.0.0"
+    "@types/react-dom" "^18.0.6"
     date-fns "^2.3.0"
+    isomorphic-fetch "^3.0.0"
+    node-localstorage "^2.2.1"
     uuid "^3.3.2"
 
 "@istanbuljs/load-nyc-config@^1.0.0":
@@ -309,6 +326,27 @@
   resolved "https://registry.yarnpkg.com/@types/node/-/node-16.11.41.tgz#88eb485b1bfdb4c224d878b7832239536aa2f813"
   integrity sha512-mqoYK2TnVjdkGk8qXAVGc/x9nSaTpSrFaGFm43BUH3IdoBV0nta6hYaGmdOvIMlbHJbUEVen3gvwpwovAZKNdQ==
 
+"@types/prop-types@*":
+  version "15.7.5"
+  resolved "https://registry.yarnpkg.com/@types/prop-types/-/prop-types-15.7.5.tgz#5f19d2b85a98e9558036f6a3cacc8819420f05cf"
+  integrity sha512-JCB8C6SnDoQf0cNycqd/35A7MjcnK+ZTqE7judS6o7utxUCg6imJg3QK2qzHKszlTjcj2cn+NwMB2i96ubpj7w==
+
+"@types/react-dom@^18.0.6", "@types/react-dom@^18.0.8":
+  version "18.0.8"
+  resolved "https://registry.yarnpkg.com/@types/react-dom/-/react-dom-18.0.8.tgz#d2606d855186cd42cc1b11e63a71c39525441685"
+  integrity sha512-C3GYO0HLaOkk9dDAz3Dl4sbe4AKUGTCfFIZsz3n/82dPNN8Du533HzKatDxeUYWu24wJgMP1xICqkWk1YOLOIw==
+  dependencies:
+    "@types/react" "*"
+
+"@types/react@*":
+  version "18.0.24"
+  resolved "https://registry.yarnpkg.com/@types/react/-/react-18.0.24.tgz#2f79ed5b27f08d05107aab45c17919754cc44c20"
+  integrity sha512-wRJWT6ouziGUy+9uX0aW4YOJxAY0bG6/AOk5AW5QSvZqI7dk6VBIbXvcVgIw/W5Jrl24f77df98GEKTJGOLx7Q==
+  dependencies:
+    "@types/prop-types" "*"
+    "@types/scheduler" "*"
+    csstype "^3.0.2"
+
 "@types/rsocket-core@*", "@types/rsocket-core@^0.0.7":
   version "0.0.7"
   resolved "https://registry.yarnpkg.com/@types/rsocket-core/-/rsocket-core-0.0.7.tgz#e9ed6d9ec918ec7a9aab0c48fefbb74b33712235"
@@ -341,6 +379,11 @@
     "@types/rsocket-core" "*"
     "@types/rsocket-flowable" "*"
     "@types/rsocket-types" "*"
+
+"@types/scheduler@*":
+  version "0.16.2"
+  resolved "https://registry.yarnpkg.com/@types/scheduler/-/scheduler-0.16.2.tgz#1a62f89525723dde24ba1b01b092bf5df8ad4d39"
+  integrity sha512-hppQEBDmlwhFAXKJX2KnWLYu5yMfi91yazPb2l+lbJiwW+wdo1gNeRA+3RgNSO39WYX2euey41KEwnqesU2Jew==
 
 "@types/uuid@^8.3.4":
   version "8.3.4"
@@ -691,6 +734,11 @@ crypt@0.0.2:
   version "0.0.2"
   resolved "https://registry.yarnpkg.com/crypt/-/crypt-0.0.2.tgz#88d7ff7ec0dfb86f713dc87bbb42d044d3e6c41b"
   integrity sha512-mCxBlsHFYh9C+HVpiEacem8FEBnMXgU9gy4zmNC+SXAZNB/1idgp/aulFJ4FgCi7GPEVbfyng092GqL2k2rmow==
+
+csstype@^3.0.2:
+  version "3.1.1"
+  resolved "https://registry.yarnpkg.com/csstype/-/csstype-3.1.1.tgz#841b532c45c758ee546a11d5bd7b7b473c8c30b9"
+  integrity sha512-DJR/VvkAvSZW9bTouZue2sSxDwdTN92uHjqeKVm+0dAqdfNykRzQ95tay8aXMBAAPpUiq4Qcug2L7neoRh2Egw==
 
 date-fns@^2.23.0:
   version "2.25.0"
