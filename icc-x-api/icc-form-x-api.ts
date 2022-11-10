@@ -6,6 +6,7 @@ import * as models from '../icc-api/model/models'
 
 import { a2b, hex2ua, string2ua, ua2string } from './utils/binary-utils'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
+import { AuthenticationProvider } from './auth/AuthenticationProvider'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccFormXApi extends IccFormApi {
@@ -17,13 +18,14 @@ export class IccFormXApi extends IccFormApi {
     headers: { [key: string]: string },
     crypto: IccCryptoXApi,
     dataOwnerApi: IccDataOwnerXApi,
+    authenticationProvider: AuthenticationProvider,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
       ? self.fetch
       : fetch
   ) {
-    super(host, headers, fetchImpl)
+    super(host, headers, authenticationProvider, fetchImpl)
     this.crypto = crypto
     this.dataOwnerApi = dataOwnerApi
   }

@@ -7,6 +7,7 @@ import * as models from '../icc-api/model/models'
 
 import { a2b, hex2ua, string2ua, ua2string } from './utils/binary-utils'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
+import { AuthenticationProvider } from './auth/AuthenticationProvider'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccDocumentXApi extends IccDocumentApi {
@@ -542,6 +543,7 @@ export class IccDocumentXApi extends IccDocumentApi {
     'x-music/x-midi': 'public.midi',
   }
   dataOwnerApi: IccDataOwnerXApi
+  authenticationProvider: AuthenticationProvider
 
   constructor(
     host: string,
@@ -549,14 +551,16 @@ export class IccDocumentXApi extends IccDocumentApi {
     private crypto: IccCryptoXApi,
     private authApi: IccAuthApi,
     dataOwnerApi: IccDataOwnerXApi,
+    authenticationProvider: AuthenticationProvider,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
       ? self.fetch
       : fetch
   ) {
-    super(host, headers, fetchImpl)
+    super(host, headers, authenticationProvider, fetchImpl)
     this.fetchImpl = fetchImpl
+    this.authenticationProvider = authenticationProvider
     this.dataOwnerApi = dataOwnerApi
   }
 
@@ -733,7 +737,7 @@ export class IccDocumentXApi extends IccDocumentApi {
       new Date().getTime() +
       (enckeys ? `&enckeys=${enckeys}` : '') +
       (fileName ? `&fileName=${fileName}` : '')
-    return XHR.sendCommand('GET', url, this.headers, null, this.fetchImpl, returnType)
+    return XHR.sendCommand('GET', url, this.headers, null, this.fetchImpl, returnType, this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
   }

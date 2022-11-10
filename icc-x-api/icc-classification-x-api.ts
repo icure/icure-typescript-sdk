@@ -6,6 +6,7 @@ import * as models from '../icc-api/model/models'
 import * as _ from 'lodash'
 import * as moment from 'moment'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
+import { AuthenticationProvider } from './auth/AuthenticationProvider'
 
 export class IccClassificationXApi extends IccClassificationApi {
   crypto: IccCryptoXApi
@@ -16,13 +17,14 @@ export class IccClassificationXApi extends IccClassificationApi {
     headers: { [key: string]: string },
     crypto: IccCryptoXApi,
     dataOwnerApi: IccDataOwnerXApi,
+    authenticationProvider: AuthenticationProvider,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
       ? self.fetch
       : fetch
   ) {
-    super(host, headers, fetchImpl)
+    super(host, headers, authenticationProvider, fetchImpl)
     this.crypto = crypto
     this.dataOwnerApi = dataOwnerApi
   }
