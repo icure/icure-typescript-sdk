@@ -17,5 +17,5 @@ export interface StorageFacade<T> {
    * Removes the item with the given key from the storage.
    * @param key The key of the item to remove.
    */
-  deleteItem(key: string): Promise<void>
+  removeItem(key: string): Promise<void>
 }
