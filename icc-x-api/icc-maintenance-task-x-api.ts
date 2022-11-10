@@ -7,6 +7,7 @@ import { hex2ua, ua2utf8, utf8_2ua, crypt } from './utils'
 import { IccHcpartyXApi } from './icc-hcparty-x-api'
 import { DocIdentifier } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
+import { AuthenticationProvider } from './auth/AuthenticationProvider'
 
 export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
   crypto: IccCryptoXApi
@@ -22,13 +23,14 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
     hcPartyApi: IccHcpartyXApi,
     dataOwnerApi: IccDataOwnerXApi,
     encryptedKeys: Array<string> = [],
+    authenticationProvider: AuthenticationProvider,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
       ? self.fetch
       : fetch
   ) {
-    super(host, headers, fetchImpl)
+    super(host, headers, authenticationProvider, fetchImpl)
     this.crypto = crypto
     this.hcPartyApi = hcPartyApi
     this.dataOwnerApi = dataOwnerApi

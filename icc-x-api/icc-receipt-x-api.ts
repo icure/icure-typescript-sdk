@@ -3,6 +3,7 @@ import { IccCryptoXApi } from './icc-crypto-x-api'
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
+import { AuthenticationProvider } from './auth/AuthenticationProvider'
 
 export class IccReceiptXApi extends IccReceiptApi {
   dataOwnerApi: IccDataOwnerXApi
@@ -12,13 +13,14 @@ export class IccReceiptXApi extends IccReceiptApi {
     headers: { [key: string]: string },
     private crypto: IccCryptoXApi,
     dataOwnerApi: IccDataOwnerXApi,
+    authenticationProvider: AuthenticationProvider,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
       ? self.fetch
       : fetch
   ) {
-    super(host, headers, fetchImpl)
+    super(host, headers, authenticationProvider, fetchImpl)
     this.dataOwnerApi = dataOwnerApi
   }
 

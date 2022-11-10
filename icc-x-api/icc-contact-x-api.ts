@@ -12,6 +12,7 @@ import { a2b, b2a, hex2ua, string2ua, ua2string, ua2utf8, utf8_2ua } from './uti
 import { ServiceByIdsFilter } from './filters/ServiceByIdsFilter'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { truncateTrailingNulls, before } from './utils'
+import { AuthenticationProvider } from './auth/AuthenticationProvider'
 
 export class IccContactXApi extends IccContactApi {
   i18n: any = i18n
@@ -23,13 +24,14 @@ export class IccContactXApi extends IccContactApi {
     headers: { [key: string]: string },
     crypto: IccCryptoXApi,
     dataOwnerApi: IccDataOwnerXApi,
+    authenticationProvider: AuthenticationProvider,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
       ? self.fetch
       : fetch
   ) {
-    super(host, headers, fetchImpl)
+    super(host, headers, authenticationProvider, fetchImpl)
     this.crypto = crypto
     this.dataOwnerApi = dataOwnerApi
   }
