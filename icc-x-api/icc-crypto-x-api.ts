@@ -1648,10 +1648,6 @@ export class IccCryptoXApi {
    * @returns {Object} it is in JWK - not imported
    */
   async loadKeyPairNotImported(id: string, publicKeyFingerPrint?: string): Promise<{ publicKey: JsonWebKey; privateKey: JsonWebKey }> {
-    if (typeof Storage === 'undefined') {
-      console.log('Your browser does not support HTML5 Browser Local Storage !')
-      throw 'Your browser does not support HTML5 Browser Local Storage !'
-    }
     //TODO decryption
     const item = publicKeyFingerPrint
       ? (await this._keyStorage.getKeypair(this.rsaLocalStoreIdPrefix + id + '.' + publicKeyFingerPrint.slice(-32))) ??
