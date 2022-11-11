@@ -2254,4 +2254,13 @@ export class IccCryptoXApi {
       return content
     }
   }
+
+  /**
+   *
+   * @param id
+   * @param keyPair should be JWK
+   */
+  storeKeyPair(id: string, keyPair: { publicKey: any; privateKey: any }) {
+    this._storage.setItem(this.rsaLocalStoreIdPrefix + id, JSON.stringify(keyPair))
+  }
 }
