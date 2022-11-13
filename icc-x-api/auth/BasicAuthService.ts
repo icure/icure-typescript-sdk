@@ -1,6 +1,7 @@
 import { AuthService } from './AuthService'
 import { XHR } from '../../icc-api/api/XHR'
 import Header = XHR.Header
+import { b2a } from '../utils'
 
 export class BasicAuthService implements AuthService {
   private error: Error | null = null
@@ -15,7 +16,7 @@ export class BasicAuthService implements AuthService {
   }
 
   private _base64Encode(decodedString: string): string {
-    return Buffer.from(decodedString).toString('base64')
+    return b2a(decodedString)
   }
 
   invalidateHeader(error: Error): void {
