@@ -90,12 +90,12 @@ export const Api = async function (
   forceBasic = false,
   autoLogin = true,
   storage?: StorageFacade<string>,
-  keyStorage?: KeyStorageFacade
+  keyStorage?: KeyStorageFacade,
+  headers = {}
 ): Promise<Apis> {
   const _storage = storage || new LocalStorageImpl()
   const _keyStorage = keyStorage || new KeyStorageImpl(_storage)
 
-  const headers = {}
   const authApi = new IccAuthApi(host, headers, fetchImpl)
   const authenticationProvider = forceBasic
     ? new BasicAuthenticationProvider(username, password)

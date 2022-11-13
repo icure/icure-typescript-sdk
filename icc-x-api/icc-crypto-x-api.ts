@@ -2256,9 +2256,12 @@ export class IccCryptoXApi {
   }
 
   /**
+   * Store keypair in storage
    *
    * @param id
    * @param keyPair should be JWK
+   *
+   * @deprecated use storage.setItem instead
    */
   storeKeyPair(id: string, keyPair: { publicKey: any; privateKey: any }) {
     this._storage.setItem(this.rsaLocalStoreIdPrefix + id, JSON.stringify(keyPair))
