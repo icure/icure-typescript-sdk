@@ -22,7 +22,7 @@ import { MaintenanceTaskByIdsFilter } from '../../icc-x-api/filters/MaintenanceT
 import { MaintenanceTaskByHcPartyAndTypeFilter } from '../../icc-x-api/filters/MaintenanceTaskByHcPartyAndTypeFilter'
 import initKey = TestUtils.initKey
 import { DocIdentifier } from '../../icc-api/model/DocIdentifier'
-import {MaintenanceTaskAfterDateFilter} from "../../icc-x-api/filters/MaintenanceTaskAfterDateFilter"
+import { MaintenanceTaskAfterDateFilter } from '../../icc-x-api/filters/MaintenanceTaskAfterDateFilter'
 
 const tmp = os.tmpdir()
 console.log('Saving keys in ' + tmp)
@@ -134,6 +134,8 @@ before(async () => {
   apiForHcp2 = await Api(iCureUrl, hcp2UserName, hcp2Password, crypto)
   hcp2User = await apiForHcp2.userApi.getCurrentUser()
   hcp2 = await apiForHcp2.healthcarePartyApi.getCurrentHealthcareParty()
+
+  await initKey(apiForHcp2.dataOwnerApi, apiForHcp2.cryptoApi, hcp2User, hcp2PrivKey)
 
   // Init HCP3
   apiForHcp3 = await Api(iCureUrl, hcp3UserName, hcp3Password, crypto)
@@ -311,7 +313,7 @@ describe('icc-x-maintenance-task-api Tests', () => {
         new FilterChainMaintenanceTask({
           filter: new MaintenanceTaskAfterDateFilter({
             healthcarePartyId: hcp1.id!,
-            date: startTimestamp - 1000
+            date: startTimestamp - 1000,
           }),
         })
       )

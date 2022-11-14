@@ -3,8 +3,7 @@ import { IccCryptoXApi } from './icc-crypto-x-api'
 import * as models from '../icc-api/model/models'
 import * as _ from 'lodash'
 import { a2b, b2a, string2ua } from '../icc-api/model/ModelHelper'
-import { hex2ua, ua2utf8, utf8_2ua } from './utils'
-import { utils } from './crypto/utils'
+import { hex2ua, ua2utf8, utf8_2ua, crypt } from './utils'
 import { IccHcpartyXApi } from './icc-hcparty-x-api'
 import { DocIdentifier } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
@@ -87,7 +86,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
             this.crypto
               .appendEncryptionKeys(patient, dataOwnerId!, delegateId, eks.secretId)
               .then((extraEks) => {
-                return _.extend(patient, {
+                return _.extend(extraEks.modifiedObject, {
                   encryptionKeys: extraEks.encryptionKeys,
                 })
               })
@@ -180,7 +179,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
             this.crypto.AES.importKey('raw', hex2ua(sfks.extractedKeys[0].replace(/-/g, '')))
           )
           .then((key: CryptoKey) =>
-            utils.crypt(
+            crypt(
               m,
               (obj: { [key: string]: string }) =>
                 this.crypto.AES.encrypt(

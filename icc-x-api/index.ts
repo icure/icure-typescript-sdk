@@ -18,6 +18,11 @@ import { IccDeviceApi } from '../icc-api/api/IccDeviceApi'
 import { IccCodeXApi } from './icc-code-x-api'
 import { IccMaintenanceTaskXApi } from './icc-maintenance-task-x-api'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
+import { retry } from './utils'
+import { StorageFacade } from './storage/StorageFacade'
+import { KeyStorageFacade } from './storage/KeyStorageFacade'
+import { LocalStorageImpl } from './storage/LocalStorageImpl'
+import { KeyStorageImpl } from './storage/KeyStorageImpl'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -37,8 +42,11 @@ export * from './icc-patient-x-api'
 export * from './icc-user-x-api'
 export * from './icc-time-table-x-api'
 export * from './icc-receipt-x-api'
-export { utils, UtilsClass } from './crypto/utils'
 export * from './utils'
+export { KeyStorageFacade } from './storage/KeyStorageFacade'
+export { LocalStorageImpl } from './storage/LocalStorageImpl'
+export { StorageFacade } from './storage/StorageFacade'
+export { KeyStorageImpl } from './storage/KeyStorageImpl'
 
 export const apiHeaders = function (username: string, password: string, forceBasic = false) {
   return {
@@ -88,8 +96,13 @@ export const Api = async function (
     ? self.fetch
     : fetch,
   forceBasic = false,
-  autoLogin = true
+  autoLogin = true,
+  storage?: StorageFacade<string>,
+  keyStorage?: KeyStorageFacade
 ): Promise<Apis> {
+  const _storage = storage || new LocalStorageImpl()
+  const _keyStorage = keyStorage || new KeyStorageImpl(_storage)
+
   const headers = apiHeaders(username, password, forceBasic)
   const authApi = new IccAuthApi(host, headers, fetchImpl)
   const codeApi = new IccCodeXApi(host, headers, fetchImpl)
@@ -98,7 +111,16 @@ export const Api = async function (
   const permissionApi = new IccPermissionApi(host, headers, fetchImpl)
   const healthcarePartyApi = new IccHcpartyXApi(host, headers, fetchImpl)
   const deviceApi = new IccDeviceApi(host, headers, fetchImpl)
-  const cryptoApi = new IccCryptoXApi(host, headers, healthcarePartyApi, new IccPatientApi(host, headers, fetchImpl), deviceApi, crypto)
+  const cryptoApi = new IccCryptoXApi(
+    host,
+    headers,
+    healthcarePartyApi,
+    new IccPatientApi(host, headers, fetchImpl),
+    deviceApi,
+    crypto,
+    _storage,
+    _keyStorage
+  )
   const dataOwnerApi = new IccDataOwnerXApi(cryptoApi, new IccPatientApi(host, headers, fetchImpl))
   const accessLogApi = new IccAccesslogXApi(host, headers, cryptoApi, dataOwnerApi, fetchImpl)
   const agendaApi = new IccAgendaApi(host, headers, fetchImpl)
@@ -108,9 +130,9 @@ export const Api = async function (
   const invoiceApi = new IccInvoiceXApi(host, headers, cryptoApi, entityReferenceApi, dataOwnerApi, fetchImpl)
   const insuranceApi = new IccInsuranceApi(host, headers, fetchImpl)
   const documentApi = new IccDocumentXApi(host, headers, cryptoApi, authApi, dataOwnerApi, fetchImpl)
-  const healthcareElementApi = new IccHelementXApi(host, headers, cryptoApi, dataOwnerApi, [], fetchImpl)
+  const healthcareElementApi = new IccHelementXApi(host, headers, cryptoApi, dataOwnerApi, ['descr', 'note'], fetchImpl)
   const classificationApi = new IccClassificationXApi(host, headers, cryptoApi, dataOwnerApi, fetchImpl)
-  const calendarItemApi = new IccCalendarItemXApi(host, headers, cryptoApi, dataOwnerApi, fetchImpl)
+  const calendarItemApi = new IccCalendarItemXApi(host, headers, cryptoApi, dataOwnerApi, ['details', 'title', 'patientId'], fetchImpl)
   const receiptApi = new IccReceiptXApi(host, headers, cryptoApi, dataOwnerApi, fetchImpl)
   const timetableApi = new IccTimeTableXApi(host, headers, cryptoApi, dataOwnerApi, fetchImpl)
   const patientApi = new IccPatientXApi(
@@ -135,14 +157,13 @@ export const Api = async function (
   if (autoLogin) {
     if (username != undefined && password != undefined) {
       try {
-        await authApi.login({ username, password })
+        await retry(() => authApi.login({ username, password }), 3, 1000, 1.5)
       } catch (e) {
         console.error('Incorrect user and password used to instantiate Api, or network problem', e)
       }
     }
-  }
-  else {
-    console.info("Auto login skipped")
+  } else {
+    console.info('Auto login skipped')
   }
 
   return {

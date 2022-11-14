@@ -1,13 +1,13 @@
 /* make node behave */
-import {IccPatientApi} from '../../../icc-api/api/IccPatientApi'
-import {crypto} from '../../../node-compat'
-import {expect} from 'chai'
+import { IccPatientApi } from '../../../icc-api/api/IccPatientApi'
+import { crypto } from '../../../node-compat'
+import { expect } from 'chai'
 import 'mocha'
 
-import {Api} from '../../../icc-x-api'
-import {User} from '../../../icc-api/model/User'
-import {Patient} from '../../../icc-api/model/Patient'
-import {hex2ua} from '../../../icc-x-api/utils/binary-utils'
+import { Api, pkcs8ToJwk } from '../../../icc-x-api'
+import { User } from '../../../icc-api/model/User'
+import { Patient } from '../../../icc-api/model/Patient'
+import { hex2ua } from '../../../icc-x-api/utils/binary-utils'
 
 const iCureUrl = process.env.ICURE_URL ?? 'https://kraken.icure.dev/rest/v1'
 const hcp1UserName = process.env.HCP_USERNAME!

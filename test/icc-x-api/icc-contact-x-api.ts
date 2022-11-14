@@ -7,7 +7,7 @@ import * as os from 'os'
 import { Api, IccContactXApi, IccHelementXApi, IccPatientXApi } from '../../icc-x-api'
 import { crypto } from '../../node-compat'
 import { Patient } from '../../icc-api/model/Patient'
-import { assert } from 'chai'
+import { assert, expect } from 'chai'
 import { randomUUID } from 'crypto'
 import { TestUtils } from '../utils/test_utils'
 import { Code } from '../../icc-api/model/Code'
@@ -138,18 +138,25 @@ describe('icc-x-contact-api Tests', () => {
 
     // Then
     const readContact = await contactApiForHcp.getContactWithUser(hcpUser, createdContact.id!)
-    assert(readContact != null)
-    assert(readContact.openingDate != null)
-    assert(readContact.groupId != null)
-    assert(readContact.responsible == hcpUser.healthcarePartyId)
-    assert(readContact.id == contactToCreate.id)
-    assert(readContact.descr == contactToCreate.descr)
-    assert(readContact.delegations[hcpUser.healthcarePartyId!].length > 0)
-    assert(readContact.encryptionKeys[hcpUser.healthcarePartyId!].length > 0)
-    assert(readContact.services[0].responsible == hcpUser.healthcarePartyId)
-    assert(readContact.services[0].id == contactToCreate.services![0].id)
-    assert(readContact.services[0].valueDate == contactToCreate.services![0].valueDate!)
-    assert(readContact.services[0].tags[0].id == contactToCreate.services![0].tags![0].id!)
+    expect(readContact).to.not.be.undefined
+    expect(readContact).to.not.be.null
+    expect(readContact.openingDate).to.not.be.undefined
+    expect(readContact.openingDate).to.not.be.null
+    expect(readContact.groupId).to.not.be.undefined
+    expect(readContact.groupId).to.not.be.null
+    expect(readContact.responsible).to.be.equal(hcpUser.healthcarePartyId)
+    expect(readContact.id).to.be.equal(contactToCreate.id)
+    expect(readContact.descr).to.be.equal(contactToCreate.descr)
+    expect(readContact.delegations[hcpUser.healthcarePartyId!].length).to.equals(1)
+    expect(readContact.delegations[hcpUser.healthcarePartyId!][0].key).to.not.be.undefined
+    expect(readContact.encryptionKeys[hcpUser.healthcarePartyId!].length).to.equals(1)
+    expect(readContact.encryptionKeys[hcpUser.healthcarePartyId!][0].key).to.not.be.undefined
+    expect(readContact.cryptedForeignKeys[hcpUser.healthcarePartyId!].length).to.equals(1)
+    expect(readContact.cryptedForeignKeys[hcpUser.healthcarePartyId!][0].key).to.not.be.undefined
+    expect(readContact.services[0].responsible).to.be.equal(hcpUser.healthcarePartyId)
+    expect(readContact.services[0].id).to.be.equal(contactToCreate.services![0].id)
+    expect(readContact.services[0].valueDate).to.be.equal(contactToCreate.services![0].valueDate)
+    expect(readContact.services[0].tags[0].id).to.be.equal(contactToCreate.services![0].tags![0].id!)
   })
 
   it('Filter Services By HealthElementId - Success', async () => {
