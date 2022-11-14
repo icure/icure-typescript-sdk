@@ -1,13 +1,11 @@
 import { expect } from 'chai'
 import 'mocha'
-import { Api } from '../../icc-x-api'
+import { Api, pkcs8ToJwk } from '../../icc-x-api'
 import { IccPatientApi } from '../../icc-api'
 import { User } from '../../icc-api/model/User'
 import { crypto } from '../../node-compat'
-import { b2a, ua2hex } from '../../icc-x-api/utils/binary-utils'
+import { b2a, ua2hex, hex2ua } from '../../icc-x-api/utils/binary-utils'
 import { Patient } from '../../icc-api/model/Patient'
-import { TestUtils } from '../utils/test_utils'
-import initKey = TestUtils.initKey
 
 const iCureUrl = process.env.ICURE_URL ?? 'https://kraken.icure.dev/rest/v1'
 const hcpUserName = process.env.HCP_USERNAME!
@@ -27,7 +25,7 @@ describe('Patient', () => {
       cryptoApi: cryptoApiForHcp,
     } = await Api(iCureUrl, hcpUserName, hcpPassword, crypto)
     const hcpUser = await userApiForHcp.getCurrentUser()
-    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey!)
+    await cryptoApiForHcp.loadKeyPairsAsJwkInBrowserLocalStorage(hcpUser.healthcarePartyId!, pkcs8ToJwk(hex2ua(hcpPrivKey)))
 
     try {
       const rawPatientApiForHcp = new IccPatientApi(iCureUrl, {
@@ -45,21 +43,21 @@ describe('Patient', () => {
         const { publicKey, privateKey } = await cryptoApi.RSA.generateKeyPair()
         const publicKeyHex = ua2hex(await cryptoApi.RSA.exportKey(publicKey!, 'spki'))
         await rawPatientApi.modifyPatient({ ...patient, publicKey: publicKeyHex })
-        await cryptoApi.loadKeyPairsAsTextInBrowserLocalStorage(
-          patient.id!,
-          new Uint8Array((await cryptoApi.RSA.exportKey(privateKey!, 'pkcs8')) as ArrayBuffer)
-        )
 
         try {
           const { userApi, patientApi, cryptoApi: updatedCryptoApi } = await Api(iCureUrl, tmpUser.id!, pwd!, crypto)
+          await updatedCryptoApi.loadKeyPairsAsTextInBrowserLocalStorage(
+            patient.id!,
+            new Uint8Array((await updatedCryptoApi.RSA.exportKey(privateKey!, 'pkcs8')) as ArrayBuffer)
+          )
           const user = await userApi.getCurrentUser()
           let me = await patientApi.getPatientWithUser(user, user.patientId!)
-          await updatedCryptoApi.getOrCreateHcPartyKey(me, user.patientId!)
+          await updatedCryptoApi.getOrCreateHcPartyKeys(me, user.patientId!)
           me = await patientApi.getPatientWithUser(user, user.patientId!)
-          await updatedCryptoApi.getOrCreateHcPartyKey(me, hcpUser.healthcarePartyId!)
+          await updatedCryptoApi.getOrCreateHcPartyKeys(me, hcpUser.healthcarePartyId!)
 
           me = await patientApi.getPatientWithUser(user, user.patientId!)
-          me = await patientApi.modifyPatientWithUser(user, await patientApi.initDelegations(me, user))
+          me = await patientApi.modifyPatientWithUser(user, await patientApi.initDelegationsAndEncryptionKeys(me, user))
 
           const sek = await updatedCryptoApi.extractKeysFromDelegationsForHcpHierarchy(me.id, me.id, me.encryptionKeys)
           const sdk = await updatedCryptoApi.extractKeysFromDelegationsForHcpHierarchy(me.id, me.id, me.delegations)
@@ -111,7 +109,6 @@ describe('Patient', () => {
 
     const user = await userApi.getCurrentUser()
     const patient = await rawPatientApi.getPatient(user.patientId!)
-    await initKey(dataOwnerApiForHcp, cryptoApi, user, patPrivKey)
 
     if (!patient.publicKey) {
       const { publicKey, privateKey } = await cryptoApi.RSA.generateKeyPair()
@@ -123,6 +120,7 @@ describe('Patient', () => {
       )
     }
     const { calendarItemApi, patientApi, cryptoApi: updatedCryptoApi } = await Api(iCureUrl, patientLogin, token!, crypto)
+    await updatedCryptoApi.loadKeyPairsAsJwkInBrowserLocalStorage(user.patientId!, pkcs8ToJwk(hex2ua(patPrivKey)))
 
     await patientApi.modifyPatientWithUser(
       user,
@@ -145,8 +143,7 @@ describe('Patient', () => {
       )
     )
 
-    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, hcpPrivKey)
-
+    await cryptoApiForHcp.loadKeyPairsAsJwkInBrowserLocalStorage(hcpUser.healthcarePartyId!, pkcs8ToJwk(hex2ua(hcpPrivKey)))
     const pat2 = await patientApiForHcp.getPatientWithUser(hcpUser, patient.id!)
     const ci2 = await calendarItemApiForHcp.getCalendarItemWithUser(hcpUser, ci.id)
 

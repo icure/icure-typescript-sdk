@@ -1,3 +1,5 @@
+import { RsaPrivateKey } from 'crypto'
+
 export class RSAUtils {
   /********* RSA Config **********/
   //TODO bigger modulus
@@ -10,8 +12,7 @@ export class RSAUtils {
     publicExponent: new Uint8Array([0x01, 0x00, 0x01]), // Equivalent to 65537 (Fermat F4), read http://en.wikipedia.org/wiki/65537_(number)
     hash: { name: 'sha-1' },
   }
-  rsaLocalStoreIdPrefix = 'org.taktik.icure.rsa.'
-  rsaKeyPairs: any = {}
+
   private crypto: Crypto
 
   constructor(crypto: Crypto = typeof window !== 'undefined' ? window.crypto : typeof self !== 'undefined' ? self.crypto : ({} as Crypto)) {
@@ -161,68 +162,6 @@ export class RSAUtils {
       return {
         publicKey: results[0],
         privateKey: results[1],
-      }
-    })
-  }
-
-  /**
-   *
-   * @param id
-   * @param keyPair should be JWK
-   */
-  storeKeyPair(id: string, keyPair: { publicKey: any; privateKey: any }) {
-    if (typeof Storage === 'undefined') {
-      console.log('Your browser does not support HTML5 Browser Local Storage !')
-      throw 'Your browser does not support HTML5 Browser Local Storage !'
-    }
-    //TODO encryption
-    localStorage.setItem(this.rsaLocalStoreIdPrefix + id, JSON.stringify(keyPair))
-  }
-
-  /**
-   * loads the RSA key pair (hcparty) in JWK, not imported
-   *
-   * @param id  doc id - hcpartyId
-   * @returns {Object} it is in JWK - not imported
-   */
-  loadKeyPairNotImported(id: string): { publicKey: any; privateKey: any } {
-    if (typeof Storage === 'undefined') {
-      console.log('Your browser does not support HTML5 Browser Local Storage !')
-      throw 'Your browser does not support HTML5 Browser Local Storage !'
-    }
-    //TODO decryption
-    return JSON.parse((localStorage.getItem(this.rsaLocalStoreIdPrefix + id) as string) || '{}')
-  }
-
-  /**
-   * Loads and imports the RSA key pair (hcparty)
-   *
-   * @param id  doc id - hcPartyId
-   * @returns {Promise} -> {CryptoKey} - imported RSA
-   */
-  loadKeyPairImported(id: string) {
-    return new Promise((resolve: (value: { publicKey: CryptoKey; privateKey: CryptoKey }) => any, reject) => {
-      try {
-        const jwkKey = localStorage.getItem(this.rsaLocalStoreIdPrefix + id) as string
-        if (jwkKey) {
-          const jwkKeyPair = JSON.parse(jwkKey)
-          if (jwkKeyPair.publicKey && jwkKeyPair.privateKey) {
-            this.importKeyPair('jwk', jwkKeyPair.privateKey, 'jwk', jwkKeyPair.publicKey).then(resolve, (err) => {
-              console.log('Error in RSA.importKeyPair: ' + err)
-              reject(err)
-            })
-          } else {
-            const message = 'Error in RSA.importKeyPair: Invalid key'
-            console.log(message)
-            reject(Error(message))
-          }
-        } else {
-          const message = 'Error in RSA.importKeyPair: Missing key'
-          console.log(message)
-          reject(Error(message))
-        }
-      } catch (err) {
-        reject(err)
       }
     })
   }

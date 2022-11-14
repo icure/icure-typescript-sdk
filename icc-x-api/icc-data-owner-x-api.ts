@@ -24,7 +24,7 @@ export class IccDataOwnerXApi {
   private async _hasAccessTo(dataOwnerId: string, delegations: { [key: string]: Array<Delegation> }): Promise<boolean> {
     return this.crypto.getDataOwner(dataOwnerId).then(({ dataOwner: dataOwner }) => {
       const parentId = (dataOwner as HealthcareParty).parentId
-      if ( !dataOwner.id || !delegations[dataOwner.id] || !delegations[dataOwner.id].length ) {
+      if (!dataOwner.id || !delegations[dataOwner.id] || !delegations[dataOwner.id].length) {
         return !!parentId ? this._hasAccessTo(parentId, delegations) : false
       }
       return true
