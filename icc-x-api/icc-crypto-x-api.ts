@@ -2228,7 +2228,7 @@ export class IccCryptoXApi {
     }
   }
 
-  async dataOwnerCanDecryptPatient(dataOwnerId: string, p: models.Patient): Promise<boolean> {
+  async dataOwnerCanDecryptPatient(dataOwnerId: string, p: Patient): Promise<boolean> {
     if (p.encryptionKeys && p.encryptionKeys[dataOwnerId]?.length) return true
 
     const dataOwner = await this.getDataOwner(dataOwnerId)
