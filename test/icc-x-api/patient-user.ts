@@ -1,51 +1,56 @@
+import 'isomorphic-fetch'
 import { expect } from 'chai'
 import 'mocha'
-import { Api, pkcs8ToJwk } from '../../icc-x-api'
+import { Api, Apis, pkcs8ToJwk } from '../../icc-x-api'
 import { IccPatientApi } from '../../icc-api'
 import { User } from '../../icc-api/model/User'
 import { crypto } from '../../node-compat'
-import { b2a, ua2hex, hex2ua } from '../../icc-x-api/utils/binary-utils'
+import { ua2hex, hex2ua } from '../../icc-x-api'
 import { Patient } from '../../icc-api/model/Patient'
+import { before } from 'mocha'
+import { getEnvironmentInitializer, getEnvVariables, hcp1Username, patUsername, setLocalStorage, TestVars } from '../utils/test_utils'
+import { BasicAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 
-const iCureUrl = process.env.ICURE_URL ?? 'https://kraken.icure.dev/rest/v1'
-const hcpUserName = process.env.HCP_USERNAME!
-const hcpPassword = process.env.HCP_PASSWORD!
-const hcpPrivKey = process.env.HCP_PRIV_KEY!
-
-const patUserName = process.env.PAT_USERNAME!
-const patPassword = process.env.PAT_PASSWORD!
-const patPrivKey = process.env.PAT_PRIV_KEY!
+setLocalStorage(fetch)
+let env: TestVars
+let api: Apis
+let hcpUser: User
 
 describe('Patient', () => {
-  it('should be capable of creating a patient from scratch', async () => {
-    const {
-      patientApi: patientApiForHcp,
-      dataOwnerApi: dataOwnerApiForHcp,
-      userApi: userApiForHcp,
-      cryptoApi: cryptoApiForHcp,
-    } = await Api(iCureUrl, hcpUserName, hcpPassword, crypto)
-    const hcpUser = await userApiForHcp.getCurrentUser()
-    await cryptoApiForHcp.loadKeyPairsAsJwkInBrowserLocalStorage(hcpUser.healthcarePartyId!, pkcs8ToJwk(hex2ua(hcpPrivKey)))
+  before(async function () {
+    this.timeout(600000)
+    const initializer = await getEnvironmentInitializer()
+    env = await initializer.execute(getEnvVariables())
+    api = await Api(env.iCureUrl, env.dataOwnerDetails[hcp1Username].user, env.dataOwnerDetails[hcp1Username].password, crypto)
+    hcpUser = await api.userApi.getCurrentUser()
+    await api.cryptoApi.loadKeyPairsAsJwkInBrowserLocalStorage(
+      hcpUser.healthcarePartyId!,
+      pkcs8ToJwk(hex2ua(env.dataOwnerDetails[hcp1Username].privateKey))
+    )
+  })
 
+  it('should be capable of creating a patient from scratch', async () => {
     try {
-      const rawPatientApiForHcp = new IccPatientApi(iCureUrl, {
-        Authorization: `Basic ${b2a(`${hcpUserName}:${hcpPassword}`)}`,
-      })
-      const patient = await rawPatientApiForHcp.createPatient(new Patient({ id: cryptoApiForHcp.randomUuid(), firstName: 'Tasty', lastName: 'Test' }))
-      const pwd = cryptoApiForHcp.randomUuid()
-      const tmpUser = await userApiForHcp.createUser(
-        new User({ id: cryptoApiForHcp.randomUuid(), login: cryptoApiForHcp.randomUuid(), passwordHash: pwd, patientId: patient.id })
+      const rawPatientApiForHcp = new IccPatientApi(
+        env.iCureUrl,
+        {},
+        new BasicAuthenticationProvider(env.dataOwnerDetails[hcp1Username].user, env.dataOwnerDetails[hcp1Username].password)
+      )
+      const patient = await rawPatientApiForHcp.createPatient(new Patient({ id: api.cryptoApi.randomUuid(), firstName: 'Tasty', lastName: 'Test' }))
+      const pwd = api.cryptoApi.randomUuid()
+      const tmpUser = await api.userApi.createUser(
+        new User({ id: api.cryptoApi.randomUuid(), login: api.cryptoApi.randomUuid(), passwordHash: pwd, patientId: patient.id })
       )
 
       try {
-        const { cryptoApi } = await Api(iCureUrl, tmpUser.id!, pwd, crypto)
-        const rawPatientApi = new IccPatientApi(iCureUrl, { Authorization: `Basic ${b2a(`${tmpUser.id!}:${pwd}`)}` })
+        const { cryptoApi } = await Api(env.iCureUrl, tmpUser.id!, pwd, crypto)
+        const rawPatientApi = new IccPatientApi(env.iCureUrl, {}, new BasicAuthenticationProvider(tmpUser.id!, pwd))
         const { publicKey, privateKey } = await cryptoApi.RSA.generateKeyPair()
         const publicKeyHex = ua2hex(await cryptoApi.RSA.exportKey(publicKey!, 'spki'))
         await rawPatientApi.modifyPatient({ ...patient, publicKey: publicKeyHex })
 
         try {
-          const { userApi, patientApi, cryptoApi: updatedCryptoApi } = await Api(iCureUrl, tmpUser.id!, pwd!, crypto)
+          const { userApi, patientApi, cryptoApi: updatedCryptoApi } = await Api(env.iCureUrl, tmpUser.id!, pwd!, crypto)
           await updatedCryptoApi.loadKeyPairsAsTextInBrowserLocalStorage(
             patient.id!,
             new Uint8Array((await updatedCryptoApi.RSA.exportKey(privateKey!, 'pkcs8')) as ArrayBuffer)
@@ -75,7 +80,7 @@ describe('Patient', () => {
           )
           await patientApi.modifyPatientWithUser(user, new Patient({ ...me, note: 'This is secret' }))
 
-          const pat2 = await patientApiForHcp.getPatientWithUser(hcpUser, patient.id!)
+          const pat2 = await api.patientApi.getPatientWithUser(hcpUser, patient.id!)
           expect(pat2 != null)
           expect(pat2.note != null)
         } catch (e) {
@@ -93,19 +98,12 @@ describe('Patient', () => {
   }).timeout(60000)
 
   it('should be capable of logging in and encryption', async () => {
-    const {
-      calendarItemApi: calendarItemApiForHcp,
-      dataOwnerApi: dataOwnerApiForHcp,
-      patientApi: patientApiForHcp,
-      userApi: userApiForHcp,
-      cryptoApi: cryptoApiForHcp,
-    } = await Api(iCureUrl, hcpUserName, hcpPassword, crypto)
-    const hcpUser = await userApiForHcp.getCurrentUser()
-
-    const patientLogin = patUserName
-    const token = patPassword
-    const { cryptoApi, userApi } = await Api(iCureUrl, patientLogin, token, crypto)
-    const rawPatientApi = new IccPatientApi(iCureUrl, { Authorization: `Basic ${b2a(`${patientLogin}:${token}`)}` })
+    const { cryptoApi, userApi } = await Api(env.iCureUrl, env.dataOwnerDetails[patUsername].user, env.dataOwnerDetails[patUsername].password, crypto)
+    const rawPatientApi = new IccPatientApi(
+      env.iCureUrl,
+      {},
+      new BasicAuthenticationProvider(env.dataOwnerDetails[patUsername].user, env.dataOwnerDetails[patUsername].password)
+    )
 
     const user = await userApi.getCurrentUser()
     const patient = await rawPatientApi.getPatient(user.patientId!)
@@ -119,8 +117,12 @@ describe('Patient', () => {
         new Uint8Array((await cryptoApi.RSA.exportKey(privateKey!, 'pkcs8')) as ArrayBuffer)
       )
     }
-    const { calendarItemApi, patientApi, cryptoApi: updatedCryptoApi } = await Api(iCureUrl, patientLogin, token!, crypto)
-    await updatedCryptoApi.loadKeyPairsAsJwkInBrowserLocalStorage(user.patientId!, pkcs8ToJwk(hex2ua(patPrivKey)))
+    const {
+      calendarItemApi,
+      patientApi,
+      cryptoApi: updatedCryptoApi,
+    } = await Api(env.iCureUrl, env.dataOwnerDetails[patUsername].user, env.dataOwnerDetails[patUsername].password, crypto)
+    await updatedCryptoApi.loadKeyPairsAsJwkInBrowserLocalStorage(user.patientId!, pkcs8ToJwk(hex2ua(env.dataOwnerDetails[patUsername].privateKey)))
 
     await patientApi.modifyPatientWithUser(
       user,
@@ -143,12 +145,10 @@ describe('Patient', () => {
       )
     )
 
-    await cryptoApiForHcp.loadKeyPairsAsJwkInBrowserLocalStorage(hcpUser.healthcarePartyId!, pkcs8ToJwk(hex2ua(hcpPrivKey)))
-    const pat2 = await patientApiForHcp.getPatientWithUser(hcpUser, patient.id!)
-    const ci2 = await calendarItemApiForHcp.getCalendarItemWithUser(hcpUser, ci.id)
+    const pat2 = await api.patientApi.getPatientWithUser(hcpUser, patient.id!)
+    const ci2 = await api.calendarItemApi.getCalendarItemWithUser(hcpUser, ci.id)
 
     expect(pat2 != null)
-    expect(ci != null)
     expect(ci2 != null)
   }).timeout(60000)
 })

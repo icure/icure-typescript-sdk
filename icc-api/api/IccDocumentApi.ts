@@ -14,15 +14,23 @@ import { DocIdentifier } from '../model/DocIdentifier'
 import { Document } from '../model/Document'
 import { IcureStub } from '../model/IcureStub'
 import { ListOfIds } from '../model/ListOfIds'
+import { AuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 
 export class IccDocumentApi {
   host: string
   headers: Array<XHR.Header>
+  authenticationProvider: AuthenticationProvider
   fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
 
-  constructor(host: string, headers: any, fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>) {
+  constructor(
+    host: string,
+    headers: any,
+    authenticationProvider: AuthenticationProvider,
+    fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
+  ) {
     this.host = host
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
+    this.authenticationProvider = authenticationProvider
     this.fetchImpl = fetchImpl
   }
 
@@ -46,7 +54,7 @@ export class IccDocumentApi {
     const _url = this.host + `/document` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Document(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -61,7 +69,7 @@ export class IccDocumentApi {
 
     const _url = this.host + `/document/${encodeURIComponent(String(documentId))}/attachment` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Document(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -76,7 +84,7 @@ export class IccDocumentApi {
 
     const _url = this.host + `/document/${encodeURIComponent(String(documentIds))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
       .catch((err) => this.handleError(err))
   }
@@ -100,7 +108,7 @@ export class IccDocumentApi {
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
       (secretFKeys ? '&secretFKeys=' + encodeURIComponent(String(secretFKeys)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Document(it)))
       .catch((err) => this.handleError(err))
   }
@@ -122,7 +130,7 @@ export class IccDocumentApi {
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
       (secretFKeys ? '&secretFKeys=' + encodeURIComponent(String(secretFKeys)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Document(it)))
       .catch((err) => this.handleError(err))
   }
@@ -137,7 +145,7 @@ export class IccDocumentApi {
 
     const _url = this.host + `/document/woDelegation` + '?ts=' + new Date().getTime() + (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Document(it)))
       .catch((err) => this.handleError(err))
   }
@@ -152,7 +160,7 @@ export class IccDocumentApi {
 
     const _url = this.host + `/document/${encodeURIComponent(String(documentId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Document(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -176,7 +184,7 @@ export class IccDocumentApi {
       (enckeys ? '&enckeys=' + encodeURIComponent(String(enckeys)) : '') +
       (fileName ? '&fileName=' + encodeURIComponent(String(fileName)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
   }
@@ -191,7 +199,7 @@ export class IccDocumentApi {
 
     const _url = this.host + `/document/externaluuid/${encodeURIComponent(String(externalUuid))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Document(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -208,7 +216,7 @@ export class IccDocumentApi {
     const _url = this.host + `/document/batch` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Document(it)))
       .catch((err) => this.handleError(err))
   }
@@ -223,7 +231,7 @@ export class IccDocumentApi {
 
     const _url = this.host + `/document/externaluuid/${encodeURIComponent(String(externalUuid))}/all` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Document(it)))
       .catch((err) => this.handleError(err))
   }
@@ -240,7 +248,7 @@ export class IccDocumentApi {
     const _url = this.host + `/document` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Document(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -257,7 +265,7 @@ export class IccDocumentApi {
     const _url = this.host + `/document/batch` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Document(it)))
       .catch((err) => this.handleError(err))
   }
@@ -281,7 +289,7 @@ export class IccDocumentApi {
       (enckeys ? '&enckeys=' + encodeURIComponent(String(enckeys)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Document(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -306,7 +314,7 @@ export class IccDocumentApi {
       (enckeys ? '&enckeys=' + encodeURIComponent(String(enckeys)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Document(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -335,7 +343,7 @@ export class IccDocumentApi {
       (enckeys ? '&enckeys=' + encodeURIComponent(String(enckeys)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'multipart/form-data'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Document(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -352,8 +360,85 @@ export class IccDocumentApi {
     const _url = this.host + `/document/delegations` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
       .catch((err) => this.handleError(err))
   }
+
+  /**
+   * Creates a secondary attachment for a document and returns the modified document instance afterward
+   * @summary Creates or modifies a secondary attachment for a document
+   * @param documentId id of the document to update
+   * @param key Key of the secondary attachment to update
+   * @param rev Revision of the latest known version of the document. If the revision does not match the current version of the document the method
+   * will fail with CONFLICT status
+   * @param attachment
+   * @param utis Utis for the attachment
+   * @return the updated document
+   */
+  setSecondaryAttachment(documentId: string, key: string, rev: string, attachment: Object, utis?: Array<string>): Promise<Document> {
+    const _url =
+      this.host +
+      `/document/` +
+      encodeURIComponent(String(documentId)) +
+      '/secondaryAttachments/' +
+      encodeURIComponent(String(key)) +
+      '?ts=' +
+      new Date().getTime() +
+      (rev ? '&rev=' + encodeURIComponent(String(rev)) : '') +
+      (utis ? utis.map((x) => '&utis=' + encodeURIComponent(String(x))).join('') : '')
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
+    return XHR.sendCommand('PUT', _url, headers, attachment, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new Document(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Get the secondary attachment with the provided key for a document
+   * @summary Retrieve a secondary attachment of a document
+   * @param documentId id of the document
+   * @param key Key of the secondary attachment to retrieve
+   * @param fileName
+   * @return the content of the attachment
+   */
+  getSecondaryAttachment(documentId: string, key: string, fileName?: string): Promise<ArrayBuffer> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/document/${encodeURIComponent(String(documentId))}/secondaryAttachments/${encodeURIComponent(String(key))}` +
+      '?ts=' +
+      new Date().getTime() +
+      (fileName ? '&fileName=' + encodeURIComponent(String(fileName)) : '')
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => doc.body)
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Deletes a document's attachment and returns the modified document instance afterward
+   * @summary Delete a document's attachment
+   * @param documentId id of the document
+   * @param key Key of the secondary attachment to delete
+   * @param rev Revision of the latest known version of the document. If the revision does not match the current version of the document the method will fail with CONFLICT status
+   * @return the updated document
+   */
+  deleteSecondaryAttachment(documentId: string, key: string, rev: string): Promise<Document> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/document/${encodeURIComponent(String(documentId))}/secondaryAttachments/${encodeURIComponent(String(key))}` +
+      '?ts=' +
+      new Date().getTime() +
+      (rev ? '&rev=' + encodeURIComponent(String(rev)) : '')
+    let headers = this.headers
+    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new Document(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  // TODO single request multi-attachment update
 }

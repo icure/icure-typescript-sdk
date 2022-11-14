@@ -19,15 +19,23 @@ import { TokenWithGroup } from '../model/TokenWithGroup'
 import { Unit } from '../model/Unit'
 import { User } from '../model/User'
 import { UserGroup } from '../model/UserGroup'
+import { AuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 
 export class IccUserApi {
   host: string
   headers: Array<XHR.Header>
+  authenticationProvider: AuthenticationProvider
   fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
 
-  constructor(host: string, headers: any, fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>) {
+  constructor(
+    host: string,
+    headers: any,
+    authenticationProvider: AuthenticationProvider,
+    fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
+  ) {
     this.host = host
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
+    this.authenticationProvider = authenticationProvider
     this.fetchImpl = fetchImpl
   }
 
@@ -49,7 +57,7 @@ export class IccUserApi {
 
     const _url = this.host + `/user/current/hcparty/${encodeURIComponent(String(healthcarePartyId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new User(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -64,7 +72,7 @@ export class IccUserApi {
     const _url = this.host + `/user/checkPassword` + '?ts=' + new Date().getTime()
     let headers = this.headers
     password && (headers = headers.concat(new XHR.Header('password', password)))
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => JSON.parse(JSON.stringify(doc.body)))
       .catch((err) => this.handleError(err))
   }
@@ -81,7 +89,7 @@ export class IccUserApi {
     const _url = this.host + `/user/token/${encodeURIComponent(String(userId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
     token && (headers = headers.concat(new XHR.Header('token', token)))
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => JSON.parse(JSON.stringify(doc.body)))
       .catch((err) => this.handleError(err))
   }
@@ -98,7 +106,7 @@ export class IccUserApi {
     const _url = this.host + `/user` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new User(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -116,7 +124,7 @@ export class IccUserApi {
     const _url = this.host + `/user/inGroup/${encodeURIComponent(String(groupId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new User(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -131,7 +139,7 @@ export class IccUserApi {
 
     const _url = this.host + `/user/${encodeURIComponent(String(userId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new DocIdentifier(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -148,7 +156,7 @@ export class IccUserApi {
     const _url =
       this.host + `/user/inGroup/${encodeURIComponent(String(groupId))}/${encodeURIComponent(String(userId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Unit(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -163,7 +171,7 @@ export class IccUserApi {
     const _url = this.host + `/user/encodePassword` + '?ts=' + new Date().getTime()
     let headers = this.headers
     password && (headers = headers.concat(new XHR.Header('password', password)))
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => JSON.parse(JSON.stringify(doc.body)))
       .catch((err) => this.handleError(err))
   }
@@ -188,7 +196,7 @@ export class IccUserApi {
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListUser(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -214,7 +222,7 @@ export class IccUserApi {
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListUser(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -229,7 +237,7 @@ export class IccUserApi {
 
     const _url = this.host + `/user/byHealthcarePartyId/${encodeURIComponent(String(id))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
       .catch((err) => this.handleError(err))
   }
@@ -244,7 +252,7 @@ export class IccUserApi {
 
     const _url = this.host + `/user/byPatientId/${encodeURIComponent(String(id))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
       .catch((err) => this.handleError(err))
   }
@@ -258,7 +266,7 @@ export class IccUserApi {
 
     const _url = this.host + `/user/session` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => JSON.parse(JSON.stringify(doc.body)))
       .catch((err) => this.handleError(err))
   }
@@ -272,7 +280,7 @@ export class IccUserApi {
 
     const _url = this.host + `/user/current` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, true)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new User(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -286,7 +294,7 @@ export class IccUserApi {
 
     const _url = this.host + `/user/matches` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, true)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new UserGroup(it)))
       .catch((err) => this.handleError(err))
   }
@@ -310,7 +318,7 @@ export class IccUserApi {
       (tokenValidity ? '&tokenValidity=' + encodeURIComponent(String(tokenValidity)) : '')
     let headers = this.headers
     token && (headers = headers.concat(new XHR.Header('token', token)))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => JSON.parse(JSON.stringify(doc.body)))
       .catch((err) => this.handleError(err))
   }
@@ -334,7 +342,7 @@ export class IccUserApi {
       (tokenValidity ? '&tokenValidity=' + encodeURIComponent(String(tokenValidity)) : '')
     let headers = this.headers
     token && (headers = headers.concat(new XHR.Header('token', token)))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new TokenWithGroup(it)))
       .catch((err) => this.handleError(err))
   }
@@ -359,7 +367,7 @@ export class IccUserApi {
       (tokenValidity ? '&tokenValidity=' + encodeURIComponent(String(tokenValidity)) : '')
     let headers = this.headers
     token && (headers = headers.concat(new XHR.Header('token', token)))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => JSON.parse(JSON.stringify(doc.body)))
       .catch((err) => this.handleError(err))
   }
@@ -374,7 +382,7 @@ export class IccUserApi {
 
     const _url = this.host + `/user/${encodeURIComponent(String(userId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new User(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -389,7 +397,7 @@ export class IccUserApi {
 
     const _url = this.host + `/user/byEmail/${encodeURIComponent(String(email))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new User(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -415,7 +423,7 @@ export class IccUserApi {
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '') +
       (skipPatients ? '&skipPatients=' + encodeURIComponent(String(skipPatients)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListUser(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -440,7 +448,7 @@ export class IccUserApi {
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListUser(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -457,7 +465,7 @@ export class IccUserApi {
     const _url = this.host + `/user/match` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
       .catch((err) => this.handleError(err))
   }
@@ -475,7 +483,7 @@ export class IccUserApi {
     const _url = this.host + `/user/${encodeURIComponent(String(userId))}/properties` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new User(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -492,7 +500,7 @@ export class IccUserApi {
     const _url = this.host + `/user` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new User(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -510,7 +518,7 @@ export class IccUserApi {
     const _url = this.host + `/user/inGroup/${encodeURIComponent(String(groupId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new User(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }

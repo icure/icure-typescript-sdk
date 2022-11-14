@@ -12,15 +12,23 @@
 import { XHR } from './XHR'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { FrontEndMigration } from '../model/FrontEndMigration'
+import { AuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 
 export class IccFrontendmigrationApi {
   host: string
   headers: Array<XHR.Header>
+  authenticationProvider: AuthenticationProvider
   fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
 
-  constructor(host: string, headers: any, fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>) {
+  constructor(
+    host: string,
+    headers: any,
+    authenticationProvider: AuthenticationProvider,
+    fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
+  ) {
     this.host = host
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
+    this.authenticationProvider = authenticationProvider
     this.fetchImpl = fetchImpl
   }
 
@@ -44,7 +52,7 @@ export class IccFrontendmigrationApi {
     const _url = this.host + `/frontendmigration` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new FrontEndMigration(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -59,7 +67,7 @@ export class IccFrontendmigrationApi {
 
     const _url = this.host + `/frontendmigration/${encodeURIComponent(String(frontEndMigrationId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new DocIdentifier(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -74,7 +82,7 @@ export class IccFrontendmigrationApi {
 
     const _url = this.host + `/frontendmigration/${encodeURIComponent(String(frontEndMigrationId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new FrontEndMigration(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -89,7 +97,7 @@ export class IccFrontendmigrationApi {
 
     const _url = this.host + `/frontendmigration/byName/${encodeURIComponent(String(frontEndMigrationName))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new FrontEndMigration(it)))
       .catch((err) => this.handleError(err))
   }
@@ -103,7 +111,7 @@ export class IccFrontendmigrationApi {
 
     const _url = this.host + `/frontendmigration` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new FrontEndMigration(it)))
       .catch((err) => this.handleError(err))
   }
@@ -120,7 +128,7 @@ export class IccFrontendmigrationApi {
     const _url = this.host + `/frontendmigration` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new FrontEndMigration(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }

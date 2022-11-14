@@ -2,6 +2,7 @@ import { IccHcpartyApi } from '../icc-api'
 import { HealthcareParty } from '../icc-api/model/HealthcareParty'
 import * as models from '../icc-api/model/models'
 import { findName, garnishPersonWithName, hasName } from './utils/person-util'
+import { AuthenticationProvider } from './auth/AuthenticationProvider'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccHcpartyXApi extends IccHcpartyApi {
@@ -12,13 +13,14 @@ export class IccHcpartyXApi extends IccHcpartyApi {
   constructor(
     host: string,
     headers: { [key: string]: string },
+    authenticationProvider: AuthenticationProvider,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
       ? self.fetch
       : fetch
   ) {
-    super(host, headers, fetchImpl)
+    super(host, headers, authenticationProvider, fetchImpl)
   }
 
   private getHcPartyFromCache(key: string) {

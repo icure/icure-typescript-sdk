@@ -17,15 +17,23 @@ import { MikronoAppointmentTypeRest } from '../model/MikronoAppointmentTypeRest'
 import { MikronoCredentials } from '../model/MikronoCredentials'
 import { Unit } from '../model/Unit'
 import { User } from '../model/User'
+import { AuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 
 export class IccBemikronoApi {
   host: string
   headers: Array<XHR.Header>
+  authenticationProvider: AuthenticationProvider
   fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
 
-  constructor(host: string, headers: any, fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>) {
+  constructor(
+    host: string,
+    headers: any,
+    authenticationProvider: AuthenticationProvider,
+    fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
+  ) {
     this.host = host
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
+    this.authenticationProvider = authenticationProvider
     this.fetchImpl = fetchImpl
   }
 
@@ -47,7 +55,7 @@ export class IccBemikronoApi {
 
     const _url = this.host + `/be_mikrono/appointments/byDate/${encodeURIComponent(String(calendarDate))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Appointment(it)))
       .catch((err) => this.handleError(err))
   }
@@ -70,7 +78,7 @@ export class IccBemikronoApi {
       (from ? '&from=' + encodeURIComponent(String(from)) : '') +
       (to ? '&to=' + encodeURIComponent(String(to)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Appointment(it)))
       .catch((err) => this.handleError(err))
   }
@@ -86,7 +94,7 @@ export class IccBemikronoApi {
     const _url = this.host + `/be_mikrono/appointmentTypes` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new MikronoAppointmentTypeRest(it)))
       .catch((err) => this.handleError(err))
   }
@@ -103,7 +111,7 @@ export class IccBemikronoApi {
     const _url = this.host + `/be_mikrono/appointments` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
       .catch((err) => this.handleError(err))
   }
@@ -123,7 +131,7 @@ export class IccBemikronoApi {
       '?ts=' +
       new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => true)
       .catch((err) => this.handleError(err))
   }
@@ -141,7 +149,7 @@ export class IccBemikronoApi {
     const _url = this.host + `/be_mikrono/user/${encodeURIComponent(String(userId))}/register` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new User(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -158,7 +166,7 @@ export class IccBemikronoApi {
     const _url = this.host + `/be_mikrono/sendMessage` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Unit(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -176,7 +184,7 @@ export class IccBemikronoApi {
     const _url = this.host + `/be_mikrono/user/${encodeURIComponent(String(userId))}/credentials` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new User(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
