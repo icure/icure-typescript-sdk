@@ -1,6 +1,6 @@
 {
   "name": "@icure/api",
-  "version": "5.0.37",
+  "version": "5.1.4",
   "description": "Typescript version of iCure standalone API client",
   "types": "dist/index.d.ts",
   "dependencies": {
@@ -13,7 +13,7 @@
     "uuid-encoder": "^1.1.0"
   },
   "devDependencies": {
-    "@icure/test-setup": "^0.0.15",
+    "@icure/test-setup": "^0.0.27",
     "@types/chai": "^4.3.0",
     "@types/isomorphic-fetch": "^0.0.36",
     "@types/lodash": "^4.14.182",
@@ -21,6 +21,7 @@
     "@types/mocha": "^9.1.0",
     "@types/node": "^16.11.41",
     "@types/node-localstorage": "^1.3.0",
+    "@types/react-dom": "^18.0.8",
     "@types/rsocket-core": "^0.0.7",
     "@types/rsocket-websocket-client": "^0.0.4",
     "@types/uuid": "^8.3.4",
@@ -48,7 +49,8 @@
     "prepare": "rimraf dist && npm run build && jq '{name:.name, version:.version, description:.description, main:\"index.js\", types:\"index.d.ts\", dependencies:.dependencies, author:.author, license:.license, bugs:.bugs, homepage:.homepage}' < package.json > dist/package.json",
     "publish": "yarn version && yarn run prepare && cd dist && yarn publish --no-git-tag-version --new-version `git describe --abbrev=0 --tags` && cd ..",
     "precommit": "pretty-quick --staged",
-    "test": "nyc mocha test/**/*.ts --require ts-node/register --require source-map-support/register --timeout=15000 --recursive"
+    "test": "nyc mocha test/**/*.ts --require ts-node/register --require source-map-support/register --timeout=15000 --recursive",
+    "clean": "npx ts-node ./test/cleanup.ts"
   },
   "repository": {
     "type": "git",
