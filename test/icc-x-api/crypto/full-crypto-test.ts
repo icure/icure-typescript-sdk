@@ -405,7 +405,7 @@ describe('Full crypto test - Creation scenarios', async function () {
 describe('Full crypto test - Read/Share scenarios', async function () {
   ;['hcp'].forEach((uType) => {
     Object.keys(userDefinitions).forEach((uId) => {
-      ;[Object.entries(facades)[0]].forEach((f) => {
+      Object.entries(facades).forEach((f) => {
         it(`Read ${f[0]} as the initial ${uType} with ${uId}`, async () => {
           const { user } = users.find((it) => it.user.name === `${uType}-${uId}`)!
           const facade = f[1]
@@ -451,6 +451,7 @@ describe('Full crypto test - Read/Share scenarios', async function () {
               expect(Object.keys(entity.delegations)).to.contain(delegateDoId)
 
               const delApi = apis[`${duType}-${duId}`]
+              delApi.cryptoApi.emptyHcpCache(delegateDoId!)
               const obj = await facade.get(delApi, `${user.id}-${f[0]}`)
               expect(Object.keys(obj.delegations)).to.contain(delegateDoId)
               expect(await facade.isDecrypted(obj)).to.equal(true)
