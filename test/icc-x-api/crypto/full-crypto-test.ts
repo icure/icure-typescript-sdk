@@ -295,6 +295,22 @@ describe('Full battery of tests on crypto and keys', async function () {
       )
       const newHcpUserPassword = await userApi.getToken(newHcpUser!.id!, uuid())
 
+      await Object.entries(facades).reduce(async (p, f) => {
+        const prev = await p
+
+        const type = f[0]
+        const facade = f[1]
+        const api1 = await getApiAndAddPrivateKeysForUser(env!.iCureUrl, newHcpUser, newHcpUserPassword, true, false)
+
+        const parent = type !== 'Patient' ? await api1.patientApi.getPatientWithUser(newHcpUser, `partial-${newHcpUser.id}-Patient`) : undefined
+
+        const record = await entities[type as TestedEntity](api1, `partial-${newHcpUser.id}-${type}`, newHcpUser, parent, [hcpGivingAccessBack!.id!])
+
+        prev.push(await facade.create(api1, record))
+
+        return prev
+      }, Promise.resolve([] as EncryptedEntity[]))
+
       users.push({ user: await creationProcess(newPatientUser, api), password: newPatientUserPassword })
       users.push({ user: await creationProcess(newHcpUser, api), password: newHcpUserPassword })
     }, Promise.resolve())
@@ -313,29 +329,6 @@ describe('Full battery of tests on crypto and keys', async function () {
         { delegate: delegateApi }
       )
     )
-
-    await users
-      .filter((it) => !!it.user.healthcarePartyId)
-      .reduce(async (toWait, { user }) => {
-        await toWait
-
-        const api = apis[user.name!]
-        await Object.entries(facades).reduce(async (p, f) => {
-          const prev = await p
-
-          const type = f[0]
-          const facade = f[1]
-
-          const parent = type !== 'Patient' ? await api.patientApi.getPatientWithUser(user, `partial-${user.id}-Patient`) : undefined
-
-          const record = await entities[type as TestedEntity](api, `partial-${user.id}-${type}`, user, parent, [hcpGivingAccessBack!.id!])
-
-          prev.push(await facade.create(api, record))
-
-          return prev
-        }, Promise.resolve([] as EncryptedEntity[]))
-        new Promise((resolve) => setTimeout(resolve, Math.floor(Math.random() * 30)))
-      }, new Promise((resolve) => setTimeout(resolve, Math.floor(Math.random() * 30))))
   })
   ;['hcp'].forEach((uType) => {
     Object.keys(userDefinitions).forEach((uId) => {
