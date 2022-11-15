@@ -299,21 +299,26 @@ describe('Full battery of tests on crypto and keys', async function () {
       users.push({ user: await creationProcess(newHcpUser, api), password: newHcpUserPassword })
     }, Promise.resolve())
 
+    const delegateApi = await getApiAndAddPrivateKeysForUser(env!.iCureUrl, delegateUser!, delegateHcpPassword!)
+
     apis = await Promise.all(
       users.map(async ({ user, password }) => {
         return { [user.name!]: await getApiAndAddPrivateKeysForUser(env!.iCureUrl, user, password, false, false) }
       })
     ).then((apiDictList) =>
-      apiDictList.reduce((prev, curr) => {
-        return { ...prev, ...curr }
-      }, {})
+      apiDictList.reduce(
+        (prev, curr) => {
+          return { ...prev, ...curr }
+        },
+        { delegate: delegateApi }
+      )
     )
 
     await users
       .filter((it) => !!it.user.healthcarePartyId)
       .reduce(async (toWait, { user }) => {
         await toWait
-        console.log(`START ${user.name}`)
+
         const api = apis[user.name!]
         await Object.entries(facades).reduce(async (p, f) => {
           const prev = await p
@@ -348,9 +353,12 @@ describe('Full battery of tests on crypto and keys', async function () {
       })
     })
   })
+})
+
+describe('Full crypto test - Creation scenarios', async function () {
   ;['hcp'].forEach((uType) => {
     Object.keys(userDefinitions).forEach((uId) => {
-      ;[Object.entries(facades)[0]].forEach((f) => {
+      Object.entries(facades).forEach((f) => {
         it(`Create ${f[0]} as a ${uType} with ${uId}`, async () => {
           const { user } = users.find((it) => it.user.name === `${uType}-${uId}`)!
           const facade: EntityFacade<any> = f[1]
@@ -369,12 +377,15 @@ describe('Full battery of tests on crypto and keys', async function () {
           const { user } = users.find((it) => it.user.name === `${uType}-${uId}`)!
           const facade: EntityFacade<any> = f[1]
 
-          const api = await getApiAndAddPrivateKeysForUser(env!.iCureUrl, delegateUser!, delegateHcpPassword!)
+          const api = apis['delegate']
           const patApi = apis[`${uType}-${uId}`]
           const dataOwnerId = api.dataOwnerApi.getDataOwnerOf(user)
           const dataOwner = (await patApi.cryptoApi.getDataOwner(dataOwnerId))!.dataOwner
 
           const parent = f[0] !== 'Patient' ? await api.patientApi.getPatientWithUser(delegateUser!, `delegate-${user.id}-Patient`) : undefined
+
+          api.cryptoApi.emptyHcpCache(delegateUser!.healthcarePartyId!)
+
           const record = await entities[f[0] as TestedEntity](api, `delegate-${user.id}-${f[0]}`, delegateUser!, parent, [
             (user.patientId ?? user.healthcarePartyId ?? user.deviceId)!,
           ])
@@ -393,6 +404,15 @@ describe('Full battery of tests on crypto and keys', async function () {
           expect(entity.rev).to.equal(retrieved.rev)
           expect(await facade.isDecrypted(entity)).to.equal(true)
         })
+      })
+    })
+  })
+})
+
+describe('Full crypto test - Read/Share scenarios', async function () {
+  ;['hcp'].forEach((uType) => {
+    Object.keys(userDefinitions).forEach((uId) => {
+      ;[Object.entries(facades)[0]].forEach((f) => {
         it(`Read ${f[0]} as the initial ${uType} with ${uId}`, async () => {
           const { user } = users.find((it) => it.user.name === `${uType}-${uId}`)!
           const facade = f[1]
