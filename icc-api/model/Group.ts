@@ -56,5 +56,9 @@ export class Group {
    * Extra properties for the user. Those properties are typed (see class Property)
    */
   properties?: Array<PropertyStub>
+  /**
+   * List of entities that have to be collected from a shared database. Only Code and tarification can be set at this point.
+   */
+  sharedEntities?: { [key: string]: string }
   superGroup?: string
 }

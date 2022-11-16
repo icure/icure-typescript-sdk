@@ -16,9 +16,10 @@ export class TimeTableItem {
     Object.assign(this as TimeTableItem, json)
   }
 
+  rrule?: string
   days?: Array<string>
-  hours?: Array<TimeTableHour>
   recurrenceTypes?: Array<string>
+  hours?: Array<TimeTableHour>
   calendarItemTypeId?: string
   homeVisit?: boolean
   placeId?: string
