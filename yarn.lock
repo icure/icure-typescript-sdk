@@ -226,10 +226,10 @@
     uuid "^8.3.2"
     uuid-encoder "^1.1.0"
 
-"@icure/test-setup@^0.0.27":
-  version "0.0.27"
-  resolved "https://registry.yarnpkg.com/@icure/test-setup/-/test-setup-0.0.27.tgz#6e8249d9f48ea3d90c9b6529c2d026f7bed139bd"
-  integrity sha512-O96DZipbuq8edg61B04d9tGq21NPLnHP0ao1t3P0YxqFTaBPMZBCGvQQnfUc5z7kwiwcoY9VJlFBTu+Xg+cqiw==
+"@icure/test-setup@^0.0.29":
+  version "0.0.29"
+  resolved "https://registry.yarnpkg.com/@icure/test-setup/-/test-setup-0.0.29.tgz#3173277dceb1bb31a0caf166c6616e7058babb73"
+  integrity sha512-/G9La/AIOTrqBqsf2K9z2ZbgpxGz57EiJHDicqx+orQthxarCWyPHZdiqJHaDWYWuKYNYBgub6V/HoSA+71xcw==
   dependencies:
     "@icure/api" "^6.0.0"
     "@types/react-dom" "^18.0.6"
