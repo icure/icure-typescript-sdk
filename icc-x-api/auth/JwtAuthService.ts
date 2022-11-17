@@ -3,6 +3,7 @@ import { XHR } from '../../icc-api/api/XHR'
 import { IccAuthApi } from '../../icc-api'
 import { LoginCredentials } from '../../icc-api/model/LoginCredentials'
 import Header = XHR.Header
+import { a2b } from '../utils'
 
 export class JwtAuthService implements AuthService {
   private _error: Error | null = null
@@ -74,7 +75,7 @@ export class JwtAuthService implements AuthService {
   }
 
   private _base64Decode(encodedString: string): any {
-    return JSON.parse(Buffer.from(encodedString, 'base64').toString())
+    return JSON.parse(a2b(encodedString))
   }
 
   invalidateHeader(error: Error): void {
