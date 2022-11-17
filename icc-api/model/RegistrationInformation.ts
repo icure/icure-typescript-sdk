@@ -19,4 +19,5 @@ export class RegistrationInformation {
   lastName?: string
   emailAddress?: string
   userOptions?: string
+  userRoles?: Array<string>
 }

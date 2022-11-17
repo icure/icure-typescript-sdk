@@ -24,6 +24,7 @@ import {
 import { webcrypto } from 'crypto'
 import { checkIfDockerIsOnline } from '@icure/test-setup'
 
+
 export function getTempEmail(): string {
   return `${uuid().substring(0, 8)}@icure.com`
 }
@@ -125,6 +126,10 @@ export async function getEnvironmentInitializer(): Promise<EnvInitializer> {
 }
 
 export namespace TestUtils {
+  export async function initApi(envVars: TestVars, userName: string = hcp1Username): Promise<Apis> {
+    return Api(envVars.iCureUrl, envVars.dataOwnerDetails[userName].user, envVars.dataOwnerDetails[userName].password, crypto)
+  }
+
   export async function initKey(dataOwnerApi: IccDataOwnerXApi, cryptoApi: IccCryptoXApi, user: User, privateKey: string) {
     const id = dataOwnerApi.getDataOwnerOf(user)!
     await cryptoApi.loadKeyPairsAsTextInBrowserLocalStorage(id, hex2ua(privateKey)).catch((error: any) => {
