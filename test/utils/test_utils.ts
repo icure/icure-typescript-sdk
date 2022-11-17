@@ -22,7 +22,8 @@ import {
   UserInitializerComposite,
 } from './test-utils-decorators'
 import { webcrypto } from 'crypto'
-import { crypto } from '../../node-compat'
+import { checkIfDockerIsOnline } from '@icure/test-setup'
+
 
 export function getTempEmail(): string {
   return `${uuid().substring(0, 8)}@icure.com`
@@ -80,8 +81,8 @@ export function getEnvVariables(): TestVars {
     msgGtwUrl: process.env.ICURE_TS_TEST_MSG_GTW_URL ?? 'http://127.0.0.1:8081/msggtw',
     couchDbUrl: process.env.ICURE_COUCHDB_URL ?? 'http://127.0.0.1:15984',
     composeFileUrl: process.env.COMPOSE_FILE_URL ?? 'https://raw.githubusercontent.com/icure/icure-e2e-test-setup/master/docker-compose-cloud.yaml',
-    patAuthProcessId: process.env.ICURE_TS_TEST_PAT_AUTH_PROCESS_ID ?? `patient|${testGroupId}`,
-    hcpAuthProcessId: process.env.ICURE_TS_TEST_HCP_AUTH_PROCESS_ID ?? `hcp|${testGroupId}`,
+    patAuthProcessId: process.env.ICURE_TS_TEST_PAT_AUTH_PROCESS_ID ?? `patient${testGroupId}`,
+    hcpAuthProcessId: process.env.ICURE_TS_TEST_HCP_AUTH_PROCESS_ID ?? `hcp${testGroupId}`,
     specId: process.env.ICURE_TS_TEST_MSG_GTW_SPEC_ID ?? 'ic',
     testEnvironment: process.env.TEST_ENVIRONMENT ?? 'docker',
     testGroupId: testGroupId,
@@ -103,12 +104,14 @@ let cachedInitializer: EnvInitializer | undefined
 export async function getEnvironmentInitializer(): Promise<EnvInitializer> {
   if (!cachedInitializer) {
     const env = getEnvVariables()
+    const scratchDir = 'test/scratch'
+    const isDockerOnline = await checkIfDockerIsOnline(scratchDir, env.composeFileUrl)
     let bootstrapStep = null
-    if (env.testEnvironment === 'docker') {
-      const setupStep = new DockerComposeInitializer('test/scratchDir', ['mock'])
+    if (env.testEnvironment === 'docker' && !isDockerOnline) {
+      const setupStep = new DockerComposeInitializer(scratchDir, ['mock'])
       bootstrapStep = env.backendType === 'oss' ? new OssInitializer(setupStep) : new KrakenInitializer(setupStep)
     }
-    const groupStep = env.backendType === 'oss' || !!process.env.EXISTING_GROUP ? bootstrapStep : new GroupInitializer(bootstrapStep, fetch)
+    const groupStep = env.backendType === 'oss' ? bootstrapStep : new GroupInitializer(bootstrapStep, fetch)
     const masterInitializerClass = env.backendType === 'kraken' ? MasterUserInGroupInitializer : MasterUserInitializer
     const masterStep = !!env.masterHcp ? groupStep : new masterInitializerClass(groupStep, fetch)
     const creationStep = new UserInitializerComposite(masterStep, fetch)
