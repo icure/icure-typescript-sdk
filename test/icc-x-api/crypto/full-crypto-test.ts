@@ -301,15 +301,17 @@ describe('Full battery of tests on crypto and keys', async function () {
       await p
       const newPatientEmail = getTempEmail()
       const publicKeyPatient = await makeKeyPair(cryptoApi, newPatientEmail)
-      const patient = await patientApi.createPatientWithUser(
+      const patientToCreate = await patientApi.newInstance(
         user,
-        new Patient({ id: uuid(), publicKey: publicKeyPatient, firstName: 'test', lastName: 'test' })
+        new Patient({ id: uuid(), publicKey: publicKeyPatient, firstName: 'test', lastName: 'test' }),
+        [dataOwnerId]
       )
+      const patient = await patientApi.createPatientWithUser(user, patientToCreate)
 
       const newHcpEmail = getTempEmail()
       const publicKeyHcp = await makeKeyPair(cryptoApi, newHcpEmail)
       const hcp = await healthcarePartyApi.createHealthcareParty(
-        new Patient({ id: uuid(), publicKey: publicKeyHcp, firstName: 'test', lastName: 'test' })
+        new HealthcareParty({ id: uuid(), publicKey: publicKeyHcp, firstName: 'test', lastName: 'test' })
       )
 
       const newPatientUser = await userApi.createUser(
@@ -336,8 +338,6 @@ describe('Full battery of tests on crypto and keys', async function () {
       )
       const newHcpUserPassword = await userApi.getToken(newHcpUser!.id!, uuid())
 
-      // await entities["Patient"](api, `partial-${newPatientUser.id}-Patient`, user, undefined, [newPatientUser.patientId!])
-
       await createPartialsForHcp(facades, entities, newHcpUser, newHcpUserPassword)
       await createPartialsForPatient(facades, entities, newPatientUser, newPatientUserPassword)
 
@@ -359,6 +359,24 @@ describe('Full battery of tests on crypto and keys', async function () {
         { delegate: delegateApi }
       )
     )
+
+    await users
+      .filter((it) => it.user.id!.endsWith('patient'))
+      .map((it) => it.user)
+      .reduce(async (prev, it) => {
+        await prev
+        const otherUsers = users.filter((u) => u.user.id!.endsWith('patient') && u.user.id !== it.id).map((u) => u.user)
+
+        await otherUsers.reduce(async (p, u) => {
+          await p
+          const patientToShare = await facades.Patient.get(api, it.patientId!)
+          const sharedPatient = await facades.Patient.share(api, null, patientToShare, u.patientId!)
+          expect(Object.keys(sharedPatient.delegations ?? {})).to.contain(u.patientId!)
+          return Promise.resolve([])
+        }, Promise.resolve([]))
+
+        return Promise.resolve([])
+      }, Promise.resolve([]))
   })
   ;['hcp'].forEach((uType) => {
     Object.keys(userDefinitions).forEach((uId) => {
@@ -441,10 +459,13 @@ describe('Full crypto test - Creation scenarios', async function () {
 })
 
 describe('Full crypto test - Read/Share scenarios', async function () {
-  ;['hcp'].forEach((uType) => {
+  ;['patient', 'hcp'].forEach((uType) => {
     Object.keys(userDefinitions).forEach((uId) => {
       Object.entries(facades).forEach((f) => {
-        it(`Read ${f[0]} as the initial ${uType} with ${uId}`, async () => {
+        it(`Read ${f[0]} as the initial ${uType} with ${uId}`, async function () {
+          if (f[0] === 'Patient' && uType === 'patient') {
+            this.skip()
+          }
           const { user } = users.find((it) => it.user.name === `${uType}-${uId}`)!
           const facade = f[1]
           const api = apis[`${uType}-${uId}`]
@@ -455,7 +476,10 @@ describe('Full crypto test - Read/Share scenarios', async function () {
             !uId.includes('one lost key and one available key') /* data shared only with lost key... So false */
           )
         })
-        it(`Read ${f[0]} as a ${uType} with ${uId}`, async () => {
+        it(`Read ${f[0]} as a ${uType} with ${uId}`, async function () {
+          if (f[0] === 'Patient' && uType === 'patient') {
+            this.skip()
+          }
           const { user } = users.find((it) => it.user.name === `${uType}-${uId}`)!
           const facade = f[1]
           const api = apis[`${uType}-${uId}`]
@@ -473,22 +497,30 @@ describe('Full crypto test - Read/Share scenarios', async function () {
           expect(entity.id).to.equal(`delegate-${user.id}-${f[0]}`)
           expect(await facade.isDecrypted(entity)).to.equal(true)
         })
-        ;['hcp'].forEach((duType) => {
+        ;['patient', 'hcp'].forEach((duType) => {
           Object.keys(userDefinitions).forEach((duId) => {
-            it(`Share ${f[0]} as a ${uType} with ${uId} to a ${duType} with ${duId}`, async () => {
+            it(`Share ${f[0]} as a ${uType} with ${uId} to a ${duType} with ${duId}`, async function () {
+              if (f[0] === 'Patient' && uType === 'patient') {
+                this.skip()
+              }
               const { user } = users.find((it) => it.user.name === `${uType}-${uId}`)!
               const { user: delUser } = users.find((it) => it.user.name === `${duType}-${duId}`)!
               const delegateDoId = delUser.healthcarePartyId ?? delUser.patientId
               const facade = f[1]
               const api = apis[`${uType}-${uId}`]
+              const delApi = apis[`${duType}-${duId}`]
 
-              const parent = f[0] !== 'Patient' ? await api.patientApi.getPatientWithUser(user, `${user.id}-Patient`) : undefined
+              const parent =
+                f[0] !== 'Patient'
+                  ? uType === 'patient'
+                    ? await api.patientApi.getPatientWithUser(user, user.patientId!)
+                    : await api.patientApi.getPatientWithUser(user, `${user.id}-Patient`)
+                  : undefined
               const entity = await facade.share(api, parent, await facade.get(api, `${user.id}-${f[0]}`), delegateDoId)
               const retrieved = await facade.get(api, entity.id)
               expect(entity.rev).to.equal(retrieved.rev)
               expect(Object.keys(entity.delegations)).to.contain(delegateDoId)
 
-              const delApi = apis[`${duType}-${duId}`]
               delApi.cryptoApi.emptyHcpCache(delegateDoId!)
               const obj = await facade.get(delApi, `${user.id}-${f[0]}`)
               expect(Object.keys(obj.delegations)).to.contain(delegateDoId)
