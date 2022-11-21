@@ -37,7 +37,7 @@ There are four implementation of `AuthenticationService` and their working is an
 
 **Note**: if no `AuthenticationService` is specified, the `NoAuthService` is used by default.
 
-## How does the JWT authentication work?
+## How does the JWT authentication works?
 
 The JWT (JSON Web Token) is an authentication method that involves storing the session data on the client side instead of the server side.
 All the session data are stored in the JWT and signed with a secret key when the token is issued, to prevent modifications and malicious accesses.
@@ -55,7 +55,7 @@ If both the authentication JWT and the SESSION Cookie are provided, the JWT has 
 - Trying to access an endpoint with a valid JWT and a non-valid SESSION Cookie will result in a success.
 - Trying to access an endpoint with a non-valid JWT and a valid SESSION Cookie will result in a failure
 
-## Breaking Changes
+### Authentication Details
 
 - When the user logs in, in the response payload he will receive an authentication token and a refresh token.
 - To access a protected endpoint, the user should add the `Authorization: Bearer <AUTHENTICATION_TOKEN>` where `<AUTHENTICATION_TOKEN>` is the authentication JWT provided after login.
