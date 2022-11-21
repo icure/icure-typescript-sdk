@@ -12,7 +12,7 @@ The AuthenticationProviders defined in `icc-x-api/auth/AuthenticationProvider` a
 - **EnsembleAuthenticationProvider**: it will try to use several authentication methods until it finds one that works. First, it will try with the Jwt Authentication, then with the SESSION-ID (no authentication header), then with the Basic authentication. _Note_: if the JWT Authentication fails, it will not try it again for a period of time which duration can be configured in the parameters (default: 1 hour).
 
 **Note**: to instantiate a `JwtAuthenticationProvider` or a `EnsembleAuthenticationProvider` you need to pass as parameter an instance of `IccAuthApi`.<br>
-**Note**: all the icc-x-apis use the `NoAuthenticationProvider` by default.<br>
+**Note**: If not authentication provider is specified, the `NoAuthenticationProvider` is used by default.<br>
 
 ### Example
 
