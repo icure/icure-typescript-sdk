@@ -14,7 +14,7 @@ import { ByteArray } from '../model/ByteArray'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { DocumentTemplate } from '../model/DocumentTemplate'
 import { ListOfIds } from '../model/ListOfIds'
-import { AuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 
 export class IccDocumentTemplateApi {
   host: string
@@ -25,12 +25,12 @@ export class IccDocumentTemplateApi {
   constructor(
     host: string,
     headers: any,
-    authenticationProvider: AuthenticationProvider,
+    authenticationProvider?: AuthenticationProvider,
     fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
   ) {
     this.host = host
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
-    this.authenticationProvider = authenticationProvider
+    this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
     this.fetchImpl = fetchImpl
   }
 
