@@ -20,7 +20,7 @@ import { Message } from '../model/Message'
 import { Patient } from '../model/Patient'
 import { ReplicationInfo } from '../model/ReplicationInfo'
 import { ReplicatorDocument } from '../model/ReplicatorDocument'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 
 export class IccIcureApi {
   host: string
@@ -31,12 +31,12 @@ export class IccIcureApi {
   constructor(
     host: string,
     headers: any,
-    authenticationProvider?: AuthenticationProvider,
+    authenticationProvider: AuthenticationProvider,
     fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
   ) {
     this.host = host
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
-    this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
+    this.authenticationProvider = authenticationProvider
     this.fetchImpl = fetchImpl
   }
 

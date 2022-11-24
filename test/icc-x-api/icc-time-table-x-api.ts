@@ -1,4 +1,5 @@
 import 'isomorphic-fetch'
+
 import { before } from 'mocha'
 import { getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStorage, TestUtils, TestVars } from '../utils/test_utils'
 import { IccTimeTableXApi } from '../../icc-x-api'

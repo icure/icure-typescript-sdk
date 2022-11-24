@@ -19,7 +19,7 @@ import { TokenWithGroup } from '../model/TokenWithGroup'
 import { Unit } from '../model/Unit'
 import { User } from '../model/User'
 import { UserGroup } from '../model/UserGroup'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 
 export class IccUserApi {
   host: string
@@ -30,12 +30,12 @@ export class IccUserApi {
   constructor(
     host: string,
     headers: any,
-    authenticationProvider?: AuthenticationProvider,
+    authenticationProvider: AuthenticationProvider,
     fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
   ) {
     this.host = host
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
-    this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
+    this.authenticationProvider = authenticationProvider
     this.fetchImpl = fetchImpl
   }
 
@@ -316,7 +316,7 @@ export class IccUserApi {
       '?ts=' +
       new Date().getTime() +
       (tokenValidity ? '&tokenValidity=' + encodeURIComponent(String(tokenValidity)) : '')
-    let headers = this.headers
+    let headers = this.headers.concat(new XHR.Header('Accept', '*'), new XHR.Header('Content-type', 'application/json'))
     token && (headers = headers.concat(new XHR.Header('token', token)))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => JSON.parse(JSON.stringify(doc.body)))

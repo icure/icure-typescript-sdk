@@ -1,6 +1,5 @@
 import { StorageFacade } from './StorageFacade'
 import { KeyStorageFacade } from './KeyStorageFacade'
-import { b2a } from '../../icc-api/model/ModelHelper'
 
 export class KeyStorageImpl implements KeyStorageFacade {
   private readonly _storage: StorageFacade<string>
@@ -9,12 +8,12 @@ export class KeyStorageImpl implements KeyStorageFacade {
     this._storage = storage
   }
 
-  deleteKeypair(key: string): void {
-    return this._storage.deleteItem(key)
+  async deleteKeypair(key: string): Promise<void> {
+    return await this._storage.removeItem(key)
   }
 
-  getKeypair(key: string): { publicKey: JsonWebKey; privateKey: JsonWebKey } | undefined {
-    const keyPair = JSON.parse(this._storage.getItem(key) ?? '{}')
+  async getKeypair(key: string): Promise<{ publicKey: JsonWebKey; privateKey: JsonWebKey } | undefined> {
+    const keyPair = JSON.parse((await this._storage.getItem(key)) ?? '{}')
     return keyPair.hasOwnProperty('publicKey') && keyPair.hasOwnProperty('privateKey')
       ? {
           publicKey: keyPair.publicKey as JsonWebKey,
@@ -23,15 +22,15 @@ export class KeyStorageImpl implements KeyStorageFacade {
       : undefined
   }
 
-  getPrivateKey(key: string): JsonWebKey | undefined {
-    return this.getKeypair(key)?.privateKey
+  async getPrivateKey(key: string): Promise<JsonWebKey | undefined> {
+    return (await this.getKeypair(key))?.privateKey
   }
 
-  getPublicKey(key: string): JsonWebKey | undefined {
-    return this.getKeypair(key)?.publicKey
+  async getPublicKey(key: string): Promise<JsonWebKey | undefined> {
+    return (await this.getKeypair(key))?.publicKey
   }
 
-  storeKeyPair(key: string, keyPair: { publicKey: JsonWebKey; privateKey: JsonWebKey }): void {
-    return this._storage.setItem(key, JSON.stringify(keyPair))
+  async storeKeyPair(key: string, keyPair: { publicKey: JsonWebKey; privateKey: JsonWebKey }): Promise<void> {
+    return await this._storage.setItem(key, JSON.stringify(keyPair))
   }
 }

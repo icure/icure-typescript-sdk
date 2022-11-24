@@ -1,9 +1,6 @@
 import { User } from '../../icc-api/model/User'
 import { Api, Apis, hex2ua, IccCryptoXApi, pkcs8ToJwk, spkiToJwk } from '../../icc-x-api'
 import { IccDataOwnerXApi } from '../../icc-x-api/icc-data-owner-x-api'
-import { AuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
-import { AuthService } from '../../icc-x-api/auth/AuthService'
-import { BasicAuthService } from '../../icc-x-api/auth/BasicAuthService'
 import { tmpdir } from 'os'
 import { TextDecoder, TextEncoder } from 'util'
 import { v4 as uuid } from 'uuid'
@@ -21,9 +18,11 @@ import {
   SafeguardInitializer,
   UserInitializerComposite,
 } from './test-utils-decorators'
-import { webcrypto } from 'crypto'
-import { checkIfDockerIsOnline } from '@icure/test-setup'
 
+import { webcrypto } from 'crypto'
+import { crypto } from '../../node-compat'
+
+import { checkIfDockerIsOnline } from '@icure/test-setup'
 
 export function getTempEmail(): string {
   return `${uuid().substring(0, 8)}@icure.com`
