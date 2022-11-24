@@ -124,12 +124,9 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
   }
 
   deleteMaintenanceTaskWithUser(user: models.User, maintenanceTaskId: string): Promise<Array<DocIdentifier>> | never {
-    return super.getMaintenanceTask(maintenanceTaskId).then((mt) => {
-      return this.dataOwnerApi.hasAccessTo(user, mt.delegations ?? {}).then((hasAccess) => {
-        if (hasAccess) return super.deleteMaintenanceTask(maintenanceTaskId)
-        else throw new Error('User does not have a delegation for this maintenanceTask')
-      })
-    })
+    // TODO server-side check on delegation access
+    // Client-side checks in this method are not efficient as they would always require to do a get first -> skip
+    return super.deleteMaintenanceTask(maintenanceTaskId)
   }
 
   filterMaintenanceTasksByWithUser(
