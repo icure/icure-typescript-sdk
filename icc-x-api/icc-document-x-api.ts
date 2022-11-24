@@ -7,7 +7,7 @@ import * as models from '../icc-api/model/models'
 
 import { a2b, hex2ua, string2ua, ua2string } from './utils/binary-utils'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
-import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import { AuthenticationProvider } from './auth/AuthenticationProvider'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccDocumentXApi extends IccDocumentApi {
@@ -551,7 +551,7 @@ export class IccDocumentXApi extends IccDocumentApi {
     private crypto: IccCryptoXApi,
     private authApi: IccAuthApi,
     dataOwnerApi: IccDataOwnerXApi,
-    authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
+    authenticationProvider: AuthenticationProvider,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'

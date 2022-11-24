@@ -14,7 +14,7 @@ import { Classification } from '../model/Classification'
 import { Delegation } from '../model/Delegation'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { IcureStub } from '../model/IcureStub'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 
 export class IccClassificationApi {
   host: string
@@ -25,12 +25,12 @@ export class IccClassificationApi {
   constructor(
     host: string,
     headers: any,
-    authenticationProvider?: AuthenticationProvider,
+    authenticationProvider: AuthenticationProvider,
     fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
   ) {
     this.host = host
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
-    this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
+    this.authenticationProvider = authenticationProvider
     this.fetchImpl = fetchImpl
   }
 

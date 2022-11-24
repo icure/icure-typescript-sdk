@@ -6,7 +6,7 @@ import { User } from '../icc-api/model/User'
 import { TimeTable } from '../icc-api/model/TimeTable'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
-import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import { AuthenticationProvider } from './auth/AuthenticationProvider'
 
 export class IccTimeTableXApi extends IccTimeTableApi {
   i18n: any = i18n
@@ -18,7 +18,7 @@ export class IccTimeTableXApi extends IccTimeTableApi {
     headers: { [key: string]: string },
     crypto: IccCryptoXApi,
     dataOwnerApi: IccDataOwnerXApi,
-    authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
+    authenticationProvider: AuthenticationProvider,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'

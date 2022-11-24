@@ -1,5 +1,5 @@
 import { IccUserApi } from '../icc-api/api/IccUserApi'
-import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import { AuthenticationProvider } from './auth/AuthenticationProvider'
 
 export class IccUserXApi extends IccUserApi {
   fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response>
@@ -7,7 +7,7 @@ export class IccUserXApi extends IccUserApi {
   constructor(
     host: string,
     headers: { [key: string]: string },
-    authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
+    authenticationProvider: AuthenticationProvider,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'

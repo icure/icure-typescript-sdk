@@ -5,7 +5,7 @@ import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
 import { Invoice } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
-import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import { AuthenticationProvider } from './auth/AuthenticationProvider'
 
 export class IccInvoiceXApi extends IccInvoiceApi {
   crypto: IccCryptoXApi
@@ -18,7 +18,7 @@ export class IccInvoiceXApi extends IccInvoiceApi {
     crypto: IccCryptoXApi,
     entityrefApi: IccEntityrefApi,
     dataOwnerApi: IccDataOwnerXApi,
-    authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
+    authenticationProvider: AuthenticationProvider,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
