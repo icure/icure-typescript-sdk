@@ -4,6 +4,10 @@ import { getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStora
 import { Api } from '../../../icc-x-api'
 import { webcrypto } from 'crypto'
 import { expect } from 'chai'
+import { XHR } from '../../../icc-api/api/XHR'
+import XHRError = XHR.XHRError
+import { IccAuthApi } from '../../../icc-api'
+import { BasicAuthenticationProvider, JwtAuthenticationProvider, NoAuthenticationProvider } from '../../../icc-x-api/auth/AuthenticationProvider'
 
 setLocalStorage(fetch)
 let env: TestVars
@@ -84,5 +88,54 @@ describe('Jwt authentication concurrency test', () => {
     users.forEach((u) => {
       expect(u.login).to.be.equal(env.dataOwnerDetails[hcp1Username].user)
     })
+  })
+
+  it('Can instantiate a x-api without provider and get a 401', async () => {
+    const xUserApi = new IccUserXApi(env.iCureUrl, {})
+    xUserApi
+      .getCurrentUser()
+      .then(() => {
+        expect(false).to.be.eq(true, 'I should not get here')
+      })
+      .catch((e: XHRError) => {
+        expect(e.statusCode).to.be.eq(401)
+      })
+  })
+
+  it('Can instantiate a user-x-api with JWT provider and make requests', async () => {
+    const authApi = new IccAuthApi(env.iCureUrl, {})
+    const xUserApi = new IccUserXApi(
+      env.iCureUrl,
+      {},
+      new JwtAuthenticationProvider(authApi, env.dataOwnerDetails[hcp1Username].user, env.dataOwnerDetails[hcp1Username].password)
+    )
+
+    const users = await Promise.all(
+      [...Array<number>(5)].map(async () => {
+        return await xUserApi.getCurrentUser()
+      })
+    )
+    users.forEach((u) => {
+      expect(u.login).to.be.equal(env.dataOwnerDetails[hcp1Username].user)
+    })
+  })
+
+  it('Can instantiate a user-x-api with Basic provider and make requests', async () => {
+    const a = new BasicAuthenticationProvider(env.dataOwnerDetails[hcp1Username].user, env.dataOwnerDetails[hcp1Username].password)
+    const headers = await a.getAuthService().getAuthHeaders()
+    const xUserApi = new IccUserXApi(
+      env.iCureUrl,
+      headers.reduce((prev, h) => {
+        return { ...prev, [h.header]: h.data }
+      }, {})
+    )
+
+    const currentUser = await xUserApi.getCurrentUser()
+    expect(currentUser.login).to.be.equal(env.dataOwnerDetails[hcp1Username].user)
+
+    const fetchedUser = await xUserApi.getUser(currentUser.id!)
+    expect(fetchedUser.id).to.be.equal(currentUser.id)
+
+    await xUserApi.getToken(currentUser.id!, 'a_random_key')
   })
 })

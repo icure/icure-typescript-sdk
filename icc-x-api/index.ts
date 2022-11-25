@@ -23,7 +23,7 @@ import { StorageFacade } from './storage/StorageFacade'
 import { KeyStorageFacade } from './storage/KeyStorageFacade'
 import { LocalStorageImpl } from './storage/LocalStorageImpl'
 import { KeyStorageImpl } from './storage/KeyStorageImpl'
-import { BasicAuthenticationProvider, EnsembleAuthenticationProvider } from './auth/AuthenticationProvider'
+import { BasicAuthenticationProvider, EnsembleAuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -96,11 +96,11 @@ export const Api = async function (
   const _keyStorage = keyStorage || new KeyStorageImpl(_storage)
 
   const headers = {}
-  const authApi = new IccAuthApi(host, headers, fetchImpl)
   const authenticationProvider = forceBasic
     ? new BasicAuthenticationProvider(username, password)
-    : new EnsembleAuthenticationProvider(authApi, username, password)
+    : new EnsembleAuthenticationProvider(new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl), username, password)
 
+  const authApi = new IccAuthApi(host, headers, authenticationProvider, fetchImpl)
   const codeApi = new IccCodeXApi(host, headers, authenticationProvider, fetchImpl)
   const entityReferenceApi = new IccEntityrefApi(host, headers, authenticationProvider, fetchImpl)
   const userApi = new IccUserXApi(host, headers, authenticationProvider, fetchImpl)
