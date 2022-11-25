@@ -12,7 +12,7 @@
 import { XHR } from './XHR'
 import { AppointmentTypeAndPlace } from '../model/AppointmentTypeAndPlace'
 import { UserAndHealthcareParty } from '../model/UserAndHealthcareParty'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 
 export class IccAnonymousAccessApi {
   host: string
@@ -23,12 +23,12 @@ export class IccAnonymousAccessApi {
   constructor(
     host: string,
     headers: any,
-    authenticationProvider?: AuthenticationProvider,
+    authenticationProvider: AuthenticationProvider,
     fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
   ) {
     this.host = host
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
-    this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
+    this.authenticationProvider = authenticationProvider
     this.fetchImpl = fetchImpl
   }
 

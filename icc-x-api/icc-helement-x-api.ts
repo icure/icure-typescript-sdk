@@ -9,7 +9,7 @@ import { a2b, b2a, hex2ua, string2ua, ua2utf8, utf8_2ua } from './utils/binary-u
 import { HealthElement } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { crypt } from './utils'
-import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import { AuthenticationProvider } from './auth/AuthenticationProvider'
 
 export class IccHelementXApi extends IccHelementApi {
   crypto: IccCryptoXApi
@@ -23,7 +23,7 @@ export class IccHelementXApi extends IccHelementApi {
     crypto: IccCryptoXApi,
     dataOwnerApi: IccDataOwnerXApi,
     encryptedKeys: Array<string> = ['descr', 'note'],
-    authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
+    authenticationProvider: AuthenticationProvider,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'

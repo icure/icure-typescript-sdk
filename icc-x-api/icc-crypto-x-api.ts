@@ -23,9 +23,7 @@ import { b2a, b64_2uas, hex2ua, string2ua, ua2hex, ua2string, ua2utf8, utf8_2ua 
 import { fold, foldAsync, jwk2spki, notConcurrent, pkcs8ToJwk, spkiToJwk } from './utils'
 import { IccMaintenanceTaskXApi } from './icc-maintenance-task-x-api'
 import { StorageFacade } from './storage/StorageFacade'
-import { LocalStorageImpl } from './storage/LocalStorageImpl'
 import { KeyStorageFacade } from './storage/KeyStorageFacade'
-import { KeyStorageImpl } from './storage/KeyStorageImpl'
 
 interface DelegatorAndKeys {
   delegatorId: string
@@ -166,7 +164,7 @@ export class IccCryptoXApi {
     for (const pk of pubKeys) {
       const fingerprint = pk.slice(-32)
       if (!this.rsaKeyPairs[fingerprint]) {
-        await this.cacheKeyPair(this.loadKeyPairNotImported(dataOwnerId, fingerprint))
+        await this.cacheKeyPair(await this.loadKeyPairNotImported(dataOwnerId, fingerprint))
       }
     }
   }
@@ -176,7 +174,7 @@ export class IccCryptoXApi {
     pubKeyOrFingerprint: string
   ): Promise<{ publicKey: CryptoKey; privateKey: CryptoKey }> {
     const fingerprint = pubKeyOrFingerprint.slice(-32)
-    return this.rsaKeyPairs[fingerprint] ?? (await this.cacheKeyPair(this.loadKeyPairNotImported(dataOwnerId, fingerprint)))
+    return this.rsaKeyPairs[fingerprint] ?? (await this.cacheKeyPair(await this.loadKeyPairNotImported(dataOwnerId, fingerprint)))
   }
 
   async getPublicKeys() {
@@ -307,7 +305,7 @@ export class IccCryptoXApi {
       const importedPublicKey = await this._RSA.importKey('spki', hex2ua(hcp.publicKey!), ['encrypt'])
 
       const exportedKeyPair = await this._RSA.exportKeys({ publicKey: importedPublicKey, privateKey: importedPrivateKey }, 'jwk', 'jwk')
-      this._keyStorage.storeKeyPair(`${this.rsaLocalStoreIdPrefix}${hcp.id!}`, exportedKeyPair)
+      await this._keyStorage.storeKeyPair(`${this.rsaLocalStoreIdPrefix}${hcp.id!}`, exportedKeyPair)
     } catch (e) {
       console.log('Cannot decrypt shamir RSA key')
     }
@@ -358,7 +356,7 @@ export class IccCryptoXApi {
       }
 
       const fingerprint = pk.slice(-32)
-      const keyPair = this.rsaKeyPairs[fingerprint] ?? (await this.cacheKeyPair(this.loadKeyPairNotImported(loggedHcPartyId, fingerprint)))
+      const keyPair = this.rsaKeyPairs[fingerprint] ?? (await this.cacheKeyPair(await this.loadKeyPairNotImported(loggedHcPartyId, fingerprint)))
       if (!keyPair) {
         return
       }
@@ -1450,7 +1448,7 @@ export class IccCryptoXApi {
     this.rsaKeyPairs[publicKey.slice(-32)] = keyPair
     const exportedKeyPair = await this._RSA.exportKeys(keyPair, 'jwk', 'jwk')
 
-    return this._keyStorage.storeKeyPair(`${this.rsaLocalStoreIdPrefix}${healthcarePartyId}.${publicKey.slice(-32)}`, exportedKeyPair)
+    return await this._keyStorage.storeKeyPair(`${this.rsaLocalStoreIdPrefix}${healthcarePartyId}.${publicKey.slice(-32)}`, exportedKeyPair)
   }
 
   async loadKeyPairsAsJwkInBrowserLocalStorage(healthcarePartyId: string, privateKey: JsonWebKey) {
@@ -1470,7 +1468,7 @@ export class IccCryptoXApi {
     this.rsaKeyPairs[publicKey.slice(-32)] = keyPair
     const exportedKeyPair = await this._RSA.exportKeys(keyPair, 'jwk', 'jwk')
 
-    return this._keyStorage.storeKeyPair(`${this.rsaLocalStoreIdPrefix}${healthcarePartyId}.${publicKey.slice(-32)}`, exportedKeyPair)
+    return await this._keyStorage.storeKeyPair(`${this.rsaLocalStoreIdPrefix}${healthcarePartyId}.${publicKey.slice(-32)}`, exportedKeyPair)
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -1503,13 +1501,13 @@ export class IccCryptoXApi {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  saveKeychainValidityDateInBrowserLocalStorage(id: string, date: string) {
+  async saveKeychainValidityDateInBrowserLocalStorage(id: string, date: string) {
     if (!id) return
 
     if (!date) {
-      this._storage.deleteItem(this.keychainValidityDateLocalStoreIdPrefix + id)
+      await this._storage.removeItem(this.keychainValidityDateLocalStoreIdPrefix + id)
     } else {
-      this._storage.setItem(this.keychainValidityDateLocalStoreIdPrefix + id, date)
+      await this._storage.setItem(this.keychainValidityDateLocalStoreIdPrefix + id, date)
     }
   }
 
@@ -1536,7 +1534,7 @@ export class IccCryptoXApi {
 
       const opts = hcp.options || {}
 
-      const crt = this.getKeychainInBrowserLocalStorageAsBase64(hcp.id!!)
+      const crt = await this.getKeychainInBrowserLocalStorageAsBase64(hcp.id!!)
       if (!!aesKey && !!crt) {
         let crtEncrypted: ArrayBuffer | null = null
         try {
@@ -1637,8 +1635,8 @@ export class IccCryptoXApi {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  loadKeychainFromBrowserLocalStorage(id: string) {
-    const lsItem = this._storage.getItem(this.keychainLocalStoreIdPrefix + id)
+  async loadKeychainFromBrowserLocalStorage(id: string) {
+    const lsItem = await this._storage.getItem(this.keychainLocalStoreIdPrefix + id)
     return lsItem !== undefined ? b64_2uas(lsItem) : null
   }
 
@@ -1649,16 +1647,12 @@ export class IccCryptoXApi {
    * @param publicKeyFingerPrint the 32 last characters of public key this private key is associated with
    * @returns {Object} it is in JWK - not imported
    */
-  loadKeyPairNotImported(id: string, publicKeyFingerPrint?: string): { publicKey: JsonWebKey; privateKey: JsonWebKey } {
-    if (typeof Storage === 'undefined') {
-      console.log('Your browser does not support HTML5 Browser Local Storage !')
-      throw 'Your browser does not support HTML5 Browser Local Storage !'
-    }
+  async loadKeyPairNotImported(id: string, publicKeyFingerPrint?: string): Promise<{ publicKey: JsonWebKey; privateKey: JsonWebKey }> {
     //TODO decryption
     const item = publicKeyFingerPrint
-      ? this._keyStorage.getKeypair(this.rsaLocalStoreIdPrefix + id + '.' + publicKeyFingerPrint.slice(-32)) ??
-        this._keyStorage.getKeypair(this.rsaLocalStoreIdPrefix + id)
-      : this._keyStorage.getKeypair(this.rsaLocalStoreIdPrefix + id)
+      ? (await this._keyStorage.getKeypair(this.rsaLocalStoreIdPrefix + id + '.' + publicKeyFingerPrint.slice(-32))) ??
+        (await this._keyStorage.getKeypair(this.rsaLocalStoreIdPrefix + id))
+      : await this._keyStorage.getKeypair(this.rsaLocalStoreIdPrefix + id)
     if (!item) {
       console.warn(`No key can be found in local storage for id ${id} and publicKeyFingerPrint ${publicKeyFingerPrint}`)
     }
@@ -1672,9 +1666,9 @@ export class IccCryptoXApi {
    * @returns {Promise} -> {CryptoKey} - imported RSA
    */
   loadKeyPairImported(id: string) {
-    return new Promise((resolve: (value: { publicKey: CryptoKey; privateKey: CryptoKey }) => any, reject) => {
+    return new Promise(async (resolve: (value: { publicKey: CryptoKey; privateKey: CryptoKey }) => any, reject) => {
       try {
-        const jwkKeyPair = this._keyStorage.getKeypair(this.rsaLocalStoreIdPrefix + id)
+        const jwkKeyPair = await this._keyStorage.getKeypair(this.rsaLocalStoreIdPrefix + id)
         if (jwkKeyPair !== undefined) {
           if (jwkKeyPair.publicKey && jwkKeyPair.privateKey) {
             this._RSA.importKeyPair('jwk', jwkKeyPair.privateKey, 'jwk', jwkKeyPair.publicKey).then(resolve, (err) => {
