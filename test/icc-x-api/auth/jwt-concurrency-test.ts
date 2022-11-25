@@ -1,7 +1,7 @@
 import 'isomorphic-fetch'
 import { before } from 'mocha'
 import { getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStorage, TestVars } from '../../utils/test_utils'
-import { Api } from '../../../icc-x-api'
+import { Api, IccUserXApi } from '../../../icc-x-api'
 import { webcrypto } from 'crypto'
 import { expect } from 'chai'
 import { XHR } from '../../../icc-api/api/XHR'
