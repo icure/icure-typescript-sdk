@@ -34,28 +34,10 @@ export class EnsembleAuthenticationProvider implements AuthenticationProvider {
   }
 }
 
-export class JwtAuthenticationProvider implements AuthenticationProvider {
-  private readonly jwtAuth: JwtAuthService
-
-  constructor(authApi: IccAuthApi, username: string, password: string) {
-    this.jwtAuth = new JwtAuthService(authApi, username, password)
-  }
-
-  getAuthService(): AuthService {
-    return this.jwtAuth
-  }
-}
-
 export class BasicAuthenticationProvider implements AuthenticationProvider {
   constructor(private username: string, private password: string) {}
 
   getAuthService(): AuthService {
     return new BasicAuthService(this.username, this.password)
-  }
-}
-
-export class NoAuthenticationProvider implements AuthenticationProvider {
-  getAuthService(): AuthService {
-    return new NoAuthService()
   }
 }

@@ -6,7 +6,7 @@ import * as models from '../icc-api/model/models'
 import { DocumentTemplate } from '../icc-api/model/models'
 import { string2ua } from './utils/binary-utils'
 import { XHR } from '../icc-api/api/XHR'
-import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import { AuthenticationProvider } from './auth/AuthenticationProvider'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccDoctemplateXApi extends IccDoctemplateApi {
@@ -18,7 +18,7 @@ export class IccDoctemplateXApi extends IccDoctemplateApi {
     host: string,
     headers: { [key: string]: string },
     crypto: IccCryptoXApi,
-    authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
+    authenticationProvider: AuthenticationProvider,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
