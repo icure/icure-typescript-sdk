@@ -95,11 +95,13 @@ export const Api = async function (
   const _storage = storage || new LocalStorageImpl()
   const _keyStorage = keyStorage || new KeyStorageImpl(_storage)
 
+  // The AuthenticationProvider needs a AuthApi without authentication because it will only call methods without authentication
   const headers = {}
   const authenticationProvider = forceBasic
     ? new BasicAuthenticationProvider(username, password)
     : new EnsembleAuthenticationProvider(new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl), username, password)
 
+  // Here I instantiate a separate instance of the AuthApi that can call also login-protected methods (logout)
   const authApi = new IccAuthApi(host, headers, authenticationProvider, fetchImpl)
   const codeApi = new IccCodeXApi(host, headers, authenticationProvider, fetchImpl)
   const entityReferenceApi = new IccEntityrefApi(host, headers, authenticationProvider, fetchImpl)
