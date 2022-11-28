@@ -7,7 +7,7 @@ import { expect } from 'chai'
 import { XHR } from '../../../icc-api/api/XHR'
 import XHRError = XHR.XHRError
 import { IccAuthApi } from '../../../icc-api'
-import { JwtAuthenticationProvider } from '../../../icc-x-api/auth/AuthenticationProvider'
+import { BasicAuthenticationProvider, JwtAuthenticationProvider, NoAuthenticationProvider } from '../../../icc-x-api/auth/AuthenticationProvider'
 
 setLocalStorage(fetch)
 let env: TestVars
@@ -118,5 +118,24 @@ describe('Jwt authentication concurrency test', () => {
     users.forEach((u) => {
       expect(u.login).to.be.equal(env.dataOwnerDetails[hcp1Username].user)
     })
+  })
+
+  it('Can instantiate a user-x-api with Basic provider and make requests', async () => {
+    const a = new BasicAuthenticationProvider(env.dataOwnerDetails[hcp1Username].user, env.dataOwnerDetails[hcp1Username].password)
+    const headers = await a.getAuthService().getAuthHeaders()
+    const xUserApi = new IccUserXApi(
+      env.iCureUrl,
+      headers.reduce((prev, h) => {
+        return { ...prev, [h.header]: h.data }
+      }, {})
+    )
+
+    const currentUser = await xUserApi.getCurrentUser()
+    expect(currentUser.login).to.be.equal(env.dataOwnerDetails[hcp1Username].user)
+
+    const fetchedUser = await xUserApi.getUser(currentUser.id!)
+    expect(fetchedUser.id).to.be.equal(currentUser.id)
+
+    await xUserApi.getToken(currentUser.id!, 'a_random_key')
   })
 })
