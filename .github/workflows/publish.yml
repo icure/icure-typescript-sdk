@@ -42,7 +42,7 @@ jobs:
 
           echo 'LATEST_TAG='$latestTag >> $GITHUB_ENV
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
       - name: Publish package on NPM 📦
         run: yarn run prepare && cd dist && yarn run publish --no-git-tag-version --new-version $LATEST_TAG && cd ..
         env:
@@ -67,7 +67,7 @@ jobs:
           echo 'CURRENT_BRANCH='$currentBranch >> $GITHUB_ENV
           echo 'PR_NOTES='$prNotes >> $GITHUB_ENV
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
       - name: Create a release 📝
         run: gh api --method POST /repos/$REPO/releases -f tag_name="$LATEST_TAG" -f target_commitish="$CURRENT_BRANCH" -f name="$LATEST_TAG" -F draft=false -F generate_release_notes=true -F prerelease=false -f body="$PR_NOTES"
         env:
