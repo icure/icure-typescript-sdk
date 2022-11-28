@@ -16,6 +16,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+        env:
+          REPO: icure/icure-typescript-sdk
       - run: git config --global user.email "dev@icure.com"
       - run: git config --global user.name "iCure"
       - name: Setup Node ⚙️
@@ -58,12 +60,16 @@ jobs:
         run: |
           latestTag="$(git describe --abbrev=0 --tags)"
           currentBranch="$(git branch --show-current)"
+          lastReleaseDate="$(gh api -H "Accept: application/vnd.github+json" /repos/$REPO/releases/latest | jq '.published_at' -r)"
+          searchResult="$(gh api -X GET -H 'Accept: application/vnd.github.v3+json' search/issues -f  -f q="repo:$REPO is:pull-request is:merged merged:>$lastReleaseDate" | jq .)"
+          prNotes="$(gh api -X GET -H 'Accept: application/vnd.github.v3+json' search/issues -f q="repo:$REPO is:pull-request is:merged merged:>lastReleaseDate" -f per_page=100 | jq '.items[] | select(.body != null) | "## \(.title)\n\n\(.body//"")\n----"' -r)"
 
           echo 'LATEST_TAG='$latestTag >> $GITHUB_ENV
           echo 'CURRENT_BRANCH='$currentBranch >> $GITHUB_ENV
+          echo 'PR_NOTES='$prNotes >> $GITHUB_ENV
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Create a release 📝
-        run: gh api --method POST /repos/icure/icure-typescript-sdk/releases -f tag_name="$LATEST_TAG" -f target_commitish="$CURRENT_BRANCH" -f name="$LATEST_TAG" -F draft=false -F generate_release_notes=true -F prerelease=false
+        run: gh api --method POST /repos/$REPO/releases -f tag_name="$LATEST_TAG" -f target_commitish="$CURRENT_BRANCH" -f name="$LATEST_TAG" -F draft=false -F generate_release_notes=true -F prerelease=false body="$PR_NOTES"
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
