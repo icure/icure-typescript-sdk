@@ -6,7 +6,7 @@ import icpc2 from './rsrc/icpc2'
 
 import * as _ from 'lodash'
 import { Code } from '../icc-api/model/Code'
-import { AuthenticationProvider } from './auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 
 export class IccCodeXApi extends IccCodeApi {
   icd10: any = icd10
@@ -16,7 +16,7 @@ export class IccCodeXApi extends IccCodeApi {
   constructor(
     host: string,
     headers: { [key: string]: string },
-    authenticationProvider: AuthenticationProvider,
+    authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
