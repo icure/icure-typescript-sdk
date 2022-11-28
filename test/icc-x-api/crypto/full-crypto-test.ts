@@ -377,6 +377,8 @@ describe('Full battery of tests on crypto and keys', async function () {
 
         return Promise.resolve([])
       }, Promise.resolve([]))
+
+    await api.authApi.logout()
   })
   ;['hcp'].forEach((uType) => {
     Object.keys(userDefinitions).forEach((uId) => {

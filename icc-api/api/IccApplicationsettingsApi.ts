@@ -11,7 +11,7 @@
  */
 import { XHR } from './XHR'
 import { ApplicationSettings } from '../model/ApplicationSettings'
-import { AuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 
 export class IccApplicationsettingsApi {
   host: string
@@ -22,12 +22,12 @@ export class IccApplicationsettingsApi {
   constructor(
     host: string,
     headers: any,
-    authenticationProvider: AuthenticationProvider,
+    authenticationProvider?: AuthenticationProvider,
     fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
   ) {
     this.host = host
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
-    this.authenticationProvider = authenticationProvider
+    this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
     this.fetchImpl = fetchImpl
   }
 

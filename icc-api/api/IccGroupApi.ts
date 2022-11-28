@@ -21,7 +21,7 @@ import { RegistrationInformation } from '../model/RegistrationInformation'
 import { RegistrationSuccess } from '../model/RegistrationSuccess'
 import { ReplicationInfo } from '../model/ReplicationInfo'
 import { Unit } from '../model/Unit'
-import { AuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 
 export class IccGroupApi {
   host: string
@@ -32,12 +32,12 @@ export class IccGroupApi {
   constructor(
     host: string,
     headers: any,
-    authenticationProvider: AuthenticationProvider,
+    authenticationProvider?: AuthenticationProvider,
     fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
   ) {
     this.host = host
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
-    this.authenticationProvider = authenticationProvider
+    this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
     this.fetchImpl = fetchImpl
   }
 
