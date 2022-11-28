@@ -1,4 +1,7 @@
-import { RsaPrivateKey } from 'crypto'
+/**
+ * Represents an RSA KeyPair in a generic format.
+ */
+export type KeyPair<T> = { publicKey: T; privateKey: T }
 
 export class RSAUtils {
   /********* RSA Config **********/
@@ -22,14 +25,14 @@ export class RSAUtils {
   /**
    * It returns CryptoKey promise, which doesn't hold the bytes of the key.
    * If bytes are needed, you must export the generated key.
-   * R
+   *
    * @returns {Promise} will be {publicKey: CryptoKey, privateKey: CryptoKey}
    */
-  generateKeyPair(): Promise<CryptoKeyPair> {
+  generateKeyPair(): Promise<KeyPair<CryptoKey>> {
     const extractable = true
     const keyUsages: KeyUsage[] = ['decrypt', 'encrypt']
 
-    return new Promise((resolve: (value: CryptoKeyPair) => any, reject) => {
+    return new Promise<KeyPair<CryptoKey>>((resolve, reject) => {
       this.crypto.subtle.generateKey(this.rsaHashedParams, extractable, keyUsages).then(resolve, reject)
     })
   }
@@ -45,21 +48,9 @@ export class RSAUtils {
    * @param pubKeyFormat will be 'spki' or 'jwk'
    * @returns {Promise} will the AES Key
    */
-  exportKeys(
-    keyPair: { publicKey: CryptoKey; privateKey: CryptoKey },
-    privKeyFormat: 'jwk',
-    pubKeyFormat: 'jwk'
-  ): Promise<{ publicKey: JsonWebKey; privateKey: JsonWebKey }>
-  exportKeys(
-    keyPair: { publicKey: CryptoKey; privateKey: CryptoKey },
-    privKeyFormat: 'pkcs8',
-    pubKeyFormat: 'spki'
-  ): Promise<{ publicKey: ArrayBuffer; privateKey: ArrayBuffer }>
-  exportKeys(
-    keyPair: { publicKey: CryptoKey; privateKey: CryptoKey },
-    privKeyFormat: string,
-    pubKeyFormat: string
-  ): Promise<{ publicKey: JsonWebKey | ArrayBuffer; privateKey: JsonWebKey | ArrayBuffer }> {
+  exportKeys(keyPair: KeyPair<CryptoKey>, privKeyFormat: 'jwk', pubKeyFormat: 'jwk'): Promise<KeyPair<JsonWebKey>>
+  exportKeys(keyPair: KeyPair<CryptoKey>, privKeyFormat: 'pkcs8', pubKeyFormat: 'spki'): Promise<KeyPair<ArrayBuffer>>
+  exportKeys(keyPair: KeyPair<CryptoKey>, privKeyFormat: string, pubKeyFormat: string): Promise<KeyPair<JsonWebKey | ArrayBuffer>> {
     const pubPromise = this.crypto.subtle.exportKey(pubKeyFormat as any, keyPair.publicKey)
     const privPromise = this.crypto.subtle.exportKey(privKeyFormat as any, keyPair.privateKey)
 
@@ -96,7 +87,7 @@ export class RSAUtils {
    * @param publicKey (CryptoKey)
    * @param plainData (Uint8Array)
    */
-  encrypt(publicKey: CryptoKey, plainData: Uint8Array) {
+  encrypt(publicKey: CryptoKey, plainData: Uint8Array): Promise<ArrayBuffer> {
     return new Promise((resolve: (value: ArrayBuffer) => any, reject) => {
       this.crypto.subtle.encrypt(this.rsaParams, publicKey, plainData.buffer ? plainData.buffer : plainData).then(resolve, reject) //Node prefers arrayBuffer
     })
@@ -120,7 +111,7 @@ export class RSAUtils {
    * @param keyUsages Array of usages. For example, ['encrypt'] for public key.
    * @returns {*}
    */
-  importKey(format: string, keydata: JsonWebKey | ArrayBuffer, keyUsages: KeyUsage[]) {
+  importKey(format: string, keydata: JsonWebKey | ArrayBuffer, keyUsages: KeyUsage[]): Promise<CryptoKey> {
     const extractable = true
     return new Promise((resolve: (value: CryptoKey) => any, reject) => {
       this.crypto.subtle.importKey(format as any, keydata as any, this.rsaHashedParams, extractable, keyUsages).then(resolve, reject)
@@ -133,7 +124,7 @@ export class RSAUtils {
    * @param keydata should be the key data based on the format.
    * @returns {*}
    */
-  importPrivateKey(format: string, keydata: JsonWebKey | ArrayBuffer) {
+  importPrivateKey(format: string, keydata: JsonWebKey | ArrayBuffer): Promise<CryptoKey> {
     const extractable = true
     return new Promise((resolve: (value: CryptoKey) => any, reject) => {
       this.crypto.subtle.importKey(format as any, keydata as any, this.rsaHashedParams, extractable, ['decrypt']).then(resolve, reject)
@@ -153,7 +144,7 @@ export class RSAUtils {
     privateKeydata: JsonWebKey | ArrayBuffer,
     publicKeyFormat: string,
     publicKeyData: JsonWebKey | ArrayBuffer
-  ) {
+  ): Promise<KeyPair<CryptoKey>> {
     const extractable = true
     const privPromise = this.crypto.subtle.importKey(privateKeyFormat as any, privateKeydata as any, this.rsaHashedParams, extractable, ['decrypt'])
     const pubPromise = this.crypto.subtle.importKey(publicKeyFormat as any, publicKeyData as any, this.rsaHashedParams, extractable, ['encrypt'])
