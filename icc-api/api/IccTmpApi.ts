@@ -29,7 +29,7 @@ import { PaginatedListPatient } from '../model/PaginatedListPatient'
 import { Patient } from '../model/Patient'
 import { ReplicatorDocument } from '../model/ReplicatorDocument'
 import { Unit } from '../model/Unit'
-import { AuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 
 export class IccTmpApi {
   host: string
@@ -40,12 +40,12 @@ export class IccTmpApi {
   constructor(
     host: string,
     headers: any,
-    authenticationProvider: AuthenticationProvider,
+    authenticationProvider?: AuthenticationProvider,
     fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
   ) {
     this.host = host
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
-    this.authenticationProvider = authenticationProvider
+    this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
     this.fetchImpl = fetchImpl
   }
 

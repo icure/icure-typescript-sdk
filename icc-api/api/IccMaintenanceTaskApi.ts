@@ -14,7 +14,7 @@ import { DocIdentifier } from '../model/DocIdentifier'
 import { FilterChainMaintenanceTask } from '../model/FilterChainMaintenanceTask'
 import { MaintenanceTask } from '../model/MaintenanceTask'
 import { PaginatedListMaintenanceTask } from '../model/PaginatedListMaintenanceTask'
-import { AuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 
 export class IccMaintenanceTaskApi {
   host: string
@@ -25,12 +25,12 @@ export class IccMaintenanceTaskApi {
   constructor(
     host: string,
     headers: any,
-    authenticationProvider: AuthenticationProvider,
+    authenticationProvider?: AuthenticationProvider,
     fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
   ) {
     this.host = host
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
-    this.authenticationProvider = authenticationProvider
+    this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
     this.fetchImpl = fetchImpl
   }
 

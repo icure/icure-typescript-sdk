@@ -12,15 +12,23 @@
 import { XHR } from './XHR'
 import { AuthenticationResponse } from '../model/AuthenticationResponse'
 import { LoginCredentials } from '../model/LoginCredentials'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 
 export class IccAuthApi {
   host: string
   headers: Array<XHR.Header>
+  authenticationProvider: AuthenticationProvider
   fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
 
-  constructor(host: string, headers: any, fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>) {
+  constructor(
+    host: string,
+    headers: any,
+    authenticationProvider?: AuthenticationProvider,
+    fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
+  ) {
     this.host = host
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
+    this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
     this.fetchImpl = fetchImpl
   }
 
@@ -84,7 +92,9 @@ export class IccAuthApi {
       _url,
       headers.filter((h) => h.header?.toLowerCase() !== 'authorization'),
       _body,
-      this.fetchImpl
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
     )
       .then((doc) => new AuthenticationResponse(doc.body as JSON))
       .catch((err) => this.handleError(err))
@@ -104,7 +114,9 @@ export class IccAuthApi {
       _url,
       headers.filter((h) => h.header?.toLowerCase() !== 'authorization'),
       _body,
-      this.fetchImpl
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
     )
       .then((doc) => new AuthenticationResponse(doc.body as JSON))
       .catch((err) => this.handleError(err))

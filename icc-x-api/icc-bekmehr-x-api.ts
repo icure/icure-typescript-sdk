@@ -5,7 +5,7 @@ import { IccDocumentXApi } from './icc-document-x-api'
 import { IccHelementXApi } from './icc-helement-x-api'
 import { string2ua, ua2string } from './utils/binary-utils'
 import { Contact, Document, HealthElement, Service } from '../icc-api/model/models'
-import { AuthenticationProvider } from './auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 
 export type Patcher = ContactPatcher | HealthElementPatcher | DocumentPatcher | ServicePatcher
 export interface ContactPatcher {
@@ -39,7 +39,7 @@ export class IccBekmehrXApi extends IccBekmehrApi {
     ctcApi: IccContactXApi,
     helementApi: IccHelementXApi,
     documentApi: IccDocumentXApi,
-    authenticationProvider: AuthenticationProvider,
+    authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
