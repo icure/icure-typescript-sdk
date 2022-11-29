@@ -1,0 +1,74 @@
+name: Release management
+
+on:
+  pull_request_target:
+    types:
+      - closed
+    branches:
+      - 'main'
+      - 'support/**'
+
+jobs:
+  if_merged:
+    name: Build & Publish to NPM
+    if: github.event.pull_request.merged == true && (contains(github.event.pull_request.labels.*.name, 'SemVer.Major') || contains(github.event.pull_request.labels.*.name, 'SemVer.Minor') || contains(github.event.pull_request.labels.*.name, 'SemVer.Patch'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - run: git config --global user.email "dev@icure.com"
+      - run: git config --global user.name "iCure"
+      - name: Setup Node ⚙️
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16.x'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Install dependencies and build 🔧
+        run: yarn install && yarn run build
+      - name: Creation new version (Major) 🏷️
+        if: ${{ contains(github.event.pull_request.labels.*.name, 'SemVer.Major') }}
+        run: yarn version --major
+      - name: Creation new version (Minor) 🏷️
+        if: ${{ contains(github.event.pull_request.labels.*.name, 'SemVer.Minor') }}
+        run: yarn version --minor
+      - name: Creation new version (Patch) 🏷️
+        if: ${{ contains(github.event.pull_request.labels.*.name, 'SemVer.Patch') }}
+        run: yarn version --patch
+      - name: Push commit and tag ↗️
+        run: git push --follow-tags -f
+      - name: Set LATEST_TAG environment variable ⚙️
+        run: |
+          latestTag="$(git describe --abbrev=0 --tags)"
+
+          echo 'LATEST_TAG='$latestTag >> $GITHUB_ENV
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Publish package on NPM 📦
+        run: yarn run prepare && cd dist && yarn run publish --no-git-tag-version --new-version $LATEST_TAG && cd ..
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+  release_note:
+    name: Release note
+    needs: [if_merged]
+    runs-on: ubuntu-latest
+    env:
+      REPO: icure/icure-typescript-sdk
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set LATEST_TAG environment variable ⚙️
+        run: |
+          latestTag="$(git describe --abbrev=0 --tags)"
+          currentBranch="$(git branch --show-current)"
+          lastReleaseDate="$(gh api -H "Accept: application/vnd.github+json" /repos/$REPO/releases/latest | jq '.published_at' -r)"
+          prNotes="$(gh api -X GET -H 'Accept: application/vnd.github.v3+json' search/issues -f q="repo:$REPO is:pull-request is:merged merged:>$lastReleaseDate" -f per_page=100 | jq '.items[] | select(.body != null) | "## \(.title)\r\n\(.body//"")\r\n----"' -r)"
+
+          echo 'LATEST_TAG='$latestTag >> $GITHUB_ENV
+          echo 'CURRENT_BRANCH='$currentBranch >> $GITHUB_ENV
+          echo 'PR_NOTES='$prNotes >> $GITHUB_ENV
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Create a release 📝
+        run: gh api --method POST /repos/$REPO/releases -f tag_name="$LATEST_TAG" -f target_commitish="$CURRENT_BRANCH" -f name="$LATEST_TAG" -F draft=false -F generate_release_notes=true -F prerelease=false -f body="$PR_NOTES"
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
