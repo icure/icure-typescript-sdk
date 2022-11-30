@@ -1,11 +1,11 @@
 import { AESUtils } from './AES'
 import { KeyPair, RSAUtils } from './RSA'
-import { ExchangeDataManager } from './ExchangeDataManager'
-import { ExchangeDataCrypto } from './ExchangeDataCrypto'
-import { DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
-import { fold, hex2ua, ua2hex } from '../utils'
+import { BaseExchangeKeysManager } from './BaseExchangeKeysManager'
+import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
+import { hex2ua, ua2hex } from '../utils'
 import { KeyManager } from './KeyManager'
-import { acyclic, graphFromEdges, reachSetsAcyclic, StronglyConnectedGraph } from '../utils/graph-utils'
+import { reachSetsAcyclic, StronglyConnectedGraph } from '../utils/graph-utils'
+import { fingerprintToPublicKeysMapOf, transferKeysFpGraphOf } from './utils'
 
 /**
  * Allows to manage transfer keys.
@@ -13,21 +13,13 @@ import { acyclic, graphFromEdges, reachSetsAcyclic, StronglyConnectedGraph } fro
 export class TransferKeysManager {
   private readonly AES: AESUtils
   private readonly RSA: RSAUtils
-  private readonly exchangeDataManager: ExchangeDataManager
-  private readonly exchangeDataCrypto: ExchangeDataCrypto
+  private readonly baseExchangeKeysManager: BaseExchangeKeysManager
   private readonly dataOwnerApi: IccDataOwnerXApi
 
-  constructor(
-    AES: AESUtils,
-    RSA: RSAUtils,
-    exchangeDataManager: ExchangeDataManager,
-    exchangeDataCrypto: ExchangeDataCrypto,
-    dataOwnerApi: IccDataOwnerXApi
-  ) {
+  constructor(AES: AESUtils, RSA: RSAUtils, baseExchangeKeysManager: BaseExchangeKeysManager, dataOwnerApi: IccDataOwnerXApi) {
     this.AES = AES
     this.RSA = RSA
-    this.exchangeDataManager = exchangeDataManager
-    this.exchangeDataCrypto = exchangeDataCrypto
+    this.baseExchangeKeysManager = baseExchangeKeysManager
     this.dataOwnerApi = dataOwnerApi
   }
 
@@ -42,10 +34,11 @@ export class TransferKeysManager {
    * @return public keys of key pairs which would benefit from new transfer keys, in hex spki format.
    */
   async getNewTransferKeysSuggestions(keyManager: KeyManager): Promise<Set<string>> {
-    const graph = await this.selfTransferKeysGraphFp()
+    const self = await this.dataOwnerApi.getCurrentDataOwner()
+    const graph = transferKeysFpGraphOf(self)
     const candidatesFp = this.transferKeysCandidatesFp(this.transferTargetDeviceKey(keyManager).fingerprint, graph)
-    const fpToFullMap = await this.selfFingerprintToPublicKeyMap()
-    const deviceKeysFp = new Set(Object.keys(keyManager.getDeviceKeys()))
+    const fpToFullMap = fingerprintToPublicKeysMapOf(self)
+    const deviceKeysFp = new Set(keyManager.getDeviceKeys().map((x) => x.fingerprint))
     return new Set(
       candidatesFp
         .flatMap((candidate) => graph.acyclicLabelToGroup[candidate])
@@ -73,39 +66,30 @@ export class TransferKeysManager {
    * @return the updated data owner.
    */
   async updateTransferKeys(keyManager: KeyManager, verifiedPublicKeys: string[]): Promise<void> {
-    if (verifiedPublicKeys.length == 0) return
-    const verifiedKeysFpSet = new Set(verifiedPublicKeys.map((x) => x.slice(-32)))
-    // All keys of this device should be considered as verified, and if for some reasons they are not connected we can connect them.
-    Object.keys(keyManager.getDeviceKeys()).forEach((dk) => verifiedKeysFpSet.add(dk))
-    const graph = await this.selfTransferKeysGraphFp()
-    const { fingerprint: targetKeyFp, keyPair: targetKey } = this.transferTargetDeviceKey(keyManager)
-    const candidatesFp = this.transferKeysCandidatesFp(targetKeyFp, graph)
-    const verifiedCandidates = candidatesFp.filter((candidate) =>
-      graph.acyclicLabelToGroup[candidate].some((candidateGroupMember) => verifiedKeysFpSet.has(candidateGroupMember))
-    )
-    const verifiedCandidatesSet = new Set(verifiedCandidates)
-    const reachSets = reachSetsAcyclic(graph.acyclicGraph)
-    // Drop all candidates which can reach another candidate group: it is sufficient to create a transfer key from that group.
-    const optimizedCandidates = verifiedCandidates.filter((candidate) =>
-      Array.from(reachSets[candidate]).every((reachableNode) => !verifiedCandidatesSet.has(reachableNode))
-    )
-    if (optimizedCandidates.length == 0) throw 'Check failed: at least one candidate should survive optimization'
+    const newEdges = await this.getNewVerifiedTransferKeysEdges(keyManager, verifiedPublicKeys)
+    if (!newEdges) return
     const selfId = (await this.dataOwnerApi.getCurrentDataOwner()).dataOwner.id!
-    const fpToPublicKey = await this.selfFingerprintToPublicKeyMap()
-    const newExchangeKeyPublicKeys = optimizedCandidates.map((fp) => fpToPublicKey[fp])
-    newExchangeKeyPublicKeys.push(fpToPublicKey[targetKeyFp])
-    const { exchangeKey, encryptedExchangeKey } = await this.exchangeDataCrypto.createEncryptedExchangeKeyFor(newExchangeKeyPublicKeys)
-    await this.exchangeDataManager.createEncryptedExchangeKeyFor(selfId, selfId, encryptedExchangeKey)
-    // note: createEncryptedExchangeKeyFor updates self
-    const encryptedTransferKey = await this.encryptTransferKey(targetKey, exchangeKey)
+    const fpToPublicKey = fingerprintToPublicKeysMapOf(await this.dataOwnerApi.getCurrentDataOwner())
+    const newExchangeKeyPublicKeys = newEdges.sources.map((fp) => fpToPublicKey[fp])
+    const exchangeKey = await this.baseExchangeKeysManager.createOrUpdateEncryptedExchangeKeyFor(
+      selfId,
+      selfId,
+      newEdges.target,
+      newExchangeKeyPublicKeys
+    )
+    // note: createEncryptedExchangeKeyFor may update self
+    const encryptedTransferKey = await this.encryptTransferKey(newEdges.target, exchangeKey)
     const self = await this.dataOwnerApi.getCurrentDataOwner()
-    const newTransferKeys = fold(optimizedCandidates, { ...(self.dataOwner.transferKeys ?? {}) }, (acc, candidateFp) => {
-      const candidate = fpToPublicKey[candidateFp]
-      const existingKeys = { ...(acc[candidate] ?? {}) }
-      existingKeys[fpToPublicKey[targetKeyFp]] = encryptedTransferKey
-      acc[candidate] = existingKeys
-      return acc
-    })
+    const newTransferKeys = newEdges.sources.reduce(
+      (acc, candidateFp) => {
+        const candidate = fpToPublicKey[candidateFp]
+        const existingKeys = { ...(acc[candidate] ?? {}) }
+        existingKeys[fpToPublicKey[newEdges.targetFp]] = encryptedTransferKey
+        acc[candidate] = existingKeys
+        return acc
+      },
+      { ...(self.dataOwner.transferKeys ?? {}) }
+    )
     await this.dataOwnerApi.updateDataOwner({
       type: self.type,
       dataOwner: {
@@ -153,8 +137,8 @@ export class TransferKeysManager {
 
     // Load initially available exchange keys
     let { successfulDecryptions: availableExchangeKeys, failedDecryptions: encryptedExchangeKeys } =
-      await this.exchangeDataCrypto.tryDecryptExchangeKeys(
-        await this.exchangeDataManager.getEncryptedExchangeKeysFor(self.dataOwner.id!, self.dataOwner.id!),
+      await this.baseExchangeKeysManager.tryDecryptExchangeKeys(
+        await this.baseExchangeKeysManager.getEncryptedExchangeKeysFor(self.dataOwner.id!, self.dataOwner.id!),
         knownKeys
       )
 
@@ -169,7 +153,7 @@ export class TransferKeysManager {
           delete missingKeysTransferData[recoverableKeyPubFp]
         }
       }
-      const newExchangeKeysDecryption = await this.exchangeDataCrypto.tryDecryptExchangeKeys(encryptedExchangeKeys, newRecoveredKeys)
+      const newExchangeKeysDecryption = await this.baseExchangeKeysManager.tryDecryptExchangeKeys(encryptedExchangeKeys, newRecoveredKeys)
       availableExchangeKeys = newExchangeKeysDecryption.successfulDecryptions
       encryptedExchangeKeys = newExchangeKeysDecryption.failedDecryptions
       result = { ...result, ...newRecoveredKeys }
@@ -225,35 +209,49 @@ export class TransferKeysManager {
       .map((x) => x[0])
   }
 
-  private transferTargetDeviceKey(keyManager: KeyManager): { fingerprint: string; keyPair: KeyPair<CryptoKey> } {
-    const [fingerprint, keyPair] = Object.entries(keyManager.getDeviceKeys())[0]
-    return { fingerprint, keyPair }
+  private transferTargetDeviceKey(keyManager: KeyManager): { fingerprint: string; pair: KeyPair<CryptoKey> } {
+    return keyManager.getDeviceKeys()[0]
   }
 
-  // Uses fp as node names
-  private async selfTransferKeysGraphFp(): Promise<StronglyConnectedGraph> {
-    const self = await this.dataOwnerApi.getCurrentDataOwner()
-    const publicKeys = Array.from(this.dataOwnerApi.getHexPublicKeysOf(await this.dataOwnerApi.getCurrentDataOwner()))
-    const edges: [string, string][] = []
-    Object.entries(self.dataOwner.transferKeys ?? {}).map(([from, tos]) => {
-      Object.keys(tos).forEach((to) => {
-        edges.push([from.slice(-32), to.slice(-32)])
-      })
-    })
-    return acyclic(
-      graphFromEdges(
-        edges,
-        publicKeys.map((x) => x.slice(-32))
-      )
+  // Decides the best edges considering the verified public keys.
+  private async getNewVerifiedTransferKeysEdges(
+    keyManager: KeyManager,
+    verifiedPublicKeys: string[]
+  ): Promise<
+    | undefined
+    | {
+        sources: string[]
+        target: KeyPair<CryptoKey>
+        targetFp: string
+      }
+  > {
+    if (verifiedPublicKeys.length == 0) return undefined
+    const verifiedKeysFpSet = new Set(verifiedPublicKeys.map((x) => x.slice(-32)))
+    // All keys of this device should be considered as verified, and if for some reasons they are not connected we can connect them.
+    keyManager.getDeviceKeys().forEach((dk) => verifiedKeysFpSet.add(dk.fingerprint))
+    const graph = transferKeysFpGraphOf(await this.dataOwnerApi.getCurrentDataOwner())
+    const { fingerprint: targetKeyFp, pair: targetKey } = this.transferTargetDeviceKey(keyManager)
+    const candidatesFp = this.transferKeysCandidatesFp(targetKeyFp, graph)
+    const verifiedGroupCandidates = candidatesFp.filter((candidate) =>
+      graph.acyclicLabelToGroup[candidate].some((candidateGroupMember) => verifiedKeysFpSet.has(candidateGroupMember))
     )
-  }
-
-  private async selfFingerprintToPublicKeyMap(): Promise<{ [fp: string]: string }> {
-    const publicKeys = Array.from(this.dataOwnerApi.getHexPublicKeysOf(await this.dataOwnerApi.getCurrentDataOwner()))
-    const res: { [fp: string]: string } = {}
-    publicKeys.forEach((pk) => {
-      res[pk.slice(-32)] = pk
+    const verifiedCandidatesSet = new Set(verifiedGroupCandidates)
+    const reachSets = reachSetsAcyclic(graph.acyclicGraph)
+    // Drop all candidates which can reach another candidate group: it is sufficient to create a transfer key from that group.
+    const optimizedCandidates = verifiedGroupCandidates.filter((candidate) =>
+      Array.from(reachSets[candidate]).every((reachableNode) => !verifiedCandidatesSet.has(reachableNode))
+    )
+    if (optimizedCandidates.length == 0) throw 'Check failed: at least one candidate should survive optimization'
+    // Transfer keys could also be faked: to make sure we are not giving access to something wrong we remap the candidates to a verified public keys
+    const verifiedOptimizedCandidates = optimizedCandidates.map((candidate) => {
+      const res = graph.acyclicLabelToGroup[candidate].find((groupMemberFp) => verifiedKeysFpSet.has(groupMemberFp))
+      if (!res) throw 'Check failed: optimized candidates groups should have at least a verified member'
+      return res
     })
-    return res
+    return {
+      sources: verifiedOptimizedCandidates,
+      target: targetKey,
+      targetFp: targetKeyFp,
+    }
   }
 }
