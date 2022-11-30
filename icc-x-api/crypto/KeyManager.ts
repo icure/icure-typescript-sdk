@@ -134,7 +134,7 @@ export class KeyManager {
     const publicKeyHex = ua2hex(await this.RSA.exportKey(generatedKeypair.publicKey, 'spki'))
     const publicKeyFingerprint = publicKeyHex.slice(-32)
     await this.keyStorage.storeKeyPair(
-      this.storageEntryKeysFactory.entryKeyForDataOwnerKeypair(self.dataOwner.id!, publicKeyFingerprint),
+      this.storageEntryKeysFactory.entryKeyForVerifiedDataOwnerKeypair(self.dataOwner.id!, publicKeyFingerprint),
       await this.RSA.exportKeys(generatedKeypair, 'jwk', 'jwk')
     )
     const updatedSelf = {
@@ -154,7 +154,7 @@ export class KeyManager {
       const awaitedAcc = await acc
       let loadedPair: KeyPair<CryptoKey> | undefined = undefined
       try {
-        const storageKey = this.storageEntryKeysFactory.entryKeyForDataOwnerKeypair(self.dataOwner.id!, currentFingerprint)
+        const storageKey = this.storageEntryKeysFactory.entryKeyForVerifiedDataOwnerKeypair(self.dataOwner.id!, currentFingerprint)
         const storedKeypair = await this.keyStorage.getKeypair(storageKey)
         if (storedKeypair != undefined) {
           loadedPair = await this.RSA.importKeyPair('jwk', storedKeypair.privateKey, 'jwk', storedKeypair.publicKey)
