@@ -15,6 +15,7 @@ export class KeyManager {
   private readonly storageEntryKeysFactory: StorageEntryKeysFactory
   private readonly transferKeysManager: TransferKeysManager
 
+  private selfLegacyPublicKey: string | undefined
   private keys: { [pubKeyFingerprint: string]: { pair: KeyPair<CryptoKey>; isDevice: boolean } } | undefined
 
   constructor(
@@ -31,17 +32,22 @@ export class KeyManager {
     this.transferKeysManager = transferKeysManager
   }
 
-  // TODO automatically create new key should be optional
   /**
-   * @internal This method is intended only for internal use and may be changed without notice.
    * Initializes all keys for the current data owner. This method needs to be called before any other method of this class can be used.
-   * If no keys already exist for the current data owner or if none of the existing keys are available in the key storage then a new key will be
-   * automatically created, then returned by this method.
-   * @throws if the current user is not a data owner.
-   * @return the newly created key if no key could be loaded.
+   * If no keys already exist for the current data owner or if none of the existing keys are available in the key storage then depending on the value
+   * of {@link createNewKeyIfMissing}:
+   * - If true a new key will be automatically created, then returned by this method.
+   * - If false the method will fail.
+   * @param createNewKeyIfMissing if there is no key for the user and this is true the method will automatically create a new keypair for the user,
+   * else the method will throw an exception.
+   * @throws if the current user is not a data owner, or if there is no key and {@link createNewKeyIfMissing} is false.
+   * @return the newly created key if no key could be loaded and {@link createNewKeyIfMissing} is true.
    */
-  async initialiseKeys(): Promise<{ newKeyPair: KeyPair<CryptoKey>; newKeyFingerprint: string } | undefined> {
-    const loaded = await this.loadKeys()
+  async initialiseKeys(
+    createNewKeyIfMissing: (() => Promise<boolean>) | boolean
+  ): Promise<{ newKeyPair: KeyPair<CryptoKey>; newKeyFingerprint: string } | undefined> {
+    const loaded = await this.loadKeys(createNewKeyIfMissing)
+    this.selfLegacyPublicKey = (await this.dataOwnerApi.getCurrentDataOwner()).dataOwner.publicKey
     this.keys = loaded.loadedKeys
     return loaded.newKey ? { newKeyPair: loaded.newKey.pair, newKeyFingerprint: loaded.newKey.fingerprint } : undefined
   }
@@ -50,18 +56,27 @@ export class KeyManager {
    * Get all key pairs stored on this device (does not include keys reachable through transfer keys).
    * There should be only one key stored on the device, but this method could return multiple keys for retro-compatibility.
    * If no transfer keys were manually stored in the key storage as if they were normal device keys all the keys returned by this method should be
-   * trustworthy.
-   * This means the keys are valid candidates for being part of a new transfer key (see also {@link TransferKeysManager.updateTransferKeys}).
+   * trustworthy: this means the keys are valid candidates for being part of a new transfer key (see also
+   * {@link TransferKeysManager.updateTransferKeys}).
+   * The keys returned by this method will always be in the same order for as long as the keys stored in the device remain the same.
    */
-  getDeviceKeys(): { [pubKeyFingerprint: string]: KeyPair<CryptoKey> } {
-    const res: { [pubKeyFingerprint: string]: KeyPair<CryptoKey> } = {}
-    Object.entries(this.getKeys())
+  getDeviceKeys(): { fingerprint: string; pair: KeyPair<CryptoKey> }[] {
+    const allKeys = this.getKeys()
+    const res: { fingerprint: string; pair: KeyPair<CryptoKey> }[] = []
+    const legacyKeyFp = this.selfLegacyPublicKey?.slice(-32)
+    const legacyKey = legacyKeyFp ? allKeys[legacyKeyFp] : undefined
+    if (legacyKeyFp && legacyKey && legacyKey.isDevice) {
+      // prioritize legacy key if present.
+      res.push({ fingerprint: legacyKeyFp, pair: legacyKey.pair })
+    }
+    Object.entries(allKeys)
+      .filter((k) => k[1].isDevice && k[0] !== this.selfLegacyPublicKey?.slice(-32))
       .sort(([a], [b]) => {
         // need to make sure that the comparison is independent of the locale, but the actual ordering is not that important
         return a == b ? 0 : a > b ? 1 : -1
       })
-      .forEach(([fp, { pair }]) => {
-        res[fp] = pair
+      .forEach(([fingerprint, { pair }]) => {
+        res.push({ fingerprint, pair })
       })
     return res
   }
@@ -72,7 +87,7 @@ export class KeyManager {
 
   // Get favored key.
 
-  private async loadKeys(): Promise<{
+  private async loadKeys(createNewKeyIfMissing: boolean | (() => Promise<boolean>)): Promise<{
     loadedKeys: { [pubKeyFingerprint: string]: { pair: KeyPair<CryptoKey>; isDevice: boolean } }
     newKey?: { pair: KeyPair<CryptoKey>; fingerprint: string }
   }> {
@@ -84,11 +99,16 @@ export class KeyManager {
       pubKeysFingerprints.length > 0 ? await this.loadKeysFromStorage(pubKeysFingerprints) : {}
     const loadedStoredKeysFingerprints = Object.keys(loadedStoredKeys)
     if (loadedStoredKeysFingerprints.length == 0) {
-      // No key existed or no key in store -> create new key
-      const keysInfo = await this.createAndSaveNewKeyPair()
-      return {
-        loadedKeys: { [keysInfo.publicKeyFingerprint]: { pair: keysInfo.keyPair, isDevice: true } },
-        newKey: { pair: keysInfo.keyPair, fingerprint: keysInfo.publicKeyFingerprint },
+      if (createNewKeyIfMissing === true || (createNewKeyIfMissing !== false && (await createNewKeyIfMissing()))) {
+        // No key existed or no key in store -> create new key
+        const keysInfo = await this.createAndSaveNewKeyPair()
+        return {
+          loadedKeys: { [keysInfo.publicKeyFingerprint]: { pair: keysInfo.keyPair, isDevice: true } },
+          newKey: { pair: keysInfo.keyPair, fingerprint: keysInfo.publicKeyFingerprint },
+        }
+      } else {
+        // TODO recognisable error?
+        throw `No key found for ${self.dataOwner.id} and settings do not allow creation of a new key.`
       }
     } else {
       const loadedKeys: { [pubKeyFingerprint: string]: { pair: KeyPair<CryptoKey>; isDevice: boolean } } = {}

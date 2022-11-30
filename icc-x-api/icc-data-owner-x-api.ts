@@ -6,6 +6,7 @@ import { Delegation } from '../icc-api/model/Delegation'
 import { Patient } from '../icc-api/model/Patient'
 import { Device } from '../icc-api/model/Device'
 import { IccUserXApi } from './icc-user-x-api'
+import { hexPublicKeysOf } from './crypto/utils'
 
 /**
  * Represents any data owner enriched with type information.
@@ -101,10 +102,11 @@ export class IccDataOwnerXApi {
    * @return the public keys for the data owner in hex format.
    */
   getHexPublicKeysOf(dataOwner: DataOwner): Set<string> {
-    return new Set([dataOwner.publicKey, ...Object.keys(dataOwner.aesExchangeKeys ?? {})].filter((pubKey) => !!pubKey) as string[])
+    return hexPublicKeysOf(dataOwner)
   }
 
   /**
+   * @internal This method is intended only for internal use and may be changed without notice.
    * Clears the cache for a data owner, should be called after every update to the data owner entity so that {@link getDataOwner} will always provide
    * the updated values.
    * @param dataOwnerId id of the updated data owner.
