@@ -11,7 +11,7 @@ import { webcrypto } from 'crypto'
 import 'isomorphic-fetch'
 
 import { expect } from 'chai'
-import { getEnvironmentInitializer, getEnvVariables, getTempEmail, hcp1Username, setLocalStorage, TestVars } from '../../utils/test_utils'
+import { getEnvironmentInitializer, getEnvVariables, getTempEmail, setLocalStorage, TestVars } from '../../utils/test_utils'
 
 setLocalStorage(fetch)
 
@@ -252,20 +252,15 @@ describe('Full battery of tests on crypto and keys', async function () {
     const initializer = await getEnvironmentInitializer()
     env = await initializer.execute(getEnvVariables())
 
-    const api = await Api(
-      env!.iCureUrl,
-      env!.dataOwnerDetails[hcp1Username].user,
-      env!.dataOwnerDetails[hcp1Username].password,
-      webcrypto as unknown as Crypto
-    )
+    const api = await Api(env!.iCureUrl, env.masterHcp!.user, env.masterHcp!.password, webcrypto as unknown as Crypto)
     const user = await api.userApi.getCurrentUser()
     const dataOwnerId = api.dataOwnerApi.getDataOwnerOf(user)
     const jwk = {
-      publicKey: spkiToJwk(hex2ua(env!.dataOwnerDetails[hcp1Username].publicKey)),
-      privateKey: pkcs8ToJwk(hex2ua(env!.dataOwnerDetails[hcp1Username].privateKey)),
+      publicKey: spkiToJwk(hex2ua(env.masterHcp!.publicKey)),
+      privateKey: pkcs8ToJwk(hex2ua(env.masterHcp!.privateKey)),
     }
     await api.cryptoApi.cacheKeyPair(jwk)
-    await api.cryptoApi.keyStorage.storeKeyPair(`${dataOwnerId}.${env!.dataOwnerDetails[hcp1Username].publicKey.slice(-32)}`, jwk)
+    await api.cryptoApi.keyStorage.storeKeyPair(`${dataOwnerId}.${env.masterHcp!.publicKey.slice(-32)}`, jwk)
 
     const { userApi, patientApi, healthcarePartyApi, cryptoApi } = api
 
