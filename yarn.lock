@@ -213,10 +213,10 @@
   dependencies:
     "@cspotcode/source-map-consumer" "0.8.0"
 
-"@icure/api@^6.0.0":
-  version "6.0.1"
-  resolved "https://registry.yarnpkg.com/@icure/api/-/api-6.0.1.tgz#18dc9c5a2f3527a55d7480f282eab220da4c8048"
-  integrity sha512-FlRuhwdtdmirBDXBHWkR5N0DbAtPZOIX5IHp/KAuz6zXjmDaL+6KB17NmhKDXMtHO0PD3uwnJ7SkAb2XJxsaoQ==
+"@icure/api@^6.0.3":
+  version "6.0.4"
+  resolved "https://registry.yarnpkg.com/@icure/api/-/api-6.0.4.tgz#0aaa2dd44a37494b34f3f68d495e59bdc264a8c2"
+  integrity sha512-WvZAsJ3boUy16XpZnPBmkofT5AI2jVW0zIJFEkNrA86s2ywor/fhW9MWu3lp9wjVc8mRG5FB5LN1Q8+lRy5Slw==
   dependencies:
     date-fns "^2.23.0"
     libphonenumber-js "^1.7.18"
@@ -226,12 +226,12 @@
     uuid "^8.3.2"
     uuid-encoder "^1.1.0"
 
-"@icure/test-setup@^0.0.29":
-  version "0.0.29"
-  resolved "https://registry.yarnpkg.com/@icure/test-setup/-/test-setup-0.0.29.tgz#3173277dceb1bb31a0caf166c6616e7058babb73"
-  integrity sha512-/G9La/AIOTrqBqsf2K9z2ZbgpxGz57EiJHDicqx+orQthxarCWyPHZdiqJHaDWYWuKYNYBgub6V/HoSA+71xcw==
+"@icure/test-setup@^0.0.35":
+  version "0.0.35"
+  resolved "https://registry.yarnpkg.com/@icure/test-setup/-/test-setup-0.0.35.tgz#64f9dfa511936d086b1f01482b15076c664cd9e7"
+  integrity sha512-wiwmxSaqiXY6nfBEjt5y2rK92MX1Ie7/8FhNjNTMM54SfKLjRo2mM/Q312nwgQX8MaD4cBt/7EKOlIloqHm8og==
   dependencies:
-    "@icure/api" "^6.0.0"
+    "@icure/api" "^6.0.3"
     "@types/react-dom" "^18.0.6"
     date-fns "^2.3.0"
     isomorphic-fetch "^3.0.0"
