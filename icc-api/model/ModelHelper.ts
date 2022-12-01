@@ -42,23 +42,45 @@ export function ua2b64(_ua: Uint8Array | ArrayBuffer): string {
 }
 
 export function b2a(a: string): string {
-  if (typeof Buffer !== 'undefined') {
-    const buf = Buffer.from(a, 'latin1')
-    return buf.toString('base64')
-  }
-  if (typeof btoa !== 'undefined') {
-    return btoa(a)
+  if (typeof window !== 'undefined') {
+    //Favour btoa in browser
+    if (typeof btoa !== 'undefined') {
+      return btoa(a)
+    }
+    if (typeof Buffer !== 'undefined') {
+      const buf = Buffer.from(a, 'latin1')
+      return buf.toString('base64')
+    }
+  } else {
+    if (typeof Buffer !== 'undefined') {
+      const buf = Buffer.from(a, 'latin1')
+      return buf.toString('base64')
+    }
+    if (typeof btoa !== 'undefined') {
+      return btoa(a)
+    }
   }
   throw new Error('Unsupported operation b2a')
 }
 
 export function a2b(s: string): string {
-  if (typeof Buffer !== 'undefined') {
-    const buf = new Buffer(s, 'base64')
-    return buf.toString('latin1')
-  }
-  if (typeof atob !== 'undefined') {
-    return atob(s)
+  if (typeof window !== 'undefined') {
+    //Favour atob in browser
+    if (typeof atob !== 'undefined') {
+      return atob(s)
+    }
+    if (typeof Buffer !== 'undefined') {
+      const buf = new Buffer(s, 'base64')
+      return buf.toString('latin1')
+    }
+  } else {
+    if (typeof Buffer !== 'undefined') {
+      const buf = new Buffer(s, 'base64')
+      return buf.toString('latin1')
+    }
+    if (typeof atob !== 'undefined') {
+      return atob(s)
+    }
   }
   throw new Error('Unsupported operation a2b')
 }
