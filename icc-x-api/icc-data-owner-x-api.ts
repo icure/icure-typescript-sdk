@@ -42,15 +42,24 @@ export class IccDataOwnerXApi {
   }
 
   /**
-   * If the logged user is a data owner get the current data owner.
+   * If the logged user is a data owner get the current data owner. This information is permanently cached, as the data owner id can't change.
    * @throws if the current user is not a data owner.
    */
-  async getCurrentDataOwner(): Promise<DataOwnerWithType> {
+  async getCurrentDataOwnerId(): Promise<string> {
     // TODO endpoint to save request for user? In case remember to check for integrity
     if (!this.selfDataOwnerId) {
       this.selfDataOwnerId = this.getDataOwnerOf(await this.userBaseApi.getCurrentUser())
     }
-    return this.getDataOwner(this.selfDataOwnerId)
+    return this.selfDataOwnerId
+  }
+
+  /**
+   * If the logged user is a data owner get the current data owner.
+   * @throws if the current user is not a data owner.
+   */
+  async getCurrentDataOwner(): Promise<DataOwnerWithType> {
+    // TODO endpoint to save a request to user? In case remember to check for integrity
+    return this.getDataOwner(await this.getCurrentDataOwnerId())
   }
 
   /**

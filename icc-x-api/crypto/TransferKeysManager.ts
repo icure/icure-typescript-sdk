@@ -1,13 +1,14 @@
 import { AESUtils } from './AES'
 import { KeyPair, RSAUtils } from './RSA'
 import { BaseExchangeKeysManager } from './BaseExchangeKeysManager'
-import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
+import { DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { hex2ua, ua2hex } from '../utils'
 import { KeyManager } from './KeyManager'
 import { reachSetsAcyclic, StronglyConnectedGraph } from '../utils/graph-utils'
 import { fingerprintToPublicKeysMapOf, transferKeysFpGraphOf } from './utils'
 
 /**
+ * @internal this class is intended only for internal use and may be changed without notice.
  * Allows to manage transfer keys.
  */
 export class TransferKeysManager {
@@ -30,15 +31,15 @@ export class TransferKeysManager {
    * verified that he owns the public keys returned by this method (or only some of them) you can call {@link updateTransferKeys } with the verified
    * public keys to create the new transfer keys.
    *
+   * @param self the current data owner
    * @param keyManager key manager for the current data owner.
    * @return public keys of key pairs which would benefit from new transfer keys, in hex spki format.
    */
-  async getNewTransferKeysSuggestions(keyManager: KeyManager): Promise<Set<string>> {
-    const self = await this.dataOwnerApi.getCurrentDataOwner()
+  async getNewTransferKeysSuggestions(self: DataOwnerWithType, keyManager: KeyManager): Promise<Set<string>> {
     const graph = transferKeysFpGraphOf(self)
-    const candidatesFp = this.transferKeysCandidatesFp(this.transferTargetDeviceKey(keyManager).fingerprint, graph)
+    const candidatesFp = this.transferKeysCandidatesFp((await this.transferTargetDeviceKey(keyManager)).fingerprint, graph)
     const fpToFullMap = fingerprintToPublicKeysMapOf(self)
-    const deviceKeysFp = new Set(keyManager.getDeviceKeys().map((x) => x.fingerprint))
+    const deviceKeysFp = new Set((await keyManager.getSelfVerifiedKeys()).map((x) => x.fingerprint))
     return new Set(
       candidatesFp
         .flatMap((candidate) => graph.acyclicLabelToGroup[candidate])
@@ -61,17 +62,18 @@ export class TransferKeysManager {
    * For this reason before creating transfer keys you should always let the user verify that the public keys which would be used for the encryption
    * of the new transfer keys are actually owned by the user themselves.
    *
+   * @param self the current data owner
    * @param keyManager key manager for the current data owner.
    * @param verifiedPublicKeys public keys in hex spki format that the current data owner has confirmed he owns.
    * @return the updated data owner.
    */
-  async updateTransferKeys(keyManager: KeyManager, verifiedPublicKeys: string[]): Promise<void> {
-    const newEdges = await this.getNewVerifiedTransferKeysEdges(keyManager, verifiedPublicKeys)
+  async updateTransferKeys(self: DataOwnerWithType, keyManager: KeyManager, verifiedPublicKeys: string[]): Promise<void> {
+    const newEdges = await this.getNewVerifiedTransferKeysEdges(self, keyManager, verifiedPublicKeys)
     if (!newEdges) return
-    const selfId = (await this.dataOwnerApi.getCurrentDataOwner()).dataOwner.id!
-    const fpToPublicKey = fingerprintToPublicKeysMapOf(await this.dataOwnerApi.getCurrentDataOwner())
+    const selfId = await this.dataOwnerApi.getCurrentDataOwnerId()
+    const fpToPublicKey = fingerprintToPublicKeysMapOf(self)
     const newExchangeKeyPublicKeys = newEdges.sources.map((fp) => fpToPublicKey[fp])
-    const exchangeKey = await this.baseExchangeKeysManager.createOrUpdateEncryptedExchangeKeyFor(
+    const { key: exchangeKey, updatedDelegator: updatedSelf } = await this.baseExchangeKeysManager.createOrUpdateEncryptedExchangeKeyFor(
       selfId,
       selfId,
       newEdges.target,
@@ -79,7 +81,6 @@ export class TransferKeysManager {
     )
     // note: createEncryptedExchangeKeyFor may update self
     const encryptedTransferKey = await this.encryptTransferKey(newEdges.target, exchangeKey)
-    const self = await this.dataOwnerApi.getCurrentDataOwner()
     const newTransferKeys = newEdges.sources.reduce(
       (acc, candidateFp) => {
         const candidate = fpToPublicKey[candidateFp]
@@ -88,27 +89,27 @@ export class TransferKeysManager {
         acc[candidate] = existingKeys
         return acc
       },
-      { ...(self.dataOwner.transferKeys ?? {}) }
+      { ...(updatedSelf.dataOwner.transferKeys ?? {}) }
     )
     await this.dataOwnerApi.updateDataOwner({
-      type: self.type,
+      type: updatedSelf.type,
       dataOwner: {
-        ...self.dataOwner,
+        ...updatedSelf.dataOwner,
         transferKeys: newTransferKeys,
       },
     })
   }
 
   /**
-   * @internal this method is intended only for internal use and may be changed without notice.
    * Load all key pairs for the current data owner which can be obtained from the currently known keys and the transfer keys.
+   * @param self the current data owner
    * @param knownKeys key pairs already loaded for the current user.
    * @return new key pairs (exclude already known pairs) which could be loaded from the transfer keys using the known keys.
    */
-  async loadSelfKeysFromTransfer(knownKeys: {
-    [pubKeyFingerprint: string]: KeyPair<CryptoKey>
-  }): Promise<{ [pubKeyFingerprint: string]: KeyPair<CryptoKey> }> {
-    const self = await this.dataOwnerApi.getCurrentDataOwner()
+  async loadSelfKeysFromTransfer(
+    self: DataOwnerWithType,
+    knownKeys: { [pubKeyFingerprint: string]: KeyPair<CryptoKey> }
+  ): Promise<{ [pubKeyFingerprint: string]: KeyPair<CryptoKey> }> {
     const selfPublicKeys = Array.from(await this.dataOwnerApi.getHexPublicKeysOf(self))
     const loadedStoredKeysFingerprintsSet = new Set(Object.keys(knownKeys))
     // The same private key may be encrypted using different exchange keys.
@@ -209,12 +210,13 @@ export class TransferKeysManager {
       .map((x) => x[0])
   }
 
-  private transferTargetDeviceKey(keyManager: KeyManager): { fingerprint: string; pair: KeyPair<CryptoKey> } {
-    return keyManager.getDeviceKeys()[0]
+  private async transferTargetDeviceKey(keyManager: KeyManager): Promise<{ fingerprint: string; pair: KeyPair<CryptoKey> }> {
+    return (await keyManager.getSelfVerifiedKeys())[0]
   }
 
   // Decides the best edges considering the verified public keys.
   private async getNewVerifiedTransferKeysEdges(
+    self: DataOwnerWithType,
     keyManager: KeyManager,
     verifiedPublicKeys: string[]
   ): Promise<
@@ -228,9 +230,9 @@ export class TransferKeysManager {
     if (verifiedPublicKeys.length == 0) return undefined
     const verifiedKeysFpSet = new Set(verifiedPublicKeys.map((x) => x.slice(-32)))
     // All keys of this device should be considered as verified, and if for some reasons they are not connected we can connect them.
-    keyManager.getDeviceKeys().forEach((dk) => verifiedKeysFpSet.add(dk.fingerprint))
-    const graph = transferKeysFpGraphOf(await this.dataOwnerApi.getCurrentDataOwner())
-    const { fingerprint: targetKeyFp, pair: targetKey } = this.transferTargetDeviceKey(keyManager)
+    ;(await keyManager.getSelfVerifiedKeys()).forEach((dk) => verifiedKeysFpSet.add(dk.fingerprint))
+    const graph = transferKeysFpGraphOf(self)
+    const { fingerprint: targetKeyFp, pair: targetKey } = await this.transferTargetDeviceKey(keyManager)
     const candidatesFp = this.transferKeysCandidatesFp(targetKeyFp, graph)
     const verifiedGroupCandidates = candidatesFp.filter((candidate) =>
       graph.acyclicLabelToGroup[candidate].some((candidateGroupMember) => verifiedKeysFpSet.has(candidateGroupMember))

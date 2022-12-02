@@ -1,18 +1,18 @@
-/**
- * @internal This class is meant only for internal use and may be changed without notice.
- * Functions to create and get exchange keys, including encryption when necessary. The methods of this api require to pass the appropriate keys
- * for encryption/decryption manually.
- */
 import { KeyPair, RSAUtils } from './RSA'
 import { AESUtils } from './AES'
 import { hex2ua, notConcurrent, ua2hex } from '../utils'
 import { DataOwner, DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 
+/**
+ * @internal This class is meant only for internal use and may be changed without notice.
+ * Functions to create and get exchange keys.
+ * The methods of this api require to pass the appropriate keys for encryption/decryption manually.
+ */
 export class BaseExchangeKeysManager {
   private RSA: RSAUtils
   private AES: AESUtils
   private dataOwnerApi: IccDataOwnerXApi
-  private generateKeyConcurrencyMap: { [key: string]: PromiseLike<CryptoKey> } = {}
+  private generateKeyConcurrencyMap: { [key: string]: PromiseLike<{ updatedDelegator: DataOwnerWithType; key: CryptoKey }> } = {}
 
   constructor(RSA: RSAUtils, AES: AESUtils, dataOwnerApi: IccDataOwnerXApi) {
     this.RSA = RSA
@@ -22,22 +22,25 @@ export class BaseExchangeKeysManager {
 
   /**
    * Creates a new exchange key for a delegator-delegate pair, or updates an existing one allowing additional public keys to access it.
-   * @param delegatorId id of the delegator data owner.
-   * @param delegateId id of the delegate data owner.
+   * @param delegatorId the delegator data owner id.
+   * @param delegateId the delegate data owner id.
    * @param mainDelegatorKeyPair main key pair for the delegator. The private key will be used for the decryption of the existing key in case of
    * update, and the public key will be used as entry key of the aesExchangeKey map
    * @param additionalPublicKeys all public keys of key pairs other than {@link mainDelegatorKeyPair} that need to have access to the exchange key.
-   * @return the exchange key for the delegator-delegate-delegatorKey triple.
+   * @return the exchange key for the delegator-delegate-delegatorKey triple (new or existing) and the updated delegator.
    */
   async createOrUpdateEncryptedExchangeKeyFor(
     delegatorId: string,
     delegateId: string,
     mainDelegatorKeyPair: KeyPair<CryptoKey>,
     additionalPublicKeys: string[]
-  ): Promise<CryptoKey> {
+  ): Promise<{
+    updatedDelegator: DataOwnerWithType
+    key: CryptoKey
+  }> {
     return await notConcurrent(this.generateKeyConcurrencyMap, delegatorId, async () => {
       const delegator = await this.dataOwnerApi.getDataOwner(delegatorId)
-      const delegate = await this.dataOwnerApi.getDataOwner(delegateId)
+      const delegate = delegatorId === delegateId ? delegator : await this.dataOwnerApi.getDataOwner(delegateId)
       const mainDelegatorKeyPairPubHex = ua2hex(await this.RSA.exportKey(mainDelegatorKeyPair.publicKey, 'spki'))
       const otherPublicKeys = additionalPublicKeys.filter((x) => x !== mainDelegatorKeyPairPubHex)
       let exchangeKey: { raw: string; key: CryptoKey } | undefined = undefined
@@ -52,7 +55,11 @@ export class BaseExchangeKeysManager {
         const existingAesExchangeKey = delegator.dataOwner.aesExchangeKeys?.[mainDelegatorKeyPairPubHex]?.[delegateId]
         if (existingAesExchangeKey) {
           const existingPublicKeysSet = new Set(existingExchangeKey)
-          if (additionalPublicKeys.every((x) => existingPublicKeysSet.has(x.slice(-32)))) return exchangeKey.key
+          if (additionalPublicKeys.every((x) => existingPublicKeysSet.has(x.slice(-32))))
+            return {
+              updatedDelegator: delegator,
+              key: exchangeKey.key,
+            }
         }
       }
       const encryptedKeyInfo = await this.encryptExchangeKey(
@@ -61,7 +68,7 @@ export class BaseExchangeKeysManager {
         mainDelegatorKeyPair,
         otherPublicKeys
       )
-      await this.dataOwnerApi.updateDataOwner({
+      const updatedDelegator = await this.dataOwnerApi.updateDataOwner({
         type: delegator.type,
         dataOwner: {
           ...delegator.dataOwner,
@@ -69,7 +76,10 @@ export class BaseExchangeKeysManager {
           hcPartyKeys: this.updateLegacyExchangeKeys(delegator, delegate, encryptedKeyInfo.encryptedExchangeKey),
         },
       })
-      return encryptedKeyInfo.exchangeKey
+      return {
+        key: encryptedKeyInfo.exchangeKey,
+        updatedDelegator,
+      }
     })
   }
 
