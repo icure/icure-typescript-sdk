@@ -126,7 +126,7 @@ export async function getEnvironmentInitializer(): Promise<EnvInitializer> {
 
 export namespace TestUtils {
   export async function initApi(envVars: TestVars, userName: string = hcp1Username): Promise<Apis> {
-    return Api(envVars.iCureUrl, envVars.dataOwnerDetails[userName].user, envVars.dataOwnerDetails[userName].password, crypto)
+    return Api(envVars.iCureUrl, envVars.dataOwnerDetails[userName].user, envVars.dataOwnerDetails[userName].password, webcrypto as unknown as Crypto)
   }
 
   export async function initKey(dataOwnerApi: IccDataOwnerXApi, cryptoApi: IccCryptoXApi, user: User, privateKey: string) {

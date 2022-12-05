@@ -12,6 +12,7 @@ export class BasicAuthService implements AuthService {
     if (!!this.error) {
       throw this.error
     }
+    console.log("I'm using BASIC")
     return Promise.resolve([new Header('Authorization', `Basic ${this._base64Encode(`${this.username}:${this.password}`)}`)])
   }
 
