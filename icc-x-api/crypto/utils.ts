@@ -1,6 +1,8 @@
 // Uses fp as node names
 import { acyclic, graphFromEdges, StronglyConnectedGraph } from '../utils/graph-utils'
 import { DataOwner } from '../icc-data-owner-x-api'
+import { RSAUtils } from './RSA'
+import { hex2ua } from '@icure/api'
 
 /**
  * @internal this function is meant only for internal use and may be changed without notice.
@@ -47,4 +49,17 @@ export function fingerprintToPublicKeysMapOf(dataOwner: DataOwner): { [fp: strin
     res[pk.slice(-32)] = pk
   })
   return res
+}
+
+/**
+ * @internal this function is meant only for internal use and may be changed without notice.
+ * Load many public keys in spki format.
+ * @param rsa the rsa service
+ * @param publicKeysSpkiHex public keys in spki format, hex encoded.
+ * @return public keys as crypto keys by their fingerprint.
+ */
+export async function loadPublicKeys(rsa: RSAUtils, publicKeysSpkiHex: string[]): Promise<{ [publicKeyFingerprint: string]: CryptoKey }> {
+  return Object.fromEntries(
+    await Promise.all(publicKeysSpkiHex.map(async (x) => [x.slice(-32), await rsa.importKey('spki', hex2ua(x), ['encrypt'])]))
+  )
 }

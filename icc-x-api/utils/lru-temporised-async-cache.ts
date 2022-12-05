@@ -6,6 +6,10 @@ export class LruTemporisedAsyncCache<K, V> {
   private firstNode: CacheNode<K, V> | null = null
   private lastNode: CacheNode<K, V> | null = null
 
+  /**
+   * @param maxCacheSize Maximum size of the cache. Any value <= 0 is considered as no limit.
+   * @param maxLifetimeMs Maximum lifetime for an entry in the cache. Any value <= 0 is considered as no limit.
+   */
   constructor(maxCacheSize: number, maxLifetimeMs: number) {
     this.maxCacheSize = maxCacheSize
     this.maxLifetimeMs = maxLifetimeMs
@@ -20,7 +24,7 @@ export class LruTemporisedAsyncCache<K, V> {
     } else {
       const newNode = new CacheNode(key, this.lastNode, null, this.registerJob(key, retrieve))
       this.addToTail(key, newNode)
-      if (this.maxCacheSize > 1 && this.nodesMap.size > this.maxCacheSize) this.evict(this.firstNode!.key, this.firstNode!)
+      if (this.maxCacheSize > 0 && this.nodesMap.size > this.maxCacheSize) this.evict(this.firstNode!.key, this.firstNode!)
       return newNode.valuePromise()
     }
   }

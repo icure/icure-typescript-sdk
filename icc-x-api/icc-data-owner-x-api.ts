@@ -46,7 +46,6 @@ export class IccDataOwnerXApi {
    * @throws if the current user is not a data owner.
    */
   async getCurrentDataOwnerId(): Promise<string> {
-    // TODO endpoint to save request for user? In case remember to check for integrity
     if (!this.selfDataOwnerId) {
       this.selfDataOwnerId = this.getDataOwnerOf(await this.userBaseApi.getCurrentUser())
     }
@@ -58,7 +57,7 @@ export class IccDataOwnerXApi {
    * @throws if the current user is not a data owner.
    */
   async getCurrentDataOwner(): Promise<DataOwnerWithType> {
-    // TODO endpoint to save a request to user? In case remember to check for integrity
+    // TODO endpoint to save a request to user? Will need to also call checkDataOwnerIntegrity
     return this.getDataOwner(await this.getCurrentDataOwnerId())
   }
 

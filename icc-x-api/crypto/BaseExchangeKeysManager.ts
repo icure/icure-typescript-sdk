@@ -27,13 +27,14 @@ export class BaseExchangeKeysManager {
    * @param mainDelegatorKeyPair main key pair for the delegator. The private key will be used for the decryption of the existing key in case of
    * update, and the public key will be used as entry key of the aesExchangeKey map
    * @param additionalPublicKeys all public keys of key pairs other than {@link mainDelegatorKeyPair} that need to have access to the exchange key.
+   * Can be a mix of crypto keys and full hex-encoded spki format (no fingerprints).
    * @return the exchange key for the delegator-delegate-delegatorKey triple (new or existing) and the updated delegator.
    */
   async createOrUpdateEncryptedExchangeKeyFor(
     delegatorId: string,
     delegateId: string,
     mainDelegatorKeyPair: KeyPair<CryptoKey>,
-    additionalPublicKeys: string[]
+    additionalPublicKeys: { [keyFingerprint: string]: CryptoKey }
   ): Promise<{
     updatedDelegator: DataOwnerWithType
     key: CryptoKey
@@ -42,7 +43,6 @@ export class BaseExchangeKeysManager {
       const delegator = await this.dataOwnerApi.getDataOwner(delegatorId)
       const delegate = delegatorId === delegateId ? delegator : await this.dataOwnerApi.getDataOwner(delegateId)
       const mainDelegatorKeyPairPubHex = ua2hex(await this.RSA.exportKey(mainDelegatorKeyPair.publicKey, 'spki'))
-      const otherPublicKeys = additionalPublicKeys.filter((x) => x !== mainDelegatorKeyPairPubHex)
       let exchangeKey: { raw: string; key: CryptoKey } | undefined = undefined
       const existingExchangeKey =
         delegator.dataOwner.aesExchangeKeys?.[mainDelegatorKeyPairPubHex]?.[delegateId]?.[mainDelegatorKeyPairPubHex.slice(-32)] ??
@@ -55,7 +55,7 @@ export class BaseExchangeKeysManager {
         const existingAesExchangeKey = delegator.dataOwner.aesExchangeKeys?.[mainDelegatorKeyPairPubHex]?.[delegateId]
         if (existingAesExchangeKey) {
           const existingPublicKeysSet = new Set(existingExchangeKey)
-          if (additionalPublicKeys.every((x) => existingPublicKeysSet.has(x.slice(-32))))
+          if (Object.keys(additionalPublicKeys).every((fp) => existingPublicKeysSet.has(fp)))
             return {
               updatedDelegator: delegator,
               key: exchangeKey.key,
@@ -66,7 +66,7 @@ export class BaseExchangeKeysManager {
         exchangeKey,
         mainDelegatorKeyPairPubHex.slice(-32),
         mainDelegatorKeyPair,
-        otherPublicKeys
+        additionalPublicKeys
       )
       const updatedDelegator = await this.dataOwnerApi.updateDataOwner({
         type: delegator.type,
@@ -135,38 +135,6 @@ export class BaseExchangeKeysManager {
   }
 
   /**
-   * Creates an encrypted exchange key for the provided public keys.
-   * @param exchangeKey the exchange key in raw and imported format. If undefined a new key will be automatically created.
-   * @param mainKeyPairFp fingerprint of the {@link mainKeyPair}
-   * @param mainKeyPair a "main" key pair to use for the encryption of the exchange key.
-   * @param otherPublicKeys additional public keys that will have access to the exchange key in spki format, hex-encoded.
-   * @return the exchangeKey and an object with the exchange key encrypted with each of the provided public keys, hex-encoded, by fingerprint.
-   */
-  private async encryptExchangeKey(
-    exchangeKey: { raw: string; key: CryptoKey } | undefined,
-    mainKeyPairFp: string,
-    mainKeyPair: KeyPair<CryptoKey>,
-    otherPublicKeys: string[]
-  ): Promise<{
-    exchangeKey: CryptoKey
-    encryptedExchangeKey: { [pubKeyFp: string]: string }
-  }> {
-    const exchangeKeyCrypto = exchangeKey?.key ?? (await this.AES.generateCryptoKey(false))
-    const exchangeKeyBytes = exchangeKey !== undefined ? hex2ua(exchangeKey.raw) : await this.AES.exportKey(exchangeKeyCrypto, 'raw')
-    const encryptedExchangeKey = await otherPublicKeys.reduce(
-      async (acc, currKey) => ({
-        ...(await acc),
-        [currKey.slice(-32)]: ua2hex(
-          await this.RSA.encrypt(await this.RSA.importKey('spki', hex2ua(currKey), ['encrypt']), new Uint8Array(exchangeKeyBytes))
-        ),
-      }),
-      Promise.resolve({} as { [pubKeyFp: string]: string })
-    )
-    encryptedExchangeKey[mainKeyPairFp] = ua2hex(await this.RSA.encrypt(mainKeyPair.publicKey, new Uint8Array(exchangeKeyBytes)))
-    return { exchangeKey: exchangeKeyCrypto, encryptedExchangeKey }
-  }
-
-  /**
    * Attempts to decrypt an exchange key using any of the provided key pairs.
    * @param encryptedExchangeKey an encrypted exchange key, in the form publicKeyXyzFingerprint -> hex(exchangeKeyEncryptedByPrivateKeyXyz).
    * @param keyPairsByFingerprint rsa key pairs to use for decryption.
@@ -193,6 +161,35 @@ export class BaseExchangeKeysManager {
       }
     }
     return undefined
+  }
+
+  /**
+   * Creates an encrypted exchange key for the provided public keys.
+   * @param exchangeKey the exchange key in raw and imported format. If undefined a new key will be automatically created.
+   * @param mainKeyPairFp fingerprint of the {@link mainKeyPair}
+   * @param mainKeyPair a "main" key pair to use for the encryption of the exchange key.
+   * @param publicKeys additional public keys that will have access to the exchange key in spki format, hex-encoded.
+   * @return the exchangeKey and an object with the exchange key encrypted with each of the provided public keys, hex-encoded, by fingerprint.
+   */
+  private async encryptExchangeKey(
+    exchangeKey: { raw: string; key: CryptoKey } | undefined,
+    mainKeyPairFp: string,
+    mainKeyPair: KeyPair<CryptoKey>,
+    publicKeys: { [keyFingerprint: string]: CryptoKey }
+  ): Promise<{
+    exchangeKey: CryptoKey
+    encryptedExchangeKey: { [pubKeyFp: string]: string }
+  }> {
+    const exchangeKeyCrypto = exchangeKey?.key ?? (await this.AES.generateCryptoKey(false))
+    const exchangeKeyBytes = exchangeKey !== undefined ? hex2ua(exchangeKey.raw) : await this.AES.exportKey(exchangeKeyCrypto, 'raw')
+    const encryptedExchangeKey = await Object.entries(publicKeys).reduce(
+      async (acc, [currKeyFp, currKey]) => ({
+        ...(await acc),
+        [currKeyFp]: ua2hex(await this.RSA.encrypt(currKey, new Uint8Array(exchangeKeyBytes))),
+      }),
+      Promise.resolve({ [mainKeyPairFp]: ua2hex(await this.RSA.encrypt(mainKeyPair.publicKey, new Uint8Array(exchangeKeyBytes))) })
+    )
+    return { exchangeKey: exchangeKeyCrypto, encryptedExchangeKey }
   }
 
   /**

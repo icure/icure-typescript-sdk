@@ -5,7 +5,7 @@ import { DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { hex2ua, ua2hex } from '../utils'
 import { KeyManager } from './KeyManager'
 import { reachSetsAcyclic, StronglyConnectedGraph } from '../utils/graph-utils'
-import { fingerprintToPublicKeysMapOf, transferKeysFpGraphOf } from './utils'
+import { fingerprintToPublicKeysMapOf, loadPublicKeys, transferKeysFpGraphOf } from './utils'
 
 /**
  * @internal this class is intended only for internal use and may be changed without notice.
@@ -77,7 +77,7 @@ export class TransferKeysManager {
       selfId,
       selfId,
       newEdges.target,
-      newExchangeKeyPublicKeys
+      await loadPublicKeys(this.RSA, newExchangeKeyPublicKeys)
     )
     // note: createEncryptedExchangeKeyFor may update self
     const encryptedTransferKey = await this.encryptTransferKey(newEdges.target, exchangeKey)
