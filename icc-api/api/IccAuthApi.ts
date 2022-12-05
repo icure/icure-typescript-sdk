@@ -133,7 +133,7 @@ export class IccAuthApi {
 
     const _url = this.host + `/auth/token/${encodeURIComponent(String(method))}/${encodeURIComponent(String(path))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl)
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => JSON.parse(JSON.stringify(doc.body)))
       .catch((err) => this.handleError(err))
   }
