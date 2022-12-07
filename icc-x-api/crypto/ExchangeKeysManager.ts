@@ -1,10 +1,11 @@
 import { KeyManager } from './KeyManager'
 import { BaseExchangeKeysManager } from './BaseExchangeKeysManager'
-import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
+import { DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { LruTemporisedAsyncCache } from '../utils/lru-temporised-async-cache'
 import { PublicKeyVerifier } from './PublicKeyVerifier'
 import { loadPublicKeys } from './utils'
 import { RSAUtils } from './RSA'
+import { CryptoPrimitives } from './CryptoPrimitives'
 
 /**
  * @internal This class is meant only for internal use and may be changed without notice.
@@ -19,7 +20,7 @@ export class ExchangeKeysManager {
   private readonly baseExchangeKeysManager: BaseExchangeKeysManager
   private readonly dataOwnerApi: IccDataOwnerXApi
   private readonly publicKeyVerifier: PublicKeyVerifier
-  private readonly rsa: RSAUtils
+  private readonly primitives: CryptoPrimitives
   /*
    * Exchange keys cache where the current user is the delegator. There should be only few keys where the delegator is the current user, and they
    * should never change without an action from the delegator (unless he does this action from another device), so it should be safe to store them
@@ -37,12 +38,12 @@ export class ExchangeKeysManager {
     delegatedKeysCacheSize: number,
     delegatedKeysCacheLifetimeMs: number,
     publicKeyVerifier: PublicKeyVerifier,
-    rsa: RSAUtils,
+    primitives: CryptoPrimitives,
     keyManager: KeyManager,
     baseExchangeKeysManager: BaseExchangeKeysManager,
     dataOwnerApi: IccDataOwnerXApi
   ) {
-    this.rsa = rsa
+    this.primitives = primitives
     this.publicKeyVerifier = publicKeyVerifier
     this.keyManager = keyManager
     this.baseExchangeKeysManager = baseExchangeKeysManager
@@ -54,27 +55,37 @@ export class ExchangeKeysManager {
    * Get exchange keys from the current data owner to the provided delegate which are safe for encryption according to the locally verified keys.
    * If currently there is no exchange key towards the provided delegate which is safe for encryption a new one will be automatically created.
    * @param delegateId a delegate
-   * @return all available exchange keys which are safe for encryption.
+   * @return an object with the following fields:
+   *  - keys: all available exchange keys which are safe for encryption.
+   *  - updatedDelegator (optional): if a new key creation job was started when the function was invoked the updated delegator, else undefined.
    */
-  async getOrCreateEncryptionExchangeKeysTo(delegateId: string): Promise<CryptoKey[]> {
+  async getOrCreateEncryptionExchangeKeysTo(delegateId: string): Promise<{ updatedDelegator?: DataOwnerWithType; keys: CryptoKey[] }> {
     const currentKeys = await this.getSelfExchangeKeysTo(delegateId)
     const verifiedKeys = currentKeys.filter((x) => x.isVerified)
     if (verifiedKeys.length > 0) {
-      return verifiedKeys.map((x) => x.key)
+      return { keys: verifiedKeys.map((x) => x.key) }
     } else {
       const keyCreationJob = this.forceCreateVerifiedExchangeKeyTo(delegateId)
       this.delegatorExchangeKeys.set(
         delegateId,
-        keyCreationJob.then((newKey) => [...currentKeys, { key: newKey, isVerified: true }])
+        keyCreationJob.then(({ key: newKey }) => [...currentKeys, { key: newKey, isVerified: true }])
       )
-      return [await keyCreationJob]
+      return await keyCreationJob.then(({ key: newKey, updatedDelegator }) => ({ keys: [newKey], updatedDelegator }))
+      /*NOTE:
+       * in case of two concurrent calls to `getOrCreateEncryptionExchangeKeysTo` only one of the calls will receive the updated delegator. This could
+       * be a problem if one of the callers would want to update the delegator for other reasons as well, as the request would result in a database
+       * conflict. This situation however should be very rare and will be fully resolved in the near future when delegations will be moved out of the
+       * data owner objects and into a specific database.
+       */
     }
   }
 
   /**
-   * Get all keys currently available for a delegator-delegate pair.
+   * Get all keys currently available for a delegator-delegate pair. At least one of the two data owners must be part of the hierarchy for the current
+   * data owner.
    * @param delegatorId id of a delegator
    * @param delegateId id of a delegate
+   * @throws if neither the delegator nor the delegate is part of the hierarchy of the current data owner.
    * @return all available exchange keys from the delegator-delegate pair.
    */
   async getExchangeKeysFor(delegatorId: string, delegateId: string): Promise<CryptoKey[]> {
@@ -83,6 +94,10 @@ export class ExchangeKeysManager {
       return keysWithVerification.map((x) => x.key)
     } else {
       const key = `${delegatorId}->${delegateId}`
+      const hierarchyIds = await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
+      if (!hierarchyIds.some((x) => x === delegateId || x === delegatorId)) {
+        throw `Trying to retrieve exchange key ${key} but current data owner hierarchy is ${hierarchyIds}`
+      }
       return await this.delegatedExchangeKeysCache.get(key, () => this.forceGetExchangeKeysFor(delegatorId, delegateId))
     }
   }
@@ -110,7 +125,7 @@ export class ExchangeKeysManager {
     return successfulDecryptions.map((x) => ({ key: x, isVerified: true })) // TODO currently there is no verification
   }
 
-  private async forceCreateVerifiedExchangeKeyTo(delegateId: string): Promise<CryptoKey> {
+  private async forceCreateVerifiedExchangeKeyTo(delegateId: string): Promise<{ updatedDelegator: DataOwnerWithType; key: CryptoKey }> {
     const [mainKey, ...otherSelfKeys] = this.keyManager.getSelfVerifiedKeys()
     let otherPublicKeys = Object.fromEntries(otherSelfKeys.map((x) => [x.fingerprint, x.pair.publicKey]))
     if (delegateId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) {
@@ -120,15 +135,14 @@ export class ExchangeKeysManager {
       if (!verifiedDelegatePublicKeys) throw `No verified public keys for delegate ${delegateId}: impossible to create new exchange key.`
       otherPublicKeys = {
         ...otherPublicKeys,
-        ...(await loadPublicKeys(this.rsa, verifiedDelegatePublicKeys)),
+        ...(await loadPublicKeys(this.primitives.RSA, verifiedDelegatePublicKeys)),
       }
     }
-    const { key } = await this.baseExchangeKeysManager.createOrUpdateEncryptedExchangeKeyFor(
+    return await this.baseExchangeKeysManager.createOrUpdateEncryptedExchangeKeyFor(
       await this.dataOwnerApi.getCurrentDataOwnerId(),
       delegateId,
       mainKey.pair,
       otherPublicKeys
     )
-    return key
   }
 }

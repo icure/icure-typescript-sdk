@@ -28,6 +28,7 @@ export class IccDataOwnerXApi {
   private deviceBaseApi: IccDeviceApi
   private dataOwnerCache: { [key: string]: Promise<DataOwnerWithType> } = {}
   private selfDataOwnerId: string | undefined
+  private currentDataOwnerHierarchyIds: string[] | undefined
 
   constructor(
     userBaseApi: IccUserApi,
@@ -42,14 +43,45 @@ export class IccDataOwnerXApi {
   }
 
   /**
-   * If the logged user is a data owner get the current data owner. This information is permanently cached, as the data owner id can't change.
+   * If the logged user is a data owner get the current data owner. This information is cached without expiration, and will only be updated in case
+   * of forced refresh.
    * @throws if the current user is not a data owner.
    */
   async getCurrentDataOwnerId(): Promise<string> {
-    if (!this.selfDataOwnerId) {
-      this.selfDataOwnerId = this.getDataOwnerOf(await this.userBaseApi.getCurrentUser())
+    if (!this.currentDataOwnerHierarchyIds) {
+      await this.getCurrentDataOwnerHierarchyIds()
     }
-    return this.selfDataOwnerId
+    return this.currentDataOwnerHierarchyIds![this.currentDataOwnerHierarchyIds!.length - 1]
+  }
+
+  /**
+   * If the logged user is a data owner get its parent hierarchy. This information is cached without expiration, and will only be updated in case
+   * of forced refresh.
+   * The resulting array starts with the topmost parent (the only ancestor without a parent) and ends with the data owner itself.
+   * @throws if the current user is not a data owner.
+   */
+  async getCurrentDataOwnerHierarchyIds(): Promise<string[]> {
+    if (!this.currentDataOwnerHierarchyIds) {
+      await this.forceLoadCurrentDataOwnerHierarchyAndCacheIds()
+    }
+    return [...this.currentDataOwnerHierarchyIds!]
+  }
+
+  /**
+   * Get the hierarchy for the current data owner starting from the specified parent.
+   * @throws an array starting at the topmost parent and ending at the provided parent id. If the provided id is not part of the hierarchy throws an
+   * error.
+   */
+  async getCurrentDataOwnerHierarchyIdsFrom(parentId: string): Promise<string[]> {
+    if (!this.currentDataOwnerHierarchyIds) {
+      await this.getCurrentDataOwnerHierarchyIds()
+    }
+    const res = []
+    for (const dataOwnerId of this.currentDataOwnerHierarchyIds!) {
+      res.push(dataOwnerId)
+      if (dataOwnerId === parentId) return res
+    }
+    throw `${parentId} is not part of the data owner hierarchy for the current user`
   }
 
   /**
@@ -57,8 +89,10 @@ export class IccDataOwnerXApi {
    * @throws if the current user is not a data owner.
    */
   async getCurrentDataOwner(): Promise<DataOwnerWithType> {
-    // TODO endpoint to save a request to user? Will need to also call checkDataOwnerIntegrity
-    return this.getDataOwner(await this.getCurrentDataOwnerId())
+    if (!this.currentDataOwnerHierarchyIds) {
+      const dataOwnerHierarchy = await this.forceLoadCurrentDataOwnerHierarchyAndCacheIds()
+      return dataOwnerHierarchy[dataOwnerHierarchy.length - 1]
+    } else return this.getDataOwner(await this.getCurrentDataOwnerId())
   }
 
   /**
@@ -151,5 +185,16 @@ export class IccDataOwnerXApi {
     if (new Set(Array.from(keys).map((x) => x.slice(-32))).size != keys.size) {
       throw `Different public keys for ${dataOwner.id} have the same fingerprint; this should not happen in normal circumstances. Please report this error to iCure.`
     }
+  }
+
+  private async forceLoadCurrentDataOwnerHierarchyAndCacheIds(): Promise<DataOwnerWithType[]> {
+    const currentUser = await this.userBaseApi.getCurrentUser()
+    let curr = await this.getDataOwner(this.getDataOwnerOf(currentUser))
+    let res = [curr]
+    while ((curr.dataOwner as HealthcareParty).parentId) {
+      curr = await this.getDataOwner((curr.dataOwner as HealthcareParty).parentId!)
+      res = [curr, ...res]
+    }
+    return res
   }
 }

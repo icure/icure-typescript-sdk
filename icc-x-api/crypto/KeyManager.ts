@@ -6,6 +6,7 @@ import { IcureStorageFacade } from '../storage/IcureStorageFacade'
 import { BaseExchangeKeysManager } from './BaseExchangeKeysManager'
 import { HealthcareParty } from '../../icc-api/model/HealthcareParty'
 import { loadPublicKeys } from './utils'
+import { CryptoPrimitives } from './CryptoPrimitives'
 
 type KeyPairData = { pair: KeyPair<CryptoKey>; isVerified: boolean; isDevice: boolean }
 
@@ -13,7 +14,7 @@ type KeyPairData = { pair: KeyPair<CryptoKey>; isVerified: boolean; isDevice: bo
  * @internal This class is intended only for internal use and may be changed without notice.
  */
 export class KeyManager {
-  private readonly RSA: RSAUtils
+  private readonly primitives: CryptoPrimitives
   private readonly dataOwnerApi: IccDataOwnerXApi
   private readonly transferKeysManager: TransferKeysManager
   private readonly icureStorage: IcureStorageFacade
@@ -24,13 +25,13 @@ export class KeyManager {
   private parentKeys: { [parentId: string]: { [pubKeyFingerprint: string]: KeyPair<CryptoKey> } } | undefined = undefined
 
   constructor(
-    RSA: RSAUtils,
+    primitives: CryptoPrimitives,
     dataOwnerApi: IccDataOwnerXApi,
     icureStorage: IcureStorageFacade,
     transferKeysManager: TransferKeysManager,
     baseExchangeKeyManager: BaseExchangeKeysManager
   ) {
-    this.RSA = RSA
+    this.primitives = primitives
     this.icureStorage = icureStorage
     this.dataOwnerApi = dataOwnerApi
     this.transferKeysManager = transferKeysManager
@@ -137,7 +138,7 @@ export class KeyManager {
         const loadedTransferKeys = await this.transferKeysManager.loadSelfKeysFromTransfer(dataOwner, this.plainKeysByFingerprint(loadedStoredKeys))
         for (const [fp, pair] of Object.entries(loadedTransferKeys)) {
           loadedStoredKeys[fp] = { pair, isDevice: false, isVerified: verifiedKeysMap?.[fp] === true }
-          await this.icureStorage.saveKey(dataOwner.dataOwner.id!, fp, await this.RSA.exportKeys(pair, 'jwk', 'jwk'), false)
+          await this.icureStorage.saveKey(dataOwner.dataOwner.id!, fp, await this.primitives.RSA.exportKeys(pair, 'jwk', 'jwk'), false)
         }
       }
       return { loadedKeys: loadedStoredKeys }
@@ -163,16 +164,21 @@ export class KeyManager {
     dataOwner: DataOwnerWithType,
     verifiedPublicKeysMap: { [p: string]: boolean }
   ): Promise<{ publicKeyFingerprint: string; keyPair: KeyPair<CryptoKey>; updatedSelf: DataOwnerWithType }> {
-    const generatedKeypair = await this.RSA.generateKeyPair()
-    const publicKeyHex = ua2hex(await this.RSA.exportKey(generatedKeypair.publicKey, 'spki'))
+    const generatedKeypair = await this.primitives.RSA.generateKeyPair()
+    const publicKeyHex = ua2hex(await this.primitives.RSA.exportKey(generatedKeypair.publicKey, 'spki'))
     const publicKeyFingerprint = publicKeyHex.slice(-32)
-    await this.icureStorage.saveKey(dataOwner.dataOwner.id!, publicKeyFingerprint, await this.RSA.exportKeys(generatedKeypair, 'jwk', 'jwk'), true)
+    await this.icureStorage.saveKey(
+      dataOwner.dataOwner.id!,
+      publicKeyFingerprint,
+      await this.primitives.RSA.exportKeys(generatedKeypair, 'jwk', 'jwk'),
+      true
+    )
     const { updatedDelegator } = await this.baseExchangeKeyManager.createOrUpdateEncryptedExchangeKeyFor(
       dataOwner.dataOwner.id!,
       dataOwner.dataOwner.id!,
       generatedKeypair,
       await loadPublicKeys(
-        this.RSA,
+        this.primitives.RSA,
         Array.from(this.dataOwnerApi.getHexPublicKeysOf(dataOwner)).filter((x) => verifiedPublicKeysMap[x.slice(-32)])
       )
     )
@@ -190,7 +196,7 @@ export class KeyManager {
       try {
         const storedKeypair = await this.icureStorage.loadKey(dataOwner.dataOwner.id!, currentFingerprint)
         if (storedKeypair) {
-          const importedKey = await this.RSA.importKeyPair('jwk', storedKeypair.pair.privateKey, 'jwk', storedKeypair.pair.publicKey)
+          const importedKey = await this.primitives.RSA.importKeyPair('jwk', storedKeypair.pair.privateKey, 'jwk', storedKeypair.pair.publicKey)
           loadedPair = { pair: importedKey, isDevice: storedKeypair.isDevice }
         }
       } catch (e) {
