@@ -144,7 +144,9 @@ export class BaseExchangeKeysManager {
     encryptedExchangeKey: { [publicKeyFingerprint: string]: string },
     keyPairsByFingerprint: { [publicKeyFingerprint: string]: KeyPair<CryptoKey> }
   ): Promise<{ raw: string; key: CryptoKey } | undefined> {
-    for (const [fp, encrypted] of Object.entries(encryptedExchangeKey)) {
+    for (const [entryKey, encrypted] of Object.entries(encryptedExchangeKey)) {
+      // Due to bugs in past version the entry may actually contain the full public key instead of just the fingerprint.
+      const fp = entryKey.slice(-32)
       const keyPair = keyPairsByFingerprint[fp]
       if (keyPair !== undefined) {
         const res = await this.tryDecryptExchangeKeyWith(encrypted, keyPair, fp)
