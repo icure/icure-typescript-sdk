@@ -363,7 +363,8 @@ export class IccCryptoXApi {
         return
       }
 
-      let encryptedHcPartyKey = encryptedHcPartyKeys[fingerprint]
+      // Due to past bugs the encryptedHcPartyKeys may contain the full key instead of just the fingerprint.
+      let encryptedHcPartyKey = encryptedHcPartyKeys[fingerprint] ?? encryptedHcPartyKeys[pk]
       if (!encryptedHcPartyKey) {
         const delegate = await this.getDataOwner(delegateHcPartyId, false) //it is faster to just try to decrypt if not in cache
         if (!delegate?.dataOwner || delegate.dataOwner.publicKey?.endsWith(fingerprint)) {
@@ -2097,7 +2098,7 @@ export class IccCryptoXApi {
           [ownerLegacyPublicKey]: Object.entries(owner.hcPartyKeys ?? {}).reduce(
             (map, [hcpId, keys]) => ({
               ...map,
-              [hcpId]: { [ownerLegacyPublicKey]: keys[0], [counterParts.find((x) => x.id === hcpId)?.publicKey ?? '']: keys[1] },
+              [hcpId]: { [ownerLegacyPublicKey.slice(-32)]: keys[0], [counterParts.find((x) => x.id === hcpId)?.publicKey ?? '']: keys[1] },
               ...{},
             }),
             {}
