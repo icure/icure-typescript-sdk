@@ -2122,10 +2122,10 @@ export class IccCryptoXApi {
         if (delegate.publicKey && ownerLegacyPublicKey && isOwnerLegacyPublicKeyAvailable) {
           owner.hcPartyKeys![delegateId] = [encryptedAesKeys[ownerLegacyPublicKey.slice(-32)], encryptedAesKeys[delegate.publicKey.slice(-32)]]
         }
-        owner.aesExchangeKeys = {
+        owner.aesExchangeKeys = this.fixAesExchangeKeyEntriesToFingerprints({
           ...(ownerCombinedAesExchangeKeys ?? {}),
           [selectedPublicKey]: { ...(owner.aesExchangeKeys?.[selectedPublicKey] ?? {}), [delegateId]: encryptedAesKeys },
-        }
+        })
 
         return new Promise<['hcp', HealthcareParty] | ['patient', Patient] | ['device', Device]>((resolve, reject) => {
           ownerType === 'hcp'
@@ -2269,5 +2269,26 @@ export class IccCryptoXApi {
    */
   storeKeyPair(id: string, keyPair: { publicKey: any; privateKey: any }) {
     this._storage.setItem(this.rsaLocalStoreIdPrefix + id, JSON.stringify(keyPair))
+  }
+
+  fixAesExchangeKeyEntriesToFingerprints(
+    aesExchangeKeys: { [delegatorPubKey: string]: { [delegateId: string]: { [pubKeyFp: string]: string } } }
+  ): { [delegatorPubKey: string]: { [delegateId: string]: { [pubKeyFp: string]: string } } } {
+    return Object.fromEntries(
+      Object.entries(aesExchangeKeys).map(([delegatorPubKey, allDelegates]) => [
+        delegatorPubKey,
+        Object.fromEntries(
+          Object.entries(allDelegates).map(([delegateId, keyEntries]) => [
+            delegateId,
+            Object.fromEntries(
+              Object.entries(keyEntries).map(([publicKey, encryptedValue]) => [
+                publicKey.slice(-32),
+                encryptedValue
+              ])
+            )
+          ])
+        )
+      ])
+    )
   }
 }
