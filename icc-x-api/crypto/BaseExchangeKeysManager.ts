@@ -2,6 +2,7 @@ import { KeyPair, RSAUtils } from './RSA'
 import { AESUtils } from './AES'
 import { hex2ua, notConcurrent, ua2hex } from '../utils'
 import { DataOwner, DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
+import { CryptoPrimitives } from './CryptoPrimitives'
 
 /**
  * @internal This class is meant only for internal use and may be changed without notice.
@@ -9,14 +10,12 @@ import { DataOwner, DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owne
  * The methods of this api require to pass the appropriate keys for encryption/decryption manually.
  */
 export class BaseExchangeKeysManager {
-  private RSA: RSAUtils
-  private AES: AESUtils
-  private dataOwnerApi: IccDataOwnerXApi
-  private generateKeyConcurrencyMap: { [key: string]: PromiseLike<{ updatedDelegator: DataOwnerWithType; key: CryptoKey }> } = {}
+  private readonly primitives: CryptoPrimitives
+  private readonly dataOwnerApi: IccDataOwnerXApi
+  private readonly generateKeyConcurrencyMap: { [key: string]: PromiseLike<{ updatedDelegator: DataOwnerWithType; key: CryptoKey }> } = {}
 
-  constructor(RSA: RSAUtils, AES: AESUtils, dataOwnerApi: IccDataOwnerXApi) {
-    this.RSA = RSA
-    this.AES = AES
+  constructor(primitives: CryptoPrimitives, dataOwnerApi: IccDataOwnerXApi) {
+    this.primitives = primitives
     this.dataOwnerApi = dataOwnerApi
   }
 
@@ -42,7 +41,7 @@ export class BaseExchangeKeysManager {
     return await notConcurrent(this.generateKeyConcurrencyMap, delegatorId, async () => {
       const delegator = await this.dataOwnerApi.getDataOwner(delegatorId)
       const delegate = delegatorId === delegateId ? delegator : await this.dataOwnerApi.getDataOwner(delegateId)
-      const mainDelegatorKeyPairPubHex = ua2hex(await this.RSA.exportKey(mainDelegatorKeyPair.publicKey, 'spki'))
+      const mainDelegatorKeyPairPubHex = ua2hex(await this.primitives.RSA.exportKey(mainDelegatorKeyPair.publicKey, 'spki'))
       let exchangeKey: { raw: string; key: CryptoKey } | undefined = undefined
       const existingExchangeKey =
         delegator.dataOwner.aesExchangeKeys?.[mainDelegatorKeyPairPubHex]?.[delegateId]?.[mainDelegatorKeyPairPubHex.slice(-32)] ??
@@ -180,14 +179,14 @@ export class BaseExchangeKeysManager {
     exchangeKey: CryptoKey
     encryptedExchangeKey: { [pubKeyFp: string]: string }
   }> {
-    const exchangeKeyCrypto = exchangeKey?.key ?? (await this.AES.generateCryptoKey(false))
-    const exchangeKeyBytes = exchangeKey !== undefined ? hex2ua(exchangeKey.raw) : await this.AES.exportKey(exchangeKeyCrypto, 'raw')
+    const exchangeKeyCrypto = exchangeKey?.key ?? (await this.primitives.AES.generateCryptoKey(false))
+    const exchangeKeyBytes = exchangeKey !== undefined ? hex2ua(exchangeKey.raw) : await this.primitives.AES.exportKey(exchangeKeyCrypto, 'raw')
     const encryptedExchangeKey = await Object.entries(publicKeys).reduce(
       async (acc, [currKeyFp, currKey]) => ({
         ...(await acc),
-        [currKeyFp]: ua2hex(await this.RSA.encrypt(currKey, new Uint8Array(exchangeKeyBytes))),
+        [currKeyFp]: ua2hex(await this.primitives.RSA.encrypt(currKey, new Uint8Array(exchangeKeyBytes))),
       }),
-      Promise.resolve({ [mainKeyPairFp]: ua2hex(await this.RSA.encrypt(mainKeyPair.publicKey, new Uint8Array(exchangeKeyBytes))) })
+      Promise.resolve({ [mainKeyPairFp]: ua2hex(await this.primitives.RSA.encrypt(mainKeyPair.publicKey, new Uint8Array(exchangeKeyBytes))) })
     )
     return { exchangeKey: exchangeKeyCrypto, encryptedExchangeKey }
   }
@@ -208,8 +207,8 @@ export class BaseExchangeKeysManager {
     keyPairFp: string | undefined // if undefined will not log errors, when we are not sure the key to be used is the provided key.
   ): Promise<{ raw: string; key: CryptoKey } | undefined> {
     try {
-      const decrypted = await this.RSA.decrypt(keyPair.privateKey, hex2ua(encryptedByOneKey))
-      return { raw: ua2hex(decrypted), key: await this.AES.importKey('raw', decrypted) }
+      const decrypted = await this.primitives.RSA.decrypt(keyPair.privateKey, hex2ua(encryptedByOneKey))
+      return { raw: ua2hex(decrypted), key: await this.primitives.AES.importKey('raw', decrypted) }
     } catch (e) {
       if (keyPairFp) {
         console.error(`Failed to decrypt or import exchange key ${encryptedByOneKey} using key with fingerprint ${keyPairFp}.`, e)

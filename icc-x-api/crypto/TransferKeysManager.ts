@@ -6,20 +6,19 @@ import { hex2ua, ua2hex } from '../utils'
 import { KeyManager } from './KeyManager'
 import { reachSetsAcyclic, StronglyConnectedGraph } from '../utils/graph-utils'
 import { fingerprintToPublicKeysMapOf, loadPublicKeys, transferKeysFpGraphOf } from './utils'
+import { CryptoPrimitives } from './CryptoPrimitives'
 
 /**
  * @internal this class is intended only for internal use and may be changed without notice.
  * Allows to manage transfer keys.
  */
 export class TransferKeysManager {
-  private readonly AES: AESUtils
-  private readonly RSA: RSAUtils
+  private readonly primitives: CryptoPrimitives
   private readonly baseExchangeKeysManager: BaseExchangeKeysManager
   private readonly dataOwnerApi: IccDataOwnerXApi
 
-  constructor(AES: AESUtils, RSA: RSAUtils, baseExchangeKeysManager: BaseExchangeKeysManager, dataOwnerApi: IccDataOwnerXApi) {
-    this.AES = AES
-    this.RSA = RSA
+  constructor(primitives: CryptoPrimitives, baseExchangeKeysManager: BaseExchangeKeysManager, dataOwnerApi: IccDataOwnerXApi) {
+    this.primitives = primitives
     this.baseExchangeKeysManager = baseExchangeKeysManager
     this.dataOwnerApi = dataOwnerApi
   }
@@ -77,7 +76,7 @@ export class TransferKeysManager {
       selfId,
       selfId,
       newEdges.target,
-      await loadPublicKeys(this.RSA, newExchangeKeyPublicKeys)
+      await loadPublicKeys(this.primitives.RSA, newExchangeKeyPublicKeys)
     )
     // note: createEncryptedExchangeKeyFor may update self
     const encryptedTransferKey = await this.encryptTransferKey(newEdges.target, exchangeKey)
@@ -172,7 +171,7 @@ export class TransferKeysManager {
       if (decryptedTransferKey != undefined)
         return {
           privateKey: decryptedTransferKey,
-          publicKey: await this.RSA.importKey('spki', hex2ua(transferData.publicKey), ['encrypt']),
+          publicKey: await this.primitives.RSA.importKey('spki', hex2ua(transferData.publicKey), ['encrypt']),
         }
     }
     return undefined
@@ -186,8 +185,8 @@ export class TransferKeysManager {
     const encryptedKeyBytes = hex2ua(encryptedTransferKey)
     for (const exchangeKey of exchangeKeys) {
       try {
-        const decryptedKeyData = await this.AES.decrypt(exchangeKey, encryptedKeyBytes)
-        const importedPrivateKey = await this.RSA.importPrivateKey('pkcs8', decryptedKeyData)
+        const decryptedKeyData = await this.primitives.AES.decrypt(exchangeKey, encryptedKeyBytes)
+        const importedPrivateKey = await this.primitives.RSA.importPrivateKey('pkcs8', decryptedKeyData)
         if (importedPrivateKey != undefined) return importedPrivateKey
       } catch (e) {
         /* failure is a valid possibility: we don't know the correct key to use */
@@ -198,8 +197,8 @@ export class TransferKeysManager {
 
   // encrypts a transfer key in pkcs8 format using an exchange key, returns the hex representation
   private async encryptTransferKey(transferKey: KeyPair<CryptoKey>, exchangeKey: CryptoKey): Promise<string> {
-    const exportedKey = await this.RSA.exportKey(transferKey.privateKey, 'pkcs8')
-    return ua2hex(await this.AES.encrypt(exchangeKey, exportedKey))
+    const exportedKey = await this.primitives.RSA.exportKey(transferKey.privateKey, 'pkcs8')
+    return ua2hex(await this.primitives.AES.encrypt(exchangeKey, exportedKey))
   }
 
   // all public keys would go to the stored keys -> no need for specifying the key.

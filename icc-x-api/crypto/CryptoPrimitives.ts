@@ -1,0 +1,49 @@
+import { RSAUtils } from './RSA'
+import { AESUtils } from './AES'
+import { ShamirClass } from './shamir'
+
+/**
+ * Gives access to cryptographic primitives.
+ */
+export class CryptoPrimitives {
+  public readonly RSA: RSAUtils
+  public readonly AES: AESUtils
+  public readonly shamir: ShamirClass
+  private readonly crypto: Crypto
+
+  constructor(crypto: Crypto = typeof window !== 'undefined' ? window.crypto : typeof self !== 'undefined' ? self.crypto : ({} as Crypto)) {
+    this.crypto = crypto
+    this.RSA = new RSAUtils(crypto)
+    this.AES = new AESUtils(crypto)
+    this.shamir = new ShamirClass(crypto)
+  }
+
+  /**
+   * Generates a UUID using a cryptographically secure random number generator.
+   */
+  randomUuid() {
+    return ((1e7).toString() + -1e3 + -4e3 + -8e3 + -1e11).replace(
+      /[018]/g,
+      //Keep next inlined or you will lose the random
+      (c) => (Number(c) ^ ((this.crypto.getRandomValues(new Uint8Array(1))! as Uint8Array)[0] & (15 >> (Number(c) / 4)))).toString(16)
+    )
+  }
+
+  /**
+   * @param data some data
+   * @return the sha256 hash of {@link data}
+   */
+  sha256(data: ArrayBuffer | Uint8Array): Promise<ArrayBuffer> {
+    return this.crypto.subtle.digest('SHA-256', data)
+  }
+
+  /**
+   * @param n how many bytes to generate
+   * @return an array with n random bytes
+   */
+  randomBytes(n: number): Uint8Array {
+    const res = new Uint8Array(n)
+    this.crypto.getRandomValues(res)
+    return res
+  }
+}
