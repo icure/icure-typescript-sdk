@@ -240,7 +240,7 @@ export class BaseExchangeKeysManager {
     encryptedKeyMap: { [fp: string]: string }
   ): Promise<{ [ownerPublicKey: string]: { [delegateId: string]: { [fingerprint: string]: string } } }> {
     const combinedAesExchangeKeys = await this.combineLegacyHcpKeysWithAesExchangeKeys(delegator, delegate)
-    return {
+    return this.fixAesExchangeKeyEntriesToFingerprints({
       ...combinedAesExchangeKeys,
       [mainDelegatorKeyPairPubHex]: {
         ...(combinedAesExchangeKeys[mainDelegatorKeyPairPubHex] ?? {}),
@@ -249,7 +249,7 @@ export class BaseExchangeKeysManager {
           ...encryptedKeyMap,
         },
       },
-    }
+    })
   }
 
   // Copy all legacy hcp exchange keys into the new aes exchange keys
@@ -281,5 +281,21 @@ export class BaseExchangeKeysManager {
         ...(owner.aesExchangeKeys ?? {}),
       }
     } else return owner.aesExchangeKeys ?? {}
+  }
+
+  private fixAesExchangeKeyEntriesToFingerprints(aesExchangeKeys: {
+    [delegatorPubKey: string]: { [delegateId: string]: { [pubKeyFp: string]: string } }
+  }): { [delegatorPubKey: string]: { [delegateId: string]: { [pubKeyFp: string]: string } } } {
+    return Object.fromEntries(
+      Object.entries(aesExchangeKeys).map(([delegatorPubKey, allDelegates]) => [
+        delegatorPubKey,
+        Object.fromEntries(
+          Object.entries(allDelegates).map(([delegateId, keyEntries]) => [
+            delegateId,
+            Object.fromEntries(Object.entries(keyEntries).map(([publicKey, encryptedValue]) => [publicKey.slice(-32), encryptedValue])),
+          ])
+        ),
+      ])
+    )
   }
 }
