@@ -26,7 +26,6 @@ export class IccDataOwnerXApi {
   private hcpartyBaseApi: IccHcpartyApi
   private patientBaseApi: IccPatientApi
   private deviceBaseApi: IccDeviceApi
-  private dataOwnerCache: { [key: string]: Promise<DataOwnerWithType> } = {}
   private selfDataOwnerId: string | undefined
   private currentDataOwnerHierarchyIds: string[] | undefined
 
@@ -118,24 +117,15 @@ export class IccDataOwnerXApi {
    */
   getDataOwner(ownerId: string, loadIfMissingFromCache: boolean = true): Promise<DataOwnerWithType> {
     // TODO Data owner endpoint to save some requests?
-    return (
-      this.dataOwnerCache[ownerId] ??
-      (loadIfMissingFromCache
-        ? (this.dataOwnerCache[ownerId] = this.patientBaseApi
-            .getPatient(ownerId)
-            .then((patient) => ({ type: 'patient', dataOwner: patient } as DataOwnerWithType))
-            .catch(async () => ({ type: 'device', dataOwner: await this.deviceBaseApi.getDevice(ownerId) } as DataOwnerWithType))
-            .catch(async () => ({ type: 'hcp', dataOwner: await this.hcpartyBaseApi.getHealthcareParty(ownerId) } as DataOwnerWithType))
-            .then((dataOwnerWithType) => {
-              if (dataOwnerWithType.dataOwner.id == this.selfDataOwnerId) this.checkDataOwnerIntegrity(dataOwnerWithType.dataOwner)
-              return dataOwnerWithType
-            })
-            .catch((e) => {
-              delete this.dataOwnerCache[ownerId]
-              throw e
-            }))
-        : undefined)
-    )
+    return this.patientBaseApi
+      .getPatient(ownerId)
+      .then((patient) => ({ type: 'patient', dataOwner: patient } as DataOwnerWithType))
+      .catch(async () => ({ type: 'device', dataOwner: await this.deviceBaseApi.getDevice(ownerId) } as DataOwnerWithType))
+      .catch(async () => ({ type: 'hcp', dataOwner: await this.hcpartyBaseApi.getHealthcareParty(ownerId) } as DataOwnerWithType))
+      .then((dataOwnerWithType) => {
+        if (dataOwnerWithType.dataOwner.id == this.selfDataOwnerId) this.checkDataOwnerIntegrity(dataOwnerWithType.dataOwner)
+        return dataOwnerWithType
+      })
   }
 
   /**
@@ -149,17 +139,6 @@ export class IccDataOwnerXApi {
 
   /**
    * @internal This method is intended only for internal use and may be changed without notice.
-   * Clears the cache for a data owner, should be called after every update to the data owner entity so that {@link getDataOwner} will always provide
-   * the updated values.
-   * @param dataOwnerId id of the updated data owner.
-   */
-  clearCachedDataOwner(dataOwnerId: string) {
-    // TODO in some situations we may already replace with the updated patient promise.
-    delete this.dataOwnerCache[dataOwnerId]
-  }
-
-  /**
-   * @internal This method is intended only for internal use and may be changed without notice.
    * Updates a data owner and its cached value.
    * @param dataOwner a data owner with updated value.
    * @return the updated data owner, with updated revision.
@@ -167,17 +146,15 @@ export class IccDataOwnerXApi {
   async updateDataOwner(dataOwner: DataOwnerWithType): Promise<DataOwnerWithType> {
     const ownerType = dataOwner.type
     const ownerToUpdate = dataOwner.dataOwner
-    return ownerType === 'hcp'
-      ? await (this.dataOwnerCache[ownerToUpdate.id!] = this.hcpartyBaseApi
-          .modifyHealthcareParty(ownerToUpdate as HealthcareParty)
-          .then((x) => ({ type: 'hcp', dataOwner: x } as DataOwnerWithType)))
-      : ownerType === 'patient'
-      ? await (this.dataOwnerCache[ownerToUpdate.id!] = this.patientBaseApi
-          .modifyPatient(ownerToUpdate as Patient)
-          .then((x) => ({ type: 'patient', dataOwner: x } as DataOwnerWithType)))
-      : await (this.dataOwnerCache[ownerToUpdate.id!] = this.deviceBaseApi
-          .updateDevice(ownerToUpdate as Device)
-          .then((x) => ({ type: 'device', dataOwner: x } as DataOwnerWithType)))
+    if (ownerType === 'hcp') {
+      return await this.hcpartyBaseApi
+        .modifyHealthcareParty(ownerToUpdate as HealthcareParty)
+        .then((x) => ({ type: 'hcp', dataOwner: x } as DataOwnerWithType))
+    } else if (ownerType === 'patient') {
+      return await this.patientBaseApi.modifyPatient(ownerToUpdate as Patient).then((x) => ({ type: 'patient', dataOwner: x } as DataOwnerWithType))
+    } else if (ownerType === 'device') {
+      return await this.deviceBaseApi.updateDevice(ownerToUpdate as Device).then((x) => ({ type: 'device', dataOwner: x } as DataOwnerWithType))
+    } else throw `Unrecognised data owner type: ${ownerType}`
   }
 
   private checkDataOwnerIntegrity(dataOwner: DataOwner) {
