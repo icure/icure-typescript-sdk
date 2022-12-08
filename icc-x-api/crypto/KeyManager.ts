@@ -11,7 +11,7 @@ import { CryptoPrimitives } from './CryptoPrimitives'
 type KeyPairData = { pair: KeyPair<CryptoKey>; isVerified: boolean; isDevice: boolean }
 
 /**
- * @internal This class is intended only for internal use and may be changed without notice.
+ * Allows to manage public and private keys for the current user and his parent hierarchy.
  */
 export class KeyManager {
   private readonly primitives: CryptoPrimitives
@@ -39,6 +39,41 @@ export class KeyManager {
   }
 
   /**
+   * Get the public keys of available key pairs for the current user in hex-encoded spki representation (uses cached keys: no request is done to the
+   * server).
+   * By setting {@link verifiedOnly} to true only the public keys for verified key pairs will be returned: these will include only key pairs created
+   * on this device or which have been verified using a {@link PublicKeyVerifier} on this device.
+   * @param verifiedOnly if true only the verified public keys will be returned.
+   * @return the spki representation of public keys of available keypairs for the current user.
+   */
+  async getCurrentUserAvailablePublicKeysHex(verifiedOnly: boolean): Promise<string[]> {
+    this.ensureInitialised()
+    let selectedData = Object.values(this.selfKeys!)
+    if (verifiedOnly) {
+      selectedData = selectedData.filter((data) => data.isVerified || data.isDevice)
+    }
+    return await Promise.all(selectedData.map(async (keyData) => ua2hex(await this.primitives.RSA.exportKey(keyData.pair.publicKey, 'spki'))))
+  }
+
+  /**
+   * Get the public keys of available key pairs for the current user and his parents in hex-encoded spki representation (uses cached keys: no request
+   * is done to the server).
+   * Note that this will also include unverified keys.
+   * @return the spki representation of public keys of available keypairs for the current user.
+   */
+  async getCurrentUserHierarchyAvailablePublicKeysHex(): Promise<string[]> {
+    return [
+      ...(await this.getCurrentUserAvailablePublicKeysHex(false)),
+      ...(await Promise.all(
+        Object.values(this.parentKeys!)
+          .flatMap((pairsForParent) => Object.values(pairsForParent))
+          .map(async (pair) => ua2hex(await this.primitives.RSA.exportKey(pair.publicKey, 'spki')))
+      )),
+    ]
+  }
+
+  /**
+   * @internal This method is intended for internal use only and may be changed without notice.
    * Initializes all keys for the current data owner. This method needs to be called before any other method of this class can be used.
    * If no device or verified keys are available the current data owner, the behaviour of this method depends on the value of
    * {@link createNewKeyIfMissing}:
@@ -61,6 +96,7 @@ export class KeyManager {
   }
 
   /**
+   * @internal This method is intended for internal use only and may be changed without notice.
    * Forces to reload keys for the current data owner. This could be useful if the data owner has logged in from another device in order to update the
    * transfer keys.
    * This method will complete only after keys have been reloaded successfully.
@@ -74,6 +110,7 @@ export class KeyManager {
   }
 
   /**
+   * @internal This method is intended for internal use only and may be changed without notice.
    * Get all verified key pairs for the current data owner which can safely be used for encryption. This includes all key pairs created on the current
    * device and all recovered key pairs which have been verified.
    * The keys returned by this method will be in the following order:
@@ -103,6 +140,7 @@ export class KeyManager {
   }
 
   /**
+   * @internal This method is intended for internal use only and may be changed without notice.
    * Get all key pairs for the current data owner and his parents. These keys should be used only for decryption as they may have not been verified.
    * @return all key pairs available for decryption.
    */

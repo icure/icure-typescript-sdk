@@ -6,16 +6,32 @@ import { ShamirClass } from './shamir'
  * Gives access to cryptographic primitives.
  */
 export class CryptoPrimitives {
-  public readonly RSA: RSAUtils
-  public readonly AES: AESUtils
-  public readonly shamir: ShamirClass
-  private readonly crypto: Crypto
+  private readonly _rsa: RSAUtils
+  private readonly _aes: AESUtils
+  private readonly _shamir: ShamirClass
+  private readonly _crypto: Crypto
+
+  get crypto(): Crypto {
+    return this._crypto
+  }
+
+  get shamir(): ShamirClass {
+    return this._shamir
+  }
+
+  get RSA(): RSAUtils {
+    return this._rsa
+  }
+
+  get AES(): AESUtils {
+    return this._aes
+  }
 
   constructor(crypto: Crypto = typeof window !== 'undefined' ? window.crypto : typeof self !== 'undefined' ? self.crypto : ({} as Crypto)) {
-    this.crypto = crypto
-    this.RSA = new RSAUtils(crypto)
-    this.AES = new AESUtils(crypto)
-    this.shamir = new ShamirClass(crypto)
+    this._crypto = crypto
+    this._rsa = new RSAUtils(crypto)
+    this._aes = new AESUtils(crypto)
+    this._shamir = new ShamirClass(crypto)
   }
 
   /**

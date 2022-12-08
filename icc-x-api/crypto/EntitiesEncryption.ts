@@ -6,6 +6,9 @@ import { hex2ua } from '@icure/api'
 import * as _ from 'lodash'
 import { CryptoPrimitives } from './CryptoPrimitives'
 
+/**
+ * Give access to functions for retrieving encryption metadata of entities.
+ */
 export class EntitiesEncryption {
   private readonly hexWithDashesRegex = /^[0-9A-Fa-f\-]+$/g
 
@@ -104,23 +107,29 @@ export class EntitiesEncryption {
     entity: T,
     parentEntityId: string | undefined,
     parentSecretId: string | undefined
-  ): Promise<T> {
+  ): Promise<{
+    updatedEntity: T
+    rawEncryptionKey: string
+    secretId: string
+  }> {
     this.throwDetailedExceptionForInvalidParameter('entity.id', entity.id, 'entityWithInitialisedEncryptionMetadata', arguments)
     this.checkEmptyEncryptionMetadata(entity)
-    const res = await this.createOrUpdateEntityDelegations(
+    const secretId = this.primitives.randomUuid()
+    const rawEncryptionKey = ua2hex(this.primitives.randomBytes(16))
+    const updatedEntity = await this.createOrUpdateEntityDelegations(
       entity,
       await this.dataOwnerApi.getCurrentDataOwnerId(),
       [],
       [],
       [],
-      [this.primitives.randomUuid()],
-      [ua2hex(this.primitives.randomBytes(16))],
+      [secretId],
+      [rawEncryptionKey],
       parentEntityId ? [parentEntityId] : []
     )
     if (parentSecretId) {
-      res.secretForeignKeys = [parentSecretId]
+      updatedEntity.secretForeignKeys = [parentSecretId]
     }
-    return res
+    return { updatedEntity, secretId, rawEncryptionKey }
   }
 
   /**
@@ -228,7 +237,7 @@ export class EntitiesEncryption {
    * @return the key which could be decrypted using only keys available on the current device and delegations from/to the provided data owner. May
    * contain duplicates.
    */
-  async extractFromDelegationsForDataOwner(
+  private async extractFromDelegationsForDataOwner(
     dataOwnerId: string,
     delegations: { [delegateId: string]: Delegation[] },
     includeFromDelegations: boolean,
@@ -269,7 +278,10 @@ export class EntitiesEncryption {
     )
   }
 
-  private async extractMergedHierarchyFromDelegationAndOwner(
+  /**
+   * @internal This method should be private but is currently public/internal to allow to continue supporting legacy methods
+   */
+  async extractMergedHierarchyFromDelegationAndOwner(
     delegations: { [delegateId: string]: Delegation[] },
     dataOwnerId: string | undefined,
     validateDecrypted: (result: string) => boolean
@@ -278,7 +290,8 @@ export class EntitiesEncryption {
       ? await this.dataOwnerApi.getCurrentDataOwnerHierarchyIdsFrom(dataOwnerId)
       : await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
     const extractedByOwner = await Promise.all(
-      hierarchy.map((ownerId) => this.extractFromDelegationsForDataOwner(ownerId, delegations, true, validateDecrypted))
+      // Reverse is just to keep method behaviour as close as possible to the legacy behaviour, in case someone depended on the ordering.
+      hierarchy.reverse().map((ownerId) => this.extractFromDelegationsForDataOwner(ownerId, delegations, true, validateDecrypted))
     )
     return this.deduplicate(extractedByOwner.flatMap((x) => x))
   }

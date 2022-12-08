@@ -138,6 +138,14 @@ export class IccDataOwnerXApi {
   }
 
   /**
+   * Clears the cache of current data owner id and parent hierarchy ids. The hierarchy of a data owner should not normally change over time, so this
+   * method should be rarely needed.
+   */
+  clearCurrentDataOwnerIdsCache() {
+    this.currentDataOwnerHierarchyIds = undefined
+  }
+
+  /**
    * @internal This method is intended only for internal use and may be changed without notice.
    * Updates a data owner and its cached value.
    * @param dataOwner a data owner with updated value.
