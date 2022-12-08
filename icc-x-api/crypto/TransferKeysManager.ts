@@ -109,7 +109,7 @@ export class TransferKeysManager {
     self: DataOwnerWithType,
     knownKeys: { [pubKeyFingerprint: string]: KeyPair<CryptoKey> }
   ): Promise<{ [pubKeyFingerprint: string]: KeyPair<CryptoKey> }> {
-    const selfPublicKeys = Array.from(await this.dataOwnerApi.getHexPublicKeysOf(self))
+    const selfPublicKeys = Array.from(this.dataOwnerApi.getHexPublicKeysOf(self))
     const loadedStoredKeysFingerprintsSet = new Set(Object.keys(knownKeys))
     // The same private key may be encrypted using different exchange keys.
     const missingKeysTransferData: { [recoverableKeyPubFp: string]: { publicKey: string; encryptedPrivateKey: Set<string> } } = {}

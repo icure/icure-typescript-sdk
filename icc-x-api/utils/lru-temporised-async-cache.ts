@@ -1,6 +1,6 @@
 export class LruTemporisedAsyncCache<K, V> {
   private readonly maxCacheSize: number
-  private readonly maxLifetimeMs: number
+  private readonly lifetimeForValue: (value: V) => number
 
   private readonly nodesMap: Map<K, CacheNode<K, V>> = new Map()
   private firstNode: CacheNode<K, V> | null = null
@@ -8,18 +8,18 @@ export class LruTemporisedAsyncCache<K, V> {
 
   /**
    * @param maxCacheSize Maximum size of the cache. Any value <= 0 is considered as no limit.
-   * @param maxLifetimeMs Maximum lifetime for an entry in the cache. Any value <= 0 is considered as no limit.
+   * @param lifetimeForValue Get the maximum lifetime for an entry given its value.
    */
-  constructor(maxCacheSize: number, maxLifetimeMs: number) {
+  constructor(maxCacheSize: number, lifetimeForValue: (value: V) => number) {
     this.maxCacheSize = maxCacheSize
-    this.maxLifetimeMs = maxLifetimeMs
+    this.lifetimeForValue = lifetimeForValue
   }
 
   get(key: K, retrieve: () => Promise<V>): Promise<V> {
     const retrieved = this.nodesMap.get(key)
     if (retrieved !== undefined) {
       this.markUsed(retrieved)
-      if (retrieved.expired(this.maxLifetimeMs)) retrieved.value = this.registerJob(key, retrieve)
+      if (retrieved.expired(this.lifetimeForValue)) retrieved.value = this.registerJob(key, retrieve)
       return retrieved.valuePromise()
     } else {
       const newNode = new CacheNode(key, this.lastNode, null, this.registerJob(key, retrieve))
@@ -27,6 +27,12 @@ export class LruTemporisedAsyncCache<K, V> {
       if (this.maxCacheSize > 0 && this.nodesMap.size > this.maxCacheSize) this.evict(this.firstNode!.key, this.firstNode!)
       return newNode.valuePromise()
     }
+  }
+
+  clear() {
+    this.firstNode = null
+    this.lastNode = null
+    this.nodesMap.clear()
   }
 
   private addToTail(key: K | null, node: CacheNode<K, V>) {
@@ -89,8 +95,11 @@ class CacheNode<K, V> {
     this.value = value
   }
 
-  expired(maxLifetimeMs: number): boolean {
-    return maxLifetimeMs > 0 && 'timestamp' in this.value && Date.now() - this.value.timestamp > maxLifetimeMs
+  expired(lifetimeForValue: (value: V) => number): boolean {
+    if ('timestamp' in this.value) {
+      const maxLifetime = lifetimeForValue(this.value.cached)
+      return maxLifetime > 0 && Date.now() - this.value.timestamp > maxLifetime
+    } else return false
   }
 
   valuePromise(): Promise<V> {

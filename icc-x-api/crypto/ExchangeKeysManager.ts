@@ -28,15 +28,20 @@ export class ExchangeKeysManager {
    */
   private delegatorExchangeKeys: Map<string, Promise<{ key: CryptoKey; isVerified: boolean }[]>> = new Map()
   /*
-   * Exchange keys cache where the current user is the delegate and not the delegator. There may be many keys where the current user is the delegate,
+   * Exchange keys cache where the current user is not the delegator. There may be many keys where the current user is the delegate,
    * and they may change over time without any action from the current data owner, since the delegator is someone else. For this reason the cache must
    * be limited in size and it should not use data that is too old, as it may be outdated.
    */
   private delegatedExchangeKeysCache: LruTemporisedAsyncCache<string, CryptoKey[]>
 
+  get base(): BaseExchangeKeysManager {
+    return this.baseExchangeKeysManager
+  }
+
   constructor(
     delegatedKeysCacheSize: number,
-    delegatedKeysCacheLifetimeMs: number,
+    delegatedKeysCacheLifetimeMsBase: number,
+    delegatedKeysCacheLifetimeMsNoKeys: number,
     publicKeyVerifier: PublicKeyVerifier,
     primitives: CryptoPrimitives,
     keyManager: KeyManager,
@@ -48,7 +53,9 @@ export class ExchangeKeysManager {
     this.keyManager = keyManager
     this.baseExchangeKeysManager = baseExchangeKeysManager
     this.dataOwnerApi = dataOwnerApi
-    this.delegatedExchangeKeysCache = new LruTemporisedAsyncCache(delegatedKeysCacheSize, delegatedKeysCacheLifetimeMs)
+    this.delegatedExchangeKeysCache = new LruTemporisedAsyncCache(delegatedKeysCacheSize, (keys) =>
+      keys.length > 0 ? delegatedKeysCacheLifetimeMsBase : delegatedKeysCacheLifetimeMsNoKeys
+    )
   }
 
   /**
@@ -100,6 +107,15 @@ export class ExchangeKeysManager {
       }
       return await this.delegatedExchangeKeysCache.get(key, () => this.forceGetExchangeKeysFor(delegatorId, delegateId))
     }
+  }
+
+  /**
+   * Empties the exchange keys cache.
+   * @param includeKeysFromCurrentDataOwner if true also clears the
+   */
+  clearCache(includeKeysFromCurrentDataOwner: boolean) {
+    if (includeKeysFromCurrentDataOwner) this.delegatorExchangeKeys.clear()
+    this.delegatedExchangeKeysCache.clear()
   }
 
   private async forceGetExchangeKeysFor(delegatorId: string, delegateId: string): Promise<CryptoKey[]> {
