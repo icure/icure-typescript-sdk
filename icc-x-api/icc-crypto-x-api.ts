@@ -20,14 +20,14 @@ import {
   User,
 } from '../icc-api/model/models'
 import { b2a, b64_2uas, hex2ua, string2ua, ua2hex, ua2string, ua2utf8, utf8_2ua } from './utils/binary-utils'
-import { fold, foldAsync, jwk2spki, notConcurrent, pkcs8ToJwk, spkiToJwk } from './utils'
+import { fold, foldAsync, jwk2spki, keyPairFromPrivateKeyJwk, notConcurrent, pkcs8ToJwk, spkiToJwk } from './utils'
 import { IccMaintenanceTaskXApi } from './icc-maintenance-task-x-api'
 import { StorageFacade } from './storage/StorageFacade'
 import { KeyStorageFacade } from './storage/KeyStorageFacade'
 import { ExchangeKeysManager } from './crypto/ExchangeKeysManager'
 import { CryptoPrimitives } from './crypto/CryptoPrimitives'
 import { KeyManager } from './crypto/KeyManager'
-import { IccDataOwnerXApi } from './icc-data-owner-x-api'
+import { DataOwner, IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { EntitiesEncryption } from './crypto/EntitiesEncryption'
 import { IcureStorageFacade } from './storage/IcureStorageFacade'
 
@@ -52,10 +52,6 @@ type CachedDataOwner =
     }
 
 export class IccCryptoXApi {
-  /*TODO
-   * - Get verified keys
-   */
-
   private readonly exchangeKeysManager: ExchangeKeysManager
   private readonly cryptoPrimitives: CryptoPrimitives
   private readonly keyManager: KeyManager
@@ -231,16 +227,25 @@ export class IccCryptoXApi {
     for (const pk of pubKeys) {
       const fingerprint = pk.slice(-32)
       if (!this.rsaKeyPairs[fingerprint]) {
-        await this.cacheKeyPair(await this.loadKeyPairNotImported(dataOwnerId, fingerprint))
+        await this.cacheKeyPair((await this.loadKeyPairNotImported(dataOwnerId, fingerprint))!)
       }
     }
   }
 
   /**
-   * @deprecated you should not need this method anymore because everything related to entities encryption should be done either through the
-   * entity-specific extended api or through the {@link EntitiesEncryption} object available at {@link entities}. Please contact us if you have a
-   * scenario where you really need to get a specific keypair of the user. Also note that the keys returned by this method may not be safe for
-   * encryption (but they will always be safe for encryption)
+   * @deprecated you should not need this method anymore to deal with the encryption of iCure entities because everything related to entities
+   * encryption should be done either through the entity-specific extended api or through the {@link EntitiesEncryption} object available at
+   * {@link entities}.
+   * Note that keys returned by the current implementation of this method may not be safe for encryption/sharing.
+   * If instead you are using this method to retrieve key pairs for other purposes, for example because you want to reuse the user keys in iCure for
+   * other services consider the following alternatives:
+   * - If you want to use all iCure facilities including key recovery and key verification you can use {@link KeyManager.getKeyPairForFingerprint}.
+   *   Note that this solution can only give access to keys for the data owner of the instantiated api and his parents.
+   * - Alternatively you can use directly your choice of {@link KeyStorageFacade} and {@link StorageEntryKeysFactory}: if these are the same you use
+   *   for the iCure API client the keys will be shared with it. Note however that the iCure api client uses
+   *   {@link StorageEntryKeysFactory.cachedRecoveredKeypairOfDataOwner} to cache recovered keys of a data owner which may not have originated from
+   *   this device, so you should only use {@link StorageEntryKeysFactory.deviceKeypairOfDataOwner} if you want to make sure the keys you use are safe
+   *   for encryption.
    */
   async getCachedRsaKeyPairForFingerprint(
     dataOwnerId: string,
@@ -1047,7 +1052,6 @@ export class IccCryptoXApi {
    *  */
 
   private async addDelegationsAndEncryptionKeys<T extends EncryptedEntity>(
-    //TODO: suggested name: updateChildGenericDelegationsFromDelegatorToDelegate
     parent: EncryptedParentEntity | null,
     child: T,
     ownerId: string,
@@ -1144,11 +1148,7 @@ export class IccCryptoXApi {
    * - does not provide any guarantees on the ordering of the extracted keys
    * - deduplicates extracted keys
    */
-  async extractCryptedFKs(
-    //TODO: suggested name: getSecretIDsCFKofHcpAndParentsFromDocument
-    document: EncryptedEntity | null,
-    hcpartyId: string
-  ): Promise<{ extractedKeys: Array<string>; hcpartyId: string }> {
+  async extractCryptedFKs(document: EncryptedEntity | null, hcpartyId: string): Promise<{ extractedKeys: Array<string>; hcpartyId: string }> {
     if (!document || !document.cryptedForeignKeys) {
       return Promise.resolve({ extractedKeys: [], hcpartyId: hcpartyId })
     }
@@ -1164,8 +1164,8 @@ export class IccCryptoXApi {
   }
 
   /**
-   * @deprecated You should not need this method, but rather you should rely on the extended api to automatically perform the encryption and
-   * decryption of the entity. Please contact us if you have a scenario where you really need to access the encryption. You will then need to use:
+   * @deprecated If you were using this method to encrypt/decrypt directly the `encryptedEntities` you should instead rely on the extended apis
+   * methods. If instead you were using this method to get keys for encryption/decryption of attachments you should replace it with:
    * - {@link EntitiesEncryption.encryptionKeysOf} in {@link entities} to get the encryption keys.
    * - {@link IccDataOwnerXApi.getCurrentDataOwnerHierarchyIds} to get the full hierarchy for the current data owner (cached). The first element is
    *   the id of the topmost parent, while the last is the current data owner.
@@ -1174,11 +1174,7 @@ export class IccCryptoXApi {
    * - does not provide any guarantees on the ordering of the extracted keys
    * - deduplicates extracted keys
    */
-  async extractEncryptionsSKs(
-    //TODO: suggested name: getSecretIDsEKofHcpAndParentsFromDocument
-    document: EncryptedEntity,
-    hcpartyId: string
-  ): Promise<{ extractedKeys: Array<string>; hcpartyId: string }> {
+  async extractEncryptionsSKs(document: EncryptedEntity, hcpartyId: string): Promise<{ extractedKeys: Array<string>; hcpartyId: string }> {
     if (!document.encryptionKeys) {
       return Promise.resolve({ extractedKeys: [], hcpartyId: hcpartyId })
     }
@@ -1243,8 +1239,7 @@ export class IccCryptoXApi {
    * @deprecated You should not use this method anymore, and instead replace it with the appropriate methods from {@link entities} depending on where
    * the delegations come from:
    * - {@link EntitiesEncryption.secretIdsOf} for {@link EncryptedEntity.delegations} (see {@link extractDelegationsSFKs} for more info)
-   * - {@link EntitiesEncryption.encryptionKeysOf} for {@link EncryptedEntity.encryptionKeys} (you should stop using them directly if possible, see
-   *   {@link extractEncryptionsSKs} for more info
+   * - {@link EntitiesEncryption.encryptionKeysOf} for {@link EncryptedEntity.encryptionKeys} (see {@link extractEncryptionsSKs} for more info
    * - {@link EntitiesEncryption.parentIdsOf} for {@link EncryptedEntity.cryptedForeignKeys} (see {@link extractCryptedFKs} for more info)
    */
   async extractKeysFromDelegationsForHcpHierarchy(
@@ -1343,7 +1338,6 @@ export class IccCryptoXApi {
    * @returns array of generic secret IDs (secretIdSPK, parentId, secretIdEK)
    */
   private async decryptKeyInDelegationLikes(
-    //TODO: suggested name: getSecretIdsFromGenericDelegations
     delegationsArray: Array<Delegation>,
     aesKeysForDataOwnerId: { [key: string]: { key: CryptoKey; rawKey: string }[] },
     masterId: string
@@ -1411,52 +1405,38 @@ export class IccCryptoXApi {
     return publicKey
   }
 
+  /**
+   * @deprecated you should not need this method anymore: the new API will automatically load on startup all keys available through the key storage
+   * facade and/or recoverable through transfer keys or shamir split. If you were using this method to load a key recovered through other means you
+   * need to add the key pair to the {@link KeyStorageFacade} (see {@link cacheKeyPair} for more information).
+   * You can convert the private key pkcs8 array to a jwk key using {@link pkcs8ToJwk} then you can extract the full key pair using
+   * {@link keyPairFromPrivateKeyJwk}.
+   */
   async loadKeyPairsAsTextInBrowserLocalStorage(healthcarePartyId: string, privateKey: Uint8Array) {
-    const { dataOwner } = await this.getDataOwner(healthcarePartyId)
-
-    const privateKeyInJwk = pkcs8ToJwk(privateKey)
-    const publicKey = this.getPublicKeyFromPrivateKey(privateKeyInJwk, dataOwner)
-
-    const keyPair: { publicKey: CryptoKey; privateKey: CryptoKey } = await this._RSA.importKeyPair(
-      'jwk',
-      privateKeyInJwk,
-      'jwk',
-      spkiToJwk(hex2ua(publicKey))
-    )
-    this.rsaKeyPairs[publicKey.slice(-32)] = keyPair
-    const exportedKeyPair = await this._RSA.exportKeys(keyPair, 'jwk', 'jwk')
-
-    return await this._keyStorage.storeKeyPair(`${this.rsaLocalStoreIdPrefix}${healthcarePartyId}.${publicKey.slice(-32)}`, exportedKeyPair)
+    await this.cacheKeyPair(keyPairFromPrivateKeyJwk(pkcs8ToJwk(privateKey)))
   }
 
+  /**
+   * @deprecated you should not need this method anymore: the new API will automatically load on startup all keys available through the key storage
+   * facade and/or recoverable through transfer keys or shamir split. If you were using this method to load a key recovered through other means you
+   * need to add the key pair to the {@link KeyStorageFacade} (see {@link cacheKeyPair} for more information).
+   * You can extract the full key pair using {@link keyPairFromPrivateKeyJwk}.
+   */
   async loadKeyPairsAsJwkInBrowserLocalStorage(healthcarePartyId: string, privateKey: JsonWebKey) {
-    const { dataOwner } = await this.getDataOwner(healthcarePartyId)
-
-    if ((!privateKey.n || !privateKey.e) && dataOwner.publicKey) {
-      //Fallback on default publicKey
-      console.warn('An incomplete key has been completed using the default public key of the data owner')
-      const publicKeyInJwk = spkiToJwk(hex2ua(dataOwner.publicKey))
-      privateKey.n = publicKeyInJwk.n
-      privateKey.e = publicKeyInJwk.e
-    }
-
-    const publicKey = this.getPublicKeyFromPrivateKey(privateKey, dataOwner)
-
-    const keyPair = await this._RSA.importKeyPair('jwk', privateKey, 'jwk', spkiToJwk(hex2ua(publicKey)))
-    this.rsaKeyPairs[publicKey.slice(-32)] = keyPair
-    const exportedKeyPair = await this._RSA.exportKeys(keyPair, 'jwk', 'jwk')
-
-    return await this._keyStorage.storeKeyPair(`${this.rsaLocalStoreIdPrefix}${healthcarePartyId}.${publicKey.slice(-32)}`, exportedKeyPair)
+    await this.cacheKeyPair(keyPairFromPrivateKeyJwk(privateKey))
   }
 
-  // noinspection JSUnusedGlobalSymbols
+  /**
+   * @deprecated you should not need this method anymore: the new API will automatically load on startup all keys available through the key storage
+   * facade and/or recoverable through transfer keys or shamir split. If you were using this method to load a key recovered through other means you
+   * need to add the key pair to the {@link KeyStorageFacade} (see {@link cacheKeyPair} for more information).
+   */
   loadKeyPairsInBrowserLocalStorage(healthcarePartyId: string, file: Blob): Promise<void> {
     const fr = new FileReader()
     return new Promise((resolve, reject) => {
       fr.onerror = reject
       fr.onabort = reject
       fr.onload = (e: any) => {
-        //TODO remove any
         const privateKey = e.target.result as string
         this.loadKeyPairsAsTextInBrowserLocalStorage(healthcarePartyId, hex2ua(privateKey))
           .then(() => resolve())
@@ -1467,6 +1447,9 @@ export class IccCryptoXApi {
   }
 
   // noinspection JSUnusedGlobalSymbols
+  /**
+   * @deprecated keychains are not part of iCure's api: this method will be removed.
+   */
   saveKeychainInBrowserLocalStorage(id: string, keychain: number) {
     this._storage.setItem(
       this.keychainLocalStoreIdPrefix + id,
@@ -1474,11 +1457,17 @@ export class IccCryptoXApi {
     )
   }
 
+  /**
+   * @deprecated keychains are not part of iCure's api: this method will be removed.
+   */
   saveKeychainInBrowserLocalStorageAsBase64(id: string, keyChainB64: string) {
     this._storage.setItem(this.keychainLocalStoreIdPrefix + id, keyChainB64)
   }
 
   // noinspection JSUnusedGlobalSymbols
+  /**
+   * @deprecated keychains are not part of iCure's api: this method will be removed.
+   */
   async saveKeychainValidityDateInBrowserLocalStorage(id: string, date: string) {
     if (!id) return
 
@@ -1490,6 +1479,7 @@ export class IccCryptoXApi {
   }
 
   /**
+   * @deprecated keychains are not part of iCure's api: this method will be removed.
    * Populate the HCP.options dict with an encrypted eHealth certificate and unencryped expiry date.
    * Any potentially unencrypted certificates will be pruned from the HCP.
    * @param hcpId Id of the hcp to modify
@@ -1535,6 +1525,9 @@ export class IccCryptoXApi {
     })
   }
 
+  /**
+   * @deprecated keychains are not part of iCure's api: this method will be removed.
+   */
   importKeychainInBrowserFromHCP(hcpId: string): Promise<void> {
     return this.hcpartyBaseApi.getHealthcareParty(hcpId).then(async (hcp: HealthcareParty) => {
       let crtCryp: Uint8Array | null = null
@@ -1582,6 +1575,7 @@ export class IccCryptoXApi {
   }
 
   /**
+   * @deprecated e-health certificates and keychains are not part of iCure's api: this method will be removed.
    * Synchronizes the eHealth certificate from the database into the LocalStorage, returning information on the presence
    * of certificate data in either place.
    *
@@ -1604,37 +1598,45 @@ export class IccCryptoXApi {
     })
   }
 
+  /**
+   * @deprecated keychains are not part of iCure's api: this method will be removed.
+   */
   getKeychainInBrowserLocalStorageAsBase64(id: string) {
     return this._storage.getItem(this.keychainLocalStoreIdPrefix + id)
   }
 
+  /**
+   * @deprecated keychains are not part of iCure's api: this method will be removed.
+   */
   getKeychainValidityDateInBrowserLocalStorage(id: string) {
     return this._storage.getItem(this.keychainValidityDateLocalStoreIdPrefix + id)
   }
 
-  // noinspection JSUnusedGlobalSymbols
+  /**
+   * @deprecated keychains are not part of iCure's api: this method will be removed.
+   */
   async loadKeychainFromBrowserLocalStorage(id: string) {
     const lsItem = await this._storage.getItem(this.keychainLocalStoreIdPrefix + id)
     return lsItem !== undefined ? b64_2uas(lsItem) : null
   }
 
   /**
-   * loads the RSA key pair (hcparty) in JWK from local storage, not imported
-   *
-   * @param id  doc id - hcpartyId
-   * @param publicKeyFingerPrint the 32 last characters of public key this private key is associated with
-   * @returns {Object} it is in JWK - not imported
+   * @deprecated you should not need this method anymore to deal with the encryption of iCure entities because everything related to entities
+   * encryption should be done either through the entity-specific extended api or through the {@link EntitiesEncryption} object available at
+   * {@link entities}. If instead you were using the method for other reasons check {@link getCachedRsaKeyPairForFingerprint} to get an idea of
+   * possible replacements.
    */
-  async loadKeyPairNotImported(id: string, publicKeyFingerPrint?: string): Promise<{ publicKey: JsonWebKey; privateKey: JsonWebKey }> {
-    //TODO decryption
-    const item = publicKeyFingerPrint
-      ? (await this._keyStorage.getKeypair(this.rsaLocalStoreIdPrefix + id + '.' + publicKeyFingerPrint.slice(-32))) ??
-        (await this._keyStorage.getKeypair(this.rsaLocalStoreIdPrefix + id))
-      : await this._keyStorage.getKeypair(this.rsaLocalStoreIdPrefix + id)
-    if (!item) {
-      console.warn(`No key can be found in local storage for id ${id} and publicKeyFingerPrint ${publicKeyFingerPrint}`)
+  async loadKeyPairNotImported(id: string, publicKeyFingerPrint?: string): Promise<{ publicKey: JsonWebKey; privateKey: JsonWebKey } | undefined> {
+    if (publicKeyFingerPrint) {
+      const cached = this.keyManager.getKeyPairForFingerprint(publicKeyFingerPrint)?.pair
+      if (cached) {
+        return this.primitives.RSA.exportKeys(cached, 'jwk', 'jwk')
+      }
+    } else {
+      const defaultKey = await this._keyStorage.getKeypair(this.rsaLocalStoreIdPrefix + id)
+      if (defaultKey) return defaultKey
     }
-    return item!
+    console.warn(`No key can be found in local storage for id ${id} and publicKeyFingerPrint ${publicKeyFingerPrint}`)
   }
 
   /**
@@ -1643,7 +1645,7 @@ export class IccCryptoXApi {
    * @param id  doc id - hcPartyId
    * @returns {Promise} -> {CryptoKey} - imported RSA
    */
-  loadKeyPairImported(id: string) {
+  private loadKeyPairImported(id: string) {
     return new Promise(async (resolve: (value: { publicKey: CryptoKey; privateKey: CryptoKey }) => any, reject) => {
       try {
         const jwkKeyPair = await this._keyStorage.getKeypair(this.rsaLocalStoreIdPrefix + id)
@@ -1670,6 +1672,7 @@ export class IccCryptoXApi {
   }
 
   /**
+   * TODO updated api
    * When a user lost his keys, people to whom he shared information may call this method to give access back to him, re-encrypting their common
    * AES key using the new user public key.
    *
@@ -1739,7 +1742,9 @@ export class IccCryptoXApi {
     } as CachedDataOwner)
   }
 
-  async addNewKeyPairForOwnerId(
+  // TODO all add new key pairs methods have been removed: the api can be successfully instantiated only if there is a key pair available
+
+  private async addNewKeyPairForOwnerId(
     maintenanceTasksApi: IccMaintenanceTaskXApi,
     user: User,
     ownerId: string,
@@ -1749,7 +1754,7 @@ export class IccCryptoXApi {
     return this.addNewKeyPairForOwner(maintenanceTasksApi, user, await this.getDataOwner(ownerId), generateTransferKey, sendMaintenanceTasks)
   }
 
-  async addNewKeyPairForOwner(
+  private async addNewKeyPairForOwner(
     maintenanceTasksApi: IccMaintenanceTaskXApi,
     user: User,
     cdo: CachedDataOwner,
@@ -1760,7 +1765,7 @@ export class IccCryptoXApi {
     return this.addKeyPairForOwner(maintenanceTasksApi, user, cdo, generatedKeypair, generateTransferKey, sendMaintenanceTasks)
   }
 
-  async addRawKeyPairForOwnerId(
+  private async addRawKeyPairForOwnerId(
     maintenanceTasksApi: IccMaintenanceTaskXApi,
     user: User,
     ownerId: string,
@@ -1771,7 +1776,7 @@ export class IccCryptoXApi {
     return this.addRawKeyPairForOwner(maintenanceTasksApi, user, await this.getDataOwner(ownerId), keypair, generateTransferKey, sendMaintenanceTasks)
   }
 
-  async addRawKeyPairForOwner(
+  private async addRawKeyPairForOwner(
     maintenanceTasksApi: IccMaintenanceTaskXApi,
     user: User,
     cdo: CachedDataOwner,
@@ -1792,7 +1797,7 @@ export class IccCryptoXApi {
     )
   }
 
-  async addKeyPairForOwner(
+  private async addKeyPairForOwner(
     maintenanceTasksApi: IccMaintenanceTaskXApi,
     user: User,
     cdo: CachedDataOwner,
@@ -2022,132 +2027,34 @@ export class IccCryptoXApi {
     )
   }
 
-  generateKeyForDelegate(ownerId: string, delegateId: string): PromiseLike<HealthcareParty | Patient> {
-    //Preload hcp and patient because we need them and they are going to be invalidated from the caches
-    return notConcurrent(this.generateKeyConcurrencyMap, ownerId, async () => {
-      const [{ type: ownerType, dataOwner: owner }, { dataOwner: delegate }] = await Promise.all([
-        this.getDataOwner(ownerId),
-        this.getDataOwner(delegateId),
-      ])
-
-      const availablePublicKeysFingerprints = Object.keys(this.rsaKeyPairs)
-      const ownerLegacyPublicKey = owner.publicKey
-      const isOwnerLegacyPublicKeyAvailable = ownerLegacyPublicKey
-        ? availablePublicKeysFingerprints.some((fp) => ownerLegacyPublicKey.endsWith(fp))
-        : false
-
-      const availableOwnerPublicKeys = [
-        ownerLegacyPublicKey,
-        ...Object.keys(owner.aesExchangeKeys || {}).filter((x) => x !== ownerLegacyPublicKey),
-      ].filter((k) => !!k && availablePublicKeysFingerprints.some((fp) => k.endsWith(fp))) as string[]
-      const selectedPublicKey = availableOwnerPublicKeys[0]
-
-      if (!selectedPublicKey) {
-        throw new Error(`Invalid owner, no public key, keypairs have not be set for ${ownerId}`)
-      }
-
-      if (
-        ((owner.hcPartyKeys || {})[delegateId] && owner.publicKey && availablePublicKeysFingerprints.includes(owner.publicKey.slice(-32))) ||
-        Object.values(owner.aesExchangeKeys || {}).some(
-          (x) => x[delegateId] && Object.keys(x[delegateId]).some((k) => availablePublicKeysFingerprints.includes(k))
-        )
-      ) {
-        return owner
-      }
-
-      let ownerCombinedAesExchangeKeys = owner.aesExchangeKeys ?? {}
-
-      if (ownerLegacyPublicKey && !(owner.aesExchangeKeys ?? {})[ownerLegacyPublicKey]) {
-        //Transfer keys from old structure (hcparty keys) to new one (aesExchangeKeys)
-        const unknownDataOwnerCounterPartIds = Object.keys(owner.hcPartyKeys ?? {}).filter((x) => x !== ownerId && x !== delegateId)
-        const counterParts = [
-          owner,
-          delegate,
-          ...(await Promise.all(unknownDataOwnerCounterPartIds.map((cpid) => this.getDataOwner(cpid).then((dot) => dot.dataOwner)))),
-        ]
-        ownerCombinedAesExchangeKeys = {
-          [ownerLegacyPublicKey]: Object.entries(owner.hcPartyKeys ?? {}).reduce(
-            (map, [hcpId, keys]) => ({
-              ...map,
-              [hcpId]: { [ownerLegacyPublicKey]: keys[0], [counterParts.find((x) => x.id === hcpId)?.publicKey ?? '']: keys[1] },
-              ...{},
-            }),
-            {}
-          ),
-          ...ownerCombinedAesExchangeKeys,
-        }
-      }
-
-      const delegatePublicKeys = [delegate.publicKey, ...Object.keys(delegate.aesExchangeKeys ?? {}).filter((x) => x !== delegate.publicKey)].filter(
-        (x) => !!x
-      ) as string[]
-      if (!delegatePublicKeys.length) {
-        throw new Error(`Invalid delegate, no public key, keypairs have not be set for ${delegateId}`)
-      }
-      const genProm = this._AES.generateCryptoKey(true).then(async (AESKey) => {
-        const allPubKeys = [...availableOwnerPublicKeys, ...delegatePublicKeys]
-        const encryptedAesKeys = await allPubKeys.reduce(
-          async (map, pubK) => ({
-            ...(await map),
-            [pubK.slice(-32)]: ua2hex(
-              await this._RSA.encrypt(await this._RSA.importKey('jwk', spkiToJwk(hex2ua(pubK)), ['encrypt']), hex2ua(AESKey as string))
-            ),
-          }),
-          Promise.resolve({} as { [pubKey: string]: string })
-        )
-
-        if (delegate.publicKey && ownerLegacyPublicKey && isOwnerLegacyPublicKeyAvailable) {
-          owner.hcPartyKeys![delegateId] = [encryptedAesKeys[ownerLegacyPublicKey.slice(-32)], encryptedAesKeys[delegate.publicKey.slice(-32)]]
-        }
-        owner.aesExchangeKeys = {
-          ...(ownerCombinedAesExchangeKeys ?? {}),
-          [selectedPublicKey]: { ...(owner.aesExchangeKeys?.[selectedPublicKey] ?? {}), [delegateId]: encryptedAesKeys },
-        }
-
-        return new Promise<['hcp', HealthcareParty] | ['patient', Patient] | ['device', Device]>((resolve, reject) => {
-          ownerType === 'hcp'
-            ? (this.dataOwnerCache[owner.id!] = this.hcpartyBaseApi
-                .modifyHealthcareParty(owner as HealthcareParty)
-                .then((x) => ({ type: 'hcp', dataOwner: x } as CachedDataOwner)))
-                .then((x) => resolve(['hcp', x.dataOwner]))
-                .catch((e) => reject(e))
-            : ownerType === 'patient'
-            ? (this.dataOwnerCache[owner.id!] = this.patientBaseApi.modifyPatient(owner as Patient).then((x) => ({ type: 'patient', dataOwner: x })))
-                .then((x) => resolve(['patient', x.dataOwner]))
-                .catch((e) => reject(e))
-            : (this.dataOwnerCache[owner.id!] = this.deviceBaseApi.updateDevice(owner as Device).then((x) => ({ type: 'device', dataOwner: x })))
-                .then((x) => resolve(['device', x.dataOwner]))
-                .catch((e) => reject(e))
-        })
-      })
-
-      this.hcPartyKeysRequestsCache[delegateId] = genProm.then(() => {
-        return this.forceGetEncryptedAesExchangeKeysForDelegate(delegateId)
-      })
-      return genProm.then((res) => {
-        return res[1]
-      })
-    })
-  }
-
-  getDataOwner(ownerId: string, loadIfMissingFromCache: boolean = true) {
+  /**
+   * @deprecated You don't need to manually generate exchange keys as they will be automatically created by the api when needed.
+   * Note that this method has some changes compared to previous version:
+   * - The method may return any data owner (including devices)
+   * - The method will throw an exception if the provided ownerId does not match the current data owner
+   */
+  async generateKeyForDelegate(ownerId: string, delegateId: string): Promise<DataOwner> {
+    if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) {
+      throw 'You can only create delegation where the delegator is the current data owner'
+    }
     return (
-      this.dataOwnerCache[ownerId] ??
-      (loadIfMissingFromCache
-        ? (this.dataOwnerCache[ownerId] = this.patientBaseApi
-            .getPatient(ownerId)
-            .then((x) => ({ type: 'patient', dataOwner: x } as CachedDataOwner))
-            .catch(() => this.deviceBaseApi.getDevice(ownerId).then((x) => ({ type: 'device', dataOwner: x } as CachedDataOwner)))
-            .catch(() => this.hcpartyBaseApi.getHealthcareParty(ownerId).then((x) => ({ type: 'hcp', dataOwner: x } as CachedDataOwner)))
-            .catch((e) => {
-              delete this.dataOwnerCache[ownerId]
-              throw e
-            }))
-        : undefined)
+      (await this.exchangeKeysManager.getOrCreateEncryptionExchangeKeysTo(delegateId)).updatedDelegator?.dataOwner ??
+      (await this.dataOwnerApi.getDataOwner(ownerId))
     )
   }
 
-  // noinspection JSUnusedGlobalSymbols
+  /**
+   * @deprecated replace with {@link IccDataOwnerXApi.getDataOwner}. Note that data owners are not cached anymore.
+   */
+  getDataOwner(ownerId: string, loadIfMissingFromCache: boolean = true) {
+    return this.dataOwnerApi.getDataOwner(ownerId)
+  }
+
+  /**
+   * @deprecated the crypto api will automatically verify on startup the validity of private keys. Currently, the api only verifies if there are
+   * verified private keys (in the meaning of safe for encryption), but if you think there may be situations where the keypair could be corrupted and
+   * encryption->decryption may give invalid results we can also include this test.
+   */
   async checkPrivateKeyValidity(dataOwner: HealthcareParty | Patient | Device): Promise<boolean> {
     const publicKeys = Array.from(new Set([dataOwner.publicKey].concat(Object.keys(dataOwner.aesExchangeKeys ?? {})).filter((x) => !!x))) as string[]
 
@@ -2182,24 +2089,24 @@ export class IccCryptoXApi {
     throw '### THIS SHOULD NOT HAPPEN: ' + argName + ' has an invalid value: ' + argValue + details
   }
 
+  /**
+   * @deprecated (See {@link extractEncryptionsSKs} for a detailed explanation) Use only for attachment encryption keys and replace with:
+   * - {@link EntitiesEncryption.encryptionKeysOf} in {@link entities} to get the encryption keys.
+   * - {@link IccDataOwnerXApi.getCurrentDataOwnerHierarchyIds} to get the full hierarchy for the current data owner (cached). The first element is
+   *   the id of the topmost parent, while the last is the current data owner.
+   */
   async getEncryptionDecryptionKeys(dataOwnerId: string, document: EncryptedEntity): Promise<Array<string> | undefined> {
-    try {
-      return !document.id
-        ? undefined
-        : _.uniq(
-            (
-              await this.extractKeysFromDelegationsForHcpHierarchy(
-                dataOwnerId,
-                document.id,
-                (document.encryptionKeys && Object.keys(document.encryptionKeys).length && document.encryptionKeys) || document.delegations!
-              )
-            ).extractedKeys
-          )
-    } catch (e) {
-      return undefined
-    }
+    return this.entities.encryptionKeysOf(document, dataOwnerId)
   }
 
+  /**
+   * @deprecated For the encryption/decryption of iCure entities you should rely solely on the extended apis methods. For encryption/decryption of
+   * attachments you should use the following methods instead:
+   * - {@link EntitiesEncryption.encryptWithKey} to encrypt data with a specific key
+   * - {@link EntitiesEncryption.encryptDataOf} to encrypt data using a key which is retrieved automatically from the entity
+   * - {@link EntitiesEncryption.decryptWithKey} to encrypt data with a specific key
+   * - {@link EntitiesEncryption.decryptDataOf} to encrypt data using a key which is retrieved automatically from the entity
+   */
   async encryptDecrypt(
     method: 'encrypt' | 'decrypt',
     content: Uint8Array | ArrayBuffer,
@@ -2218,8 +2125,8 @@ export class IccCryptoXApi {
       }
     }
 
-    const sfks = await this.extractKeysFromDelegationsForHcpHierarchy(user?.healthcarePartyId!, documentObject?.id!, documentObject?.encryptionKeys!)
-    const importedEdKey = await this._AES.importKey('raw', hex2ua(sfks.extractedKeys[0].replace(/-/g, '')))
+    const encryptionKeys = await this.entities.encryptionKeysOf(documentObject!, user?.healthcarePartyId!)
+    const importedEdKey = await this._AES.importKey('raw', hex2ua(encryptionKeys[0].replace(/-/g, '')))
     try {
       return await this._AES[method](importedEdKey, content)
     } catch (e) {

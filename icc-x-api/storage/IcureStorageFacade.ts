@@ -36,10 +36,20 @@ export class IcureStorageFacade {
    * Get an existing key pair for the data owner.
    * @param dataOwnerId id of the data owner with the key.
    * @param publicKeyFingerprint fingerprint of a public key of the data owner.
+   * @param legacyPublicKey the legacy public key of the data owner, if present
    * @return the keypair and if the key was generated on this device or undefined if the key pair could not be found.
    */
-  async loadKey(dataOwnerId: string, publicKeyFingerprint: string): Promise<{ pair: KeyPair<JsonWebKey>; isDevice: boolean } | undefined> {
-    const deviceKey = await this.keys.getKeypair(this.entryFor.deviceKeypairOfDataOwner(dataOwnerId, publicKeyFingerprint))
+  async loadKey(
+    dataOwnerId: string,
+    publicKeyFingerprint: string,
+    legacyPublicKey: string | undefined
+  ): Promise<{ pair: KeyPair<JsonWebKey>; isDevice: boolean } | undefined> {
+    const deviceKey =
+      (await this.keys.getKeypair(this.entryFor.deviceKeypairOfDataOwner(dataOwnerId, publicKeyFingerprint))) ??
+      (await this.keys.getKeypair(`org.taktik.icure.rsa.${dataOwnerId}.${publicKeyFingerprint}`)) ??
+      legacyPublicKey?.slice(-32) === publicKeyFingerprint
+        ? await this.keys.getKeypair(`org.taktik.icure.rsa.${dataOwnerId}`)
+        : undefined
     if (deviceKey) return { pair: deviceKey, isDevice: true }
     const cachedKey = await this.keys.getKeypair(this.entryFor.cachedRecoveredKeypairOfDataOwner(dataOwnerId, publicKeyFingerprint))
     if (cachedKey) return { pair: cachedKey, isDevice: false }
