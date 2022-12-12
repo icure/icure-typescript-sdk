@@ -700,7 +700,6 @@ export class IccCryptoXApi {
    */
 
   private extendedDelegationsAndCryptedForeignKeys<T extends EncryptedEntity, P extends EncryptedParentEntity>(
-    //TODO: suggested name: getExtendedChildObjectSPKandCFKwithDelegationFromDelegatorToDelegate
     modifiedObject: T,
     parentObject: P | null,
     ownerId: string,
@@ -710,7 +709,7 @@ export class IccCryptoXApi {
     modifiedObject: T
     delegations: { [key: string]: Array<Delegation> }
     cryptedForeignKeys: { [key: string]: Array<Delegation> }
-    secretId: string | null //TODO: why input parameter secretIdOfModifiedObject is returned?
+    secretId: string | null
   }> {
     this.throwDetailedExceptionForInvalidParameter('modifiedObject.id', modifiedObject.id, 'extendedDelegationsAndCryptedForeignKeys', arguments) //modifiedObject should never be null
 
@@ -964,7 +963,6 @@ export class IccCryptoXApi {
    *   - **secretId** which is the given input parameter `secretEncryptionKeyOfObject`
    */
   private async appendEncryptionKeys<T extends EncryptedEntity>(
-    //TODO: suggested name: getExtendedEKwithDelegationFromDelegatorToDelegate
     modifiedObject: T,
     ownerId: string,
     delegateId: string,
@@ -1248,7 +1246,12 @@ export class IccCryptoXApi {
     delegations: { [key: string]: Array<Delegation> }
   ): Promise<{ extractedKeys: Array<string>; hcpartyId: string }> {
     return {
-      extractedKeys: await this.entities.extractMergedHierarchyFromDelegationAndOwner(delegations, dataOwnerId, (x) => !!x),
+      extractedKeys: await this.entities.extractMergedHierarchyFromDelegationAndOwner(
+        delegations,
+        dataOwnerId,
+        (x) => !!x,
+        () => Promise.resolve(true)
+      ),
       hcpartyId: (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0],
     }
   }

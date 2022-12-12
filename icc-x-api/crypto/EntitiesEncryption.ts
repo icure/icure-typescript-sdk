@@ -5,6 +5,7 @@ import { string2ua, ua2hex, ua2string } from '../utils'
 import { hex2ua } from '@icure/api'
 import * as _ from 'lodash'
 import { CryptoPrimitives } from './CryptoPrimitives'
+import { arrayEquals } from '../utils/collection-utils'
 
 /**
  * Give access to functions for retrieving encryption metadata of entities.
@@ -133,13 +134,15 @@ export class EntitiesEncryption {
    * @param entity entity which requires encryption metadata initialisation.
    * @param parentEntityId id of the parent entity, if any.
    * @param parentSecretId secret id of the parent entity, to use in the secret foreign keys for the provided entity, if any.
+   * @param tags tags to associate with the initial encryption keys and metadata
    * @throws if the entity already has non-empty values for encryption metadata.
    * @return an updated copy of the entity.
    */
   async entityWithInitialisedEncryptionMetadata<T extends EncryptedEntity>(
     entity: T,
     parentEntityId: string | undefined,
-    parentSecretId: string | undefined
+    parentSecretId: string | undefined,
+    tags: string[] = []
   ): Promise<{
     updatedEntity: T
     rawEncryptionKey: string
@@ -157,7 +160,8 @@ export class EntitiesEncryption {
       [],
       [secretId],
       [rawEncryptionKey],
-      parentEntityId ? [parentEntityId] : []
+      parentEntityId ? [parentEntityId] : [],
+      tags
     )
     if (parentSecretId) {
       updatedEntity.secretForeignKeys = [parentSecretId]
@@ -183,6 +187,7 @@ export class EntitiesEncryption {
    * @param shareSecretIds secret ids to share or true if all currently available secret ids should be shared.
    * @param shareEncryptionKeys encryption keys to share or true if all currently available encryption keys should be shared.
    * @param shareParentIds parent ids to share or true if all currently available parent ids should be shared.
+   * @param newTags tags to associate with the new encryption keys and metadata. Existing data won't be changed.
    * @throws if any of the shareX parameters is set to `true` but the corresponding piece of data could not be retrieved.
    * @return an updated copy of the entity.
    */
@@ -191,7 +196,8 @@ export class EntitiesEncryption {
     delegateId: string,
     shareSecretIds: string[] | boolean,
     shareEncryptionKeys: string[] | boolean,
-    shareParentIds: string[] | boolean
+    shareParentIds: string[] | boolean,
+    newTags: string[] = []
   ): Promise<T> {
     this.throwDetailedExceptionForInvalidParameter('entity.id', entity.id, 'entityWithShareMetadata', arguments)
     async function checkInputAndGet(
@@ -254,7 +260,8 @@ export class EntitiesEncryption {
       deduplicateInfoParentIds.deduplicatedDelegations,
       deduplicateInfoSecretIds.missingEntries,
       deduplicateInfoEncryptionKeys.missingEntries,
-      deduplicateInfoParentIds.missingEntries
+      deduplicateInfoParentIds.missingEntries,
+      newTags
     )
   }
 
@@ -483,29 +490,49 @@ export class EntitiesEncryption {
     entityId: string,
     delegateId: string,
     exchangeKey: CryptoKey,
-    encryptionKey: string
+    encryptionKey: string,
+    newTags: string[]
   ): Promise<Delegation> {
     if (!(await this.validateEncryptionKey(encryptionKey))) throw new Error('Invalid encryption key')
-    return this.createDelegation(entityId, delegateId, exchangeKey, encryptionKey)
+    return this.createDelegation(entityId, delegateId, exchangeKey, encryptionKey, newTags)
   }
 
-  private async createSecretIdDelegation(entityId: string, delegateId: string, exchangeKey: CryptoKey, secretId: string): Promise<Delegation> {
+  private async createSecretIdDelegation(
+    entityId: string,
+    delegateId: string,
+    exchangeKey: CryptoKey,
+    secretId: string,
+    newTags: string[]
+  ): Promise<Delegation> {
     if (!this.validateSecretId(secretId)) throw new Error('Invalid secret id')
-    return this.createDelegation(entityId, delegateId, exchangeKey, secretId)
+    return this.createDelegation(entityId, delegateId, exchangeKey, secretId, newTags)
   }
 
-  private async createParentIdDelegation(entityId: string, delegateId: string, exchangeKey: CryptoKey, parentId: string): Promise<Delegation> {
+  private async createParentIdDelegation(
+    entityId: string,
+    delegateId: string,
+    exchangeKey: CryptoKey,
+    parentId: string,
+    newTags: string[]
+  ): Promise<Delegation> {
     if (!this.validateParentId(parentId)) throw new Error('Invalid parent id')
-    return this.createDelegation(entityId, delegateId, exchangeKey, parentId)
+    return this.createDelegation(entityId, delegateId, exchangeKey, parentId, newTags)
   }
 
-  private async createDelegation(entityId: string, delegateId: string, exchangeKey: CryptoKey, content: string): Promise<Delegation> {
+  private async createDelegation(
+    entityId: string,
+    delegateId: string,
+    exchangeKey: CryptoKey,
+    content: string,
+    newTags: string[]
+  ): Promise<Delegation> {
     if (entityId.includes(':')) throw new Error("Ids for encrypted entities are not allowed to contain ':'")
     if (content.includes(':')) throw new Error("Content of delegations can not contain ':'")
     return {
       delegatedTo: delegateId,
       owner: await this.dataOwnerApi.getCurrentDataOwnerId(),
       key: ua2hex(await this.primitives.AES.encrypt(exchangeKey, string2ua(entityId + ':' + content))),
+      tags: newTags,
     }
   }
 
@@ -517,7 +544,8 @@ export class EntitiesEncryption {
     existingParentIds: Delegation[],
     newSecretIds: string[],
     newEncryptionKeys: string[],
-    newParentIds: string[]
+    newParentIds: string[],
+    newTags: string[]
   ): Promise<T> {
     if (newSecretIds.length == 0 && newEncryptionKeys.length == 0 && newParentIds.length == 0) return entity
     const { updatedDelegator, keys: encryptionKeys } = await this.exchangeKeysManager.getOrCreateEncryptionExchangeKeysTo(delegateId)
@@ -526,15 +554,15 @@ export class EntitiesEncryption {
     const entityCopy = { ...updatedEntity }
     const updatedSecretIds = [
       ...existingSecretIds,
-      ...(await Promise.all(newSecretIds.map((x) => this.createSecretIdDelegation(entity.id!, delegateId, chosenKey, x)))),
+      ...(await Promise.all(newSecretIds.map((x) => this.createSecretIdDelegation(entity.id!, delegateId, chosenKey, x, newTags)))),
     ]
     const updatedEncryptionKeys = [
       ...existingEncryptionKeys,
-      ...(await Promise.all(newEncryptionKeys.map((x) => this.createEncryptionKeyDelegation(entity.id!, delegateId, chosenKey, x)))),
+      ...(await Promise.all(newEncryptionKeys.map((x) => this.createEncryptionKeyDelegation(entity.id!, delegateId, chosenKey, x, newTags)))),
     ]
     const updatedParentIds = [
       ...existingParentIds,
-      ...(await Promise.all(newParentIds.map((x) => this.createParentIdDelegation(entity.id!, delegateId, chosenKey, x)))),
+      ...(await Promise.all(newParentIds.map((x) => this.createParentIdDelegation(entity.id!, delegateId, chosenKey, x, newTags)))),
     ]
     if (updatedSecretIds.length > 0) {
       entityCopy.delegations = {
@@ -583,14 +611,20 @@ export class EntitiesEncryption {
       }))
     )
     const deduplicatedDelegations: Delegation[] = []
-    const deduplicatedContent = new Set<string>()
+    const deduplicatedContent = new Map<string, string[][]>()
     decryptedDelegations.forEach(({ delegation, content }) => {
       if (content === undefined) {
         // Keep all delegations we could not decrypt or from other data owners
         deduplicatedDelegations.push(delegation)
-      } else if (!deduplicatedContent.has(content)) {
-        deduplicatedContent.add(content)
-        deduplicatedDelegations.push(delegation)
+      } else {
+        const deduplicatedTags = deduplicatedContent.get(content)
+        if (!deduplicatedTags) {
+          deduplicatedContent.set(content, [delegation.tags ?? []])
+          deduplicatedDelegations.push(delegation)
+        } else if (!deduplicatedTags.some((t) => arrayEquals(t, delegation.tags ?? []))) {
+          deduplicatedTags.push(delegation.tags ?? [])
+          deduplicatedDelegations.push(delegation)
+        }
       }
     })
     return {
