@@ -28,14 +28,20 @@ export class EntitiesEncryption {
    * There should only be one encryption key for each entity, but the method supports more to allow to deal with conflicts and merged duplicate data.
    * @param entity an encrypted entity.
    * @param dataOwnerId optionally a data owner part of the hierarchy for the current data owner, defaults to the current data owner.
+   * @param tagsFilter allows to obtain only encryption keys associated to tags which satisfy the provided filter.
    * @return the encryption keys that the provided data owner can decrypt, deduplicated.
    */
-  async encryptionKeysOf(entity: EncryptedEntity, dataOwnerId?: string): Promise<string[]> {
+  async encryptionKeysOf(
+    entity: EncryptedEntity,
+    dataOwnerId?: string,
+    tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
+  ): Promise<string[]> {
     // Legacy entities may have encryption keys in delegations.
     return this.extractMergedHierarchyFromDelegationAndOwner(
       Object.keys(entity.encryptionKeys ?? {}).length > 0 ? entity.encryptionKeys! : entity.delegations ?? {},
       dataOwnerId,
-      this.validateEncryptionKey
+      this.validateEncryptionKey,
+      tagsFilter
     )
   }
 
@@ -46,20 +52,29 @@ export class EntitiesEncryption {
    * Note that different data owners may have access to the same keys, but the keys extracted for each data owner are deduplicated.
    * There should only be one encryption key for each entity, but the method supports more to allow to deal with conflicts and merged duplicate data.
    * @param entity an encrypted entity.
+   * @param tagsFilter allows to obtain only encryption keys associated to tags which satisfy the provided filter.
    * @return the encryption keys that each member of the current data owner hierarchy can decrypt using only his keys and not keys of his parents.
    */
-  async encryptionKeysForHcpHierarchyOf(entity: EncryptedEntity): Promise<{ ownerId: string; extracted: string[] }[]> {
-    return this.extractedHierarchyFromDelegation(entity.encryptionKeys ?? {}, this.validateEncryptionKey)
+  async encryptionKeysForHcpHierarchyOf(
+    entity: EncryptedEntity,
+    tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
+  ): Promise<{ ownerId: string; extracted: string[] }[]> {
+    return this.extractedHierarchyFromDelegation(entity.encryptionKeys ?? {}, this.validateEncryptionKey, tagsFilter)
   }
 
   /**
    * Get the secret ids (SFKs) of an entity that the provided data owner can access, potentially using the keys for his parent.
    * @param entity an encrypted entity.
    * @param dataOwnerId optionally a data owner part of the hierarchy for the current data owner, defaults to the current data owner.
+   * @param tagsFilter allows to obtain only secret ids associated to tags which satisfy the provided filter.
    * @return the secret ids (SFKs) that the provided data owner can decrypt, deduplicated.
    */
-  async secretIdsOf(entity: EncryptedEntity, dataOwnerId?: string): Promise<string[]> {
-    return this.extractMergedHierarchyFromDelegationAndOwner(entity.delegations ?? {}, dataOwnerId, this.validateSecretId)
+  async secretIdsOf(
+    entity: EncryptedEntity,
+    dataOwnerId?: string,
+    tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
+  ): Promise<string[]> {
+    return this.extractMergedHierarchyFromDelegationAndOwner(entity.delegations ?? {}, dataOwnerId, this.validateSecretId, tagsFilter)
   }
 
   /**
@@ -68,10 +83,14 @@ export class EntitiesEncryption {
    * the array is the same as in {@link IccDataOwnerXApi.getCurrentDataOwnerHierarchyIds}.
    * Note that different data owners may have access to the same secret ids, but the secret ids extracted for each data owner are deduplicated.
    * @param entity an encrypted entity.
+   * @param tagsFilter allows to obtain only secret ids associated to tags which satisfy the provided filter.
    * @return the secret ids that each member of the current data owner hierarchy can decrypt using only his keys and not keys of his parents.
    */
-  async secretIdsForHcpHierarchyOf(entity: EncryptedEntity): Promise<{ ownerId: string; extracted: string[] }[]> {
-    return this.extractedHierarchyFromDelegation(entity.delegations ?? {}, this.validateSecretId)
+  async secretIdsForHcpHierarchyOf(
+    entity: EncryptedEntity,
+    tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
+  ): Promise<{ ownerId: string; extracted: string[] }[]> {
+    return this.extractedHierarchyFromDelegation(entity.delegations ?? {}, this.validateSecretId, tagsFilter)
   }
 
   /**
@@ -79,10 +98,15 @@ export class EntitiesEncryption {
    * There should only be one parent id for each entity, but the method supports more to allow to deal with conflicts and merged duplicate data.
    * @param entity an encrypted entity.
    * @param dataOwnerId optionally a data owner part of the hierarchy for the current data owner, defaults to the current data owner.
+   * @param tagsFilter allows to obtain only parent ids associated to tags which satisfy the provided filter.
    * @return the parent ids (CFKs) that the provided data owner can decrypt, deduplicated.
    */
-  async parentIdsOf(entity: EncryptedEntity, dataOwnerId?: string): Promise<string[]> {
-    return this.extractMergedHierarchyFromDelegationAndOwner(entity.cryptedForeignKeys ?? {}, dataOwnerId, this.validateParentId)
+  async parentIdsOf(
+    entity: EncryptedEntity,
+    dataOwnerId?: string,
+    tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
+  ): Promise<string[]> {
+    return this.extractMergedHierarchyFromDelegationAndOwner(entity.cryptedForeignKeys ?? {}, dataOwnerId, this.validateParentId, tagsFilter)
   }
 
   /**
@@ -92,10 +116,14 @@ export class EntitiesEncryption {
    * Note that different data owners may have access to the same parent ids, but the parent ids extracted for each data owner are deduplicated.
    * There should only be one parent id for each entity, but the method supports more to allow to deal with conflicts and merged duplicate data.
    * @param entity an encrypted entity.
+   * @param tagsFilter allows to obtain only parent ids associated to tags which satisfy the provided filter.
    * @return the parent ids that each member of the current data owner hierarchy can decrypt using only his keys and not keys of his parents.
    */
-  async parentIdsForHcpHierarchyOf(entity: EncryptedEntity): Promise<{ ownerId: string; extracted: string[] }[]> {
-    return this.extractedHierarchyFromDelegation(entity.cryptedForeignKeys ?? {}, this.validateParentId)
+  async parentIdsForHcpHierarchyOf(
+    entity: EncryptedEntity,
+    tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
+  ): Promise<{ ownerId: string; extracted: string[] }[]> {
+    return this.extractedHierarchyFromDelegation(entity.cryptedForeignKeys ?? {}, this.validateParentId, tagsFilter)
   }
 
   /**
@@ -254,11 +282,17 @@ export class EntitiesEncryption {
    * @param entity an entity.
    * @param content data of the entity which you want to encrypt.
    * @param dataOwnerId optionally a data owner part of the hierarchy for the current data owner, defaults to the current data owner.
+   * @param tagsFilter allows to use for encryption only keys associated to tags which pass the filter.
    * @return the encrypted data.
    * @throws if the provided data owner can't access any encryption keys for the entity.
    */
-  async encryptDataOf(entity: EncryptedEntity, content: ArrayBuffer | Uint8Array, dataOwnerId?: string): Promise<ArrayBuffer> {
-    const keys = await this.encryptionKeysOf(entity, dataOwnerId)
+  async encryptDataOf(
+    entity: EncryptedEntity,
+    content: ArrayBuffer | Uint8Array,
+    dataOwnerId?: string,
+    tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
+  ): Promise<ArrayBuffer> {
+    const keys = await this.encryptionKeysOf(entity, dataOwnerId, tagsFilter)
     if (keys.length === 0)
       throw new Error(
         `Could not extract any encryption keys of entity ${entity.id} for data owner ${
@@ -296,6 +330,7 @@ export class EntitiesEncryption {
    * @param dataOwnerId optionally a data owner part of the hierarchy for the current data owner, defaults to the current data owner.
    * @param validator a function which verifies the correctness of decrypted content: helps to identify decryption with the wrong key without relying
    * solely on padding.
+   * @param tagsFilter allows to use for decryption only keys associated to tags which pass the filter.
    * @return the decrypted data.
    * @throws if the provided data owner can't access any encryption keys for the entity, or if no key could be found which provided valid decrypted
    * content according to the validator.
@@ -304,9 +339,10 @@ export class EntitiesEncryption {
     entity: EncryptedEntity,
     content: ArrayBuffer | Uint8Array,
     dataOwnerId?: string,
-    validator: (decryptedData: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
+    validator: (decryptedData: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true),
+    tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<ArrayBuffer> {
-    const keys = await this.encryptionKeysOf(entity, dataOwnerId)
+    const keys = await this.encryptionKeysOf(entity, dataOwnerId, tagsFilter)
     for (const key of keys) {
       try {
         const decrypted = await this.decryptWithKey(key, content)
@@ -328,7 +364,8 @@ export class EntitiesEncryption {
    * @param delegations a delegation-like object containing the encrypted key
    * @param includeFromDelegations if true also considers delegation from the provided data owner (or parents) to look for values. This allows to
    * decrypt delegations associated to exchange keys recovered after a giveAccessBack request.
-   * @param validateDecrypted validates the decrypted result, to drop decryption results with wrong key that still gave a valid checksum
+   * @param validateDecrypted validates the decrypted result, to drop decryption results with wrong key that still gave a valid checksum.
+   * @param tagsFilter allows to obtain only encryption keys associated to tags which satisfy the provided filter.
    * @return the key which could be decrypted using only keys available on the current device and delegations from/to the provided data owner. May
    * contain duplicates.
    */
@@ -336,7 +373,8 @@ export class EntitiesEncryption {
     dataOwnerId: string,
     delegations: { [delegateId: string]: Delegation[] },
     includeFromDelegations: boolean,
-    validateDecrypted: (result: string) => boolean | Promise<boolean>
+    validateDecrypted: (result: string) => boolean | Promise<boolean>,
+    tagsFilter: (tags: string[]) => Promise<boolean>
   ): Promise<string[]> {
     const delegationsWithOwner = includeFromDelegations
       ? Object.entries(delegations).flatMap(([delegateId, delegations]) =>
@@ -350,8 +388,10 @@ export class EntitiesEncryption {
       : delegations[dataOwnerId] ?? []
     const res = []
     for (const delegation of delegationsWithOwner) {
-      const decrypted = await this.tryDecryptDelegation(delegation, validateDecrypted)
-      if (decrypted) res.push(decrypted)
+      if (await tagsFilter(delegation.tags ?? [])) {
+        const decrypted = await this.tryDecryptDelegation(delegation, validateDecrypted)
+        if (decrypted) res.push(decrypted)
+      }
     }
     return res
   }
@@ -363,11 +403,12 @@ export class EntitiesEncryption {
 
   private async extractedHierarchyFromDelegation(
     delegations: { [delegateId: string]: Delegation[] },
-    validateDecrypted: (result: string) => boolean | Promise<boolean>
+    validateDecrypted: (result: string) => boolean | Promise<boolean>,
+    tagsFilter: (tags: string[]) => Promise<boolean>
   ): Promise<{ ownerId: string; extracted: string[] }[]> {
     return Promise.all(
       (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()).map(async (ownerId) => {
-        const extracted = this.deduplicate(await this.extractFromDelegationsForDataOwner(ownerId, delegations, true, validateDecrypted))
+        const extracted = this.deduplicate(await this.extractFromDelegationsForDataOwner(ownerId, delegations, true, validateDecrypted, tagsFilter))
         return { ownerId, extracted }
       })
     )
@@ -379,14 +420,15 @@ export class EntitiesEncryption {
   async extractMergedHierarchyFromDelegationAndOwner(
     delegations: { [delegateId: string]: Delegation[] },
     dataOwnerId: string | undefined,
-    validateDecrypted: (result: string) => boolean | Promise<boolean>
+    validateDecrypted: (result: string) => boolean | Promise<boolean>,
+    tagsFilter: (tags: string[]) => Promise<boolean>
   ): Promise<string[]> {
     const hierarchy = dataOwnerId
       ? await this.dataOwnerApi.getCurrentDataOwnerHierarchyIdsFrom(dataOwnerId)
       : await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
     const extractedByOwner = await Promise.all(
       // Reverse is just to keep method behaviour as close as possible to the legacy behaviour, in case someone depended on the ordering.
-      hierarchy.reverse().map((ownerId) => this.extractFromDelegationsForDataOwner(ownerId, delegations, true, validateDecrypted))
+      hierarchy.reverse().map((ownerId) => this.extractFromDelegationsForDataOwner(ownerId, delegations, true, validateDecrypted, tagsFilter))
     )
     return this.deduplicate(extractedByOwner.flatMap((x) => x))
   }
