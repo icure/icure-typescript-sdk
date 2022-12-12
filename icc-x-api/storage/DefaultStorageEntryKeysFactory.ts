@@ -11,10 +11,10 @@ export class DefaultStorageEntryKeysFactory implements StorageEntryKeysFactory {
 
   deviceKeypairOfDataOwner(dataOwnerId: string, publicKeyFingerprint: string): string {
     if (publicKeyFingerprint.length != 32) throw `Invalid key fingerprint: ${publicKeyFingerprint}`
-    return `org.taktik.icure.rsa.${dataOwnerId}.${publicKeyFingerprint}` // Same as legacy to be able to reuse existing keys.
+    return `org.taktik.icure.rsa.device.${dataOwnerId}.${publicKeyFingerprint}`
   }
 
   selfPublicKeysVerificationCacheForDataOwner(dataOwnerId: string): string {
-    return `org.taktik.icure.rsa.${dataOwnerId}.self.verification`
+    return `org.taktik.icure.rsa.${dataOwnerId}.verification.self`
   }
 }

@@ -1,4 +1,4 @@
-import { appendBuffer, ua2hex } from '../utils'
+import { appendBuffer, hex2ua, ua2hex } from '../utils'
 
 export class AESUtils {
   /********* AES Config **********/
@@ -18,6 +18,14 @@ export class AESUtils {
 
   constructor(crypto: Crypto = typeof window !== 'undefined' ? window.crypto : typeof self !== 'undefined' ? self.crypto : ({} as Crypto)) {
     this.crypto = crypto
+  }
+
+  async encryptWithRawKey(rawKey: string, plainData: ArrayBuffer | Uint8Array): Promise<ArrayBuffer> {
+    return this.encrypt(
+      await this.importKey('raw', hex2ua(rawKey.replace(/-/g, ''))),
+      plainData,
+      rawKey // Used for logging only if debug is enabled, ok to always pass
+    )
   }
 
   encrypt(cryptoKey: CryptoKey, plainData: ArrayBuffer | Uint8Array, rawKey = '<NA>'): Promise<ArrayBuffer> {
@@ -47,6 +55,14 @@ export class AESUtils {
           (err) => reject('AES encryption failed: ' + err)
         )
     })
+  }
+
+  async decryptWithRawKey(rawKey: string, plainData: ArrayBuffer | Uint8Array): Promise<ArrayBuffer> {
+    return this.decrypt(
+      await this.importKey('raw', hex2ua(rawKey.replace(/-/g, ''))),
+      plainData,
+      rawKey // Used for logging only if debug is enabled, ok to always pass
+    )
   }
 
   /**

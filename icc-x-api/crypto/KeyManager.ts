@@ -73,6 +73,19 @@ export class KeyManager {
   }
 
   /**
+   * Get a key pair with the provided fingerprint if present.
+   * @param fingerprint a key-pair/public-key fingerprint
+   * @return the pair associated to the fingerprint and a boolean indicating if the pair is verified, if present, else undefined
+   */
+  getKeyPairForFingerprint(fingerprint: string): { pair: KeyPair<CryptoKey>; verified: boolean } | undefined {
+    const foundVerified = this.getSelfVerifiedKeys().find((x) => x.fingerprint === fingerprint)
+    if (foundVerified) return { pair: foundVerified.pair, verified: true }
+    const foundOther = this.getDecryptionKeys()[fingerprint]
+    if (foundOther) return { pair: foundOther, verified: false }
+    return undefined
+  }
+
+  /**
    * @internal This method is intended for internal use only and may be changed without notice.
    * Initializes all keys for the current data owner. This method needs to be called before any other method of this class can be used.
    * If no device or verified keys are available the current data owner, the behaviour of this method depends on the value of
@@ -232,7 +245,7 @@ export class KeyManager {
       const awaitedAcc = await acc
       let loadedPair: { pair: KeyPair<CryptoKey>; isDevice: boolean } | undefined = undefined
       try {
-        const storedKeypair = await this.icureStorage.loadKey(dataOwner.dataOwner.id!, currentFingerprint)
+        const storedKeypair = await this.icureStorage.loadKey(dataOwner.dataOwner.id!, currentFingerprint, dataOwner.dataOwner.publicKey)
         if (storedKeypair) {
           const importedKey = await this.primitives.RSA.importKeyPair('jwk', storedKeypair.pair.privateKey, 'jwk', storedKeypair.pair.publicKey)
           loadedPair = { pair: importedKey, isDevice: storedKeypair.isDevice }

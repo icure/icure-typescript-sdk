@@ -31,7 +31,12 @@ export class EntitiesEncryption {
    * @return the encryption keys that the provided data owner can decrypt, deduplicated.
    */
   async encryptionKeysOf(entity: EncryptedEntity, dataOwnerId?: string): Promise<string[]> {
-    return this.extractMergedHierarchyFromDelegationAndOwner(entity.encryptionKeys ?? {}, dataOwnerId, this.validateEncryptionKey)
+    // Legacy entities may have encryption keys in delegations.
+    return this.extractMergedHierarchyFromDelegationAndOwner(
+      Object.keys(entity.encryptionKeys ?? {}).length > 0 ? entity.encryptionKeys! : entity.delegations ?? {},
+      dataOwnerId,
+      this.validateEncryptionKey
+    )
   }
 
   /**
@@ -165,21 +170,22 @@ export class EntitiesEncryption {
       input: string[] | boolean,
       inputName: string,
       retrieve: (entity: T) => Promise<string[]>,
-      validate: (x: string) => boolean
+      validate: (x: string) => boolean | Promise<boolean>
     ): Promise<string[]> {
       if (input === true) {
         const retrieved = await retrieve(entity)
         if (retrieved.length > 0) {
           return retrieved
         } else {
-          throw `Failed to retrieve any value for input ${inputName}, impossible to share.`
+          throw new Error(`Failed to retrieve any value for input ${inputName}, impossible to share.`)
         }
       } else if (input === false) {
         return []
       } else {
-        input.forEach((x) => {
-          if (!validate(x)) throw `Invalid input for ${inputName}.`
-        })
+        for (const x of input) {
+          const validation = validate(x)
+          if (validation !== true && validation !== false && !(await validation)) throw new Error(`Invalid input for ${inputName}.`)
+        }
         return input
       }
     }
@@ -225,7 +231,96 @@ export class EntitiesEncryption {
   }
 
   /**
-   * @internal This method is intended only for internal use and may be changed without notice.
+   * Encrypts data using a specific encryption key. If you don't have any special requirements on the key you should instead use
+   * {@link encryptDataOf}.
+   * Note: you should not use this method to encrypt the `encryptedSelf` of iCure entities, since that will be automatically handled by the extended
+   * apis. You should use this method only to encrypt additional data, such as document attachments.
+   * @param encryptionKey an encryption key.
+   * @param content the data to encrypt.
+   * @return the encrypted content.
+   * @throws if the provided encryption key is not a valid aes key.
+   */
+  async encryptWithKey(encryptionKey: string, content: ArrayBuffer | Uint8Array): Promise<ArrayBuffer> {
+    const importedKey = await this.tryImportKey(encryptionKey)
+    if (!encryptionKey) throw new Error(`Could not encrypt with invalid key ${encryptionKey}`)
+    return await this.primitives.AES.encrypt(importedKey!, content)
+  }
+
+  /**
+   * Encrypts data using a key of the entity that the provided data owner can access (current data owner by default). If the provided data owner can
+   * access multiple encryption keys of the entity there is no guarantee on which key will be used.
+   * Note: you should not use this method to encrypt the `encryptedSelf` of iCure entities, since that will be automatically handled by the extended
+   * apis. You should use this method only to encrypt additional data, such as document attachments.
+   * @param entity an entity.
+   * @param content data of the entity which you want to encrypt.
+   * @param dataOwnerId optionally a data owner part of the hierarchy for the current data owner, defaults to the current data owner.
+   * @return the encrypted data.
+   * @throws if the provided data owner can't access any encryption keys for the entity.
+   */
+  async encryptDataOf(entity: EncryptedEntity, content: ArrayBuffer | Uint8Array, dataOwnerId?: string): Promise<ArrayBuffer> {
+    const keys = await this.encryptionKeysOf(entity, dataOwnerId)
+    if (keys.length === 0)
+      throw new Error(
+        `Could not extract any encryption keys of entity ${entity.id} for data owner ${
+          dataOwnerId ?? (await this.dataOwnerApi.getCurrentDataOwnerId())
+        }.`
+      )
+    return this.encryptWithKey(keys[0], content)
+  }
+
+  /**
+   * Decrypts data using a specific encryption key. If you don't have any special requirements on the key you should instead use
+   * {@link decryptDataOf}.
+   * Note: you should not use this method to decrypt the `encryptedSelf` of iCure entities, since that will be automatically handled by the extended
+   * apis. You should use this method only to decrypt additional data, such as document attachments.
+   * @param encryptionKey an encryption key.
+   * @param content the data to decrypt.
+   * @return the decrypted content.
+   * @throws if the provided encryption key is not a valid aes key or if it is the wrong key and this could be detected from the padding used by
+   * the encryption algorithm.
+   */
+  async decryptWithKey(encryptionKey: string, content: ArrayBuffer | Uint8Array): Promise<ArrayBuffer> {
+    const importedKey = await this.tryImportKey(encryptionKey)
+    if (!encryptionKey) throw new Error(`Could not encrypt with invalid key ${encryptionKey}`)
+    return await this.primitives.AES.encrypt(importedKey!, content)
+  }
+
+  /**
+   * Decrypts data using a key of the entity that the provided data owner can access (current data owner by default). If the provided data owner can
+   * access multiple encryption keys each of them will be tried for decryption until one of them gives a result that is valid according to the
+   * provided validator.
+   * Note: you should not use this method to decrypt the `encryptedSelf` of iCure entities, since that will be automatically handled by the extended
+   * apis. You should use this method only to decrypt additional data, such as document attachments.
+   * @param entity an entity.
+   * @param content data of the entity which you want to decrypt.
+   * @param dataOwnerId optionally a data owner part of the hierarchy for the current data owner, defaults to the current data owner.
+   * @param validator a function which verifies the correctness of decrypted content: helps to identify decryption with the wrong key without relying
+   * solely on padding.
+   * @return the decrypted data.
+   * @throws if the provided data owner can't access any encryption keys for the entity, or if no key could be found which provided valid decrypted
+   * content according to the validator.
+   */
+  async decryptDataOf(
+    entity: EncryptedEntity,
+    content: ArrayBuffer | Uint8Array,
+    dataOwnerId?: string,
+    validator: (decryptedData: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
+  ): Promise<ArrayBuffer> {
+    const keys = await this.encryptionKeysOf(entity, dataOwnerId)
+    for (const key of keys) {
+      try {
+        const decrypted = await this.decryptWithKey(key, content)
+        if (await validator(decrypted)) return decrypted
+      } catch (e) {
+        /* ignore */
+      }
+    }
+    throw new Error(
+      `No valid key found to decrypt data of ${entity.id} for data owner ${dataOwnerId ?? (await this.dataOwnerApi.getCurrentDataOwnerId())}.`
+    )
+  }
+
+  /**
    * Get the decrypted content of a delegation-like object which the provided data owner would be able to access using ONLY HIS EXCHANGE KEYS (does
    * not consider exchange keys for parents).
    * Note that the retrieved exchange keys are decrypted using the private keys available on the device, and results may vary from other devices.
@@ -241,7 +336,7 @@ export class EntitiesEncryption {
     dataOwnerId: string,
     delegations: { [delegateId: string]: Delegation[] },
     includeFromDelegations: boolean,
-    validateDecrypted: (result: string) => boolean
+    validateDecrypted: (result: string) => boolean | Promise<boolean>
   ): Promise<string[]> {
     const delegationsWithOwner = includeFromDelegations
       ? Object.entries(delegations).flatMap(([delegateId, delegations]) =>
@@ -268,7 +363,7 @@ export class EntitiesEncryption {
 
   private async extractedHierarchyFromDelegation(
     delegations: { [delegateId: string]: Delegation[] },
-    validateDecrypted: (result: string) => boolean
+    validateDecrypted: (result: string) => boolean | Promise<boolean>
   ): Promise<{ ownerId: string; extracted: string[] }[]> {
     return Promise.all(
       (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()).map(async (ownerId) => {
@@ -284,7 +379,7 @@ export class EntitiesEncryption {
   async extractMergedHierarchyFromDelegationAndOwner(
     delegations: { [delegateId: string]: Delegation[] },
     dataOwnerId: string | undefined,
-    validateDecrypted: (result: string) => boolean
+    validateDecrypted: (result: string) => boolean | Promise<boolean>
   ): Promise<string[]> {
     const hierarchy = dataOwnerId
       ? await this.dataOwnerApi.getCurrentDataOwnerHierarchyIdsFrom(dataOwnerId)
@@ -296,7 +391,10 @@ export class EntitiesEncryption {
     return this.deduplicate(extractedByOwner.flatMap((x) => x))
   }
 
-  private async tryDecryptDelegation(delegation: Delegation, validateDecrypted: (result: string) => boolean): Promise<string | undefined> {
+  private async tryDecryptDelegation(
+    delegation: Delegation,
+    validateDecrypted: (result: string) => boolean | Promise<boolean>
+  ): Promise<string | undefined> {
     const exchangeKeys = await this.exchangeKeysManager.getExchangeKeysFor(delegation.owner!, delegation.delegatedTo!)
     for (const key of exchangeKeys) {
       try {
@@ -306,7 +404,8 @@ export class EntitiesEncryption {
         const decrypted = ua2string(await this.primitives.AES.decrypt(key, hex2ua(delegation.key!)))
         const decryptedSplit = decrypted.split(':')
         if (decryptedSplit.length === 2) {
-          if (validateDecrypted(decryptedSplit[1])) return decryptedSplit[1]
+          const validation = validateDecrypted(decryptedSplit[1])
+          if (validation === true || (validation !== false && (await validation))) return decryptedSplit[1]
         } else {
           console.warn("Error in the decrypted delegation: content should contain exactly 1 ':', the delegation is ignored.")
         }
@@ -316,8 +415,18 @@ export class EntitiesEncryption {
     }
   }
 
-  private validateEncryptionKey(key: string): boolean {
-    return this.hexWithDashesRegex.test(key)
+  private async tryImportKey(key: string): Promise<CryptoKey | undefined> {
+    if (!this.hexWithDashesRegex.test(key)) return undefined
+    try {
+      return await this.primitives.AES.importKey('raw', hex2ua(key.replace(/-/g, '')))
+    } catch (e) {
+      console.warn(`Could not import key ${key} as an encryption key.`, e)
+      return undefined
+    }
+  }
+
+  private async validateEncryptionKey(key: string): Promise<boolean> {
+    return !!(await this.tryImportKey(key))
   }
 
   private validateSecretId(key: string): boolean {
@@ -334,23 +443,23 @@ export class EntitiesEncryption {
     exchangeKey: CryptoKey,
     encryptionKey: string
   ): Promise<Delegation> {
-    if (!this.validateEncryptionKey(encryptionKey)) throw 'Invalid encryption key'
+    if (!(await this.validateEncryptionKey(encryptionKey))) throw new Error('Invalid encryption key')
     return this.createDelegation(entityId, delegateId, exchangeKey, encryptionKey)
   }
 
   private async createSecretIdDelegation(entityId: string, delegateId: string, exchangeKey: CryptoKey, secretId: string): Promise<Delegation> {
-    if (!this.validateSecretId(secretId)) throw 'Invalid secret id'
+    if (!this.validateSecretId(secretId)) throw new Error('Invalid secret id')
     return this.createDelegation(entityId, delegateId, exchangeKey, secretId)
   }
 
   private async createParentIdDelegation(entityId: string, delegateId: string, exchangeKey: CryptoKey, parentId: string): Promise<Delegation> {
-    if (!this.validateParentId(parentId)) throw 'Invalid parent id'
+    if (!this.validateParentId(parentId)) throw new Error('Invalid parent id')
     return this.createDelegation(entityId, delegateId, exchangeKey, parentId)
   }
 
   private async createDelegation(entityId: string, delegateId: string, exchangeKey: CryptoKey, content: string): Promise<Delegation> {
-    if (entityId.includes(':')) throw "Ids for encrypted entities are not allowed to contain ':'"
-    if (content.includes(':')) throw "Content of delegations can not contain ':'"
+    if (entityId.includes(':')) throw new Error("Ids for encrypted entities are not allowed to contain ':'")
+    if (content.includes(':')) throw new Error("Content of delegations can not contain ':'")
     return {
       delegatedTo: delegateId,
       owner: await this.dataOwnerApi.getCurrentDataOwnerId(),
@@ -419,7 +528,7 @@ export class EntitiesEncryption {
     delegateId: string,
     delegations: Delegation[],
     requiredEntries: string[],
-    validateDecrypted: (x: string) => boolean
+    validateDecrypted: (x: string) => boolean | Promise<boolean>
   ): Promise<{
     deduplicatedDelegations: Delegation[]
     missingEntries: string[]
@@ -466,7 +575,7 @@ export class EntitiesEncryption {
       }
     }
 
-    throw '### THIS SHOULD NOT HAPPEN: ' + argName + ' has an invalid value: ' + argValue + details
+    throw new Error('### THIS SHOULD NOT HAPPEN: ' + argName + ' has an invalid value: ' + argValue + details)
   }
 
   private checkEmptyEncryptionMetadata(entity: EncryptedEntity) {
