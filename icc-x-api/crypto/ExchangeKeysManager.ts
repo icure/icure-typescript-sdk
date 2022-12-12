@@ -102,9 +102,8 @@ export class ExchangeKeysManager {
     } else {
       const key = `${delegatorId}->${delegateId}`
       const hierarchyIds = await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
-      if (!hierarchyIds.some((x) => x === delegateId || x === delegatorId)) {
-        throw `Trying to retrieve exchange key ${key} but current data owner hierarchy is ${hierarchyIds}`
-      }
+      if (!hierarchyIds.some((x) => x === delegateId || x === delegatorId))
+        throw new Error(`Trying to retrieve exchange key ${key} but current data owner hierarchy is ${hierarchyIds}`)
       return await this.delegatedExchangeKeysCache.get(key, () => this.forceGetExchangeKeysFor(delegatorId, delegateId))
     }
   }
@@ -148,7 +147,7 @@ export class ExchangeKeysManager {
       const delegate = await this.dataOwnerApi.getDataOwner(delegateId)
       const delegatePublicKeys = Array.from(this.dataOwnerApi.getHexPublicKeysOf(delegate))
       const verifiedDelegatePublicKeys = await this.publicKeyVerifier.verifyDelegatePublicKeys(delegate, delegatePublicKeys)
-      if (!verifiedDelegatePublicKeys) throw `No verified public keys for delegate ${delegateId}: impossible to create new exchange key.`
+      if (!verifiedDelegatePublicKeys) throw new Error(`No verified public keys for delegate ${delegateId}: impossible to create new exchange key.`)
       otherPublicKeys = {
         ...otherPublicKeys,
         ...(await loadPublicKeys(this.primitives.RSA, verifiedDelegatePublicKeys)),

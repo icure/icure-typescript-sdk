@@ -80,7 +80,7 @@ export class IccDataOwnerXApi {
       res.push(dataOwnerId)
       if (dataOwnerId === parentId) return res
     }
-    throw `${parentId} is not part of the data owner hierarchy for the current user`
+    throw new Error(`${parentId} is not part of the data owner hierarchy for the current user`)
   }
 
   /**
@@ -162,14 +162,15 @@ export class IccDataOwnerXApi {
       return await this.patientBaseApi.modifyPatient(ownerToUpdate as Patient).then((x) => ({ type: 'patient', dataOwner: x } as DataOwnerWithType))
     } else if (ownerType === 'device') {
       return await this.deviceBaseApi.updateDevice(ownerToUpdate as Device).then((x) => ({ type: 'device', dataOwner: x } as DataOwnerWithType))
-    } else throw `Unrecognised data owner type: ${ownerType}`
+    } else throw new Error(`Unrecognised data owner type: ${ownerType}`)
   }
 
   private checkDataOwnerIntegrity(dataOwner: DataOwner) {
     const keys = this.getHexPublicKeysOf(dataOwner)
-    if (new Set(Array.from(keys).map((x) => x.slice(-32))).size != keys.size) {
-      throw `Different public keys for ${dataOwner.id} have the same fingerprint; this should not happen in normal circumstances. Please report this error to iCure.`
-    }
+    if (new Set(Array.from(keys).map((x) => x.slice(-32))).size != keys.size)
+      throw new Error(
+        `Different public keys for ${dataOwner.id} have the same fingerprint; this should not happen in normal circumstances. Please report this error to iCure.`
+      )
   }
 
   private async forceLoadCurrentDataOwnerHierarchyAndCacheIds(): Promise<DataOwnerWithType[]> {
