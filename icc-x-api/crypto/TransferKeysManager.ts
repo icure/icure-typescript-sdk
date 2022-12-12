@@ -242,11 +242,11 @@ export class TransferKeysManager {
     const optimizedCandidates = verifiedGroupCandidates.filter((candidate) =>
       Array.from(reachSets[candidate]).every((reachableNode) => !verifiedCandidatesSet.has(reachableNode))
     )
-    if (optimizedCandidates.length == 0) throw 'Check failed: at least one candidate should survive optimization'
+    if (optimizedCandidates.length == 0) throw new Error('Check failed: at least one candidate should survive optimization')
     // Transfer keys could also be faked: to make sure we are not giving access to something wrong we remap the candidates to a verified public keys
     const verifiedOptimizedCandidates = optimizedCandidates.map((candidate) => {
       const res = graph.acyclicLabelToGroup[candidate].find((groupMemberFp) => verifiedKeysFpSet.has(groupMemberFp))
-      if (!res) throw 'Check failed: optimized candidates groups should have at least a verified member'
+      if (!res) throw new Error('Check failed: optimized candidates groups should have at least a verified member')
       return res
     })
     return {

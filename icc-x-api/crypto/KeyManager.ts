@@ -117,7 +117,7 @@ export class KeyManager {
   async reloadKeys(): Promise<void> {
     const self = await this.dataOwnerApi.getCurrentDataOwner()
     this.selfKeys = await this.doLoadKeys(self, true, () => {
-      throw "Can't create new keys at reload time: it should have already been created on initialisation"
+      throw new Error("Can't create new keys at reload time: it should have already been created on initialisation")
     }).then(({ loadedKeys }) => loadedKeys)
     await this.loadParentKeys(self)
   }
@@ -205,7 +205,7 @@ export class KeyManager {
         newKey: { pair: updateInfo.keyPair, fingerprint: updateInfo.publicKeyFingerprint },
       }
     } else if (failIfNoVerifiedKey) {
-      throw `No verified key found for ${dataOwner.dataOwner.id} and settings do not allow creation of a new key.`
+      throw new Error(`No verified key found for ${dataOwner.dataOwner.id} and settings do not allow creation of a new key.`)
     } else {
       return { loadedKeys: loadedStoredKeys }
     }
@@ -280,6 +280,6 @@ export class KeyManager {
   }
 
   private ensureInitialised() {
-    if (!this.parentKeys || !this.selfKeys) throw 'Key manager was not properly initialised'
+    if (!this.parentKeys || !this.selfKeys) throw new Error('Key manager was not properly initialised')
   }
 }

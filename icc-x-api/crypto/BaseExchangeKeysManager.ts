@@ -48,9 +48,10 @@ export class BaseExchangeKeysManager {
         (mainDelegatorKeyPairPubHex === delegator.dataOwner.publicKey ? delegator.dataOwner.hcPartyKeys?.[delegateId][0] : undefined)
       if (existingExchangeKey) {
         exchangeKey = await this.tryDecryptExchangeKeyWith(existingExchangeKey, mainDelegatorKeyPair, undefined)
-        if (!exchangeKey) {
-          throw `Failed to decrypt existing exchange key for update of ${mainDelegatorKeyPairPubHex.slice(-32)}@${delegatorId}->${delegateId}`
-        }
+        if (!exchangeKey)
+          throw new Error(
+            `Failed to decrypt existing exchange key for update of ${mainDelegatorKeyPairPubHex.slice(-32)}@${delegatorId}->${delegateId}`
+          )
         const existingAesExchangeKey = delegator.dataOwner.aesExchangeKeys?.[mainDelegatorKeyPairPubHex]?.[delegateId]
         if (existingAesExchangeKey) {
           const existingPublicKeysSet = new Set(existingExchangeKey)
