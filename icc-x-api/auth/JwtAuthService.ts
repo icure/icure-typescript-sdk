@@ -71,7 +71,7 @@ export class JwtAuthService implements AuthService {
       return false
     }
     const payload = this._base64Decode(parts[1])
-    return 'exp' in payload && payload['exp'] > new Date().getTime()
+    return !('exp' in payload) || payload['exp'] * 1000 < new Date().getTime()
   }
 
   private _base64Decode(encodedString: string): any {
