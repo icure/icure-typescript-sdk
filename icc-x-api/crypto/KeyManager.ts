@@ -1,12 +1,12 @@
-import { DataOwner, DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
-import { KeyPair, RSAUtils } from './RSA'
+import { DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
+import { KeyPair } from './RSA'
 import { ua2hex } from '../utils'
-import { TransferKeysManager } from './TransferKeysManager'
 import { IcureStorageFacade } from '../storage/IcureStorageFacade'
 import { BaseExchangeKeysManager } from './BaseExchangeKeysManager'
 import { HealthcareParty } from '../../icc-api/model/HealthcareParty'
 import { loadPublicKeys } from './utils'
 import { CryptoPrimitives } from './CryptoPrimitives'
+import { KeyRecovery } from './KeyRecovery'
 
 type KeyPairData = { pair: KeyPair<CryptoKey>; isVerified: boolean; isDevice: boolean }
 
@@ -16,7 +16,7 @@ type KeyPairData = { pair: KeyPair<CryptoKey>; isVerified: boolean; isDevice: bo
 export class KeyManager {
   private readonly primitives: CryptoPrimitives
   private readonly dataOwnerApi: IccDataOwnerXApi
-  private readonly transferKeysManager: TransferKeysManager
+  private readonly keyRecovery: KeyRecovery
   private readonly icureStorage: IcureStorageFacade
   private readonly baseExchangeKeyManager: BaseExchangeKeysManager
 
@@ -28,13 +28,13 @@ export class KeyManager {
     primitives: CryptoPrimitives,
     dataOwnerApi: IccDataOwnerXApi,
     icureStorage: IcureStorageFacade,
-    transferKeysManager: TransferKeysManager,
+    keyRecovery: KeyRecovery,
     baseExchangeKeyManager: BaseExchangeKeysManager
   ) {
     this.primitives = primitives
     this.icureStorage = icureStorage
     this.dataOwnerApi = dataOwnerApi
-    this.transferKeysManager = transferKeysManager
+    this.keyRecovery = keyRecovery
     this.baseExchangeKeyManager = baseExchangeKeyManager
   }
 
@@ -185,9 +185,9 @@ export class KeyManager {
     if (Object.values(loadedStoredKeys).some((keyData) => keyData.isVerified || keyData.isDevice)) {
       this.selfLegacyPublicKey = dataOwner.dataOwner.publicKey
       if (loadedStoredKeysFingerprints.length != pubKeysFingerprints.length) {
-        // Load also transfer keys
-        const loadedTransferKeys = await this.transferKeysManager.loadSelfKeysFromTransfer(dataOwner, this.plainKeysByFingerprint(loadedStoredKeys))
-        for (const [fp, pair] of Object.entries(loadedTransferKeys)) {
+        // Try to recover existing keys.
+        const recoveredKeys = this.keyRecovery.recoverKeys(dataOwner, this.plainKeysByFingerprint(loadedStoredKeys))
+        for (const [fp, pair] of Object.entries(recoveredKeys)) {
           loadedStoredKeys[fp] = { pair, isDevice: false, isVerified: verifiedKeysMap?.[fp] === true }
           await this.icureStorage.saveKey(dataOwner.dataOwner.id!, fp, await this.primitives.RSA.exportKeys(pair, 'jwk', 'jwk'), false)
         }
