@@ -1,12 +1,24 @@
 import { User } from '../icc-api/model/User'
 import { IccDeviceApi, IccHcpartyApi, IccPatientApi, IccUserApi } from '../icc-api'
-import { IccCryptoXApi } from './icc-crypto-x-api'
 import { HealthcareParty } from '../icc-api/model/HealthcareParty'
-import { Delegation } from '../icc-api/model/Delegation'
 import { Patient } from '../icc-api/model/Patient'
 import { Device } from '../icc-api/model/Device'
-import { IccUserXApi } from './icc-user-x-api'
 import { hexPublicKeysOf } from './crypto/utils'
+
+/**
+ * Represents a type of data owner.
+ */
+export type DataOwnerTypeEnum = 'patient' | 'device' | 'hcp'
+export const DataOwnerTypeEnum: { [key: string]: DataOwnerTypeEnum } = {
+  Patient: 'patient',
+  Device: 'device',
+  Hcp: 'hcp',
+}
+
+/**
+ * Represents any data owner.
+ */
+export type DataOwner = Patient | Device | HealthcareParty
 
 /**
  * Represents any data owner enriched with type information.
@@ -16,18 +28,18 @@ export type DataOwnerWithType =
   | { type: 'device'; dataOwner: Device }
   | { type: 'hcp'; dataOwner: HealthcareParty }
 
-/**
- * Represents any data owner.
- */
-export type DataOwner = Patient | Device | HealthcareParty
-
 export class IccDataOwnerXApi {
   private userBaseApi: IccUserApi
   private hcpartyBaseApi: IccHcpartyApi
   private patientBaseApi: IccPatientApi
   private deviceBaseApi: IccDeviceApi
-  private selfDataOwnerId: string | undefined
+  private currentDataOwnerType: DataOwnerTypeEnum | undefined
   private currentDataOwnerHierarchyIds: string[] | undefined
+
+  private get selfDataOwnerId(): string | undefined {
+    if (!this.currentDataOwnerHierarchyIds) return undefined
+    return this.currentDataOwnerHierarchyIds[this.currentDataOwnerHierarchyIds.length - 1]
+  }
 
   constructor(
     userBaseApi: IccUserApi,
@@ -95,6 +107,17 @@ export class IccDataOwnerXApi {
   }
 
   /**
+   * If the logged user is a data owner get the type of the current data owner. This information is cached.
+   * @throws if the current user is not a data owner
+   */
+  async getCurrentDataOwnerType(): Promise<DataOwnerTypeEnum> {
+    if (!this.currentDataOwnerHierarchyIds) {
+      await this.forceLoadCurrentDataOwnerHierarchyAndCacheIds()
+    }
+    return this.currentDataOwnerType!
+  }
+
+  /**
    * Get the id of the data owner entity for a user.
    * @param user a user that is also a data owner.
    * @return the id of the data owner corresponding to the provided user.
@@ -111,19 +134,18 @@ export class IccDataOwnerXApi {
   /**
    * Get a data owner. Uses a cache to improve performance.
    * @param ownerId id of the data owner to retrieve (patient, medical device, hcp, ...)
-   * @param loadIfMissingFromCache if true and the data owner is not in cache will start a job to retrieve it, if false will instead return undefined
    * @return the data owner or undefined if loadIfMissingFromCache is false and there is no data owner with provided id in cache.
    * @throws if no data owner with the provided id could be found on an error occurred while attempting to retrieve it.
    */
-  getDataOwner(ownerId: string, loadIfMissingFromCache: boolean = true): Promise<DataOwnerWithType> {
+  getDataOwner(ownerId: string): Promise<DataOwnerWithType> {
     // TODO Data owner endpoint to save some requests?
     return this.patientBaseApi
       .getPatient(ownerId)
-      .then((patient) => ({ type: 'patient', dataOwner: patient } as DataOwnerWithType))
-      .catch(async () => ({ type: 'device', dataOwner: await this.deviceBaseApi.getDevice(ownerId) } as DataOwnerWithType))
-      .catch(async () => ({ type: 'hcp', dataOwner: await this.hcpartyBaseApi.getHealthcareParty(ownerId) } as DataOwnerWithType))
+      .then((patient) => ({ type: DataOwnerTypeEnum.Patient, dataOwner: patient }))
+      .catch(async () => ({ type: DataOwnerTypeEnum.Device, dataOwner: await this.deviceBaseApi.getDevice(ownerId) }))
+      .catch(async () => ({ type: DataOwnerTypeEnum.Hcp, dataOwner: await this.hcpartyBaseApi.getHealthcareParty(ownerId) }))
       .then((dataOwnerWithType) => {
-        if (dataOwnerWithType.dataOwner.id == this.selfDataOwnerId) this.checkDataOwnerIntegrity(dataOwnerWithType.dataOwner)
+        if (dataOwnerWithType.dataOwner.id === this.selfDataOwnerId) this.checkDataOwnerIntegrity(dataOwnerWithType.dataOwner)
         return dataOwnerWithType
       })
   }
@@ -176,6 +198,7 @@ export class IccDataOwnerXApi {
   private async forceLoadCurrentDataOwnerHierarchyAndCacheIds(): Promise<DataOwnerWithType[]> {
     const currentUser = await this.userBaseApi.getCurrentUser()
     let curr = await this.getDataOwner(this.getDataOwnerOf(currentUser))
+    this.currentDataOwnerType = curr.type
     let res = [curr]
     while ((curr.dataOwner as HealthcareParty).parentId) {
       curr = await this.getDataOwner((curr.dataOwner as HealthcareParty).parentId!)

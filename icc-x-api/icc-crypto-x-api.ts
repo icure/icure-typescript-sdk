@@ -64,6 +64,13 @@ export class IccCryptoXApi {
   }
 
   /**
+   * @internal this method is for internal use only and may be changed without notice.
+   */
+  get exchangeKeys(): ExchangeKeysManager {
+    return this.exchangeKeysManager
+  }
+
+  /**
    * @deprecated replace with {@link CryptoPrimitives.crypto} at {@link primitives}.
    */
   get crypto(): Crypto {
@@ -114,7 +121,9 @@ export class IccCryptoXApi {
   //[delegateId][delegatorId] = delegateEncryptedHcPartyKey
   //for each delegate, it stores the list of delegators and the corresponding delegateEncryptedHcPartyKey (shared HcPartyKey, from delegator to delegate, encrypted with the RSA key of the delegate)
   hcPartyKeysRequestsCache: {
-    [delegateId: string]: Promise<{ [key: string]: { [key: string]: { [key: string]: string } } }>
+    [delegateId: string]: Promise<{
+      [delegatorId: string]: { [delegatorPublicKeyFingerprint: string]: { [recipientPublicKeyFingerprint: string]: string } }
+    }>
   } = {}
 
   cacheLastDeletionTimestamp: number | undefined = undefined
@@ -148,6 +157,7 @@ export class IccCryptoXApi {
   async forceReload(reloadForExternalChangesToCurrentDataOwner: boolean) {
     this.exchangeKeysManager.clearCache(reloadForExternalChangesToCurrentDataOwner)
     if (reloadForExternalChangesToCurrentDataOwner) {
+      this.dataOwnerApi.clearCurrentDataOwnerIdsCache()
       await this.keyManager.reloadKeys()
     }
   }
@@ -1675,15 +1685,7 @@ export class IccCryptoXApi {
   }
 
   /**
-   * TODO updated api
-   * When a user lost his keys, people to whom he shared information may call this method to give access back to him, re-encrypting their common
-   * AES key using the new user public key.
-   *
-   * @param delegateUser Delegate Data Owner User, in charge of giving access back to the person who previously gave him some access
-   * @param ownerId Id of the data owner to which we would like to give access back
-   * @param ownerNewPublicKey New Data Owner Public Key we want to use to re-encrypt previously created AES key
-   *
-   * @return The DataOwner, updated by the delegateUser to add the new encrypted AES Key using the new provided public key
+   * @deprecated use {@link IccIcureMaintenanceXApi.applyKeyPairUpdate} instead.
    */
   async giveAccessBackTo(delegateUser: User, ownerId: string, ownerNewPublicKey: string): Promise<CachedDataOwner> {
     const delegateId = delegateUser.healthcarePartyId ?? delegateUser.patientId ?? delegateUser.deviceId

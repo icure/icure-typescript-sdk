@@ -72,8 +72,7 @@ export class TransferKeysManager {
     const selfId = await this.dataOwnerApi.getCurrentDataOwnerId()
     const fpToPublicKey = fingerprintToPublicKeysMapOf(self)
     const newExchangeKeyPublicKeys = newEdges.sources.map((fp) => fpToPublicKey[fp])
-    const { key: exchangeKey, updatedDelegator: updatedSelf } = await this.baseExchangeKeysManager.createOrUpdateEncryptedExchangeKeyFor(
-      selfId,
+    const { key: exchangeKey, updatedDelegator: updatedSelf } = await this.baseExchangeKeysManager.createOrUpdateEncryptedExchangeKeyTo(
       selfId,
       newEdges.target,
       await loadPublicKeys(this.primitives.RSA, newExchangeKeyPublicKeys)

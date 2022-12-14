@@ -212,25 +212,24 @@ export class KeyManager {
   }
 
   private async createAndSaveNewKeyPair(
-    dataOwner: DataOwnerWithType,
+    selfDataOwner: DataOwnerWithType,
     verifiedPublicKeysMap: { [p: string]: boolean }
   ): Promise<{ publicKeyFingerprint: string; keyPair: KeyPair<CryptoKey>; updatedSelf: DataOwnerWithType }> {
     const generatedKeypair = await this.primitives.RSA.generateKeyPair()
     const publicKeyHex = ua2hex(await this.primitives.RSA.exportKey(generatedKeypair.publicKey, 'spki'))
     const publicKeyFingerprint = publicKeyHex.slice(-32)
     await this.icureStorage.saveKey(
-      dataOwner.dataOwner.id!,
+      selfDataOwner.dataOwner.id!,
       publicKeyFingerprint,
       await this.primitives.RSA.exportKeys(generatedKeypair, 'jwk', 'jwk'),
       true
     )
-    const { updatedDelegator } = await this.baseExchangeKeyManager.createOrUpdateEncryptedExchangeKeyFor(
-      dataOwner.dataOwner.id!,
-      dataOwner.dataOwner.id!,
+    const { updatedDelegator } = await this.baseExchangeKeyManager.createOrUpdateEncryptedExchangeKeyTo(
+      selfDataOwner.dataOwner.id!,
       generatedKeypair,
       await loadPublicKeys(
         this.primitives.RSA,
-        Array.from(this.dataOwnerApi.getHexPublicKeysOf(dataOwner)).filter((x) => verifiedPublicKeysMap[x.slice(-32)])
+        Array.from(this.dataOwnerApi.getHexPublicKeysOf(selfDataOwner)).filter((x) => verifiedPublicKeysMap[x.slice(-32)])
       )
     )
     return { publicKeyFingerprint, keyPair: generatedKeypair, updatedSelf: updatedDelegator }

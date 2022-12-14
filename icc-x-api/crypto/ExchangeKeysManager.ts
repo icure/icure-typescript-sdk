@@ -153,11 +153,6 @@ export class ExchangeKeysManager {
         ...(await loadPublicKeys(this.primitives.RSA, verifiedDelegatePublicKeys)),
       }
     }
-    return await this.baseExchangeKeysManager.createOrUpdateEncryptedExchangeKeyFor(
-      await this.dataOwnerApi.getCurrentDataOwnerId(),
-      delegateId,
-      mainKey.pair,
-      otherPublicKeys
-    )
+    return await this.baseExchangeKeysManager.createOrUpdateEncryptedExchangeKeyTo(delegateId, mainKey.pair, otherPublicKeys)
   }
 }
