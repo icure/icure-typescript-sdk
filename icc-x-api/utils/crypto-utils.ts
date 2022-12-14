@@ -6,16 +6,18 @@ import { pack } from './asn1-packer'
 import { parseAsn1 } from './asn1-parser'
 import { KeyPair } from '../crypto/RSA'
 
-export function notConcurrent<T>(concurrencyMap: { [key: string]: PromiseLike<T> }, key: string, proc: () => PromiseLike<T>): PromiseLike<T> {
+export function notConcurrent<T>(concurrencyMap: { [key: string]: PromiseLike<any> }, key: string, proc: () => PromiseLike<T>): PromiseLike<T> {
   const inFlight = concurrencyMap[key]
   if (!inFlight) {
-    return (concurrencyMap[key] = (async () => {
+    const newJob = (async () => {
       try {
         return await proc()
       } finally {
         delete concurrencyMap[key]
       }
-    })())
+    })()
+    concurrencyMap[key] = newJob
+    return newJob
   } else {
     return concurrencyMap[key].then(() => notConcurrent(concurrencyMap, key, proc))
   }

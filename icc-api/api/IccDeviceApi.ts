@@ -210,7 +210,7 @@ export class IccDeviceApi {
    */
   getDeviceAesExchangeKeysForDelegate(
     deviceId: string
-  ): Promise<{ [delegateId: string]: { [delegatorPubKeyFingerprint: string]: { [delegatePubKeyFingerprint: string]: string } } }> {
+  ): Promise<{ [delegatorId: string]: { [delegatorPubKeyFingerprint: string]: { [delegatePubKeyFingerprint: string]: string } } }> {
     let _body = null
 
     const _url = this.host + `/device/${encodeURIComponent(String(deviceId))}/aesExchangeKeys` + '?ts=' + new Date().getTime()
