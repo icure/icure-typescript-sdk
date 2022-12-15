@@ -57,8 +57,8 @@ export class IcureStorageFacade {
   }
 
   /**
-   * Save the results of public key verification. If there were already results stored the entries will be merged. In case of conflicts
-   * {@link verificationDetails} takes priority over the stored data.
+   * Save the results of public key verification. If there were already results stored the entries will be merged. In case of conflicts the new
+   * {@link verificationDetails} take priority over the stored data.
    * @param dataOwnerId id of a data owner.
    * @param verificationDetails results of verification, associates key fingerprints to true if they were verified by the user or false otherwise.
    */

@@ -88,21 +88,21 @@ export class KeyManager {
   /**
    * @internal This method is intended for internal use only and may be changed without notice.
    * Initializes all keys for the current data owner. This method needs to be called before any other method of this class can be used.
-   * If no device or verified keys are available the current data owner, the behaviour of this method depends on the value of
-   * {@link createNewKeyIfMissing}:
-   * - If true or returns true a new (device) key will be automatically created, then returned by this method.
-   * - If false or returns false the method will fail with a predefined error.
+   * If no verified keys are available the current data owner, the behaviour of this method depends on the result of {@link createNewKeyIfNoVerified}:
+   * - If it returns true a new key will be automatically created. Since the key has been created on this device it is automatically verified.
+   * - If it returns a key pair the manager loads the key pair and considers it as verified (but not as a key generated on this device).
+   * - If it returns false the method will fail with a predefined error.
    * - If it throws an error the method will propagate the error.
-   * @param createNewKeyIfMissing if there is no key for the user and this is true the method will automatically create a new keypair for the user,
+   * @param createNewKeyIfNoVerified if there is no key for the user and this is true the method will automatically create a new keypair for the user,
    * else the method will throw an exception.
-   * @throws if the current user is not a data owner, or if there is no key and {@link createNewKeyIfMissing} is false.
-   * @return the newly created key if no key could be loaded and {@link createNewKeyIfMissing} is true.
+   * @throws if the current user is not a data owner, or if there is no key and {@link createNewKeyIfNoVerified} is false.
+   * @return if a new key was created during initialisation the newly created key, else undefined.
    */
   async initialiseKeys(
-    createNewKeyIfMissing: (() => Promise<boolean>) | boolean
+    createNewKeyIfNoVerified: () => Promise<boolean | KeyPair<CryptoKey>>
   ): Promise<{ newKeyPair: KeyPair<CryptoKey>; newKeyFingerprint: string } | undefined> {
     const self = await this.dataOwnerApi.getCurrentDataOwner()
-    const loadedData = await this.doLoadKeys(self, true, createNewKeyIfMissing)
+    const loadedData = await this.doLoadKeys(self, true, createNewKeyIfNoVerified)
     this.selfKeys = loadedData.loadedKeys
     await this.loadParentKeys(self)
     return loadedData.newKey ? { newKeyPair: loadedData.newKey.pair, newKeyFingerprint: loadedData.newKey.fingerprint } : undefined
@@ -170,7 +170,7 @@ export class KeyManager {
   private async doLoadKeys(
     dataOwner: DataOwnerWithType,
     failIfNoVerifiedKey: Boolean,
-    createNewKeyIfMissing: boolean | (() => Promise<boolean>)
+    createNewKeyIfMissing: () => Promise<boolean | KeyPair<CryptoKey>>
   ): Promise<{
     loadedKeys: { [pubKeyFingerprint: string]: KeyPairData }
     newKey?: { pair: KeyPair<CryptoKey>; fingerprint: string }
@@ -182,57 +182,60 @@ export class KeyManager {
     const loadedStoredKeys: { [pubKeyFingerprint: string]: KeyPairData } =
       pubKeysFingerprints.length > 0 ? await this.loadKeysFromStorage(dataOwner, pubKeysFingerprints, verifiedKeysMap) : {}
     const loadedStoredKeysFingerprints = Object.keys(loadedStoredKeys)
-    if (Object.values(loadedStoredKeys).some((keyData) => keyData.isVerified || keyData.isDevice)) {
-      this.selfLegacyPublicKey = dataOwner.dataOwner.publicKey
-      if (loadedStoredKeysFingerprints.length != pubKeysFingerprints.length) {
-        // Try to recover existing keys.
-        const recoveredKeys = this.keyRecovery.recoverKeys(dataOwner, this.plainKeysByFingerprint(loadedStoredKeys))
-        for (const [fp, pair] of Object.entries(recoveredKeys)) {
-          loadedStoredKeys[fp] = { pair, isDevice: false, isVerified: verifiedKeysMap?.[fp] === true }
-          await this.icureStorage.saveKey(dataOwner.dataOwner.id!, fp, await this.primitives.RSA.exportKeys(pair, 'jwk', 'jwk'), false)
+    this.selfLegacyPublicKey = dataOwner.dataOwner.publicKey
+    if (loadedStoredKeysFingerprints.length !== pubKeysFingerprints.length && loadedStoredKeysFingerprints.length > 0) {
+      // Try to recover existing keys.
+      const recoveredKeys = this.keyRecovery.recoverKeys(dataOwner, this.plainKeysByFingerprint(loadedStoredKeys))
+      for (const [fp, pair] of Object.entries(recoveredKeys)) {
+        loadedStoredKeys[fp] = { pair, isDevice: false, isVerified: verifiedKeysMap?.[fp] === true }
+        await this.icureStorage.saveKey(dataOwner.dataOwner.id!, fp, await this.primitives.RSA.exportKeys(pair, 'jwk', 'jwk'), false)
+      }
+    }
+    if (!failIfNoVerifiedKey || Object.values(loadedStoredKeys).some((keyData) => keyData.isVerified || keyData.isDevice)) {
+      return { loadedKeys: loadedStoredKeys }
+    } else {
+      // No verified key could be loaded (could happen for example if we recovered a key through shamir but can't verify it)
+      const whatToDo = await createNewKeyIfMissing()
+      if (whatToDo === false) {
+        throw new Error(`No verified key found for ${dataOwner.dataOwner.id} and settings do not allow creation of a new key.`)
+      } else {
+        const updateInfo = await this.createAndSavePotentiallyNewKeyPair(whatToDo === true ? undefined : whatToDo, dataOwner, verifiedKeysMap) // dataOwner may be outdated now
+        this.selfLegacyPublicKey = updateInfo.updatedSelf.dataOwner.publicKey
+        return {
+          loadedKeys: {
+            ...loadedStoredKeys,
+            [updateInfo.publicKeyFingerprint]: { pair: updateInfo.keyPair, isVerified: true, isDevice: whatToDo === true },
+          },
+          newKey: { pair: updateInfo.keyPair, fingerprint: updateInfo.publicKeyFingerprint },
         }
       }
-      return { loadedKeys: loadedStoredKeys }
-    } else if (createNewKeyIfMissing === true || (createNewKeyIfMissing !== false && (await createNewKeyIfMissing()))) {
-      // No verified key could be loaded (could happen if we recovered a key through shamir but can't verify it)
-      const updateInfo = await this.createAndSaveNewKeyPair(dataOwner, verifiedKeysMap) // dataOwner is outdated now
-      this.selfLegacyPublicKey = updateInfo.updatedSelf.dataOwner.publicKey
-      return {
-        loadedKeys: {
-          ...loadedStoredKeys,
-          [updateInfo.publicKeyFingerprint]: { pair: updateInfo.keyPair, isVerified: true, isDevice: true },
-        },
-        newKey: { pair: updateInfo.keyPair, fingerprint: updateInfo.publicKeyFingerprint },
-      }
-    } else if (failIfNoVerifiedKey) {
-      throw new Error(`No verified key found for ${dataOwner.dataOwner.id} and settings do not allow creation of a new key.`)
-    } else {
-      return { loadedKeys: loadedStoredKeys }
     }
   }
 
-  private async createAndSaveNewKeyPair(
+  private async createAndSavePotentiallyNewKeyPair(
+    importedKeyPair: undefined | KeyPair<CryptoKey>,
     selfDataOwner: DataOwnerWithType,
     verifiedPublicKeysMap: { [p: string]: boolean }
   ): Promise<{ publicKeyFingerprint: string; keyPair: KeyPair<CryptoKey>; updatedSelf: DataOwnerWithType }> {
-    const generatedKeypair = await this.primitives.RSA.generateKeyPair()
-    const publicKeyHex = ua2hex(await this.primitives.RSA.exportKey(generatedKeypair.publicKey, 'spki'))
+    const keyPair = importedKeyPair ?? (await this.primitives.RSA.generateKeyPair())
+    const publicKeyHex = ua2hex(await this.primitives.RSA.exportKey(keyPair.publicKey, 'spki'))
     const publicKeyFingerprint = publicKeyHex.slice(-32)
     await this.icureStorage.saveKey(
       selfDataOwner.dataOwner.id!,
       publicKeyFingerprint,
-      await this.primitives.RSA.exportKeys(generatedKeypair, 'jwk', 'jwk'),
-      true
+      await this.primitives.RSA.exportKeys(keyPair, 'jwk', 'jwk'),
+      !importedKeyPair
     )
+    await this.icureStorage.saveSelfVerifiedKeys(selfDataOwner.dataOwner.id!, { [publicKeyFingerprint]: true })
     const { updatedDelegator } = await this.baseExchangeKeyManager.createOrUpdateEncryptedExchangeKeyTo(
       selfDataOwner.dataOwner.id!,
-      generatedKeypair,
+      keyPair,
       await loadPublicKeys(
         this.primitives.RSA,
         Array.from(this.dataOwnerApi.getHexPublicKeysOf(selfDataOwner)).filter((x) => verifiedPublicKeysMap[x.slice(-32)])
       )
     )
-    return { publicKeyFingerprint, keyPair: generatedKeypair, updatedSelf: updatedDelegator }
+    return { publicKeyFingerprint, keyPair: keyPair, updatedSelf: updatedDelegator }
   }
 
   private async loadKeysFromStorage(
@@ -268,7 +271,7 @@ export class KeyManager {
     const res: { [parentId: string]: { [pubKeyFingerprint: string]: KeyPair<CryptoKey> } } = {}
     while (currId) {
       const curr = await this.dataOwnerApi.getDataOwner(currId)
-      res[currId] = this.plainKeysByFingerprint((await this.doLoadKeys(curr, false, false)).loadedKeys)
+      res[currId] = this.plainKeysByFingerprint((await this.doLoadKeys(curr, false, () => Promise.resolve(false))).loadedKeys)
       currId = (curr.dataOwner as HealthcareParty).parentId
     }
     this.parentKeys = res
