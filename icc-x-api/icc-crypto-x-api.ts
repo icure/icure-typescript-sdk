@@ -113,8 +113,8 @@ export class IccCryptoXApi {
     shamirManager: ShamirKeysManager,
     storage: StorageFacade<string>,
     keyStorage: KeyStorageFacade,
-    hcPartyBaseApi: IccHcpartyApi,
-    entryKeysFactory: StorageEntryKeysFactory
+    icureStorageFacade: IcureStorageFacade,
+    hcPartyBaseApi: IccHcpartyApi
   ) {
     this.exchangeKeysManager = exchangeKeysManager
     this.cryptoPrimitives = cryptoPrimitives
@@ -124,8 +124,8 @@ export class IccCryptoXApi {
     this.shamirManager = shamirManager
     this._storage = storage
     this._keyStorage = keyStorage
+    this.icureStorage = icureStorageFacade
     this.hcpartyBaseApi = hcPartyBaseApi
-    this.icureStorage = new IcureStorageFacade(keyStorage, storage, entryKeysFactory)
   }
 
   /**

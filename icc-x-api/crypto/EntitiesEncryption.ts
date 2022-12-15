@@ -17,8 +17,7 @@ export class EntitiesEncryption {
   private readonly dataOwnerApi: IccDataOwnerXApi
   private readonly exchangeKeysManager: ExchangeKeysManager
 
-  constructor(hexWithDashesRegex: RegExp, primitives: CryptoPrimitives, dataOwnerApi: IccDataOwnerXApi, exchangeKeysManager: ExchangeKeysManager) {
-    this.hexWithDashesRegex = hexWithDashesRegex
+  constructor(primitives: CryptoPrimitives, dataOwnerApi: IccDataOwnerXApi, exchangeKeysManager: ExchangeKeysManager) {
     this.primitives = primitives
     this.dataOwnerApi = dataOwnerApi
     this.exchangeKeysManager = exchangeKeysManager

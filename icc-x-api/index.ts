@@ -24,6 +24,18 @@ import { KeyStorageFacade } from './storage/KeyStorageFacade'
 import { LocalStorageImpl } from './storage/LocalStorageImpl'
 import { KeyStorageImpl } from './storage/KeyStorageImpl'
 import { BasicAuthenticationProvider, EnsembleAuthenticationProvider } from './auth/AuthenticationProvider'
+import { CryptoPrimitives } from './crypto/CryptoPrimitives'
+import { KeyManager } from './crypto/KeyManager'
+import { IcureStorageFacade } from './storage/IcureStorageFacade'
+import { DefaultStorageEntryKeysFactory } from './storage/DefaultStorageEntryKeysFactory'
+import { KeyRecovery } from './crypto/KeyRecovery'
+import { BaseExchangeKeysManager } from './crypto/BaseExchangeKeysManager'
+import { StorageEntryKeysFactory } from './storage/StorageEntryKeysFactory'
+import { CryptoStrategies } from './crypto/CryptoStrategies'
+import { ExchangeKeysManager } from './crypto/ExchangeKeysManager'
+import { EntitiesEncryption } from './crypto/EntitiesEncryption'
+import { ShamirKeysManager } from './crypto/ShamirKeysManager'
+import { TransferKeysManager } from './crypto/TransferKeysManager'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -87,14 +99,13 @@ export const Api = async function (
     : typeof self !== 'undefined'
     ? self.fetch
     : fetch,
-  forceBasic = false,
-  autoLogin = false,
-  storage?: StorageFacade<string>,
-  keyStorage?: KeyStorageFacade
+  forceBasic: boolean = false,
+  autoLogin: boolean = false,
+  storage: StorageFacade<string> = new LocalStorageImpl(),
+  keyStorage: KeyStorageFacade = new KeyStorageImpl(storage),
+  entryKeysFactory: StorageEntryKeysFactory = new DefaultStorageEntryKeysFactory(),
+  cryptoStrategies?: CryptoStrategies // TODO default strategies
 ): Promise<Apis> {
-  const _storage = storage || new LocalStorageImpl()
-  const _keyStorage = keyStorage || new KeyStorageImpl(_storage)
-
   const headers = {}
   const authApi = new IccAuthApi(host, headers, fetchImpl)
   const authenticationProvider = forceBasic
@@ -107,17 +118,43 @@ export const Api = async function (
   const permissionApi = new IccPermissionApi(host, headers, authenticationProvider, fetchImpl)
   const healthcarePartyApi = new IccHcpartyXApi(host, headers, authenticationProvider, fetchImpl)
   const deviceApi = new IccDeviceApi(host, headers, authenticationProvider, fetchImpl)
-  const cryptoApi = new IccCryptoXApi(
-    host,
-    headers,
-    healthcarePartyApi,
-    new IccPatientApi(host, headers, authenticationProvider, fetchImpl),
-    deviceApi,
-    crypto,
-    _storage,
-    _keyStorage
+  const basePatientApi = new IccPatientApi(host, headers, authenticationProvider, fetchImpl)
+  const dataOwnerApi = new IccDataOwnerXApi(userApi, healthcarePartyApi, basePatientApi, deviceApi)
+  // Crypto initialisation
+  const icureStorage = new IcureStorageFacade(keyStorage, storage, entryKeysFactory)
+  const cryptoPrimitives = new CryptoPrimitives(crypto)
+  const baseExchangeKeysManager = new BaseExchangeKeysManager(cryptoPrimitives, dataOwnerApi, healthcarePartyApi, basePatientApi, deviceApi)
+  const keyRecovery = new KeyRecovery(cryptoPrimitives, baseExchangeKeysManager, dataOwnerApi)
+  const keyManager = new KeyManager(cryptoPrimitives, dataOwnerApi, icureStorage, keyRecovery, baseExchangeKeysManager, cryptoStrategies!)
+  await keyManager.initialiseKeys()
+  await new TransferKeysManager(cryptoPrimitives, baseExchangeKeysManager, dataOwnerApi, keyManager).updateTransferKeys(
+    await dataOwnerApi.getCurrentDataOwner()
   )
-  const dataOwnerApi = new IccDataOwnerXApi(cryptoApi, new IccPatientApi(host, headers, authenticationProvider, fetchImpl))
+  // TODO customise cache size?
+  const exchangeKeysManager = new ExchangeKeysManager(
+    500,
+    60000,
+    600000,
+    cryptoStrategies!,
+    cryptoPrimitives,
+    keyManager,
+    baseExchangeKeysManager,
+    dataOwnerApi
+  )
+  const entitiesEncryption = new EntitiesEncryption(cryptoPrimitives, dataOwnerApi, exchangeKeysManager)
+  const shamirManager = new ShamirKeysManager(cryptoPrimitives, dataOwnerApi, keyManager, exchangeKeysManager)
+  const cryptoApi = new IccCryptoXApi(
+    exchangeKeysManager,
+    cryptoPrimitives,
+    keyManager,
+    dataOwnerApi,
+    entitiesEncryption,
+    shamirManager,
+    storage,
+    keyStorage,
+    icureStorage,
+    healthcarePartyApi
+  )
   const accessLogApi = new IccAccesslogXApi(host, headers, cryptoApi, dataOwnerApi, authenticationProvider, fetchImpl)
   const agendaApi = new IccAgendaApi(host, headers, authenticationProvider, fetchImpl)
   const contactApi = new IccContactXApi(host, headers, cryptoApi, dataOwnerApi, authenticationProvider, fetchImpl)

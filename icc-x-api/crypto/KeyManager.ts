@@ -4,9 +4,10 @@ import { ua2hex } from '../utils'
 import { IcureStorageFacade } from '../storage/IcureStorageFacade'
 import { BaseExchangeKeysManager } from './BaseExchangeKeysManager'
 import { HealthcareParty } from '../../icc-api/model/HealthcareParty'
-import { loadPublicKeys } from './utils'
+import { fingerprintToPublicKeysMapOf, loadPublicKeys } from './utils'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { KeyRecovery } from './KeyRecovery'
+import { CryptoStrategies } from './CryptoStrategies'
 
 type KeyPairData = { pair: KeyPair<CryptoKey>; isVerified: boolean; isDevice: boolean }
 
@@ -19,6 +20,7 @@ export class KeyManager {
   private readonly keyRecovery: KeyRecovery
   private readonly icureStorage: IcureStorageFacade
   private readonly baseExchangeKeyManager: BaseExchangeKeysManager
+  private readonly strategies: CryptoStrategies
 
   private selfLegacyPublicKey: string | undefined
   private selfKeys: { [pubKeyFingerprint: string]: KeyPairData } | undefined = undefined
@@ -29,13 +31,15 @@ export class KeyManager {
     dataOwnerApi: IccDataOwnerXApi,
     icureStorage: IcureStorageFacade,
     keyRecovery: KeyRecovery,
-    baseExchangeKeyManager: BaseExchangeKeysManager
+    baseExchangeKeyManager: BaseExchangeKeysManager,
+    strategies: CryptoStrategies
   ) {
     this.primitives = primitives
     this.icureStorage = icureStorage
     this.dataOwnerApi = dataOwnerApi
     this.keyRecovery = keyRecovery
     this.baseExchangeKeyManager = baseExchangeKeyManager
+    this.strategies = strategies
   }
 
   /**
@@ -88,21 +92,13 @@ export class KeyManager {
   /**
    * @internal This method is intended for internal use only and may be changed without notice.
    * Initializes all keys for the current data owner. This method needs to be called before any other method of this class can be used.
-   * If no verified keys are available the current data owner, the behaviour of this method depends on the result of {@link createNewKeyIfNoVerified}:
-   * - If it returns true a new key will be automatically created. Since the key has been created on this device it is automatically verified.
-   * - If it returns a key pair the manager loads the key pair and considers it as verified (but not as a key generated on this device).
-   * - If it returns false the method will fail with a predefined error.
-   * - If it throws an error the method will propagate the error.
-   * @param createNewKeyIfNoVerified if there is no key for the user and this is true the method will automatically create a new keypair for the user,
-   * else the method will throw an exception.
-   * @throws if the current user is not a data owner, or if there is no key and {@link createNewKeyIfNoVerified} is false.
+   * @throws if the current user is not a data owner, or if there is no key and no new key could be created according to this manager crypt
+   * strategies.
    * @return if a new key was created during initialisation the newly created key, else undefined.
    */
-  async initialiseKeys(
-    createNewKeyIfNoVerified: () => Promise<boolean | KeyPair<CryptoKey>>
-  ): Promise<{ newKeyPair: KeyPair<CryptoKey>; newKeyFingerprint: string } | undefined> {
+  async initialiseKeys(): Promise<{ newKeyPair: KeyPair<CryptoKey>; newKeyFingerprint: string } | undefined> {
     const self = await this.dataOwnerApi.getCurrentDataOwner()
-    const loadedData = await this.doLoadKeys(self, true, createNewKeyIfNoVerified)
+    const loadedData = await this.doLoadKeys(self, true, this.strategies.createNewKeyPairIfNoVerifiedKeysFound)
     this.selfKeys = loadedData.loadedKeys
     await this.loadParentKeys(self)
     return loadedData.newKey ? { newKeyPair: loadedData.newKey.pair, newKeyFingerprint: loadedData.newKey.fingerprint } : undefined
@@ -169,7 +165,7 @@ export class KeyManager {
 
   private async doLoadKeys(
     dataOwner: DataOwnerWithType,
-    failIfNoVerifiedKey: Boolean,
+    needsVerification: Boolean,
     createNewKeyIfMissing: () => Promise<boolean | KeyPair<CryptoKey>>
   ): Promise<{
     loadedKeys: { [pubKeyFingerprint: string]: KeyPairData }
@@ -178,21 +174,22 @@ export class KeyManager {
     // Load all keys for self from key store
     const selfPublicKeys = this.dataOwnerApi.getHexPublicKeysOf(dataOwner)
     const pubKeysFingerprints = Array.from(selfPublicKeys).map((x) => x.slice(-32))
-    const verifiedKeysMap = await this.icureStorage.loadSelfVerifiedKeys(dataOwner.dataOwner.id!)
-    const loadedStoredKeys: { [pubKeyFingerprint: string]: KeyPairData } =
-      pubKeysFingerprints.length > 0 ? await this.loadKeysFromStorage(dataOwner, pubKeysFingerprints, verifiedKeysMap) : {}
-    const loadedStoredKeysFingerprints = Object.keys(loadedStoredKeys)
+    const loadedKeys = pubKeysFingerprints.length > 0 ? await this.loadStoredKeys(dataOwner, pubKeysFingerprints) : {}
+    const loadedKeysFingerprints = Object.keys(loadedKeys)
     this.selfLegacyPublicKey = dataOwner.dataOwner.publicKey
-    if (loadedStoredKeysFingerprints.length !== pubKeysFingerprints.length && loadedStoredKeysFingerprints.length > 0) {
+    if (loadedKeysFingerprints.length !== pubKeysFingerprints.length && loadedKeysFingerprints.length > 0) {
       // Try to recover existing keys.
-      const recoveredKeys = this.keyRecovery.recoverKeys(dataOwner, this.plainKeysByFingerprint(loadedStoredKeys))
+      const recoveredKeys = this.keyRecovery.recoverKeys(dataOwner, this.plainKeysByFingerprint(loadedKeys))
       for (const [fp, pair] of Object.entries(recoveredKeys)) {
-        loadedStoredKeys[fp] = { pair, isDevice: false, isVerified: verifiedKeysMap?.[fp] === true }
+        loadedKeys[fp] = { pair, isDevice: false }
         await this.icureStorage.saveKey(dataOwner.dataOwner.id!, fp, await this.primitives.RSA.exportKeys(pair, 'jwk', 'jwk'), false)
       }
     }
-    if (!failIfNoVerifiedKey || Object.values(loadedStoredKeys).some((keyData) => keyData.isVerified || keyData.isDevice)) {
-      return { loadedKeys: loadedStoredKeys }
+    if (!needsVerification) return { loadedKeys: this.verifyKeys(loadedKeys, {}) }
+    const verifiedKeysMap = await this.loadAndUpdateVerifiedKeysMap(loadedKeys, dataOwner)
+    const verifiedKeys = this.verifyKeys(loadedKeys, verifiedKeysMap)
+    if (Object.values(verifiedKeys).some((keyData) => keyData.isVerified || keyData.isDevice)) {
+      return { loadedKeys: verifiedKeys }
     } else {
       // No verified key could be loaded (could happen for example if we recovered a key through shamir but can't verify it)
       const whatToDo = await createNewKeyIfMissing()
@@ -203,7 +200,7 @@ export class KeyManager {
         this.selfLegacyPublicKey = updateInfo.updatedSelf.dataOwner.publicKey
         return {
           loadedKeys: {
-            ...loadedStoredKeys,
+            ...verifiedKeys,
             [updateInfo.publicKeyFingerprint]: { pair: updateInfo.keyPair, isVerified: true, isDevice: whatToDo === true },
           },
           newKey: { pair: updateInfo.keyPair, fingerprint: updateInfo.publicKeyFingerprint },
@@ -238,12 +235,11 @@ export class KeyManager {
     return { publicKeyFingerprint, keyPair: keyPair, updatedSelf: updatedDelegator }
   }
 
-  private async loadKeysFromStorage(
+  private async loadStoredKeys(
     dataOwner: DataOwnerWithType,
-    pubKeysFingerprints: string[],
-    verifiedKeys: { [keyFingerprint: string]: boolean }
-  ): Promise<{ [pubKeyFingerprint: string]: KeyPairData }> {
-    return pubKeysFingerprints.reduce(async (acc, currentFingerprint) => {
+    pubKeysFingerprints: string[]
+  ): Promise<{ [pubKeyFingerprint: string]: { pair: KeyPair<CryptoKey>; isDevice: boolean } }> {
+    return await pubKeysFingerprints.reduce(async (acc, currentFingerprint) => {
       const awaitedAcc = await acc
       let loadedPair: { pair: KeyPair<CryptoKey>; isDevice: boolean } | undefined = undefined
       try {
@@ -255,15 +251,13 @@ export class KeyManager {
       } catch (e) {
         console.warn('Error while loading keypair', currentFingerprint, e)
       }
-      // Make sure that if for some reason the key is missing we still have proper boolean values in loaded map
-      const isVerified = loadedPair?.isDevice || verifiedKeys?.[currentFingerprint] === true
       return loadedPair
         ? {
             ...awaitedAcc,
-            [currentFingerprint]: { ...loadedPair, isVerified },
+            [currentFingerprint]: loadedPair,
           }
         : awaitedAcc
-    }, Promise.resolve({} as { [pubKeyFingerprint: string]: KeyPairData }))
+    }, Promise.resolve({} as { [pubKeyFingerprint: string]: { pair: KeyPair<CryptoKey>; isDevice: boolean } }))
   }
 
   private async loadParentKeys(self: DataOwnerWithType): Promise<void> {
@@ -277,7 +271,42 @@ export class KeyManager {
     this.parentKeys = res
   }
 
-  private plainKeysByFingerprint(richKeys: { [pubKeyFingerprint: string]: KeyPairData }): { [pubKeyFingerprint: string]: KeyPair<CryptoKey> } {
+  private async loadAndUpdateVerifiedKeysMap(
+    loadedKeys: { [fingerprint: string]: { pair: KeyPair<CryptoKey>; isDevice: boolean } },
+    dataOwner: DataOwnerWithType
+  ): Promise<{ [pubKeyFingerprint: string]: boolean }> {
+    const cached = await this.icureStorage.loadSelfVerifiedKeys(dataOwner.dataOwner.id!)
+    const cachedKeys = new Set(Object.keys(cached).map((x) => x.slice(-32)))
+    const loadedKeysDevice = new Set(
+      Object.entries(loadedKeys)
+        .filter(([_, x]) => x.isDevice)
+        .map(([x]) => x.slice(-32))
+    )
+    const unknownKeys = Array.from(this.dataOwnerApi.getHexPublicKeysOf(dataOwner.dataOwner)).filter((key) => {
+      const fp = key.slice(-32)
+      return !(cachedKeys.has(fp) || loadedKeysDevice.has(fp))
+    })
+    const strategyVerified = await this.strategies.verifyOwnPublicKeys(dataOwner.dataOwner, unknownKeys)
+    const merged = Object.fromEntries([
+      ...Object.entries(strategyVerified).map(([k, v]) => [k.slice(-32), v]),
+      ...Array.from(loadedKeysDevice).map((fp) => [fp, true]),
+    ])
+    await this.icureStorage.saveSelfVerifiedKeys(dataOwner.dataOwner.id!, merged)
+    return merged
+  }
+
+  private verifyKeys(
+    keys: { [pubKeyFingerprint: string]: { pair: KeyPair<CryptoKey>; isDevice: boolean } },
+    verifiedKeysMap: { [pubKeyFingerprint: string]: boolean }
+  ): { [pubKeyFingerprint: string]: KeyPairData } {
+    return Object.fromEntries(
+      Object.entries(keys).map(([fp, keyData]) => [fp, { ...keyData, isVerified: verifiedKeysMap?.[fp] === true }] as [string, KeyPairData])
+    )
+  }
+
+  private plainKeysByFingerprint(richKeys: { [pubKeyFingerprint: string]: { pair: KeyPair<CryptoKey> } }): {
+    [pubKeyFingerprint: string]: KeyPair<CryptoKey>
+  } {
     return Object.fromEntries(Object.entries(richKeys).map(([fp, keyData]) => [fp, keyData.pair]))
   }
 

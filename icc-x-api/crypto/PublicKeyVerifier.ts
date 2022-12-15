@@ -41,9 +41,16 @@ export interface PublicKeyVerifier {
    * - There would be no benefit in creating a transfer key from that public key which would never be used
    * - The key will still be usable for decryption if it can be recovered from the transfer keys.
    *
+   * The result of this method will be cached LOCALLY using a {@link StorageFacade}. During the initialisation of the crypto api this method will be
+   * called passing all public keys for which no answer was stored. For each public key the resulting object should have:
+   * - The public key associated to true if the key was verified by the user, and this result should be cached.
+   * - The public key associated to false if the key was not verified by the user, and this result should be cached.
+   * - No entry in the map for the public key if the key should be considered as not verified during this api instance, but the result should not be
+   *   cached. This means the next time you will instantiate the api you will be asked again to verify this public key.
+   *
    * @param self the data owner for the current user of the api.
    * @param publicKeys public keys requiring verification, in spki hex-encoded format.
    * @return all verified public keys, in spki hex-encoded format.
    */
-  verifyOwnPublicKeys(self: DataOwner, publicKeys: string[]): Promise<string[]>
+  verifyOwnPublicKeys(self: DataOwner, publicKeys: string[]): Promise<{ [pubKey: string]: boolean }>
 }
