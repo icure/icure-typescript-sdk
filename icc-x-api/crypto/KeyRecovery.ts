@@ -137,7 +137,12 @@ export class KeyRecovery {
         const decrypted = await this.tryDecryptSplitPiece(delegateAndEncryptedSplit, exchangeKeys, splitsCount)
         if (decrypted) decryptedSplits.push(ua2hex(decrypted))
       }
-      return await this.primitives.RSA.importKey('pkcs8', hex2ua(this.primitives.shamir.combine(decryptedSplits)), ['decrypt'])
+      try {
+        return await this.primitives.RSA.importKey('pkcs8', hex2ua(this.primitives.shamir.combine(decryptedSplits)), ['decrypt'])
+      } catch (e) {
+        // Could be not enough splits decrypted
+        return undefined
+      }
     }
   }
 

@@ -95,7 +95,7 @@ export class ExchangeKeysManager {
    * @throws if neither the delegator nor the delegate is part of the hierarchy of the current data owner.
    * @return all available exchange keys from the delegator-delegate pair.
    */
-  async getExchangeKeysFor(delegatorId: string, delegateId: string): Promise<CryptoKey[]> {
+  async getDecryptionExchangeKeysFor(delegatorId: string, delegateId: string): Promise<CryptoKey[]> {
     if (delegatorId === (await this.dataOwnerApi.getCurrentDataOwnerId())) {
       const keysWithVerification = await this.getSelfExchangeKeysTo(delegateId)
       return keysWithVerification.map((x) => x.key)
