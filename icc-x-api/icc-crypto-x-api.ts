@@ -30,6 +30,7 @@ import { KeyManager } from './crypto/KeyManager'
 import { DataOwner, IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { EntitiesEncryption } from './crypto/EntitiesEncryption'
 import { IcureStorageFacade } from './storage/IcureStorageFacade'
+import { ShamirKeysManager } from './crypto/ShamirKeysManager'
 
 interface DelegatorAndKeys {
   delegatorId: string
@@ -58,6 +59,7 @@ export class IccCryptoXApi {
   private readonly dataOwnerApi: IccDataOwnerXApi
   private readonly entitiesEncrypiton: EntitiesEncryption
   private readonly icureStorage: IcureStorageFacade
+  private readonly shamirManager: ShamirKeysManager
 
   get primitives(): CryptoPrimitives {
     return this.cryptoPrimitives
@@ -112,6 +114,10 @@ export class IccCryptoXApi {
 
   get userKeysManager(): KeyManager {
     return this.keyManager
+  }
+
+  get shamirKeysManager(): ShamirKeysManager {
+    return this.shamirKeysManager
   }
 
   hcPartyKeysCache: {
@@ -304,7 +310,8 @@ export class IccCryptoXApi {
   }
 
   /**
-   * TODO refactor
+   * @deprecated Use {@link ShamirKeysManager.updateSelfSplits} from {@link shamirKeysManager} instead. Note that the new method completely replaces
+   * all current values if a split for the provided key already exists.
    */
   encryptShamirRSAKey(hcp: HealthcareParty, notaries: Array<HealthcareParty>, threshold?: number): Promise<HealthcareParty> {
     return this.loadKeyPairImported(hcp.id!).then((keyPair) =>
@@ -346,14 +353,8 @@ export class IccCryptoXApi {
     )
   }
 
-  /* Reconstructs the hcp's private key from the notaries' shamir shares and stores it in localstorage.
-  The retrieval procedure of the shares is not designed or implemented yet.  Therefore, it currently only
-  works if the private key of the notaries are stored in local storage (e.g. notaries = [hcp parent]).
-   * @param hcp : the hcp whose key we want to reconstruct
-   * @param notaries : holders of the shamir shares
-  **/
   /**
-   * TODO refactor
+   * @deprecated You should not need this method anymore because the api will automatically try to recover the available shamir keys on startup.
    */
   async decryptShamirRSAKey(hcp: HealthcareParty, notaries: Array<HealthcareParty>): Promise<void> {
     try {
@@ -381,7 +382,7 @@ export class IccCryptoXApi {
           (queue, notary) => {
             return queue.then(async (shares: string[]) => {
               try {
-                // TODO: now, we get the encrypted shares in db and decrypt them. This assumes that the
+                // now, we get the encrypted shares in db and decrypt them. This assumes that the
                 // the notaries' private keys are in localstorage. We should implement a way for the notaries to
                 // give hcp the decrypted shares without having to also share their private keys.
                 const encryptedAesKeyMap = await this.getEncryptedAesExchangeKeys(hcp, notary.id!)
@@ -534,7 +535,7 @@ export class IccCryptoXApi {
   ): Promise<Array<DelegatorAndKeys>> {
     return await delegatorsHcPartyIdsSet.reduce(async (acc, delegator) => {
       const awaitedAcc = await acc
-      const keys = await this.exchangeKeysManager.getExchangeKeysFor(delegator, delegateHcPartyId)
+      const keys = await this.exchangeKeysManager.getDecryptionExchangeKeysFor(delegator, delegateHcPartyId)
       const keysForDelegator = await keys.reduce(async (accForKey, cryptoKey) => {
         const awaitedAccForKey = await accForKey
         const rawKey = ua2hex(await this.primitives.RSA.exportKey(cryptoKey, 'spki'))

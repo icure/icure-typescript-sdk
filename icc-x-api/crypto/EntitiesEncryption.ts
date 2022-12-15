@@ -444,7 +444,7 @@ export class EntitiesEncryption {
     delegation: Delegation,
     validateDecrypted: (result: string) => boolean | Promise<boolean>
   ): Promise<string | undefined> {
-    const exchangeKeys = await this.exchangeKeysManager.getExchangeKeysFor(delegation.owner!, delegation.delegatedTo!)
+    const exchangeKeys = await this.exchangeKeysManager.getDecryptionExchangeKeysFor(delegation.owner!, delegation.delegatedTo!)
     for (const key of exchangeKeys) {
       try {
         // Format of encrypted key for any delegation should be entityId:key, but with the merging of entities the entityId might not match the
