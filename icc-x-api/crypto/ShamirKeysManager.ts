@@ -23,9 +23,9 @@ export class ShamirKeysManager {
 
   /**
    * Get information on existing private keys splits for the provided data owner. For each private key of the provided data owner which has been
-   * split using the Shamir sharing algorithm gives the list of other data owners ids with whom the provided data owner has shared a part with.
+   * split using the Shamir sharing algorithm gives the list of the notaries (other data owners) which hold a copy of the key part.
    * @param dataOwner a data owner
-   * @return the existing splits for the current data owner as a publicKeyFingerprint -> idsOfDelegatesWithAShare object
+   * @return the existing splits for the current data owner as a publicKeyFingerprint -> notariesIds object
    */
   getExistingSplitsInfo(dataOwner: DataOwner): { [keyPairFingerprint: string]: string[] } {
     const legacyPartitionDelegates = Object.keys(dataOwner.privateKeyShamirPartitions ?? {})
@@ -40,15 +40,15 @@ export class ShamirKeysManager {
 
   /**
    * Creates, updates or deletes shamir splits for keys of the current data owner. Any request to update the splits for a specific key will completely
-   * replace any existing data on that split.
+   * replace any existing data on that split (all previous notaries will be ignored).
    * Note: currently you can only split the legacy key pair.
-   * @param keySplitsToUpdate the private keys which will have updated/new splits and the details on how to update/create these splits.
+   * @param keySplitsToUpdate the fingerprints of key pairs which will have updated/new splits and the details on how to create the updated splits.
    * @param keySplitsToDelete the fingerprints or hex-encoded spki public keys which will not be shared anymore.
    * @throws if the parameters refer to non-existing or unavailable keys, have split creation details, or if they request to delete a non-existing
    * split.
    */
   async updateSelfSplits(
-    keySplitsToUpdate: { [publicKeyHexOrFp: string]: { delegateIds: string[]; minShares: number } },
+    keySplitsToUpdate: { [publicKeyHexOrFp: string]: { notariesIds: string[]; minShares: number } },
     keySplitsToDelete: string[]
   ): Promise<DataOwnerWithType> {
     const self = await this.dataOwnerApi.getCurrentDataOwner()
@@ -68,7 +68,7 @@ export class ShamirKeysManager {
     }
     const delegatesKeys: { [delegateId: string]: CryptoKey } = {}
     let updatedSelf = self
-    for (const delegateId of new Set(Object.values(keySplitsToUpdate).flatMap((x) => x.delegateIds))) {
+    for (const delegateId of new Set(Object.values(keySplitsToUpdate).flatMap((x) => x.notariesIds))) {
       const res = await this.exchangeKeysManager.getOrCreateEncryptionExchangeKeysTo(delegateId)
       delegatesKeys[delegateId] = res.keys[0]
       if (res.updatedDelegator) {
@@ -76,7 +76,7 @@ export class ShamirKeysManager {
       }
     }
     for (const [key, params] of Object.entries(keySplitsToUpdate)) {
-      updatedSelf = await this.updateKeySplit(updatedSelf, key.slice(-32), params.delegateIds, params.minShares, delegatesKeys, allKeys)
+      updatedSelf = await this.updateKeySplit(updatedSelf, key.slice(-32), params.notariesIds, params.minShares, delegatesKeys, allKeys)
     }
     for (const keyFp of toDeleteSet) {
       updatedSelf = this.deleteKeySplit(updatedSelf, keyFp)
@@ -88,9 +88,9 @@ export class ShamirKeysManager {
    * Get suggested recovery keys: analyse transfer keys and shamir to get keys which should be shared with shamir for optimal recovery.
    */
 
-  private validateShamirParams(key: string, params: { delegateIds: string[]; minShares: number }) {
-    if (params.delegateIds.length > 0) {
-      if (params.minShares > params.delegateIds.length) {
+  private validateShamirParams(key: string, params: { notariesIds: string[]; minShares: number }) {
+    if (params.notariesIds.length > 0) {
+      if (params.minShares > params.notariesIds.length) {
         throw new Error(`Invalid parameters for key ${key}: min shares can't be greater than the number of delegates. ${params}`)
       }
     } else throw new Error(`Invalid parameters for key ${key}: must have at least one delegate. ${params}`)
