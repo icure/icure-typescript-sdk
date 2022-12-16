@@ -7,6 +7,7 @@ import * as _ from 'lodash'
 import * as moment from 'moment'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider } from './auth/AuthenticationProvider'
+import { CalendarItem } from '../icc-api/model/models'
 
 export class IccClassificationXApi extends IccClassificationApi {
   crypto: IccCryptoXApi
@@ -29,10 +30,17 @@ export class IccClassificationXApi extends IccClassificationApi {
     this.dataOwnerApi = dataOwnerApi
   }
 
-  newInstance(user: models.User, patient: models.Patient, c: any = {}, delegates: string[] = []): Promise<models.Classification> {
+  async newInstance(
+    user: models.User,
+    patient: models.Patient,
+    c: any = {},
+    delegates: string[] = [],
+    preferredSfk?: string,
+    delegationTags?: string[]
+  ): Promise<models.Classification> {
     const classification = _.assign(
       {
-        id: this.crypto.randomUuid(),
+        id: this.crypto.primitives.randomUuid(),
         _type: 'org.taktik.icure.entities.Classification',
         created: new Date().getTime(),
         modified: new Date().getTime(),
@@ -40,62 +48,34 @@ export class IccClassificationXApi extends IccClassificationApi {
         author: user.id,
         codes: [],
         tags: [],
-        healthElementId: this.crypto.randomUuid(),
+        healthElementId: this.crypto.primitives.randomUuid(),
         openingDate: parseInt(moment().format('YYYYMMDDHHmmss')),
       },
       c || {}
     )
 
-    return this.initDelegationsAndEncryptionKeys(user, patient, classification, delegates)
-  }
-
-  initDelegationsAndEncryptionKeys(
-    user: models.User,
-    patient: models.Patient,
-    classification: models.Classification,
-    delegates: string[] = []
-  ): Promise<models.Classification> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-    return this.crypto
-      .extractDelegationsSFKs(patient, dataOwnerId!)
-      .then((secretForeignKeys) => this.crypto.initObjectDelegations(classification, patient, dataOwnerId!, secretForeignKeys.extractedKeys[0]))
-      .then((initData) => {
-        _.extend(classification, {
-          delegations: initData.delegations,
-          cryptedForeignKeys: initData.cryptedForeignKeys,
-          secretForeignKeys: initData.secretForeignKeys,
-        })
-
-        let promise = Promise.resolve(classification)
-        _.uniq(
-          delegates.concat(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : [])
-        ).forEach(
-          (delegateId) =>
-            (promise = promise.then((classification) =>
-              this.crypto
-                .extendedDelegationsAndCryptedForeignKeys(classification, patient, dataOwnerId!, delegateId, initData.secretId)
-                .then((extraData) =>
-                  _.extend(classification, {
-                    delegations: extraData.delegations,
-                    cryptedForeignKeys: extraData.cryptedForeignKeys,
-                  })
-                )
-                .catch((e) => {
-                  console.log(e)
-                  return classification
-                })
-            ))
+    const ownerId = this.dataOwnerApi.getDataOwnerOf(user)
+    const sfk = patient ? preferredSfk ?? (await this.crypto.entities.secretIdsOf(patient, ownerId))[0] : undefined
+    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
+    return new models.Classification(
+      this.crypto.entities
+        .entityWithInitialisedEncryptionMetadata(
+          classification,
+          patient?.id,
+          sfk,
+          false, // TODO should we actually initialise encryption keys anyway, to have everything future proof?
+          extraDelegations,
+          delegationTags
         )
-
-        return promise
-      })
+        .then((x) => x.updatedEntity)
+    )
   }
 
-  findBy(hcpartyId: string, patient: models.Patient) {
-    return this.crypto
-      .extractDelegationsSFKs(patient, hcpartyId)
-      .then((secretForeignKeys) =>
-        this.findClassificationsByHCPartyPatientForeignKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(','))
-      )
+  async findBy(hcpartyId: string, patient: models.Patient) {
+    const extractedKeys = await this.crypto.entities.secretIdsOf(patient, hcpartyId)
+    const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0] // TODO should this really be topmost parent?
+    return extractedKeys && extractedKeys.length > 0
+      ? this.findClassificationsByHCPartyPatientForeignKeys(topmostParentId, _.uniq(extractedKeys).join(','))
+      : Promise.resolve([])
   }
 }

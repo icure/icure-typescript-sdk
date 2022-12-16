@@ -2,7 +2,7 @@ import * as i18n from './rsrc/contact.i18n'
 
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import { CalendarItem, User } from '../icc-api/model/models'
+import { AccessLog, CalendarItem, User } from '../icc-api/model/models'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 import { IccCalendarItemApi } from '../icc-api'
 import { crypt, decrypt, hex2ua, ua2utf8, utf8_2ua } from './utils'
@@ -38,10 +38,18 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
     return this.newInstancePatient(user, null, ci, delegates)
   }
 
-  newInstancePatient(user: models.User, patient: models.Patient | null, ci: any, delegates: string[] = []): Promise<models.CalendarItem> {
+  async newInstancePatient(
+    user: models.User,
+    patient: models.Patient | null,
+    ci: any,
+    delegates: string[] = [],
+    preferredSfk?: string,
+    delegationTags?: string[]
+  ): Promise<models.CalendarItem> {
+    if (!patient && preferredSfk) throw new Error('You need to specify parent patient in order to use secret foreign keys.')
     const calendarItem = _.extend(
       {
-        id: this.crypto.randomUuid(),
+        id: this.crypto.primitives.randomUuid(),
         _type: 'org.taktik.icure.entities.CalendarItem',
         created: new Date().getTime(),
         modified: new Date().getTime(),
@@ -53,47 +61,22 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
       ci || {}
     )
 
-    return this.initDelegationsAndEncryptionKeys(user, patient, calendarItem, delegates)
+    const ownerId = this.dataOwnerApi.getDataOwnerOf(user)
+    const sfk = patient ? preferredSfk ?? (await this.crypto.entities.secretIdsOf(patient, ownerId))[0] : undefined
+    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
+    return new CalendarItem(
+      this.crypto.entities
+        .entityWithInitialisedEncryptionMetadata(calendarItem, patient?.id, sfk, true, extraDelegations, delegationTags)
+        .then((x) => x.updatedEntity)
+    )
   }
 
-  initDelegationsAndEncryptionKeys(
-    user: models.User,
-    patient: models.Patient | null,
-    calendarItem: models.CalendarItem,
-    delegates: string[] = []
-  ): Promise<models.CalendarItem> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-
-    return this.crypto.extractDelegationsSFKs(patient, dataOwnerId!).then(async (secretForeignKeys) => {
-      const dels = await this.crypto.initObjectDelegations(calendarItem, patient, dataOwnerId!, secretForeignKeys.extractedKeys[0])
-      const eks = await this.crypto.initEncryptionKeys(calendarItem, dataOwnerId!)
-
-      _.extend(calendarItem, {
-        delegations: dels.delegations,
-        cryptedForeignKeys: dels.cryptedForeignKeys,
-        secretForeignKeys: dels.secretForeignKeys,
-        encryptionKeys: eks.encryptionKeys,
-      })
-
-      let promise = Promise.resolve(calendarItem)
-      _.uniq(
-        delegates.concat(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : [])
-      ).forEach(
-        (delegateId) =>
-          (promise = promise.then((contact) =>
-            this.crypto.addDelegationsAndEncryptionKeys(patient, contact, dataOwnerId!, delegateId, dels.secretId, eks.secretId)
-          ))
-      )
-      return promise
-    })
-  }
-
-  findBy(hcpartyId: string, patient: models.Patient) {
-    return this.crypto.extractDelegationsSFKs(patient, hcpartyId).then((secretForeignKeys) => {
-      return secretForeignKeys && secretForeignKeys.extractedKeys && secretForeignKeys.extractedKeys.length > 0
-        ? this.findByHCPartyPatientSecretFKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(','))
-        : Promise.resolve([])
-    })
+  async findBy(hcpartyId: string, patient: models.Patient) {
+    const extractedKeys = await this.crypto.entities.secretIdsOf(patient, hcpartyId)
+    const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0] // TODO should this really be topmost parent?
+    return extractedKeys && extractedKeys.length > 0
+      ? this.findByHCPartyPatientSecretFKeys(topmostParentId, _.uniq(extractedKeys).join(','))
+      : Promise.resolve([])
   }
 
   findByHCPartyPatientSecretFKeys(hcPartyId: string, secretFKeys: string): Promise<Array<models.CalendarItem> | any> {
@@ -199,90 +182,11 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
       : null
   }
 
-  initEncryptionKeys(user: models.User, calendarItem: models.CalendarItem): Promise<models.CalendarItem> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-
-    return this.crypto.initEncryptionKeys(calendarItem, dataOwnerId!).then((eks) => {
-      let promise = Promise.resolve(
-        _.extend(calendarItem, {
-          encryptionKeys: eks.encryptionKeys,
-        })
-      )
-      ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
-        (delegateId) =>
-          (promise = promise.then((item) =>
-            this.crypto.appendEncryptionKeys(item, dataOwnerId!, delegateId, eks.secretId).then((extraEks) => {
-              return _.extend(extraEks.modifiedObject, {
-                encryptionKeys: extraEks.encryptionKeys,
-              })
-            })
-          ))
-      )
-      return promise
-    })
-  }
-
   encrypt(user: models.User, calendarItems: Array<models.CalendarItem>): Promise<Array<models.CalendarItem>> {
-    return Promise.all(
-      calendarItems.map((calendarItem) =>
-        (calendarItem.encryptionKeys && Object.keys(calendarItem.encryptionKeys).length
-          ? Promise.resolve(calendarItem)
-          : this.initEncryptionKeys(user, calendarItem)
-        )
-          .then((calendarItem: CalendarItem) =>
-            this.crypto.extractKeysFromDelegationsForHcpHierarchy(
-              this.dataOwnerApi.getDataOwnerOf(user)!,
-              calendarItem.id!,
-              calendarItem.encryptionKeys!
-            )
-          )
-          .then((eks: { extractedKeys: Array<string>; hcpartyId: string }) =>
-            this.crypto.AES.importKey('raw', hex2ua(eks.extractedKeys[0].replace(/-/g, '')))
-          )
-          .then((key: CryptoKey) =>
-            crypt(calendarItem, (obj: { [key: string]: string }) => this.crypto.AES.encrypt(key, utf8_2ua(JSON.stringify(obj))), this.encryptedKeys)
-          )
-      )
-    )
+    return Promise.all(calendarItems.map((x) => this.crypto.entities.encryptEntity(x, user, this.encryptedKeys, (json) => new CalendarItem(json))))
   }
 
   decrypt(hcpId: string, calendarItems: Array<models.CalendarItem>): Promise<Array<models.CalendarItem>> {
-    //First check that we have no dangling delegation
-
-    return Promise.all(
-      calendarItems.map((calendarItem) => {
-        return calendarItem.encryptedSelf
-          ? this.crypto
-              .extractKeysFromDelegationsForHcpHierarchy(
-                hcpId!,
-                calendarItem.id!,
-                _.size(calendarItem.encryptionKeys) ? calendarItem.encryptionKeys! : calendarItem.delegations!
-              )
-              .then(({ extractedKeys: sfks }) => {
-                if (!sfks || !sfks.length) {
-                  return Promise.resolve(calendarItem)
-                }
-                return this.crypto.AES.importKey('raw', hex2ua(sfks[0].replace(/-/g, ''))).then((key) =>
-                  decrypt(calendarItem, (ec) =>
-                    this.crypto.AES.decrypt(key, ec)
-                      .then((dec) => {
-                        const jsonContent = dec && ua2utf8(dec)
-                        try {
-                          return JSON.parse(jsonContent)
-                        } catch (e) {
-                          console.log('Cannot parse calendar item', calendarItem.id, jsonContent || 'Invalid content')
-                          return {}
-                        }
-                      })
-                      .catch((err) => {
-                        console.log('Error during AES decryption', err)
-                        return {}
-                      })
-                  )
-                )
-              })
-          : Promise.resolve(calendarItem)
-      })
-    )
+    return Promise.all(calendarItems.map((x) => this.crypto.entities.decryptEntity(x, hcpId, (json) => new CalendarItem(json))))
   }
 }

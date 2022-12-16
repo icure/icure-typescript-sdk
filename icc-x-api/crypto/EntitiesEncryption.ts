@@ -1,11 +1,12 @@
 import { Delegation, EncryptedEntity } from '../../icc-api/model/models'
-import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
+import { DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { ExchangeKeysManager } from './ExchangeKeysManager'
-import { string2ua, ua2hex, ua2string } from '../utils'
+import { crypt, decrypt, string2ua, truncateTrailingNulls, ua2hex, ua2string, ua2utf8, utf8_2ua } from '../utils'
 import { hex2ua } from '@icure/api'
 import * as _ from 'lodash'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { arrayEquals } from '../utils/collection-utils'
+import * as models from '../../icc-api/model/models'
 
 /**
  * Give access to functions for retrieving encryption metadata of entities.
@@ -127,12 +128,16 @@ export class EntitiesEncryption {
   }
 
   /**
+   * @internal this method is intended only for internal use and may be changed without notice.
    * Initializes encryption metadata for an entity. This includes the encrypted secret id, parent id, and encryption key for the entity, and the clear
    * text secret foreign key of the parent entity.
    * This method creates an updated copy of the entity, and DOES NOT MODIFY the entity in place.
    * @param entity entity which requires encryption metadata initialisation.
    * @param parentEntityId id of the parent entity, if any.
    * @param parentSecretId secret id of the parent entity, to use in the secret foreign keys for the provided entity, if any.
+   * @param initialiseEncryptionKeys if false this method will not initialise any encryption keys. Use only for entities which use delegations for
+   * access control but don't actually have any encrypted content.
+   * @param additionalDelegations automatically shares the
    * @param tags tags to associate with the initial encryption keys and metadata
    * @throws if the entity already has non-empty values for encryption metadata.
    * @return an updated copy of the entity.
@@ -141,26 +146,36 @@ export class EntitiesEncryption {
     entity: T,
     parentEntityId: string | undefined,
     parentSecretId: string | undefined,
+    initialiseEncryptionKeys: boolean,
+    additionalDelegations: string[] = [],
     tags: string[] = []
   ): Promise<{
     updatedEntity: T
-    rawEncryptionKey: string
+    rawEncryptionKey: string | undefined
     secretId: string
   }> {
     this.throwDetailedExceptionForInvalidParameter('entity.id', entity.id, 'entityWithInitialisedEncryptionMetadata', arguments)
     this.checkEmptyEncryptionMetadata(entity)
     const secretId = this.primitives.randomUuid()
-    const rawEncryptionKey = ua2hex(this.primitives.randomBytes(16))
-    const updatedEntity = await this.createOrUpdateEntityDelegations(
-      entity,
-      await this.dataOwnerApi.getCurrentDataOwnerId(),
-      [],
-      [],
-      [],
-      [secretId],
-      [rawEncryptionKey],
-      parentEntityId ? [parentEntityId] : [],
-      tags
+    const rawEncryptionKey = initialiseEncryptionKeys ? ua2hex(this.primitives.randomBytes(16)) : undefined
+    const selfId = await this.dataOwnerApi.getCurrentDataOwnerId()
+    const allIds = [selfId, ...new Set(additionalDelegations.filter((x) => x !== selfId))]
+    const loadKeysResult = await this.loadEncryptionKeysForDelegates(entity, allIds)
+    const updatedEntity = await allIds.reduce(
+      async (prevUpdate, delegateId) =>
+        await this.createOrUpdateEntityDelegations(
+          await prevUpdate,
+          delegateId,
+          [],
+          [],
+          [],
+          [secretId],
+          initialiseEncryptionKeys ? [rawEncryptionKey!] : [],
+          parentEntityId ? [parentEntityId] : [],
+          tags,
+          loadKeysResult.keysForDelegates
+        ),
+      Promise.resolve(loadKeysResult.updatedEntity)
     )
     if (parentSecretId) {
       updatedEntity.secretForeignKeys = [parentSecretId]
@@ -251,8 +266,15 @@ export class EntitiesEncryption {
     if (deduplicateInfoSecretIds.missingEntries.length === 0 && !deduplicateInfoSecretIds.deduplicatedDelegations.some((d) => d.owner === selfId)) {
       deduplicateInfoSecretIds.missingEntries.push(this.primitives.randomUuid())
     }
+    if (
+      deduplicateInfoSecretIds.missingEntries.length === 0 &&
+      deduplicateInfoEncryptionKeys.missingEntries.length === 0 &&
+      deduplicateInfoParentIds.missingEntries.length === 0
+    )
+      return entity
+    const { updatedEntity, keysForDelegates } = await this.loadEncryptionKeysForDelegates(entity, [delegateId])
     return this.createOrUpdateEntityDelegations(
-      entity,
+      updatedEntity,
       delegateId,
       deduplicateInfoSecretIds.deduplicatedDelegations,
       deduplicateInfoEncryptionKeys.deduplicatedDelegations,
@@ -260,7 +282,8 @@ export class EntitiesEncryption {
       deduplicateInfoSecretIds.missingEntries,
       deduplicateInfoEncryptionKeys.missingEntries,
       deduplicateInfoParentIds.missingEntries,
-      newTags
+      newTags,
+      keysForDelegates
     )
   }
 
@@ -359,6 +382,83 @@ export class EntitiesEncryption {
     }
     throw new Error(
       `No valid key found to decrypt data of ${entity.id} for data owner ${dataOwnerId ?? (await this.dataOwnerApi.getCurrentDataOwnerId())}.`
+    )
+  }
+
+  /**
+   * @internal this method is intended for internal use only and may be changed without notice.
+   * Encrypts the content of an encrypted entity.
+   */
+  async decryptEntity<T extends EncryptedEntity>(entity: T, ownerId: string, constructor: (json: any) => T): Promise<T> {
+    if (!entity.encryptedSelf) return constructor(entity)
+    const encryptionKeys = await this.importAllValidKeys(await this.encryptionKeysOf(entity, ownerId))
+    if (encryptionKeys.length === 0) return constructor(entity)
+    return constructor(
+      decrypt(entity, async (encrypted) => {
+        return (await this.tryDecryptJson(encryptionKeys, encrypted, false)) ?? {}
+      })
+    )
+  }
+
+  /**
+   * @internal this method is intended for internal use only and may be changed without notice.
+   * Tries using the provided keys to decrypt some json.
+   */
+  async tryDecryptJson(
+    potentialKeys: { key: CryptoKey; raw: string }[],
+    encrypted: Uint8Array,
+    truncateTrailingDecryptedNulls: boolean
+  ): Promise<any | undefined> {
+    for (const key of potentialKeys) {
+      try {
+        const decrypted = (await this.primitives.AES.decrypt(key.key, encrypted, key.raw)) ?? encrypted
+        return JSON.parse(ua2utf8(truncateTrailingDecryptedNulls ? truncateTrailingNulls(new Uint8Array(decrypted)) : decrypted))
+      } catch (e) {}
+    }
+    return undefined
+  }
+
+  /**
+   * @internal this method is intended for internal use only and may be changed without notice.
+   * Encrypts the content of an encrypted entity.
+   */
+  async encryptEntity<T extends EncryptedEntity>(entity: T, user: models.User, cryptedKeys: string[], constructor: (json: any) => T): Promise<T> {
+    const entityWithInitialisedEncryptionKeys = await this.ensureEncryptionKeysInitialised(entity)
+    const encryptionKey = await this.importFirstValidKey(await this.encryptionKeysOf(entity, this.dataOwnerApi.getDataOwnerOf(user)), entity.id!)
+    return constructor(
+      await crypt(
+        entityWithInitialisedEncryptionKeys,
+        (obj) => this.primitives.AES.encrypt(encryptionKey.key, utf8_2ua(JSON.stringify(obj)), encryptionKey.raw),
+        cryptedKeys
+      )
+    )
+  }
+
+  /**
+   * @internal This method is for internal use only and may be changed without notice.
+   * Ensures that the encryption keys of an entity are initialised. If not will throw an exception or initialise them depending on the content of
+   * the entity. This function supports migration of entities using older encryption schemes (delegation only without encrypted keys) or entities
+   * which were previously not encrypted.
+   */
+  async ensureEncryptionKeysInitialised<T extends EncryptedEntity>(entity: T): Promise<T> {
+    if (Object.keys(entity.encryptionKeys ?? {}).length > 0) return entity
+    if (entity.rev) {
+      throw new Error(
+        'New encrypted entity is lacking encryption metadata. ' +
+          'Please instantiate new entities using the `newInstance` method from the respective extended api.'
+      )
+    }
+    /*TODO
+     * If entity was using delegations as legacy encryption keys we will essentially revoke the access to the encrypted data for all other data
+     * owners. Should we automatically add delegations for other existing data owners if there is already a value for encrypted entity?
+     * Note: if an entity was not encryptable in the past but it is now encrypted entity will be empty.
+     */
+    return await this.entityWithShareMetadata(
+      entity,
+      await this.dataOwnerApi.getCurrentDataOwnerId(),
+      false,
+      [ua2hex(this.primitives.randomBytes(16))],
+      false
     )
   }
 
@@ -473,6 +573,29 @@ export class EntitiesEncryption {
     }
   }
 
+  /**
+   * @internal this method is for internal use only and may be changed without notice.
+   */
+  async importFirstValidKey(keys: string[], entityId: string): Promise<{ key: CryptoKey; raw: string }> {
+    for (const key of keys) {
+      const imported = await this.tryImportKey(key)
+      if (imported) return { key: imported, raw: key }
+    }
+    throw new Error(`Could not find any valid key for entity ${entityId}.`)
+  }
+
+  /**
+   * @internal this method is for internal use only and may be changed without notice.
+   */
+  async importAllValidKeys(keys: string[]): Promise<{ key: CryptoKey; raw: string }[]> {
+    const res = []
+    for (const key of keys) {
+      const imported = await this.tryImportKey(key)
+      if (imported) res.push({ key: imported, raw: key })
+    }
+    return res
+  }
+
   private async validateEncryptionKey(key: string): Promise<boolean> {
     return !!(await this.tryImportKey(key))
   }
@@ -535,6 +658,31 @@ export class EntitiesEncryption {
     }
   }
 
+  private async loadEncryptionKeysForDelegates<T extends EncryptedEntity>(
+    entity: T,
+    delegates: string[]
+  ): Promise<{ updatedEntity: T; keysForDelegates: { [delegateId: string]: CryptoKey[] } }> {
+    const { updatedDelegator, keysForDelegates } = await delegates.reduce(
+      async (acc, delegateId) => {
+        const awaitedAcc = await acc
+        const currUpdateResult = await this.exchangeKeysManager.getOrCreateEncryptionExchangeKeysTo(delegateId)
+        return {
+          updatedDelegator: currUpdateResult.updatedDelegator ?? awaitedAcc.updatedDelegator,
+          keysForDelegates: {
+            ...awaitedAcc.keysForDelegates,
+            [delegateId]: currUpdateResult.keys,
+          },
+        }
+      },
+      Promise.resolve({
+        updatedDelegator: undefined as DataOwnerWithType | undefined,
+        keysForDelegates: {} as { [delegateId: string]: CryptoKey[] },
+      })
+    )
+    const updatedEntity = entity.id === updatedDelegator?.dataOwner?.id ? (updatedDelegator!.dataOwner as T) : entity
+    return { updatedEntity, keysForDelegates }
+  }
+
   private async createOrUpdateEntityDelegations<T extends EncryptedEntity>(
     entity: T,
     delegateId: string,
@@ -544,13 +692,12 @@ export class EntitiesEncryption {
     newSecretIds: string[],
     newEncryptionKeys: string[],
     newParentIds: string[],
-    newTags: string[]
+    newTags: string[],
+    keysForDelegates: { [delegateId: string]: CryptoKey[] }
   ): Promise<T> {
-    if (newSecretIds.length == 0 && newEncryptionKeys.length == 0 && newParentIds.length == 0) return entity
-    const { updatedDelegator, keys: encryptionKeys } = await this.exchangeKeysManager.getOrCreateEncryptionExchangeKeysTo(delegateId)
-    const updatedEntity = entity.id == updatedDelegator?.dataOwner?.id ? (updatedDelegator!.dataOwner as T) : entity
-    const chosenKey = encryptionKeys[0]
-    const entityCopy = { ...updatedEntity }
+    if (newSecretIds.length === 0 && newEncryptionKeys.length === 0 && newParentIds.length === 0) return entity
+    const chosenKey = keysForDelegates[delegateId][0]
+    const entityCopy = { ...entity }
     const updatedSecretIds = [
       ...existingSecretIds,
       ...(await Promise.all(newSecretIds.map((x) => this.createSecretIdDelegation(entity.id!, delegateId, chosenKey, x, newTags)))),
