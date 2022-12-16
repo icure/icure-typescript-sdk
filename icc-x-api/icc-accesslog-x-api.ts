@@ -1,11 +1,8 @@
 import { IccAccesslogApi } from '../icc-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
-
 import * as models from '../icc-api/model/models'
 import { AccessLog, PaginatedListAccessLog } from '../icc-api/model/models'
-
 import * as _ from 'lodash'
-import { crypt, decrypt, hex2ua, ua2utf8, utf8_2ua } from './utils'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider } from './auth/AuthenticationProvider'
 
@@ -35,12 +32,12 @@ export class IccAccesslogXApi extends IccAccesslogApi {
     this.dataOwnerApi = dataOwnerApi
   }
 
-  newInstance(user: models.User, patient: models.Patient, h: any) {
+  async newInstance(user: models.User, patient: models.Patient, h: any, preferredSfk?: string, delegationTags?: string[]) {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
 
-    const accessslog = _.assign(
+    const accessLog = _.assign(
       {
-        id: this.crypto.randomUuid(),
+        id: this.crypto.primitives.randomUuid(),
         _type: 'org.taktik.icure.entities.AccessLog',
         created: new Date().getTime(),
         modified: new Date().getTime(),
@@ -56,29 +53,14 @@ export class IccAccesslogXApi extends IccAccesslogApi {
       h || {}
     )
 
-    return this.crypto.extractDelegationsSFKs(patient, dataOwnerId).then(async (secretForeignKeys) => {
-      const dels = await this.crypto.initObjectDelegations(accessslog, patient, dataOwnerId!, secretForeignKeys.extractedKeys[0])
-      const eks = await this.crypto.initEncryptionKeys(accessslog, dataOwnerId!)
-
-      _.extend(accessslog, {
-        delegations: dels.delegations,
-        cryptedForeignKeys: dels.cryptedForeignKeys,
-        secretForeignKeys: dels.secretForeignKeys,
-        encryptionKeys: eks.encryptionKeys,
-      })
-
-      let promise = Promise.resolve(accessslog)
-      ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
-        (delegateId) =>
-          (promise = promise.then(() =>
-            this.crypto.addDelegationsAndEncryptionKeys(patient, accessslog, dataOwnerId!, delegateId, dels.secretId, eks.secretId).catch((e) => {
-              console.log(e)
-              return accessslog
-            })
-          ))
-      )
-      return promise
-    })
+    const ownerId = this.dataOwnerApi.getDataOwnerOf(user)
+    const sfk = preferredSfk ?? (await this.crypto.entities.secretIdsOf(patient, ownerId))[0]
+    const extraDelegations = [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
+    return new AccessLog(
+      this.crypto.entities
+        .entityWithInitialisedEncryptionMetadata(accessLog, patient.id, sfk, true, extraDelegations, delegationTags)
+        .then((x) => x.updatedEntity)
+    )
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -99,14 +81,12 @@ export class IccAccesslogXApi extends IccAccesslogApi {
    * @param keepObsoleteVersions
    */
 
-  findBy(hcpartyId: string, patient: models.Patient) {
-    return this.crypto
-      .extractDelegationsSFKs(patient, hcpartyId)
-      .then((secretForeignKeys) =>
-        secretForeignKeys && secretForeignKeys.extractedKeys && secretForeignKeys.extractedKeys.length > 0
-          ? this.findByHCPartyPatientSecretFKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(','))
-          : Promise.resolve([])
-      )
+  async findBy(hcpartyId: string, patient: models.Patient) {
+    const extractedKeys = await this.crypto.entities.secretIdsOf(patient, hcpartyId)
+    const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0] // TODO should this really be topmost parent?
+    return extractedKeys && extractedKeys.length > 0
+      ? this.findByHCPartyPatientSecretFKeys(topmostParentId, _.uniq(extractedKeys).join(','))
+      : Promise.resolve([])
   }
 
   findByHCPartyPatientSecretFKeys(hcPartyId: string, secretFKeys: string): Promise<Array<AccessLog> | any> {
@@ -114,85 +94,11 @@ export class IccAccesslogXApi extends IccAccesslogApi {
   }
 
   decrypt(hcpId: string, accessLogs: Array<models.AccessLog>): Promise<Array<models.AccessLog>> {
-    //First check that we have no dangling delegation
-
-    return Promise.all(
-      accessLogs.map((accessLog) => {
-        return accessLog.encryptedSelf
-          ? this.crypto
-              .extractKeysFromDelegationsForHcpHierarchy(
-                hcpId!,
-                accessLog.id!,
-                _.size(accessLog.encryptionKeys) ? accessLog.encryptionKeys! : accessLog.delegations!
-              )
-              .then(({ extractedKeys: sfks }) => {
-                if (!sfks || !sfks.length) {
-                  //console.log("Cannot decrypt contact", ctc.id)
-                  return Promise.resolve(accessLog)
-                }
-                return this.crypto.AES.importKey('raw', hex2ua(sfks[0].replace(/-/g, ''))).then((key) =>
-                  decrypt(accessLog, (ec) =>
-                    this.crypto.AES.decrypt(key, ec).then((dec) => {
-                      const jsonContent = dec && ua2utf8(dec)
-                      try {
-                        return JSON.parse(jsonContent)
-                      } catch (e) {
-                        console.log('Cannot parse access log', accessLog.id, jsonContent || 'Invalid content')
-                        return {}
-                      }
-                    })
-                  )
-                )
-              })
-          : Promise.resolve(accessLog)
-      })
-    )
-  }
-
-  initEncryptionKeys(user: models.User, accessLog: models.AccessLog): Promise<models.AccessLog> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-
-    return this.crypto.initEncryptionKeys(accessLog, dataOwnerId!).then((eks) => {
-      let promise = Promise.resolve(
-        _.extend(accessLog, {
-          encryptionKeys: eks.encryptionKeys,
-        })
-      )
-      ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
-        (delegateId) =>
-          (promise = promise.then((accessLog) =>
-            this.crypto.appendEncryptionKeys(accessLog, dataOwnerId!, delegateId, eks.secretId).then((extraEks) => {
-              return _.extend(extraEks.modifiedObject, {
-                encryptionKeys: extraEks.encryptionKeys,
-              })
-            })
-          ))
-      )
-      return promise
-    })
+    return Promise.all(accessLogs.map((x) => this.crypto.entities.decryptEntity(x, hcpId, (json) => new AccessLog(json))))
   }
 
   encrypt(user: models.User, accessLogs: Array<models.AccessLog>): Promise<Array<models.AccessLog>> {
-    return Promise.all(
-      accessLogs.map((accessLog) =>
-        (accessLog.encryptionKeys && Object.keys(accessLog.encryptionKeys).length
-          ? Promise.resolve(accessLog)
-          : this.initEncryptionKeys(user, accessLog)
-        )
-          .then((accessLog: AccessLog) =>
-            this.crypto.extractKeysFromDelegationsForHcpHierarchy(this.dataOwnerApi.getDataOwnerOf(user)!, accessLog.id!, accessLog.encryptionKeys!)
-          )
-          .then(async (eks: { extractedKeys: Array<string>; hcpartyId: string }) => {
-            const rawKey = eks.extractedKeys[0].replace(/-/g, '')
-            const key = await this.crypto.AES.importKey('raw', hex2ua(rawKey))
-            return crypt(
-              accessLog,
-              (obj: { [key: string]: string }) => this.crypto.AES.encrypt(key, utf8_2ua(JSON.stringify(obj)), rawKey),
-              this.cryptedKeys
-            )
-          })
-      )
-    )
+    return Promise.all(accessLogs.map((x) => this.crypto.entities.encryptEntity(x, user, this.cryptedKeys, (json) => new AccessLog(json))))
   }
 
   createAccessLog(body?: models.AccessLog): never {
@@ -302,11 +208,11 @@ export class IccAccesslogXApi extends IccAccesslogApi {
         (decryptedLogs) =>
           Promise.all(
             _.map(decryptedLogs, (decryptedLog) => {
-              return this.crypto.extractCryptedFKs(decryptedLog, user.healthcarePartyId as string).then(
+              return this.crypto.entities.parentIdsOf(decryptedLog, user.healthcarePartyId as string).then(
                 (keys) =>
                   ({
                     ...decryptedLog,
-                    patientId: _.head(keys.extractedKeys),
+                    patientId: _.head(keys),
                   } as AccessLogWithPatientId)
               )
             })

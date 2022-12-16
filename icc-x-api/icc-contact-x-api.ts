@@ -6,13 +6,15 @@ import i18n from './rsrc/contact.i18n'
 import * as moment from 'moment'
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import { Contact, FilterChainService, ListOfIds, Service } from '../icc-api/model/models'
+import { AccessLog, Contact, FilterChainService, ListOfIds, Service } from '../icc-api/model/models'
 import { PaginatedListContact } from '../icc-api/model/PaginatedListContact'
 import { a2b, b2a, hex2ua, string2ua, ua2string, ua2utf8, utf8_2ua } from './utils/binary-utils'
 import { ServiceByIdsFilter } from './filters/ServiceByIdsFilter'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { truncateTrailingNulls, before } from './utils'
 import { AuthenticationProvider } from './auth/AuthenticationProvider'
+import { webcrypto } from 'crypto'
+import CryptoKey = module
 
 export class IccContactXApi extends IccContactApi {
   i18n: any = i18n
@@ -36,11 +38,19 @@ export class IccContactXApi extends IccContactApi {
     this.dataOwnerApi = dataOwnerApi
   }
 
-  newInstance(user: models.User, patient: models.Patient, c: any, confidential = false, delegates: string[] = []): Promise<models.Contact> {
+  async newInstance(
+    user: models.User,
+    patient: models.Patient,
+    c: any,
+    confidential = false, // TODO confidential
+    delegates: string[] = [],
+    preferredSfk?: string,
+    delegationTags?: string[]
+  ): Promise<models.Contact> {
     const contact = new models.Contact(
       _.extend(
         {
-          id: this.crypto.randomUuid(),
+          id: this.crypto.primitives.randomUuid(),
           _type: 'org.taktik.icure.entities.Contact',
           created: new Date().getTime(),
           modified: new Date().getTime(),
@@ -48,7 +58,7 @@ export class IccContactXApi extends IccContactApi {
           author: user.id,
           codes: [],
           tags: [],
-          groupId: this.crypto.randomUuid(),
+          groupId: this.crypto.primitives.randomUuid(),
           subContacts: [],
           services: [],
           openingDate: parseInt(moment().format('YYYYMMDDHHmmss')),
@@ -57,96 +67,41 @@ export class IccContactXApi extends IccContactApi {
       )
     )
 
-    return this.initDelegationsAndEncryptionKeys(user, patient, contact, confidential, delegates)
-  }
-
-  /**
-   * 1. Extract(decrypt) the patient's secretForeignKeys from the
-   * "delegations" object.
-   * 2. Initialize & encrypt the Contact's delegations & cryptedForeignKeys.
-   * 3. Initialize & encrypt the Contact's encryptionKeys.
-   * 4. Return the contact with the extended delegations, cryptedForeignKeys
-   * & encryptionKeys.
-   */
-  private initDelegationsAndEncryptionKeys(
-    user: models.User,
-    patient: models.Patient,
-    contact: models.Contact,
-    confidential = false,
-    delegates: string[] = []
-  ): Promise<models.Contact> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-
-    return this.crypto.extractPreferredSfk(patient, dataOwnerId!, confidential).then(async (key) => {
-      if (!key) {
-        console.error(`SFK cannot be found for Contact ${key}. The contact will not be reachable from the patient side`)
-      }
-      const dels = await this.crypto.initObjectDelegations(contact, patient, dataOwnerId!, key ?? null)
-      const eks = await this.crypto.initEncryptionKeys(contact, dataOwnerId!)
-      _.extend(contact, {
-        delegations: dels.delegations,
-        cryptedForeignKeys: dels.cryptedForeignKeys,
-        secretForeignKeys: dels.secretForeignKeys,
-        encryptionKeys: eks.encryptionKeys,
-      })
-
-      let promise = Promise.resolve(contact)
-      _.uniq(
-        delegates.concat(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : [])
-      ).forEach(
-        (delegateId) =>
-          (promise = promise.then((contact) =>
-            this.crypto.addDelegationsAndEncryptionKeys(patient, contact, dataOwnerId!, delegateId, dels.secretId, eks.secretId).catch((e) => {
-              console.log(e)
-              return contact
-            })
-          ))
+    const ownerId = this.dataOwnerApi.getDataOwnerOf(user)
+    if (confidential) {
+      console.warn('The concept of confidential will be removed from the iCure API: use delegation tags, tag filters and preferred Sfk instead')
+    }
+    const sfk =
+      preferredSfk ??
+      (
+        await this.crypto.entities.secretIdsOf(patient, ownerId, (tags) =>
+          Promise.resolve(!confidential || tags.some((tag) => tag === 'confidential'))
+        )
+      )[0]
+    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
+    const initialisationInfo = await this.crypto.entities.entityWithInitialisedEncryptionMetadata(
+      contact,
+      patient.id,
+      sfk,
+      true,
+      extraDelegations,
+      (delegationTags && delegationTags.length) || !confidential ? delegationTags : ['confidential']
+    )
+    const anonymousDelegations = user.autoDelegations?.anonymousMedicalInformation ?? []
+    return new models.Contact(
+      await anonymousDelegations.reduce(
+        async (updatedContact, delegate) =>
+          await this.crypto.entities.entityWithShareMetadata(
+            await updatedContact,
+            delegate,
+            false,
+            [initialisationInfo.rawEncryptionKey!],
+            [patient.id!], // TODO Are we sure we want to share parent id for who can access anonymous medical info?
+            [] // TODO No tags for who uses anonymous info?
+          ),
+        Promise.resolve(initialisationInfo.updatedEntity)
       )
-      ;(user.autoDelegations && user.autoDelegations.anonymousMedicalInformation ? user.autoDelegations.anonymousMedicalInformation : []).forEach(
-        (delegateId) =>
-          (promise = promise.then((contact) =>
-            this.crypto.addDelegationsAndEncryptionKeys(patient, contact, dataOwnerId!, delegateId, null, eks.secretId).catch((e) => {
-              console.log(e)
-              return contact
-            })
-          ))
-      )
-      return promise
-    })
-  }
-
-  initEncryptionKeys(user: models.User, ctc: models.Contact) {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-
-    return this.crypto.initEncryptionKeys(ctc, dataOwnerId!).then((eks) => {
-      let promise = Promise.resolve(
-        _.extend(ctc, {
-          encryptionKeys: eks.encryptionKeys,
-        })
-      )
-      ;(user.autoDelegations
-        ? (user.autoDelegations.all || [])
-            .concat(user.autoDelegations.medicalInformation || [])
-            .concat(user.autoDelegations.anonymousMedicalInformation || [])
-        : []
-      ).forEach(
-        (delegateId) =>
-          (promise = promise.then((contact) =>
-            this.crypto
-              .appendEncryptionKeys(contact, dataOwnerId!, delegateId, eks.secretId)
-              .then((extraEks) => {
-                return _.extend(extraEks.modifiedObject, {
-                  encryptionKeys: extraEks.encryptionKeys,
-                })
-              })
-              .catch((e) => {
-                console.log(e.message)
-                return contact
-              })
-          ))
-      )
-      return promise
-    })
+    )
   }
 
   /**
@@ -164,16 +119,17 @@ export class IccContactXApi extends IccContactApi {
    * @param hcpartyId
    * @param patient (Promise)
    */
-  findBy(hcpartyId: string, patient: models.Patient) {
-    return this.crypto.extractSFKsHierarchyFromDelegations(patient, hcpartyId).then((secretForeignKeys) =>
-      secretForeignKeys && secretForeignKeys.length > 0
+  async findBy(hcpartyId: string, patient: models.Patient) {
+    // TODO unlike previous ones this uses full hierarchy...
+    return await this.crypto.entities.secretIdsForHcpHierarchyOf(patient).then((keysHierarchy) =>
+      keysHierarchy && keysHierarchy.length > 0
         ? Promise.all(
-            secretForeignKeys
+            keysHierarchy
               .reduce((acc, level) => {
                 return acc.concat([
                   {
-                    hcpartyId: level.hcpartyId,
-                    extractedKeys: level.extractedKeys.filter((key) => !acc.some((previousLevel) => previousLevel.extractedKeys.includes(key))),
+                    hcpartyId: level.ownerId,
+                    extractedKeys: level.extracted.filter((key) => !acc.some((previousLevel) => previousLevel.extractedKeys.includes(key))),
                   },
                 ])
               }, [] as Array<{ hcpartyId: string; extractedKeys: Array<string> }>)
@@ -187,12 +143,12 @@ export class IccContactXApi extends IccContactApi {
   async findByPatientSFKs(hcpartyId: string, patients: Array<models.Patient>): Promise<Array<models.Contact>> {
     const perHcpId: { [key: string]: string[] } = {}
     for (const patient of patients) {
-      ;(await this.crypto.extractSFKsHierarchyFromDelegations(patient, hcpartyId))
+      ;(await this.crypto.entities.secretIdsForHcpHierarchyOf(patient))
         .reduce((acc, level) => {
           return acc.concat([
             {
-              hcpartyId: level.hcpartyId,
-              extractedKeys: level.extractedKeys.filter((key) => !acc.some((previousLevel) => previousLevel.extractedKeys.includes(key))),
+              hcpartyId: level.ownerId,
+              extractedKeys: level.extracted.filter((key) => !acc.some((previousLevel) => previousLevel.extractedKeys.includes(key))),
             },
           ])
         }, [] as Array<{ hcpartyId: string; extractedKeys: Array<string> }>)
@@ -301,7 +257,7 @@ export class IccContactXApi extends IccContactApi {
   listServicesWithUser(user: models.User, serviceIds: ListOfIds): Promise<Array<Service> | any> {
     return super
       .filterServicesBy(undefined, serviceIds.ids?.length, new FilterChainService({ filter: new ServiceByIdsFilter({ ids: serviceIds.ids }) }))
-      .then((paginatedList) => this.decryptServices(user.healthcarePartyId! || user.patientId!, paginatedList.rows ?? [], undefined, undefined))
+      .then((paginatedList) => this.decryptServices(user.healthcarePartyId! || user.patientId!, paginatedList.rows ?? [], undefined))
   }
 
   findByHCPartyFormIdWithUser(user: models.User, hcPartyId: string, formId: string): Promise<Array<models.Contact> | any> {
@@ -396,7 +352,9 @@ export class IccContactXApi extends IccContactApi {
             )
           )
         } else {
-          svc.encryptedSelf = b2a(ua2string(await this.crypto.AES.encrypt(key, utf8_2ua(JSON.stringify({ content: svc.content })), rawKey)))
+          svc.encryptedSelf = b2a(
+            ua2string(await this.crypto.primitives.AES.encrypt(key, utf8_2ua(JSON.stringify({ content: svc.content })), rawKey))
+          )
           delete svc.content
         }
         return svc
@@ -412,17 +370,14 @@ export class IccContactXApi extends IccContactApi {
       ctcs.map(async (ctc) => {
         const initialisedCtc = bypassEncryption //Prevent encryption for test ctc
           ? ctc
-          : await (ctc.encryptionKeys && Object.keys(ctc.encryptionKeys || {}).length ? Promise.resolve(ctc) : this.initEncryptionKeys(user, ctc))
+          : await this.crypto.entities.ensureEncryptionKeysInitialised(ctc)
 
-        const sfks: {
-          extractedKeys: Array<string>
-          hcpartyId: string
-        } = await this.crypto.extractKeysFromDelegationsForHcpHierarchy(hcpartyId, initialisedCtc.id!, initialisedCtc.encryptionKeys!)
-        const rawKey = sfks.extractedKeys[0].replace(/-/g, '')
-        const key = await this.crypto.AES.importKey('raw', hex2ua(rawKey))
+        const encryptionKey = await this.crypto.entities.importFirstValidKey(await this.crypto.entities.encryptionKeysOf(ctc, hcpartyId), ctc.id!)
 
-        initialisedCtc.services = await this.encryptServices(key, rawKey, ctc.services || [])
-        initialisedCtc.encryptedSelf = b2a(ua2string(await this.crypto.AES.encrypt(key, utf8_2ua(JSON.stringify({ descr: ctc.descr })), rawKey)))
+        initialisedCtc.services = await this.encryptServices(encryptionKey.key, encryptionKey.raw, ctc.services || [])
+        initialisedCtc.encryptedSelf = b2a(
+          ua2string(await this.crypto.primitives.AES.encrypt(encryptionKey.key, utf8_2ua(JSON.stringify({ descr: ctc.descr })), encryptionKey.raw))
+        )
         delete initialisedCtc.descr
 
         return initialisedCtc
@@ -433,31 +388,22 @@ export class IccContactXApi extends IccContactApi {
   decrypt(hcpartyId: string, ctcs: Array<models.Contact>): Promise<Array<models.Contact>> {
     return Promise.all(
       ctcs.map(async (ctc) => {
-        const { extractedKeys: sfks } = await this.crypto.extractKeysFromDelegationsForHcpHierarchy(
-          hcpartyId,
-          ctc.id!,
-          _.size(ctc.encryptionKeys) ? ctc.encryptionKeys! : ctc.delegations!
-        )
-        if (!sfks || !sfks.length) {
+        const keys = await this.crypto.entities.importAllValidKeys(await this.crypto.entities.encryptionKeysOf(ctc, hcpartyId))
+        if (!keys || !keys.length) {
           console.log('Cannot decrypt contact', ctc.id)
           return ctc
         }
-        const rawKey = sfks[0].replace(/-/g, '')
-        const key = await this.crypto.AES.importKey('raw', hex2ua(rawKey))
-
-        ctc.services = await this.decryptServices(hcpartyId, ctc.services || [], key, rawKey)
+        ctc.services = await this.decryptServices(hcpartyId, ctc.services || [], keys)
         if (ctc.encryptedSelf) {
           try {
-            const dec = await this.crypto.AES.decrypt(key, string2ua(a2b(ctc.encryptedSelf!)), rawKey)
-            let jsonContent
-            try {
-              jsonContent = dec && ua2utf8(dec)
-              jsonContent && _.assign(ctc, JSON.parse(jsonContent))
-            } catch (e) {
-              console.log('Cannot parse ctc', ctc.id, jsonContent || '<- Invalid encoding')
+            const json = this.crypto.entities.tryDecryptJson(keys, string2ua(a2b(ctc.encryptedSelf!)), false)
+            if (json) {
+              _.assign(ctc, json)
+            } else {
+              console.log('Cannot decrypt ctc: no valid key could produce valid json', ctc.id)
             }
-          } catch {
-            console.log('Cannot decrypt contact', ctc.id)
+          } catch (e) {
+            console.log('Failed to decrypt ctc', ctc.id, e)
           }
         }
         return ctc
@@ -465,50 +411,41 @@ export class IccContactXApi extends IccContactApi {
     )
   }
 
-  decryptServices(hcpartyId: string, svcs: Array<models.Service>, key?: CryptoKey, rawKey?: string): Promise<Array<models.Service>> {
+  decryptServices(hcpartyId: string, svcs: Array<models.Service>, keys?: { key: CryptoKey; raw: string }[]): Promise<Array<models.Service>> {
     return Promise.all(
       svcs.map(async (svc) => {
-        if (!key) {
-          const { extractedKeys: sfks } = await this.crypto.extractKeysFromDelegationsForHcpHierarchy(
-            hcpartyId,
-            svc.id!,
-            _.size(svc.encryptionKeys) ? svc.encryptionKeys! : svc.delegations!
-          )
-          key = await this.crypto.AES.importKey('raw', hex2ua(sfks[0].replace(/-/g, '')))
+        if (!keys) {
+          keys = await this.crypto.entities.importAllValidKeys(await this.crypto.entities.encryptionKeysOf(svc, hcpartyId))
         }
 
         if (svc.encryptedContent) {
           try {
-            const dec = await this.crypto.AES.decrypt(key, string2ua(a2b(svc.encryptedContent!)))
-            let jsonContent
-            try {
-              jsonContent = ua2utf8(truncateTrailingNulls(new Uint8Array(dec)))
-              Object.assign(svc, { content: JSON.parse(jsonContent) })
-            } catch (e) {
-              console.log('Cannot parse service', svc.id, jsonContent || '<- Invalid encoding')
+            const json = this.crypto.entities.tryDecryptJson(keys, string2ua(a2b(svc.encryptedContent!)), true)
+            if (json) {
+              Object.assign(svc, { content: json })
+            } else {
+              console.log('Cannot decrypt service: no valid key could produce valid json', svc.id)
             }
-          } catch {
-            console.log('Cannot decrypt service', svc.id)
+          } catch (e) {
+            console.log('Cannot decrypt service', svc.id, e)
           }
         } else if (svc.encryptedSelf) {
           try {
-            const dec = await this.crypto.AES.decrypt(key, string2ua(a2b(svc.encryptedSelf!)))
-            let jsonContent
-            try {
-              jsonContent = ua2utf8(truncateTrailingNulls(new Uint8Array(dec)))
-              Object.assign(svc, JSON.parse(jsonContent))
-            } catch (e) {
-              console.log('Cannot parse service', svc.id, jsonContent || '<- Invalid encoding')
+            const json = this.crypto.entities.tryDecryptJson(keys, string2ua(a2b(svc.encryptedSelf!)), true)
+            if (json) {
+              Object.assign(svc, json)
+            } else {
+              console.log('Cannot decrypt service: no valid key could produce valid json', svc.id)
             }
-          } catch {
-            console.log('Cannot decrypt service', svc.id)
+          } catch (e) {
+            console.log('Cannot decrypt service', svc.id, e)
           }
         } else {
           svc.content = _.fromPairs(
             await Promise.all(
               _.toPairs(svc.content).map(async (p) => {
                 if (p[1].compoundValue) {
-                  p[1].compoundValue = await this.decryptServices(hcpartyId, p[1].compoundValue, key, rawKey)
+                  p[1].compoundValue = await this.decryptServices(hcpartyId, p[1].compoundValue, keys)
                 }
                 return p
               })
@@ -766,7 +703,7 @@ export class IccContactXApi extends IccContactApi {
       newInstance: (user: models.User, s: any) =>
         _.extend(
           {
-            id: this.crypto.randomUuid(),
+            id: this.crypto.primitives.randomUuid(),
             _type: 'org.taktik.icure.entities.embed.Service',
             created: new Date().getTime(),
             modified: new Date().getTime(),

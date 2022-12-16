@@ -488,11 +488,12 @@ export class IccCryptoXApi {
         secretForeignKeys: undefined,
       } as EncryptedEntity,
       undefined,
-      undefined
+      undefined,
+      true
     )
     return {
       encryptionKeys: updatedEntity.encryptionKeys,
-      secretId: rawEncryptionKey,
+      secretId: rawEncryptionKey!,
     }
   }
 
