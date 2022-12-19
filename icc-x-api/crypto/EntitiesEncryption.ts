@@ -1,7 +1,7 @@
 import { Delegation, EncryptedEntity } from '../../icc-api/model/models'
 import { DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { ExchangeKeysManager } from './ExchangeKeysManager'
-import { crypt, decrypt, string2ua, truncateTrailingNulls, ua2hex, ua2string, ua2utf8, utf8_2ua } from '../utils'
+import { b2a, crypt, decrypt, string2ua, truncateTrailingNulls, ua2hex, ua2string, ua2utf8, utf8_2ua } from '../utils'
 import { hex2ua } from '@icure/api'
 import * as _ from 'lodash'
 import { CryptoPrimitives } from './CryptoPrimitives'
@@ -422,13 +422,28 @@ export class EntitiesEncryption {
    * @internal this method is intended for internal use only and may be changed without notice.
    * Encrypts the content of an encrypted entity.
    */
-  async encryptEntity<T extends EncryptedEntity>(entity: T, user: models.User, cryptedKeys: string[], constructor: (json: any) => T): Promise<T> {
+  async encryptEntity<T extends EncryptedEntity>(
+    entity: T,
+    dataOwnerId: string,
+    cryptedKeys: string[],
+    encodeBinaryData: boolean,
+    constructor: (json: any) => T
+  ): Promise<T> {
     const entityWithInitialisedEncryptionKeys = await this.ensureEncryptionKeysInitialised(entity)
-    const encryptionKey = await this.importFirstValidKey(await this.encryptionKeysOf(entity, this.dataOwnerApi.getDataOwnerOf(user)), entity.id!)
+    const encryptionKey = await this.importFirstValidKey(await this.encryptionKeysOf(entity, dataOwnerId), entity.id!)
     return constructor(
       await crypt(
         entityWithInitialisedEncryptionKeys,
-        (obj) => this.primitives.AES.encrypt(encryptionKey.key, utf8_2ua(JSON.stringify(obj)), encryptionKey.raw),
+        (obj) => {
+          const json = encodeBinaryData
+            ? JSON.stringify(obj, (k, v) => {
+                return v instanceof ArrayBuffer || v instanceof Uint8Array
+                  ? b2a(new Uint8Array(v).reduce((d, b) => d + String.fromCharCode(b), ''))
+                  : v
+              })
+            : JSON.stringify(obj)
+          return this.primitives.AES.encrypt(encryptionKey.key, utf8_2ua(json), encryptionKey.raw)
+        },
         cryptedKeys
       )
     )
@@ -453,6 +468,7 @@ export class EntitiesEncryption {
      * owners. Should we automatically add delegations for other existing data owners if there is already a value for encrypted entity?
      * Note: if an entity was not encryptable in the past but it is now encrypted entity will be empty.
      */
+    // TODO previous versions were also initialising encryption keys in `encrypt` with the auto-delegations, should we do this as well?
     return await this.entityWithShareMetadata(
       entity,
       await this.dataOwnerApi.getCurrentDataOwnerId(),

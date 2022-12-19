@@ -31,12 +31,19 @@ export class IccInvoiceXApi extends IccInvoiceApi {
     this.dataOwnerApi = dataOwnerApi
   }
 
-  newInstance(user: models.User, patient: models.Patient, inv: any = {}, delegates: string[] = []): Promise<models.Invoice> {
+  async newInstance(
+    user: models.User,
+    patient: models.Patient,
+    inv: any = {},
+    delegates: string[] = [],
+    preferredSfk?: string,
+    delegationTags?: string[]
+  ): Promise<models.Invoice> {
     const invoice = new models.Invoice(
       _.extend(
         {
-          id: this.crypto.randomUuid(),
-          groupId: this.crypto.randomUuid(),
+          id: this.crypto.primitives.randomUuid(),
+          groupId: this.crypto.primitives.randomUuid(),
           _type: 'org.taktik.icure.entities.Invoice',
           created: new Date().getTime(),
           modified: new Date().getTime(),
@@ -50,70 +57,15 @@ export class IccInvoiceXApi extends IccInvoiceApi {
       )
     )
 
-    return this.initDelegationsAndEncryptionKeys(user, patient, invoice, delegates)
-  }
-
-  initEncryptionKeys(user: models.User, invoice: models.Invoice) {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-    return this.crypto.initEncryptionKeys(invoice, dataOwnerId!).then((eks) => {
-      let promise = Promise.resolve(
-        _.extend(invoice, {
-          encryptionKeys: eks.encryptionKeys,
-        })
-      )
-      ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.financialInformation || []) : []).forEach(
-        (delegateId) =>
-          (promise = promise.then((invoice) =>
-            this.crypto.appendEncryptionKeys(invoice, dataOwnerId!, delegateId, eks.secretId).then((extraEks) => {
-              return _.extend(extraEks.modifiedObject, {
-                encryptionKeys: extraEks.encryptionKeys,
-              })
-            })
-          ))
-      )
-      return promise
-    })
-  }
-
-  private initDelegationsAndEncryptionKeys(
-    user: models.User,
-    patient: models.Patient,
-    invoice: models.Invoice,
-    delegates: string[] = []
-  ): Promise<models.Invoice> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-    return this.crypto
-      .extractDelegationsSFKs(patient, dataOwnerId)
-      .then((secretForeignKeys) =>
-        Promise.all([
-          this.crypto.initObjectDelegations(invoice, patient, dataOwnerId!, secretForeignKeys.extractedKeys[0]),
-          this.crypto.initEncryptionKeys(invoice, dataOwnerId!),
-        ])
-      )
-      .then((initData) => {
-        const dels = initData[0]
-        const eks = initData[1]
-        _.extend(invoice, {
-          delegations: dels.delegations,
-          cryptedForeignKeys: dels.cryptedForeignKeys,
-          secretForeignKeys: dels.secretForeignKeys,
-          encryptionKeys: eks.encryptionKeys,
-        })
-
-        let promise = Promise.resolve(invoice)
-        _.uniq(
-          delegates.concat(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.financialInformation || []) : [])
-        ).forEach(
-          (delegateId) =>
-            (promise = promise.then((invoice) =>
-              this.crypto.addDelegationsAndEncryptionKeys(patient, invoice, dataOwnerId!, delegateId, dels.secretId, eks.secretId).catch((e) => {
-                console.log(e)
-                return invoice
-              })
-            ))
-        )
-        return promise
-      })
+    const ownerId = this.dataOwnerApi.getDataOwnerOf(user)
+    const sfk = preferredSfk ?? (await this.crypto.entities.secretIdsOf(patient, ownerId))[0]
+    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.financialInformation ?? [])]
+    // TODO data is never encrypted should we really initialise encryption keys?
+    return new models.Invoice(
+      await this.crypto.entities
+        .entityWithInitialisedEncryptionMetadata(invoice, patient.id, sfk, true, extraDelegations, delegationTags)
+        .then((x) => x.updatedEntity)
+    )
   }
 
   createInvoice(invoice: Invoice, prefix?: string): Promise<Invoice> {
@@ -121,7 +73,7 @@ export class IccInvoiceXApi extends IccInvoiceApi {
       return super.createInvoice(invoice)
     }
     if (!invoice.id) {
-      invoice.id = this.crypto.randomUuid()
+      invoice.id = this.crypto.primitives.randomUuid()
     }
     return this.getNextInvoiceReference(prefix, this.entityrefApi)
       .then((reference) => this.createInvoiceReference(reference, invoice.id!, prefix, this.entityrefApi))
@@ -131,10 +83,9 @@ export class IccInvoiceXApi extends IccInvoiceApi {
         }
 
         if (invoice.internshipNihii) {
-          const ref = entityReference.id.substr(prefix.length).replace('0', '1')
-          invoice.invoiceReference = ref
+          invoice.invoiceReference = entityReference.id.substring(prefix.length).replace('0', '1')
         } else {
-          invoice.invoiceReference = entityReference.id.substr(prefix.length)
+          invoice.invoiceReference = entityReference.id.substring(prefix.length)
         }
         return super.createInvoice(invoice)
       })
@@ -177,16 +128,11 @@ export class IccInvoiceXApi extends IccInvoiceApi {
    * @param hcpartyId
    * @param patient (Promise)
    */
-  findBy(hcpartyId: string, patient: models.Patient): Promise<Array<models.Invoice>> {
-    return this.crypto
-      .extractDelegationsSFKs(patient, hcpartyId)
-      .then((secretForeignKeys) =>
-        this.findInvoicesByHCPartyPatientForeignKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(','))
-      )
-      .then((invoices) => this.decrypt(hcpartyId, invoices))
-      .then(function (decryptedInvoices) {
-        return decryptedInvoices
-      })
+  async findBy(hcpartyId: string, patient: models.Patient): Promise<Array<models.Invoice>> {
+    const extractedKeys = await this.crypto.entities.secretIdsOf(patient, hcpartyId)
+    const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0] // TODO should this really be topmost parent?
+    let invoices: Array<Invoice> = await this.findInvoicesByHCPartyPatientForeignKeys(topmostParentId, _.uniq(extractedKeys).join(','))
+    return await this.decrypt(hcpartyId, invoices)
   }
 
   encrypt(user: models.User, invoices: Array<models.Invoice>) {

@@ -7,6 +7,7 @@ import { TimeTable } from '../icc-api/model/TimeTable'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider } from './auth/AuthenticationProvider'
+import * as models from '../icc-api/model/models'
 
 export class IccTimeTableXApi extends IccTimeTableApi {
   i18n: any = i18n
@@ -30,10 +31,10 @@ export class IccTimeTableXApi extends IccTimeTableApi {
     this.dataOwnerApi = dataOwnerApi
   }
 
-  newInstance(user: User, tt: TimeTable) {
+  async newInstance(user: User, tt: TimeTable, delegates: string[] = [], delegationTags?: string[]) {
     const timeTable = _.extend(
       {
-        id: this.crypto.randomUuid(),
+        id: this.crypto.primitives.randomUuid(),
         _type: 'org.taktik.icure.entities.TimeTable',
         created: new Date().getTime(),
         modified: new Date().getTime(),
@@ -45,25 +46,13 @@ export class IccTimeTableXApi extends IccTimeTableApi {
       tt || {}
     )
 
-    return this.crypto.initObjectDelegations(timeTable, null, this.dataOwnerApi.getDataOwnerOf(user), null).then((initData) => {
-      _.extend(timeTable, { delegations: initData.delegations })
-
-      let promise = Promise.resolve(timeTable)
-      ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
-        (delegateId) =>
-          (promise = promise
-            .then((patient) =>
-              this.crypto.extendedDelegationsAndCryptedForeignKeys(
-                patient,
-                null,
-                this.dataOwnerApi.getDataOwnerOf(user),
-                delegateId,
-                initData.secretId
-              )
-            )
-            .then((extraData) => _.extend(timeTable, { delegations: extraData.delegations })))
-      )
-      return promise
-    })
+    // TODO sure this should be medical?
+    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
+    // TODO data is never encrypted, but should we initialise encryption keys anyway, to have everything future proof?
+    return new models.TimeTable(
+      await this.crypto.entities
+        .entityWithInitialisedEncryptionMetadata(timeTable, undefined, undefined, false, extraDelegations, delegationTags)
+        .then((x) => x.updatedEntity)
+    )
   }
 }

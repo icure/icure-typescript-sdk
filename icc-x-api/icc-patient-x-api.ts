@@ -71,7 +71,7 @@ export class IccPatientXApi extends IccPatientApi {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  newInstance(user: models.User, p: any = {}, delegates: string[] = []) {
+  async newInstance(user: models.User, p: any = {}, delegates: string[] = [], delegationTags?: string[]) {
     const patient = _.extend(
       {
         id: this.crypto.randomUuid(),
@@ -85,7 +85,32 @@ export class IccPatientXApi extends IccPatientApi {
       },
       p || {}
     )
-    return this.initDelegationsAndEncryptionKeys(patient, user, undefined, delegates)
+
+    const ownerId = this.dataOwnerApi.getDataOwnerOf(user)
+    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
+    const initialisationInfo = await this.crypto.entities.entityWithInitialisedEncryptionMetadata(
+      patient,
+      undefined,
+      undefined,
+      true,
+      extraDelegations,
+      delegationTags
+    )
+    const anonymousDelegations = user.autoDelegations?.anonymousMedicalInformation ?? []
+    return new models.Patient(
+      await anonymousDelegations.reduce(
+        async (updatedContact, delegate) =>
+          await this.crypto.entities.entityWithShareMetadata(
+            await updatedContact,
+            delegate,
+            false,
+            [initialisationInfo.rawEncryptionKey!],
+            false,
+            [] // TODO No tags for who uses anonymous info?
+          ),
+        Promise.resolve(initialisationInfo.updatedEntity)
+      )
+    )
   }
 
   completeNames(patient: models.Patient): models.Patient {
@@ -129,69 +154,22 @@ export class IccPatientXApi extends IccPatientApi {
     return finalPatient
   }
 
-  async initDelegationsAndEncryptionKeys(
-    patient: models.Patient,
-    user: models.User,
-    secretForeignKey: string | undefined = undefined,
-    delegates: string[] = []
-  ): Promise<models.Patient> {
+  /**
+   * @deprecated The concept of confidential will be removed from the iCure API: this method will be removed from the general purpose iCure api.
+   * After instantiating a new patient use {@link EntitiesEncryption.entityWithShareMetadata} as shown here to create a new confidential delegation.
+   */
+  async initConfidentialDelegation(patient: models.Patient, user: models.User): Promise<models.Patient> {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-    const dels = await this.crypto.initObjectDelegations(patient, null, dataOwnerId!, null)
-    const eks = await this.crypto.initEncryptionKeys(patient, dataOwnerId!)
-    _.extend(patient, {
-      delegations: dels.delegations,
-      encryptionKeys: eks.encryptionKeys,
-    })
-
-    let promise = Promise.resolve(patient)
-    _.uniq(
-      delegates.concat(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : [])
-    ).forEach(
-      (delegateId) =>
-        (promise = promise.then((patient) =>
-          this.crypto.addDelegationsAndEncryptionKeys(null, patient, dataOwnerId!, delegateId, dels.secretId, eks.secretId).catch((e) => {
-            console.log(e)
-            return patient
-          })
-        ))
-    )
-    ;(user.autoDelegations && user.autoDelegations.anonymousMedicalInformation ? user.autoDelegations.anonymousMedicalInformation : []).forEach(
-      (delegateId) =>
-        (promise = promise.then((patient) =>
-          this.crypto.addDelegationsAndEncryptionKeys(null, patient, dataOwnerId!, delegateId, null, eks.secretId).catch((e) => {
-            console.log(e)
-            return patient
-          })
-        ))
-    )
-    return promise
-  }
-
-  initConfidentialDelegation(patient: models.Patient, user: models.User): Promise<models.Patient | null> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-    return this.crypto.extractPreferredSfk(patient, dataOwnerId!, true).then((k) => {
-      if (!k) {
-        const secretId = this.crypto.randomUuid()
-        return this.crypto
-          .decryptAndImportAesHcPartyKeysForDelegators([dataOwnerId!], dataOwnerId!)
-          .then((hcPartyKeys) => {
-            return this.crypto.AES.encrypt(hcPartyKeys[0].key, string2ua(patient.id + ':' + secretId).buffer as ArrayBuffer)
-          })
-          .then((newDelegation) => {
-            ;(patient.delegations![dataOwnerId!] || (patient.delegations![dataOwnerId!] = [])).push(
-              new Delegation({
-                owner: dataOwnerId,
-                delegatedTo: dataOwnerId,
-                tag: 'confidential',
-                key: ua2hex(newDelegation),
-              })
-            )
-            return patient.rev ? this.modifyPatientWithUser(user, patient) : this.createPatientWithUser(user, patient)
-          })
-      } else {
-        return patient
-      }
-    })
+    const confidentialDelegation = this.crypto.extractPreferredSfk(patient, dataOwnerId!, true)
+    if (!confidentialDelegation) {
+      const confidentialSecretId = this.crypto.primitives.randomUuid()
+      const updatedPatient = await this.crypto.entities.entityWithShareMetadata(patient, dataOwnerId, [confidentialSecretId], false, false, [
+        'confidential',
+      ])
+      return updatedPatient.rev ? this.modifyPatientWithUser(user, updatedPatient) : this.createPatientWithUser(user, updatedPatient)
+    } else {
+      return patient
+    }
   }
 
   createPatient(body?: models.Patient): never {
@@ -496,47 +474,8 @@ export class IccPatientXApi extends IccPatientApi {
 
   encrypt(user: models.User, pats: Array<models.Patient>): Promise<Array<models.Patient>> {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-    const fixEncryptionKeys = (p: models.Patient) => {
-      if (p.delegations && p.delegations[dataOwnerId]) return this.initEncryptionKeys(user, p, Object.keys(p.delegations)) as Promise<any>
-      else throw new Error(`Patient ${p.id} has no delegation or encryption key for hcp ${dataOwnerId}`)
-    }
-    return Promise.all(
-      pats.map((p) =>
-        (p.encryptionKeys && Object.keys(p.encryptionKeys).some((k) => !!p.encryptionKeys![k].length)
-          ? Promise.resolve(p)
-          : this.initEncryptionKeys(user, p)
-        )
-          .then(async (p: Patient) => {
-            try {
-              const seks = await this.crypto.extractKeysFromDelegationsForHcpHierarchy(dataOwnerId!, p.id!, p.encryptionKeys!)
-              return seks
-            } catch (e) {
-              console.error(e)
-              throw e
-            }
-          })
-          .then((seks: { extractedKeys: Array<string>; hcpartyId: string }) =>
-            this.crypto.AES.importKey('raw', hex2ua(seks.extractedKeys[0].replace(/-/g, '')))
-          )
-          .then((key: CryptoKey) =>
-            crypt(
-              p,
-              (obj: { [key: string]: string }) =>
-                this.crypto.AES.encrypt(
-                  key,
-                  utf8_2ua(
-                    JSON.stringify(obj, (k, v) => {
-                      return v instanceof ArrayBuffer || v instanceof Uint8Array
-                        ? b2a(new Uint8Array(v).reduce((d, b) => d + String.fromCharCode(b), ''))
-                        : v
-                    })
-                  )
-                ),
-              this.encryptedKeys
-            )
-          )
-      )
-    )
+
+    return Promise.all(pats.map((p) => this.crypto.entities.encryptEntity(p, dataOwnerId, this.encryptedKeys, true, (x) => new models.Patient(x))))
   }
 
   decrypt(user: models.User, patients: Array<models.Patient>, fillDelegations = true): Promise<Array<models.Patient>> {
@@ -544,6 +483,7 @@ export class IccPatientXApi extends IccPatientApi {
 
     return (user.healthcarePartyId ? this.hcpartyApi.getHealthcarePartyHierarchyIds(user.healthcarePartyId) : Promise.resolve([dataOwnerId])).then(
       async (ids) => {
+        // TODO why the check of dangling delegations only for patients
         //First check that we have no dangling delegation
         const patsWithMissingDelegations = patients.filter(
           (p) =>
@@ -555,7 +495,7 @@ export class IccPatientXApi extends IccPatientApi {
         const acc: { [key: string]: models.Patient } = fillDelegations
           ? await patsWithMissingDelegations.reduce(async (acc, p) => {
               const pats = await acc
-              const pat = await this.initDelegationsAndEncryptionKeys(p, user)
+              const pat = (await this.crypto.entities.entityWithInitialisedEncryptionMetadata(p, undefined, undefined, true, [], [])).updatedEntity
               const mp = await this.modifyPatientWithUser(user, pat)
               return { ...pats, [pat.id!]: mp || pat }
             }, Promise.resolve({} as { [key: string]: models.Patient }))
@@ -570,35 +510,15 @@ export class IccPatientXApi extends IccPatientApi {
                   return (
                     (await decP) ??
                     (p.encryptedSelf
-                      ? await this.crypto
-                          .extractKeysFromDelegationsForHcpHierarchy(hcpId!, p.id!, _.size(p.encryptionKeys) ? p.encryptionKeys! : p.delegations!)
-                          .then(({ extractedKeys: sfks }) => {
-                            if (!sfks || !sfks.length) {
-                              return Promise.resolve(undefined)
-                            }
-                            return this.crypto.AES.importKey('raw', hex2ua(sfks[0].replace(/-/g, ''))).then((key) =>
-                              decrypt(p, (ec) =>
-                                this.crypto.AES.decrypt(key, ec)
-                                  .then((dec) => {
-                                    const jsonContent = dec && ua2utf8(dec)
-                                    try {
-                                      return JSON.parse(jsonContent)
-                                    } catch (e) {
-                                      console.log('Cannot parse patient', p.id, jsonContent || 'Invalid content')
-                                      return Promise.resolve(undefined)
-                                    }
-                                  })
-                                  .catch((err) => {
-                                    console.log('Cannot decrypt patient', p.id, err)
-                                    return Promise.resolve(undefined)
-                                  })
-                              ).then((p) => {
-                                if (p.picture && !(p.picture instanceof ArrayBuffer)) {
-                                  p.picture = b64_2ab(p.picture)
-                                }
-                                return p
+                      ? await this.crypto.entities
+                          .decryptEntity(p, hcpId, (x) => new models.Patient(x))
+                          .then((p) => {
+                            if (p.picture && !(p.picture instanceof ArrayBuffer)) {
+                              return new models.Patient({
+                                ...p,
+                                picture: b64_2ab(p.picture),
                               })
-                            )
+                            } else return p
                           })
                       : p)
                   )
@@ -608,37 +528,6 @@ export class IccPatientXApi extends IccPatientApi {
         )
       }
     )
-  }
-
-  /** By default, an encryptionKey will be added for every hcp in the autoDelegations of the provided user.
-   * In optional field additionalDelegateIds, you can ask the method to create encryptionKeys for additional hcps */
-  initEncryptionKeys(user: models.User, pat: models.Patient, additionalDelegateIds?: string[]): Promise<models.Patient> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-    const userAutoDelegations = user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []
-    return this.crypto.initEncryptionKeys(pat, dataOwnerId!).then((eks) => {
-      let promise = Promise.resolve(
-        _.extend(pat, {
-          encryptionKeys: eks.encryptionKeys,
-        })
-      )
-      new Set([...userAutoDelegations, ...(additionalDelegateIds || [])]).forEach(
-        (delegateId) =>
-          (promise = promise.then((patient) =>
-            this.crypto
-              .appendEncryptionKeys(patient, dataOwnerId!, delegateId, eks.secretId)
-              .then((extraEks) => {
-                return _.extend(extraEks.modifiedObject, {
-                  encryptionKeys: extraEks.encryptionKeys,
-                })
-              })
-              .catch((e) => {
-                console.log(e.message)
-                return patient
-              })
-          ))
-      )
-      return promise
-    })
   }
 
   share(
@@ -662,12 +551,10 @@ export class IccPatientXApi extends IccPatientApi {
           p.then(() =>
             Promise.all([this.crypto.extractDelegationsSFKs(x, ownerId), this.crypto.extractEncryptionsSKs(x, ownerId)]).then(([sfks, eks]) => {
               //console.log(`share ${x.id} to ${delegateId}`)
-              return this.crypto
-                .addDelegationsAndEncryptionKeys(patient, x, ownerId, delegateId, sfks.extractedKeys[0], eks.extractedKeys[0])
-                .catch((e: any) => {
-                  console.log(e)
-                  return x
-                })
+              return this.crypto.entities.entityWithShareMetadata(x, delegateId, true, true, patient ? [patient.id!] : true, []).catch((e: any) => {
+                console.log(e)
+                return x
+              })
             })
           ),
         markerPromise
@@ -733,9 +620,11 @@ export class IccPatientXApi extends IccPatientApi {
         .then((patient: models.Patient) =>
           patient.encryptionKeys && Object.keys(patient.encryptionKeys || {}).length
             ? Promise.resolve(patient)
-            : this.initEncryptionKeys(user, patient).then((patient: models.Patient) => this.modifyPatientWithUser(user, patient))
+            : this.crypto.entities
+                .ensureEncryptionKeysInitialised(patient)
+                .then((patient: models.Patient) => this.modifyPatientWithUser(user, patient))
         )
-        .then((patient: models.Patient | null) => {
+        .then(async (patient: models.Patient | null) => {
           if (!patient) {
             status.patient = {
               success: false,
@@ -744,310 +633,310 @@ export class IccPatientXApi extends IccPatientApi {
             return Promise.resolve({ patient: patient, statuses: status })
           }
 
-          return this.crypto.extractDelegationsSFKsAndEncryptionSKs(patient, ownerId).then(([delSfks, ecKeys]) => {
-            return delSfks.length
-              ? Promise.all([
-                  retry(() =>
-                    this.helementApi
-                      .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                      .then((hes) =>
-                        parentId
-                          ? this.helementApi
-                              .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                              .then((moreHes) => _.uniqBy(hes.concat(moreHes), 'id'))
-                          : hes
-                      )
-                  ) as Promise<Array<models.IcureStub>>,
-                  retry(() =>
-                    this.formApi
-                      .findFormsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                      .then((frms) =>
-                        parentId
-                          ? this.formApi
-                              .findFormsDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                              .then((moreFrms) => _.uniqBy(frms.concat(moreFrms), 'id'))
-                          : frms
-                      )
-                  ) as Promise<Array<models.Form>>,
-                  retry(() =>
-                    this.contactApi
-                      .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
-                      .then((ctcs) =>
-                        parentId
-                          ? this.contactApi
-                              .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
-                              .then((moreCtcs) => _.uniqBy(ctcs.concat(moreCtcs), 'id'))
-                          : ctcs
-                      )
-                  ) as Promise<Array<models.Contact>>,
-                  retry(() =>
-                    this.invoiceApi
-                      .findInvoicesDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                      .then((ivs) =>
-                        parentId
-                          ? this.invoiceApi
-                              .findInvoicesDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                              .then((moreIvs) => _.uniqBy(ivs.concat(moreIvs), 'id'))
-                          : ivs
-                      )
-                  ) as Promise<Array<models.IcureStub>>,
-                  retry(() =>
-                    this.classificationApi
-                      .findClassificationsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                      .then((cls) =>
-                        parentId
-                          ? this.classificationApi
-                              .findClassificationsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                              .then((moreCls) => _.uniqBy(cls.concat(moreCls), 'id'))
-                          : cls
-                      )
-                  ) as Promise<Array<models.Classification>>,
-                  retry(() =>
-                    this.calendarItemApi
-                      .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
-                      .then((cls) =>
-                        parentId
-                          ? this.calendarItemApi
-                              .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
-                              .then((moreCls) => _.uniqBy(cls.concat(moreCls), 'id'))
-                          : cls
-                      )
-                  ) as Promise<Array<models.CalendarItem>>,
-                ]).then(([hes, frms, ctcs, ivs, cls, cis]) => {
-                  const cloneKeysAndDelegations = function (x: models.IcureStub) {
-                    return {
-                      delegations: shareDelegations ? _.clone(x.delegations) : undefined,
-                      cryptedForeignKeys: shareCryptedForeignKeys ? _.clone(x.cryptedForeignKeys) : undefined,
-                      encryptionKeys: shareEncryptionKeys ? _.clone(x.encryptionKeys) : undefined,
-                    }
-                  }
-
-                  const ctcsStubs = ctcs.map((c) => ({
-                    id: c.id,
-                    rev: c.rev,
-                    ...cloneKeysAndDelegations(c),
-                  }))
-                  const oHes = hes.map((x) => _.assign(new IcureStub({}), x, cloneKeysAndDelegations(x)))
-                  const oFrms = frms.map((x) => _.assign(new IcureStub({}), x, cloneKeysAndDelegations(x)))
-                  const oCtcsStubs = ctcsStubs.map((x) => _.assign({}, x, cloneKeysAndDelegations(x)))
-                  const oIvs = ivs.map((x) => _.assign(new Invoice({}), x, cloneKeysAndDelegations(x)))
-                  const oCls = cls.map((x) => _.assign(new Classification({}), x, cloneKeysAndDelegations(x)))
-                  const oCis = cis.map((x) => _.assign(new CalendarItem({}), x, cloneKeysAndDelegations(x)))
-
-                  const docIds: { [key: string]: number } = {}
-                  ctcs.forEach(
-                    (c: models.Contact) =>
-                      c.services &&
-                      c.services.forEach((s) => s.content && Object.values(s.content).forEach((c) => c && c.documentId && (docIds[c.documentId] = 1)))
-                  )
-
-                  return retry(() => this.documentApi.getDocuments(new ListOfIds({ ids: Object.keys(docIds) }))).then((docs: Array<Document>) => {
-                    const oDocs = docs.map((x) => _.assign({}, x, cloneKeysAndDelegations(x)))
-
-                    let markerPromise: Promise<any> = Promise.resolve(null)
-                    delegateIds.forEach((delegateId) => {
-                      const tags = delegationTags[delegateId]
-                      markerPromise = markerPromise.then(() => {
-                        //Share patient
-                        //console.log(`share ${patient.id} to ${delegateId}`)
-                        return shareAnonymously
-                          ? patient
-                          : this.crypto
-                              .addDelegationsAndEncryptionKeys(null, patient, ownerId, delegateId, delSfks[0], ecKeys[0])
-                              .then(async (patient) => {
-                                if (delSfks.length > 1) {
-                                  return delSfks.slice(1).reduce(async (patientPromise: Promise<models.Patient>, delSfk: string) => {
-                                    const patient = await patientPromise
-                                    return shareAnonymously
-                                      ? patient
-                                      : this.crypto
-                                          .addDelegationsAndEncryptionKeys(null, patient, ownerId, delegateId, delSfk, null)
-                                          .catch((e: any) => {
-                                            console.log(e)
-                                            return patient
-                                          })
-                                  }, Promise.resolve(patient))
-                                }
-                                return patient
-                              })
-                              .catch((e) => {
-                                console.log(e)
-                                return patient
-                              })
-                      })
-                      ;(tags.includes('medicalInformation') || tags.includes('anonymousMedicalInformation') || tags.includes('all')) &&
-                        (markerPromise = addDelegationsAndKeys(hes, markerPromise, delegateId, patient))
-                      ;(tags.includes('medicalInformation') || tags.includes('all')) &&
-                        (markerPromise = addDelegationsAndKeys(frms, markerPromise, delegateId, patient))
-                      ;(tags.includes('medicalInformation') || tags.includes('anonymousMedicalInformation') || tags.includes('all')) &&
-                        (markerPromise = addDelegationsAndKeys(ctcsStubs, markerPromise, delegateId, patient))
-                      ;(tags.includes('medicalInformation') || tags.includes('all')) &&
-                        (markerPromise = addDelegationsAndKeys(cls, markerPromise, delegateId, patient))
-                      ;(tags.includes('medicalInformation') || tags.includes('all')) &&
-                        (markerPromise = addDelegationsAndKeys(cis, markerPromise, delegateId, patient))
-                      ;(tags.includes('financialInformation') || tags.includes('all')) &&
-                        (markerPromise = addDelegationsAndKeys(ivs, markerPromise, delegateId, patient))
-                      ;(tags.includes('medicalInformation') || tags.includes('all')) &&
-                        (markerPromise = addDelegationsAndKeys(docs, markerPromise, delegateId, null))
-                    })
-
-                    return markerPromise
-                      .then(() => {
-                        //console.log("scd")
-                        return (
-                          ((allTags.includes('medicalInformation') || allTags.includes('anonymousMedicalInformation') || allTags.includes('all')) &&
-                            ctcsStubs &&
-                            ctcsStubs.length &&
-                            !_.isEqual(oCtcsStubs, ctcsStubs) &&
-                            this.contactApi
-                              .setContactsDelegations(ctcsStubs)
-                              .then(() => {
-                                status.contacts.success = true
-                                status.contacts.modified += ctcsStubs.length
-                              })
-                              .catch((e) => (status.contacts.error = e))) ||
-                          Promise.resolve((status.contacts.success = true))
-                        )
-                      })
-                      .then(() => {
-                        //console.log("shed")
-                        return (
-                          ((allTags.includes('medicalInformation') || allTags.includes('anonymousMedicalInformation') || allTags.includes('all')) &&
-                            hes &&
-                            hes.length &&
-                            !_.isEqual(oHes, hes) &&
-                            this.helementApi
-                              .setHealthElementsDelegations(hes)
-                              .then(() => {
-                                status.healthElements.success = true
-                                status.healthElements.modified += hes.length
-                              })
-                              .catch((e) => (status.healthElements.error = e))) ||
-                          Promise.resolve((status.healthElements.success = true))
-                        )
-                      })
-                      .then(() => {
-                        //console.log("sfd")
-                        return (
-                          ((allTags.includes('medicalInformation') || allTags.includes('all')) &&
-                            frms &&
-                            frms.length &&
-                            !_.isEqual(oFrms, frms) &&
-                            this.formApi
-                              .setFormsDelegations(frms)
-                              .then(() => {
-                                status.forms.success = true
-                                status.forms.modified += frms.length
-                              })
-                              .catch((e) => (status.forms.error = e))) ||
-                          Promise.resolve((status.forms.success = true))
-                        )
-                      })
-                      .then(() => {
-                        //console.log("sid")
-                        return (
-                          ((allTags.includes('financialInformation') || allTags.includes('all')) &&
-                            ivs &&
-                            ivs.length &&
-                            !_.isEqual(oIvs, ivs) &&
-                            this.invoiceApi
-                              .setInvoicesDelegations(ivs)
-                              .then(() => {
-                                status.invoices.success = true
-                                status.invoices.modified += ivs.length
-                              })
-                              .catch((e) => (status.invoices.error = e))) ||
-                          Promise.resolve((status.invoices.success = true))
-                        )
-                      })
-                      .then(() => {
-                        //console.log("sdd")
-                        return (
-                          ((allTags.includes('medicalInformation') || allTags.includes('all')) &&
-                            docs &&
-                            docs.length &&
-                            !_.isEqual(oDocs, docs) &&
-                            this.documentApi
-                              .setDocumentsDelegations(docs)
-                              .then(() => {
-                                status.documents.success = true
-                                status.documents.modified += docs.length
-                              })
-                              .catch((e) => (status.documents.error = e))) ||
-                          Promise.resolve((status.documents.success = true))
-                        )
-                      })
-                      .then(() => {
-                        //console.log("scld")
-                        return (
-                          ((allTags.includes('medicalInformation') || allTags.includes('all')) &&
-                            cls &&
-                            cls.length &&
-                            !_.isEqual(oCls, cls) &&
-                            this.classificationApi
-                              .setClassificationsDelegations(cls)
-                              .then(() => {
-                                status.classifications.success = true
-                                status.classifications.modified += cls.length
-                              })
-                              .catch((e) => (status.classifications.error = e))) ||
-                          Promise.resolve((status.classifications.success = true))
-                        )
-                      })
-                      .then(() => {
-                        //console.log("scid")
-                        return (
-                          ((allTags.includes('medicalInformation') || allTags.includes('all')) &&
-                            cis &&
-                            cis.length &&
-                            !_.isEqual(oCis, cis) &&
-                            this.calendarItemApi
-                              .setCalendarItemsDelegations(cis)
-                              .then(() => {
-                                status.calendarItems.success = true
-                                status.calendarItems.modified += cis.length
-                              })
-                              .catch((e) => (status.calendarItems.error = e))) ||
-                          Promise.resolve((status.calendarItems.success = true))
-                        )
-                      })
-                      .then(() => this.modifyPatientWithUser(user, patient))
-                      .then((p) => {
-                        status.patient.success = true
-                        console.log(
-                          `c: ${status.contacts.modified}, he: ${status.healthElements.modified}, docs: ${status.documents.modified}, frms: ${status.forms.modified}, ivs: ${status.invoices.modified}, cis: ${status.calendarItems.modified}, cls: ${status.classifications.modified}`
-                        )
-                        return { patient: p, statuses: status }
-                      })
-                      .catch((e) => {
-                        status.patient.error = e
-                        return { patient: patient, statuses: status }
-                      })
-                  })
-                })
-              : (allTags.includes('anonymousMedicalInformation')
-                  ? Promise.resolve(patient)
-                  : this.modifyPatientWithUser(
-                      user,
-                      _.assign(patient, {
-                        delegations: _.assign(
-                          patient.delegations,
-                          delegateIds
-                            .filter((id) => !patient.delegations || !patient.delegations[id]) //If there are delegations do not modify
-                            .reduce((acc, del: string) => Object.assign(acc, _.fromPairs([[del, []]])), patient.delegations || {})
-                        ),
-                      })
+          const delSfks = await this.crypto.entities.secretIdsOf(patient, ownerId)
+          const ecKeys = await this.crypto.entities.encryptionKeysOf(patient, ownerId)
+          return delSfks.length
+            ? Promise.all([
+                retry(() =>
+                  this.helementApi
+                    .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
+                    .then((hes) =>
+                      parentId
+                        ? this.helementApi
+                            .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
+                            .then((moreHes) => _.uniqBy(hes.concat(moreHes), 'id'))
+                        : hes
                     )
+                ) as Promise<Array<models.IcureStub>>,
+                retry(() =>
+                  this.formApi
+                    .findFormsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
+                    .then((frms) =>
+                      parentId
+                        ? this.formApi
+                            .findFormsDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
+                            .then((moreFrms) => _.uniqBy(frms.concat(moreFrms), 'id'))
+                        : frms
+                    )
+                ) as Promise<Array<models.Form>>,
+                retry(() =>
+                  this.contactApi
+                    .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
+                    .then((ctcs) =>
+                      parentId
+                        ? this.contactApi
+                            .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
+                            .then((moreCtcs) => _.uniqBy(ctcs.concat(moreCtcs), 'id'))
+                        : ctcs
+                    )
+                ) as Promise<Array<models.Contact>>,
+                retry(() =>
+                  this.invoiceApi
+                    .findInvoicesDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
+                    .then((ivs) =>
+                      parentId
+                        ? this.invoiceApi
+                            .findInvoicesDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
+                            .then((moreIvs) => _.uniqBy(ivs.concat(moreIvs), 'id'))
+                        : ivs
+                    )
+                ) as Promise<Array<models.IcureStub>>,
+                retry(() =>
+                  this.classificationApi
+                    .findClassificationsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
+                    .then((cls) =>
+                      parentId
+                        ? this.classificationApi
+                            .findClassificationsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
+                            .then((moreCls) => _.uniqBy(cls.concat(moreCls), 'id'))
+                        : cls
+                    )
+                ) as Promise<Array<models.Classification>>,
+                retry(() =>
+                  this.calendarItemApi
+                    .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
+                    .then((cls) =>
+                      parentId
+                        ? this.calendarItemApi
+                            .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
+                            .then((moreCls) => _.uniqBy(cls.concat(moreCls), 'id'))
+                        : cls
+                    )
+                ) as Promise<Array<models.CalendarItem>>,
+              ]).then(([hes, frms, ctcs, ivs, cls, cis]) => {
+                const cloneKeysAndDelegations = function (x: models.IcureStub) {
+                  return {
+                    delegations: shareDelegations ? _.clone(x.delegations) : undefined,
+                    cryptedForeignKeys: shareCryptedForeignKeys ? _.clone(x.cryptedForeignKeys) : undefined,
+                    encryptionKeys: shareEncryptionKeys ? _.clone(x.encryptionKeys) : undefined,
+                  }
+                }
+
+                const ctcsStubs = ctcs.map((c) => ({
+                  id: c.id,
+                  rev: c.rev,
+                  ...cloneKeysAndDelegations(c),
+                }))
+                const oHes = hes.map((x) => _.assign(new IcureStub({}), x, cloneKeysAndDelegations(x)))
+                const oFrms = frms.map((x) => _.assign(new IcureStub({}), x, cloneKeysAndDelegations(x)))
+                const oCtcsStubs = ctcsStubs.map((x) => _.assign({}, x, cloneKeysAndDelegations(x)))
+                const oIvs = ivs.map((x) => _.assign(new Invoice({}), x, cloneKeysAndDelegations(x)))
+                const oCls = cls.map((x) => _.assign(new Classification({}), x, cloneKeysAndDelegations(x)))
+                const oCis = cis.map((x) => _.assign(new CalendarItem({}), x, cloneKeysAndDelegations(x)))
+
+                const docIds: { [key: string]: number } = {}
+                ctcs.forEach(
+                  (c: models.Contact) =>
+                    c.services &&
+                    c.services.forEach((s) => s.content && Object.values(s.content).forEach((c) => c && c.documentId && (docIds[c.documentId] = 1)))
                 )
-                  .then((p) => {
-                    status.patient.success = true
-                    return { patient: p, statuses: status }
+
+                return retry(() => this.documentApi.getDocuments(new ListOfIds({ ids: Object.keys(docIds) }))).then((docs: Array<Document>) => {
+                  const oDocs = docs.map((x) => _.assign({}, x, cloneKeysAndDelegations(x)))
+
+                  let markerPromise: Promise<any> = Promise.resolve(null)
+                  delegateIds.forEach((delegateId) => {
+                    const tags = delegationTags[delegateId]
+                    markerPromise = markerPromise.then(() => {
+                      //Share patient
+                      //console.log(`share ${patient.id} to ${delegateId}`)
+                      return shareAnonymously
+                        ? patient
+                        : this.crypto.entities
+                            .entityWithShareMetadata(patient, delegateId, [delSfks[0]], [ecKeys[0]], false, [])
+                            .then(async (patient) => {
+                              if (delSfks.length > 1) {
+                                return delSfks.slice(1).reduce(async (patientPromise: Promise<models.Patient>, delSfk: string) => {
+                                  const patient = await patientPromise
+                                  return shareAnonymously
+                                    ? patient
+                                    : this.crypto.entities
+                                        .entityWithShareMetadata(patient, delegateId, [delSfk], false, false, [])
+                                        .catch((e: any) => {
+                                          console.log(e)
+                                          return patient
+                                        })
+                                }, Promise.resolve(patient))
+                              }
+                              return patient
+                            })
+                            .catch((e) => {
+                              console.log(e)
+                              return patient
+                            })
+                    })
+                    ;(tags.includes('medicalInformation') || tags.includes('anonymousMedicalInformation') || tags.includes('all')) &&
+                      (markerPromise = addDelegationsAndKeys(hes, markerPromise, delegateId, patient))
+                    ;(tags.includes('medicalInformation') || tags.includes('all')) &&
+                      (markerPromise = addDelegationsAndKeys(frms, markerPromise, delegateId, patient))
+                    ;(tags.includes('medicalInformation') || tags.includes('anonymousMedicalInformation') || tags.includes('all')) &&
+                      (markerPromise = addDelegationsAndKeys(ctcsStubs, markerPromise, delegateId, patient))
+                    ;(tags.includes('medicalInformation') || tags.includes('all')) &&
+                      (markerPromise = addDelegationsAndKeys(cls, markerPromise, delegateId, patient))
+                    ;(tags.includes('medicalInformation') || tags.includes('all')) &&
+                      (markerPromise = addDelegationsAndKeys(cis, markerPromise, delegateId, patient))
+                    ;(tags.includes('financialInformation') || tags.includes('all')) &&
+                      (markerPromise = addDelegationsAndKeys(ivs, markerPromise, delegateId, patient))
+                    ;(tags.includes('medicalInformation') || tags.includes('all')) &&
+                      (markerPromise = addDelegationsAndKeys(docs, markerPromise, delegateId, null))
                   })
-                  .catch((e) => {
-                    status.patient.error = e
-                    return { patient: patient, statuses: status }
-                  })
-          })
+
+                  return markerPromise
+                    .then(() => {
+                      //console.log("scd")
+                      return (
+                        ((allTags.includes('medicalInformation') || allTags.includes('anonymousMedicalInformation') || allTags.includes('all')) &&
+                          ctcsStubs &&
+                          ctcsStubs.length &&
+                          !_.isEqual(oCtcsStubs, ctcsStubs) &&
+                          this.contactApi
+                            .setContactsDelegations(ctcsStubs)
+                            .then(() => {
+                              status.contacts.success = true
+                              status.contacts.modified += ctcsStubs.length
+                            })
+                            .catch((e) => (status.contacts.error = e))) ||
+                        Promise.resolve((status.contacts.success = true))
+                      )
+                    })
+                    .then(() => {
+                      //console.log("shed")
+                      return (
+                        ((allTags.includes('medicalInformation') || allTags.includes('anonymousMedicalInformation') || allTags.includes('all')) &&
+                          hes &&
+                          hes.length &&
+                          !_.isEqual(oHes, hes) &&
+                          this.helementApi
+                            .setHealthElementsDelegations(hes)
+                            .then(() => {
+                              status.healthElements.success = true
+                              status.healthElements.modified += hes.length
+                            })
+                            .catch((e) => (status.healthElements.error = e))) ||
+                        Promise.resolve((status.healthElements.success = true))
+                      )
+                    })
+                    .then(() => {
+                      //console.log("sfd")
+                      return (
+                        ((allTags.includes('medicalInformation') || allTags.includes('all')) &&
+                          frms &&
+                          frms.length &&
+                          !_.isEqual(oFrms, frms) &&
+                          this.formApi
+                            .setFormsDelegations(frms)
+                            .then(() => {
+                              status.forms.success = true
+                              status.forms.modified += frms.length
+                            })
+                            .catch((e) => (status.forms.error = e))) ||
+                        Promise.resolve((status.forms.success = true))
+                      )
+                    })
+                    .then(() => {
+                      //console.log("sid")
+                      return (
+                        ((allTags.includes('financialInformation') || allTags.includes('all')) &&
+                          ivs &&
+                          ivs.length &&
+                          !_.isEqual(oIvs, ivs) &&
+                          this.invoiceApi
+                            .setInvoicesDelegations(ivs)
+                            .then(() => {
+                              status.invoices.success = true
+                              status.invoices.modified += ivs.length
+                            })
+                            .catch((e) => (status.invoices.error = e))) ||
+                        Promise.resolve((status.invoices.success = true))
+                      )
+                    })
+                    .then(() => {
+                      //console.log("sdd")
+                      return (
+                        ((allTags.includes('medicalInformation') || allTags.includes('all')) &&
+                          docs &&
+                          docs.length &&
+                          !_.isEqual(oDocs, docs) &&
+                          this.documentApi
+                            .setDocumentsDelegations(docs)
+                            .then(() => {
+                              status.documents.success = true
+                              status.documents.modified += docs.length
+                            })
+                            .catch((e) => (status.documents.error = e))) ||
+                        Promise.resolve((status.documents.success = true))
+                      )
+                    })
+                    .then(() => {
+                      //console.log("scld")
+                      return (
+                        ((allTags.includes('medicalInformation') || allTags.includes('all')) &&
+                          cls &&
+                          cls.length &&
+                          !_.isEqual(oCls, cls) &&
+                          this.classificationApi
+                            .setClassificationsDelegations(cls)
+                            .then(() => {
+                              status.classifications.success = true
+                              status.classifications.modified += cls.length
+                            })
+                            .catch((e) => (status.classifications.error = e))) ||
+                        Promise.resolve((status.classifications.success = true))
+                      )
+                    })
+                    .then(() => {
+                      //console.log("scid")
+                      return (
+                        ((allTags.includes('medicalInformation') || allTags.includes('all')) &&
+                          cis &&
+                          cis.length &&
+                          !_.isEqual(oCis, cis) &&
+                          this.calendarItemApi
+                            .setCalendarItemsDelegations(cis)
+                            .then(() => {
+                              status.calendarItems.success = true
+                              status.calendarItems.modified += cis.length
+                            })
+                            .catch((e) => (status.calendarItems.error = e))) ||
+                        Promise.resolve((status.calendarItems.success = true))
+                      )
+                    })
+                    .then(() => this.modifyPatientWithUser(user, patient))
+                    .then((p) => {
+                      status.patient.success = true
+                      console.log(
+                        `c: ${status.contacts.modified}, he: ${status.healthElements.modified}, docs: ${status.documents.modified}, frms: ${status.forms.modified}, ivs: ${status.invoices.modified}, cis: ${status.calendarItems.modified}, cls: ${status.classifications.modified}`
+                      )
+                      return { patient: p, statuses: status }
+                    })
+                    .catch((e) => {
+                      status.patient.error = e
+                      return { patient: patient, statuses: status }
+                    })
+                })
+              })
+            : (allTags.includes('anonymousMedicalInformation')
+                ? Promise.resolve(patient)
+                : this.modifyPatientWithUser(
+                    user,
+                    _.assign(patient, {
+                      delegations: _.assign(
+                        patient.delegations,
+                        delegateIds
+                          .filter((id) => !patient.delegations || !patient.delegations[id]) //If there are delegations do not modify
+                          .reduce((acc, del: string) => Object.assign(acc, _.fromPairs([[del, []]])), patient.delegations || {})
+                      ),
+                    })
+                  )
+              )
+                .then((p) => {
+                  status.patient.success = true
+                  return { patient: p, statuses: status }
+                })
+                .catch((e) => {
+                  status.patient.error = e
+                  return { patient: patient, statuses: status }
+                })
         })
     })
   }
@@ -1060,121 +949,122 @@ export class IccPatientXApi extends IccPatientApi {
         .then((patient: models.Patient) =>
           patient.encryptionKeys && Object.keys(patient.encryptionKeys || {}).length
             ? Promise.resolve(patient)
-            : this.initEncryptionKeys(user, patient).then((patient: models.Patient) => this.modifyPatientWithUser(user, patient))
+            : this.crypto.entities
+                .ensureEncryptionKeysInitialised(patient)
+                .then((patient: models.Patient) => this.modifyPatientWithUser(user, patient))
         )
-        .then((patient: models.Patient | null) => {
+        .then(async (patient: models.Patient | null) => {
           if (!patient) {
             return Promise.resolve({ id: patId })
           }
+          const delSfks = await this.crypto.entities.secretIdsOf(patient, ownerId)
+          const ecKeys = await this.crypto.entities.encryptionKeysOf(patient, ownerId)
+          return delSfks.length
+            ? Promise.all([
+                retry(() =>
+                  this.helementApi
+                    .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
+                    .then((hes) =>
+                      parentId
+                        ? this.helementApi
+                            .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
+                            .then((moreHes) => _.uniqBy(hes.concat(moreHes), 'id'))
+                        : hes
+                    )
+                ) as Promise<Array<models.IcureStub>>,
+                retry(() =>
+                  this.formApi
+                    .findFormsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
+                    .then((frms) =>
+                      parentId
+                        ? this.formApi
+                            .findFormsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
+                            .then((moreFrms) => _.uniqBy(frms.concat(moreFrms), 'id'))
+                        : frms
+                    )
+                ) as Promise<Array<models.Form>>,
+                retry(() =>
+                  this.contactApi
+                    .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
+                    .then((ctcs) =>
+                      parentId
+                        ? this.contactApi
+                            .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
+                            .then((moreCtcs) => _.uniqBy(ctcs.concat(moreCtcs), 'id'))
+                        : ctcs
+                    )
+                ) as Promise<Array<models.Contact>>,
+                retry(() =>
+                  this.invoiceApi
+                    .findInvoicesByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
+                    .then((ivs) =>
+                      parentId
+                        ? this.invoiceApi
+                            .findInvoicesByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
+                            .then((moreIvs) => _.uniqBy(ivs.concat(moreIvs), 'id'))
+                        : ivs
+                    )
+                ) as Promise<Array<models.IcureStub>>,
+                retry(() =>
+                  this.classificationApi
+                    .findClassificationsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
+                    .then((cls) =>
+                      parentId
+                        ? this.classificationApi
+                            .findClassificationsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
+                            .then((moreCls) => _.uniqBy(cls.concat(moreCls), 'id'))
+                        : cls
+                    )
+                ) as Promise<Array<models.Classification>>,
+                retry(async () => {
+                  const delegationSFKs = _.uniq(delSfks).join(',')
+                  try {
+                    let calendarItems = await this.calendarItemApi.findByHCPartyPatientSecretFKeys(ownerId, delegationSFKs)
 
-          return this.crypto.extractDelegationsSFKsAndEncryptionSKs(patient, ownerId).then(([delSfks, ecKeys]) => {
-            return delSfks.length
-              ? Promise.all([
-                  retry(() =>
-                    this.helementApi
-                      .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
-                      .then((hes) =>
-                        parentId
-                          ? this.helementApi
-                              .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
-                              .then((moreHes) => _.uniqBy(hes.concat(moreHes), 'id'))
-                          : hes
-                      )
-                  ) as Promise<Array<models.IcureStub>>,
-                  retry(() =>
-                    this.formApi
-                      .findFormsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                      .then((frms) =>
-                        parentId
-                          ? this.formApi
-                              .findFormsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                              .then((moreFrms) => _.uniqBy(frms.concat(moreFrms), 'id'))
-                          : frms
-                      )
-                  ) as Promise<Array<models.Form>>,
-                  retry(() =>
-                    this.contactApi
-                      .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
-                      .then((ctcs) =>
-                        parentId
-                          ? this.contactApi
-                              .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
-                              .then((moreCtcs) => _.uniqBy(ctcs.concat(moreCtcs), 'id'))
-                          : ctcs
-                      )
-                  ) as Promise<Array<models.Contact>>,
-                  retry(() =>
-                    this.invoiceApi
-                      .findInvoicesByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                      .then((ivs) =>
-                        parentId
-                          ? this.invoiceApi
-                              .findInvoicesByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                              .then((moreIvs) => _.uniqBy(ivs.concat(moreIvs), 'id'))
-                          : ivs
-                      )
-                  ) as Promise<Array<models.IcureStub>>,
-                  retry(() =>
-                    this.classificationApi
-                      .findClassificationsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                      .then((cls) =>
-                        parentId
-                          ? this.classificationApi
-                              .findClassificationsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                              .then((moreCls) => _.uniqBy(cls.concat(moreCls), 'id'))
-                          : cls
-                      )
-                  ) as Promise<Array<models.Classification>>,
-                  retry(async () => {
-                    const delegationSFKs = _.uniq(delSfks).join(',')
-                    try {
-                      let calendarItems = await this.calendarItemApi.findByHCPartyPatientSecretFKeys(ownerId, delegationSFKs)
-
-                      if (parentId) {
-                        const moreCalendarItems = await this.calendarItemApi.findByHCPartyPatientSecretFKeys(parentId, delegationSFKs)
-                        calendarItems = _.uniqBy(calendarItems.concat(moreCalendarItems), 'id')
-                      }
-
-                      return calendarItems
-                    } catch (ex) {
-                      console.log(`exception occured exporting calendarItem for ownerId: ${ownerId} - ${ex}`)
-                      //throw ex
+                    if (parentId) {
+                      const moreCalendarItems = await this.calendarItemApi.findByHCPartyPatientSecretFKeys(parentId, delegationSFKs)
+                      calendarItems = _.uniqBy(calendarItems.concat(moreCalendarItems), 'id')
                     }
-                  }) as Promise<Array<models.CalendarItem>>,
-                ]).then(([hes, frms, ctcs, ivs, cls, cis]) => {
-                  const docIds: { [key: string]: number } = {}
-                  ctcs.forEach(
-                    (c: models.Contact) =>
-                      c.services &&
-                      c.services.forEach((s) => s.content && Object.values(s.content).forEach((c) => c && c.documentId && (docIds[c.documentId] = 1)))
-                  )
 
-                  return retry(() => this.documentApi.getDocuments(new ListOfIds({ ids: Object.keys(docIds) }))).then((docs: Array<Document>) => {
-                    return {
-                      id: patId,
-                      patient: patient,
-                      contacts: ctcs,
-                      forms: frms,
-                      healthElements: hes,
-                      invoices: ivs,
-                      classifications: cls,
-                      calItems: cis,
-                      documents: docs,
-                    }
-                  })
+                    return calendarItems
+                  } catch (ex) {
+                    console.log(`exception occured exporting calendarItem for ownerId: ${ownerId} - ${ex}`)
+                    //throw ex
+                  }
+                }) as Promise<Array<models.CalendarItem>>,
+              ]).then(([hes, frms, ctcs, ivs, cls, cis]) => {
+                const docIds: { [key: string]: number } = {}
+                ctcs.forEach(
+                  (c: models.Contact) =>
+                    c.services &&
+                    c.services.forEach((s) => s.content && Object.values(s.content).forEach((c) => c && c.documentId && (docIds[c.documentId] = 1)))
+                )
+
+                return retry(() => this.documentApi.getDocuments(new ListOfIds({ ids: Object.keys(docIds) }))).then((docs: Array<Document>) => {
+                  return {
+                    id: patId,
+                    patient: patient,
+                    contacts: ctcs,
+                    forms: frms,
+                    healthElements: hes,
+                    invoices: ivs,
+                    classifications: cls,
+                    calItems: cis,
+                    documents: docs,
+                  }
                 })
-              : Promise.resolve({
-                  id: patId,
-                  patient: patient,
-                  contacts: [],
-                  forms: [],
-                  healthElements: [],
-                  invoices: [],
-                  classifications: [],
-                  calItems: [],
-                  documents: [],
-                })
-          })
+              })
+            : Promise.resolve({
+                id: patId,
+                patient: patient,
+                contacts: [],
+                forms: [],
+                healthElements: [],
+                invoices: [],
+                classifications: [],
+                calItems: [],
+                documents: [],
+              })
         })
     })
   }

@@ -24,7 +24,7 @@ export class IccReceiptXApi extends IccReceiptApi {
     this.dataOwnerApi = dataOwnerApi
   }
 
-  newInstance(user: models.User, r: any): Promise<models.Receipt> {
+  async newInstance(user: models.User, r: any, delegates: string[] = [], delegationTags?: string[]): Promise<models.Receipt> {
     const receipt = new models.Receipt(
       _.extend(
         {
@@ -41,60 +41,14 @@ export class IccReceiptXApi extends IccReceiptApi {
       )
     )
 
-    return this.initDelegationsAndEncryptionKeys(user, receipt)
-  }
-
-  initEncryptionKeys(user: models.User, rcpt: models.Receipt) {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-
-    return this.crypto.initEncryptionKeys(rcpt, dataOwnerId).then((eks) => {
-      let promise = Promise.resolve(
-        _.extend(rcpt, {
-          encryptionKeys: eks.encryptionKeys,
-        })
-      )
-      ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
-        (delegateId) =>
-          (promise = promise.then((receipt) =>
-            this.crypto.appendEncryptionKeys(receipt, dataOwnerId, delegateId, eks.secretId).then((extraEks) => {
-              return _.extend(extraEks.modifiedObject, {
-                encryptionKeys: extraEks.encryptionKeys,
-              })
-            })
-          ))
-      )
-      return promise
-    })
-  }
-
-  private initDelegationsAndEncryptionKeys(user: models.User, receipt: models.Receipt): Promise<models.Receipt> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-
-    return Promise.all([
-      this.crypto.initObjectDelegations(receipt, null, dataOwnerId, null),
-      this.crypto.initEncryptionKeys(receipt, dataOwnerId),
-    ]).then((initData) => {
-      const dels = initData[0]
-      const eks = initData[1]
-      _.extend(receipt, {
-        delegations: dels.delegations,
-        cryptedForeignKeys: dels.cryptedForeignKeys,
-        secretForeignKeys: dels.secretForeignKeys,
-        encryptionKeys: eks.encryptionKeys,
-      })
-
-      let promise = Promise.resolve(receipt)
-      ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
-        (delegateId) =>
-          (promise = promise.then((receipt) =>
-            this.crypto.addDelegationsAndEncryptionKeys(null, receipt, dataOwnerId, delegateId, dels.secretId, eks.secretId).catch((e) => {
-              console.log(e)
-              return receipt
-            })
-          ))
-      )
-      return promise
-    })
+    // TODO sure this should be medical?
+    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
+    // TODO data is never encrypted should we really initialise encryption keys?
+    return new models.Receipt(
+      await this.crypto.entities
+        .entityWithInitialisedEncryptionMetadata(receipt, undefined, undefined, true, extraDelegations, delegationTags)
+        .then((x) => x.updatedEntity)
+    )
   }
 
   logReceipt(user: models.User, docId: string, refs: Array<string>, blobType: string, blob: ArrayBuffer) {

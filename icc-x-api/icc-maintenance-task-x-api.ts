@@ -37,11 +37,11 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
     this.encryptedKeys = encryptedKeys
   }
 
-  newInstance(user: models.User, m: any, delegates: string[] = []) {
+  async newInstance(user: models.User, m: any, delegates: string[] = [], delegationTags?: string[]) {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
     const maintenanceTask = _.assign(
       {
-        id: this.crypto.randomUuid(),
+        id: this.crypto.primitives.randomUuid(),
         _type: 'org.taktik.icure.entities.MaintenanceTask',
         created: new Date().getTime(),
         modified: new Date().getTime(),
@@ -51,55 +51,12 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
       m || {}
     )
 
-    return this.initDelegations(user, maintenanceTask, delegates).then((task) => this.initEncryptionKeys(user, task, delegates))
-  }
-
-  initDelegations(user: models.User, maintenanceTask: models.MaintenanceTask, delegates: string[] = []): Promise<models.MaintenanceTask> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-    return this.crypto.initObjectDelegations(maintenanceTask, null, dataOwnerId!, null).then((initData) => {
-      _.extend(maintenanceTask, { delegations: initData.delegations })
-
-      let promise = Promise.resolve(maintenanceTask)
-      _.uniq(delegates.concat(user.autoDelegations ? user.autoDelegations.all || [] : [])).forEach(
-        (delegateId) =>
-          (promise = promise
-            .then((patient) => this.crypto.extendedDelegationsAndCryptedForeignKeys(patient, null, dataOwnerId!, delegateId, initData.secretId))
-            .then((extraData) => _.extend(maintenanceTask, { delegations: extraData.delegations }))
-            .catch((e) => {
-              console.log(e)
-              return maintenanceTask
-            }))
-      )
-      return promise
-    })
-  }
-
-  initEncryptionKeys(user: models.User, maintenanceTask: models.MaintenanceTask, delegates: string[] = []): Promise<models.MaintenanceTask> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-    return this.crypto.initEncryptionKeys(maintenanceTask, dataOwnerId!).then((eks) => {
-      let promise = Promise.resolve(
-        _.extend(maintenanceTask, {
-          encryptionKeys: eks.encryptionKeys,
-        })
-      )
-      _.uniq(delegates.concat(user.autoDelegations ? user.autoDelegations.all || [] : [])).forEach(
-        (delegateId) =>
-          (promise = promise.then((patient) =>
-            this.crypto
-              .appendEncryptionKeys(patient, dataOwnerId!, delegateId, eks.secretId)
-              .then((extraEks) => {
-                return _.extend(extraEks.modifiedObject, {
-                  encryptionKeys: extraEks.encryptionKeys,
-                })
-              })
-              .catch((e) => {
-                console.log(e.message)
-                return patient
-              })
-          ))
-      )
-      return promise
-    })
+    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? [])]
+    return new models.MaintenanceTask(
+      await this.crypto.entities
+        .entityWithInitialisedEncryptionMetadata(maintenanceTask, undefined, undefined, true, extraDelegations, delegationTags)
+        .then((x) => x.updatedEntity)
+    )
   }
 
   createMaintenanceTask(body?: models.MaintenanceTask): never {
@@ -124,8 +81,6 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
   }
 
   deleteMaintenanceTaskWithUser(user: models.User, maintenanceTaskId: string): Promise<Array<DocIdentifier>> | never {
-    // TODO server-side check on delegation access
-    // Client-side checks in this method are not efficient as they would always require to do a get first -> skip
     return super.deleteMaintenanceTask(maintenanceTaskId)
   }
 
@@ -168,73 +123,22 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
 
     return Promise.all(
-      maintenanceTasks.map((m) =>
-        (m.encryptionKeys && Object.keys(m.encryptionKeys).some((k) => !!m.encryptionKeys![k].length)
-          ? Promise.resolve(m)
-          : this.initEncryptionKeys(user, m)
-        )
-          .then((m: models.MaintenanceTask) => this.crypto.extractKeysFromDelegationsForHcpHierarchy(dataOwnerId!, m.id!, m.encryptionKeys!))
-          .then((sfks: { extractedKeys: Array<string>; hcpartyId: string }) =>
-            this.crypto.AES.importKey('raw', hex2ua(sfks.extractedKeys[0].replace(/-/g, '')))
-          )
-          .then((key: CryptoKey) =>
-            crypt(
-              m,
-              (obj: { [key: string]: string }) =>
-                this.crypto.AES.encrypt(
-                  key,
-                  utf8_2ua(
-                    JSON.stringify(obj, (k, v) => {
-                      return v instanceof ArrayBuffer || v instanceof Uint8Array
-                        ? b2a(new Uint8Array(v).reduce((d, b) => d + String.fromCharCode(b), ''))
-                        : v
-                    })
-                  )
-                ),
-              this.encryptedKeys
-            )
-          )
-      )
+      maintenanceTasks.map((m) => this.crypto.entities.encryptEntity(m, dataOwnerId, this.encryptedKeys, true, (x) => new models.MaintenanceTask(x)))
     )
   }
 
   decrypt(user: models.User, maintenanceTasks: Array<models.MaintenanceTask>): Promise<Array<models.MaintenanceTask>> {
+    // TODO why this does not use the general decrypt util?
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
 
     return Promise.all(
-      maintenanceTasks.map((mT) =>
-        this.crypto.extractKeysFromDelegationsForHcpHierarchy(dataOwnerId, mT.id!, mT.encryptionKeys ?? {}).then(({ extractedKeys: sfks }) => {
-          if (!sfks || !sfks.length) {
-            console.log('Cannot decrypt maintenanceTask', mT.id)
-            return Promise.resolve(mT)
-          }
-          if (mT.encryptedSelf) {
-            return this.crypto.AES.importKey('raw', hex2ua(sfks[0].replace(/-/g, ''))).then(
-              (key) =>
-                new Promise((resolve: (value: any) => any) =>
-                  this.crypto.AES.decrypt(key, string2ua(a2b(mT.encryptedSelf!))).then(
-                    (dec) => {
-                      let jsonContent
-                      try {
-                        jsonContent = dec && ua2utf8(dec)
-                        jsonContent && _.assign(mT, JSON.parse(jsonContent))
-                      } catch (e) {
-                        console.log('Cannot parse mTask', mT.id, jsonContent || '<- Invalid encoding')
-                      }
-                      resolve(mT)
-                    },
-                    () => {
-                      console.log('Cannot decrypt mTask', mT.id)
-                      resolve(mT)
-                    }
-                  )
-                )
-            )
-          } else {
-            return Promise.resolve(mT)
-          }
-        })
-      )
+      maintenanceTasks.map(async (mT) => {
+        const keys = await this.crypto.entities.importAllValidKeys(await this.crypto.entities.encryptionKeysOf(mT, dataOwnerId))
+        const encrypted = string2ua(a2b(mT.encryptedSelf!))
+        const decrypted = await this.crypto.entities.tryDecryptJson(keys, encrypted, false)
+        if (decrypted) return new models.MaintenanceTask(_.assign(mT, JSON.parse(decrypted)))
+        else return mT
+      })
     )
   }
 }

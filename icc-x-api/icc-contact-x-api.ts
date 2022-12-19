@@ -6,15 +6,13 @@ import i18n from './rsrc/contact.i18n'
 import * as moment from 'moment'
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import { AccessLog, Contact, FilterChainService, ListOfIds, Service } from '../icc-api/model/models'
+import { Contact, FilterChainService, ListOfIds, Service } from '../icc-api/model/models'
 import { PaginatedListContact } from '../icc-api/model/PaginatedListContact'
-import { a2b, b2a, hex2ua, string2ua, ua2string, ua2utf8, utf8_2ua } from './utils/binary-utils'
+import { a2b, b2a, string2ua, ua2string, utf8_2ua } from './utils/binary-utils'
 import { ServiceByIdsFilter } from './filters/ServiceByIdsFilter'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
-import { truncateTrailingNulls, before } from './utils'
+import { before } from './utils'
 import { AuthenticationProvider } from './auth/AuthenticationProvider'
-import { webcrypto } from 'crypto'
-import CryptoKey = module
 
 export class IccContactXApi extends IccContactApi {
   i18n: any = i18n
@@ -38,6 +36,30 @@ export class IccContactXApi extends IccContactApi {
     this.dataOwnerApi = dataOwnerApi
   }
 
+  /**
+   * Temporary version of new instance without the `confidential` parameter, to simplify the transition to the updated api. In a future version
+   * the confidential parameter from new instance will be removed and this will be deprecated.
+   */
+  async newInstanceNoConfidential(
+    user: models.User,
+    patient: models.Patient,
+    h: any,
+    delegates: string[] = [],
+    preferredSfk?: string,
+    delegationTags?: string[]
+  ) {
+    return this.newInstance(user, patient, h, false, delegates, preferredSfk, delegationTags)
+  }
+
+  /**
+   * @deprecated The concept of confidential will be removed from the iCure API. If you need to use any parameter including or after `confidential`
+   * you should replace the method with {@link newInstanceNoConfidential}, else you can continue using this.
+   * If you were using the method only with default parameters you can leave it as is.
+   * If you were calling this method using confidential=false (default) simply replace with {@link newInstanceNoConfidential}.
+   * If you were calling this method using confidential=true replace with {@link newInstanceNoConfidential} specifying an appropriate value for
+   * `preferredSfk`. You can use {@link EntitiesEncryption.secretIdsOf} or {@link EntitiesEncryption.secretIdsForHcpHierarchyOf} and tags filter to
+   * find the appropriate sfk.
+   */
   async newInstance(
     user: models.User,
     patient: models.Patient,
@@ -68,9 +90,6 @@ export class IccContactXApi extends IccContactApi {
     )
 
     const ownerId = this.dataOwnerApi.getDataOwnerOf(user)
-    if (confidential) {
-      console.warn('The concept of confidential will be removed from the iCure API: use delegation tags, tag filters and preferred Sfk instead')
-    }
     const sfk =
       preferredSfk ??
       (
@@ -85,7 +104,7 @@ export class IccContactXApi extends IccContactApi {
       sfk,
       true,
       extraDelegations,
-      (delegationTags && delegationTags.length) || !confidential ? delegationTags : ['confidential']
+      delegationTags
     )
     const anonymousDelegations = user.autoDelegations?.anonymousMedicalInformation ?? []
     return new models.Contact(
@@ -120,7 +139,7 @@ export class IccContactXApi extends IccContactApi {
    * @param patient (Promise)
    */
   async findBy(hcpartyId: string, patient: models.Patient) {
-    // TODO unlike previous ones this uses full hierarchy...
+    // TODO most extended apis find by topmost parent, this finds by full hierarchy; which is correct?
     return await this.crypto.entities.secretIdsForHcpHierarchyOf(patient).then((keysHierarchy) =>
       keysHierarchy && keysHierarchy.length > 0
         ? Promise.all(
@@ -220,7 +239,7 @@ export class IccContactXApi extends IccContactApi {
     secretFKeys: string,
     planOfActionIds?: string,
     skipClosedContacts?: boolean
-  ): Promise<Array<models.Contact> | any> {
+  ): Promise<Array<models.Contact>> {
     return super
       .findByHCPartyPatientSecretFKeys(hcPartyId, secretFKeys, planOfActionIds, skipClosedContacts)
       .then((contacts) => this.decrypt(hcPartyId, contacts))

@@ -375,30 +375,23 @@ export class IccCryptoXApi {
   }
 
   /**
-   * TODO move to medispring api
-   * Gets the secret ID (SFKs) that should be used in the prescribed context (confidential or not) from decrypted SPKs of the given `parent`, decrypted by the HcP with the given `hcpartyId` AND by its HcP parents
-   * @param parent :the object of which delegations (SPKs) to decrypt
-   * @param hcpartyId :the id of the delegate HcP
-   * @param confidential :weather the key is going to be used for a confidential piece or data or not
-   * @returns - **extractedKeys** array containing secret IDs (SFKs) from decrypted SPKs, from both given HcP and its parents ; can contain duplicates
-   * - **hcpartyId** the given `hcpartyId` OR, if a parent exist, the HcP id of the top parent in the hierarchy  (even if that parent has no delegations)
+   * @deprecated The concept of confidential will be removed from the iCure API: this method will be removed from the general purpose iCure api.
    */
   async extractPreferredSfk(parent: EncryptedParentEntity, hcpartyId: string, confidential: boolean) {
-    throw 'TODO'
-    // const secretForeignKeys = await this.extractSFKsHierarchyFromDelegations(parent, hcpartyId)
-    // const keys = secretForeignKeys
-    //   .filter(({ extractedKeys }) => extractedKeys.length > 0)
-    //   .filter((x, idx) => (confidential ? x.hcpartyId === hcpartyId : idx === 0))[0]
-    //
-    // return (
-    //   (keys &&
-    //     (confidential
-    //       ? keys.extractedKeys.find(
-    //           (k) => !secretForeignKeys.some(({ extractedKeys, hcpartyId: parentHcpId }) => hcpartyId !== parentHcpId && extractedKeys.includes(k))
-    //         )
-    //       : keys.extractedKeys[0])) ||
-    //   undefined
-    // )
+    const secretForeignKeys = await this.entities.secretIdsForHcpHierarchyOf(parent)
+    const keys = secretForeignKeys
+      .filter(({ extracted }) => extracted.length > 0)
+      .filter((x, idx) => (confidential ? x.ownerId === hcpartyId : idx === 0))[0]
+
+    return (
+      (keys &&
+        (confidential
+          ? keys.extracted.find(
+              (k) => !secretForeignKeys.some(({ extracted, ownerId: parentHcpId }) => hcpartyId !== parentHcpId && extracted.includes(k))
+            )
+          : keys.extracted[0])) ||
+      undefined
+    )
   }
 
   /**

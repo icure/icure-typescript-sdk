@@ -3,9 +3,10 @@ import { IccCryptoXApi } from './icc-crypto-x-api'
 
 import * as _ from 'lodash'
 
-import { Patient, User } from '../icc-api/model/models'
+import { AccessLog, Patient, User } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider } from './auth/AuthenticationProvider'
+import * as models from '../icc-api/model/models'
 
 export class IccMessageXApi extends IccMessageApi {
   dataOwnerApi: IccDataOwnerXApi
@@ -32,7 +33,14 @@ export class IccMessageXApi extends IccMessageApi {
     return this.newInstanceWithPatient(user, null, m)
   }
 
-  newInstanceWithPatient(user: User, patient: Patient | null, m: any = {}, delegates: string[] = []) {
+  async newInstanceWithPatient(
+    user: User,
+    patient: Patient | null,
+    m: any = {},
+    delegates: string[] = [],
+    preferredSfk?: string,
+    delegationTags?: string[]
+  ) {
     const message = _.extend(
       {
         id: this.crypto.randomUuid(),
@@ -47,39 +55,15 @@ export class IccMessageXApi extends IccMessageApi {
       m || {}
     )
 
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-
-    return this.crypto
-      .extractDelegationsSFKs(patient, dataOwnerId)
-      .then((secretForeignKeys) => this.crypto.initObjectDelegations(message, patient, dataOwnerId!, secretForeignKeys.extractedKeys[0]))
-      .then((initData) => {
-        _.extend(message, {
-          delegations: initData.delegations,
-          cryptedForeignKeys: initData.cryptedForeignKeys,
-          secretForeignKeys: initData.secretForeignKeys,
-        })
-
-        let promise = Promise.resolve(message)
-        _.uniq(
-          delegates.concat(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : [])
-        ).forEach(
-          (delegateId) =>
-            (promise = promise.then((helement) =>
-              this.crypto
-                .extendedDelegationsAndCryptedForeignKeys(helement, patient, dataOwnerId!, delegateId, initData.secretId)
-                .then((extraData) =>
-                  _.extend(helement, {
-                    delegations: extraData.delegations,
-                    cryptedForeignKeys: extraData.cryptedForeignKeys,
-                  })
-                )
-                .catch((e) => {
-                  console.log(e)
-                  return helement
-                })
-            ))
-        )
-        return promise
-      })
+    const ownerId = this.dataOwnerApi.getDataOwnerOf(user)
+    const sfk = preferredSfk ?? (patient ? (await this.crypto.entities.secretIdsOf(patient, ownerId))[0] : undefined)
+    // TODO sure this should be medical?
+    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
+    // TODO data is never encrypted, but should we initialise encryption keys anyway, to have everything future proof?
+    return new models.Message(
+      await this.crypto.entities
+        .entityWithInitialisedEncryptionMetadata(message, patient?.id, sfk, true, extraDelegations, delegationTags)
+        .then((x) => x.updatedEntity)
+    )
   }
 }
