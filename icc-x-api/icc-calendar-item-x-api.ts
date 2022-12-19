@@ -65,7 +65,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
     const sfk = patient ? preferredSfk ?? (await this.crypto.entities.secretIdsOf(patient, ownerId))[0] : undefined
     const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
     return new CalendarItem(
-      this.crypto.entities
+      await this.crypto.entities
         .entityWithInitialisedEncryptionMetadata(calendarItem, patient?.id, sfk, true, extraDelegations, delegationTags)
         .then((x) => x.updatedEntity)
     )
@@ -79,8 +79,9 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
       : Promise.resolve([])
   }
 
-  findByHCPartyPatientSecretFKeys(hcPartyId: string, secretFKeys: string): Promise<Array<models.CalendarItem> | any> {
-    return super.findCalendarItemsByHCPartyPatientForeignKeys(hcPartyId, secretFKeys).then((calendarItems) => this.decrypt(hcPartyId, calendarItems))
+  async findByHCPartyPatientSecretFKeys(hcPartyId: string, secretFKeys: string): Promise<Array<models.CalendarItem>> {
+    const calendarItems = await super.findCalendarItemsByHCPartyPatientForeignKeys(hcPartyId, secretFKeys)
+    return await this.decrypt(hcPartyId, calendarItems)
   }
 
   createCalendarItem(body?: CalendarItem): never {
@@ -183,7 +184,10 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
   }
 
   encrypt(user: models.User, calendarItems: Array<models.CalendarItem>): Promise<Array<models.CalendarItem>> {
-    return Promise.all(calendarItems.map((x) => this.crypto.entities.encryptEntity(x, user, this.encryptedKeys, (json) => new CalendarItem(json))))
+    const owner = this.dataOwnerApi.getDataOwnerOf(user)
+    return Promise.all(
+      calendarItems.map((x) => this.crypto.entities.encryptEntity(x, owner, this.encryptedKeys, false, (json) => new CalendarItem(json)))
+    )
   }
 
   decrypt(hcpId: string, calendarItems: Array<models.CalendarItem>): Promise<Array<models.CalendarItem>> {

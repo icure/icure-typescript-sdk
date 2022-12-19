@@ -58,7 +58,7 @@ export class IccClassificationXApi extends IccClassificationApi {
     const sfk = patient ? preferredSfk ?? (await this.crypto.entities.secretIdsOf(patient, ownerId))[0] : undefined
     const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
     return new models.Classification(
-      this.crypto.entities
+      await this.crypto.entities
         .entityWithInitialisedEncryptionMetadata(
           classification,
           patient?.id,

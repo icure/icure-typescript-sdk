@@ -145,6 +145,6 @@ export class IccHcpartyXApi extends IccHcpartyApi {
     cbe = cbe.replace(new RegExp('[^(0-9)]', 'g'), '')
     cbe = cbe.length == 9 ? '0' + cbe : cbe
 
-    return 97 - (Number(cbe.substr(0, 8)) % 97) === Number(cbe.substr(8, 2))
+    return 97 - (Number(cbe.substring(0, 8)) % 97) === Number(cbe.substring(8, 2))
   }
 }
