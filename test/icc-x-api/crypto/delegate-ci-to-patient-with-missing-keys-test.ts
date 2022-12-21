@@ -59,30 +59,22 @@ describe('Full battery of tests on crypto and keys', async function () {
     const delegateHcp = await delegateApi.healthcarePartyApi.getHealthcareParty(delegateUser.healthcarePartyId!)
 
     const patient = await api.patientApi.getPatientWithUser(u, u.patientId!)
-    // The patient didn't have an exchange key with delegateHcp so there is definitely a new one
-    const patientWithNewExchangeKey = (await api.cryptoApi.exchangeKeys.getOrCreateEncryptionExchangeKeysTo(delegateHcp.id!)).updatedDelegator!
-      .dataOwner
 
-    // Decrypting AES Key to compare it with AES key decrypted with new key in the next steps
-    const decryptedAesWithPreviousKey = await api.cryptoApi.decryptHcPartyKey(
-      patientWithNewExchangeKey!.id!,
-      patientWithNewExchangeKey!.id!,
-      delegateUser!.healthcarePartyId!,
-      previousPubKey,
-      patientWithNewExchangeKey!.aesExchangeKeys![previousPubKey][delegateUser!.healthcarePartyId!],
-      [previousPubKey]
-    )
-
-    // Create a Record with original key
+    // Create a Record to share with delegateHcp: this will trigger the creation of a new aes exchange key as well
     const initialRecord = await api.calendarItemApi.newInstance(u, new CalendarItem({ id: `${u.id}-ci-initial`, title: 'CI-INITIAL' }), [
       delegateHcp!.id!,
     ])
     const savedInitialRecord = await api.calendarItemApi.createCalendarItemWithHcParty(u, initialRecord)
 
+    // Decrypting this AES Key to compare it with AES key decrypted with new key in the next steps
+    await api.cryptoApi.forceReload(true)
+    const decryptedAesWithPreviousKey = await api.cryptoApi.exchangeKeys.getDecryptionExchangeKeysFor(patient.id!, delegateHcp.id!)
+    expect(decryptedAesWithPreviousKey).to.have.length(1)
+    const oldExchangeKeyRaw = ua2hex(await api.cryptoApi.primitives.AES.exportKey(decryptedAesWithPreviousKey[0], 'raw'))
+
     // And creates a new one
     const newKey = await api.cryptoApi.primitives.RSA.generateKeyPair()
     const publicKey = ua2hex(await api.cryptoApi.primitives.RSA.exportKey(newKey.publicKey, 'spki'))
-    const privateKey = ua2hex(await api.cryptoApi.primitives.RSA.exportKey(newKey.privateKey, 'pkcs8'))
     const apiAfterNewKey = await Api(
       env!.iCureUrl,
       env!.dataOwnerDetails[patUsername].user,
@@ -98,6 +90,11 @@ describe('Full battery of tests on crypto and keys', async function () {
     )
     const user = await apiAfterNewKey.userApi.getCurrentUser()
     await apiAfterNewKey.icureMaintenanceTaskApi.createMaintenanceTasksForNewKeypair(user, newKey)
+    // Api with new key should not be able to decrypt past exchange key with delegateHcp
+    await apiAfterNewKey.cryptoApi.forceReload(true)
+    const decryptedAesAfterShareBackRequest = await apiAfterNewKey.cryptoApi.exchangeKeys.getDecryptionExchangeKeysFor(patient.id!, delegateHcp.id!)
+    expect(decryptedAesAfterShareBackRequest).to.have.length(1)
+    const newExchangeKeyRaw = ua2hex(await api.cryptoApi.primitives.AES.exportKey(decryptedAesAfterShareBackRequest[0], 'raw'))
 
     // User can get not encrypted information from iCure (HCP, ...)
     const hcp = await apiAfterNewKey.healthcarePartyApi.getHealthcareParty(delegateUser!.healthcarePartyId!)
@@ -145,24 +142,21 @@ describe('Full battery of tests on crypto and keys', async function () {
       new DefaultStorageEntryKeysFactory(),
       new TestCryptoStrategies(newKey)
     )
-
-    const decryptedAesWithNewKey = await apiAfterSharedBack.cryptoApi.decryptHcPartyKey(
-      user.patientId!,
-      user.patientId!,
-      delegateUser!.healthcarePartyId!,
-      publicKey,
-      updatedDataOwner.dataOwner.aesExchangeKeys![previousPubKey][delegateUser!.healthcarePartyId!],
-      [publicKey]
+    await apiAfterSharedBack.cryptoApi.forceReload(true)
+    const decryptedAesWithShareBack = await apiAfterSharedBack.cryptoApi.exchangeKeys.getDecryptionExchangeKeysFor(patient.id!, delegateHcp.id!)
+    expect(decryptedAesWithShareBack).to.have.length(2)
+    const shareBackKeysRaw = await Promise.all(
+      decryptedAesWithShareBack.map((k) => api.cryptoApi.primitives.AES.exportKey(k, 'raw').then((x) => ua2hex(x)))
     )
 
     // Patient can decrypt the new hcPartyKey
-    expect(decryptedAesWithNewKey.rawKey).to.not.be.undefined
-    expect(decryptedAesWithNewKey.rawKey).to.not.be.null
-
-    expect(decryptedAesWithNewKey.rawKey).to.be.equal(decryptedAesWithPreviousKey.rawKey)
+    expect(shareBackKeysRaw).to.not.contain(null)
+    expect(shareBackKeysRaw).to.not.contain(undefined)
+    expect(shareBackKeysRaw).to.contain(oldExchangeKeyRaw)
+    expect(shareBackKeysRaw).to.contain(newExchangeKeyRaw)
 
     // User can access his previous data again
-    apiAfterSharedBack.cryptoApi.emptyHcpCache(patient.id!)
+    await apiAfterSharedBack.cryptoApi.forceReload(true)
 
     const initialRecordAfterSharedBack = await apiAfterSharedBack.calendarItemApi.getCalendarItemWithUser(u, initialRecord.id!)
     expect(initialRecordAfterSharedBack.id).to.be.equal(savedInitialRecord.id)

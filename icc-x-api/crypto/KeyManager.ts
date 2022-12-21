@@ -292,7 +292,7 @@ export class KeyManager {
       ...Array.from(loadedKeysDevice).map((fp) => [fp, true]),
     ])
     await this.icureStorage.saveSelfVerifiedKeys(dataOwner.dataOwner.id!, merged)
-    return merged
+    return await this.icureStorage.loadSelfVerifiedKeys(dataOwner.dataOwner.id!)
   }
 
   private verifyKeys(
