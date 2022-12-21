@@ -249,3 +249,55 @@ export const Api = async function (
     icureMaintenanceTaskApi,
   }
 }
+
+// TODO better naming, check all necessary apis available.
+export const PlainApi = async function (
+  host: string,
+  username: string,
+  password: string,
+  crypto: Crypto = typeof window !== 'undefined' ? window.crypto : typeof self !== 'undefined' ? self.crypto : ({} as Crypto),
+  fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
+    ? window.fetch
+    : typeof self !== 'undefined'
+    ? self.fetch
+    : fetch,
+  forceBasic: boolean = false,
+  autoLogin: boolean = false
+) {
+  const headers = {}
+  const authApi = new IccAuthApi(host, headers, fetchImpl)
+  const authenticationProvider = forceBasic
+    ? new BasicAuthenticationProvider(username, password)
+    : new EnsembleAuthenticationProvider(authApi, username, password)
+
+  const codeApi = new IccCodeXApi(host, headers, authenticationProvider, fetchImpl)
+  const entityReferenceApi = new IccEntityrefApi(host, headers, authenticationProvider, fetchImpl)
+  const userApi = new IccUserXApi(host, headers, authenticationProvider, fetchImpl)
+  const permissionApi = new IccPermissionApi(host, headers, authenticationProvider, fetchImpl)
+  const agendaApi = new IccAgendaApi(host, headers, authenticationProvider, fetchImpl)
+  const groupApi = new IccGroupApi(host, headers, authenticationProvider)
+  const insuranceApi = new IccInsuranceApi(host, headers, authenticationProvider, fetchImpl)
+
+  if (autoLogin) {
+    if (username != undefined && password != undefined) {
+      try {
+        await retry(() => authApi.login({ username, password }), 3, 1000, 1.5)
+      } catch (e) {
+        console.error('Incorrect user and password used to instantiate Api, or network problem', e)
+      }
+    }
+  } else {
+    console.info('Auto login skipped')
+  }
+
+  return {
+    authApi,
+    codeApi,
+    userApi,
+    permissionApi,
+    insuranceApi,
+    entityReferenceApi,
+    agendaApi,
+    groupApi,
+  }
+}

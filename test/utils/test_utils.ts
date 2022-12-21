@@ -1,5 +1,5 @@
 import { User } from '../../icc-api/model/User'
-import { Api, Apis, hex2ua, IccCryptoXApi, pkcs8ToJwk, spkiToJwk } from '../../icc-x-api'
+import { Apis, hex2ua, IccCryptoXApi, pkcs8ToJwk, spkiToJwk } from '../../icc-x-api'
 import { IccDataOwnerXApi } from '../../icc-x-api/icc-data-owner-x-api'
 import { tmpdir } from 'os'
 import { TextDecoder, TextEncoder } from 'util'
@@ -23,10 +23,8 @@ import { webcrypto } from 'crypto'
 import { crypto } from '../../node-compat'
 
 import { checkIfDockerIsOnline } from '@icure/test-setup'
-import { TestKeyStorage, TestStorage } from './TestStorage'
-import { DefaultStorageEntryKeysFactory } from '../../icc-x-api/storage/DefaultStorageEntryKeysFactory'
 import { RSAUtils } from '../../icc-x-api/crypto/RSA'
-import { TestCryptoStrategies } from './TestCryptoStrategies'
+import { TestApi } from './TestApi'
 
 export function getTempEmail(): string {
   return `${uuid().substring(0, 8)}@icure.com`
@@ -130,15 +128,7 @@ export async function getEnvironmentInitializer(): Promise<EnvInitializer> {
 
 export namespace TestUtils {
   export async function initApi(envVars: TestVars, userName: string = hcp1Username): Promise<Apis> {
-    return Api(envVars.iCureUrl, envVars.dataOwnerDetails[userName].user, envVars.dataOwnerDetails[userName].password, crypto)
-  }
-
-  export async function initKey(dataOwnerApi: IccDataOwnerXApi, cryptoApi: IccCryptoXApi, user: User, privateKey: string) {
-    const id = dataOwnerApi.getDataOwnerOf(user)!
-    await cryptoApi.loadKeyPairsAsTextInBrowserLocalStorage(id, hex2ua(privateKey)).catch((error: any) => {
-      console.error('Error: in loadKeyPairsAsTextInBrowserLocalStorage')
-      console.error(error)
-    })
+    return await getApiAndAddPrivateKeysForUser(envVars.iCureUrl, envVars.dataOwnerDetails[userName])
   }
 }
 
@@ -148,31 +138,5 @@ export async function getApiAndAddPrivateKeysForUser(iCureUrl: string, details: 
     publicKey: await RSA.importKey('spki', hex2ua(details.publicKey), ['encrypt']),
     privateKey: await RSA.importKey('pkcs8', hex2ua(details.privateKey), ['decrypt']),
   }
-  const api = await Api(
-    iCureUrl,
-    details.user,
-    details.password,
-    webcrypto as unknown as Crypto,
-    fetch,
-    false,
-    false,
-    new TestStorage(),
-    new TestKeyStorage(),
-    new DefaultStorageEntryKeysFactory(),
-    new TestCryptoStrategies(keys)
-  )
-  const user = await api.userApi.getCurrentUser()
-  return api
-}
-
-export async function initKeys(api: Apis, userPrivKey: string, userPublicKey: string) {
-  const currentUser = await api.userApi.getCurrentUser()
-  const dataOwner = api.dataOwnerApi.getDataOwnerOf(currentUser)
-
-  const jwk = {
-    publicKey: spkiToJwk(hex2ua(userPublicKey)),
-    privateKey: pkcs8ToJwk(hex2ua(userPrivKey)),
-  }
-  await api.cryptoApi.cacheKeyPair(jwk)
-  await api.cryptoApi.keyStorage.storeKeyPair(`${dataOwner}.${userPublicKey.slice(-32)}`, jwk)
+  return await TestApi(iCureUrl, details.user, details.password, webcrypto as unknown as Crypto, keys)
 }

@@ -6,6 +6,8 @@ import { createDeviceUser, createHealthcarePartyUser, createMasterHcpUser, creat
 import { v4 as uuid } from 'uuid'
 import { TestVars, UserDetails } from './test_utils'
 
+// TODO this is using legacy api: update test setup
+
 /**
  * Base interface for the decorator classes.
  * The execute method gets a set of environment variables and returns a copy that could be modified

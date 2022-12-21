@@ -92,11 +92,8 @@ export class IccContactXApi extends IccContactApi {
     const ownerId = this.dataOwnerApi.getDataOwnerOf(user)
     const sfk =
       preferredSfk ??
-      (
-        await this.crypto.entities.secretIdsOf(patient, ownerId, (tags) =>
-          Promise.resolve(!confidential || tags.some((tag) => tag === 'confidential'))
-        )
-      )[0]
+      (confidential ? await this.crypto.extractPreferredSfk(patient, ownerId, true) : (await this.crypto.entities.secretIdsOf(patient, ownerId))[0])
+    if (!sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id} for confidential=${confidential}`)
     const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
     const initialisationInfo = await this.crypto.entities.entityWithInitialisedEncryptionMetadata(
       contact,
@@ -415,7 +412,7 @@ export class IccContactXApi extends IccContactApi {
         ctc.services = await this.decryptServices(hcpartyId, ctc.services || [], keys)
         if (ctc.encryptedSelf) {
           try {
-            const json = this.crypto.entities.tryDecryptJson(keys, string2ua(a2b(ctc.encryptedSelf!)), false)
+            const json = await this.crypto.entities.tryDecryptJson(keys, string2ua(a2b(ctc.encryptedSelf!)), false)
             if (json) {
               _.assign(ctc, json)
             } else {

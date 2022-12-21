@@ -442,7 +442,7 @@ export class EntitiesEncryption {
     potentialKeys: { key: CryptoKey; raw: string }[],
     encrypted: Uint8Array,
     truncateTrailingDecryptedNulls: boolean
-  ): Promise<any | undefined> {
+  ): Promise<{} | undefined> {
     for (const key of potentialKeys) {
       try {
         const decrypted = (await this.primitives.AES.decrypt(key.key, encrypted, key.raw)) ?? encrypted
@@ -745,7 +745,15 @@ export class EntitiesEncryption {
         keysForDelegates: {} as { [delegateId: string]: CryptoKey[] },
       })
     )
-    const updatedEntity = entity.id === updatedDelegator?.dataOwner?.id ? (updatedDelegator!.dataOwner as T) : entity
+    const updatedEntity =
+      entity.id === updatedDelegator?.dataOwner?.id
+        ? {
+            ...entity,
+            rev: updatedDelegator!.dataOwner.rev,
+            hcPartyKeys: updatedDelegator!.dataOwner.hcPartyKeys,
+            aesExchangeKeys: updatedDelegator!.dataOwner.aesExchangeKeys,
+          }
+        : entity
     return { updatedEntity, keysForDelegates }
   }
 
@@ -868,14 +876,14 @@ export class EntitiesEncryption {
 
   private checkEmptyEncryptionMetadata(entity: EncryptedEntity) {
     const existingMetadata = []
-    if (entity.delegations && entity.delegations !== {}) existingMetadata.push('delegations')
-    if (entity.cryptedForeignKeys && entity.cryptedForeignKeys !== {}) existingMetadata.push('cryptedForeignKeys')
-    if (entity.encryptionKeys && entity.encryptionKeys !== {}) existingMetadata.push('encryptionKeys')
-    if (entity.secretForeignKeys && entity.secretForeignKeys !== []) existingMetadata.push('secretForeignKeys')
+    if (entity.delegations && Object.keys(entity.delegations).length) existingMetadata.push('delegations')
+    if (entity.cryptedForeignKeys && Object.keys(entity.cryptedForeignKeys).length) existingMetadata.push('cryptedForeignKeys')
+    if (entity.encryptionKeys && Object.keys(entity.encryptionKeys).length) existingMetadata.push('encryptionKeys')
+    if (entity.secretForeignKeys && entity.secretForeignKeys.length) existingMetadata.push('secretForeignKeys')
     if (existingMetadata.length > 0) {
-      throw (
+      throw new Error(
         `Entity should have no encryption metadata on initialisation, but the following fields already have some values: ${existingMetadata}\n` +
-        entity
+          JSON.stringify(entity, undefined, 2)
       )
     }
   }
