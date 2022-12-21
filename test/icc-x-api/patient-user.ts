@@ -1,154 +1,148 @@
-// import 'isomorphic-fetch'
-// import { expect } from 'chai'
-// import 'mocha'
-// import { Api, Apis, pkcs8ToJwk } from '../../icc-x-api'
-// import { IccPatientApi } from '../../icc-api'
-// import { User } from '../../icc-api/model/User'
-// import { crypto } from '../../node-compat'
-// import { ua2hex, hex2ua } from '../../icc-x-api'
-// import { Patient } from '../../icc-api/model/Patient'
-// import { before } from 'mocha'
-// import { getEnvironmentInitializer, getEnvVariables, hcp1Username, patUsername, setLocalStorage, TestVars } from '../utils/test_utils'
-// import { BasicAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
-//
-// setLocalStorage(fetch)
-// let env: TestVars
-// let api: Apis
-// let hcpUser: User
-//
-// describe('Patient', () => {
-//   before(async function () {
-//     this.timeout(600000)
-//     const initializer = await getEnvironmentInitializer()
-//     env = await initializer.execute(getEnvVariables())
-//     api = await Api(env.iCureUrl, env.dataOwnerDetails[hcp1Username].user, env.dataOwnerDetails[hcp1Username].password, crypto)
-//     hcpUser = await api.userApi.getCurrentUser()
-//     await api.cryptoApi.loadKeyPairsAsJwkInBrowserLocalStorage(
-//       hcpUser.healthcarePartyId!,
-//       pkcs8ToJwk(hex2ua(env.dataOwnerDetails[hcp1Username].privateKey))
-//     )
-//   })
-//
-//   it('should be capable of creating a patient from scratch', async () => {
-//     try {
-//       const rawPatientApiForHcp = new IccPatientApi(
-//         env.iCureUrl,
-//         {},
-//         new BasicAuthenticationProvider(env.dataOwnerDetails[hcp1Username].user, env.dataOwnerDetails[hcp1Username].password)
-//       )
-//       const patient = await rawPatientApiForHcp.createPatient(new Patient({ id: api.cryptoApi.randomUuid(), firstName: 'Tasty', lastName: 'Test' }))
-//       const pwd = api.cryptoApi.randomUuid()
-//       const tmpUser = await api.userApi.createUser(
-//         new User({ id: api.cryptoApi.randomUuid(), login: api.cryptoApi.randomUuid(), passwordHash: pwd, patientId: patient.id })
-//       )
-//
-//       try {
-//         const { cryptoApi } = await Api(env.iCureUrl, tmpUser.id!, pwd, crypto)
-//         const rawPatientApi = new IccPatientApi(env.iCureUrl, {}, new BasicAuthenticationProvider(tmpUser.id!, pwd))
-//         const { publicKey, privateKey } = await cryptoApi.RSA.generateKeyPair()
-//         const publicKeyHex = ua2hex(await cryptoApi.RSA.exportKey(publicKey!, 'spki'))
-//         await rawPatientApi.modifyPatient({ ...patient, publicKey: publicKeyHex })
-//
-//         try {
-//           const { userApi, patientApi, cryptoApi: updatedCryptoApi } = await Api(env.iCureUrl, tmpUser.id!, pwd!, crypto)
-//           await updatedCryptoApi.loadKeyPairsAsTextInBrowserLocalStorage(
-//             patient.id!,
-//             new Uint8Array((await updatedCryptoApi.RSA.exportKey(privateKey!, 'pkcs8')) as ArrayBuffer)
-//           )
-//           const user = await userApi.getCurrentUser()
-//           let me = await patientApi.getPatientWithUser(user, user.patientId!)
-//           await updatedCryptoApi.getOrCreateHcPartyKeys(me, user.patientId!)
-//           me = await patientApi.getPatientWithUser(user, user.patientId!)
-//           await updatedCryptoApi.getOrCreateHcPartyKeys(me, hcpUser.healthcarePartyId!)
-//
-//           me = await patientApi.getPatientWithUser(user, user.patientId!)
-//           me = await patientApi.modifyPatientWithUser(user, await patientApi.initDelegationsAndEncryptionKeys(me, user))
-//
-//           const sek = await updatedCryptoApi.extractKeysFromDelegationsForHcpHierarchy(me.id, me.id, me.encryptionKeys)
-//           const sdk = await updatedCryptoApi.extractKeysFromDelegationsForHcpHierarchy(me.id, me.id, me.delegations)
-//
-//           me = await patientApi.modifyPatientWithUser(
-//             user,
-//             await updatedCryptoApi.addDelegationsAndEncryptionKeys(
-//               null,
-//               me,
-//               user.patientId!,
-//               hcpUser.healthcarePartyId!,
-//               sdk.extractedKeys[0],
-//               sek.extractedKeys[0]
-//             )
-//           )
-//           await patientApi.modifyPatientWithUser(user, new Patient({ ...me, note: 'This is secret' }))
-//
-//           const pat2 = await api.patientApi.getPatientWithUser(hcpUser, patient.id!)
-//           expect(pat2 != null)
-//           expect(pat2.note != null)
-//         } catch (e) {
-//           console.log('Error in phase 3')
-//           throw e
-//         }
-//       } catch (e) {
-//         console.log('Error in phase 2')
-//         throw e
-//       }
-//     } catch (e) {
-//       console.log('Error in phase 1')
-//       throw e
-//     }
-//   }).timeout(60000)
-//
-//   it('should be capable of logging in and encryption', async () => {
-//     const { cryptoApi, userApi } = await Api(env.iCureUrl, env.dataOwnerDetails[patUsername].user, env.dataOwnerDetails[patUsername].password, crypto)
-//     const rawPatientApi = new IccPatientApi(
-//       env.iCureUrl,
-//       {},
-//       new BasicAuthenticationProvider(env.dataOwnerDetails[patUsername].user, env.dataOwnerDetails[patUsername].password)
-//     )
-//
-//     const user = await userApi.getCurrentUser()
-//     const patient = await rawPatientApi.getPatient(user.patientId!)
-//
-//     if (!patient.publicKey) {
-//       const { publicKey, privateKey } = await cryptoApi.RSA.generateKeyPair()
-//       const publicKeyHex = ua2hex(await cryptoApi.RSA.exportKey(publicKey!, 'spki'))
-//       await rawPatientApi.modifyPatient({ ...patient, publicKey: publicKeyHex })
-//       await cryptoApi.loadKeyPairsAsTextInBrowserLocalStorage(
-//         patient.id!,
-//         new Uint8Array((await cryptoApi.RSA.exportKey(privateKey!, 'pkcs8')) as ArrayBuffer)
-//       )
-//     }
-//     const {
-//       calendarItemApi,
-//       patientApi,
-//       cryptoApi: updatedCryptoApi,
-//     } = await Api(env.iCureUrl, env.dataOwnerDetails[patUsername].user, env.dataOwnerDetails[patUsername].password, crypto)
-//     await updatedCryptoApi.loadKeyPairsAsJwkInBrowserLocalStorage(user.patientId!, pkcs8ToJwk(hex2ua(env.dataOwnerDetails[patUsername].privateKey)))
-//
-//     await patientApi.modifyPatientWithUser(
-//       user,
-//       await updatedCryptoApi.addDelegationsAndEncryptionKeys(
-//         null,
-//         { ...(await patientApi.getPatientWithUser(user, user.patientId!)), note: 'Secret note' },
-//         user.patientId!,
-//         hcpUser.healthcarePartyId!,
-//         null,
-//         null
-//       )
-//     )
-//     const ci = await calendarItemApi.createCalendarItemWithHcParty(
-//       user,
-//       await calendarItemApi.newInstancePatient(
-//         user,
-//         patient,
-//         { patientId: patient.id, title: 'Secret title', details: 'Important and private information' },
-//         [hcpUser.healthcarePartyId!]
-//       )
-//     )
-//
-//     const pat2 = await api.patientApi.getPatientWithUser(hcpUser, patient.id!)
-//     const ci2 = await api.calendarItemApi.getCalendarItemWithUser(hcpUser, ci.id)
-//
-//     expect(pat2 != null)
-//     expect(ci2 != null)
-//   }).timeout(60000)
-// })
+import 'isomorphic-fetch'
+import { expect } from 'chai'
+import 'mocha'
+import { Apis, pkcs8ToJwk } from '../../icc-x-api'
+import { IccPatientApi } from '../../icc-api'
+import { User } from '../../icc-api/model/User'
+import { crypto } from '../../node-compat'
+import { ua2hex, hex2ua } from '../../icc-x-api'
+import { Patient } from '../../icc-api/model/Patient'
+import { before } from 'mocha'
+import { getEnvironmentInitializer, getEnvVariables, hcp1Username, patUsername, setLocalStorage, TestUtils, TestVars } from '../utils/test_utils'
+import { BasicAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import initApi = TestUtils.initApi
+import { TestApi } from '../utils/TestApi'
+import { RSAUtils } from '../../icc-x-api/crypto/RSA'
+
+setLocalStorage(fetch)
+let env: TestVars
+let api: Apis
+let hcpUser: User
+
+describe('Patient', () => {
+  before(async function () {
+    this.timeout(600000)
+    const initializer = await getEnvironmentInitializer()
+    env = await initializer.execute(getEnvVariables())
+    api = await initApi(env, hcp1Username)
+    hcpUser = await api.userApi.getCurrentUser()
+  })
+
+  it('should be capable of creating a patient from scratch', async () => {
+    try {
+      const rawPatientApiForHcp = new IccPatientApi(
+        env.iCureUrl,
+        {},
+        new BasicAuthenticationProvider(env.dataOwnerDetails[hcp1Username].user, env.dataOwnerDetails[hcp1Username].password)
+      )
+      const patient = await rawPatientApiForHcp.createPatient(
+        new Patient({ id: api.cryptoApi.primitives.randomUuid(), firstName: 'Tasty', lastName: 'Test' })
+      )
+      const pwd = api.cryptoApi.primitives.randomUuid()
+      const tmpUser = await api.userApi.createUser(
+        new User({
+          id: api.cryptoApi.primitives.randomUuid(),
+          login: api.cryptoApi.primitives.randomUuid(),
+          passwordHash: pwd,
+          patientId: patient.id,
+        })
+      )
+
+      try {
+        const rsa = new RSAUtils(crypto)
+        const keyPair = await rsa.generateKeyPair()
+        const { publicKey, privateKey } = keyPair
+        const publicKeyHex = ua2hex(await rsa.exportKey(publicKey, 'spki'))
+        const rawPatientApi = new IccPatientApi(env.iCureUrl, {}, new BasicAuthenticationProvider(tmpUser.id!, pwd))
+        await rawPatientApi.modifyPatient({ ...patient, publicKey: publicKeyHex })
+
+        try {
+          // TODO some of these operations may be forbidden by the backend in future versions...
+          const { userApi, patientApi, cryptoApi } = await TestApi(env.iCureUrl, tmpUser.id!, pwd!, crypto, keyPair)
+          const user = await userApi.getCurrentUser()
+          let me = await patientApi.getPatientWithUser(user, user.patientId!)
+          me = (await cryptoApi.exchangeKeys.getOrCreateEncryptionExchangeKeysTo(user.patientId!)).updatedDelegator?.dataOwner ?? me
+          expect((await patientApi.getPatientWithUser(user, user.patientId!)).rev).to.equal(me.rev)
+          me = (await cryptoApi.exchangeKeys.getOrCreateEncryptionExchangeKeysTo(hcpUser.healthcarePartyId!)).updatedDelegator?.dataOwner ?? me
+          expect((await patientApi.getPatientWithUser(user, user.patientId!)).rev).to.equal(me.rev)
+          me = (await patientApi.modifyPatientWithUser(
+            user,
+            (
+              await cryptoApi.entities.entityWithInitialisedEncryptionMetadata(me, undefined, undefined, true, [], [])
+            ).updatedEntity
+          ))!
+
+          me = (await patientApi.modifyPatientWithUser(
+            user,
+            await cryptoApi.entities.entityWithShareMetadata(me, hcpUser.healthcarePartyId!, true, true, false, [])
+          ))!
+          await patientApi.modifyPatientWithUser(user, new Patient({ ...me, note: 'This is secret' }))
+
+          const pat2 = await api.patientApi.getPatientWithUser(hcpUser, patient.id!)
+          expect(pat2 != null)
+          expect(pat2.note != null)
+        } catch (e) {
+          console.log('Error in phase 3')
+          throw e
+        }
+      } catch (e) {
+        console.log('Error in phase 2')
+        throw e
+      }
+    } catch (e) {
+      console.log('Error in phase 1')
+      throw e
+    }
+  }).timeout(60000)
+
+  it('should be capable of logging in and encryption', async () => {
+    const { userApi } = await initApi(env, patUsername)
+    const rawPatientApi = new IccPatientApi(
+      env.iCureUrl,
+      {},
+      new BasicAuthenticationProvider(env.dataOwnerDetails[patUsername].user, env.dataOwnerDetails[patUsername].password)
+    )
+
+    const user = await userApi.getCurrentUser()
+    const patient = await rawPatientApi.getPatient(user.patientId!)
+
+    const { calendarItemApi, patientApi, cryptoApi } = await initApi(env, patUsername)
+
+    const patNote = 'Secret note'
+    const pat = await patientApi.modifyPatientWithUser(user, {
+      ...(await patientApi.getPatientWithUser(user, user.patientId!)),
+      note: patNote,
+    })
+    const ciTitle = 'Secret title'
+    const ciDetails = 'Important and private information'
+    const ci = await calendarItemApi.createCalendarItemWithHcParty(
+      user,
+      await calendarItemApi.newInstancePatient(user, patient, { patientId: patient.id, title: ciTitle, details: ciDetails }, [])
+    )
+
+    const pat2 = await api.patientApi.getPatientWithUser(hcpUser, patient.id!)
+    const ci2 = await api.calendarItemApi.getCalendarItemWithUser(hcpUser, ci.id)
+    expect(pat2).to.not.be.null
+    expect(pat2.note).to.be.undefined
+    expect(ci2).to.not.be.null
+    expect(ci2.title).to.be.undefined
+    expect(ci2.details).to.be.undefined
+
+    await patientApi.modifyPatientWithUser(
+      user,
+      await cryptoApi.entities.entityWithShareMetadata(pat!, hcpUser.healthcarePartyId!, true, true, false, [])
+    )
+    await calendarItemApi.modifyCalendarItemWithHcParty(
+      user,
+      await cryptoApi.entities.entityWithShareMetadata(ci!, hcpUser.healthcarePartyId!, true, true, false, [])
+    )
+    await api.cryptoApi.forceReload(false)
+    const pat3 = await api.patientApi.getPatientWithUser(hcpUser, patient.id!)
+    const ci3 = await api.calendarItemApi.getCalendarItemWithUser(hcpUser, ci.id)
+    expect(pat3).to.not.be.null
+    expect(pat3.note).to.equal(patNote)
+    expect(ci3).to.not.be.null
+    expect(ci3.title).to.equal(ciTitle)
+    expect(ci3.details).to.equal(ciDetails)
+  }).timeout(60000)
+})
