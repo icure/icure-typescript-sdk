@@ -9,6 +9,8 @@ import { IccCryptoXApi } from './icc-crypto-x-api'
 import { KeyPairUpdateRequest } from './maintenance/KeyPairUpdateRequest'
 import { DataOwnerTypeEnum, IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { IccUserXApi } from './icc-user-x-api'
+import { User } from '../icc-api/model/User'
+import { use } from 'chai'
 
 type ExchangeKeyInfo = { delegator: string; delegate: string; fingerprints: Set<string> }
 
@@ -19,13 +21,11 @@ export class IccIcureMaintenanceXApi {
   private readonly crypto: IccCryptoXApi
   private readonly tasksApi: IccMaintenanceTaskXApi
   private readonly dataOwnerApi: IccDataOwnerXApi
-  private readonly userApi: IccUserXApi
 
-  constructor(crypto: IccCryptoXApi, tasksApi: IccMaintenanceTaskXApi, dataOwnerApi: IccDataOwnerXApi, userApi: IccUserXApi) {
+  constructor(crypto: IccCryptoXApi, tasksApi: IccMaintenanceTaskXApi, dataOwnerApi: IccDataOwnerXApi) {
     this.crypto = crypto
     this.tasksApi = tasksApi
     this.dataOwnerApi = dataOwnerApi
-    this.userApi = userApi
   }
 
   // TODO api to get all tasks for current owner from owner with id
@@ -47,9 +47,10 @@ export class IccIcureMaintenanceXApi {
   /**
    * @internal This method is intended only for internal use and may be changed without notice.
    * Creates the necessary maintenance tasks to request access to existing exchange keys with the new key pair for the current user.
+   * @param user the user which owns the new key pair.
    * @param keypair a new key pair for the current user.
    */
-  async createMaintenanceTasksForNewKeypair(keypair: KeyPair<CryptoKey>): Promise<void> {
+  async createMaintenanceTasksForNewKeypair(user: User, keypair: KeyPair<CryptoKey>): Promise<void> {
     const currentUserType = await this.dataOwnerApi.getCurrentDataOwnerType()
     if (currentUserType === DataOwnerTypeEnum.Device) {
       console.warn('Current data owner is a device and there is no need to create maintenance tasks for updated keypair.')
@@ -65,16 +66,15 @@ export class IccIcureMaintenanceXApi {
         .flatMap((info) => [info.delegate, info.delegator])
         .filter((dataOwner) => dataOwner !== selfId)
       if (requestDataOwners.length > 0) {
-        const currentUser = await this.userApi.getCurrentUser()
         const tasksToCreate = requestDataOwners.map((dataOwner) => ({
           delegate: dataOwner,
           task: this.createMaintenanceTask(selfId, hexNewPubKey),
         }))
         for (const taskToCreate of tasksToCreate) {
-          const instance = await this.tasksApi.newInstance(currentUser, taskToCreate.task, [taskToCreate.delegate])
+          const instance = await this.tasksApi.newInstance(user, taskToCreate.task, [taskToCreate.delegate])
           if (instance) {
             // TODO create in bulk
-            await this.tasksApi.createMaintenanceTask(instance)
+            await this.tasksApi.createMaintenanceTaskWithUser(user, instance)
           }
         }
       }

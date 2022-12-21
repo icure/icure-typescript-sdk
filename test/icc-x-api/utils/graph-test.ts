@@ -1,4 +1,4 @@
-import { Graph, graphFromEdges, terminalNodes } from '../../../icc-x-api/utils/graph-utils'
+import { acyclic, Graph, graphFromEdges, reachSetsAcyclic } from '../../../icc-x-api/utils/graph-utils'
 import { expect } from 'chai'
 import { setEquals } from '../../../icc-x-api/utils/collection-utils'
 
@@ -39,7 +39,9 @@ describe('Terminal nodes', function () {
       return acc
     }, {})
     expect(graphEquals(graph, copy)).to.be.true
-    const terminals = terminalNodes(graph)
+    const terminals = Object.entries(reachSetsAcyclic(acyclic(graph).acyclicGraph))
+      .filter(([, v]) => v.size === 0)
+      .map(([k]) => k)
     expect(graphEquals(graph, copy)).to.be.true
     expect(terminals).to.have.length(4)
     expect(terminals).to.contain('C')

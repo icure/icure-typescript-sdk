@@ -40,7 +40,7 @@ export class TransferKeysManager {
     const newEdges = await this.getNewVerifiedTransferKeysEdges(self)
     if (!newEdges) return
     const selfId = await this.dataOwnerApi.getCurrentDataOwnerId()
-    const fpToPublicKey = fingerprintToPublicKeysMapOf(self)
+    const fpToPublicKey = fingerprintToPublicKeysMapOf(self.dataOwner)
     const newExchangeKeyPublicKeys = newEdges.sources.map((fp) => fpToPublicKey[fp])
     const { key: exchangeKey, updatedDelegator: updatedSelf } = await this.baseExchangeKeysManager.createOrUpdateEncryptedExchangeKeyTo(
       selfId,
@@ -97,7 +97,7 @@ export class TransferKeysManager {
   > {
     const verifiedKeysFpSet = new Set(this.keyManager.getSelfVerifiedKeys().map((x) => x.fingerprint))
     if (verifiedKeysFpSet.size == 0) return undefined
-    const graph = transferKeysFpGraphOf(self)
+    const graph = transferKeysFpGraphOf(self.dataOwner)
     // 1. Choose a key available in this device which should be reachable from all other verified keys
     const { fingerprint: targetKeyFp, pair: targetKey } = await this.transferTargetVerifiedKey(this.keyManager)
     // 2. Find groups which can't reach the existing target keys

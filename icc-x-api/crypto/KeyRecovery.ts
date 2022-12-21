@@ -31,7 +31,7 @@ export class KeyRecovery {
     dataOwner: DataOwnerWithType,
     knownKeys: { [pubKeyFp: string]: KeyPair<CryptoKey> }
   ): Promise<{ [pubKeyFp: string]: KeyPair<CryptoKey> }> {
-    const selfPublicKeys = Array.from(this.dataOwnerApi.getHexPublicKeysOf(dataOwner))
+    const selfPublicKeys = Array.from(this.dataOwnerApi.getHexPublicKeysOf(dataOwner.dataOwner))
     const knownKeysFpSet = new Set(Object.keys(knownKeys))
     const missingKeysFpSet = new Set(selfPublicKeys.map((x) => x.slice(-32)).filter((x) => !knownKeysFpSet.has(x)))
 
@@ -94,7 +94,7 @@ export class KeyRecovery {
     exchangeKeys: { [delegateId: string]: CryptoKey[] }
   ): Promise<{ [pubKeyFingerprint: string]: KeyPair<CryptoKey> }> {
     const res: { [pubKeyFingerprint: string]: KeyPair<CryptoKey> } = {}
-    const keysByFp = fingerprintToPublicKeysMapOf(dataOwner)
+    const keysByFp = fingerprintToPublicKeysMapOf(dataOwner.dataOwner)
     for (const [fp, split] of Object.entries(splits)) {
       const recovered = await this.tryRecoverSplitPrivate(split, exchangeKeys)
       if (recovered) {

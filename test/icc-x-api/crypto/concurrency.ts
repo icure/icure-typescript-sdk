@@ -1,4 +1,4 @@
-import { utils } from '../../../icc-x-api'
+import { notConcurrent } from '../../../icc-x-api'
 import { expect } from 'chai'
 import 'mocha'
 
@@ -19,7 +19,7 @@ describe('Concurrency test', () => {
     )
     const res = await Promise.all(
       [500, 400, 300, 200, 100].map((x, idx) =>
-        utils.notConcurrent(cm, '123', async () => {
+        notConcurrent(cm, '123', async () => {
           await delay(x)
           seq2.push(idx)
           return idx

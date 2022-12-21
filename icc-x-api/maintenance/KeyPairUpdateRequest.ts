@@ -32,10 +32,11 @@ export class KeyPairUpdateRequest {
     this.originalTask = task
 
     function findStringProp(propId: string): string {
-      const prop: PropertyStub | undefined = task.properties?.find((x) => x.id === KeyPairUpdateRequest.OWNER_ID_PROP_ID)
-      if (!prop) throw new Error(`Task is missing required string property ${propId} for KeyPairUpdateRequest.`)
+      const prop: PropertyStub | undefined = task.properties?.find((x) => x.id === propId)
+      if (!prop) throw new Error(`Task is missing required string property ${propId} for KeyPairUpdateRequest. ${JSON.stringify(task)}`)
       const propValue = prop.typedValue?.stringValue
-      if (!propValue) throw new Error(`Invalid value ${prop.typedValue?.stringValue} for property ${propId} for KeyPairUpdateRequest.`)
+      if (!propValue)
+        throw new Error(`Invalid value ${prop.typedValue?.stringValue} for property ${propId} for KeyPairUpdateRequest. ${JSON.stringify(task)}`)
       return propValue
     }
 

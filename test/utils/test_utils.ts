@@ -23,6 +23,10 @@ import { webcrypto } from 'crypto'
 import { crypto } from '../../node-compat'
 
 import { checkIfDockerIsOnline } from '@icure/test-setup'
+import { TestKeyStorage, TestStorage } from './TestStorage'
+import { DefaultStorageEntryKeysFactory } from '../../icc-x-api/storage/DefaultStorageEntryKeysFactory'
+import { RSAUtils } from '../../icc-x-api/crypto/RSA'
+import { TestCryptoStrategies } from './TestCryptoStrategies'
 
 export function getTempEmail(): string {
   return `${uuid().substring(0, 8)}@icure.com`
@@ -139,15 +143,25 @@ export namespace TestUtils {
 }
 
 export async function getApiAndAddPrivateKeysForUser(iCureUrl: string, details: UserDetails) {
-  const api = await Api(iCureUrl, details.user, details.password, webcrypto as unknown as Crypto, fetch)
-  const user = await api.userApi.getCurrentUser()
-  const dataOwnerId = api.dataOwnerApi.getDataOwnerOf(user)
-  const jwk = {
-    publicKey: spkiToJwk(hex2ua(details.publicKey)),
-    privateKey: pkcs8ToJwk(hex2ua(details.privateKey)),
+  const RSA = new RSAUtils(webcrypto as any)
+  const keys = {
+    publicKey: await RSA.importKey('spki', hex2ua(details.publicKey), ['encrypt']),
+    privateKey: await RSA.importKey('pkcs8', hex2ua(details.privateKey), ['decrypt']),
   }
-  await api.cryptoApi.cacheKeyPair(jwk)
-  await api.cryptoApi.keyStorage.storeKeyPair(`${dataOwnerId}.${details.publicKey.slice(-32)}`, jwk)
+  const api = await Api(
+    iCureUrl,
+    details.user,
+    details.password,
+    webcrypto as unknown as Crypto,
+    fetch,
+    false,
+    false,
+    new TestStorage(),
+    new TestKeyStorage(),
+    new DefaultStorageEntryKeysFactory(),
+    new TestCryptoStrategies(keys)
+  )
+  const user = await api.userApi.getCurrentUser()
   return api
 }
 

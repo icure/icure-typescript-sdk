@@ -312,7 +312,7 @@ export class IccCryptoXApi {
     encryptedHcPartyKeys: { [key: string]: string },
     publicKeys: string[]
   ): Promise<DelegatorAndKeys> {
-    if (publicKeys.length) {
+    if (!publicKeys.length) {
       const reason = `Cannot decrypt RSA encrypted AES HcPartyKey from ${delegatorId} to ${delegateHcPartyId}: no public key`
       console.warn(reason)
       throw new Error(reason)
@@ -363,7 +363,7 @@ export class IccCryptoXApi {
     const fingerprint = pubHex.slice(-32)
     if (!this.keyManager.getDecryptionKeys()[fingerprint]) {
       const selfId = await this.dataOwnerApi.getCurrentDataOwnerId()
-      const selfKeys = this.dataOwnerApi.getHexPublicKeysOf(await this.dataOwnerApi.getCurrentDataOwner())
+      const selfKeys = this.dataOwnerApi.getHexPublicKeysOf((await this.dataOwnerApi.getCurrentDataOwner()).dataOwner)
       if (!selfKeys.has(pubHex)) {
         throw `Impossible to add key pair with fingerprint ${fingerprint} to data owner ${selfId}: the data owner has no matching public key`
       }
@@ -433,7 +433,7 @@ export class IccCryptoXApi {
     owner: HealthcareParty | Patient | Device,
     delegateId: string
   ): Promise<{ [pubKeyIdentifier: string]: { [pubKeyFingerprint: string]: string } }> {
-    const publicKeys = Array.from(this.dataOwnerApi.getHexPublicKeysOf(owner))
+    const publicKeys = Array.from(this.dataOwnerApi.getHexPublicKeysOf(owner as DataOwner))
     const mapOfAesExchangeKeys = Object.entries(owner.aesExchangeKeys ?? {})
       .filter((e) => e[1][delegateId] && Object.keys(e[1][delegateId]).some((k1) => publicKeys.some((pk) => pk.endsWith(k1))))
       .reduce((map, e) => {
@@ -842,7 +842,7 @@ export class IccCryptoXApi {
     }
     return (
       (await this.exchangeKeysManager.getOrCreateEncryptionExchangeKeysTo(delegateId)).updatedDelegator?.dataOwner ??
-      (await this.dataOwnerApi.getDataOwner(ownerId))
+      (await this.dataOwnerApi.getDataOwner(ownerId)).dataOwner
     )
   }
 
