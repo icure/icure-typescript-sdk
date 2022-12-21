@@ -98,7 +98,7 @@ export class KeyManager {
    */
   async initialiseKeys(): Promise<{ newKeyPair: KeyPair<CryptoKey>; newKeyFingerprint: string } | undefined> {
     const self = await this.dataOwnerApi.getCurrentDataOwner()
-    const loadedData = await this.doLoadKeys(self, true, this.strategies.createNewKeyPairIfNoVerifiedKeysFound)
+    const loadedData = await this.doLoadKeys(self, true, () => this.strategies.createNewKeyPairIfNoVerifiedKeysFound())
     this.selfKeys = loadedData.loadedKeys
     await this.loadParentKeys(self)
     return loadedData.newKey ? { newKeyPair: loadedData.newKey.pair, newKeyFingerprint: loadedData.newKey.fingerprint } : undefined
@@ -172,7 +172,7 @@ export class KeyManager {
     newKey?: { pair: KeyPair<CryptoKey>; fingerprint: string }
   }> {
     // Load all keys for self from key store
-    const selfPublicKeys = this.dataOwnerApi.getHexPublicKeysOf(dataOwner)
+    const selfPublicKeys = this.dataOwnerApi.getHexPublicKeysOf(dataOwner.dataOwner)
     const pubKeysFingerprints = Array.from(selfPublicKeys).map((x) => x.slice(-32))
     const loadedKeys = pubKeysFingerprints.length > 0 ? await this.loadStoredKeys(dataOwner, pubKeysFingerprints) : {}
     const loadedKeysFingerprints = Object.keys(loadedKeys)
@@ -229,7 +229,7 @@ export class KeyManager {
       keyPair,
       await loadPublicKeys(
         this.primitives.RSA,
-        Array.from(this.dataOwnerApi.getHexPublicKeysOf(selfDataOwner)).filter((x) => verifiedPublicKeysMap[x.slice(-32)])
+        Array.from(this.dataOwnerApi.getHexPublicKeysOf(selfDataOwner.dataOwner)).filter((x) => verifiedPublicKeysMap[x.slice(-32)])
       )
     )
     return { publicKeyFingerprint, keyPair: keyPair, updatedSelf: updatedDelegator }

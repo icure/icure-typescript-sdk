@@ -36,6 +36,7 @@ import { ExchangeKeysManager } from './crypto/ExchangeKeysManager'
 import { EntitiesEncryption } from './crypto/EntitiesEncryption'
 import { ShamirKeysManager } from './crypto/ShamirKeysManager'
 import { TransferKeysManager } from './crypto/TransferKeysManager'
+import { IccIcureMaintenanceXApi } from './icc-icure-maintenance-x-api'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -87,6 +88,7 @@ export interface Apis {
   messageApi: IccMessageXApi
   maintenanceTaskApi: IccMaintenanceTaskXApi
   dataOwnerApi: IccDataOwnerXApi
+  icureMaintenanceTaskApi: IccIcureMaintenanceXApi
 }
 
 export const Api = async function (
@@ -204,6 +206,7 @@ export const Api = async function (
     authenticationProvider,
     fetchImpl
   )
+  const icureMaintenanceTaskApi = new IccIcureMaintenanceXApi(cryptoApi, maintenanceTaskApi, dataOwnerApi)
 
   if (autoLogin) {
     if (username != undefined && password != undefined) {
@@ -243,5 +246,6 @@ export const Api = async function (
     groupApi,
     maintenanceTaskApi,
     dataOwnerApi,
+    icureMaintenanceTaskApi,
   }
 }

@@ -63,7 +63,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
     throw new Error('Cannot call a method that returns maintenance tasks without providing a user for de/encryption')
   }
 
-  createMaintenanceTaskWithUser(user: models.User, body?: models.MaintenanceTask): Promise<models.MaintenanceTask | any> {
+  createMaintenanceTaskWithUser(user: models.User, body?: models.MaintenanceTask): Promise<models.MaintenanceTask | null> {
     return body
       ? this.encrypt(user, [_.cloneDeep(body)])
           .then((tasks) => super.createMaintenanceTask(tasks[0]))
@@ -136,7 +136,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
         const keys = await this.crypto.entities.importAllValidKeys(await this.crypto.entities.encryptionKeysOf(mT, dataOwnerId))
         const encrypted = string2ua(a2b(mT.encryptedSelf!))
         const decrypted = await this.crypto.entities.tryDecryptJson(keys, encrypted, false)
-        if (decrypted) return new models.MaintenanceTask(_.assign(mT, JSON.parse(decrypted)))
+        if (decrypted) return new models.MaintenanceTask(_.assign(mT, decrypted))
         else return mT
       })
     )

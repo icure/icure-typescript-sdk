@@ -6,14 +6,11 @@ import { hex2ua } from '@icure/api'
 import * as _ from 'lodash'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { arrayEquals } from '../utils/collection-utils'
-import * as models from '../../icc-api/model/models'
 
 /**
  * Give access to functions for retrieving encryption metadata of entities.
  */
 export class EntitiesEncryption {
-  private readonly hexWithDashesRegex = /^[0-9A-Fa-f\-]+$/g
-
   private readonly primitives: CryptoPrimitives
   private readonly dataOwnerApi: IccDataOwnerXApi
   private readonly exchangeKeysManager: ExchangeKeysManager
@@ -41,8 +38,8 @@ export class EntitiesEncryption {
     return this.extractMergedHierarchyFromDelegationAndOwner(
       Object.keys(entity.encryptionKeys ?? {}).length > 0 ? entity.encryptionKeys! : entity.delegations ?? {},
       dataOwnerId,
-      this.validateEncryptionKey,
-      tagsFilter
+      (k) => this.validateEncryptionKey(k),
+      (t) => tagsFilter(t)
     )
   }
 
@@ -60,7 +57,11 @@ export class EntitiesEncryption {
     entity: EncryptedEntity,
     tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<{ ownerId: string; extracted: string[] }[]> {
-    return this.extractedHierarchyFromDelegation(entity.encryptionKeys ?? {}, this.validateEncryptionKey, tagsFilter)
+    return this.extractedHierarchyFromDelegation(
+      entity.encryptionKeys ?? {},
+      (k) => this.validateEncryptionKey(k),
+      (t) => tagsFilter(t)
+    )
   }
 
   /**
@@ -75,7 +76,12 @@ export class EntitiesEncryption {
     dataOwnerId?: string,
     tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<string[]> {
-    return this.extractMergedHierarchyFromDelegationAndOwner(entity.delegations ?? {}, dataOwnerId, this.validateSecretId, tagsFilter)
+    return this.extractMergedHierarchyFromDelegationAndOwner(
+      entity.delegations ?? {},
+      dataOwnerId,
+      (k) => this.validateSecretId(k),
+      (t) => tagsFilter(t)
+    )
   }
 
   /**
@@ -91,7 +97,11 @@ export class EntitiesEncryption {
     entity: EncryptedEntity,
     tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<{ ownerId: string; extracted: string[] }[]> {
-    return this.extractedHierarchyFromDelegation(entity.delegations ?? {}, this.validateSecretId, tagsFilter)
+    return this.extractedHierarchyFromDelegation(
+      entity.delegations ?? {},
+      (k) => this.validateSecretId(k),
+      (t) => tagsFilter(t)
+    )
   }
 
   /**
@@ -107,7 +117,12 @@ export class EntitiesEncryption {
     dataOwnerId?: string,
     tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<string[]> {
-    return this.extractMergedHierarchyFromDelegationAndOwner(entity.cryptedForeignKeys ?? {}, dataOwnerId, this.validateParentId, tagsFilter)
+    return this.extractMergedHierarchyFromDelegationAndOwner(
+      entity.cryptedForeignKeys ?? {},
+      dataOwnerId,
+      (k) => this.validateParentId(k),
+      (t) => tagsFilter(t)
+    )
   }
 
   /**
@@ -124,7 +139,11 @@ export class EntitiesEncryption {
     entity: EncryptedEntity,
     tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<{ ownerId: string; extracted: string[] }[]> {
-    return this.extractedHierarchyFromDelegation(entity.cryptedForeignKeys ?? {}, this.validateParentId, tagsFilter)
+    return this.extractedHierarchyFromDelegation(
+      entity.cryptedForeignKeys ?? {},
+      (k) => this.validateParentId(k),
+      (t) => tagsFilter(t)
+    )
   }
 
   /**
@@ -237,26 +256,41 @@ export class EntitiesEncryption {
         return input
       }
     }
-    const secretIdsToShare = await checkInputAndGet(shareSecretIds, 'secretIds', this.secretIdsOf, this.validateSecretId)
-    const encryptionKeysToShare = await checkInputAndGet(shareEncryptionKeys, 'encryptionKeys', this.encryptionKeysOf, this.validateEncryptionKey)
-    const parentIdsToShare = await checkInputAndGet(shareParentIds, 'parentIds', this.parentIdsOf, this.validateParentId)
+    const secretIdsToShare = await checkInputAndGet(
+      shareSecretIds,
+      'secretIds',
+      (x) => this.secretIdsOf(x),
+      (x) => this.validateSecretId(x)
+    )
+    const encryptionKeysToShare = await checkInputAndGet(
+      shareEncryptionKeys,
+      'encryptionKeys',
+      (x) => this.encryptionKeysOf(x),
+      (x) => this.validateEncryptionKey(x)
+    )
+    const parentIdsToShare = await checkInputAndGet(
+      shareParentIds,
+      'parentIds',
+      (x) => this.parentIdsOf(x),
+      (x) => this.validateParentId(x)
+    )
     const deduplicateInfoSecretIds = await this.deduplicateDelegationsAndFilterRequiredEntries(
       delegateId,
       entity.delegations?.[delegateId] ?? [],
       secretIdsToShare,
-      this.validateSecretId
+      (x) => this.validateSecretId(x)
     )
     const deduplicateInfoEncryptionKeys = await this.deduplicateDelegationsAndFilterRequiredEntries(
       delegateId,
       entity.encryptionKeys?.[delegateId] ?? [],
       encryptionKeysToShare,
-      this.validateEncryptionKey
+      (x) => this.validateEncryptionKey(x)
     )
     const deduplicateInfoParentIds = await this.deduplicateDelegationsAndFilterRequiredEntries(
       delegateId,
       entity.cryptedForeignKeys?.[delegateId] ?? [],
       parentIdsToShare,
-      this.validateParentId
+      (x) => this.validateParentId(x)
     )
     /*TODO
      * Temporary hack since secret id is necessary to create a delegation for access control: if there is no delegation existing from me to the
@@ -345,7 +379,7 @@ export class EntitiesEncryption {
   async decryptWithKey(encryptionKey: string, content: ArrayBuffer | Uint8Array): Promise<ArrayBuffer> {
     const importedKey = await this.tryImportKey(encryptionKey)
     if (!encryptionKey) throw new Error(`Could not encrypt with invalid key ${encryptionKey}`)
-    return await this.primitives.AES.encrypt(importedKey!, content)
+    return await this.primitives.AES.decrypt(importedKey!, content)
   }
 
   /**
@@ -367,8 +401,8 @@ export class EntitiesEncryption {
   async decryptDataOf(
     entity: EncryptedEntity,
     content: ArrayBuffer | Uint8Array,
-    dataOwnerId?: string,
     validator: (decryptedData: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true),
+    dataOwnerId?: string,
     tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<ArrayBuffer> {
     const keys = await this.encryptionKeysOf(entity, dataOwnerId, tagsFilter)
@@ -394,7 +428,7 @@ export class EntitiesEncryption {
     const encryptionKeys = await this.importAllValidKeys(await this.encryptionKeysOf(entity, ownerId))
     if (encryptionKeys.length === 0) return constructor(entity)
     return constructor(
-      decrypt(entity, async (encrypted) => {
+      await decrypt(entity, async (encrypted) => {
         return (await this.tryDecryptJson(encryptionKeys, encrypted, false)) ?? {}
       })
     )
@@ -511,7 +545,7 @@ export class EntitiesEncryption {
     const res = []
     for (const delegation of delegationsWithOwner) {
       if (await tagsFilter(delegation.tags ?? [])) {
-        const decrypted = await this.tryDecryptDelegation(delegation, validateDecrypted)
+        const decrypted = await this.tryDecryptDelegation(delegation, (k) => validateDecrypted(k))
         if (decrypted) res.push(decrypted)
       }
     }
@@ -530,7 +564,15 @@ export class EntitiesEncryption {
   ): Promise<{ ownerId: string; extracted: string[] }[]> {
     return Promise.all(
       (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()).map(async (ownerId) => {
-        const extracted = this.deduplicate(await this.extractFromDelegationsForDataOwner(ownerId, delegations, true, validateDecrypted, tagsFilter))
+        const extracted = this.deduplicate(
+          await this.extractFromDelegationsForDataOwner(
+            ownerId,
+            delegations,
+            true,
+            (k) => validateDecrypted(k),
+            (t) => tagsFilter(t)
+          )
+        )
         return { ownerId, extracted }
       })
     )
@@ -550,7 +592,15 @@ export class EntitiesEncryption {
       : await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
     const extractedByOwner = await Promise.all(
       // Reverse is just to keep method behaviour as close as possible to the legacy behaviour, in case someone depended on the ordering.
-      hierarchy.reverse().map((ownerId) => this.extractFromDelegationsForDataOwner(ownerId, delegations, true, validateDecrypted, tagsFilter))
+      hierarchy.reverse().map((ownerId) =>
+        this.extractFromDelegationsForDataOwner(
+          ownerId,
+          delegations,
+          true,
+          (k) => validateDecrypted(k),
+          (t) => tagsFilter(t)
+        )
+      )
     )
     return this.deduplicate(extractedByOwner.flatMap((x) => x))
   }
@@ -580,7 +630,7 @@ export class EntitiesEncryption {
   }
 
   private async tryImportKey(key: string): Promise<CryptoKey | undefined> {
-    if (!this.hexWithDashesRegex.test(key)) return undefined
+    if (!/^[0-9A-Fa-f\-]+$/g.test(key)) return undefined
     try {
       return await this.primitives.AES.importKey('raw', hex2ua(key.replace(/-/g, '')))
     } catch (e) {
@@ -631,7 +681,7 @@ export class EntitiesEncryption {
     encryptionKey: string,
     newTags: string[]
   ): Promise<Delegation> {
-    if (!(await this.validateEncryptionKey(encryptionKey))) throw new Error('Invalid encryption key')
+    if (!(await this.validateEncryptionKey(encryptionKey))) throw new Error(`Invalid encryption key ${encryptionKey}`)
     return this.createDelegation(entityId, delegateId, exchangeKey, encryptionKey, newTags)
   }
 
@@ -642,7 +692,7 @@ export class EntitiesEncryption {
     secretId: string,
     newTags: string[]
   ): Promise<Delegation> {
-    if (!this.validateSecretId(secretId)) throw new Error('Invalid secret id')
+    if (!this.validateSecretId(secretId)) throw new Error(`Invalid secret id ${secretId}`)
     return this.createDelegation(entityId, delegateId, exchangeKey, secretId, newTags)
   }
 
@@ -653,7 +703,7 @@ export class EntitiesEncryption {
     parentId: string,
     newTags: string[]
   ): Promise<Delegation> {
-    if (!this.validateParentId(parentId)) throw new Error('Invalid parent id')
+    if (!this.validateParentId(parentId)) throw new Error(`Invalid parent id ${parentId}`)
     return this.createDelegation(entityId, delegateId, exchangeKey, parentId, newTags)
   }
 

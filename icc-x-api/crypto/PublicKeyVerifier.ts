@@ -18,6 +18,7 @@ export interface PublicKeyVerifier {
    *
    * As long as one of the public keys is verified the creation of a new exchange key will succeed. If no public key is verified the operation will
    * fail.
+   * TODO pass self as well
    * @param delegate the potential data owner delegate.
    * @param publicKeys public keys requiring verification, in spki hex-encoded format.
    * @return all verified public keys, in spki hex-encoded format.

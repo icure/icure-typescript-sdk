@@ -18,15 +18,16 @@ export const DataOwnerTypeEnum: { [key: string]: DataOwnerTypeEnum } = {
 /**
  * Represents any data owner.
  */
-export type DataOwner = Patient | Device | HealthcareParty
+// Trick to make typechecking work: without this you can pass anything to a data owner
+export type DataOwner = (Patient | Device | HealthcareParty) & { id: string }
 
 /**
  * Represents any data owner enriched with type information.
  */
 export type DataOwnerWithType =
-  | { type: 'patient'; dataOwner: Patient }
-  | { type: 'device'; dataOwner: Device }
-  | { type: 'hcp'; dataOwner: HealthcareParty }
+  | { type: 'patient'; dataOwner: Patient & DataOwner }
+  | { type: 'device'; dataOwner: Device & DataOwner }
+  | { type: 'hcp'; dataOwner: HealthcareParty & DataOwner }
 
 export class IccDataOwnerXApi {
   private userBaseApi: IccUserApi
@@ -141,9 +142,9 @@ export class IccDataOwnerXApi {
     // TODO Data owner endpoint to save some requests?
     return this.patientBaseApi
       .getPatient(ownerId)
-      .then((patient) => ({ type: DataOwnerTypeEnum.Patient, dataOwner: patient }))
-      .catch(async () => ({ type: DataOwnerTypeEnum.Device, dataOwner: await this.deviceBaseApi.getDevice(ownerId) }))
-      .catch(async () => ({ type: DataOwnerTypeEnum.Hcp, dataOwner: await this.hcpartyBaseApi.getHealthcareParty(ownerId) }))
+      .then((patient) => ({ type: DataOwnerTypeEnum.Patient, dataOwner: patient as DataOwner }))
+      .catch(async () => ({ type: DataOwnerTypeEnum.Device, dataOwner: (await this.deviceBaseApi.getDevice(ownerId)) as DataOwner }))
+      .catch(async () => ({ type: DataOwnerTypeEnum.Hcp, dataOwner: (await this.hcpartyBaseApi.getHealthcareParty(ownerId)) as DataOwner }))
       .then((dataOwnerWithType) => {
         if (dataOwnerWithType.dataOwner.id === this.selfDataOwnerId) this.checkDataOwnerIntegrity(dataOwnerWithType.dataOwner)
         return dataOwnerWithType
@@ -204,6 +205,7 @@ export class IccDataOwnerXApi {
       curr = await this.getDataOwner((curr.dataOwner as HealthcareParty).parentId!)
       res = [curr, ...res]
     }
+    this.currentDataOwnerHierarchyIds = res.map((x) => x.dataOwner.id!)
     return res
   }
 }

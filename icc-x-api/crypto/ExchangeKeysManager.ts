@@ -4,7 +4,6 @@ import { DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { LruTemporisedAsyncCache } from '../utils/lru-temporised-async-cache'
 import { PublicKeyVerifier } from './PublicKeyVerifier'
 import { loadPublicKeys } from './utils'
-import { RSAUtils } from './RSA'
 import { CryptoPrimitives } from './CryptoPrimitives'
 
 /**
@@ -144,10 +143,11 @@ export class ExchangeKeysManager {
     const [mainKey, ...otherSelfKeys] = this.keyManager.getSelfVerifiedKeys()
     let otherPublicKeys = Object.fromEntries(otherSelfKeys.map((x) => [x.fingerprint, x.pair.publicKey]))
     if (delegateId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) {
-      const delegate = await this.dataOwnerApi.getDataOwner(delegateId)
+      const delegate = (await this.dataOwnerApi.getDataOwner(delegateId)).dataOwner
       const delegatePublicKeys = Array.from(this.dataOwnerApi.getHexPublicKeysOf(delegate))
       const verifiedDelegatePublicKeys = await this.publicKeyVerifier.verifyDelegatePublicKeys(delegate, delegatePublicKeys)
-      if (!verifiedDelegatePublicKeys) throw new Error(`No verified public keys for delegate ${delegateId}: impossible to create new exchange key.`)
+      if (!verifiedDelegatePublicKeys || verifiedDelegatePublicKeys.length == 0)
+        throw new Error(`No verified public keys for delegate ${delegateId}: impossible to create new exchange key.`)
       otherPublicKeys = {
         ...otherPublicKeys,
         ...(await loadPublicKeys(this.primitives.RSA, verifiedDelegatePublicKeys)),

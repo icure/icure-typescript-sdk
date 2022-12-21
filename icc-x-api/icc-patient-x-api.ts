@@ -289,7 +289,7 @@ export class IccPatientXApi extends IccPatientApi {
     return super.getPatient(patientId)
   }
 
-  getPatientWithUser(user: models.User, patientId: string): Promise<models.Patient | any> {
+  getPatientWithUser(user: models.User, patientId: string): Promise<models.Patient> {
     return super
       .getPatient(patientId)
       .then((p) => this.decrypt(user, [p]))

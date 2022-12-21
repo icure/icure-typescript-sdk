@@ -47,15 +47,16 @@ export function graphFromEdges(edges: [string, string][], additionalNodes?: stri
  */
 export function reachSetsAcyclic(graph: Graph): { [node: string]: Set<string> } {
   const res: { [node: string]: Set<string> } = {}
-  function reachSetRecursive(node: string): Set<string> {
+  function calculateAndCacheReachSetRecursive(node: string): Set<string> {
     if (res[node]) return res[node]
     const set = new Set(Array.from(graph[node]))
     graph[node].forEach((child) => {
-      reachSetRecursive(child).forEach((x) => set.add(x))
+      calculateAndCacheReachSetRecursive(child).forEach((x) => set.add(x))
     })
+    res[node] = set
     return set
   }
-  Object.keys(graph).forEach((n) => reachSetRecursive(n))
+  Object.keys(graph).forEach((n) => calculateAndCacheReachSetRecursive(n))
   return res
 }
 

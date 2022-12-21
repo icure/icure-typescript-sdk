@@ -57,7 +57,7 @@ export class BaseExchangeKeysManager {
       let exchangeKey: { raw: string; key: CryptoKey } | undefined = undefined
       const existingExchangeKey =
         delegator.dataOwner.aesExchangeKeys?.[mainDelegatorKeyPairPubHex]?.[delegateId]?.[mainDelegatorKeyPairPubHex.slice(-32)] ??
-        (mainDelegatorKeyPairPubHex === delegator.dataOwner.publicKey ? delegator.dataOwner.hcPartyKeys?.[delegateId][0] : undefined)
+        (mainDelegatorKeyPairPubHex === delegator.dataOwner.publicKey ? delegator.dataOwner.hcPartyKeys?.[delegateId]?.[0] : undefined)
       if (existingExchangeKey) {
         exchangeKey = await this.tryDecryptExchangeKeyWith(existingExchangeKey, delegatorMainKeyPair, undefined)
         if (!exchangeKey)
@@ -231,7 +231,7 @@ export class BaseExchangeKeysManager {
       const delegator = await this.dataOwnerApi.getDataOwner(delegatorId)
       const delegate = await this.dataOwnerApi.getDataOwner(delegateId)
       let didUpdateSomeKey = false
-      const combinedKeys = await this.combineLegacyHcpKeysWithAesExchangeKeys(delegator, delegate)
+      const combinedKeys = await this.combineLegacyHcpKeysWithAesExchangeKeys(delegator.dataOwner, delegate.dataOwner)
       const updatedExchangeKeys: { [delegatorKey: string]: { [delegateId: string]: { [keyFp: string]: string } } } = {}
       const newEncryptionKeys = { [newPublicKeyFp]: newPublicKey }
       for (const [currDelegatorKey, currDelegatesToKeys] of Object.entries(combinedKeys)) {

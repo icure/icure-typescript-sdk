@@ -1,4 +1,4 @@
-import { Api, Apis, hex2ua, pkcs8ToJwk, spkiToJwk } from '../../../icc-x-api'
+import { Api, Apis, ua2hex } from '../../../icc-x-api'
 import { CalendarItem } from '../../../icc-api/model/CalendarItem'
 import { FilterChainMaintenanceTask, MaintenanceTask, PaginatedListMaintenanceTask } from '../../../icc-api/model/models'
 import { before, describe, it } from 'mocha'
@@ -17,6 +17,10 @@ import {
   setLocalStorage,
   TestVars,
 } from '../../utils/test_utils'
+import { TestKeyStorage, TestStorage } from '../../utils/TestStorage'
+import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
+import { DefaultStorageEntryKeysFactory } from '../../../icc-x-api/storage/DefaultStorageEntryKeysFactory'
+import { KeyPairUpdateRequest } from '../../../icc-x-api/maintenance/KeyPairUpdateRequest'
 
 async function _getHcpKeyUpdateMaintenanceTask(delegateApi: Apis): Promise<MaintenanceTask> {
   const delegateUser = await delegateApi.userApi.getCurrentUser()
@@ -55,18 +59,17 @@ describe('Full battery of tests on crypto and keys', async function () {
     const delegateHcp = await delegateApi.healthcarePartyApi.getHealthcareParty(delegateUser.healthcarePartyId!)
 
     const patient = await api.patientApi.getPatientWithUser(u, u.patientId!)
-    const patientWithDelegation = await api.patientApi.modifyPatientWithUser(
-      u,
-      await api.patientApi.initDelegationsAndEncryptionKeys(patient, u, undefined, [delegateUser!.healthcarePartyId!])
-    )
+    // The patient didn't have an exchange key with delegateHcp so there is definitely a new one
+    const patientWithNewExchangeKey = (await api.cryptoApi.exchangeKeys.getOrCreateEncryptionExchangeKeysTo(delegateHcp.id!)).updatedDelegator!
+      .dataOwner
 
     // Decrypting AES Key to compare it with AES key decrypted with new key in the next steps
     const decryptedAesWithPreviousKey = await api.cryptoApi.decryptHcPartyKey(
-      patientWithDelegation!.id!,
-      patientWithDelegation!.id!,
+      patientWithNewExchangeKey!.id!,
+      patientWithNewExchangeKey!.id!,
       delegateUser!.healthcarePartyId!,
       previousPubKey,
-      patientWithDelegation!.aesExchangeKeys![previousPubKey][delegateUser!.healthcarePartyId!],
+      patientWithNewExchangeKey!.aesExchangeKeys![previousPubKey][delegateUser!.healthcarePartyId!],
       [previousPubKey]
     )
 
@@ -77,27 +80,24 @@ describe('Full battery of tests on crypto and keys', async function () {
     const savedInitialRecord = await api.calendarItemApi.createCalendarItemWithHcParty(u, initialRecord)
 
     // And creates a new one
+    const newKey = await api.cryptoApi.primitives.RSA.generateKeyPair()
+    const publicKey = ua2hex(await api.cryptoApi.primitives.RSA.exportKey(newKey.publicKey, 'spki'))
+    const privateKey = ua2hex(await api.cryptoApi.primitives.RSA.exportKey(newKey.privateKey, 'pkcs8'))
     const apiAfterNewKey = await Api(
       env!.iCureUrl,
       env!.dataOwnerDetails[patUsername].user,
       env!.dataOwnerDetails[patUsername].password,
       webcrypto as unknown as Crypto,
-      fetch
+      fetch,
+      false,
+      false,
+      new TestStorage(),
+      new TestKeyStorage(),
+      new DefaultStorageEntryKeysFactory(),
+      new TestCryptoStrategies(newKey)
     )
     const user = await apiAfterNewKey.userApi.getCurrentUser()
-    const { privateKey, publicKey } = await apiAfterNewKey.cryptoApi.addNewKeyPairForOwnerId(
-      apiAfterNewKey.maintenanceTaskApi,
-      user,
-      (user.healthcarePartyId ?? user.patientId)!,
-      false
-    )
-
-    const jwk = {
-      publicKey: spkiToJwk(hex2ua(publicKey)),
-      privateKey: pkcs8ToJwk(hex2ua(privateKey)),
-    }
-    await apiAfterNewKey.cryptoApi.cacheKeyPair(jwk)
-    await apiAfterNewKey.cryptoApi.keyStorage.storeKeyPair(`${user.patientId!}.${publicKey.slice(-32)}`, jwk)
+    await apiAfterNewKey.icureMaintenanceTaskApi.createMaintenanceTasksForNewKeypair(user, newKey)
 
     // User can get not encrypted information from iCure (HCP, ...)
     const hcp = await apiAfterNewKey.healthcarePartyApi.getHealthcareParty(delegateUser!.healthcarePartyId!)
@@ -117,18 +117,14 @@ describe('Full battery of tests on crypto and keys', async function () {
     // Delegate user will therefore give user access back to data he previously created
 
     // Hcp gets his maintenance tasks
-    const maintenanceTask = await _getHcpKeyUpdateMaintenanceTask(delegateApi)
-    const patientId = maintenanceTask.properties!.find((prop) => prop.id === 'dataOwnerConcernedId')
-    const patientPubKey = maintenanceTask.properties!.find((prop) => prop.id === 'dataOwnerConcernedPubKey')
+    await delegateApi.cryptoApi.forceReload(false)
+    const maintenanceTask = new KeyPairUpdateRequest(await _getHcpKeyUpdateMaintenanceTask(delegateApi))
 
-    expect(patientId!.typedValue!.stringValue!).equals(patient.id)
-    expect(patientPubKey!.typedValue!.stringValue!).equals(publicKey)
+    expect(maintenanceTask.concernedDataOwnerId).equals(patient.id)
+    expect(maintenanceTask.newPublicKey).equals(publicKey)
 
-    const updatedDataOwner = await delegateApi.cryptoApi.giveAccessBackTo(
-      delegateUser!,
-      patientId!.typedValue!.stringValue!,
-      patientPubKey!.typedValue!.stringValue!
-    )
+    await delegateApi.icureMaintenanceTaskApi.applyKeyPairUpdate(maintenanceTask)
+    const updatedDataOwner = await delegateApi.dataOwnerApi.getDataOwner(maintenanceTask.concernedDataOwnerId)
 
     expect(updatedDataOwner.type).to.be.equal('patient')
     expect(updatedDataOwner.dataOwner).to.not.be.undefined
@@ -141,14 +137,14 @@ describe('Full battery of tests on crypto and keys', async function () {
       env!.dataOwnerDetails[patUsername].user,
       env!.dataOwnerDetails[patUsername].password,
       webcrypto as unknown as Crypto,
-      fetch
+      fetch,
+      false,
+      false,
+      new TestStorage(),
+      new TestKeyStorage(),
+      new DefaultStorageEntryKeysFactory(),
+      new TestCryptoStrategies(newKey)
     )
-    const newJwk = {
-      publicKey: spkiToJwk(hex2ua(publicKey)),
-      privateKey: pkcs8ToJwk(hex2ua(privateKey)),
-    }
-    await apiAfterSharedBack.cryptoApi.cacheKeyPair(newJwk)
-    await apiAfterSharedBack.cryptoApi.keyStorage.storeKeyPair(`${user.patientId!}.${publicKey.slice(-32)}`, newJwk)
 
     const decryptedAesWithNewKey = await apiAfterSharedBack.cryptoApi.decryptHcPartyKey(
       user.patientId!,
@@ -166,7 +162,7 @@ describe('Full battery of tests on crypto and keys', async function () {
     expect(decryptedAesWithNewKey.rawKey).to.be.equal(decryptedAesWithPreviousKey.rawKey)
 
     // User can access his previous data again
-    apiAfterSharedBack.cryptoApi.emptyHcpCache(patient.id)
+    apiAfterSharedBack.cryptoApi.emptyHcpCache(patient.id!)
 
     const initialRecordAfterSharedBack = await apiAfterSharedBack.calendarItemApi.getCalendarItemWithUser(u, initialRecord.id!)
     expect(initialRecordAfterSharedBack.id).to.be.equal(savedInitialRecord.id)
@@ -174,3 +170,5 @@ describe('Full battery of tests on crypto and keys', async function () {
     expect(initialRecordAfterSharedBack.title).to.be.equal(savedInitialRecord.title)
   })
 })
+
+// TODO test that EXACTLY ONE maintenance task is created for each delegator AND delegate in a exchange key with the data owner with the new key
