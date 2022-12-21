@@ -18,6 +18,6 @@ export class TestCryptoStrategies implements CryptoStrategies {
   }
 
   verifyOwnPublicKeys(self: DataOwner, publicKeys: string[]): Promise<{ [p: string]: boolean }> {
-    return Promise.resolve(Object.fromEntries(publicKeys.map((x) => [x, true])))
+    return Promise.resolve({})
   }
 }
