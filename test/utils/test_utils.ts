@@ -1,6 +1,4 @@
-import { User } from '../../icc-api/model/User'
-import { Apis, hex2ua, IccCryptoXApi, pkcs8ToJwk, spkiToJwk } from '../../icc-x-api'
-import { IccDataOwnerXApi } from '../../icc-x-api/icc-data-owner-x-api'
+import { Api, Apis, hex2ua, ua2hex } from '../../icc-x-api'
 import { tmpdir } from 'os'
 import { TextDecoder, TextEncoder } from 'util'
 import { v4 as uuid } from 'uuid'
@@ -18,13 +16,16 @@ import {
   SafeguardInitializer,
   UserInitializerComposite,
 } from './test-utils-decorators'
-
 import { webcrypto } from 'crypto'
-import { crypto } from '../../node-compat'
-
 import { checkIfDockerIsOnline } from '@icure/test-setup'
 import { RSAUtils } from '../../icc-x-api/crypto/RSA'
 import { TestApi } from './TestApi'
+import { Api as TestSetupApi } from '@icure/api'
+import { createHealthcarePartyUser } from '@icure/test-setup/creation'
+import { CryptoPrimitives } from '../../icc-x-api/crypto/CryptoPrimitives'
+import { testStorageWithKeys } from './TestStorage'
+import { TestCryptoStrategies } from './TestCryptoStrategies'
+import { User } from '../../icc-api/model/User'
 
 export function getTempEmail(): string {
   return `${uuid().substring(0, 8)}@icure.com`
@@ -138,5 +139,116 @@ export async function getApiAndAddPrivateKeysForUser(iCureUrl: string, details: 
     publicKey: await RSA.importKey('spki', hex2ua(details.publicKey), ['encrypt']),
     privateKey: await RSA.importKey('pkcs8', hex2ua(details.privateKey), ['decrypt']),
   }
-  return await TestApi(iCureUrl, details.user, details.password, webcrypto as unknown as Crypto, keys)
+  return await TestApi(iCureUrl, details.user, details.password, webcrypto as any, keys)
+}
+
+export async function createHcpHierarchyApis(env: TestVars): Promise<{
+  grandApi: Apis
+  grandUser: User
+  parentApi: Apis
+  parentUser: User
+  childApi: Apis
+  childUser: User
+  child2Api: Apis
+  child2User: User
+}> {
+  const initialisationApi = await TestSetupApi(env.iCureUrl, env.masterHcp!.user, env.masterHcp!.password, webcrypto as any, fetch, true, false)
+  const primitives = new CryptoPrimitives(webcrypto as any)
+  const grandCredentials = await createHealthcarePartyUser(initialisationApi, `grand-${primitives.randomUuid()}`, primitives.randomUuid())
+  const parentCredentials = await createHealthcarePartyUser(initialisationApi, `parent-${primitives.randomUuid()}`, primitives.randomUuid())
+  const childCredentials = await createHealthcarePartyUser(initialisationApi, `child-${primitives.randomUuid()}`, primitives.randomUuid())
+  const child2Credentials = await createHealthcarePartyUser(initialisationApi, `child2-${primitives.randomUuid()}`, primitives.randomUuid())
+  await initialisationApi.healthcarePartyApi.modifyHealthcareParty({
+    ...(await initialisationApi.healthcarePartyApi.getHealthcareParty(parentCredentials.dataOwnerId)),
+    parentId: grandCredentials.dataOwnerId,
+  })
+  await initialisationApi.healthcarePartyApi.modifyHealthcareParty({
+    ...(await initialisationApi.healthcarePartyApi.getHealthcareParty(childCredentials.dataOwnerId)),
+    parentId: parentCredentials.dataOwnerId,
+  })
+  await initialisationApi.healthcarePartyApi.modifyHealthcareParty({
+    ...(await initialisationApi.healthcarePartyApi.getHealthcareParty(child2Credentials.dataOwnerId)),
+    parentId: grandCredentials.dataOwnerId,
+  })
+  const grandStorage = await testStorageWithKeys([
+    { dataOwnerId: grandCredentials.dataOwnerId, pairs: [{ privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }] },
+  ])
+  const grandApi = await Api(
+    env.iCureUrl,
+    grandCredentials.login,
+    grandCredentials.password,
+    webcrypto as any,
+    fetch,
+    false,
+    false,
+    grandStorage.storage,
+    grandStorage.keyStorage,
+    grandStorage.keyFactory,
+    new TestCryptoStrategies()
+  )
+  const parentStorage = await testStorageWithKeys([
+    { dataOwnerId: grandCredentials.dataOwnerId, pairs: [{ privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }] },
+    { dataOwnerId: parentCredentials.dataOwnerId, pairs: [{ privateKey: parentCredentials.privateKey, publicKey: parentCredentials.publicKey }] },
+  ])
+  const parentApi = await Api(
+    env.iCureUrl,
+    parentCredentials.login,
+    parentCredentials.password,
+    webcrypto as any,
+    fetch,
+    false,
+    false,
+    parentStorage.storage,
+    parentStorage.keyStorage,
+    parentStorage.keyFactory,
+    new TestCryptoStrategies()
+  )
+  const parentUser = await parentApi.userApi.modifyUser({
+    ...(await parentApi.userApi.getCurrentUser()),
+    autoDelegations: { all: [grandCredentials.dataOwnerId] },
+  })
+  const childStorage = await testStorageWithKeys([
+    { dataOwnerId: grandCredentials.dataOwnerId, pairs: [{ privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }] },
+    { dataOwnerId: parentCredentials.dataOwnerId, pairs: [{ privateKey: parentCredentials.privateKey, publicKey: parentCredentials.publicKey }] },
+    { dataOwnerId: childCredentials.dataOwnerId, pairs: [{ privateKey: childCredentials.privateKey, publicKey: childCredentials.publicKey }] },
+  ])
+  const childApi = await Api(
+    env.iCureUrl,
+    childCredentials.login,
+    childCredentials.password,
+    webcrypto as any,
+    fetch,
+    false,
+    false,
+    childStorage.storage,
+    childStorage.keyStorage,
+    childStorage.keyFactory,
+    new TestCryptoStrategies()
+  )
+  const childUser = await childApi.userApi.modifyUser({
+    ...(await childApi.userApi.getCurrentUser()),
+    autoDelegations: { all: [grandCredentials.dataOwnerId, parentCredentials.dataOwnerId] },
+  })
+  const child2Storage = await testStorageWithKeys([
+    { dataOwnerId: grandCredentials.dataOwnerId, pairs: [{ privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }] },
+    { dataOwnerId: child2Credentials.dataOwnerId, pairs: [{ privateKey: child2Credentials.privateKey, publicKey: child2Credentials.publicKey }] },
+  ])
+  const child2Api = await Api(
+    env.iCureUrl,
+    child2Credentials.login,
+    child2Credentials.password,
+    webcrypto as any,
+    fetch,
+    false,
+    false,
+    child2Storage.storage,
+    child2Storage.keyStorage,
+    child2Storage.keyFactory,
+    new TestCryptoStrategies()
+  )
+  const child2User = await child2Api.userApi.modifyUser({
+    ...(await child2Api.userApi.getCurrentUser()),
+    autoDelegations: { all: [grandCredentials.dataOwnerId] },
+  })
+  return { grandApi, grandUser: await grandApi.userApi.getCurrentUser(), parentApi, parentUser, childApi, childUser, child2Api, child2User }
 }

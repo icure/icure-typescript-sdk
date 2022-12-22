@@ -90,9 +90,7 @@ export class IccContactXApi extends IccContactApi {
     )
 
     const ownerId = this.dataOwnerApi.getDataOwnerOf(user)
-    const sfk =
-      preferredSfk ??
-      (confidential ? await this.crypto.extractPreferredSfk(patient, ownerId, true) : (await this.crypto.entities.secretIdsOf(patient, ownerId))[0])
+    const sfk = preferredSfk ?? (await this.crypto.extractPreferredSfk(patient, ownerId, confidential))
     if (!sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id} for confidential=${confidential}`)
     const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
     const initialisationInfo = await this.crypto.entities.entityWithInitialisedEncryptionMetadata(
@@ -100,24 +98,25 @@ export class IccContactXApi extends IccContactApi {
       patient.id,
       sfk,
       true,
-      extraDelegations,
+      confidential ? [] : extraDelegations,
       delegationTags
     )
     const anonymousDelegations = user.autoDelegations?.anonymousMedicalInformation ?? []
-    return new models.Contact(
-      await anonymousDelegations.reduce(
-        async (updatedContact, delegate) =>
-          await this.crypto.entities.entityWithShareMetadata(
-            await updatedContact,
-            delegate,
-            false,
-            [initialisationInfo.rawEncryptionKey!],
-            [patient.id!], // TODO Are we sure we want to share parent id for who can access anonymous medical info?
-            [] // TODO No tags for who uses anonymous info?
-          ),
-        Promise.resolve(initialisationInfo.updatedEntity)
-      )
-    )
+    const sharedAnonymously = confidential
+      ? initialisationInfo.updatedEntity
+      : await anonymousDelegations.reduce(
+          async (updatedContact, delegate) =>
+            await this.crypto.entities.entityWithShareMetadata(
+              await updatedContact,
+              delegate,
+              false,
+              [initialisationInfo.rawEncryptionKey!],
+              [patient.id!], // TODO Are we sure we want to share parent id for who can access anonymous medical info?
+              [] // TODO No tags for who uses anonymous info?
+            ),
+          Promise.resolve(initialisationInfo.updatedEntity)
+        )
+    return new models.Contact(sharedAnonymously)
   }
 
   /**
@@ -284,7 +283,7 @@ export class IccContactXApi extends IccContactApi {
     return super.findByHCPartyFormIds(hcPartyId, body).then((ctcs) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, ctcs))
   }
 
-  getContactWithUser(user: models.User, contactId: string): Promise<models.Contact | any> {
+  getContactWithUser(user: models.User, contactId: string): Promise<models.Contact> {
     return super
       .getContact(contactId)
       .then((ctc) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, [ctc]))
@@ -315,7 +314,7 @@ export class IccContactXApi extends IccContactApi {
       : null
   }
 
-  async createContactWithUser(user: models.User, body?: models.Contact): Promise<models.Contact | any> {
+  async createContactWithUser(user: models.User, body?: models.Contact): Promise<models.Contact | null> {
     return body
       ? this.encrypt(user, [_.cloneDeep(body)])
           .then((ctcs) => super.createContact(ctcs[0]))
@@ -324,7 +323,7 @@ export class IccContactXApi extends IccContactApi {
       : null
   }
 
-  async createContactsWithUser(user: models.User, bodies?: Array<models.Contact>): Promise<models.Contact[] | any> {
+  async createContactsWithUser(user: models.User, bodies?: Array<models.Contact>): Promise<models.Contact[] | null> {
     return bodies
       ? this.encrypt(
           user,
@@ -436,7 +435,7 @@ export class IccContactXApi extends IccContactApi {
 
         if (svc.encryptedContent) {
           try {
-            const json = this.crypto.entities.tryDecryptJson(keys, string2ua(a2b(svc.encryptedContent!)), true)
+            const json = await this.crypto.entities.tryDecryptJson(keys, string2ua(a2b(svc.encryptedContent!)), true)
             if (json) {
               Object.assign(svc, { content: json })
             } else {
@@ -447,7 +446,7 @@ export class IccContactXApi extends IccContactApi {
           }
         } else if (svc.encryptedSelf) {
           try {
-            const json = this.crypto.entities.tryDecryptJson(keys, string2ua(a2b(svc.encryptedSelf!)), true)
+            const json = await this.crypto.entities.tryDecryptJson(keys, string2ua(a2b(svc.encryptedSelf!)), true)
             if (json) {
               Object.assign(svc, json)
             } else {

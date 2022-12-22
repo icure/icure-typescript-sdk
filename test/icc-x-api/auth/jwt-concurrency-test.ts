@@ -1,9 +1,9 @@
 import 'isomorphic-fetch'
 import { before } from 'mocha'
 import { getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStorage, TestVars } from '../../utils/test_utils'
-import { Api } from '../../../icc-x-api'
 import { webcrypto } from 'crypto'
 import { expect } from 'chai'
+import { TestApi } from '../../utils/TestApi'
 
 setLocalStorage(fetch)
 let env: TestVars
@@ -20,14 +20,11 @@ describe('Jwt authentication concurrency test', () => {
   })
 
   it('Can login simultaneously with the same user', async () => {
-    const api = await Api(
+    const api = await TestApi(
       env.iCureUrl,
       env.dataOwnerDetails[hcp1Username].user,
       env.dataOwnerDetails[hcp1Username].password,
-      webcrypto as unknown as Crypto,
-      fetch,
-      false,
-      false
+      webcrypto as unknown as Crypto
     )
     const users = await Promise.all(
       [...Array<number>(5)].map(async () => {
@@ -40,14 +37,11 @@ describe('Jwt authentication concurrency test', () => {
   })
 
   it('After logging in, can make requests asynchronously', async () => {
-    const api = await Api(
+    const api = await TestApi(
       env.iCureUrl,
       env.dataOwnerDetails[hcp1Username].user,
       env.dataOwnerDetails[hcp1Username].password,
-      webcrypto as unknown as Crypto,
-      fetch,
-      false,
-      false
+      webcrypto as unknown as Crypto
     )
 
     await api.userApi.getCurrentUser()
@@ -63,14 +57,11 @@ describe('Jwt authentication concurrency test', () => {
   })
 
   it('It can refresh the token asynchronously', async () => {
-    const api = await Api(
+    const api = await TestApi(
       env.iCureUrl,
       env.dataOwnerDetails[hcp1Username].user,
       env.dataOwnerDetails[hcp1Username].password,
-      webcrypto as unknown as Crypto,
-      fetch,
-      false,
-      false
+      webcrypto as unknown as Crypto
     )
     await api.userApi.getCurrentUser()
 

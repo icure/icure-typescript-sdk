@@ -47,9 +47,7 @@ export class IcureStorageFacade {
     const deviceKey =
       (await this.keys.getKeypair(this.entryFor.deviceKeypairOfDataOwner(dataOwnerId, publicKeyFingerprint))) ??
       (await this.keys.getKeypair(`org.taktik.icure.rsa.${dataOwnerId}.${publicKeyFingerprint}`)) ??
-      legacyPublicKey?.slice(-32) === publicKeyFingerprint
-        ? await this.keys.getKeypair(`org.taktik.icure.rsa.${dataOwnerId}`)
-        : undefined
+      (legacyPublicKey?.slice(-32) === publicKeyFingerprint ? await this.keys.getKeypair(`org.taktik.icure.rsa.${dataOwnerId}`) : undefined)
     if (deviceKey) return { pair: deviceKey, isDevice: true }
     const cachedKey = await this.keys.getKeypair(this.entryFor.cachedRecoveredKeypairOfDataOwner(dataOwnerId, publicKeyFingerprint))
     if (cachedKey) return { pair: cachedKey, isDevice: false }

@@ -87,9 +87,7 @@ export class IccHelementXApi extends IccHelementApi {
     )
 
     const ownerId = this.dataOwnerApi.getDataOwnerOf(user)
-    const sfk =
-      preferredSfk ??
-      (confidential ? await this.crypto.extractPreferredSfk(patient, ownerId, true) : (await this.crypto.entities.secretIdsOf(patient, ownerId))[0])
+    const sfk = preferredSfk ?? (await this.crypto.extractPreferredSfk(patient, ownerId, confidential))
     if (!sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id} for confidential=${confidential}`)
     const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
     const initialisationInfo = await this.crypto.entities.entityWithInitialisedEncryptionMetadata(
@@ -97,24 +95,25 @@ export class IccHelementXApi extends IccHelementApi {
       patient.id,
       sfk,
       true,
-      extraDelegations,
+      confidential ? [] : extraDelegations,
       delegationTags
     )
     const anonymousDelegations = user.autoDelegations?.anonymousMedicalInformation ?? []
-    return new models.HealthElement(
-      await anonymousDelegations.reduce(
-        async (updatedContact, delegate) =>
-          await this.crypto.entities.entityWithShareMetadata(
-            await updatedContact,
-            delegate,
-            false,
-            [initialisationInfo.rawEncryptionKey!],
-            [patient.id!], // TODO Are we sure we want to share parent id for who can access anonymous medical info?
-            [] // TODO No tags for who uses anonymous info?
-          ),
-        Promise.resolve(initialisationInfo.updatedEntity)
-      )
-    )
+    const sharedAnonymously = confidential
+      ? initialisationInfo.updatedEntity
+      : await anonymousDelegations.reduce(
+          async (updatedContact, delegate) =>
+            await this.crypto.entities.entityWithShareMetadata(
+              await updatedContact,
+              delegate,
+              [initialisationInfo.secretId],
+              [initialisationInfo.rawEncryptionKey!],
+              false,
+              [] // TODO No tags for who uses anonymous info?
+            ),
+          Promise.resolve(initialisationInfo.updatedEntity)
+        )
+    return new models.HealthElement(sharedAnonymously)
   }
 
   createHealthElement(body?: models.HealthElement): never {
