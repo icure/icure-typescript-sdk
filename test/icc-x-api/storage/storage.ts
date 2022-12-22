@@ -1,7 +1,7 @@
 import { expect } from 'chai'
 import { LocalStorageImpl } from '../../../icc-x-api/storage/LocalStorageImpl'
 import { tmpdir } from 'os'
-
+import 'isomorphic-fetch'
 import { TextDecoder, TextEncoder } from 'util'
 import { KeyStorageImpl } from '../../../icc-x-api'
 ;(global as any).localStorage = new (require('node-localstorage').LocalStorage)(tmpdir(), 5 * 1024 * 1024 * 1024)

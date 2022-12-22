@@ -160,7 +160,7 @@ export class IccPatientXApi extends IccPatientApi {
    */
   async initConfidentialDelegation(patient: models.Patient, user: models.User): Promise<models.Patient> {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-    const confidentialDelegation = this.crypto.extractPreferredSfk(patient, dataOwnerId!, true)
+    const confidentialDelegation = await this.crypto.extractPreferredSfk(patient, dataOwnerId!, true)
     if (!confidentialDelegation) {
       const confidentialSecretId = this.crypto.primitives.randomUuid()
       const updatedPatient = await this.crypto.entities.entityWithShareMetadata(patient, dataOwnerId, [confidentialSecretId], false, false, [

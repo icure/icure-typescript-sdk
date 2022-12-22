@@ -3,14 +3,14 @@ import { KeyPair } from '../../icc-x-api/crypto/RSA'
 import { DataOwner } from '../../icc-x-api/icc-data-owner-x-api'
 
 export class TestCryptoStrategies implements CryptoStrategies {
-  private readonly keyPair: KeyPair<CryptoKey>
+  private readonly keyPair: KeyPair<CryptoKey> | undefined
 
-  constructor(keyPair: KeyPair<CryptoKey>) {
+  constructor(keyPair?: KeyPair<CryptoKey>) {
     this.keyPair = keyPair
   }
 
   createNewKeyPairIfNoVerifiedKeysFound(): Promise<boolean | KeyPair<CryptoKey>> {
-    return Promise.resolve(this.keyPair)
+    return Promise.resolve(this.keyPair ? this.keyPair : false)
   }
 
   verifyDelegatePublicKeys(delegate: DataOwner, publicKeys: string[]): Promise<string[]> {
