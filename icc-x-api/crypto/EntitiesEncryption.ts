@@ -150,7 +150,7 @@ export class EntitiesEncryption {
    * @internal this method is intended only for internal use and may be changed without notice.
    * Initializes encryption metadata for an entity. This includes the encrypted secret id, parent id, and encryption key for the entity, and the clear
    * text secret foreign key of the parent entity.
-   * This method creates an updated copy of the entity, and DOES NOT MODIFY the entity in place.
+   * This method MODIFIES THE ENTITY IN PLACE then returns it.
    * @param entity entity which requires encryption metadata initialisation.
    * @param parentEntityId id of the parent entity, if any.
    * @param parentSecretId secret id of the parent entity, to use in the secret foreign keys for the provided entity, if any.
@@ -159,7 +159,7 @@ export class EntitiesEncryption {
    * @param additionalDelegations automatically shares the
    * @param tags tags to associate with the initial encryption keys and metadata
    * @throws if the entity already has non-empty values for encryption metadata.
-   * @return an updated copy of the entity.
+   * @return the updated entity.
    */
   async entityWithInitialisedEncryptionMetadata<T extends EncryptedEntity>(
     entity: T,
@@ -214,7 +214,7 @@ export class EntitiesEncryption {
    * is no delegation from the current data owner to the delegate, as secret ids are also used for access control. This will be changed in future
    * versions)
    * The method also performs some deduplication on the available delegations for the delegate
-   * This method creates an updated copy of the entity, and DOES NOT MODIFY the entity in place.
+   * This method MODIFIES THE ENTITY IN PLACE then returns it.
    * @param entity entity which requires encryption metadata initialisation.
    * @param delegateId id of the delegate to share data with.
    * @param shareSecretIds secret ids to share or true if all currently available secret ids should be shared.
@@ -222,7 +222,7 @@ export class EntitiesEncryption {
    * @param shareParentIds parent ids to share or true if all currently available parent ids should be shared.
    * @param newTags tags to associate with the new encryption keys and metadata. Existing data won't be changed.
    * @throws if any of the shareX parameters is set to `true` but the corresponding piece of data could not be retrieved.
-   * @return an updated copy of the entity.
+   * @return the updated entity.
    */
   async entityWithShareMetadata<T extends EncryptedEntity>(
     entity: T,
@@ -491,7 +491,7 @@ export class EntitiesEncryption {
    */
   async ensureEncryptionKeysInitialised<T extends EncryptedEntity>(entity: T): Promise<T> {
     if (Object.keys(entity.encryptionKeys ?? {}).length > 0) return entity
-    if (entity.rev) {
+    if (!entity.rev) {
       throw new Error(
         'New encrypted entity is lacking encryption metadata. ' +
           'Please instantiate new entities using the `newInstance` method from the respective extended api.'
@@ -771,7 +771,6 @@ export class EntitiesEncryption {
   ): Promise<T> {
     if (newSecretIds.length === 0 && newEncryptionKeys.length === 0 && newParentIds.length === 0) return entity
     const chosenKey = keysForDelegates[delegateId][0]
-    const entityCopy = { ...entity }
     const updatedSecretIds = [
       ...existingSecretIds,
       ...(await Promise.all(newSecretIds.map((x) => this.createSecretIdDelegation(entity.id!, delegateId, chosenKey, x, newTags)))),
@@ -785,24 +784,24 @@ export class EntitiesEncryption {
       ...(await Promise.all(newParentIds.map((x) => this.createParentIdDelegation(entity.id!, delegateId, chosenKey, x, newTags)))),
     ]
     if (updatedSecretIds.length > 0) {
-      entityCopy.delegations = {
+      entity.delegations = {
         ...(entity.delegations ?? {}),
         [delegateId]: updatedSecretIds,
       }
     }
     if (updatedEncryptionKeys.length > 0) {
-      entityCopy.encryptionKeys = {
+      entity.encryptionKeys = {
         ...(entity.encryptionKeys ?? {}),
         [delegateId]: updatedEncryptionKeys,
       }
     }
     if (updatedParentIds.length > 0) {
-      entityCopy.cryptedForeignKeys = {
+      entity.cryptedForeignKeys = {
         ...(entity.cryptedForeignKeys ?? {}),
         [delegateId]: updatedParentIds,
       }
     }
-    return entityCopy
+    return entity
   }
 
   /**

@@ -74,7 +74,7 @@ export class IccPatientXApi extends IccPatientApi {
   async newInstance(user: models.User, p: any = {}, delegates: string[] = [], delegationTags?: string[]) {
     const patient = _.extend(
       {
-        id: this.crypto.randomUuid(),
+        id: this.crypto.primitives.randomUuid(),
         _type: 'org.taktik.icure.entities.Patient',
         created: new Date().getTime(),
         modified: new Date().getTime(),
@@ -445,10 +445,7 @@ export class IccPatientXApi extends IccPatientApi {
       ? this.encrypt(user, [_.cloneDeep(this.completeNames(body))])
           .then((pats) => super.modifyPatient(pats[0]))
           .then((p) => this.decrypt(user, [p]))
-          .then((pats) => {
-            pats[0]?.id && this.crypto.emptyHcpCache(pats[0].id!)
-            return pats[0]
-          })
+          .then((pats) => pats[0])
       : Promise.resolve(null)
   }
 
@@ -466,10 +463,7 @@ export class IccPatientXApi extends IccPatientApi {
     return super
       .modifyPatientReferral(patientId, referralId, start, end)
       .then((p) => this.decrypt(user, [p]))
-      .then((pats) => {
-        pats[0]?.id && this.crypto.emptyHcpCache(pats[0].id!)
-        return pats[0]
-      })
+      .then((pats) => pats[0])
   }
 
   encrypt(user: models.User, pats: Array<models.Patient>): Promise<Array<models.Patient>> {
@@ -548,15 +542,15 @@ export class IccPatientXApi extends IccPatientApi {
     ) => {
       return dtos.reduce(
         (p, x) =>
-          p.then(() =>
-            Promise.all([this.crypto.extractDelegationsSFKs(x, ownerId), this.crypto.extractEncryptionsSKs(x, ownerId)]).then(([sfks, eks]) => {
-              //console.log(`share ${x.id} to ${delegateId}`)
-              return this.crypto.entities.entityWithShareMetadata(x, delegateId, true, true, patient ? [patient.id!] : true, []).catch((e: any) => {
-                console.log(e)
-                return x
-              })
+          p.then(async () => {
+            const secretIds = await this.crypto.entities.secretIdsOf(x, ownerId)
+            const encryptionKeys = await this.crypto.entities.encryptionKeysOf(x, ownerId)
+            const parentIds = await this.crypto.entities.parentIdsOf(x, ownerId)
+            return this.crypto.entities.entityWithShareMetadata(x, delegateId, secretIds, encryptionKeys, parentIds, []).catch((e: any) => {
+              console.log(e)
+              return x
             })
-          ),
+          }),
         markerPromise
       )
     }
@@ -742,28 +736,10 @@ export class IccPatientXApi extends IccPatientApi {
                       //console.log(`share ${patient.id} to ${delegateId}`)
                       return shareAnonymously
                         ? patient
-                        : this.crypto.entities
-                            .entityWithShareMetadata(patient, delegateId, [delSfks[0]], [ecKeys[0]], false, [])
-                            .then(async (patient) => {
-                              if (delSfks.length > 1) {
-                                return delSfks.slice(1).reduce(async (patientPromise: Promise<models.Patient>, delSfk: string) => {
-                                  const patient = await patientPromise
-                                  return shareAnonymously
-                                    ? patient
-                                    : this.crypto.entities
-                                        .entityWithShareMetadata(patient, delegateId, [delSfk], false, false, [])
-                                        .catch((e: any) => {
-                                          console.log(e)
-                                          return patient
-                                        })
-                                }, Promise.resolve(patient))
-                              }
-                              return patient
-                            })
-                            .catch((e) => {
-                              console.log(e)
-                              return patient
-                            })
+                        : this.crypto.entities.entityWithShareMetadata(patient, delegateId, delSfks, ecKeys, false, []).catch((e) => {
+                            console.log(e)
+                            return patient
+                          })
                     })
                     ;(tags.includes('medicalInformation') || tags.includes('anonymousMedicalInformation') || tags.includes('all')) &&
                       (markerPromise = addDelegationsAndKeys(hes, markerPromise, delegateId, patient))
@@ -1072,8 +1048,8 @@ export class IccPatientXApi extends IccPatientApi {
   checkInami(inami: string): boolean {
     const num_inami = inami.replace(new RegExp('[^(0-9)]', 'g'), '')
 
-    const checkDigit = num_inami.substr(6, 2)
-    const numSansCheck = num_inami.substr(0, 6)
+    const checkDigit = num_inami.substring(6, 2)
+    const numSansCheck = num_inami.substring(0, 6)
     let retour = false
 
     //modulo du niss
@@ -1101,9 +1077,9 @@ export class IccPatientXApi extends IccPatientApi {
 
     if (normalNumber || bisNumber || terNumber) {
       isValidNiss =
-        97 - (Number(ssin.substr(0, 9)) % 97) === Number(ssin.substr(9, 2))
+        97 - (Number(ssin.substring(0, 9)) % 97) === Number(ssin.substring(9, 2))
           ? true
-          : 97 - (Number('2' + ssin.substr(0, 9)) % 97) === Number(ssin.substr(9, 2))
+          : 97 - (Number('2' + ssin.substring(0, 9)) % 97) === Number(ssin.substring(9, 2))
     }
 
     return isValidNiss
@@ -1113,7 +1089,7 @@ export class IccPatientXApi extends IccPatientApi {
     childDocument: models.Invoice | models.CalendarItem | models.Contact | models.AccessLog,
     hcpId: string
   ): Promise<string> {
-    const parentIdsArray = (await this.crypto.extractCryptedFKs(childDocument, hcpId)).extractedKeys
+    const parentIdsArray = await this.crypto.entities.parentIdsOf(childDocument, hcpId)
 
     const multipleParentIds = _.uniq(parentIdsArray).length > 1
 
