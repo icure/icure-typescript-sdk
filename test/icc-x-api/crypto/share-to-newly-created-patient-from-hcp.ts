@@ -11,8 +11,11 @@ import { expect } from 'chai'
 
 import { cleanup } from '@icure/test-setup'
 import { BasicAuthenticationProvider } from '../../../icc-x-api/auth/AuthenticationProvider'
-import { getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStorage, TestVars } from '../../utils/test_utils'
+import { createHcpHierarchyApis, getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStorage, TestVars } from '../../utils/test_utils'
 import { crypto } from '../../../node-compat'
+import { TestKeyStorage, TestStorage } from '../../utils/TestStorage'
+import { DefaultStorageEntryKeysFactory } from '../../../icc-x-api/storage/DefaultStorageEntryKeysFactory'
+import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
 
 setLocalStorage(fetch)
 
@@ -44,48 +47,12 @@ describe('Full battery of tests on crypto and keys', async function () {
   this.timeout(600000)
 
   before(async function () {
-    this.timeout(300000)
-
     const initializer = await getEnvironmentInitializer()
     env = await initializer.execute(getEnvVariables())
-
-    const api = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password, crypto)
-
-    const hcpLogin = `hcp-${uuid()}-delegate`
-
-    const publicKeyDelegate = await makeKeyPair(api.cryptoApi, hcpLogin)
-    const publicKeyParent = await makeKeyPair(api.cryptoApi, `hcp-parent`)
-
-    const parentHcp = await api.healthcarePartyApi.createHealthcareParty(
-      new HealthcareParty({ id: uuid(), publicKey: publicKeyParent, firstName: 'parent', lastName: 'parent' }) //FIXME Shouldn't we call addNewKeyPair directly, instead of initialising like before ?
-    )
-
-    delegateHcp = await api.healthcarePartyApi.createHealthcareParty(
-      new HealthcareParty({ id: uuid(), publicKey: publicKeyDelegate, firstName: 'test', lastName: 'test', parentId: parentHcp.id }) //FIXME Shouldn't we call addNewKeyPair directly, instead of initialising like before ?
-    )
-
-    hcpUser = await api.userApi.createUser(
-      new User({
-        id: `user-${uuid()}-hcp`,
-        login: hcpLogin,
-        status: 'ACTIVE',
-        passwordHash: 'LetMeInForReal',
-        healthcarePartyId: delegateHcp.id,
-      })
-    )
-
-    console.log('All prerequisites are started')
-  })
-
-  after(async () => {
-    const env = getEnvVariables()
-    await cleanup('test/scratch', env.composeFileUrl)
-    console.log('Cleanup complete')
   })
 
   it(`Share patient from hcp to patient`, async () => {
-    const u = hcpUser!
-    const api = await getApiAndAddPrivateKeysForUser(u)
+    const { childApi: api, childUser: u } = await createHcpHierarchyApis(env!)
 
     const patient = await api.patientApi.createPatientWithUser(
       u,
@@ -106,33 +73,29 @@ describe('Full battery of tests on crypto and keys', async function () {
     )
 
     const apiAsPatient = await Api(
-      `http://127.0.0.1:${AS_PORT}/rest/v1`,
+      env!.iCureUrl,
       newPatientUser.login!,
       'LetMeInForReal',
       webcrypto as unknown as Crypto,
       fetch,
-      true
+      true,
+      false,
+      new TestStorage(),
+      new TestKeyStorage(),
+      new DefaultStorageEntryKeysFactory(),
+      new TestCryptoStrategies(await api.cryptoApi.primitives.RSA.generateKeyPair())
     )
-    const publicKeyPatient = await makeKeyPair(apiAsPatient.cryptoApi, newPatientUser.login!)
 
-    const patientBaseApi = new IccPatientApi(
-      `http://127.0.0.1:${AS_PORT}/rest/v1`,
-      {},
-      new BasicAuthenticationProvider(newPatientUser.login!, 'LetMeInForReal')
-    )
+    const patientBaseApi = new IccPatientApi(env!.iCureUrl, {}, new BasicAuthenticationProvider(newPatientUser.login!, 'LetMeInForReal'))
 
     const pat = await patientBaseApi.getPatient(patient.id)
 
     expect(pat.note ?? undefined).to.be.undefined
 
-    await patientBaseApi.modifyPatient({ ...pat, publicKey: publicKeyPatient })
+    await api.patientApi.share(u, patient.id, u.healthcarePartyId!, [patient.id], { [patient.id]: ['all'] })
 
-    const apiForSharing = await getApiAndAddPrivateKeysForUser(u)
-    await apiForSharing.patientApi.share(u, patient.id, u.healthcarePartyId!, [patient.id], { [patient.id]: ['all'] })
-
-    const apiForReading = await getApiAndAddPrivateKeysForUser(newPatientUser)
-
-    const entity = await apiForReading.patientApi.getPatientWithUser(await apiForReading.userApi.getCurrentUser(), patient.id)
+    await apiAsPatient.cryptoApi.forceReload(true)
+    const entity = await apiAsPatient.patientApi.getPatientWithUser(await apiAsPatient.userApi.getCurrentUser(), patient.id)
 
     expect(entity.id).to.be.not.null
     expect(entity.rev).to.be.not.null
