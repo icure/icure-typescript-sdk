@@ -136,10 +136,29 @@ export class ShamirKeysManager {
     delegatesKeys: { [p: string]: CryptoKey }
   ): Promise<{ [delegateId: string]: string }> {
     const exportedKey = await this.primitives.RSA.exportKey(keyPair.privateKey, 'pkcs8')
-    const shares =
-      delegateIds.length == 1
-        ? [exportedKey]
-        : this.primitives.shamir.share(ua2hex(exportedKey), delegateIds.length, minShares).map((share) => hex2ua(share))
+    if (delegateIds.length == 1) {
+      return await this.encryptShares([exportedKey], delegateIds, delegatesKeys)
+    } else {
+      const exportedKeysHex = ua2hex(exportedKey)
+      const stringShares = this.primitives.shamir.share(exportedKeysHex, delegateIds.length, minShares)
+      const paddedStringShares = stringShares.map((x) => `f${x}`) // Shares are uneven length, apart from that they are perfect hexes
+      for (const share of paddedStringShares) {
+        if (!/^(?:[0-9a-f][0-9a-f])+$/g.test(share)) throw new Error('Unexpected result of shamir split: padded shares should be a valid hex value')
+        if (share !== ua2hex(hex2ua(share))) throw new Error('Unexpected result with encoding-decoding share')
+      }
+      return await this.encryptShares(
+        paddedStringShares.map((x) => hex2ua(x)),
+        delegateIds,
+        delegatesKeys
+      )
+    }
+  }
+
+  private async encryptShares(
+    shares: ArrayBuffer[],
+    delegateIds: string[],
+    delegatesKeys: { [p: string]: CryptoKey }
+  ): Promise<{ [delegateId: string]: string }> {
     return delegateIds.reduce(
       async (acc, delegateId, index) => ({
         ...(await acc),

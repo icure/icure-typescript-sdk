@@ -89,7 +89,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
     startDocumentId?: string,
     limit?: number,
     body?: models.FilterChainMaintenanceTask
-  ): Promise<models.PaginatedListMaintenanceTask | any> {
+  ): Promise<models.PaginatedListMaintenanceTask> {
     return super
       .filterMaintenanceTasksBy(startDocumentId, limit, body)
       .then((pl) => this.decrypt(user, pl.rows!).then((dr) => Object.assign(pl, { rows: dr })))

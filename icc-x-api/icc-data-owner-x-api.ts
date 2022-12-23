@@ -4,6 +4,7 @@ import { HealthcareParty } from '../icc-api/model/HealthcareParty'
 import { Patient } from '../icc-api/model/Patient'
 import { Device } from '../icc-api/model/Device'
 import { hexPublicKeysOf } from './crypto/utils'
+import { IccHcpartyXApi } from './icc-hcparty-x-api'
 
 /**
  * Represents a type of data owner.
@@ -31,7 +32,7 @@ export type DataOwnerWithType =
 
 export class IccDataOwnerXApi {
   private userBaseApi: IccUserApi
-  private hcpartyBaseApi: IccHcpartyApi
+  private hcpartyBaseApi: IccHcpartyXApi
   private patientBaseApi: IccPatientApi
   private deviceBaseApi: IccDeviceApi
   private currentDataOwnerType: DataOwnerTypeEnum | undefined
@@ -44,7 +45,7 @@ export class IccDataOwnerXApi {
 
   constructor(
     userBaseApi: IccUserApi,
-    hcpartyBaseApi: IccHcpartyApi, //Init with a hcparty x api for better performances
+    hcpartyBaseApi: IccHcpartyXApi, //Init with a hcparty x api for better performances
     patientBaseApi: IccPatientApi,
     deviceBaseApi: IccDeviceApi
   ) {
@@ -144,7 +145,7 @@ export class IccDataOwnerXApi {
       .getPatient(ownerId)
       .then((patient) => ({ type: DataOwnerTypeEnum.Patient, dataOwner: patient as DataOwner }))
       .catch(async () => ({ type: DataOwnerTypeEnum.Device, dataOwner: (await this.deviceBaseApi.getDevice(ownerId)) as DataOwner }))
-      .catch(async () => ({ type: DataOwnerTypeEnum.Hcp, dataOwner: (await this.hcpartyBaseApi.getHealthcareParty(ownerId)) as DataOwner }))
+      .catch(async () => ({ type: DataOwnerTypeEnum.Hcp, dataOwner: (await this.hcpartyBaseApi.getHealthcareParty(ownerId, true)) as DataOwner }))
       .then((dataOwnerWithType) => {
         if (dataOwnerWithType.dataOwner.id === this.selfDataOwnerId) this.checkDataOwnerIntegrity(dataOwnerWithType.dataOwner)
         return dataOwnerWithType

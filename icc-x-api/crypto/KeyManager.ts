@@ -179,7 +179,7 @@ export class KeyManager {
     this.selfLegacyPublicKey = dataOwner.dataOwner.publicKey
     if (loadedKeysFingerprints.length !== pubKeysFingerprints.length && loadedKeysFingerprints.length > 0) {
       // Try to recover existing keys.
-      const recoveredKeys = this.keyRecovery.recoverKeys(dataOwner, this.plainKeysByFingerprint(loadedKeys))
+      const recoveredKeys = await this.keyRecovery.recoverKeys(dataOwner, this.plainKeysByFingerprint(loadedKeys))
       for (const [fp, pair] of Object.entries(recoveredKeys)) {
         loadedKeys[fp] = { pair, isDevice: false }
         await this.icureStorage.saveKey(dataOwner.dataOwner.id!, fp, await this.primitives.RSA.exportKeys(pair, 'jwk', 'jwk'), false)

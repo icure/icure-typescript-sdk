@@ -1,9 +1,30 @@
-import { crypto } from '../../../node-compat'
+import 'isomorphic-fetch'
 import { ShamirClass } from '../../../icc-x-api/crypto/shamir'
 import { expect } from 'chai'
 import 'mocha'
-import { Api, hex2ua } from '../../../icc-x-api'
+import { Api, hex2ua, ua2hex } from '../../../icc-x-api'
 import { HealthcareParty } from '../../../icc-api/model/HealthcareParty'
+import {
+  createHcpHierarchyApis,
+  getEnvironmentInitializer,
+  getEnvVariables,
+  hcp1Username,
+  hcp2Username,
+  hcp3Username,
+  setLocalStorage,
+  TestUtils,
+  TestVars,
+} from '../../utils/test_utils'
+import initApi = TestUtils.initApi
+import { before } from 'mocha'
+import { testStorageWithKeys } from '../../utils/TestStorage'
+import { webcrypto } from 'crypto'
+import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
+import { PaginatedListMaintenanceTask } from '../../../icc-api/model/PaginatedListMaintenanceTask'
+import { FilterChainMaintenanceTask } from '../../../icc-api/model/FilterChainMaintenanceTask'
+import { MaintenanceTaskAfterDateFilter } from '../../../icc-x-api/filters/MaintenanceTaskAfterDateFilter'
+import { KeyPairUpdateRequest } from '../../../icc-x-api/maintenance/KeyPairUpdateRequest'
+import { RSAUtils } from '../../../icc-x-api/crypto/RSA'
 
 // Data was randomly generated, not based on any real key
 const data =
@@ -16,10 +37,22 @@ const shares = [
   '80595c0576abb7d713e414e8d4c51c45437af39ee1a156c310aca6600c533f7c34d52c7297485df80004539c021d49904da542a9f1e7879050167b9a2a48478f0aff51e0fc25e944dacd6ef9404c1cd86c6817440640007f612b2735bf5e75e4a12dba72e848fb5859a845c8fb85145db8e2aa72476a5d4b1e8a7adf4a1ed6ed328990ab81ec0d7dc18e08e441be603d0d0a80e00cd904b87005a0ab381bb6c21f16075cd0b2f978bd8fdf2d64e77870b49bb909eb98ddd281cc9ef78ef5b5e47e66f252c8ce9287724f5138cd84b1e5d8e9bb82ababf60e111f1ac4471e6ea418642d211a1123d462a11c19d8323d7725b9604db83ea8f5be99b01848c9fae94397b619a1d065fd4500d88997f73e74620e7bcbb564fe157ff59e8d0fcad4854ca5e37c807a3d15b09784f8b05c71c922c19cdc473a5813225b5ab4fc1834950b9b7cf19c29fb4c26ed4f08037118e862ffa5d22cde717ec839b05085b631ea53cffd513a270b26880f3d80b313a34abe4cf1ef0cd565fb018b551dcca88eaac33d9a87358966fb457f2c35213611cbdecdccbcda14161f676acb1df36e1c9c11b3c432448a349b3235e1c81ce83411d8c2e9a5d8f6b51fa10e68ad929799fbf1eeca5e0c5df019e12d540aee4721da8f23341b8c820cb4b35278beb947990e159f449152c4ce1e05388e1ba7e5c9db4133be326151fdfb1931853e9f97ff94fe0fe4b2bb9288c089424948f9fa1f28eba38e22aa749c9b9a5c33ebe6c61cc87edfcc83bb76c6d023e76cfa61bde5e5639c63c715ed04c6c86511308ba16b3e4aad72a41bf0203dac0bdae793d2cb37628204a9b54f2a4c916631eb4fd3d26008883438376ea3c73628543e79f8101769c529a9086b1f47754d47c446e922025c5a21766d4206f79888d279557cfbe8ad79baf8d3d008bc4786a101e43f49d972fce83c8fd745e47865897e842cce6c7a16a0a47fbea6a4154d185173ec6300a5a74c4fa88ac39a908a23cf921b88c49e52af4219b09d7fe26e3208d8aec6074cadbf08dea94364d75d57b13e43c93cfe0f60c7fc60ac0f33861e75e8ab53a294b8a428e45549b644f8202ad67fb17bc811b2cb7f5c8cce7d00475ecb7279763a6bec88c19d0f3239e1d199c1e057e1272d88dd5e71fb8f5cd1dfc199b953577cf7c8a25cd80ddfa98de8854ac3b15346277e2f7fa4aa78d5b9634675247e25b5c2654ee903c6f54341735108a8b15c388dcd50b345fc1626df0de819a564361ca44adf5fc6f97a0304f7a6d9de7d38bf64f4cb73a6729dc9ed3bcee78658ea20f0c35684c442f59c004964dedcd2c0eec2ce5704da62122226d1f0971d4804d4d63b80ce343978adc018c292d5e43dd32ef20b04b4be74994e9432a23417bc4d85102d8bd02dd614f1c3004cd8743bbca95ee249340636cbf5b5e7042af64ab51d26b1a4e35c078da2de6e9e4dd0f1687f567e1689de51f7fbc1b5aaba7690e1a490ab2f6de1a7f8b2bd4a035ff741748ca8c55629b695da023a566d124e3d53439238a83489e52392efcc97f007c301c0507373998e3301af3ffed6a8c5a4d21fd965b115be02570283fcd5771d50e67cf35e6c45f704b7361cf09b99414eb76e6401765b02ae21df989cf149d8c0995e76317bcc99e0e8637d8fe36565f199003ea440053bbcac654963f85b4bd2d980166d5027df4f6be7e653f0c203d1823441a',
 ]
 
+const crypto = webcrypto as any
+setLocalStorage(fetch)
+
 describe('Shamir split', () => {
   it('should return 5 splits', () => {
     const result = new ShamirClass(crypto).share(data, 5, 3)
     expect(result.length).to.equal(5)
+  })
+
+  it('should be able to split and recombine a private key', async () => {
+    const rsa = new RSAUtils(crypto)
+    const key = ua2hex(await rsa.exportKey((await rsa.generateKeyPair()).privateKey, 'pkcs8'))
+    const shamir = new ShamirClass(crypto)
+    const splits = shamir.share(key, 4, 3)
+    const combined = shamir.combine([splits[1], splits[0], splits[3]])
+    expect(combined).to.equal(key)
   })
 })
 
@@ -43,16 +76,103 @@ describe('Shamir combine', () => {
       }
     }
   })
+})
 
-  it('should be able to decrypt the hcparty private key using notaries', async () => {
-    const { cryptoApi, healthcarePartyApi } = await Api(
-      'https://kraken.icure.cloud/rest/v1',
-      process.env.SHAMIR_USER!,
-      process.env.SHAMIR_PASSWORD!,
-      crypto
+describe('Shamir key recovery', async function () {
+  this.timeout(600000)
+  let env: TestVars
+
+  before(async function () {
+    const initializer = await getEnvironmentInitializer()
+    env = await initializer.execute(getEnvVariables())
+  })
+
+  it('should automatically load recoverable keys on startup', async () => {
+    const hierarchyApis = await createHcpHierarchyApis(env)
+    const api = hierarchyApis.childApi
+    const user = hierarchyApis.childUser
+    const notariesApis = [
+      await initApi(env, hcp1Username),
+      await initApi(env, hcp2Username),
+      await initApi(env, hcp3Username),
+      hierarchyApis.child2Api,
+    ]
+    const notariesIds = (await Promise.all(notariesApis.map((x) => x.healthcarePartyApi.getCurrentHealthcareParty()))).map((x) => x.id!)
+    const pat = await api.patientApi.initConfidentialDelegation(await api.patientApi.newInstance(user), user)
+    const descr = 'Confidential info'
+    const confidentialData = await api.healthcareElementApi.createHealthElementWithUser(
+      user,
+      await api.healthcareElementApi.newInstance(user, pat, { descr }, true)
     )
-    const hcp: HealthcareParty = await healthcarePartyApi.getCurrentHealthcareParty()
-    await cryptoApi.loadKeyPairsAsTextInBrowserLocalStorage(hcp.parentId!, hex2ua(process.env.SHAMIR_PARENT_PK!))
-    await cryptoApi.decryptShamirRSAKey(hcp, [await healthcarePartyApi.getHealthcareParty(hcp.parentId!)])
+    await api.cryptoApi.shamirKeysManager.updateSelfSplits(
+      { [hierarchyApis.childCredentials.publicKey.slice(-32)]: { notariesIds, minShares: 3 } },
+      []
+    )
+    const lostKeyStorage = await testStorageWithKeys([
+      {
+        dataOwnerId: hierarchyApis.grandCredentials.dataOwnerId,
+        pairs: [{ privateKey: hierarchyApis.grandCredentials.privateKey, publicKey: hierarchyApis.grandCredentials.publicKey }],
+      },
+      {
+        dataOwnerId: hierarchyApis.parentCredentials.dataOwnerId,
+        pairs: [{ privateKey: hierarchyApis.parentCredentials.privateKey, publicKey: hierarchyApis.parentCredentials.publicKey }],
+      },
+    ])
+    const newKey = await api.cryptoApi.primitives.RSA.generateKeyPair()
+    const lostKeyApi = await Api(
+      env.iCureUrl,
+      hierarchyApis.childCredentials.login,
+      hierarchyApis.childCredentials.password,
+      webcrypto as any,
+      fetch,
+      false,
+      false,
+      lostKeyStorage.storage,
+      lostKeyStorage.keyStorage,
+      lostKeyStorage.keyFactory,
+      new TestCryptoStrategies(newKey)
+    )
+    const lostUser = await lostKeyApi.userApi.getCurrentUser()
+    const lostPatient = await lostKeyApi.patientApi.getPatientWithUser(lostUser, pat.id!)
+    await lostKeyApi.icureMaintenanceTaskApi.createMaintenanceTasksForNewKeypair(lostUser, newKey)
+
+    async function checkNotRecovered() {
+      await lostKeyApi.cryptoApi.forceReload(true)
+      expect(Object.keys(lostKeyApi.cryptoApi.userKeysManager.getDecryptionKeys())).to.have.length(3)
+      expect(await lostKeyApi.healthcareElementApi.findBy(lostUser.healthcarePartyId!, lostPatient)).to.be.empty
+    }
+
+    async function giveBackAccess(notaryId: number) {
+      const notaryApi = notariesApis[notaryId]
+      await notaryApi.cryptoApi.forceReload(false)
+      const delegateUser = await notaryApi.userApi.getCurrentUser()
+      const notifications = (
+        await notaryApi.maintenanceTaskApi.filterMaintenanceTasksByWithUser(
+          delegateUser!,
+          undefined,
+          undefined,
+          new FilterChainMaintenanceTask({
+            filter: new MaintenanceTaskAfterDateFilter({
+              date: new Date().getTime() - 100000,
+            }),
+          })
+        )
+      ).rows!
+      expect(notifications).to.have.length(1)
+      await notaryApi.icureMaintenanceTaskApi.applyKeyPairUpdate(new KeyPairUpdateRequest(notifications[0]))
+    }
+
+    await checkNotRecovered()
+    await giveBackAccess(0)
+    await checkNotRecovered()
+    await giveBackAccess(1)
+    await checkNotRecovered()
+    await giveBackAccess(2)
+    await giveBackAccess(3)
+    await lostKeyApi.cryptoApi.forceReload(true)
+    expect(Object.keys(lostKeyApi.cryptoApi.userKeysManager.getDecryptionKeys())).to.have.length(4)
+    const retrievedAfterRecovery = await lostKeyApi.healthcareElementApi.findBy(lostUser.healthcarePartyId!, lostPatient)
+    expect(retrievedAfterRecovery).to.have.length(1)
+    expect(retrievedAfterRecovery[0].descr).to.equal(descr)
   })
 })
