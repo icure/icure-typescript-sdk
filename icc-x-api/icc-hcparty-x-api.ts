@@ -130,7 +130,7 @@ export class IccHcpartyXApi extends IccHcpartyApi {
     )
   }
 
-  getCurrentHealthcareParty(): Promise<HealthcareParty | any> {
+  getCurrentHealthcareParty(): Promise<HealthcareParty> {
     return super.getCurrentHealthcareParty().then((hcp) => this.putHcPartyInCache(hcp.id!, Promise.resolve(hcp)))
   }
 

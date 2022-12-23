@@ -21,7 +21,7 @@ import { checkIfDockerIsOnline } from '@icure/test-setup'
 import { RSAUtils } from '../../icc-x-api/crypto/RSA'
 import { TestApi } from './TestApi'
 import { Api as TestSetupApi } from '@icure/api'
-import { createHealthcarePartyUser } from '@icure/test-setup/creation'
+import { createHealthcarePartyUser, UserCredentials } from '@icure/test-setup/creation'
 import { CryptoPrimitives } from '../../icc-x-api/crypto/CryptoPrimitives'
 import { testStorageWithKeys } from './TestStorage'
 import { TestCryptoStrategies } from './TestCryptoStrategies'
@@ -145,12 +145,16 @@ export async function getApiAndAddPrivateKeysForUser(iCureUrl: string, details: 
 export async function createHcpHierarchyApis(env: TestVars): Promise<{
   grandApi: Apis
   grandUser: User
+  grandCredentials: UserCredentials
   parentApi: Apis
   parentUser: User
+  parentCredentials: UserCredentials
   childApi: Apis
   childUser: User
+  childCredentials: UserCredentials
   child2Api: Apis
   child2User: User
+  child2Credentials: UserCredentials
 }> {
   const initialisationApi = await TestSetupApi(env.iCureUrl, env.masterHcp!.user, env.masterHcp!.password, webcrypto as any, fetch, true, false)
   const primitives = new CryptoPrimitives(webcrypto as any)
@@ -250,5 +254,18 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
     ...(await child2Api.userApi.getCurrentUser()),
     autoDelegations: { all: [grandCredentials.dataOwnerId] },
   })
-  return { grandApi, grandUser: await grandApi.userApi.getCurrentUser(), parentApi, parentUser, childApi, childUser, child2Api, child2User }
+  return {
+    grandApi,
+    grandUser: await grandApi.userApi.getCurrentUser(),
+    grandCredentials,
+    parentApi,
+    parentUser,
+    parentCredentials,
+    childApi,
+    childUser,
+    childCredentials,
+    child2Api,
+    child2User,
+    child2Credentials,
+  }
 }

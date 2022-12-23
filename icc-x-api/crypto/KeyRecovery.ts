@@ -35,11 +35,12 @@ export class KeyRecovery {
     const knownKeysFpSet = new Set(Object.keys(knownKeys))
     const missingKeysFpSet = new Set(selfPublicKeys.map((x) => x.slice(-32)).filter((x) => !knownKeysFpSet.has(x)))
 
-    const recoveryFunctions = [this.recoverFromTransferKeys, this.recoverFromShamirSplitKeys]
+    const recoveryFunctions = [this.recoverFromTransferKeys.bind(this), this.recoverFromShamirSplitKeys.bind(this)]
     let allPrivateKeys: { [pubKeyFingerprint: string]: KeyPair<CryptoKey> } = { ...knownKeys }
     let foundNewPrivateKeys = true
 
     while (missingKeysFpSet.size > 0 && foundNewPrivateKeys) {
+      // TODO for each recovered verify correct association with public key
       foundNewPrivateKeys = false
       for (const recover of recoveryFunctions) {
         const recovered = await recover(dataOwner, allPrivateKeys, missingKeysFpSet)
@@ -78,13 +79,12 @@ export class KeyRecovery {
           Object.entries(shamirSplits).flatMap(([splitKeyFp, splitKeyData]) => (missingKeysFp.has(splitKeyFp) ? Object.keys(splitKeyData) : []))
         )
       )
-      const exchangeKeys = await delegatesOfSplits.reduce(async (acc, delegate) => {
-        const awaitedAcc = await acc
+      const exchangeKeys: { [delegateId: string]: CryptoKey[] } = {}
+      for (const delegate of delegatesOfSplits) {
         const currExchangeKeys = await this.baseExchangeKeysManager.getEncryptedExchangeKeysFor(selfId, delegate)
-        const decryptedExchangeKeys = (await this.baseExchangeKeysManager.tryDecryptExchangeKeys(currExchangeKeys, allKeys)).successfulDecryptions
-        return { ...awaitedAcc, [delegate]: decryptedExchangeKeys }
-      }, Promise.resolve({} as { [delegateId: string]: CryptoKey[] }))
-      return this.recoverWithSplits(dataOwner, shamirSplits, exchangeKeys)
+        exchangeKeys[delegate] = (await this.baseExchangeKeysManager.tryDecryptExchangeKeys(currExchangeKeys, allKeys)).successfulDecryptions
+      }
+      return await this.recoverWithSplits(dataOwner, shamirSplits, exchangeKeys)
     } else return {}
   }
 
@@ -101,15 +101,16 @@ export class KeyRecovery {
         const pub = keysByFp[fp]
         if (!pub) {
           console.warn(`Missing public key for fingerprint ${fp} of recovered shamir key.`)
-        } else
+        } else {
           try {
-            res[pub] = {
+            res[fp] = {
               privateKey: recovered,
               publicKey: await this.primitives.RSA.importKey('spki', hex2ua(pub), ['encrypt']),
             }
           } catch (e) {
             console.warn(`Failed to import public key ${pub}`, e)
           }
+        }
       }
     }
     return res
@@ -135,10 +136,11 @@ export class KeyRecovery {
       const decryptedSplits: string[] = []
       for (const delegateAndEncryptedSplit of Object.entries(split)) {
         const decrypted = await this.tryDecryptSplitPiece(delegateAndEncryptedSplit, exchangeKeys, splitsCount)
-        if (decrypted) decryptedSplits.push(ua2hex(decrypted))
+        if (decrypted) decryptedSplits.push(ua2hex(decrypted).slice(1)) // Drop padding
       }
       try {
-        return await this.primitives.RSA.importKey('pkcs8', hex2ua(this.primitives.shamir.combine(decryptedSplits)), ['decrypt'])
+        const combinedKey = hex2ua(this.primitives.shamir.combine(decryptedSplits))
+        return await this.primitives.RSA.importKey('pkcs8', combinedKey, ['decrypt'])
       } catch (e) {
         // Could be not enough splits decrypted
         return undefined
@@ -162,11 +164,12 @@ export class KeyRecovery {
   }
 
   private validateDecryptedSplit(decryptedSplit: ArrayBuffer, splitsCount: number): boolean {
-    // Shamir split has size 256 * x + 3, and starts with 8 followed by the index of the split in hexadecimal
+    // Normally shamir split starts with 8 followed by the index of the split in hexadecimal.
+    // However, we pad with an extra 'f' at the beginning
     const decryptedHex = ua2hex(decryptedSplit)
-    if (decryptedHex.length % 256 !== 3 || decryptedHex[0] !== '8') return false
+    if (decryptedHex[0] !== 'f' || decryptedHex[1] !== '8') return false
     try {
-      const splitIndex = parseInt(decryptedHex.slice(1, 3))
+      const splitIndex = parseInt(decryptedHex.slice(2, 4), 16)
       return splitIndex > 0 && splitIndex <= splitsCount
     } catch (e) {
       return false
