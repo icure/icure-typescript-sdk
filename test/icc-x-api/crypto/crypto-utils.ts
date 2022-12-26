@@ -58,7 +58,7 @@ describe('ArrayBuffer methods', () => {
 
       expect(jwk1.n).to.equal(jwk2.n)
 
-      const pubKey = await healthcarePartyApi.getCurrentHealthcareParty().then((hcp) => hcp.publicKey)
+      const pubKey = await healthcarePartyApi.getCurrentHealthcareParty().then((hcp) => hcp.publicKey!)
       const jwk3 = spkiToJwk(hex2ua(pubKey))
       const spki = jwk2spki(jwk3)
       const jwk4 = spkiToJwk(hex2ua(spki))
@@ -73,7 +73,7 @@ describe('ArrayBuffer methods', () => {
         env!.dataOwnerDetails[hcp1Username].password,
         crypto
       )
-      const pubKey = await healthcarePartyApi.getCurrentHealthcareParty().then((hcp) => hcp.publicKey)
+      const pubKey = await healthcarePartyApi.getCurrentHealthcareParty().then((hcp) => hcp.publicKey!)
       const jwk1 = spkiToJwk(hex2ua(pubKey))
 
       const rsaKey1 = await rsa.importKey('jwk', jwk1, ['encrypt'])

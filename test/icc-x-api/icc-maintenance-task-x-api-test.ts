@@ -210,7 +210,7 @@ describe('icc-x-maintenance-task-api Tests', () => {
           }),
         })
       )
-    ).rows[0] as MaintenanceTask
+    ).rows![0] as MaintenanceTask
 
     // Then
     assert(foundTask.id == createdTask.id)
@@ -236,7 +236,7 @@ describe('icc-x-maintenance-task-api Tests', () => {
           }),
         })
       )
-    ).rows[0]
+    ).rows![0]
 
     // Then
     assert(foundTask.id == createdTask.id)

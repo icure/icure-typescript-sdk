@@ -1,9 +1,10 @@
-import { Api, IccDocumentXApi } from '../../../icc-x-api'
+import { IccDocumentXApi } from '../../../icc-x-api'
 import { crypto } from '../../../node-compat'
 import { Document } from '../../../icc-api/model/Document'
 import { assert, expect } from 'chai'
 import { randomBytes, randomUUID } from 'crypto'
-import { getEnvironmentInitializer, getEnvVariables, hcp1Username, TestVars } from '../../utils/test_utils'
+import { getEnvironmentInitializer, getEnvVariables, hcp1Username, TestUtils, TestVars } from '../../utils/test_utils'
+import initApi = TestUtils.initApi
 
 const sampleKey = 'thumbnail'
 const sampleKey2 = 'thumbnail2'
@@ -44,7 +45,7 @@ describe('Document api', () => {
     this.timeout(600000)
     const initializer = await getEnvironmentInitializer()
     env = await initializer.execute(getEnvVariables())
-    documentApi = (await Api(env.iCureUrl, env.dataOwnerDetails[hcp1Username].user, env.dataOwnerDetails[hcp1Username].password, crypto)).documentApi
+    documentApi = (await initApi(env!, hcp1Username)).documentApi
   })
 
   it('should allow to create and retrieve main attachments', async () => {

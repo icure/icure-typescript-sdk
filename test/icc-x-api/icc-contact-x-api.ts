@@ -120,16 +120,16 @@ describe('icc-x-contact-api Tests', () => {
     expect(readContact.responsible).to.be.equal(hcpUser.healthcarePartyId)
     expect(readContact.id).to.be.equal(contactToCreate.id)
     expect(readContact.descr).to.be.equal(contactToCreate.descr)
-    expect(readContact.delegations[hcpUser.healthcarePartyId!].length).to.equals(1)
-    expect(readContact.delegations[hcpUser.healthcarePartyId!][0].key).to.not.be.undefined
-    expect(readContact.encryptionKeys[hcpUser.healthcarePartyId!].length).to.equals(1)
-    expect(readContact.encryptionKeys[hcpUser.healthcarePartyId!][0].key).to.not.be.undefined
-    expect(readContact.cryptedForeignKeys[hcpUser.healthcarePartyId!].length).to.equals(1)
-    expect(readContact.cryptedForeignKeys[hcpUser.healthcarePartyId!][0].key).to.not.be.undefined
-    expect(readContact.services[0].responsible).to.be.equal(hcpUser.healthcarePartyId)
-    expect(readContact.services[0].id).to.be.equal(contactToCreate.services![0].id)
-    expect(readContact.services[0].valueDate).to.be.equal(contactToCreate.services![0].valueDate)
-    expect(readContact.services[0].tags[0].id).to.be.equal(contactToCreate.services![0].tags![0].id!)
+    expect(readContact.delegations![hcpUser.healthcarePartyId!].length).to.equals(1)
+    expect(readContact.delegations![hcpUser.healthcarePartyId!][0].key).to.not.be.undefined
+    expect(readContact.encryptionKeys![hcpUser.healthcarePartyId!].length).to.equals(1)
+    expect(readContact.encryptionKeys![hcpUser.healthcarePartyId!][0].key).to.not.be.undefined
+    expect(readContact.cryptedForeignKeys![hcpUser.healthcarePartyId!].length).to.equals(1)
+    expect(readContact.cryptedForeignKeys![hcpUser.healthcarePartyId!][0].key).to.not.be.undefined
+    expect(readContact.services![0].responsible).to.be.equal(hcpUser.healthcarePartyId)
+    expect(readContact.services![0].id).to.be.equal(contactToCreate.services![0].id)
+    expect(readContact.services![0].valueDate).to.be.equal(contactToCreate.services![0].valueDate)
+    expect(readContact.services![0].tags![0].id).to.be.equal(contactToCreate.services![0].tags![0].id!)
   })
 
   it('Filter Services By HealthElementId - Success', async () => {
