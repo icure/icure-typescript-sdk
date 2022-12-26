@@ -90,7 +90,7 @@ export class IccHelementXApi extends IccHelementApi {
     const sfk = preferredSfk ?? (await this.crypto.extractPreferredSfk(patient, ownerId, confidential))
     if (!sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id} for confidential=${confidential}`)
     const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
-    const initialisationInfo = await this.crypto.entities.entityWithInitialisedEncryptionMetadata(
+    const initialisationInfo = await this.crypto.entities.entityWithInitialisedEncryptedMetadata(
       helement,
       patient.id,
       sfk,
@@ -103,10 +103,10 @@ export class IccHelementXApi extends IccHelementApi {
       ? initialisationInfo.updatedEntity
       : await anonymousDelegations.reduce(
           async (updatedContact, delegate) =>
-            await this.crypto.entities.entityWithShareMetadata(
+            await this.crypto.entities.entityWithSharedEncryptedMetadata(
               await updatedContact,
               delegate,
-              [initialisationInfo.secretId],
+              false,
               [initialisationInfo.rawEncryptionKey!],
               false,
               [] // TODO No tags for who uses anonymous info?

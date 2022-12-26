@@ -54,7 +54,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
     const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? [])]
     return new models.MaintenanceTask(
       await this.crypto.entities
-        .entityWithInitialisedEncryptionMetadata(maintenanceTask, undefined, undefined, true, extraDelegations, delegationTags)
+        .entityWithInitialisedEncryptedMetadata(maintenanceTask, undefined, undefined, true, extraDelegations, delegationTags)
         .then((x) => x.updatedEntity)
     )
   }

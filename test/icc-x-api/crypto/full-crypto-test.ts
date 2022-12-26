@@ -58,7 +58,7 @@ const facades: EntityFacades = {
       const ownerId = api.dataOwnerApi.getDataOwnerOf(user)
       return api.patientApi.modifyPatientWithUser(
         await api.userApi.getCurrentUser(),
-        await api.cryptoApi.entities.entityWithShareMetadata(r, doId, true, true, p ? [p.id!] : [])
+        await api.cryptoApi.entities.entityWithSharedEncryptedMetadata(r, doId, true, true, p ? [p.id!] : [])
       )
     },
     isDecrypted: async (entityToCheck) => {
@@ -73,7 +73,7 @@ const facades: EntityFacades = {
       const ownerId = api.dataOwnerApi.getDataOwnerOf(user)
       return api.contactApi.modifyContactWithUser(
         await api.userApi.getCurrentUser(),
-        await api.cryptoApi.entities.entityWithShareMetadata(r, doId, true, true, p ? [p.id!] : [])
+        await api.cryptoApi.entities.entityWithSharedEncryptedMetadata(r, doId, true, true, p ? [p.id!] : [])
       )
     },
     isDecrypted: async (entityToCheck) => {
@@ -88,7 +88,7 @@ const facades: EntityFacades = {
       const ownerId = api.dataOwnerApi.getDataOwnerOf(user)
       return api.healthcareElementApi.modifyHealthElementWithUser(
         await api.userApi.getCurrentUser(),
-        await api.cryptoApi.entities.entityWithShareMetadata(r, doId, true, true, p ? [p.id!] : [])
+        await api.cryptoApi.entities.entityWithSharedEncryptedMetadata(r, doId, true, true, p ? [p.id!] : [])
       )
     },
     isDecrypted: async (entityToCheck) => {
@@ -103,7 +103,7 @@ const facades: EntityFacades = {
       const ownerId = api.dataOwnerApi.getDataOwnerOf(user)
       return api.calendarItemApi.modifyCalendarItemWithHcParty(
         await api.userApi.getCurrentUser(),
-        await api.cryptoApi.entities.entityWithShareMetadata(r, doId, true, true, p ? [p.id!] : [])
+        await api.cryptoApi.entities.entityWithSharedEncryptedMetadata(r, doId, true, true, p ? [p.id!] : [])
       )
     },
     isDecrypted: async (entityToCheck) => {
@@ -288,7 +288,7 @@ async function createPartialsForPatient(
   const api1 = await TestApi(env!.iCureUrl, user.login!, password, webcrypto as any, key)
   await patientCreatorApis.patientApi.modifyPatientWithUser(
     patientCreatorUser,
-    await patientCreatorApis.cryptoApi.entities.entityWithShareMetadata(
+    await patientCreatorApis.cryptoApi.entities.entityWithSharedEncryptedMetadata(
       await patientCreatorApis.patientApi.getPatientWithUser(patientCreatorUser, user.patientId!),
       user.patientId!,
       true,

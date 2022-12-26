@@ -88,7 +88,7 @@ export class IccPatientXApi extends IccPatientApi {
 
     const ownerId = this.dataOwnerApi.getDataOwnerOf(user)
     const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
-    const initialisationInfo = await this.crypto.entities.entityWithInitialisedEncryptionMetadata(
+    const initialisationInfo = await this.crypto.entities.entityWithInitialisedEncryptedMetadata(
       patient,
       undefined,
       undefined,
@@ -100,7 +100,7 @@ export class IccPatientXApi extends IccPatientApi {
     return new models.Patient(
       await anonymousDelegations.reduce(
         async (updatedContact, delegate) =>
-          await this.crypto.entities.entityWithShareMetadata(
+          await this.crypto.entities.entityWithSharedEncryptedMetadata(
             await updatedContact,
             delegate,
             false,
@@ -156,16 +156,21 @@ export class IccPatientXApi extends IccPatientApi {
 
   /**
    * @deprecated The concept of confidential will be removed from the iCure API: this method will be removed from the general purpose iCure api.
-   * After instantiating a new patient use {@link EntitiesEncryption.entityWithShareMetadata} as shown here to create a new confidential delegation.
+   * After instantiating a new patient use {@link EntitiesEncryption.entityWithSharedEncryptedMetadata} as shown here to create a new confidential delegation.
    */
   async initConfidentialDelegation(patient: models.Patient, user: models.User): Promise<models.Patient> {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
     const confidentialDelegation = await this.crypto.extractPreferredSfk(patient, dataOwnerId!, true)
     if (!confidentialDelegation) {
       const confidentialSecretId = this.crypto.primitives.randomUuid()
-      const updatedPatient = await this.crypto.entities.entityWithShareMetadata(patient, dataOwnerId, [confidentialSecretId], false, false, [
-        'confidential',
-      ])
+      const updatedPatient = await this.crypto.entities.entityWithSharedEncryptedMetadata(
+        patient,
+        dataOwnerId,
+        [confidentialSecretId],
+        false,
+        false,
+        ['confidential']
+      )
       return updatedPatient.rev ? this.modifyPatientWithUser(user, updatedPatient) : this.createPatientWithUser(user, updatedPatient)
     } else {
       return patient
@@ -489,7 +494,7 @@ export class IccPatientXApi extends IccPatientApi {
         const acc: { [key: string]: models.Patient } = fillDelegations
           ? await patsWithMissingDelegations.reduce(async (acc, p) => {
               const pats = await acc
-              const pat = (await this.crypto.entities.entityWithInitialisedEncryptionMetadata(p, undefined, undefined, true, [], [])).updatedEntity
+              const pat = (await this.crypto.entities.entityWithInitialisedEncryptedMetadata(p, undefined, undefined, true, [], [])).updatedEntity
               const mp = await this.modifyPatientWithUser(user, pat)
               return { ...pats, [pat.id!]: mp || pat }
             }, Promise.resolve({} as { [key: string]: models.Patient }))
@@ -546,7 +551,7 @@ export class IccPatientXApi extends IccPatientApi {
             const secretIds = await this.crypto.entities.secretIdsOf(x, ownerId)
             const encryptionKeys = await this.crypto.entities.encryptionKeysOf(x, ownerId)
             const parentIds = await this.crypto.entities.parentIdsOf(x, ownerId)
-            return this.crypto.entities.entityWithShareMetadata(x, delegateId, secretIds, encryptionKeys, parentIds, []).catch((e: any) => {
+            return this.crypto.entities.entityWithSharedEncryptedMetadata(x, delegateId, secretIds, encryptionKeys, parentIds, []).catch((e: any) => {
               console.log(e)
               return x
             })
@@ -736,7 +741,7 @@ export class IccPatientXApi extends IccPatientApi {
                       //console.log(`share ${patient.id} to ${delegateId}`)
                       return shareAnonymously
                         ? patient
-                        : this.crypto.entities.entityWithShareMetadata(patient, delegateId, delSfks, ecKeys, false, []).catch((e) => {
+                        : this.crypto.entities.entityWithSharedEncryptedMetadata(patient, delegateId, delSfks, ecKeys, false, []).catch((e) => {
                             console.log(e)
                             return patient
                           })

@@ -2,10 +2,9 @@ import * as i18n from './rsrc/contact.i18n'
 
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import { AccessLog, CalendarItem, User } from '../icc-api/model/models'
+import { CalendarItem, User } from '../icc-api/model/models'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 import { IccCalendarItemApi } from '../icc-api'
-import { crypt, decrypt, hex2ua, ua2utf8, utf8_2ua } from './utils'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider } from './auth/AuthenticationProvider'
 
@@ -66,7 +65,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
     const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
     return new CalendarItem(
       await this.crypto.entities
-        .entityWithInitialisedEncryptionMetadata(calendarItem, patient?.id, sfk, true, extraDelegations, delegationTags)
+        .entityWithInitialisedEncryptedMetadata(calendarItem, patient?.id, sfk, true, extraDelegations, delegationTags)
         .then((x) => x.updatedEntity)
     )
   }

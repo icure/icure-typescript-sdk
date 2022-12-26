@@ -161,7 +161,7 @@ export class EntitiesEncryption {
    * @throws if the entity already has non-empty values for encryption metadata.
    * @return the updated entity.
    */
-  async entityWithInitialisedEncryptionMetadata<T extends EncryptedEntity>(
+  async entityWithInitialisedEncryptedMetadata<T extends EncryptedEntity>(
     entity: T,
     parentEntityId: string | undefined,
     parentSecretId: string | undefined,
@@ -173,7 +173,7 @@ export class EntitiesEncryption {
     rawEncryptionKey: string | undefined
     secretId: string
   }> {
-    this.throwDetailedExceptionForInvalidParameter('entity.id', entity.id, 'entityWithInitialisedEncryptionMetadata', arguments)
+    this.throwDetailedExceptionForInvalidParameter('entity.id', entity.id, 'entityWithInitialisedEncryptedMetadata', arguments)
     this.checkEmptyEncryptionMetadata(entity)
     const secretId = this.primitives.randomUuid()
     const rawEncryptionKey = initialiseEncryptionKeys ? ua2hex(this.primitives.randomBytes(16)) : undefined
@@ -224,7 +224,7 @@ export class EntitiesEncryption {
    * @throws if any of the shareX parameters is set to `true` but the corresponding piece of data could not be retrieved.
    * @return the updated entity.
    */
-  async entityWithShareMetadata<T extends EncryptedEntity>(
+  async entityWithSharedEncryptedMetadata<T extends EncryptedEntity>(
     entity: T,
     delegateId: string,
     shareSecretIds: string[] | boolean,
@@ -232,7 +232,7 @@ export class EntitiesEncryption {
     shareParentIds: string[] | boolean,
     newTags: string[] = []
   ): Promise<T> {
-    this.throwDetailedExceptionForInvalidParameter('entity.id', entity.id, 'entityWithShareMetadata', arguments)
+    this.throwDetailedExceptionForInvalidParameter('entity.id', entity.id, 'entityWithSharedEncryptedMetadata', arguments)
     async function checkInputAndGet(
       input: string[] | boolean,
       inputName: string,
@@ -322,22 +322,6 @@ export class EntitiesEncryption {
   }
 
   /**
-   * Encrypts data using a specific encryption key. If you don't have any special requirements on the key you should instead use
-   * {@link encryptDataOf}.
-   * Note: you should not use this method to encrypt the `encryptedSelf` of iCure entities, since that will be automatically handled by the extended
-   * apis. You should use this method only to encrypt additional data, such as document attachments.
-   * @param encryptionKey an encryption key.
-   * @param content the data to encrypt.
-   * @return the encrypted content.
-   * @throws if the provided encryption key is not a valid aes key.
-   */
-  async encryptWithKey(encryptionKey: string, content: ArrayBuffer | Uint8Array): Promise<ArrayBuffer> {
-    const importedKey = await this.tryImportKey(encryptionKey)
-    if (!encryptionKey) throw new Error(`Could not encrypt with invalid key ${encryptionKey}`)
-    return await this.primitives.AES.encrypt(importedKey!, content)
-  }
-
-  /**
    * Encrypts data using a key of the entity that the provided data owner can access (current data owner by default). If the provided data owner can
    * access multiple encryption keys of the entity there is no guarantee on which key will be used.
    * Note: you should not use this method to encrypt the `encryptedSelf` of iCure entities, since that will be automatically handled by the extended
@@ -362,24 +346,7 @@ export class EntitiesEncryption {
           dataOwnerId ?? (await this.dataOwnerApi.getCurrentDataOwnerId())
         }.`
       )
-    return this.encryptWithKey(keys[0], content)
-  }
-
-  /**
-   * Decrypts data using a specific encryption key. If you don't have any special requirements on the key you should instead use
-   * {@link decryptDataOf}.
-   * Note: you should not use this method to decrypt the `encryptedSelf` of iCure entities, since that will be automatically handled by the extended
-   * apis. You should use this method only to decrypt additional data, such as document attachments.
-   * @param encryptionKey an encryption key.
-   * @param content the data to decrypt.
-   * @return the decrypted content.
-   * @throws if the provided encryption key is not a valid aes key or if it is the wrong key and this could be detected from the padding used by
-   * the encryption algorithm.
-   */
-  async decryptWithKey(encryptionKey: string, content: ArrayBuffer | Uint8Array): Promise<ArrayBuffer> {
-    const importedKey = await this.tryImportKey(encryptionKey)
-    if (!encryptionKey) throw new Error(`Could not encrypt with invalid key ${encryptionKey}`)
-    return await this.primitives.AES.decrypt(importedKey!, content)
+    return this.primitives.AES.encryptWithRawKey(keys[0], content)
   }
 
   /**
@@ -408,7 +375,7 @@ export class EntitiesEncryption {
     const keys = await this.encryptionKeysOf(entity, dataOwnerId, tagsFilter)
     for (const key of keys) {
       try {
-        const decrypted = await this.decryptWithKey(key, content)
+        const decrypted = await this.primitives.AES.decryptWithRawKey(key, content)
         if (await validator(decrypted)) return decrypted
       } catch (e) {
         /* ignore */
@@ -503,7 +470,7 @@ export class EntitiesEncryption {
      * Note: if an entity was not encryptable in the past but it is now encrypted entity will be empty.
      */
     // TODO previous versions were also initialising encryption keys in `encrypt` with the auto-delegations, should we do this as well?
-    return await this.entityWithShareMetadata(
+    return await this.entityWithSharedEncryptedMetadata(
       entity,
       await this.dataOwnerApi.getCurrentDataOwnerId(),
       false,

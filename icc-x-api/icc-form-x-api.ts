@@ -58,7 +58,7 @@ export class IccFormXApi extends IccFormApi {
     const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
     return new models.Form(
       await this.crypto.entities
-        .entityWithInitialisedEncryptionMetadata(form, patient.id, sfk, true, extraDelegations, delegationTags)
+        .entityWithInitialisedEncryptedMetadata(form, patient.id, sfk, true, extraDelegations, delegationTags)
         .then((x) => x.updatedEntity)
     )
   }

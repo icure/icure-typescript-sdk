@@ -41,12 +41,11 @@ export class IccReceiptXApi extends IccReceiptApi {
       )
     )
 
-    // TODO sure this should be medical?
     const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
     // TODO data is never encrypted should we really initialise encryption keys?
     return new models.Receipt(
       await this.crypto.entities
-        .entityWithInitialisedEncryptionMetadata(receipt, undefined, undefined, true, extraDelegations, delegationTags)
+        .entityWithInitialisedEncryptedMetadata(receipt, undefined, undefined, true, extraDelegations, delegationTags)
         .then((x) => x.updatedEntity)
     )
   }

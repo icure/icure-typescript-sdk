@@ -593,7 +593,7 @@ export class IccDocumentXApi extends IccDocumentApi {
     const extraDelegations = [...(delegates ?? []), ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
     return new models.Document(
       await this.crypto.entities
-        .entityWithInitialisedEncryptionMetadata(document, message?.id, sfk, true, extraDelegations, delegationTags)
+        .entityWithInitialisedEncryptedMetadata(document, message?.id, sfk, true, extraDelegations, delegationTags)
         .then((x) => x.updatedEntity)
     )
   }
