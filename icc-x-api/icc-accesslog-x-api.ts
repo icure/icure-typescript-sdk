@@ -55,11 +55,10 @@ export class IccAccesslogXApi extends IccAccesslogApi {
 
     const ownerId = this.dataOwnerApi.getDataOwnerOf(user)
     const sfk = preferredSfk ?? (await this.crypto.entities.secretIdsOf(patient, ownerId))[0]
-    // TODO sure this should be medical?
-    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
+    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.administrativeInformation ?? [])]
     return new AccessLog(
       await this.crypto.entities
-        .entityWithInitialisedEncryptionMetadata(accessLog, patient.id, sfk, true, extraDelegations, delegationTags)
+        .entityWithInitialisedEncryptedMetadata(accessLog, patient.id, sfk, true, extraDelegations, delegationTags)
         .then((x) => x.updatedEntity)
     )
   }

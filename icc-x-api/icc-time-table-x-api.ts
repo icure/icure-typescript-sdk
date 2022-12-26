@@ -46,12 +46,11 @@ export class IccTimeTableXApi extends IccTimeTableApi {
       tt || {}
     )
 
-    // TODO sure this should be medical?
-    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
+    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.administrativeInformation ?? [])]
     // TODO data is never encrypted, but should we initialise encryption keys anyway, to have everything future proof?
     return new models.TimeTable(
       await this.crypto.entities
-        .entityWithInitialisedEncryptionMetadata(timeTable, undefined, undefined, false, extraDelegations, delegationTags)
+        .entityWithInitialisedEncryptedMetadata(timeTable, undefined, undefined, false, extraDelegations, delegationTags)
         .then((x) => x.updatedEntity)
     )
   }

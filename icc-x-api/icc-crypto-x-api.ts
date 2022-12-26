@@ -472,7 +472,7 @@ export class IccCryptoXApi {
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) {
       throw 'Impossible to initialise keys as a data owner which is not the current data owner'
     }
-    const { updatedEntity, rawEncryptionKey } = await this.entities.entityWithInitialisedEncryptionMetadata(
+    const { updatedEntity, rawEncryptionKey } = await this.entities.entityWithInitialisedEncryptedMetadata(
       {
         ...createdObject,
         delegations: undefined,
@@ -888,10 +888,12 @@ export class IccCryptoXApi {
   /**
    * @deprecated For the encryption/decryption of iCure entities you should rely solely on the extended apis methods. For encryption/decryption of
    * attachments you should use the following methods instead:
-   * - {@link EntitiesEncryption.encryptWithKey} to encrypt data with a specific key
-   * - {@link EntitiesEncryption.encryptDataOf} to encrypt data using a key which is retrieved automatically from the entity
-   * - {@link EntitiesEncryption.decryptWithKey} to encrypt data with a specific key
-   * - {@link EntitiesEncryption.decryptDataOf} to encrypt data using a key which is retrieved automatically from the entity
+   * - {@link EntitiesEncryption.encryptDataOf} to encrypt entity-specific data using a key which is retrieved automatically from the entity.
+   * - {@link AES.encryptWithRawKey} to encrypt data with a specific key
+   * - {@link EntitiesEncryption.decryptDataOf} to decrypt entity-specific data using a key which is retrieved automatically from the entity. This
+   *   method also allows to specify a validator to verify the data matches the predicted pattern (e.g. is a plain text file utf-8), which allows to
+   *   better identify decryptions with bad keys and allows to try other keys instead of returning invalid data.
+   * - {@link AES.decryptWithRawKey} to decrypt data with a specific key
    */
   async encryptDecrypt(
     method: 'encrypt' | 'decrypt',

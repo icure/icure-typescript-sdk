@@ -68,13 +68,13 @@ describe('Patient', () => {
           me = (await patientApi.modifyPatientWithUser(
             user,
             (
-              await cryptoApi.entities.entityWithInitialisedEncryptionMetadata(me, undefined, undefined, true, [], [])
+              await cryptoApi.entities.entityWithInitialisedEncryptedMetadata(me, undefined, undefined, true, [], [])
             ).updatedEntity
           ))!
 
           me = (await patientApi.modifyPatientWithUser(
             user,
-            await cryptoApi.entities.entityWithShareMetadata(me, hcpUser.healthcarePartyId!, true, true, false, [])
+            await cryptoApi.entities.entityWithSharedEncryptedMetadata(me, hcpUser.healthcarePartyId!, true, true, false, [])
           ))!
           await patientApi.modifyPatientWithUser(user, new Patient({ ...me, note: 'This is secret' }))
 
@@ -130,11 +130,11 @@ describe('Patient', () => {
 
     await patientApi.modifyPatientWithUser(
       user,
-      await cryptoApi.entities.entityWithShareMetadata(pat!, hcpUser.healthcarePartyId!, true, true, false, [])
+      await cryptoApi.entities.entityWithSharedEncryptedMetadata(pat!, hcpUser.healthcarePartyId!, true, true, false, [])
     )
     await calendarItemApi.modifyCalendarItemWithHcParty(
       user,
-      await cryptoApi.entities.entityWithShareMetadata(ci!, hcpUser.healthcarePartyId!, true, true, false, [])
+      await cryptoApi.entities.entityWithSharedEncryptedMetadata(ci!, hcpUser.healthcarePartyId!, true, true, false, [])
     )
     await api.cryptoApi.forceReload(false)
     const pat3 = await api.patientApi.getPatientWithUser(hcpUser, patient.id!)

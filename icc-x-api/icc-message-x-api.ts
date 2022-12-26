@@ -62,7 +62,7 @@ export class IccMessageXApi extends IccMessageApi {
     // TODO data is never encrypted, but should we initialise encryption keys anyway, to have everything future proof?
     return new models.Message(
       await this.crypto.entities
-        .entityWithInitialisedEncryptionMetadata(message, patient?.id, sfk, true, extraDelegations, delegationTags)
+        .entityWithInitialisedEncryptedMetadata(message, patient?.id, sfk, true, extraDelegations, delegationTags)
         .then((x) => x.updatedEntity)
     )
   }

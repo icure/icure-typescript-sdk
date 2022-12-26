@@ -63,7 +63,7 @@ export class IccInvoiceXApi extends IccInvoiceApi {
     // TODO data is never encrypted should we really initialise encryption keys?
     return new models.Invoice(
       await this.crypto.entities
-        .entityWithInitialisedEncryptionMetadata(invoice, patient.id, sfk, true, extraDelegations, delegationTags)
+        .entityWithInitialisedEncryptedMetadata(invoice, patient.id, sfk, true, extraDelegations, delegationTags)
         .then((x) => x.updatedEntity)
     )
   }
