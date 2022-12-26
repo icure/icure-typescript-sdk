@@ -6,6 +6,7 @@ import { KeyManager } from './KeyManager'
 import { reachSetsAcyclic, StronglyConnectedGraph } from '../utils/graph-utils'
 import { fingerprintToPublicKeysMapOf, loadPublicKeys, transferKeysFpGraphOf } from './utils'
 import { CryptoPrimitives } from './CryptoPrimitives'
+import { IcureStorageFacade } from '../storage/IcureStorageFacade'
 
 /**
  * @internal this class is intended only for internal use and may be changed without notice.
@@ -16,17 +17,20 @@ export class TransferKeysManager {
   private readonly baseExchangeKeysManager: BaseExchangeKeysManager
   private readonly dataOwnerApi: IccDataOwnerXApi
   private readonly keyManager: KeyManager
+  private readonly icureStorage: IcureStorageFacade
 
   constructor(
     primitives: CryptoPrimitives,
     baseExchangeKeysManager: BaseExchangeKeysManager,
     dataOwnerApi: IccDataOwnerXApi,
-    keyManager: KeyManager
+    keyManager: KeyManager,
+    icureStorage: IcureStorageFacade
   ) {
     this.primitives = primitives
     this.baseExchangeKeysManager = baseExchangeKeysManager
     this.dataOwnerApi = dataOwnerApi
     this.keyManager = keyManager
+    this.icureStorage = icureStorage
   }
 
   /**
@@ -51,10 +55,9 @@ export class TransferKeysManager {
     const encryptedTransferKey = await this.encryptTransferKey(newEdges.target, exchangeKey)
     const newTransferKeys = newEdges.sources.reduce(
       (acc, candidateFp) => {
-        const candidate = fpToPublicKey[candidateFp]
-        const existingKeys = { ...(acc[candidate] ?? {}) }
-        existingKeys[fpToPublicKey[newEdges.targetFp]] = encryptedTransferKey
-        acc[candidate] = existingKeys
+        const existingKeys = { ...(acc[candidateFp] ?? {}) }
+        existingKeys[newEdges.targetFp] = encryptedTransferKey
+        acc[candidateFp] = existingKeys
         return acc
       },
       { ...(updatedSelf.dataOwner.transferKeys ?? {}) }
@@ -96,6 +99,9 @@ export class TransferKeysManager {
       }
   > {
     const verifiedKeysFpSet = new Set(this.keyManager.getSelfVerifiedKeys().map((x) => x.fingerprint))
+    Object.entries(await this.icureStorage.loadSelfVerifiedKeys(self.dataOwner.id!)).forEach(([key, verified]) => {
+      if (verified) verifiedKeysFpSet.add(key.slice(-32))
+    })
     if (verifiedKeysFpSet.size == 0) return undefined
     const graph = transferKeysFpGraphOf(self.dataOwner)
     // 1. Choose a key available in this device which should be reachable from all other verified keys

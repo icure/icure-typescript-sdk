@@ -129,7 +129,7 @@ export const Api = async function (
   const keyRecovery = new KeyRecovery(cryptoPrimitives, baseExchangeKeysManager, dataOwnerApi)
   const keyManager = new KeyManager(cryptoPrimitives, dataOwnerApi, icureStorage, keyRecovery, baseExchangeKeysManager, cryptoStrategies!)
   await keyManager.initialiseKeys()
-  await new TransferKeysManager(cryptoPrimitives, baseExchangeKeysManager, dataOwnerApi, keyManager).updateTransferKeys(
+  await new TransferKeysManager(cryptoPrimitives, baseExchangeKeysManager, dataOwnerApi, keyManager, icureStorage).updateTransferKeys(
     await dataOwnerApi.getCurrentDataOwner()
   )
   // TODO customise cache size?

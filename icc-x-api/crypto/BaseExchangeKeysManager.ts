@@ -82,6 +82,7 @@ export class BaseExchangeKeysManager {
       const updatedDataOwner: DataOwner = {
         ...delegator.dataOwner,
         aesExchangeKeys: await this.updateExchangeKeys(delegator, delegate, mainDelegatorKeyPairPubHex, encryptedKeyInfo.encryptedExchangeKey),
+        publicKey: delegator.dataOwner.publicKey ?? mainDelegatorKeyPairPubHex,
       }
       if (delegator.dataOwner.publicKey === mainDelegatorKeyPairPubHex) {
         updatedDataOwner.hcPartyKeys = this.updateLegacyExchangeKeys(delegator, delegate, encryptedKeyInfo.encryptedExchangeKey)
