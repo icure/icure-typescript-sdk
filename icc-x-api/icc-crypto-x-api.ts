@@ -919,11 +919,4 @@ export class IccCryptoXApi {
       return content
     }
   }
-
-  extractDelegationsSFKsAndEncryptionSKs(ety: EncryptedEntity, ownerId: string) {
-    const delegationsSfksOwnerPromise = this.extractDelegationsSFKs(ety, ownerId).then((xks) => xks.extractedKeys) //Will climb up hierarchy
-    const encryptionKeysOwnerPromise = this.extractEncryptionsSKs(ety, ownerId).then((xks) => xks.extractedKeys) //Will climb up hierarchy
-
-    return Promise.all([delegationsSfksOwnerPromise, encryptionKeysOwnerPromise])
-  }
 }

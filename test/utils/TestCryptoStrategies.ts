@@ -4,9 +4,11 @@ import { DataOwner } from '../../icc-x-api/icc-data-owner-x-api'
 
 export class TestCryptoStrategies implements CryptoStrategies {
   private readonly keyPair: KeyPair<CryptoKey> | undefined
+  private readonly verifiedSelfKeys: { [p: string]: boolean }
 
-  constructor(keyPair?: KeyPair<CryptoKey>) {
+  constructor(keyPair?: KeyPair<CryptoKey>, verifiedSelfKeys: { [p: string]: boolean } = {}) {
     this.keyPair = keyPair
+    this.verifiedSelfKeys = verifiedSelfKeys
   }
 
   createNewKeyPairIfNoVerifiedKeysFound(): Promise<boolean | KeyPair<CryptoKey>> {
@@ -18,6 +20,6 @@ export class TestCryptoStrategies implements CryptoStrategies {
   }
 
   verifyOwnPublicKeys(self: DataOwner, publicKeys: string[]): Promise<{ [p: string]: boolean }> {
-    return Promise.resolve({})
+    return Promise.resolve({ ...this.verifiedSelfKeys })
   }
 }
