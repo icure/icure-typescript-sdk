@@ -1,8 +1,9 @@
-import { Api, hex2ua, pkcs8ToJwk, spkiToJwk } from '../../../icc-x-api'
+import { hex2ua, pkcs8ToJwk, spkiToJwk } from '../../../icc-x-api'
 import { crypto } from '../../../node-compat'
 import { expect } from 'chai'
 import { randomUUID } from 'crypto'
-import { getEnvironmentInitializer, getEnvVariables, hcp1Username, patUsername, TestVars } from '../../utils/test_utils'
+import { getEnvironmentInitializer, getEnvVariables, hcp1Username, patUsername, TestUtils, TestVars } from '../../utils/test_utils'
+import initApi = TestUtils.initApi
 
 let env: TestVars | undefined
 
@@ -14,11 +15,11 @@ describe('Calendar', () => {
   })
 
   it('should be capable of creating a calendar item', async () => {
-    const api = await Api(env!.iCureUrl, env!.dataOwnerDetails[patUsername].user, env!.dataOwnerDetails[patUsername].password, crypto)
+    const api = await initApi(env!, patUsername)
     const currentUser = await api.userApi.getCurrentUser()
     await api.patientApi.getPatientWithUser(currentUser, currentUser.patientId!)
 
-    const hcpApi = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password, crypto)
+    const hcpApi = await initApi(env!, hcp1Username)
     const hcp = await hcpApi.userApi.getCurrentUser()
 
     const jwk = {
