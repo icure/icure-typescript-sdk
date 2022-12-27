@@ -203,77 +203,43 @@ export class EntitiesEncryption {
   }
 
   /**
-   * Updates encryption metadata for an entity in order to share it with a delegate.
-   * The method give access to all unencrypted content of the entity to the delegate data owner, and it allows to also choose which other information
-   * on the entity gets shared among secret ids of the entity (shareSecretId), encryption keys (shareEncryptionKeys) and parent ids (shareParentIds).
-   * The possible values for the shareX parameters are:
-   * - The actual values to share. An empty array will have the same effects as `false`.
-   * - `true` to retrieve automatically all currently decryptable values for the corresponding parameter and share all of them. If no value can be
-   * retrieved the method will throw an error.
-   * - `false` to not share the information. (NOTE: currently for the secret id false may actually generate a new secret id and share that id if there
-   * is no delegation from the current data owner to the delegate, as secret ids are also used for access control. This will be changed in future
-   * versions)
-   * The method also performs some deduplication on the available delegations for the delegate
+   * Updates encryption metadata for an entity in order to share it with a delegate or in order to add additional encrypted metadata for an existing
+   * delegate.
+   * The first time this method is used for a specific delegate it will give access to all unencrypted content of the entity to the delegate data
+   * owner. Additionally, this method also allows to share new or existing secret ids (shareSecretId), encryption keys (shareEncryptionKeys) and
+   * parent ids (shareParentIds) for the entity.
+   * You can use methods like {@link secretIdsOf}, {@link secretIdsForHcpHierarchyOf}, {@link encryptionKeysOf}, ... to retrieve the data you want to
+   * share. In most cases you may want to share everything related to the entity, but note that if you use confidential delegations for patients you
+   * may want to avoid sharing the confidential secret ids of the current user with other hcps.
    * This method MODIFIES THE ENTITY IN PLACE then returns it.
    * @param entity entity which requires encryption metadata initialisation.
    * @param delegateId id of the delegate to share data with.
-   * @param shareSecretIds secret ids to share or true if all currently available secret ids should be shared.
-   * @param shareEncryptionKeys encryption keys to share or true if all currently available encryption keys should be shared.
-   * @param shareParentIds parent ids to share or true if all currently available parent ids should be shared.
+   * @param shareSecretIds secret ids to share.
+   * @param shareEncryptionKeys encryption keys to share.
+   * @param shareParentIds parent ids to share.
    * @param newTags tags to associate with the new encryption keys and metadata. Existing data won't be changed.
    * @throws if any of the shareX parameters is set to `true` but the corresponding piece of data could not be retrieved.
    * @return the updated entity.
    */
-  async entityWithSharedEncryptedMetadata<T extends EncryptedEntity>(
+  async entityWithExtendedEncryptedMetadata<T extends EncryptedEntity>(
     entity: T,
     delegateId: string,
-    shareSecretIds: string[] | boolean,
-    shareEncryptionKeys: string[] | boolean,
-    shareParentIds: string[] | boolean,
+    shareSecretIds: string[],
+    shareEncryptionKeys: string[],
+    shareParentIds: string[],
     newTags: string[] = []
   ): Promise<T> {
     this.throwDetailedExceptionForInvalidParameter('entity.id', entity.id, 'entityWithSharedEncryptedMetadata', arguments)
-    async function checkInputAndGet(
-      input: string[] | boolean,
-      inputName: string,
-      retrieve: (entity: T) => Promise<string[]>,
-      validate: (x: string) => boolean | Promise<boolean>
-    ): Promise<string[]> {
-      if (input === true) {
-        const retrieved = await retrieve(entity)
-        if (retrieved.length > 0) {
-          return retrieved
-        } else {
-          throw new Error(`Failed to retrieve any value for input ${inputName}, impossible to share.`)
-        }
-      } else if (input === false) {
-        return []
-      } else {
-        for (const x of input) {
-          const validation = validate(x)
-          if (validation !== true && validation !== false && !(await validation)) throw new Error(`Invalid input for ${inputName}.`)
-        }
-        return input
+    async function checkInputAndGet(input: string[], inputName: string, validate: (x: string) => boolean | Promise<boolean>): Promise<string[]> {
+      for (const x of input) {
+        const validation = validate(x)
+        if (validation !== true && validation !== false && !(await validation)) throw new Error(`Invalid input for ${inputName}.`)
       }
+      return input
     }
-    const secretIdsToShare = await checkInputAndGet(
-      shareSecretIds,
-      'secretIds',
-      (x) => this.secretIdsOf(x),
-      (x) => this.validateSecretId(x)
-    )
-    const encryptionKeysToShare = await checkInputAndGet(
-      shareEncryptionKeys,
-      'encryptionKeys',
-      (x) => this.encryptionKeysOf(x),
-      (x) => this.validateEncryptionKey(x)
-    )
-    const parentIdsToShare = await checkInputAndGet(
-      shareParentIds,
-      'parentIds',
-      (x) => this.parentIdsOf(x),
-      (x) => this.validateParentId(x)
-    )
+    const secretIdsToShare = await checkInputAndGet(shareSecretIds, 'secretIds', (x) => this.validateSecretId(x))
+    const encryptionKeysToShare = await checkInputAndGet(shareEncryptionKeys, 'encryptionKeys', (x) => this.validateEncryptionKey(x))
+    const parentIdsToShare = await checkInputAndGet(shareParentIds, 'parentIds', (x) => this.validateParentId(x))
     const deduplicateInfoSecretIds = await this.deduplicateDelegationsAndFilterRequiredEntries(
       delegateId,
       entity.delegations?.[delegateId] ?? [],
@@ -464,18 +430,17 @@ export class EntitiesEncryption {
           'Please instantiate new entities using the `newInstance` method from the respective extended api.'
       )
     }
-    /*TODO
+    /*
      * If entity was using delegations as legacy encryption keys we will essentially revoke the access to the encrypted data for all other data
-     * owners. Should we automatically add delegations for other existing data owners if there is already a value for encrypted entity?
-     * Note: if an entity was not encryptable in the past but it is now encrypted entity will be empty.
+     * owners. This however should not be a problem as this form of legacy entities should not exist anymore, and it should be present only in the
+     * databases of hcps without collaborators.
      */
-    // TODO previous versions were also initialising encryption keys in `encrypt` with the auto-delegations, should we do this as well?
-    return await this.entityWithSharedEncryptedMetadata(
+    return await this.entityWithExtendedEncryptedMetadata(
       entity,
       await this.dataOwnerApi.getCurrentDataOwnerId(),
-      false,
+      [],
       [ua2hex(this.primitives.randomBytes(16))],
-      false
+      []
     )
   }
 
