@@ -42,7 +42,6 @@ export class IccReceiptXApi extends IccReceiptApi {
     )
 
     const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
-    // TODO data is never encrypted should we really initialise encryption keys?
     return new models.Receipt(
       await this.crypto.entities
         .entityWithInitialisedEncryptedMetadata(receipt, undefined, undefined, true, extraDelegations, delegationTags)
@@ -54,5 +53,33 @@ export class IccReceiptXApi extends IccReceiptApi {
     return this.newInstance(user, { documentId: docId, references: refs })
       .then((rcpt) => this.createReceipt(rcpt))
       .then((rcpt) => (blob.byteLength != 0 ? this.setReceiptAttachment(rcpt.id!, blobType, '', <any>blob) : Promise.resolve(rcpt)))
+  }
+
+  /**
+   * Adds an attachment to a receipt, encrypting it on client side using the encryption keys of the provided receipt.
+   * @param receipt a receipt.
+   * @param blobType the type of the attachment.
+   * @param attachment a attachment for the receipt.
+   * @return the updated receipt.
+   */
+  async encryptAndSetReceiptAttachment(receipt: models.Receipt, blobType: string, attachment: ArrayBuffer | Uint8Array): Promise<models.Receipt> {
+    const encryptedData = await this.crypto.entities.encryptDataOf(receipt, attachment)
+    return await this.setReceiptAttachment(receipt.id!, blobType, undefined, encryptedData)
+  }
+
+  /**
+   * Gets the attachment of a receipt and tries to decrypt it using the encryption keys of the receipt.
+   * @param receipt a receipt.
+   * @param attachmentId id of the attachment of this receipt to retrieve.
+   * @param validator optionally a validator function which checks if the decryption was successful. In cases where the receipt has many encryption
+   * keys and it is unclear which one should be used this function can help to detect bad decryptions.
+   * @return the decrypted attachment, if it could be decrypted, else the encrypted attachment.
+   */
+  async getAndDecryptReceiptAttachment(
+    receipt: models.Receipt,
+    attachmentId: string,
+    validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
+  ): Promise<ArrayBuffer> {
+    return await this.crypto.entities.decryptDataOf(receipt, await this.getReceiptAttachment(receipt.id!, attachmentId, ''), (x) => validator(x))
   }
 }
