@@ -58,7 +58,13 @@ const facades: EntityFacades = {
       const ownerId = api.dataOwnerApi.getDataOwnerOf(user)
       return api.patientApi.modifyPatientWithUser(
         await api.userApi.getCurrentUser(),
-        await api.cryptoApi.entities.entityWithSharedEncryptedMetadata(r, doId, true, true, p ? [p.id!] : [])
+        await api.cryptoApi.entities.entityWithExtendedEncryptedMetadata(
+          r,
+          doId,
+          await api.cryptoApi.entities.secretIdsOf(r),
+          await api.cryptoApi.entities.encryptionKeysOf(r),
+          p ? [p.id!] : []
+        )
       )
     },
     isDecrypted: async (entityToCheck) => {
@@ -73,7 +79,13 @@ const facades: EntityFacades = {
       const ownerId = api.dataOwnerApi.getDataOwnerOf(user)
       return api.contactApi.modifyContactWithUser(
         await api.userApi.getCurrentUser(),
-        await api.cryptoApi.entities.entityWithSharedEncryptedMetadata(r, doId, true, true, p ? [p.id!] : [])
+        await api.cryptoApi.entities.entityWithExtendedEncryptedMetadata(
+          r,
+          doId,
+          await api.cryptoApi.entities.secretIdsOf(r),
+          await api.cryptoApi.entities.encryptionKeysOf(r),
+          p ? [p.id!] : []
+        )
       )
     },
     isDecrypted: async (entityToCheck) => {
@@ -88,7 +100,13 @@ const facades: EntityFacades = {
       const ownerId = api.dataOwnerApi.getDataOwnerOf(user)
       return api.healthcareElementApi.modifyHealthElementWithUser(
         await api.userApi.getCurrentUser(),
-        await api.cryptoApi.entities.entityWithSharedEncryptedMetadata(r, doId, true, true, p ? [p.id!] : [])
+        await api.cryptoApi.entities.entityWithExtendedEncryptedMetadata(
+          r,
+          doId,
+          await api.cryptoApi.entities.secretIdsOf(r),
+          await api.cryptoApi.entities.encryptionKeysOf(r),
+          p ? [p.id!] : []
+        )
       )
     },
     isDecrypted: async (entityToCheck) => {
@@ -103,7 +121,13 @@ const facades: EntityFacades = {
       const ownerId = api.dataOwnerApi.getDataOwnerOf(user)
       return api.calendarItemApi.modifyCalendarItemWithHcParty(
         await api.userApi.getCurrentUser(),
-        await api.cryptoApi.entities.entityWithSharedEncryptedMetadata(r, doId, true, true, p ? [p.id!] : [])
+        await api.cryptoApi.entities.entityWithExtendedEncryptedMetadata(
+          r,
+          doId,
+          await api.cryptoApi.entities.secretIdsOf(r),
+          await api.cryptoApi.entities.encryptionKeysOf(r),
+          p ? [p.id!] : []
+        )
       )
     },
     isDecrypted: async (entityToCheck) => {
@@ -286,14 +310,15 @@ async function createPartialsForPatient(
 ): Promise<KeyPair<CryptoKey>> {
   const key = await primitives.RSA.generateKeyPair()
   const api1 = await TestApi(env!.iCureUrl, user.login!, password, webcrypto as any, key)
+  const pat = await patientCreatorApis.patientApi.getPatientWithUser(patientCreatorUser, user.patientId!)
   await patientCreatorApis.patientApi.modifyPatientWithUser(
     patientCreatorUser,
-    await patientCreatorApis.cryptoApi.entities.entityWithSharedEncryptedMetadata(
-      await patientCreatorApis.patientApi.getPatientWithUser(patientCreatorUser, user.patientId!),
+    await patientCreatorApis.cryptoApi.entities.entityWithExtendedEncryptedMetadata(
+      pat,
       user.patientId!,
-      true,
-      true,
-      false
+      await patientCreatorApis.cryptoApi.entities.secretIdsOf(pat),
+      await patientCreatorApis.cryptoApi.entities.encryptionKeysOf(pat),
+      []
     )
   )
   await Object.entries(entityFacades)

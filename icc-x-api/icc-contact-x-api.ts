@@ -107,12 +107,12 @@ export class IccContactXApi extends IccContactApi {
       ? initialisationInfo.updatedEntity
       : await anonymousDelegations.reduce(
           async (updatedContact, delegate) =>
-            await this.crypto.entities.entityWithSharedEncryptedMetadata(
+            await this.crypto.entities.entityWithExtendedEncryptedMetadata(
               await updatedContact,
               delegate,
-              false,
+              [],
               [initialisationInfo.rawEncryptionKey!],
-              false,
+              [],
               []
             ),
           Promise.resolve(initialisationInfo.updatedEntity)
