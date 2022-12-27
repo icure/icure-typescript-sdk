@@ -60,7 +60,6 @@ export class IccInvoiceXApi extends IccInvoiceApi {
     const ownerId = this.dataOwnerApi.getDataOwnerOf(user)
     const sfk = preferredSfk ?? (await this.crypto.entities.secretIdsOf(patient, ownerId))[0]
     const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.financialInformation ?? [])]
-    // TODO data is never encrypted should we really initialise encryption keys?
     return new models.Invoice(
       await this.crypto.entities
         .entityWithInitialisedEncryptedMetadata(invoice, patient.id, sfk, true, extraDelegations, delegationTags)
@@ -130,7 +129,7 @@ export class IccInvoiceXApi extends IccInvoiceApi {
    */
   async findBy(hcpartyId: string, patient: models.Patient): Promise<Array<models.Invoice>> {
     const extractedKeys = await this.crypto.entities.secretIdsOf(patient, hcpartyId)
-    const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0] // TODO should this really be topmost parent?
+    const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     let invoices: Array<Invoice> = await this.findInvoicesByHCPartyPatientForeignKeys(topmostParentId, _.uniq(extractedKeys).join(','))
     return await this.decrypt(hcpartyId, invoices)
   }

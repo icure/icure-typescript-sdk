@@ -59,21 +59,14 @@ export class IccClassificationXApi extends IccClassificationApi {
     const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
     return new models.Classification(
       await this.crypto.entities
-        .entityWithInitialisedEncryptedMetadata(
-          classification,
-          patient?.id,
-          sfk,
-          false, // TODO should we actually initialise encryption keys anyway, to have everything future proof?
-          extraDelegations,
-          delegationTags
-        )
+        .entityWithInitialisedEncryptedMetadata(classification, patient?.id, sfk, true, extraDelegations, delegationTags)
         .then((x) => x.updatedEntity)
     )
   }
 
   async findBy(hcpartyId: string, patient: models.Patient) {
     const extractedKeys = await this.crypto.entities.secretIdsOf(patient, hcpartyId)
-    const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0] // TODO should this really be topmost parent?
+    const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     return extractedKeys && extractedKeys.length > 0
       ? this.findClassificationsByHCPartyPatientForeignKeys(topmostParentId, _.uniq(extractedKeys).join(','))
       : Promise.resolve([])

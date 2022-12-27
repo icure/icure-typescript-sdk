@@ -83,7 +83,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
 
   async findBy(hcpartyId: string, patient: models.Patient): Promise<models.AccessLog[]> {
     const extractedKeys = await this.crypto.entities.secretIdsOf(patient, hcpartyId)
-    const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0] // TODO should this really be topmost parent?
+    const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     return extractedKeys && extractedKeys.length > 0
       ? this.findByHCPartyPatientSecretFKeys(topmostParentId, _.uniq(extractedKeys).join(','))
       : Promise.resolve([])
