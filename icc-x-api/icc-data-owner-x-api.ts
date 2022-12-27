@@ -5,6 +5,7 @@ import { Patient } from '../icc-api/model/Patient'
 import { Device } from '../icc-api/model/Device'
 import { hexPublicKeysOf } from './crypto/utils'
 import { IccHcpartyXApi } from './icc-hcparty-x-api'
+import { XHR } from '../icc-api/api/XHR'
 
 /**
  * Represents a type of data owner.
@@ -31,10 +32,10 @@ export type DataOwnerWithType =
   | { type: 'hcp'; dataOwner: HealthcareParty & DataOwner }
 
 export class IccDataOwnerXApi {
-  private userBaseApi: IccUserApi
-  private hcpartyBaseApi: IccHcpartyXApi
-  private patientBaseApi: IccPatientApi
-  private deviceBaseApi: IccDeviceApi
+  private readonly userBaseApi: IccUserApi
+  private readonly hcpartyBaseApi: IccHcpartyXApi
+  private readonly patientBaseApi: IccPatientApi
+  private readonly deviceBaseApi: IccDeviceApi
   private currentDataOwnerType: DataOwnerTypeEnum | undefined
   private currentDataOwnerHierarchyIds: string[] | undefined
 
@@ -139,17 +140,20 @@ export class IccDataOwnerXApi {
    * @return the data owner or undefined if loadIfMissingFromCache is false and there is no data owner with provided id in cache.
    * @throws if no data owner with the provided id could be found on an error occurred while attempting to retrieve it.
    */
-  getDataOwner(ownerId: string): Promise<DataOwnerWithType> {
-    // TODO Data owner endpoint to save some requests?
-    return this.patientBaseApi
-      .getPatient(ownerId)
-      .then((patient) => ({ type: DataOwnerTypeEnum.Patient, dataOwner: patient as DataOwner }))
-      .catch(async () => ({ type: DataOwnerTypeEnum.Device, dataOwner: (await this.deviceBaseApi.getDevice(ownerId)) as DataOwner }))
-      .catch(async () => ({ type: DataOwnerTypeEnum.Hcp, dataOwner: (await this.hcpartyBaseApi.getHealthcareParty(ownerId, true)) as DataOwner }))
-      .then((dataOwnerWithType) => {
-        if (dataOwnerWithType.dataOwner.id === this.selfDataOwnerId) this.checkDataOwnerIntegrity(dataOwnerWithType.dataOwner)
-        return dataOwnerWithType
-      })
+  async getDataOwner(ownerId: string): Promise<DataOwnerWithType> {
+    const _url = this.userBaseApi.host + `/dataowner/` + ownerId + '?ts=' + new Date().getTime()
+    let headers = this.userBaseApi.headers
+    return XHR.sendCommand(
+      'GET',
+      _url,
+      headers,
+      null,
+      this.userBaseApi.fetchImpl,
+      undefined,
+      this.userBaseApi.authenticationProvider.getAuthService()
+    )
+      .then((doc) => doc.body as DataOwnerWithType)
+      .catch((err) => this.handleError(err))
   }
 
   /**
@@ -208,5 +212,9 @@ export class IccDataOwnerXApi {
     }
     this.currentDataOwnerHierarchyIds = res.map((x) => x.dataOwner.id!)
     return res
+  }
+
+  private handleError(e: XHR.XHRError): never {
+    throw e
   }
 }
