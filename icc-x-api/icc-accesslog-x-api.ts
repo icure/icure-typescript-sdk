@@ -4,7 +4,7 @@ import * as models from '../icc-api/model/models'
 import { AccessLog, PaginatedListAccessLog } from '../icc-api/model/models'
 import * as _ from 'lodash'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
-import { AuthenticationProvider } from './auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 
 export interface AccessLogWithPatientId extends AccessLog {
   patientId: string
@@ -20,7 +20,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
     headers: { [key: string]: string },
     crypto: IccCryptoXApi,
     dataOwnerApi: IccDataOwnerXApi,
-    authenticationProvider: AuthenticationProvider,
+    authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'

@@ -29,6 +29,7 @@ import { MaintenanceTaskByIdsFilter } from '../../icc-x-api/filters/MaintenanceT
 import { MaintenanceTaskByHcPartyAndTypeFilter } from '../../icc-x-api/filters/MaintenanceTaskByHcPartyAndTypeFilter'
 import { DocIdentifier } from '../../icc-api/model/DocIdentifier'
 import initApi = TestUtils.initApi
+import { MaintenanceTaskAfterDateFilter } from '../../icc-x-api/filters/MaintenanceTaskAfterDateFilter'
 
 setLocalStorage(fetch)
 let env: TestVars
@@ -233,6 +234,32 @@ describe('icc-x-maintenance-task-api Tests', () => {
           filter: new MaintenanceTaskByHcPartyAndTypeFilter({
             healthcarePartyId: hcp1.id!,
             type: createdTask.taskType!,
+          }),
+        })
+      )
+    ).rows![0]
+
+    // Then
+    assert(foundTask.id == createdTask.id)
+  })
+
+  it('FilterMaintenanceTaskByWithUser After Date Success for HCP', async () => {
+    // Given
+    const startTimestamp = new Date().getTime() + 1000
+    const taskToCreate = { ...(await maintenanceTaskToCreate(apiForHcp1.maintenanceTaskApi, hcp1User, hcp1)), created: startTimestamp }
+
+    const createdTask: MaintenanceTask = (await apiForHcp1.maintenanceTaskApi.createMaintenanceTaskWithUser(hcp1User, taskToCreate))!
+
+    // When
+    const foundTask = (
+      await apiForHcp1.maintenanceTaskApi.filterMaintenanceTasksByWithUser(
+        hcp1User,
+        undefined,
+        undefined,
+        new FilterChainMaintenanceTask({
+          filter: new MaintenanceTaskAfterDateFilter({
+            healthcarePartyId: hcp1.id!,
+            date: startTimestamp - 1000,
           }),
         })
       )

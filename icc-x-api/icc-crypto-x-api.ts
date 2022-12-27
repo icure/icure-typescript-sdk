@@ -829,7 +829,6 @@ export class IccCryptoXApi {
     await this.exchangeKeys.base.giveAccessBackTo(ownerId, ownerNewPublicKey, this.userKeysManager.getDecryptionKeys())
     return this.dataOwnerApi.getDataOwner(ownerId)
   }
-
   /**
    * @deprecated You don't need to manually generate exchange keys as they will be automatically created by the api when needed.
    * Note that this method has some changes compared to previous version:
@@ -920,5 +919,33 @@ export class IccCryptoXApi {
     } catch (e) {
       return content
     }
+  }
+
+  /**
+   * Store keypair in storage
+   *
+   * @param id
+   * @param keyPair should be JWK
+   *
+   * @deprecated use storage.setItem instead
+   */
+  storeKeyPair(id: string, keyPair: { publicKey: any; privateKey: any }) {
+    this._storage.setItem(this.rsaLocalStoreIdPrefix + id, JSON.stringify(keyPair))
+  }
+
+  fixAesExchangeKeyEntriesToFingerprints(aesExchangeKeys: { [delegatorPubKey: string]: { [delegateId: string]: { [pubKeyFp: string]: string } } }): {
+    [delegatorPubKey: string]: { [delegateId: string]: { [pubKeyFp: string]: string } }
+  } {
+    return Object.fromEntries(
+      Object.entries(aesExchangeKeys).map(([delegatorPubKey, allDelegates]) => [
+        delegatorPubKey,
+        Object.fromEntries(
+          Object.entries(allDelegates).map(([delegateId, keyEntries]) => [
+            delegateId,
+            Object.fromEntries(Object.entries(keyEntries).map(([publicKey, encryptedValue]) => [publicKey.slice(-32), encryptedValue])),
+          ])
+        ),
+      ])
+    )
   }
 }
