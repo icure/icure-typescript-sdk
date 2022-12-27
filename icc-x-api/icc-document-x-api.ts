@@ -714,4 +714,63 @@ export class IccDocumentXApi extends IccDocumentApi {
   mimeType(uti: string) {
     return this.utiRevDefs[uti]
   }
+
+  /**
+   * Adds an attachment to a document, encrypting it on client side using the encryption keys of the provided document.
+   * @param document a document.
+   * @param attachment a new main attachment for the document.
+   * @return the updated document.
+   */
+  async encryptAndSetDocumentAttachment(document: models.Document, attachment: ArrayBuffer | Uint8Array): Promise<models.Document> {
+    const encryptedData = await this.crypto.entities.encryptDataOf(document, attachment)
+    return await this.setDocumentAttachment(document.id!, undefined, encryptedData)
+  }
+
+  /**
+   * Adds a secondary attachment to a document, encrypting it on client side using the encryption keys of the provided document.
+   * @param document a document.
+   * @param secondaryAttachmentKey key for the secondary attachment.
+   * @param attachment a new secondary attachment for the document.
+   * @return the updated document.
+   */
+  async encryptAndSetSecondaryDocumentAttachment(
+    document: models.Document,
+    secondaryAttachmentKey: string,
+    attachment: ArrayBuffer | Uint8Array
+  ): Promise<models.Document> {
+    const encryptedData = await this.crypto.entities.encryptDataOf(document, attachment)
+    return await this.setSecondaryAttachment(document.id!, secondaryAttachmentKey, document.rev!, encryptedData)
+  }
+
+  /**
+   * Gets the main attachment of a document and tries to decrypt it using the encryption keys of the document.
+   * @param document a document.
+   * @param validator optionally a validator function which checks if the decryption was successful. In cases where the document has many encryption
+   * keys and it is unclear which one should be used this function can help to detect bad decryptions.
+   * @return the decrypted attachment, if it could be decrypted, else the encrypted attachment.
+   */
+  async getAndDecryptDocumentAttachment(
+    document: models.Document,
+    validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
+  ): Promise<ArrayBuffer> {
+    return await this.crypto.entities.decryptDataOf(document, await this.getDocumentAttachment(document.id!, 'ignored'), (x) => validator(x))
+  }
+
+  /**
+   * Gets the secondary attachment of a document and tries to decrypt it using the encryption keys of the document.
+   * @param document a document.
+   * @param secondaryAttachmentKey key of the secondary attachment.
+   * @param validator optionally a validator function which checks if the decryption was successful. In cases where the document has many encryption
+   * keys and it is unclear which one should be used this function can help to detect bad decryptions.
+   * @return the decrypted attachment, if it could be decrypted, else the encrypted attachment.
+   */
+  async getAndDecryptSecondaryDocumentAttachment(
+    document: models.Document,
+    secondaryAttachmentKey: string,
+    validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
+  ): Promise<ArrayBuffer> {
+    return await this.crypto.entities.decryptDataOf(document, await this.getSecondaryAttachment(document.id!, secondaryAttachmentKey), (x) =>
+      validator(x)
+    )
+  }
 }

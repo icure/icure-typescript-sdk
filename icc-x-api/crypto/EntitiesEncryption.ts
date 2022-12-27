@@ -339,7 +339,7 @@ export class EntitiesEncryption {
     dataOwnerId?: string,
     tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<ArrayBuffer> {
-    const keys = await this.encryptionKeysOf(entity, dataOwnerId, tagsFilter)
+    const keys = await this.encryptionKeysOf(await this.ensureEncryptionKeysInitialised(entity), dataOwnerId, tagsFilter)
     if (keys.length === 0)
       throw new Error(
         `Could not extract any encryption keys of entity ${entity.id} for data owner ${
