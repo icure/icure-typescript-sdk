@@ -601,13 +601,12 @@ export class IccDocumentXApi extends IccDocumentApi {
   // noinspection JSUnusedGlobalSymbols
   async findByMessage(hcpartyId: string, message: models.Message) {
     const extractedKeys = await this.crypto.entities.secretIdsOf(message, hcpartyId)
-    const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0] // TODO should this really be topmost parent?
+    const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     let documents: Array<models.Document> = await this.findDocumentsByHCPartyPatientForeignKeys(topmostParentId, _.uniq(extractedKeys).join(','))
     return await this.decrypt(hcpartyId, documents)
   }
 
-  // TODO document has decrypt but no encrypt
-  // TODO encrypted attachment should be obsolete
+  // Note: this is only for dealing with legacy documents: new document are not encrypted, only their attachments are
   decrypt(hcpartyId: string, documents: Array<models.Document>): Promise<Array<models.Document>> {
     return Promise.all(
       documents.map((document) =>

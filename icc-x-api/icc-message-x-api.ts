@@ -57,9 +57,7 @@ export class IccMessageXApi extends IccMessageApi {
 
     const ownerId = this.dataOwnerApi.getDataOwnerOf(user)
     const sfk = preferredSfk ?? (patient ? (await this.crypto.entities.secretIdsOf(patient, ownerId))[0] : undefined)
-    // TODO sure this should be medical?
     const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
-    // TODO data is never encrypted, but should we initialise encryption keys anyway, to have everything future proof?
     return new models.Message(
       await this.crypto.entities
         .entityWithInitialisedEncryptedMetadata(message, patient?.id, sfk, true, extraDelegations, delegationTags)

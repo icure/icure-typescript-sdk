@@ -96,21 +96,8 @@ export class IccPatientXApi extends IccPatientApi {
       extraDelegations,
       delegationTags
     )
-    const anonymousDelegations = user.autoDelegations?.anonymousMedicalInformation ?? []
-    return new models.Patient(
-      await anonymousDelegations.reduce(
-        async (updatedContact, delegate) =>
-          await this.crypto.entities.entityWithSharedEncryptedMetadata(
-            await updatedContact,
-            delegate,
-            false,
-            [initialisationInfo.rawEncryptionKey!],
-            false,
-            [] // TODO No tags for who uses anonymous info?
-          ),
-        Promise.resolve(initialisationInfo.updatedEntity)
-      )
-    )
+    // TODO previously anonymous delegations were used also for patient but this does not make sense...
+    return new models.Patient(initialisationInfo.updatedEntity)
   }
 
   completeNames(patient: models.Patient): models.Patient {

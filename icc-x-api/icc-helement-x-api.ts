@@ -5,10 +5,8 @@ import * as models from '../icc-api/model/models'
 
 import * as _ from 'lodash'
 import * as moment from 'moment'
-import { a2b, b2a, hex2ua, string2ua, ua2utf8, utf8_2ua } from './utils/binary-utils'
-import { AccessLog, HealthElement } from '../icc-api/model/models'
+import { HealthElement } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
-import { crypt } from './utils'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 
 export class IccHelementXApi extends IccHelementApi {
@@ -98,7 +96,8 @@ export class IccHelementXApi extends IccHelementApi {
       confidential ? [] : extraDelegations,
       delegationTags
     )
-    const anonymousDelegations = user.autoDelegations?.anonymousMedicalInformation ?? []
+    // TODO re-enable anonymous delegations if necessary or rename/remove
+    const anonymousDelegations: string[] = [] // user.autoDelegations?.anonymousMedicalInformation ?? []
     const sharedAnonymously = confidential
       ? initialisationInfo.updatedEntity
       : await anonymousDelegations.reduce(
@@ -109,7 +108,7 @@ export class IccHelementXApi extends IccHelementApi {
               false,
               [initialisationInfo.rawEncryptionKey!],
               false,
-              [] // TODO No tags for who uses anonymous info?
+              []
             ),
           Promise.resolve(initialisationInfo.updatedEntity)
         )
@@ -187,7 +186,6 @@ export class IccHelementXApi extends IccHelementApi {
     hcPartyId: string,
     patient: models.Patient
   ): Promise<models.HealthElement[]> {
-    // TODO most extended apis find by topmost parent, this finds the keys only for the hcParty (ignoring any parents). Is this correct?
     let keysAndHcPartyId = await this.crypto.entities.secretIdsForHcpHierarchyOf(patient)
     const keys = keysAndHcPartyId.find((secretForeignKeys) => secretForeignKeys.ownerId == hcPartyId)?.extracted
     if (keys == undefined) {
@@ -243,7 +241,6 @@ export class IccHelementXApi extends IccHelementApi {
    */
 
   findBy(hcpartyId: string, patient: models.Patient, keepObsoleteVersions = false) {
-    // TODO most extended apis find by topmost parent, this finds by full hierarchy; which is correct?
     return this.crypto.entities
       .secretIdsForHcpHierarchyOf(patient)
       .then((secretForeignKeys) =>

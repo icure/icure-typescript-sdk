@@ -5,7 +5,7 @@ import * as _ from 'lodash'
 import { a2b, b2a, string2ua } from '../icc-api/model/ModelHelper'
 import { hex2ua, ua2utf8, utf8_2ua, crypt } from './utils'
 import { IccHcpartyXApi } from './icc-hcparty-x-api'
-import { DocIdentifier } from '../icc-api/model/models'
+import { DocIdentifier, MaintenanceTask } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 
@@ -128,17 +128,8 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
   }
 
   decrypt(user: models.User, maintenanceTasks: Array<models.MaintenanceTask>): Promise<Array<models.MaintenanceTask>> {
-    // TODO why this does not use the general decrypt util?
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
 
-    return Promise.all(
-      maintenanceTasks.map(async (mT) => {
-        const keys = await this.crypto.entities.importAllValidKeys(await this.crypto.entities.encryptionKeysOf(mT, dataOwnerId))
-        const encrypted = string2ua(a2b(mT.encryptedSelf!))
-        const decrypted = await this.crypto.entities.tryDecryptJson(keys, encrypted, false)
-        if (decrypted) return new models.MaintenanceTask(_.assign(mT, decrypted))
-        else return mT
-      })
-    )
+    return Promise.all(maintenanceTasks.map(async (mT) => this.crypto.entities.decryptEntity(mT, dataOwnerId, (x) => new MaintenanceTask(x))))
   }
 }

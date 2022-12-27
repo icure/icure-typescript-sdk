@@ -101,7 +101,8 @@ export class IccContactXApi extends IccContactApi {
       confidential ? [] : extraDelegations,
       delegationTags
     )
-    const anonymousDelegations = user.autoDelegations?.anonymousMedicalInformation ?? []
+    // TODO re-enable anonymous delegations if necessary or rename/remove
+    const anonymousDelegations: string[] = [] // user.autoDelegations?.anonymousMedicalInformation ?? []
     const sharedAnonymously = confidential
       ? initialisationInfo.updatedEntity
       : await anonymousDelegations.reduce(
@@ -112,7 +113,7 @@ export class IccContactXApi extends IccContactApi {
               false,
               [initialisationInfo.rawEncryptionKey!],
               false,
-              [] // TODO No tags for who uses anonymous info?
+              []
             ),
           Promise.resolve(initialisationInfo.updatedEntity)
         )
@@ -135,7 +136,6 @@ export class IccContactXApi extends IccContactApi {
    * @param patient (Promise)
    */
   async findBy(hcpartyId: string, patient: models.Patient) {
-    // TODO most extended apis find by topmost parent, this finds by full hierarchy; which is correct?
     return await this.crypto.entities.secretIdsForHcpHierarchyOf(patient).then((keysHierarchy) =>
       keysHierarchy && keysHierarchy.length > 0
         ? Promise.all(
