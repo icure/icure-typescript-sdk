@@ -6,6 +6,8 @@ import { User } from '../../icc-api/model/User'
 import { Apis, ua2utf8, utf8_2ua } from '../../icc-x-api'
 import initApi = TestUtils.initApi
 import { expect } from 'chai'
+import { TestApi } from '../utils/TestApi'
+import { webcrypto } from 'crypto'
 
 setLocalStorage(fetch)
 let env: TestVars
@@ -71,6 +73,11 @@ before(async function () {
   this.timeout(600000)
   const initializer = await getEnvironmentInitializer()
   env = await initializer.execute(getEnvVariables())
+  for (const [a, b] of Object.entries(env.dataOwnerDetails)) {
+    console.log(a)
+    console.log(b.password)
+    console.log('')
+  }
   apis = await initApi(env!, hcp1Username)
   user = await apis.userApi.getCurrentUser()
 })
@@ -80,6 +87,7 @@ describe('Entity attachment update methods', async function () {
     it(`should automatically encrypt and decrypt attachments (${type})`, async () => {
       const attachmentApi = attachmentApiInitialiser(apis, user)
       const entity = await attachmentApi.createEntity()
+      console.log(`entity id ${entity.id}`)
       const attachmentContent = 'This is some secret attachment'
       const entityWithEncrypted = await attachmentApi.encryptAndSetAttachment(entity, utf8_2ua(attachmentContent))
       const decryptedAttachment = await attachmentApi.getAndDecryptAttachment(entityWithEncrypted, async (d) => {

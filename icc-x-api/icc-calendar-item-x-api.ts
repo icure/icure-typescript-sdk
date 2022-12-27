@@ -6,7 +6,7 @@ import { CalendarItem, User } from '../icc-api/model/models'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 import { IccCalendarItemApi } from '../icc-api'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
-import { AuthenticationProvider } from './auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 
 export class IccCalendarItemXApi extends IccCalendarItemApi {
   i18n: any = i18n
@@ -20,7 +20,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
     crypto: IccCryptoXApi,
     dataOwnerApi: IccDataOwnerXApi,
     encryptedKeys: Array<string> = ['details', 'title', 'patientId'],
-    authenticationProvider: AuthenticationProvider,
+    authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'

@@ -1,6 +1,6 @@
 {
   "name": "@icure/api",
-  "version": "6.0.3",
+  "version": "6.0.4",
   "description": "Typescript version of iCure standalone API client",
   "types": "dist/index.d.ts",
   "dependencies": {
@@ -13,7 +13,7 @@
     "uuid-encoder": "^1.1.0"
   },
   "devDependencies": {
-    "@icure/test-setup": "^0.0.29",
+    "@icure/test-setup": "^0.0.35",
     "@types/chai": "^4.3.0",
     "@types/isomorphic-fetch": "^0.0.36",
     "@types/lodash": "^4.14.182",

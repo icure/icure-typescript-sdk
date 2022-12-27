@@ -9,17 +9,17 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
-import { AbstractFilterMaintenanceTask } from '../../icc-api/model/AbstractFilterMaintenanceTask'
+import { AbstractFilterHealthcareParty } from '../../icc-api/model/AbstractFilterHealthcareParty'
 
-export class MaintenanceTaskAfterDateFilter extends AbstractFilterMaintenanceTask {
-  $type: string = 'MaintenanceTaskAfterDateFilter'
+export class HealthcarePartyByNameFilter extends AbstractFilterHealthcareParty {
+  $type: string = 'HealthcarePartyByNameFilter'
   constructor(json: JSON | any) {
     super(json)
 
-    Object.assign(this as MaintenanceTaskAfterDateFilter, json)
+    Object.assign(this as HealthcarePartyByNameFilter, json)
   }
 
-  healthcarePartyId?: string
-  date?: number
+  descending?: boolean
+  name: string = ''
   desc?: string
 }

@@ -11,8 +11,8 @@ import { PaginatedListContact } from '../icc-api/model/PaginatedListContact'
 import { a2b, b2a, string2ua, ua2string, utf8_2ua } from './utils/binary-utils'
 import { ServiceByIdsFilter } from './filters/ServiceByIdsFilter'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
-import { before } from './utils'
-import { AuthenticationProvider } from './auth/AuthenticationProvider'
+import { truncateTrailingNulls, before } from './utils'
+import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 
 export class IccContactXApi extends IccContactApi {
   i18n: any = i18n
@@ -24,7 +24,7 @@ export class IccContactXApi extends IccContactApi {
     headers: { [key: string]: string },
     crypto: IccCryptoXApi,
     dataOwnerApi: IccDataOwnerXApi,
-    authenticationProvider: AuthenticationProvider,
+    authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'

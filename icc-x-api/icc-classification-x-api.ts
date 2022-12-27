@@ -6,7 +6,7 @@ import * as models from '../icc-api/model/models'
 import * as _ from 'lodash'
 import * as moment from 'moment'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
-import { AuthenticationProvider } from './auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { CalendarItem } from '../icc-api/model/models'
 
 export class IccClassificationXApi extends IccClassificationApi {
@@ -18,7 +18,7 @@ export class IccClassificationXApi extends IccClassificationApi {
     headers: { [key: string]: string },
     crypto: IccCryptoXApi,
     dataOwnerApi: IccDataOwnerXApi,
-    authenticationProvider: AuthenticationProvider,
+    authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'

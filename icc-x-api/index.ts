@@ -23,7 +23,7 @@ import { StorageFacade } from './storage/StorageFacade'
 import { KeyStorageFacade } from './storage/KeyStorageFacade'
 import { LocalStorageImpl } from './storage/LocalStorageImpl'
 import { KeyStorageImpl } from './storage/KeyStorageImpl'
-import { BasicAuthenticationProvider, EnsembleAuthenticationProvider } from './auth/AuthenticationProvider'
+import { BasicAuthenticationProvider, EnsembleAuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { CryptoPrimitives } from './crypto/CryptoPrimitives'
 import { KeyManager } from './crypto/KeyManager'
 import { IcureStorageFacade } from './storage/IcureStorageFacade'
@@ -33,10 +33,10 @@ import { BaseExchangeKeysManager } from './crypto/BaseExchangeKeysManager'
 import { StorageEntryKeysFactory } from './storage/StorageEntryKeysFactory'
 import { CryptoStrategies } from './crypto/CryptoStrategies'
 import { ExchangeKeysManager } from './crypto/ExchangeKeysManager'
-import { EntitiesEncryption } from './crypto/EntitiesEncryption'
 import { ShamirKeysManager } from './crypto/ShamirKeysManager'
 import { TransferKeysManager } from './crypto/TransferKeysManager'
 import { IccIcureMaintenanceXApi } from './icc-icure-maintenance-x-api'
+import { EntitiesEncryption } from './crypto/EntitiesEncryption'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -109,11 +109,12 @@ export const Api = async function (
   cryptoStrategies?: CryptoStrategies // TODO default strategies
 ): Promise<Apis> {
   const headers = {}
-  const authApi = new IccAuthApi(host, headers, fetchImpl)
   const authenticationProvider = forceBasic
     ? new BasicAuthenticationProvider(username, password)
-    : new EnsembleAuthenticationProvider(authApi, username, password)
+    : new EnsembleAuthenticationProvider(new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl), username, password)
 
+  // Here I instantiate a separate instance of the AuthApi that can call also login-protected methods (logout)
+  const authApi = new IccAuthApi(host, headers, authenticationProvider, fetchImpl)
   const codeApi = new IccCodeXApi(host, headers, authenticationProvider, fetchImpl)
   const entityReferenceApi = new IccEntityrefApi(host, headers, authenticationProvider, fetchImpl)
   const userApi = new IccUserXApi(host, headers, authenticationProvider, fetchImpl)
@@ -265,10 +266,10 @@ export const PlainApi = async function (
   autoLogin: boolean = false
 ) {
   const headers = {}
-  const authApi = new IccAuthApi(host, headers, fetchImpl)
   const authenticationProvider = forceBasic
     ? new BasicAuthenticationProvider(username, password)
-    : new EnsembleAuthenticationProvider(authApi, username, password)
+    : new EnsembleAuthenticationProvider(new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl), username, password)
+  const authApi = new IccAuthApi(host, headers, authenticationProvider, fetchImpl)
 
   const codeApi = new IccCodeXApi(host, headers, authenticationProvider, fetchImpl)
   const entityReferenceApi = new IccEntityrefApi(host, headers, authenticationProvider, fetchImpl)
