@@ -24,6 +24,15 @@ export class IccReceiptXApi extends IccReceiptApi {
     this.dataOwnerApi = dataOwnerApi
   }
 
+  /**
+   * Creates a new instance of receipt with initialised encryption metadata (not in the database).
+   * @param user the current user.
+   * @param r initialised data for the receipt. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
+   * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
+   * @param delegates initial delegates which will have access to the receipt other than the current data owner.
+   * @param delegationTags tags for the initialised delegations.
+   * @return a new instance of receipt.
+   */
   async newInstance(user: models.User, r: any, delegates: string[] = [], delegationTags?: string[]): Promise<models.Receipt> {
     const receipt = new models.Receipt(
       _.extend(
@@ -32,7 +41,7 @@ export class IccReceiptXApi extends IccReceiptApi {
           _type: 'org.taktik.icure.entities.Receipt',
           created: new Date().getTime(),
           modified: new Date().getTime(),
-          responsible: this.dataOwnerApi.getDataOwnerOf(user),
+          responsible: this.dataOwnerApi.getDataOwnerIdOf(user),
           author: user.id,
           codes: [],
           tags: [],

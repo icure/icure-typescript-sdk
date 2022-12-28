@@ -37,6 +37,7 @@ import { ShamirKeysManager } from './crypto/ShamirKeysManager'
 import { TransferKeysManager } from './crypto/TransferKeysManager'
 import { IccIcureMaintenanceXApi } from './icc-icure-maintenance-x-api'
 import { EntitiesEncryption } from './crypto/EntitiesEncryption'
+import { ConfidentialEntities } from './crypto/ConfidentialEntities'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -146,6 +147,7 @@ export const Api = async function (
   )
   const entitiesEncryption = new EntitiesEncryption(cryptoPrimitives, dataOwnerApi, exchangeKeysManager)
   const shamirManager = new ShamirKeysManager(cryptoPrimitives, dataOwnerApi, keyManager, exchangeKeysManager)
+  const confidentialEntitites = new ConfidentialEntities(entitiesEncryption, cryptoPrimitives, dataOwnerApi)
   const cryptoApi = new IccCryptoXApi(
     exchangeKeysManager,
     cryptoPrimitives,
@@ -156,7 +158,8 @@ export const Api = async function (
     storage,
     keyStorage,
     icureStorage,
-    healthcarePartyApi
+    healthcarePartyApi,
+    confidentialEntitites
   )
   const accessLogApi = new IccAccesslogXApi(host, headers, cryptoApi, dataOwnerApi, authenticationProvider, fetchImpl)
   const agendaApi = new IccAgendaApi(host, headers, authenticationProvider, fetchImpl)

@@ -70,7 +70,15 @@ export class IccPatientXApi extends IccPatientApi {
     this.encryptedKeys = encryptedKeys
   }
 
-  // noinspection JSUnusedGlobalSymbols
+  /**
+   * Creates a new instance of patient with initialised encryption metadata (not in the database).
+   * @param user the current user.
+   * @param p initialised data for the patient. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
+   * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
+   * @param delegates initial delegates which will have access to the patient other than the current data owner.
+   * @param delegationTags tags for the initialised delegations.
+   * @return a new instance of patient.
+   */
   async newInstance(user: models.User, p: any = {}, delegates: string[] = [], delegationTags?: string[]) {
     const patient = _.extend(
       {
@@ -78,7 +86,7 @@ export class IccPatientXApi extends IccPatientApi {
         _type: 'org.taktik.icure.entities.Patient',
         created: new Date().getTime(),
         modified: new Date().getTime(),
-        responsible: this.dataOwnerApi.getDataOwnerOf(user),
+        responsible: this.dataOwnerApi.getDataOwnerIdOf(user),
         author: user.id,
         codes: [],
         tags: [],
@@ -86,7 +94,8 @@ export class IccPatientXApi extends IccPatientApi {
       p || {}
     )
 
-    const ownerId = this.dataOwnerApi.getDataOwnerOf(user)
+    const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
+    if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
     const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
     const initialisationInfo = await this.crypto.entities.entityWithInitialisedEncryptedMetadata(
       patient,
@@ -142,23 +151,26 @@ export class IccPatientXApi extends IccPatientApi {
   }
 
   /**
-   * @deprecated The concept of confidential will be removed from the iCure API: this method will be removed from the general purpose iCure api.
-   * After instantiating a new patient use {@link EntitiesEncryption.entityWithExtendedEncryptedMetadata} as shown here to create a new confidential delegation.
+   * @deprecated replace with {@link initConfidentialSecretId}
    */
   async initConfidentialDelegation(patient: models.Patient, user: models.User): Promise<models.Patient> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-    const confidentialDelegation = await this.crypto.extractPreferredSfk(patient, dataOwnerId!, true)
-    if (!confidentialDelegation) {
-      const confidentialSecretId = this.crypto.primitives.randomUuid()
-      const updatedPatient = await this.crypto.entities.entityWithExtendedEncryptedMetadata(
-        patient,
-        dataOwnerId,
-        [confidentialSecretId],
-        [],
-        [],
-        ['confidential']
-      )
-      return updatedPatient.rev ? this.modifyPatientWithUser(user, updatedPatient) : this.createPatientWithUser(user, updatedPatient)
+    return this.initConfidentialSecretId(patient, user)
+  }
+
+  /**
+   * Ensures that the current data owner has some confidential secret ids for the provided patient. If not creates them and updates the patient in the
+   * database.
+   * @param patient the patient for which you want to initialise the confidential secret id.
+   * @param user the current user.
+   * @return the updated patient or the original patient if no change was necessary.
+   */
+  async initConfidentialSecretId(patient: models.Patient, user: models.User): Promise<models.Patient> {
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
+    if (dataOwnerId !== (await this.dataOwnerApi.getCurrentDataOwnerId()))
+      throw new Error('You can initialise confidential delegations only for the current data owner')
+    const initialised = await this.crypto.confidential.entityWithInitialisedConfidentialSecretId(patient)
+    if (initialised) {
+      return initialised.rev ? this.modifyPatientWithUser(user, initialised) : this.createPatientWithUser(user, initialised)
     } else {
       return patient
     }
@@ -459,13 +471,13 @@ export class IccPatientXApi extends IccPatientApi {
   }
 
   encrypt(user: models.User, pats: Array<models.Patient>): Promise<Array<models.Patient>> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
 
     return Promise.all(pats.map((p) => this.crypto.entities.encryptEntity(p, dataOwnerId, this.encryptedKeys, true, (x) => new models.Patient(x))))
   }
 
   decrypt(user: models.User, patients: Array<models.Patient>, fillDelegations = true): Promise<Array<models.Patient>> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
 
     return (user.healthcarePartyId ? this.hcpartyApi.getHealthcarePartyHierarchyIds(user.healthcarePartyId) : Promise.resolve([dataOwnerId])).then(
       async (ids) => {

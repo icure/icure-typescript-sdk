@@ -30,7 +30,18 @@ export class IccFormXApi extends IccFormApi {
     this.dataOwnerApi = dataOwnerApi
   }
 
-  // noinspection JSUnusedGlobalSymbols
+  /**
+   * Creates a new instance of form with initialised encryption metadata (not in the database).
+   * @param user the current user.
+   * @param patient the patient this form refers to.
+   * @param c initialised data for the form. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
+   * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
+   * @param delegates initial delegates which will have access to the form other than the current data owner.
+   * @param preferredSfk secret id of the patient to use as the secret foreign key to use for the form. The default value will be a secret
+   * id of patient known by the topmost parent in the current data owner hierarchy.
+   * @param delegationTags tags for the initialised delegations.
+   * @return a new instance of form.
+   */
   async newInstance(
     user: models.User,
     patient: models.Patient,
@@ -45,7 +56,7 @@ export class IccFormXApi extends IccFormApi {
         _type: 'org.taktik.icure.entities.Form',
         created: new Date().getTime(),
         modified: new Date().getTime(),
-        responsible: this.dataOwnerApi.getDataOwnerOf(user),
+        responsible: this.dataOwnerApi.getDataOwnerIdOf(user),
         author: user.id,
         codes: [],
         tags: [],
@@ -53,8 +64,10 @@ export class IccFormXApi extends IccFormApi {
       c || {}
     )
 
-    const ownerId = this.dataOwnerApi.getDataOwnerOf(user)
-    const sfk = preferredSfk ?? (await this.crypto.entities.secretIdsOf(patient, ownerId))[0]
+    const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
+    if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
+    const sfk = preferredSfk ?? (await this.crypto.confidential.getAnySecretIdSharedWithParents(patient))
+    if (!sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id}`)
     const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
     return new models.Form(
       await this.crypto.entities

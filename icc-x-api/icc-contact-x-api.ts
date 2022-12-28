@@ -52,19 +52,26 @@ export class IccContactXApi extends IccContactApi {
   }
 
   /**
-   * @deprecated The concept of confidential will be removed from the iCure API. If you need to use any parameter including or after `confidential`
-   * you should replace the method with {@link newInstanceNoConfidential}, else you can continue using this.
-   * If you were using the method only with default parameters you can leave it as is.
-   * If you were calling this method using confidential=false (default) simply replace with {@link newInstanceNoConfidential}.
-   * If you were calling this method using confidential=true replace with {@link newInstanceNoConfidential} specifying an appropriate value for
-   * `preferredSfk`. You can use {@link EntitiesEncryption.secretIdsOf} or {@link EntitiesEncryption.secretIdsForHcpHierarchyOf} and tags filter to
-   * find the appropriate sfk.
+   * Creates a new instance of contact with initialised encryption metadata (not in the database).
+   * @param user the current user.
+   * @param patient the patient this contact refers to.
+   * @param c initialised data for the contact. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify other
+   * kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
+   * @param confidential if false the new contact will automatically be shared with all auto-delegations for the current user, and the default sfk
+   * will be a secret id of patient known by the topmost parent in the current data owner hierarchy. If true the new contact won't be shared with any
+   * of the auto delegations and the default sfk will be a confidential secret id of patient for the current data owner.
+   * @param delegates initial delegates which will have access to the contact other than the current data owner. Note that if you are using the
+   * default confidential secret foreign keys the delegates may not be able to find the contact.
+   * @param preferredSfk secret id of the patient to use as the secret foreign key to use for the contact. If provided overrides the default value,
+   * regardless of the value of {@link confidential}
+   * @param delegationTags tags for the initialised delegations.
+   * @return a new instance of contact.
    */
   async newInstance(
     user: models.User,
     patient: models.Patient,
     c: any,
-    confidential = false, // TODO confidential
+    confidential = false,
     delegates: string[] = [],
     preferredSfk?: string,
     delegationTags?: string[]
@@ -76,7 +83,7 @@ export class IccContactXApi extends IccContactApi {
           _type: 'org.taktik.icure.entities.Contact',
           created: new Date().getTime(),
           modified: new Date().getTime(),
-          responsible: this.dataOwnerApi.getDataOwnerOf(user),
+          responsible: this.dataOwnerApi.getDataOwnerIdOf(user),
           author: user.id,
           codes: [],
           tags: [],
@@ -89,8 +96,13 @@ export class IccContactXApi extends IccContactApi {
       )
     )
 
-    const ownerId = this.dataOwnerApi.getDataOwnerOf(user)
-    const sfk = preferredSfk ?? (await this.crypto.extractPreferredSfk(patient, ownerId, confidential))
+    const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
+    if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
+    const sfk =
+      preferredSfk ??
+      (confidential
+        ? await this.crypto.confidential.getConfidentialSecretId(patient)
+        : await this.crypto.confidential.getAnySecretIdSharedWithParents(patient))
     if (!sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id} for confidential=${confidential}`)
     const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
     const initialisationInfo = await this.crypto.entities.entityWithInitialisedEncryptedMetadata(
@@ -276,29 +288,29 @@ export class IccContactXApi extends IccContactApi {
   }
 
   findByHCPartyFormIdWithUser(user: models.User, hcPartyId: string, formId: string): Promise<Array<models.Contact> | any> {
-    return super.findByHCPartyFormId(hcPartyId, formId).then((ctcs) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, ctcs))
+    return super.findByHCPartyFormId(hcPartyId, formId).then((ctcs) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, ctcs))
   }
 
   findByHCPartyFormIdsWithUser(user: models.User, hcPartyId: string, body: models.ListOfIds): Promise<Array<models.Contact> | any> {
-    return super.findByHCPartyFormIds(hcPartyId, body).then((ctcs) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, ctcs))
+    return super.findByHCPartyFormIds(hcPartyId, body).then((ctcs) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, ctcs))
   }
 
   getContactWithUser(user: models.User, contactId: string): Promise<models.Contact> {
     return super
       .getContact(contactId)
-      .then((ctc) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, [ctc]))
+      .then((ctc) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, [ctc]))
       .then((ctcs) => ctcs[0])
   }
 
   getContactsWithUser(user: models.User, body?: models.ListOfIds): Promise<Array<models.Contact> | any> {
-    return super.getContacts(body).then((ctcs) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, ctcs))
+    return super.getContacts(body).then((ctcs) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, ctcs))
   }
 
   async modifyContactWithUser(user: models.User, body?: models.Contact): Promise<models.Contact | any> {
     return body
       ? this.encrypt(user, [_.cloneDeep(body)])
           .then((ctcs) => super.modifyContact(ctcs[0]))
-          .then((ctc) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, [ctc]))
+          .then((ctc) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, [ctc]))
           .then((ctcs) => ctcs[0])
       : null
   }
@@ -310,7 +322,7 @@ export class IccContactXApi extends IccContactApi {
           bodies.map((c) => _.cloneDeep(c))
         )
           .then((ctcs) => super.modifyContacts(ctcs))
-          .then((ctcs) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, ctcs))
+          .then((ctcs) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, ctcs))
       : null
   }
 
@@ -318,7 +330,7 @@ export class IccContactXApi extends IccContactApi {
     return body
       ? this.encrypt(user, [_.cloneDeep(body)])
           .then((ctcs) => super.createContact(ctcs[0]))
-          .then((ctc) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, [ctc]))
+          .then((ctc) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, [ctc]))
           .then((ctcs) => ctcs[0])
       : null
   }
@@ -330,7 +342,7 @@ export class IccContactXApi extends IccContactApi {
           bodies.map((c) => _.cloneDeep(c))
         )
           .then((ctcs) => super.createContacts(ctcs))
-          .then((ctcs) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, ctcs))
+          .then((ctcs) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, ctcs))
       : null
   }
 
@@ -378,7 +390,7 @@ export class IccContactXApi extends IccContactApi {
   }
 
   encrypt(user: models.User, ctcs: Array<models.Contact>) {
-    const hcpartyId = this.dataOwnerApi.getDataOwnerOf(user)!
+    const hcpartyId = this.dataOwnerApi.getDataOwnerIdOf(user)!
     const bypassEncryption = false //Used for debug
 
     return Promise.all(
@@ -602,7 +614,7 @@ export class IccContactXApi extends IccContactApi {
     const existing = ctc.services!.find((s) => s.id === svc.id)
     const promoted = _.extend(_.extend(existing || {}, svc), {
       author: user.id,
-      responsible: this.dataOwnerApi.getDataOwnerOf(user),
+      responsible: this.dataOwnerApi.getDataOwnerIdOf(user),
       modified: new Date().getTime(),
     })
     if (!existing) {
@@ -722,7 +734,7 @@ export class IccContactXApi extends IccContactApi {
             _type: 'org.taktik.icure.entities.embed.Service',
             created: new Date().getTime(),
             modified: new Date().getTime(),
-            responsible: this.dataOwnerApi.getDataOwnerOf(user),
+            responsible: this.dataOwnerApi.getDataOwnerIdOf(user),
             author: user.id,
             codes: [],
             tags: [],

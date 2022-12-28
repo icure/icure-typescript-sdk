@@ -565,7 +565,18 @@ export class IccDocumentXApi extends IccDocumentApi {
     this.dataOwnerApi = dataOwnerApi
   }
 
-  // noinspection JSUnusedGlobalSymbols
+  /**
+   * Creates a new instance of document with initialised encryption metadata (not in the database).
+   * @param user the current user.
+   * @param message the message this document refers to.
+   * @param c initialised data for the document. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
+   * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
+   * @param delegates initial delegates which will have access to the document other than the current data owner.
+   * @param preferredSfk secret id of the message to use as the secret foreign key to use for the document. The default value will be a secret
+   * id of message known by the topmost parent in the current data owner hierarchy.
+   * @param delegationTags tags for the initialised delegations.
+   * @return a new instance of document.
+   */
   async newInstance(
     user: models.User,
     message?: models.Message,
@@ -580,7 +591,7 @@ export class IccDocumentXApi extends IccDocumentApi {
         _type: 'org.taktik.icure.entities.Document',
         created: new Date().getTime(),
         modified: new Date().getTime(),
-        responsible: this.dataOwnerApi.getDataOwnerOf(user),
+        responsible: this.dataOwnerApi.getDataOwnerIdOf(user),
         author: user.id,
         codes: [],
         tags: [],
@@ -588,8 +599,10 @@ export class IccDocumentXApi extends IccDocumentApi {
       c
     )
 
-    const ownerId = this.dataOwnerApi.getDataOwnerOf(user)
-    const sfk = preferredSfk ?? (message ? (await this.crypto.entities.secretIdsOf(message, ownerId))[0] : undefined)
+    const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
+    if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
+    const sfk = message ? preferredSfk ?? (await this.crypto.confidential.getAnySecretIdSharedWithParents(message)) : undefined
+    if (message && !sfk) throw new Error(`Couldn't find any sfk of parent message ${message.id}`)
     const extraDelegations = [...(delegates ?? []), ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
     return new models.Document(
       await this.crypto.entities

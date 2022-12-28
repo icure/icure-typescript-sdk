@@ -55,7 +55,7 @@ const facades: EntityFacades = {
     get: async (api, id) => api.patientApi.getPatientWithUser(await api.userApi.getCurrentUser(), id),
     share: async (api, p, r, doId) => {
       const user = await api.userApi.getCurrentUser()
-      const ownerId = api.dataOwnerApi.getDataOwnerOf(user)
+      const ownerId = api.dataOwnerApi.getDataOwnerIdOf(user)
       return api.patientApi.modifyPatientWithUser(
         await api.userApi.getCurrentUser(),
         await api.cryptoApi.entities.entityWithExtendedEncryptedMetadata(
@@ -76,7 +76,7 @@ const facades: EntityFacades = {
     get: async (api, id) => api.contactApi.getContactWithUser(await api.userApi.getCurrentUser(), id),
     share: async (api, p, r, doId) => {
       const user = await api.userApi.getCurrentUser()
-      const ownerId = api.dataOwnerApi.getDataOwnerOf(user)
+      const ownerId = api.dataOwnerApi.getDataOwnerIdOf(user)
       return api.contactApi.modifyContactWithUser(
         await api.userApi.getCurrentUser(),
         await api.cryptoApi.entities.entityWithExtendedEncryptedMetadata(
@@ -97,7 +97,7 @@ const facades: EntityFacades = {
     get: async (api, id) => api.healthcareElementApi.getHealthElementWithUser(await api.userApi.getCurrentUser(), id),
     share: async (api, p, r, doId) => {
       const user = await api.userApi.getCurrentUser()
-      const ownerId = api.dataOwnerApi.getDataOwnerOf(user)
+      const ownerId = api.dataOwnerApi.getDataOwnerIdOf(user)
       return api.healthcareElementApi.modifyHealthElementWithUser(
         await api.userApi.getCurrentUser(),
         await api.cryptoApi.entities.entityWithExtendedEncryptedMetadata(
@@ -118,7 +118,7 @@ const facades: EntityFacades = {
     get: async (api, id) => api.calendarItemApi.getCalendarItemWithUser(await api.userApi.getCurrentUser(), id),
     share: async (api, p, r, doId) => {
       const user = await api.userApi.getCurrentUser()
-      const ownerId = api.dataOwnerApi.getDataOwnerOf(user)
+      const ownerId = api.dataOwnerApi.getDataOwnerIdOf(user)
       return api.calendarItemApi.modifyCalendarItemWithHcParty(
         await api.userApi.getCurrentUser(),
         await api.cryptoApi.entities.entityWithExtendedEncryptedMetadata(
@@ -345,7 +345,7 @@ describe('Full crypto test - Creation scenarios', async function () {
 
     const api = await initApi(env!, hcp1Username)
     const user = await api.userApi.getCurrentUser()
-    const dataOwnerId = api.dataOwnerApi.getDataOwnerOf(user)
+    const dataOwnerId = api.dataOwnerApi.getDataOwnerIdOf(user)
 
     const { userApi, patientApi, healthcarePartyApi, cryptoApi } = api
 
@@ -491,7 +491,7 @@ describe('Full crypto test - Creation scenarios', async function () {
 
           const api = apis['delegate']
           const patApi = apis[`${uType}-${uId}`]
-          const dataOwnerId = api.dataOwnerApi.getDataOwnerOf(user)
+          const dataOwnerId = api.dataOwnerApi.getDataOwnerIdOf(user)
           const dataOwner = (await patApi.dataOwnerApi.getDataOwner(dataOwnerId))!.dataOwner
 
           const parent = f[0] !== 'Patient' ? await api.patientApi.getPatientWithUser(delegateUser!, `delegate-${user.id}-Patient`) : undefined

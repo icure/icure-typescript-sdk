@@ -32,8 +32,20 @@ export class IccAccesslogXApi extends IccAccesslogApi {
     this.dataOwnerApi = dataOwnerApi
   }
 
+  /**
+   * Creates a new instance of access log with initialised encryption metadata (not in the database).
+   * @param user the current user.
+   * @param patient the patient this access log refers to.
+   * @param h initialised data for the access log. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
+   * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
+   * @param delegates initial delegates which will have access to the access log other than the current data owner.
+   * @param preferredSfk secret id of the patient to use as the secret foreign key to use for the access log. The default value will be a secret id of
+   * patient known by the topmost parent in the current data owner hierarchy.
+   * @param delegationTags tags for the initialised delegations.
+   * @return a new instance of access log.
+   */
   async newInstance(user: models.User, patient: models.Patient, h: any, delegates: string[] = [], preferredSfk?: string, delegationTags?: string[]) {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
 
     const accessLog = _.assign(
       {
@@ -53,8 +65,10 @@ export class IccAccesslogXApi extends IccAccesslogApi {
       h || {}
     )
 
-    const ownerId = this.dataOwnerApi.getDataOwnerOf(user)
-    const sfk = preferredSfk ?? (await this.crypto.entities.secretIdsOf(patient, ownerId))[0]
+    const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
+    if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
+    const sfk = preferredSfk ?? (await this.crypto.confidential.getAnySecretIdSharedWithParents(patient))
+    if (!sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id}`)
     const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.administrativeInformation ?? [])]
     return new AccessLog(
       await this.crypto.entities
@@ -99,7 +113,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
   }
 
   encrypt(user: models.User, accessLogs: Array<models.AccessLog>): Promise<Array<models.AccessLog>> {
-    const owner = this.dataOwnerApi.getDataOwnerOf(user)
+    const owner = this.dataOwnerApi.getDataOwnerIdOf(user)
     return Promise.all(accessLogs.map((x) => this.crypto.entities.encryptEntity(x, owner, this.cryptedKeys, false, (json) => new AccessLog(json))))
   }
 
@@ -111,7 +125,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
     return body
       ? this.encrypt(user, [_.cloneDeep(body)])
           .then((als) => super.createAccessLog(als[0]))
-          .then((accessLog) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, [accessLog]))
+          .then((accessLog) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, [accessLog]))
           .then((als) => als[0])
       : Promise.resolve()
   }
@@ -123,7 +137,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
   getAccessLogWithUser(user: models.User, accessLogId: string): Promise<models.AccessLog | any> {
     return super
       .getAccessLog(accessLogId)
-      .then((accessLog) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, [accessLog]))
+      .then((accessLog) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, [accessLog]))
       .then((als) => als[0])
   }
 
@@ -143,7 +157,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
     return super
       .listAccessLogs(fromEpoch, toEpoch, startKey, startDocumentId, limit, descending)
       .then((accessLog) =>
-        this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, accessLog.rows!).then((dr) => Object.assign(accessLog, { rows: dr }))
+        this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, accessLog.rows!).then((dr) => Object.assign(accessLog, { rows: dr }))
       )
   }
 
@@ -155,7 +169,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
     return body
       ? this.encrypt(user, [_.cloneDeep(body)])
           .then((als) => super.modifyAccessLog(als[0]))
-          .then((accessLog) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, [accessLog]))
+          .then((accessLog) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, [accessLog]))
           .then((als) => als[0])
       : null
   }
@@ -185,7 +199,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
     return super
       .findByUserAfterDate(userId, accessType, startDate, startKey, startDocumentId, limit, descending)
       .then((accessLog) =>
-        this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, accessLog.rows!).then((dr) => Object.assign(accessLog, { rows: dr }))
+        this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, accessLog.rows!).then((dr) => Object.assign(accessLog, { rows: dr }))
       )
   }
 
@@ -206,7 +220,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
         numberRequestedAccessLogs,
         true
       )) as models.PaginatedListAccessLog
-      const logsWithPatientId: AccessLogWithPatientId[] = await this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, logs as AccessLog[]).then(
+      const logsWithPatientId: AccessLogWithPatientId[] = await this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, logs as AccessLog[]).then(
         (decryptedLogs) =>
           Promise.all(
             _.map(decryptedLogs, (decryptedLog) => {

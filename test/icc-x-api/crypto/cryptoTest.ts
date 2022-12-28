@@ -109,14 +109,14 @@ describe('Init confidential delegation in patient', () => {
     }
 
     // Initially there shouldn't be any secret confidential secret id
-    expect(await childApi.cryptoApi.extractPreferredSfk(pat, childUser.healthcarePartyId!, true)).to.be.undefined
+    expect(await childApi.cryptoApi.confidential.getConfidentialSecretId(pat)).to.be.undefined
 
     // Now create a confidential delegation
-    const patWithConfidential = await childApi.patientApi.initConfidentialDelegation(pat, childUser)
+    const patWithConfidential = await childApi.patientApi.initConfidentialSecretId(pat, childUser)
 
     // Confidential secret id should be different from the original secret id
-    const confidentialDelegationKey = await childApi.cryptoApi.extractPreferredSfk(patWithConfidential, childUser.healthcarePartyId!, true)
-    const nonConfidentialDelegationKey = await childApi.cryptoApi.extractPreferredSfk(patWithConfidential, childUser.healthcarePartyId!, false)
+    const confidentialDelegationKey = await childApi.cryptoApi.confidential.getConfidentialSecretId(patWithConfidential)
+    const nonConfidentialDelegationKey = await childApi.cryptoApi.confidential.getAnySecretIdSharedWithParents(patWithConfidential)
     expect(confidentialDelegationKey).to.not.equal(nonConfidentialDelegationKey)
     expect(nonConfidentialDelegationKey).to.equal(originalSecretId)
 
@@ -140,13 +140,13 @@ describe('Init confidential delegation in patient', () => {
     }
 
     // If a secret delegation is already available there is no need to create a new one
-    const patWithConfidentialAgain = await childApi.patientApi.initConfidentialDelegation(patWithConfidential, childUser)
+    const patWithConfidentialAgain = await childApi.patientApi.initConfidentialSecretId(patWithConfidential, childUser)
     expect(patWithConfidentialAgain.rev).to.equal(patWithConfidentialAgain.rev)
     expect(await childApi.cryptoApi.entities.secretIdsOf(patWithConfidentialAgain)).to.have.length(2)
 
     // Different users will have different confidential secret ids...
-    expect(await child2Api.cryptoApi.extractPreferredSfk(patWithConfidential, child2User.healthcarePartyId!, true)).to.be.undefined
-    const patWithMoreConfidentialIds = await child2Api.patientApi.initConfidentialDelegation(patWithConfidential, child2User)
+    expect(await child2Api.cryptoApi.confidential.getConfidentialSecretId(patWithConfidential)).to.be.undefined
+    const patWithMoreConfidentialIds = await child2Api.patientApi.initConfidentialSecretId(patWithConfidential, child2User)
 
     // ...child continues to know the same secret ids...
     const childSecretIdsRepeat = await childApi.cryptoApi.entities.secretIdsOf(patWithMoreConfidentialIds)
@@ -156,7 +156,7 @@ describe('Init confidential delegation in patient', () => {
 
     // ...but child2 now also knows a different secret id...
     const child2secretIds = await child2Api.cryptoApi.entities.secretIdsOf(patWithMoreConfidentialIds)
-    const child2confidential = await child2Api.cryptoApi.extractPreferredSfk(patWithMoreConfidentialIds, child2User.healthcarePartyId!, true)
+    const child2confidential = await child2Api.cryptoApi.confidential.getConfidentialSecretId(patWithMoreConfidentialIds)
     expect(child2confidential).to.not.equal(confidentialDelegationKey)
     expect(child2confidential).to.not.equal(nonConfidentialDelegationKey)
     expect(child2secretIds).to.have.length(2)
@@ -264,7 +264,7 @@ describe('test that confidential helement information cannot be retrieved at MH 
     ]
 
     const pat = await childApi.patientApi.newInstance(childUser, { firstName: 'John', lastName: 'Doe' })
-    const modifiedPatient = (await childApi.patientApi.initConfidentialDelegation(pat, childUser))!
+    const modifiedPatient = (await childApi.patientApi.initConfidentialSecretId(pat, childUser))!
 
     const confidentialHe = await childApi.healthcareElementApi.createHealthElementWithUser(
       childUser,
@@ -307,7 +307,7 @@ describe('test that confidential contact information cannot be retrieved at MH l
     ]
 
     const pat = await childApi.patientApi.newInstance(childUser, { firstName: 'John', lastName: 'Doe' })
-    const modifiedPatient = (await childApi.patientApi.initConfidentialDelegation(pat, childUser))!
+    const modifiedPatient = (await childApi.patientApi.initConfidentialSecretId(pat, childUser))!
 
     const confidentialCtc = await childApi.contactApi.createContactWithUser(
       childUser,

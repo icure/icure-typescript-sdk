@@ -126,7 +126,7 @@ export class IccDataOwnerXApi {
    * @return the id of the data owner corresponding to the provided user.
    * @throws if the user is not a data owner.
    */
-  getDataOwnerOf(user: User): string {
+  getDataOwnerIdOf(user: User): string {
     const dataOwnerId = user.healthcarePartyId ?? user.patientId ?? user.deviceId
     if (dataOwnerId == undefined) {
       throw Error(`User ${user.id} is not a data owner`)
@@ -203,7 +203,7 @@ export class IccDataOwnerXApi {
 
   private async forceLoadCurrentDataOwnerHierarchyAndCacheIds(): Promise<DataOwnerWithType[]> {
     const currentUser = await this.userBaseApi.getCurrentUser()
-    let curr = await this.getDataOwner(this.getDataOwnerOf(currentUser))
+    let curr = await this.getDataOwner(this.getDataOwnerIdOf(currentUser))
     this.currentDataOwnerType = curr.type
     let res = [curr]
     while ((curr.dataOwner as HealthcareParty).parentId) {
