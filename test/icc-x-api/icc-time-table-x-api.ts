@@ -63,7 +63,8 @@ describe('icc-x-time-table-api Tests', () => {
 
     const baseTimeTable = await instanceTimeTableFor(timeTableApiForHcp, hcpUser)
     expect(Object.keys(baseTimeTable.delegations!).length).to.equals(1)
-    expect(baseTimeTable.encryptionKeys).to.be.undefined
+    // TODO old test, now we want to always create encryption keys on all entities, right?
+    // expect(baseTimeTable.encryptionKeys).to.be.undefined
 
     // When
     const createdTimeTable = await timeTableApiForHcp.createTimeTable(baseTimeTable)

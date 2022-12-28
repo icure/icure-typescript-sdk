@@ -50,13 +50,20 @@ export class IccHelementXApi extends IccHelementApi {
   }
 
   /**
-   * @deprecated The concept of confidential will be removed from the iCure API. If you need to use any parameter including or after `confidential`
-   * you should replace the method with {@link newInstanceNoConfidential}, else you can continue using this.
-   * If you were using the method only with default parameters you can leave it as is.
-   * If you were calling this method using confidential=false (default) simply replace with {@link newInstanceNoConfidential}.
-   * If you were calling this method using confidential=true replace with {@link newInstanceNoConfidential} specifying an appropriate value for
-   * `preferredSfk`. You can use {@link EntitiesEncryption.secretIdsOf} or {@link EntitiesEncryption.secretIdsForHcpHierarchyOf} and tags filter to
-   * find the appropriate sfk.
+   * Creates a new instance of health element with initialised encryption metadata (not in the database).
+   * @param user the current user.
+   * @param patient the patient this health element refers to.
+   * @param h initialised data for the health element. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
+   * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
+   * @param confidential if false the new health element will automatically be shared with all auto-delegations for the current user, and the default
+   * sfk will be a secret id of patient known by the topmost parent in the current data owner hierarchy. If true the new health element won't be
+   * shared with any of the auto delegations and the default sfk will be a confidential secret id of patient for the current data owner.
+   * @param delegates initial delegates which will have access to the health element other than the current data owner. Note that if you are using the
+   * default confidential secret foreign keys the delegates may not be able to find the health element.
+   * @param preferredSfk secret id of the patient to use as the secret foreign key to use for the health element. If provided overrides the default
+   * value, regardless of the value of {@link confidential}
+   * @param delegationTags tags for the initialised delegations.
+   * @return a new instance of health element.
    */
   async newInstance(
     user: models.User,
@@ -67,7 +74,7 @@ export class IccHelementXApi extends IccHelementApi {
     preferredSfk?: string,
     delegationTags?: string[]
   ) {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     const helement = _.assign(
       {
         id: this.crypto.primitives.randomUuid(),
@@ -84,8 +91,13 @@ export class IccHelementXApi extends IccHelementApi {
       h || {}
     )
 
-    const ownerId = this.dataOwnerApi.getDataOwnerOf(user)
-    const sfk = preferredSfk ?? (await this.crypto.extractPreferredSfk(patient, ownerId, confidential))
+    const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
+    if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
+    const sfk =
+      preferredSfk ??
+      (confidential
+        ? await this.crypto.confidential.getConfidentialSecretId(patient)
+        : await this.crypto.confidential.getAnySecretIdSharedWithParents(patient))
     if (!sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id} for confidential=${confidential}`)
     const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
     const initialisationInfo = await this.crypto.entities.entityWithInitialisedEncryptedMetadata(
@@ -139,7 +151,7 @@ export class IccHelementXApi extends IccHelementApi {
           bodies.map((c) => _.cloneDeep(c))
         )
           .then((hes) => super.createHealthElements(hes))
-          .then((hes) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user), hes))
+          .then((hes) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user), hes))
       : Promise.resolve(null)
   }
 
@@ -159,7 +171,7 @@ export class IccHelementXApi extends IccHelementApi {
   }
 
   getHealthElementsWithUser(user: models.User, body?: models.ListOfIds): Promise<models.HealthElement[]> {
-    return super.getHealthElements(body).then((hes) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user), hes))
+    return super.getHealthElements(body).then((hes) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user), hes))
   }
 
   newHealthElementDelegations(healthElementId: string, body?: Array<models.Delegation>): never {
@@ -218,7 +230,7 @@ export class IccHelementXApi extends IccHelementApi {
           bodies.map((c) => _.cloneDeep(c))
         )
           .then((hes) => super.modifyHealthElements(hes))
-          .then((hes) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user), hes))
+          .then((hes) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user), hes))
       : Promise.resolve(null)
   }
 
@@ -284,14 +296,14 @@ export class IccHelementXApi extends IccHelementApi {
   }
 
   encrypt(user: models.User, healthElements: Array<models.HealthElement>): Promise<Array<models.HealthElement>> {
-    const owner = this.dataOwnerApi.getDataOwnerOf(user)
+    const owner = this.dataOwnerApi.getDataOwnerIdOf(user)
     return Promise.all(
       healthElements.map((he) => this.crypto.entities.encryptEntity(he, owner, this.encryptedKeys, false, (x) => new models.HealthElement(x)))
     )
   }
 
   decryptWithUser(user: models.User, hes: Array<models.HealthElement>): Promise<Array<models.HealthElement>> {
-    return this.decrypt(this.dataOwnerApi.getDataOwnerOf(user), hes)
+    return this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user), hes)
   }
 
   decrypt(dataOwnerId: string, hes: Array<models.HealthElement>): Promise<Array<models.HealthElement>> {

@@ -37,6 +37,18 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
     return this.newInstancePatient(user, null, ci, delegates)
   }
 
+  /**
+   * Creates a new instance of calendar item with initialised encryption metadata (not in the database).
+   * @param user the current user.
+   * @param patient the patient this calendar item refers to.
+   * @param ci initialised data for the calendar item. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
+   * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
+   * @param delegates initial delegates which will have access to the calendar item other than the current data owner.
+   * @param preferredSfk secret id of the patient to use as the secret foreign key to use for the calendar item. The default value will be a secret id
+   * of patient known by the topmost parent in the current data owner hierarchy.
+   * @param delegationTags tags for the initialised delegations.
+   * @return a new instance of calendar item.
+   */
   async newInstancePatient(
     user: models.User,
     patient: models.Patient | null,
@@ -52,7 +64,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
         _type: 'org.taktik.icure.entities.CalendarItem',
         created: new Date().getTime(),
         modified: new Date().getTime(),
-        responsible: this.dataOwnerApi.getDataOwnerOf(user),
+        responsible: this.dataOwnerApi.getDataOwnerIdOf(user),
         author: user.id,
         codes: [],
         tags: [],
@@ -60,8 +72,10 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
       ci || {}
     )
 
-    const ownerId = this.dataOwnerApi.getDataOwnerOf(user)
-    const sfk = patient ? preferredSfk ?? (await this.crypto.entities.secretIdsOf(patient, ownerId))[0] : undefined
+    const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
+    if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
+    const sfk = patient ? preferredSfk ?? (await this.crypto.confidential.getAnySecretIdSharedWithParents(patient)) : undefined
+    if (patient && !sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id}`)
     const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
     return new CalendarItem(
       await this.crypto.entities
@@ -91,7 +105,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
     return body
       ? this.encrypt(user, [_.cloneDeep(body)])
           .then((items) => super.createCalendarItem(items[0]))
-          .then((ci) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, [ci]))
+          .then((ci) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, [ci]))
           .then((cis) => cis[0])
       : null
   }
@@ -99,7 +113,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
   getCalendarItemWithUser(user: models.User, calendarItemId: string): Promise<CalendarItem | any> {
     return super
       .getCalendarItem(calendarItemId)
-      .then((calendarItem) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, [calendarItem]))
+      .then((calendarItem) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, [calendarItem]))
       .then((cis) => cis[0])
   }
 
@@ -108,7 +122,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
   }
 
   getCalendarItemsWithUser(user: models.User): Promise<Array<CalendarItem> | any> {
-    return super.getCalendarItems().then((calendarItems) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, calendarItems))
+    return super.getCalendarItems().then((calendarItems) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, calendarItems))
   }
 
   getCalendarItems(): never {
@@ -116,7 +130,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
   }
 
   getCalendarItemsWithIdsWithUser(user: models.User, body?: models.ListOfIds): Promise<Array<CalendarItem> | any> {
-    return super.getCalendarItemsWithIds(body).then((calendarItems) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, calendarItems))
+    return super.getCalendarItemsWithIds(body).then((calendarItems) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, calendarItems))
   }
 
   getCalendarItemsWithIds(body?: models.ListOfIds): never {
@@ -131,7 +145,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
   ): Promise<Array<CalendarItem> | any> {
     return super
       .getCalendarItemsByPeriodAndHcPartyId(startDate, endDate, hcPartyId)
-      .then((calendarItems) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, calendarItems))
+      .then((calendarItems) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, calendarItems))
   }
 
   getCalendarItemsByPeriodAndHcPartyId(startDate?: number, endDate?: number, hcPartyId?: string): never {
@@ -146,7 +160,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
   ): Promise<Array<CalendarItem> | any> {
     return super
       .getCalendarsByPeriodAndAgendaId(startDate, endDate, agendaId)
-      .then((calendarItems) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, calendarItems))
+      .then((calendarItems) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, calendarItems))
   }
 
   getCalendarsByPeriodAndAgendaId(startDate?: number, endDate?: number, agendaId?: string): never {
@@ -177,13 +191,13 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
     return body
       ? this.encrypt(user, [_.cloneDeep(body)])
           .then((items) => super.modifyCalendarItem(items[0]))
-          .then((ci) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, [ci]))
+          .then((ci) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, [ci]))
           .then((cis) => cis[0])
       : null
   }
 
   encrypt(user: models.User, calendarItems: Array<models.CalendarItem>): Promise<Array<models.CalendarItem>> {
-    const owner = this.dataOwnerApi.getDataOwnerOf(user)
+    const owner = this.dataOwnerApi.getDataOwnerIdOf(user)
     return Promise.all(
       calendarItems.map((x) => this.crypto.entities.encryptEntity(x, owner, this.encryptedKeys, false, (json) => new CalendarItem(json)))
     )

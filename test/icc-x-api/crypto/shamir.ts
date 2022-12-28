@@ -98,7 +98,7 @@ describe('Shamir key recovery', async function () {
       hierarchyApis.child2Api,
     ]
     const notariesIds = (await Promise.all(notariesApis.map((x) => x.healthcarePartyApi.getCurrentHealthcareParty()))).map((x) => x.id!)
-    const pat = await api.patientApi.initConfidentialDelegation(await api.patientApi.newInstance(user), user)
+    const pat = await api.patientApi.initConfidentialSecretId(await api.patientApi.newInstance(user), user)
     const descr = 'Confidential info'
     const confidentialData = await api.healthcareElementApi.createHealthElementWithUser(
       user,

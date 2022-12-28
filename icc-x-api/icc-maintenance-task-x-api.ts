@@ -37,8 +37,17 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
     this.encryptedKeys = encryptedKeys
   }
 
+  /**
+   * Creates a new instance of maintenance task with initialised encryption metadata (not in the database).
+   * @param user the current user.
+   * @param m initialised data for the maintenance task. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
+   * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
+   * @param delegates initial delegates which will have access to the maintenance task other than the current data owner.
+   * @param delegationTags tags for the initialised delegations.
+   * @return a new instance of maintenance task.
+   */
   async newInstance(user: models.User, m: any, delegates: string[] = [], delegationTags?: string[]) {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     const maintenanceTask = _.assign(
       {
         id: this.crypto.primitives.randomUuid(),
@@ -120,7 +129,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
   }
 
   encrypt(user: models.User, maintenanceTasks: Array<models.MaintenanceTask>): Promise<Array<models.MaintenanceTask>> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
 
     return Promise.all(
       maintenanceTasks.map((m) => this.crypto.entities.encryptEntity(m, dataOwnerId, this.encryptedKeys, true, (x) => new models.MaintenanceTask(x)))
@@ -128,7 +137,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
   }
 
   decrypt(user: models.User, maintenanceTasks: Array<models.MaintenanceTask>): Promise<Array<models.MaintenanceTask>> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
 
     return Promise.all(maintenanceTasks.map(async (mT) => this.crypto.entities.decryptEntity(mT, dataOwnerId, (x) => new MaintenanceTask(x))))
   }

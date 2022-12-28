@@ -17,6 +17,7 @@ import { IcureStorageFacade } from './storage/IcureStorageFacade'
 import { ShamirKeysManager } from './crypto/ShamirKeysManager'
 import { IccHcpartyApi } from '../icc-api'
 import { StorageEntryKeysFactory } from './storage/StorageEntryKeysFactory'
+import { ConfidentialEntities } from './crypto/ConfidentialEntities'
 
 interface DelegatorAndKeys {
   delegatorId: string
@@ -35,6 +36,7 @@ export class IccCryptoXApi {
   private readonly keyManager: KeyManager
   private readonly dataOwnerApi: IccDataOwnerXApi
   private readonly entitiesEncrypiton: EntitiesEncryption
+  private readonly confidentialEntities: ConfidentialEntities
   private readonly icureStorage: IcureStorageFacade
   private readonly shamirManager: ShamirKeysManager
   private readonly _storage: StorageFacade<string>
@@ -93,6 +95,10 @@ export class IccCryptoXApi {
     return this.entitiesEncrypiton
   }
 
+  get confidential(): ConfidentialEntities {
+    return this.confidentialEntities
+  }
+
   get userKeysManager(): KeyManager {
     return this.keyManager
   }
@@ -114,7 +120,8 @@ export class IccCryptoXApi {
     storage: StorageFacade<string>,
     keyStorage: KeyStorageFacade,
     icureStorageFacade: IcureStorageFacade,
-    hcPartyBaseApi: IccHcpartyApi
+    hcPartyBaseApi: IccHcpartyApi,
+    confidentialEntities: ConfidentialEntities
   ) {
     this.exchangeKeysManager = exchangeKeysManager
     this.cryptoPrimitives = cryptoPrimitives
@@ -126,6 +133,7 @@ export class IccCryptoXApi {
     this._keyStorage = keyStorage
     this.icureStorage = icureStorageFacade
     this.hcpartyBaseApi = hcPartyBaseApi
+    this.confidentialEntities = confidentialEntities
   }
 
   /**
@@ -375,23 +383,13 @@ export class IccCryptoXApi {
   }
 
   /**
-   * @deprecated The concept of confidential will be removed from the iCure API: this method will be removed from the general purpose iCure api.
+   * @deprecated Usually you should not need this method, since the preferred sfk is automatically chosen by the extended entity apis when creating a
+   * new instance of the entity. If you still need this method you can replace it with the methods available at {@link confidential}:
+   * - {@link ConfidentialEntities.getConfidentialSecretId} if you were calling this method with `confidential = true`
+   * - {@link ConfidentialEntities.getAnySecretIdSharedWithParents} if you were calling this method with `confidential = false`
    */
   async extractPreferredSfk(parent: EncryptedParentEntity, hcpartyId: string, confidential: boolean) {
-    const secretForeignKeys = await this.entities.secretIdsForHcpHierarchyOf(parent)
-    const keys = secretForeignKeys
-      .filter(({ extracted }) => extracted.length > 0)
-      .filter((x, idx) => (confidential ? x.ownerId === hcpartyId : idx === 0))[0]
-
-    return (
-      (keys &&
-        (confidential
-          ? keys.extracted.find(
-              (k) => !secretForeignKeys.some(({ extracted, ownerId: parentHcpId }) => hcpartyId !== parentHcpId && extracted.includes(k))
-            )
-          : keys.extracted[0])) ||
-      undefined
-    )
+    return confidential ? this.confidential.getConfidentialSecretId(parent, hcpartyId) : this.confidential.getAnySecretIdSharedWithParents(parent)
   }
 
   /**
