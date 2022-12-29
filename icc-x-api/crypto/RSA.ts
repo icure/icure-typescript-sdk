@@ -1,3 +1,5 @@
+import { ua2utf8, utf8_2ua } from '../utils'
+
 /**
  * Represents an RSA KeyPair in a generic format.
  */
@@ -155,6 +157,23 @@ export class RSAUtils {
         privateKey: results[1],
       }
     })
+  }
+
+  /**
+   * Tries to encrypt then decrypt data using a keypair. If both operations succeed without throwing an error and the decrypted data matches the
+   * original data returns true, else false.
+   * @param keyPair a key pair.
+   * @return if the key pair could be successfully used to encrypt then decrypt data.
+   */
+  async checkKeyPairValidity(keyPair: KeyPair<CryptoKey>): Promise<boolean> {
+    try {
+      const text = 'shibboleth'
+      const encryptedText = await this.encrypt(keyPair.publicKey, utf8_2ua(text))
+      const decryptedText = ua2utf8(await this.decrypt(keyPair.privateKey, new Uint8Array(encryptedText)))
+      return decryptedText === text
+    } catch (e) {
+      return false
+    }
   }
 }
 

@@ -851,9 +851,9 @@ export class IccCryptoXApi {
   }
 
   /**
-   * @deprecated the crypto api will automatically verify on startup the validity of private keys. Currently, the api only verifies if there are
-   * verified private keys (in the meaning of safe for encryption), but if you think there may be situations where the keypair could be corrupted and
-   * encryption->decryption may give invalid results we can also include this test.
+   * @deprecated the crypto api will automatically verify on startup the validity of private keys, but in some cases you may want to verify the
+   * validity of keys recovered in your implementation of {@link CryptoStrategies}: in this case the method has been replaced with
+   * {@link RSA.checkKeyPairValidity}
    */
   async checkPrivateKeyValidity(dataOwner: HealthcareParty | Patient | Device): Promise<boolean> {
     const publicKeys = Array.from(new Set([dataOwner.publicKey].concat(Object.keys(dataOwner.aesExchangeKeys ?? {})).filter((x) => !!x))) as string[]
