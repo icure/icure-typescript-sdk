@@ -202,7 +202,6 @@ const userDefinitions: Record<
       new DefaultStorageEntryKeysFactory(),
       new TestCryptoStrategies(originalKey, { [ua2hex(await primitives.RSA.exportKey(newKey.publicKey, 'spki')).slice(-32)]: true })
     )
-    console.log((await apis.dataOwnerApi.getCurrentDataOwner()).dataOwner.transferKeys)
     expect(Object.keys(apis.cryptoApi.userKeysManager.getDecryptionKeys())).to.have.length(2)
     return { user, apis, didLoseKey: false }
   },

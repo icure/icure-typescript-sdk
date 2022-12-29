@@ -110,6 +110,17 @@ export class IccDataOwnerXApi {
   }
 
   /**
+   * If the logged user is a data owner get the current data owner and all of his parents.
+   * @throws if the current user is not a data owner.
+   * @return the current data owner hierarchy, starting from the topmost parent to the current data owner.
+   */
+  async getCurrentDataOwnerHierarchy(): Promise<DataOwnerWithType[]> {
+    if (!this.currentDataOwnerHierarchyIds) {
+      return await this.forceLoadCurrentDataOwnerHierarchyAndCacheIds()
+    } else return Promise.all(this.currentDataOwnerHierarchyIds!.map((id) => this.getDataOwner(id)))
+  }
+
+  /**
    * If the logged user is a data owner get the type of the current data owner. This information is cached.
    * @throws if the current user is not a data owner
    */
@@ -153,6 +164,10 @@ export class IccDataOwnerXApi {
       this.userBaseApi.authenticationProvider.getAuthService()
     )
       .then((doc) => doc.body as DataOwnerWithType)
+      .then((dowt) => {
+        if (dowt.dataOwner.id === this.selfDataOwnerId) this.checkDataOwnerIntegrity(dowt.dataOwner)
+        return dowt
+      })
       .catch((err) => this.handleError(err))
   }
 
@@ -204,6 +219,7 @@ export class IccDataOwnerXApi {
   private async forceLoadCurrentDataOwnerHierarchyAndCacheIds(): Promise<DataOwnerWithType[]> {
     const currentUser = await this.userBaseApi.getCurrentUser()
     let curr = await this.getDataOwner(this.getDataOwnerIdOf(currentUser))
+    this.checkDataOwnerIntegrity(curr.dataOwner)
     this.currentDataOwnerType = curr.type
     let res = [curr]
     while ((curr.dataOwner as HealthcareParty).parentId) {

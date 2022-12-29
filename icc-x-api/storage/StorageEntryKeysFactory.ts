@@ -24,7 +24,7 @@ export interface StorageEntryKeysFactory {
   cachedRecoveredKeypairOfDataOwner(dataOwnerId: string, publicKeyFingerprint: string): string
 
   /**
-   * Get the entry key for the storage of answers to own public key verification (from {@link PublicKeyVerifier.verifyOwnPublicKeys}).
+   * Get the entry key for the storage of answers to own public key verification (from {@link CryptoStrategies.verifyOwnPublicKeys}).
    * This entry key will be used in a {@link StorageFacade}.
    * @param dataOwnerId Id of a data owner.
    * @return entry key for verified public keys of the data owner.
