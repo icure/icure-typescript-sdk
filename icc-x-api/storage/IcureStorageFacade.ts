@@ -59,15 +59,18 @@ export class IcureStorageFacade {
    * {@link verificationDetails} take priority over the stored data.
    * @param dataOwnerId id of a data owner.
    * @param verificationDetails results of verification, associates key fingerprints to true if they were verified by the user or false otherwise.
+   * @return the udpated keys
    */
-  async saveSelfVerifiedKeys(dataOwnerId: string, verificationDetails: { [keyFingerprint: string]: boolean }): Promise<void> {
-    await this.data.setItem(
-      this.entryFor.selfPublicKeysVerificationCacheForDataOwner(dataOwnerId),
-      JSON.stringify({
-        ...(await this.loadSelfVerifiedKeys(dataOwnerId)),
-        ...verificationDetails,
-      })
-    )
+  async saveSelfVerifiedKeys(
+    dataOwnerId: string,
+    verificationDetails: { [keyFingerprint: string]: boolean }
+  ): Promise<{ [keyFingerprint: string]: boolean }> {
+    const updated = {
+      ...(await this.loadSelfVerifiedKeys(dataOwnerId)),
+      ...verificationDetails,
+    }
+    await this.data.setItem(this.entryFor.selfPublicKeysVerificationCacheForDataOwner(dataOwnerId), JSON.stringify(updated))
+    return updated
   }
 
   /**

@@ -143,7 +143,8 @@ export const Api = async function (
     cryptoPrimitives,
     keyManager,
     baseExchangeKeysManager,
-    dataOwnerApi
+    dataOwnerApi,
+    icureStorage
   )
   const entitiesEncryption = new EntitiesEncryption(cryptoPrimitives, dataOwnerApi, exchangeKeysManager)
   const shamirManager = new ShamirKeysManager(cryptoPrimitives, dataOwnerApi, keyManager, exchangeKeysManager)
