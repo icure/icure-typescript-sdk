@@ -107,8 +107,8 @@ export class KeyManager {
    */
   async initialiseKeys(): Promise<{ newKeyPair: KeyPair<CryptoKey>; newKeyFingerprint: string } | undefined> {
     const newKey = await this.doLoadKeys(
-      (x) => this.strategies.recoverAndVerifySelfHierarchyKeys(x),
-      (x) => this.strategies.generateNewKeyForDataOwner(x)
+      (x) => this.strategies.recoverAndVerifySelfHierarchyKeys(x, this.primitives),
+      (x) => this.strategies.generateNewKeyForDataOwner(x, this.primitives)
     )
     return newKey ? { newKeyPair: newKey.pair, newKeyFingerprint: newKey.fingerprint } : undefined
   }

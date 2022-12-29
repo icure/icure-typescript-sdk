@@ -153,7 +153,7 @@ export class ExchangeKeysManager {
       if ((await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()).includes(delegateId)) {
         verifiedDelegatePublicKeys = await this.keyManager.getVerifiedPublicKeysFor(delegate)
       } else {
-        verifiedDelegatePublicKeys = await this.cryptoStrategies.verifyDelegatePublicKeys(delegate, delegatePublicKeys)
+        verifiedDelegatePublicKeys = await this.cryptoStrategies.verifyDelegatePublicKeys(delegate, delegatePublicKeys, this.primitives)
       }
       if (!verifiedDelegatePublicKeys || verifiedDelegatePublicKeys.length == 0)
         throw new Error(`No verified public keys for delegate ${delegateId}: impossible to create new exchange key.`)

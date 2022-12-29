@@ -44,10 +44,17 @@ export class KeyRecovery {
       foundNewPrivateKeys = false
       for (const recover of recoveryFunctions) {
         const recovered = await recover(dataOwner, allPrivateKeys, missingKeysFpSet)
-        if (Object.keys(recovered).length > 0) {
+        const validatedRecovered: { [fp: string]: KeyPair<CryptoKey> } = {}
+        for (const [fp, keyPair] of Object.entries(recovered)) {
+          const valid = await this.primitives.RSA.checkKeyPairValidity(keyPair)
+          if (valid) {
+            validatedRecovered[fp] = keyPair
+          }
+        }
+        if (Object.keys(validatedRecovered).length > 0) {
           foundNewPrivateKeys = true
-          Object.keys(recovered).forEach((fp) => missingKeysFpSet.delete(fp))
-          allPrivateKeys = { ...allPrivateKeys, ...recovered }
+          Object.keys(validatedRecovered).forEach((fp) => missingKeysFpSet.delete(fp))
+          allPrivateKeys = { ...allPrivateKeys, ...validatedRecovered }
         }
       }
     }
