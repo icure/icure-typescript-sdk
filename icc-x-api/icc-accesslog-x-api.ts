@@ -69,7 +69,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
     const sfk = preferredSfk ?? (await this.crypto.confidential.getAnySecretIdSharedWithParents(patient))
     if (!sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id}`)
-    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.administrativeInformation ?? [])]
+    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.administrativeData ?? [])]
     return new AccessLog(
       await this.crypto.entities
         .entityWithInitialisedEncryptedMetadata(accessLog, patient.id, sfk, true, extraDelegations, delegationTags)
