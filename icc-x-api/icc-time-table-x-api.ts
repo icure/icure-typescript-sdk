@@ -55,7 +55,7 @@ export class IccTimeTableXApi extends IccTimeTableApi {
       tt || {}
     )
 
-    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.administrativeInformation ?? [])]
+    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.administrativeData ?? [])]
     return new models.TimeTable(
       await this.crypto.entities
         .entityWithInitialisedEncryptedMetadata(timeTable, undefined, undefined, true, extraDelegations, delegationTags)
