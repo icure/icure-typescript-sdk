@@ -2,7 +2,7 @@ import { KeyManager } from './KeyManager'
 import { BaseExchangeKeysManager } from './BaseExchangeKeysManager'
 import { DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { LruTemporisedAsyncCache } from '../utils/lru-temporised-async-cache'
-import { fingerprintToPublicKeysMapOf, loadPublicKeys } from './utils'
+import { loadPublicKeys } from './utils'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { CryptoStrategies } from './CryptoStrategies'
 import { IcureStorageFacade } from '../storage/IcureStorageFacade'
@@ -23,11 +23,11 @@ export class ExchangeKeysManager {
   private readonly primitives: CryptoPrimitives
   private readonly icureStorage: IcureStorageFacade
   /*
-   * Exchange keys cache where the current user is the delegator. There should be only few keys where the delegator is the current user, and they
-   * should never change without an action from the delegator (unless he does this action from another device), so it should be safe to store them
-   * in an unlimited cache and without expiration.
+   * Exchange keys cache where the current user is the delegator. The keys where the delegator is the current user should never change without
+   * an action from the delegator (unless he does this action from another device), so it should be safe to store them without expiration. However,
+   * the delegator may still have a lot of exchange keys (e.g. doctor -> all patients), so it is not safe to have a cache with unlimited size.
    */
-  private delegatorExchangeKeys: Map<string, Promise<{ key: CryptoKey; isVerified: boolean }[]>> = new Map()
+  private delegatorExchangeKeysCache: LruTemporisedAsyncCache<string, { key: CryptoKey; isVerified: boolean }[]>
   /*
    * Exchange keys cache where the current user is not the delegator. There may be many keys where the current user is the delegate,
    * and they may change over time without any action from the current data owner, since the delegator is someone else. For this reason the cache must
@@ -40,6 +40,7 @@ export class ExchangeKeysManager {
   }
 
   constructor(
+    delegatorKeysCacheSize: number,
     delegatedKeysCacheSize: number,
     delegatedKeysCacheLifetimeMsBase: number,
     delegatedKeysCacheLifetimeMsNoKeys: number,
@@ -58,6 +59,7 @@ export class ExchangeKeysManager {
     this.delegatedExchangeKeysCache = new LruTemporisedAsyncCache(delegatedKeysCacheSize, (keys) =>
       keys.length > 0 ? delegatedKeysCacheLifetimeMsBase : delegatedKeysCacheLifetimeMsNoKeys
     )
+    this.delegatorExchangeKeysCache = new LruTemporisedAsyncCache(delegatorKeysCacheSize, () => -1)
     this.icureStorage = icureStorage
   }
 
@@ -75,12 +77,25 @@ export class ExchangeKeysManager {
     if (verifiedKeys.length > 0) {
       return { keys: verifiedKeys.map((x) => x.key) }
     } else {
-      const keyCreationJob = this.forceCreateVerifiedExchangeKeyTo(delegateId)
-      this.delegatorExchangeKeys.set(
-        delegateId,
-        keyCreationJob.then(({ key: newKey }) => [...currentKeys, { key: newKey, isVerified: true }])
-      )
-      return await keyCreationJob.then(({ key: newKey, updatedDelegator }) => ({ keys: [newKey], updatedDelegator }))
+      while (true) {
+        let updatedDelegatorJob: Promise<DataOwnerWithType> | undefined = undefined
+        const keysWithNew = await this.delegatorExchangeKeysCache.get(
+          delegateId,
+          async (previous) => {
+            const fullJob = this.forceCreateVerifiedExchangeKeyTo(delegateId)
+            updatedDelegatorJob = fullJob.then(({ updatedDelegator }) => updatedDelegator)
+            let existingKeys = previous ? previous : await this.forceGetSelfExchangeKeysTo(delegateId)
+            return fullJob.then(({ key }) => [...existingKeys, { key, isVerified: true }])
+          },
+          (v) => !v.some((x) => x.isVerified)
+        )
+        const verifiedKeysWithNew = keysWithNew.filter((x) => x.isVerified)
+        if (verifiedKeysWithNew.length > 0) {
+          const updatedDelegator = updatedDelegatorJob ? await updatedDelegatorJob : undefined
+          const mappedKeys = verifiedKeysWithNew.map((x) => x.key)
+          return updatedDelegator ? { keys: mappedKeys, updatedDelegator } : { keys: mappedKeys }
+        }
+      }
       /*NOTE:
        * in case of two concurrent calls to `getOrCreateEncryptionExchangeKeysTo` only one of the calls will receive the updated delegator. This could
        * be a problem if one of the callers would want to update the delegator for other reasons as well, as the request would result in a database
@@ -116,7 +131,7 @@ export class ExchangeKeysManager {
    * @param includeKeysFromCurrentDataOwner if true also clears the
    */
   clearCache(includeKeysFromCurrentDataOwner: boolean) {
-    if (includeKeysFromCurrentDataOwner) this.delegatorExchangeKeys.clear()
+    if (includeKeysFromCurrentDataOwner) this.delegatorExchangeKeysCache.clear()
     this.delegatedExchangeKeysCache.clear()
   }
 
@@ -126,14 +141,7 @@ export class ExchangeKeysManager {
   }
 
   private async getSelfExchangeKeysTo(delegateId: string): Promise<{ key: CryptoKey; isVerified: boolean }[]> {
-    const job = this.delegatorExchangeKeys.get(delegateId)
-    if (job) {
-      return job
-    } else {
-      const newJob = this.forceGetSelfExchangeKeysTo(delegateId)
-      this.delegatorExchangeKeys.set(delegateId, newJob)
-      return newJob
-    }
+    return await this.delegatorExchangeKeysCache.get(delegateId, () => this.forceGetSelfExchangeKeysTo(delegateId))
   }
 
   private async forceGetSelfExchangeKeysTo(delegateId: string): Promise<{ key: CryptoKey; isVerified: boolean }[]> {
@@ -163,5 +171,16 @@ export class ExchangeKeysManager {
       }
     }
     return await this.baseExchangeKeysManager.createOrUpdateEncryptedExchangeKeyTo(delegateId, mainKey.pair, otherPublicKeys)
+  }
+
+  /**
+   * @internal for testing purposes only
+   */
+  async addFakeKeyTo(delegateId: string, key: { key: CryptoKey; isVerified: boolean }) {
+    await this.delegatorExchangeKeysCache.get(
+      delegateId,
+      (old) => Promise.resolve([...(old ?? []), key]),
+      () => true
+    )
   }
 }

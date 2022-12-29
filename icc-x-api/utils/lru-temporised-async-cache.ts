@@ -15,14 +15,35 @@ export class LruTemporisedAsyncCache<K, V> {
     this.lifetimeForValue = lifetimeForValue
   }
 
-  get(key: K, retrieve: () => Promise<V>): Promise<V> {
+  /**
+   * Gets a cached value or retrieves it and caches it if the value is not available or if it is available but expired. A value will never be expired
+   * if it was not yet retrieved, even if the retrieved value would be expired according to the {@link additionalExpirationCondition}
+   * @param key key of the entry
+   * @param retrieve given the previous value (if available, expired but not yet removed) of the entry retrieves an updated value.
+   * @param additionalExpirationCondition an expiration condition for already cached values to consider in addition to time-based expiration. Returns
+   * always false by default, meaning the value is not expired if its lifetime didn't already surpass the maximum lifetime.
+   * @return the cached value if present and not expired, else the retrieved value.
+   */
+  get(
+    key: K,
+    retrieve: (previousValue: V | undefined) => Promise<V>,
+    additionalExpirationCondition: (value: V) => boolean = () => false
+  ): Promise<V> {
     const retrieved = this.nodesMap.get(key)
     if (retrieved !== undefined) {
       this.markUsed(retrieved)
-      if (retrieved.expired(this.lifetimeForValue)) retrieved.value = this.registerJob(key, retrieve)
+      const cachedValue = retrieved.cachedValue
+      if (retrieved.expired((x) => this.lifetimeForValue(x)) || (cachedValue !== undefined && additionalExpirationCondition(cachedValue))) {
+        retrieved.value = this.registerJob(key, () => retrieve(cachedValue))
+      }
       return retrieved.valuePromise()
     } else {
-      const newNode = new CacheNode(key, this.lastNode, null, this.registerJob(key, retrieve))
+      const newNode = new CacheNode(
+        key,
+        this.lastNode,
+        null,
+        this.registerJob(key, () => retrieve(undefined))
+      )
       this.addToTail(key, newNode)
       if (this.maxCacheSize > 0 && this.nodesMap.size > this.maxCacheSize) this.evict(this.firstNode!.key, this.firstNode!)
       return newNode.valuePromise()
@@ -104,5 +125,9 @@ class CacheNode<K, V> {
 
   valuePromise(): Promise<V> {
     return 'timestamp' in this.value ? Promise.resolve(this.value.cached) : this.value
+  }
+
+  get cachedValue(): V | undefined {
+    return 'timestamp' in this.value ? this.value.cached : undefined
   }
 }
