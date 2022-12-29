@@ -138,6 +138,7 @@ export const Api = async function (
   )
   // TODO customise cache size?
   const exchangeKeysManager = new ExchangeKeysManager(
+    100,
     500,
     60000,
     600000,
@@ -260,8 +261,7 @@ export const Api = async function (
   }
 }
 
-// TODO better naming, check all necessary apis available.
-export const PlainApi = async function (
+export const BasicApis = async function (
   host: string,
   username: string,
   password: string,
