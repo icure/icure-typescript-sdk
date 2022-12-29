@@ -38,6 +38,7 @@ import { TransferKeysManager } from './crypto/TransferKeysManager'
 import { IccIcureMaintenanceXApi } from './icc-icure-maintenance-x-api'
 import { EntitiesEncryption } from './crypto/EntitiesEncryption'
 import { ConfidentialEntities } from './crypto/ConfidentialEntities'
+import { LegacyCryptoStrategies } from './crypto/LegacyCryptoStrategies'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -107,7 +108,8 @@ export const Api = async function (
   storage: StorageFacade<string> = new LocalStorageImpl(),
   keyStorage: KeyStorageFacade = new KeyStorageImpl(storage),
   entryKeysFactory: StorageEntryKeysFactory = new DefaultStorageEntryKeysFactory(),
-  cryptoStrategies?: CryptoStrategies // TODO default strategies
+  cryptoStrategies: CryptoStrategies = new LegacyCryptoStrategies(),
+  createMaintenanceTasksOnNewKey: boolean = false
 ): Promise<Apis> {
   const headers = {}
   const authenticationProvider = forceBasic
@@ -130,7 +132,7 @@ export const Api = async function (
   const baseExchangeKeysManager = new BaseExchangeKeysManager(cryptoPrimitives, dataOwnerApi, healthcarePartyApi, basePatientApi, deviceApi)
   const keyRecovery = new KeyRecovery(cryptoPrimitives, baseExchangeKeysManager, dataOwnerApi)
   const keyManager = new KeyManager(cryptoPrimitives, dataOwnerApi, icureStorage, keyRecovery, baseExchangeKeysManager, cryptoStrategies!)
-  await keyManager.initialiseKeys()
+  const newKey = await keyManager.initialiseKeys()
   await new TransferKeysManager(cryptoPrimitives, baseExchangeKeysManager, dataOwnerApi, keyManager, icureStorage).updateTransferKeys(
     await dataOwnerApi.getCurrentDataOwner()
   )
@@ -224,7 +226,10 @@ export const Api = async function (
   } else {
     console.info('Auto login skipped')
   }
-
+  // TODO what is auto login? Can we do this if it is false?
+  if (newKey && createMaintenanceTasksOnNewKey) {
+    await icureMaintenanceTaskApi.createMaintenanceTasksForNewKeypair(await userApi.getCurrentUser(), newKey.newKeyPair)
+  }
   return {
     cryptoApi,
     authApi,
