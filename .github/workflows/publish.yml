@@ -44,7 +44,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
       - name: Publish package on NPM 📦
-        run: yarn run prepare && cd dist && yarn run publish --no-git-tag-version --new-version $LATEST_TAG && cd ..
+        run: yarn run prepare && cd dist && yarn publish --no-git-tag-version --new-version $LATEST_TAG && cd ..
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
   release_note:
@@ -56,6 +56,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+      - name: Fetch git history ⚙️
+      - run: git fetch --prune --unshallow
       - name: Set LATEST_TAG environment variable ⚙️
         run: |
           latestTag="$(git describe --abbrev=0 --tags)"
