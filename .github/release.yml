@@ -1,0 +1,29 @@
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+      - SemVer.Major
+      - SemVer.Minor
+    authors:
+      - iCure
+      - octocat
+      - dependabot
+  categories:
+    - title: Breaking Changes 🛠
+      labels:
+        - breaking-change
+    - title: New Features 🎉
+      labels:
+        - enhancement
+    - title: Patches 🩹
+      labels:
+        - patch
+    - title: Hotfix 🚨
+      labels:
+        - hotfix
+    - title: Documentation 📄
+      labels:
+        - documentation
+    - title: Other Changes ⚙️
+      labels:
+        - '*'
