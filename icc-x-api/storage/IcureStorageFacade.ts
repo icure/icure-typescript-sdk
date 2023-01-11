@@ -85,7 +85,7 @@ export class IcureStorageFacade {
     if (dataString) {
       const parsed = JSON.parse(dataString)
       Object.entries(parsed).forEach(([k, v]) => {
-        if (v !== true && v !== false) throw `Unexpected entry ${k}:${v}`
+        if (v !== true && v !== false) throw new Error(`Unexpected entry ${k}:${v}`)
       })
       return parsed
     } else return {}

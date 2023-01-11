@@ -285,7 +285,7 @@ export class IccContactXApi extends IccContactApi {
   listServicesWithUser(user: models.User, serviceIds: ListOfIds): Promise<Array<Service> | any> {
     return super
       .filterServicesBy(undefined, serviceIds.ids?.length, new FilterChainService({ filter: new ServiceByIdsFilter({ ids: serviceIds.ids }) }))
-      .then((paginatedList) => this.decryptServices(user.healthcarePartyId! || user.patientId!, paginatedList.rows ?? [], undefined))
+      .then((paginatedList) => this.decryptServices(user.healthcarePartyId! || user.patientId!, paginatedList.rows ?? []))
   }
 
   findByHCPartyFormIdWithUser(user: models.User, hcPartyId: string, formId: string): Promise<Array<models.Contact> | any> {

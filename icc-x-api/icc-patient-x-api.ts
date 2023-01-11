@@ -939,7 +939,6 @@ export class IccPatientXApi extends IccPatientApi {
             return Promise.resolve({ id: patId })
           }
           const delSfks = await this.crypto.entities.secretIdsOf(patient, ownerId)
-          const ecKeys = await this.crypto.entities.encryptionKeysOf(patient, ownerId)
           return delSfks.length
             ? Promise.all([
                 retry(() =>
