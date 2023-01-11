@@ -131,6 +131,10 @@ export namespace TestUtils {
   export async function initApi(envVars: TestVars, userName: string = hcp1Username): Promise<Apis> {
     return await getApiAndAddPrivateKeysForUser(envVars.iCureUrl, envVars.dataOwnerDetails[userName])
   }
+
+  export async function initMasterApi(envVars: TestVars): Promise<Apis> {
+    return await getApiAndAddPrivateKeysForUser(envVars.iCureUrl, envVars.masterHcp!)
+  }
 }
 
 export async function getApiAndAddPrivateKeysForUser(iCureUrl: string, details: UserDetails) {
