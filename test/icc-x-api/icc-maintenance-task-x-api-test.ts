@@ -2,20 +2,10 @@ import { before } from 'mocha'
 
 import 'isomorphic-fetch'
 
-import { Apis, hex2ua, pkcs8ToJwk, spkiToJwk } from '../../icc-x-api'
-import { crypto } from '../../node-compat'
+import { Apis } from '../../icc-x-api'
 import { assert } from 'chai'
 import { randomUUID } from 'crypto'
-import {
-  getEnvironmentInitializer,
-  getEnvVariables,
-  hcp1Username,
-  hcp2Username,
-  hcp3Username,
-  setLocalStorage,
-  TestUtils,
-  TestVars,
-} from '../utils/test_utils'
+import { getEnvironmentInitializer, getEnvVariables, hcp1Username, hcp2Username, setLocalStorage, TestUtils, TestVars } from '../utils/test_utils'
 import { User } from '../../icc-api/model/User'
 import { IccMaintenanceTaskXApi } from '../../icc-x-api/icc-maintenance-task-x-api'
 import { MaintenanceTask } from '../../icc-api/model/MaintenanceTask'

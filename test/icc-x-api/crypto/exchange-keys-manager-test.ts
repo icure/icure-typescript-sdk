@@ -1,6 +1,5 @@
 import 'isomorphic-fetch'
 import { getEnvironmentInitializer, getEnvVariables, hcp1Username, hcp2Username, setLocalStorage, TestUtils, TestVars } from '../../utils/test_utils'
-import { randomUUID } from 'crypto'
 import initApi = TestUtils.initApi
 import { expect } from 'chai'
 

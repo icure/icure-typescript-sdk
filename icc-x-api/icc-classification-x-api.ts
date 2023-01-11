@@ -7,7 +7,6 @@ import * as _ from 'lodash'
 import * as moment from 'moment'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
-import { CalendarItem } from '../icc-api/model/models'
 
 export class IccClassificationXApi extends IccClassificationApi {
   crypto: IccCryptoXApi

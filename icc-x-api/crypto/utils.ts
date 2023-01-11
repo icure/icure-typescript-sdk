@@ -23,7 +23,7 @@ export function hexPublicKeysOf(dataOwner: DataOwner) {
 export function transferKeysFpGraphOf(dataOwner: DataOwner): StronglyConnectedGraph {
   const publicKeys = Array.from(hexPublicKeysOf(dataOwner))
   const edges: [string, string][] = []
-  Object.entries(dataOwner.transferKeys ?? {}).map(([from, tos]) => {
+  Object.entries(dataOwner.transferKeys ?? {}).forEach(([from, tos]) => {
     Object.keys(tos).forEach((to) => {
       edges.push([from.slice(-32), to.slice(-32)])
     })

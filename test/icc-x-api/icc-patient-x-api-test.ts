@@ -2,8 +2,6 @@ import { before } from 'mocha'
 
 import 'isomorphic-fetch'
 
-import { Api } from '../../icc-x-api'
-import { crypto } from '../../node-compat'
 import { Patient } from '../../icc-api/model/Patient'
 import { assert } from 'chai'
 import { randomUUID } from 'crypto'

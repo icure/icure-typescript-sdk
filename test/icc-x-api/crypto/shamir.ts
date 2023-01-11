@@ -2,8 +2,7 @@ import 'isomorphic-fetch'
 import { ShamirClass } from '../../../icc-x-api/crypto/shamir'
 import { expect } from 'chai'
 import 'mocha'
-import { Api, hex2ua, ua2hex } from '../../../icc-x-api'
-import { HealthcareParty } from '../../../icc-api/model/HealthcareParty'
+import { Api, ua2hex } from '../../../icc-x-api'
 import {
   createHcpHierarchyApis,
   getEnvironmentInitializer,
@@ -20,7 +19,6 @@ import { before } from 'mocha'
 import { testStorageWithKeys } from '../../utils/TestStorage'
 import { webcrypto } from 'crypto'
 import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
-import { PaginatedListMaintenanceTask } from '../../../icc-api/model/PaginatedListMaintenanceTask'
 import { FilterChainMaintenanceTask } from '../../../icc-api/model/FilterChainMaintenanceTask'
 import { MaintenanceTaskAfterDateFilter } from '../../../icc-x-api/filters/MaintenanceTaskAfterDateFilter'
 import { KeyPairUpdateRequest } from '../../../icc-x-api/maintenance/KeyPairUpdateRequest'

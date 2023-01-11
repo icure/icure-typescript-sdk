@@ -1,5 +1,4 @@
 import { IccDocumentXApi } from '../../../icc-x-api'
-import { crypto } from '../../../node-compat'
 import { Document } from '../../../icc-api/model/Document'
 import { assert, expect } from 'chai'
 import { randomBytes, randomUUID } from 'crypto'

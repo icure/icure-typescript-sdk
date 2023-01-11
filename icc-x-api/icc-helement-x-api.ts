@@ -109,22 +109,23 @@ export class IccHelementXApi extends IccHelementApi {
       delegationTags
     )
     // TODO re-enable anonymous delegations if necessary or rename/remove
-    const anonymousDelegations: string[] = [] // user.autoDelegations?.anonymousMedicalInformation ?? []
-    const sharedAnonymously = confidential
-      ? initialisationInfo.updatedEntity
-      : await anonymousDelegations.reduce(
-          async (updatedContact, delegate) =>
-            await this.crypto.entities.entityWithExtendedEncryptedMetadata(
-              await updatedContact,
-              delegate,
-              [],
-              [initialisationInfo.rawEncryptionKey!],
-              [],
-              []
-            ),
-          Promise.resolve(initialisationInfo.updatedEntity)
-        )
-    return new models.HealthElement(sharedAnonymously)
+    // const anonymousDelegations: string[] = user.autoDelegations?.anonymousMedicalInformation ?? []
+    // const sharedAnonymously = confidential
+    //   ? initialisationInfo.updatedEntity
+    //   : await anonymousDelegations.reduce(
+    //       async (updatedContact, delegate) =>
+    //         await this.crypto.entities.entityWithExtendedEncryptedMetadata(
+    //           await updatedContact,
+    //           delegate,
+    //           [],
+    //           [initialisationInfo.rawEncryptionKey!],
+    //           [],
+    //           []
+    //         ),
+    //       Promise.resolve(initialisationInfo.updatedEntity)
+    //     )
+    // return new models.HealthElement(sharedAnonymously)
+    return new models.HealthElement(initialisationInfo.updatedEntity)
   }
 
   createHealthElement(body?: models.HealthElement): never {

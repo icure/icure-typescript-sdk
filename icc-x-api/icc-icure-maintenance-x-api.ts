@@ -8,9 +8,7 @@ import { TypedValueObject } from '../icc-api/model/TypedValueObject'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 import { KeyPairUpdateRequest } from './maintenance/KeyPairUpdateRequest'
 import { DataOwnerTypeEnum, IccDataOwnerXApi } from './icc-data-owner-x-api'
-import { IccUserXApi } from './icc-user-x-api'
 import { User } from '../icc-api/model/User'
-import { use } from 'chai'
 
 type ExchangeKeyInfo = { delegator: string; delegate: string; fingerprints: Set<string> }
 
