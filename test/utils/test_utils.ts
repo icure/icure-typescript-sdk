@@ -1,4 +1,4 @@
-import { Api, Apis, hex2ua, ua2hex } from '../../icc-x-api'
+import { Api, Apis, hex2ua } from '../../icc-x-api'
 import { tmpdir } from 'os'
 import { TextDecoder, TextEncoder } from 'util'
 import { v4 as uuid } from 'uuid'

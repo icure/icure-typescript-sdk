@@ -3,7 +3,7 @@ import { IccCryptoXApi } from './icc-crypto-x-api'
 
 import * as _ from 'lodash'
 
-import { AccessLog, Patient, User } from '../icc-api/model/models'
+import { Patient, User } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import * as models from '../icc-api/model/models'

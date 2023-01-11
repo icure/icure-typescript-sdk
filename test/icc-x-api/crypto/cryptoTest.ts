@@ -1,7 +1,6 @@
 /* make node behave */
 import 'isomorphic-fetch'
 import { IccPatientApi } from '../../../icc-api'
-import { crypto } from '../../../node-compat'
 import { expect } from 'chai'
 import 'mocha'
 
@@ -18,9 +17,6 @@ import {
 } from '../../utils/test_utils'
 import { BasicAuthenticationProvider } from '../../../icc-x-api/auth/AuthenticationProvider'
 import initApi = TestUtils.initApi
-import { HealthcareParty } from '../../../icc-api/model/HealthcareParty'
-import exp = require('constants')
-import { createECDH } from 'crypto'
 
 let env: TestVars | undefined
 

@@ -1,5 +1,4 @@
-import { KeyPair, RSAUtils } from './RSA'
-import { AESUtils } from './AES'
+import { KeyPair } from './RSA'
 import { hex2ua, notConcurrent, ua2hex } from '../utils'
 import { DataOwner, DataOwnerTypeEnum, DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { CryptoPrimitives } from './CryptoPrimitives'

@@ -11,8 +11,7 @@ import { webcrypto } from 'crypto'
 import 'isomorphic-fetch'
 
 import { expect } from 'chai'
-import { getEnvironmentInitializer, getEnvVariables, getTempEmail, hcp1Username, setLocalStorage, TestUtils, TestVars } from '../../utils/test_utils'
-import initApi = TestUtils.initApi
+import { getEnvironmentInitializer, getEnvVariables, getTempEmail, setLocalStorage, TestUtils, TestVars } from '../../utils/test_utils'
 import { TestApi } from '../../utils/TestApi'
 import { KeyPair } from '../../../icc-x-api/crypto/RSA'
 import { CryptoPrimitives } from '../../../icc-x-api/crypto/CryptoPrimitives'

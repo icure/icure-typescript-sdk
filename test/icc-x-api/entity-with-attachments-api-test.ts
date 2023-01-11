@@ -6,8 +6,6 @@ import { User } from '../../icc-api/model/User'
 import { Apis, ua2utf8, utf8_2ua } from '../../icc-x-api'
 import initApi = TestUtils.initApi
 import { expect } from 'chai'
-import { TestApi } from '../utils/TestApi'
-import { webcrypto } from 'crypto'
 
 setLocalStorage(fetch)
 let env: TestVars

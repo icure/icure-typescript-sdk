@@ -4,7 +4,6 @@ import { IccCryptoXApi } from './icc-crypto-x-api'
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
 
-import { a2b, hex2ua, string2ua, ua2string } from './utils/binary-utils'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 

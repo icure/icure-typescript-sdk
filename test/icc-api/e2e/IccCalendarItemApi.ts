@@ -1,5 +1,4 @@
 import { hex2ua, pkcs8ToJwk, spkiToJwk } from '../../../icc-x-api'
-import { crypto } from '../../../node-compat'
 import { expect } from 'chai'
 import { randomUUID } from 'crypto'
 import { getEnvironmentInitializer, getEnvVariables, hcp1Username, patUsername, TestUtils, TestVars } from '../../utils/test_utils'

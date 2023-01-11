@@ -1,5 +1,5 @@
 import { User } from '../icc-api/model/User'
-import { IccDeviceApi, IccHcpartyApi, IccPatientApi, IccUserApi } from '../icc-api'
+import { IccDeviceApi, IccPatientApi, IccUserApi } from '../icc-api'
 import { HealthcareParty } from '../icc-api/model/HealthcareParty'
 import { Patient } from '../icc-api/model/Patient'
 import { Device } from '../icc-api/model/Device'

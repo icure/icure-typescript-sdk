@@ -1,6 +1,5 @@
 import { getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStorage, TestVars } from '../utils/test_utils'
 import { before } from 'mocha'
-import { Api } from '../../icc-x-api'
 import { crypto } from '../../node-compat'
 import { TestApi } from '../utils/TestApi'
 
