@@ -1,4 +1,14 @@
-import { IccAgendaApi, IccAuthApi, IccEntityrefApi, IccGroupApi, IccInsuranceApi, IccPatientApi, IccPermissionApi } from '../icc-api'
+import {
+  IccAgendaApi,
+  IccAuthApi,
+  IccCalendarItemTypeApi,
+  IccEntityrefApi,
+  IccGroupApi,
+  IccInsuranceApi,
+  IccMedicallocationApi,
+  IccPatientApi,
+  IccPermissionApi,
+} from '../icc-api'
 import { IccUserXApi } from './icc-user-x-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 import { IccContactXApi } from './icc-contact-x-api'
@@ -67,6 +77,8 @@ export { KeyStorageImpl } from './storage/KeyStorageImpl'
 export interface Apis {
   authApi: IccAuthApi
   codeApi: IccCodeXApi
+  calendarItemTypeApi: IccCalendarItemTypeApi
+  medicalLocationApi: IccMedicallocationApi
   entityReferenceApi: IccEntityrefApi
   userApi: IccUserXApi
   permissionApi: IccPermissionApi
@@ -170,6 +182,8 @@ export const Api = async function (
   const contactApi = new IccContactXApi(host, headers, cryptoApi, dataOwnerApi, authenticationProvider, fetchImpl)
   const formApi = new IccFormXApi(host, headers, cryptoApi, dataOwnerApi, authenticationProvider, fetchImpl)
   const groupApi = new IccGroupApi(host, headers, authenticationProvider)
+  const medicalLocationApi = new IccMedicallocationApi(host, headers, authenticationProvider)
+  const calendarItemTypeApi = new IccCalendarItemTypeApi(host, headers, authenticationProvider)
   const invoiceApi = new IccInvoiceXApi(host, headers, cryptoApi, entityReferenceApi, dataOwnerApi, authenticationProvider, fetchImpl)
   const insuranceApi = new IccInsuranceApi(host, headers, authenticationProvider, fetchImpl)
   const documentApi = new IccDocumentXApi(host, headers, cryptoApi, authApi, dataOwnerApi, authenticationProvider, fetchImpl)
@@ -235,6 +249,8 @@ export const Api = async function (
     cryptoApi,
     authApi,
     codeApi,
+    calendarItemTypeApi,
+    medicalLocationApi,
     userApi,
     permissionApi,
     patientApi,
