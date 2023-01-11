@@ -524,7 +524,7 @@ export class EntitiesEncryption {
       : await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
     const extractedByOwner = await Promise.all(
       // Reverse is just to keep method behaviour as close as possible to the legacy behaviour, in case someone depended on the ordering.
-      hierarchy.reverse().map((ownerId) =>
+      [...hierarchy].reverse().map((ownerId) =>
         this.extractFromDelegationsForDataOwner(
           ownerId,
           delegations,

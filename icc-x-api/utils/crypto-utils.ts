@@ -243,7 +243,7 @@ export async function decrypt(obj: any, decryptor: (obj: Uint8Array) => Promise<
  * @throws if the key is missing the public modulus or public exponent.
  */
 export function keyPairFromPrivateKeyJwk(privateKeyJwk: JsonWebKey): KeyPair<JsonWebKey> {
-  if (!privateKeyJwk.n || !privateKeyJwk.e) throw 'Incomplete private JsonWebKey: missing public modulus and/or exponent'
+  if (!privateKeyJwk.n || !privateKeyJwk.e) throw new Error('Incomplete private JsonWebKey: missing public modulus and/or exponent')
   return {
     privateKey: privateKeyJwk,
     publicKey: spkiToJwk(hex2ua(jwk2spki(privateKeyJwk))),

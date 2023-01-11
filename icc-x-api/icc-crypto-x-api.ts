@@ -372,9 +372,10 @@ export class IccCryptoXApi {
     if (!this.keyManager.getDecryptionKeys()[fingerprint]) {
       const selfId = await this.dataOwnerApi.getCurrentDataOwnerId()
       const selfKeys = this.dataOwnerApi.getHexPublicKeysOf((await this.dataOwnerApi.getCurrentDataOwner()).dataOwner)
-      if (!selfKeys.has(pubHex)) {
-        throw `Impossible to add key pair with fingerprint ${fingerprint} to data owner ${selfId}: the data owner has no matching public key`
-      }
+      if (!selfKeys.has(pubHex))
+        throw new Error(
+          `Impossible to add key pair with fingerprint ${fingerprint} to data owner ${selfId}: the data owner has no matching public key`
+        )
       await this.icureStorage.saveKey(selfId, fingerprint, keyPairInJwk, true)
       // Force reload to check if more private keys can be recovered or more exchange keys become available.
       await this.forceReload(true)
@@ -468,7 +469,7 @@ export class IccCryptoXApi {
     secretId: string
   }> {
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) {
-      throw 'Impossible to initialise keys as a data owner which is not the current data owner'
+      throw new Error('Impossible to initialise keys as a data owner which is not the current data owner')
     }
     const { updatedEntity, rawEncryptionKey } = await this.entities.entityWithInitialisedEncryptedMetadata(
       {
@@ -835,7 +836,7 @@ export class IccCryptoXApi {
    */
   async generateKeyForDelegate(ownerId: string, delegateId: string): Promise<DataOwner> {
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) {
-      throw 'You can only create delegation where the delegator is the current data owner'
+      throw new Error('You can only create delegation where the delegator is the current data owner')
     }
     return (
       (await this.exchangeKeysManager.getOrCreateEncryptionExchangeKeysTo(delegateId)).updatedDelegator?.dataOwner ??
