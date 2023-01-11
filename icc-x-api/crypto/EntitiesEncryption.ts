@@ -180,7 +180,7 @@ export class EntitiesEncryption {
     const selfId = await this.dataOwnerApi.getCurrentDataOwnerId()
     const allIds = [selfId, ...new Set(additionalDelegations.filter((x) => x !== selfId))]
     const loadKeysResult = await this.loadEncryptionKeysForDelegates(entity, allIds)
-    const updatedEntity = await allIds.reduce(
+    const updatedEntity = await allIds.reduce<Promise<T>>(
       async (prevUpdate, delegateId) =>
         await this.createOrUpdateEntityDelegations(
           await prevUpdate,

@@ -21,6 +21,7 @@ import { DefaultStorageEntryKeysFactory } from '../../../icc-x-api/storage/Defau
 import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
 import { MaintenanceTaskAfterDateFilter } from '../../../icc-x-api/filters/MaintenanceTaskAfterDateFilter'
 import { KeyPairUpdateRequest } from '../../../icc-x-api/maintenance/KeyPairUpdateRequest'
+import initMasterApi = TestUtils.initMasterApi
 
 setLocalStorage(fetch)
 
@@ -342,7 +343,7 @@ describe('Full crypto test - Creation scenarios', async function () {
     const initializer = await getEnvironmentInitializer()
     env = await initializer.execute(getEnvVariables())
 
-    const api = await initApi(env!, hcp1Username)
+    const api = await initMasterApi(env!)
     const user = await api.userApi.getCurrentUser()
     const dataOwnerId = api.dataOwnerApi.getDataOwnerIdOf(user)
 
