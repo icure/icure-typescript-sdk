@@ -61,7 +61,10 @@ describe('Jwt authentication concurrency test', () => {
     })
   })
 
-  it('It can refresh the token asynchronously', async () => {
+  it('It can refresh the token asynchronously', async function () {
+    if (!process.env.TEST_ENVIRONMENT || process.env.TEST_ENVIRONMENT === 'acceptance') {
+      this.skip()
+    }
     const api = await TestApi(
       env.iCureUrl,
       env.dataOwnerDetails[hcp1Username].user,

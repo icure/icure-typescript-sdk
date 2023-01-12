@@ -562,20 +562,11 @@ export class IccPatientXApi extends IccPatientApi {
 
     const allTags: string[] = _.uniq(_.flatMap(Object.values(delegationTags)))
 
-    // Determine which keys to share, depending on the delegation tag. For example, anonymousMedicalData only shares encryption keys and no delegations or secret foreign keys.
-    const shareDelegations: boolean = allTags.some((tag) => tag != 'anonymousMedicalInformation')
-    const shareEncryptionKeys = true
-    const shareCryptedForeignKeys: boolean = allTags.some((tag) => tag != 'anonymousMedicalInformation')
-
-    // Anonymous sharing, will not change anything to the patient, only its contacts and health elements.
-    const shareAnonymously: boolean = allTags.every((tag) => tag == 'anonymousMedicalInformation')
-
     return this.hcpartyApi.getHealthcareParty(ownerId).then((hcp) => {
       const parentId = hcp.parentId
       const status = {
         contacts: {
-          success:
-            allTags.includes('medicalInformation') || allTags.includes('anonymousMedicalInformation') || allTags.includes('all') ? false : null,
+          success: allTags.includes('medicalInformation') || allTags.includes('all') ? false : null,
           error: null,
           modified: 0,
         },
@@ -585,8 +576,7 @@ export class IccPatientXApi extends IccPatientApi {
           modified: 0,
         },
         healthElements: {
-          success:
-            allTags.includes('medicalInformation') || allTags.includes('anonymousMedicalInformation') || allTags.includes('all') ? false : null,
+          success: allTags.includes('medicalInformation') || allTags.includes('all') ? false : null,
           error: null,
           modified: 0,
         },
@@ -705,9 +695,9 @@ export class IccPatientXApi extends IccPatientApi {
               ]).then(([hes, frms, ctcs, ivs, cls, cis]) => {
                 const cloneKeysAndDelegations = function (x: models.IcureStub) {
                   return {
-                    delegations: shareDelegations ? _.clone(x.delegations) : undefined,
-                    cryptedForeignKeys: shareCryptedForeignKeys ? _.clone(x.cryptedForeignKeys) : undefined,
-                    encryptionKeys: shareEncryptionKeys ? _.clone(x.encryptionKeys) : undefined,
+                    delegations: _.clone(x.delegations),
+                    cryptedForeignKeys: _.clone(x.cryptedForeignKeys),
+                    encryptionKeys: _.clone(x.encryptionKeys),
                   }
                 }
 
@@ -739,18 +729,16 @@ export class IccPatientXApi extends IccPatientApi {
                     markerPromise = markerPromise.then(() => {
                       //Share patient
                       //console.log(`share ${patient.id} to ${delegateId}`)
-                      return shareAnonymously
-                        ? patient
-                        : this.crypto.entities.entityWithExtendedEncryptedMetadata(patient, delegateId, delSfks, ecKeys, [], []).catch((e) => {
-                            console.log(e)
-                            return patient
-                          })
+                      return this.crypto.entities.entityWithExtendedEncryptedMetadata(patient, delegateId, delSfks, ecKeys, [], []).catch((e) => {
+                        console.log(e)
+                        return patient
+                      })
                     })
-                    ;(tags.includes('medicalInformation') || tags.includes('anonymousMedicalInformation') || tags.includes('all')) &&
+                    ;(tags.includes('medicalInformation') || tags.includes('all')) &&
                       (markerPromise = addDelegationsAndKeys(hes, markerPromise, delegateId, patient))
                     ;(tags.includes('medicalInformation') || tags.includes('all')) &&
                       (markerPromise = addDelegationsAndKeys(frms, markerPromise, delegateId, patient))
-                    ;(tags.includes('medicalInformation') || tags.includes('anonymousMedicalInformation') || tags.includes('all')) &&
+                    ;(tags.includes('medicalInformation') || tags.includes('all')) &&
                       (markerPromise = addDelegationsAndKeys(ctcsStubs, markerPromise, delegateId, patient))
                     ;(tags.includes('medicalInformation') || tags.includes('all')) &&
                       (markerPromise = addDelegationsAndKeys(cls, markerPromise, delegateId, patient))
@@ -766,7 +754,7 @@ export class IccPatientXApi extends IccPatientApi {
                     .then(() => {
                       //console.log("scd")
                       return (
-                        ((allTags.includes('medicalInformation') || allTags.includes('anonymousMedicalInformation') || allTags.includes('all')) &&
+                        ((allTags.includes('medicalInformation') || allTags.includes('all')) &&
                           ctcsStubs &&
                           ctcsStubs.length &&
                           !_.isEqual(oCtcsStubs, ctcsStubs) &&
@@ -783,7 +771,7 @@ export class IccPatientXApi extends IccPatientApi {
                     .then(() => {
                       //console.log("shed")
                       return (
-                        ((allTags.includes('medicalInformation') || allTags.includes('anonymousMedicalInformation') || allTags.includes('all')) &&
+                        ((allTags.includes('medicalInformation') || allTags.includes('all')) &&
                           hes &&
                           hes.length &&
                           !_.isEqual(oHes, hes) &&
@@ -896,19 +884,16 @@ export class IccPatientXApi extends IccPatientApi {
                     })
                 })
               })
-            : (allTags.includes('anonymousMedicalInformation')
-                ? Promise.resolve(patient)
-                : this.modifyPatientWithUser(
-                    user,
-                    _.assign(patient, {
-                      delegations: _.assign(
-                        patient.delegations,
-                        delegateIds
-                          .filter((id) => !patient.delegations || !patient.delegations[id]) //If there are delegations do not modify
-                          .reduce((acc, del: string) => Object.assign(acc, _.fromPairs([[del, []]])), patient.delegations || {})
-                      ),
-                    })
-                  )
+            : this.modifyPatientWithUser(
+                user,
+                _.assign(patient, {
+                  delegations: _.assign(
+                    patient.delegations,
+                    delegateIds
+                      .filter((id) => !patient.delegations || !patient.delegations[id]) //If there are delegations do not modify
+                      .reduce((acc, del: string) => Object.assign(acc, _.fromPairs([[del, []]])), patient.delegations || {})
+                  ),
+                })
               )
                 .then((p) => {
                   status.patient.success = true
