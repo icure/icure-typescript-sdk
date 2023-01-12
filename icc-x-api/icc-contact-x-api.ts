@@ -113,23 +113,6 @@ export class IccContactXApi extends IccContactApi {
       confidential ? [] : extraDelegations,
       delegationTags
     )
-    // TODO re-enable anonymous delegations if necessary or rename/remove
-    // const anonymousDelegations: string[] =  user.autoDelegations?.anonymousMedicalInformation ?? []
-    // const sharedAnonymously = confidential
-    //   ? initialisationInfo.updatedEntity
-    //   : await anonymousDelegations.reduce(
-    //       async (updatedContact, delegate) =>
-    //         await this.crypto.entities.entityWithExtendedEncryptedMetadata(
-    //           await updatedContact,
-    //           delegate,
-    //           [],
-    //           [initialisationInfo.rawEncryptionKey!],
-    //           [],
-    //           []
-    //         ),
-    //       Promise.resolve(initialisationInfo.updatedEntity)
-    //     )
-    // return new models.Contact(sharedAnonymously)
     return new models.Contact(initialisationInfo.updatedEntity)
   }
 

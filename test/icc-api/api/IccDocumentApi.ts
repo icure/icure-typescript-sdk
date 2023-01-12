@@ -86,9 +86,9 @@ describe('Document api', () => {
     const data = randomBytes(32)
     const updated = await documentApi!.setSecondaryAttachment(document.id!, sampleKey, document.rev!, data)
     const originalAttachment = updated.secondaryAttachments![sampleKey]
-    const timeBeforeDelete = Date.now()
+    const timeBeforeDelete = Date.now() - 1
     const deleted = await documentApi!.deleteSecondaryAttachment(document.id!, sampleKey, updated.rev!)
-    const timeAfterDelete = Date.now()
+    const timeAfterDelete = Date.now() + 1
     expect(deleted.deletedAttachments).to.have.length(1)
     const deletedAttachment = deleted.deletedAttachments![0]
     expect(deletedAttachment.couchDbAttachmentId).to.equal(originalAttachment.couchDbAttachmentId)

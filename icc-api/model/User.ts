@@ -132,7 +132,6 @@ export namespace User {
   export type AutoDelegationTagEnum =
     | 'all'
     | 'administrativeData'
-    | 'anonymousMedicalInformation'
     | 'generalInformation'
     | 'financialInformation'
     | 'medicalInformation'
@@ -153,7 +152,6 @@ export namespace User {
   export const AutoDelegationTagEnum = {
     all: 'all' as AutoDelegationTagEnum,
     administrativeData: 'administrativeData' as AutoDelegationTagEnum,
-    anonymousMedicalInformation: 'anonymousMedicalInformation' as AutoDelegationTagEnum,
     generalInformation: 'generalInformation' as AutoDelegationTagEnum,
     financialInformation: 'financialInformation' as AutoDelegationTagEnum,
     medicalInformation: 'medicalInformation' as AutoDelegationTagEnum,
