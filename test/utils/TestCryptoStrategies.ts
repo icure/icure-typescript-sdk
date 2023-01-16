@@ -15,10 +15,6 @@ export class TestCryptoStrategies implements CryptoStrategies {
     this.verifiedSelfKeys = verifiedSelfKeys
   }
 
-  createNewKeyPairIfNoVerifiedKeysFound(): Promise<boolean | KeyPair<CryptoKey>> {
-    return Promise.resolve(this.keyPair ? this.keyPair : false)
-  }
-
   async generateNewKeyForDataOwner(self: DataOwner): Promise<KeyPair<CryptoKey> | boolean> {
     if (!this.keyPair) return false
     const knownKeys = hexPublicKeysOf(self)
@@ -49,9 +45,5 @@ export class TestCryptoStrategies implements CryptoStrategies {
 
   verifyDelegatePublicKeys(delegate: DataOwner, publicKeys: string[]): Promise<string[]> {
     return Promise.resolve(publicKeys)
-  }
-
-  verifyOwnPublicKeys(self: DataOwner, publicKeys: string[]): Promise<{ [p: string]: boolean }> {
-    return Promise.resolve({ ...this.verifiedSelfKeys })
   }
 }
