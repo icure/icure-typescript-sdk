@@ -240,14 +240,14 @@ class ApiFactoryV7 implements ApiFactory {
         return {
           secretContent: healthdata.note!,
           secretIds: await apis.cryptoApi.entities.secretIdsOf(healthdata),
-          owningEntityIds: await apis.cryptoApi.entities.parentIdsOf(healthdata),
+          owningEntityIds: await apis.cryptoApi.entities.owningEntityIdsOf(healthdata),
         }
       },
       shareEncryptedData: async (dataId, delegateId) => {
         const healthElement = await apis.healthcareElementApi.getHealthElementWithUser(user, dataId)
         const encryptionKeys = await apis.cryptoApi.entities.encryptionKeysOf(healthElement)
         const secretIds = await apis.cryptoApi.entities.secretIdsOf(healthElement)
-        const owningEntityIds = await apis.cryptoApi.entities.parentIdsOf(healthElement)
+        const owningEntityIds = await apis.cryptoApi.entities.owningEntityIdsOf(healthElement)
         await apis.healthcareElementApi.modifyHealthElementWithUser(
           user,
           await apis.cryptoApi.entities.entityWithExtendedEncryptedMetadata(healthElement, delegateId, secretIds, encryptionKeys, owningEntityIds, [])

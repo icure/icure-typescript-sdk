@@ -1,8 +1,7 @@
 import { Delegation, EncryptedEntity } from '../../icc-api/model/models'
 import { DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { ExchangeKeysManager } from './ExchangeKeysManager'
-import { b2a, crypt, decrypt, string2ua, truncateTrailingNulls, ua2hex, ua2string, ua2utf8, utf8_2ua } from '../utils'
-import { hex2ua } from '@icure/api'
+import { b2a, crypt, decrypt, string2ua, truncateTrailingNulls, ua2hex, ua2string, ua2utf8, utf8_2ua, hex2ua } from '../utils'
 import * as _ from 'lodash'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { arrayEquals } from '../utils/collection-utils'
@@ -105,14 +104,17 @@ export class EntitiesEncryption {
   }
 
   /**
-   * Get the parent ids (CFKs) of an entity that the provided data owner can access, potentially using the keys for his parent.
-   * There should only be one parent id for each entity, but the method supports more to allow to deal with conflicts and merged duplicate data.
+   * Get the decrypted owning entity ids (formerly CFKs) for the provided entity that can be decrypted using the private keys of the current data
+   * owner and his parents. The owning entity id would be, for example, the id of a patient for contact and healthcare elements, or the id of a
+   * message for documents.
+   * There should only be one owning entity id for each entity, but the method supports more to allow to deal with conflicts and merged duplicate
+   * data.
    * @param entity an encrypted entity.
    * @param dataOwnerId optionally a data owner part of the hierarchy for the current data owner, defaults to the current data owner.
-   * @param tagsFilter allows to obtain only parent ids associated to tags which satisfy the provided filter.
-   * @return the parent ids (CFKs) that the provided data owner can decrypt, deduplicated.
+   * @param tagsFilter allows to obtain only owning entity ids associated to tags which satisfy the provided filter.
+   * @return the owning entity ids (CFKs) that the provided data owner can decrypt, deduplicated.
    */
-  async parentIdsOf(
+  async owningEntityIdsOf(
     entity: EncryptedEntity,
     dataOwnerId?: string,
     tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
@@ -120,41 +122,45 @@ export class EntitiesEncryption {
     return this.extractMergedHierarchyFromDelegationAndOwner(
       entity.cryptedForeignKeys ?? {},
       dataOwnerId,
-      (k) => this.validateParentId(k),
+      (k) => this.validateOwningEntityId(k),
       (t) => tagsFilter(t)
     )
   }
 
   /**
-   * Get the parent ids (CFKs) of an entity that the current data owner and his parents can access. The resulting array contains the ids for each data
-   * owner in the hierarchy which can be decrypted using only that data owner keys (excludes ids accessible through the parent keys). The order of
-   * the array is the same as in {@link IccDataOwnerXApi.getCurrentDataOwnerHierarchyIds}.
-   * Note that different data owners may have access to the same parent ids, but the parent ids extracted for each data owner are deduplicated.
-   * There should only be one parent id for each entity, but the method supports more to allow to deal with conflicts and merged duplicate data.
+   * Get the decrypted owning entity ids (formerly CFKs) for the provided entity that can be decrypted using the private keys of the current data
+   * owner and his parents. The owning entity id would be, for example, the id of a patient for contact and healthcare elements, or the id of a
+   * message for documents.
+   * The resulting array contains the ids for each data owner in the hierarchy which can be decrypted using only that data owner keys (excludes ids
+   * accessible through the parent keys). The order of the array is the same as in {@link IccDataOwnerXApi.getCurrentDataOwnerHierarchyIds}.
+   * Note that different data owners may have access to the same owning entity ids, but the owning entity ids extracted for each data owner are
+   * deduplicated in case they could be accessed through different delegations.
+   * There should only be one owning entity id for each entity, but the method supports more to allow to deal with conflicts and merged duplicate
+   * data.
    * @param entity an encrypted entity.
-   * @param tagsFilter allows to obtain only parent ids associated to tags which satisfy the provided filter.
-   * @return the parent ids that each member of the current data owner hierarchy can decrypt using only his keys and not keys of his parents.
+   * @param tagsFilter allows to obtain only owning entity ids associated to tags which satisfy the provided filter.
+   * @return the owning entity ids that each member of the current data owner hierarchy can decrypt using only his keys and not keys of his parents.
    */
-  async parentIdsForHcpHierarchyOf(
+  async owningEntityIdsForHcpHierarchyOf(
     entity: EncryptedEntity,
     tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<{ ownerId: string; extracted: string[] }[]> {
     return this.extractedHierarchyFromDelegation(
       entity.cryptedForeignKeys ?? {},
-      (k) => this.validateParentId(k),
+      (k) => this.validateOwningEntityId(k),
       (t) => tagsFilter(t)
     )
   }
 
   /**
    * @internal this method is intended only for internal use and may be changed without notice.
-   * Initializes encryption metadata for an entity. This includes the encrypted secret id, parent id, and encryption key for the entity, and the clear
-   * text secret foreign key of the parent entity.
+   * Initializes encryption metadata for an entity. This includes the encrypted secret id, owning entity id, and encryption key for the entity, and
+   * the clear text secret foreign key of the parent entity.
    * This method MODIFIES THE ENTITY IN PLACE then returns it.
    * @param entity entity which requires encryption metadata initialisation.
-   * @param parentEntityId id of the parent entity, if any.
+   * @param owningEntity id of the owning entity, if any (e.g. patient id for Contact/HealtchareElement, message id for Document, ...).
    * @param parentSecretId secret id of the parent entity, to use in the secret foreign keys for the provided entity, if any.
-   * @param initialiseEncryptionKeys if false this method will not initialise any encryption keys. Use only for entities which use delegations for
+   * @param initialiseEncryptionKeys if false this method will not initialize any encryption keys. Use only for entities which use delegations for
    * access control but don't actually have any encrypted content.
    * @param additionalDelegations automatically shares the
    * @param tags tags to associate with the initial encryption keys and metadata
@@ -163,7 +169,7 @@ export class EntitiesEncryption {
    */
   async entityWithInitialisedEncryptedMetadata<T extends EncryptedEntity>(
     entity: T,
-    parentEntityId: string | undefined,
+    owningEntity: string | undefined,
     parentSecretId: string | undefined,
     initialiseEncryptionKeys: boolean,
     additionalDelegations: string[] = [],
@@ -190,7 +196,7 @@ export class EntitiesEncryption {
           [],
           [secretId],
           initialiseEncryptionKeys ? [rawEncryptionKey!] : [],
-          parentEntityId ? [parentEntityId] : [],
+          owningEntity ? [owningEntity] : [],
           tags,
           loadKeysResult.keysForDelegates
         ),
@@ -207,7 +213,7 @@ export class EntitiesEncryption {
    * delegate.
    * The first time this method is used for a specific delegate it will give access to all unencrypted content of the entity to the delegate data
    * owner. Additionally, this method also allows to share new or existing secret ids (shareSecretId), encryption keys (shareEncryptionKeys) and
-   * parent ids (shareParentIds) for the entity.
+   * owning entity ids (shareOwningEntityIds) for the entity.
    * You can use methods like {@link secretIdsOf}, {@link secretIdsForHcpHierarchyOf}, {@link encryptionKeysOf}, ... to retrieve the data you want to
    * share. In most cases you may want to share everything related to the entity, but note that if you use confidential delegations for patients you
    * may want to avoid sharing the confidential secret ids of the current user with other hcps.
@@ -216,7 +222,7 @@ export class EntitiesEncryption {
    * @param delegateId id of the delegate to share data with.
    * @param shareSecretIds secret ids to share.
    * @param shareEncryptionKeys encryption keys to share.
-   * @param shareParentIds parent ids to share.
+   * @param shareOwningEntityIds owning enttiy ids to share.
    * @param newTags tags to associate with the new encryption keys and metadata. Existing data won't be changed.
    * @throws if any of the shareX parameters is set to `true` but the corresponding piece of data could not be retrieved.
    * @return the updated entity.
@@ -226,7 +232,7 @@ export class EntitiesEncryption {
     delegateId: string,
     shareSecretIds: string[],
     shareEncryptionKeys: string[],
-    shareParentIds: string[],
+    shareOwningEntityIds: string[],
     newTags: string[] = []
   ): Promise<T> {
     this.throwDetailedExceptionForInvalidParameter('entity.id', entity.id, 'entityWithSharedEncryptedMetadata', arguments)
@@ -239,7 +245,7 @@ export class EntitiesEncryption {
     }
     const secretIdsToShare = await checkInputAndGet(shareSecretIds, 'secretIds', (x) => this.validateSecretId(x))
     const encryptionKeysToShare = await checkInputAndGet(shareEncryptionKeys, 'encryptionKeys', (x) => this.validateEncryptionKey(x))
-    const parentIdsToShare = await checkInputAndGet(shareParentIds, 'parentIds', (x) => this.validateParentId(x))
+    const owningEntityIdsToShare = await checkInputAndGet(shareOwningEntityIds, 'owningEntityIds', (x) => this.validateOwningEntityId(x))
     const deduplicateInfoSecretIds = await this.deduplicateDelegationsAndFilterRequiredEntries(
       delegateId,
       entity.delegations?.[delegateId] ?? [],
@@ -252,11 +258,11 @@ export class EntitiesEncryption {
       encryptionKeysToShare,
       (x) => this.validateEncryptionKey(x)
     )
-    const deduplicateInfoParentIds = await this.deduplicateDelegationsAndFilterRequiredEntries(
+    const deduplicateInfoOwningEntityIds = await this.deduplicateDelegationsAndFilterRequiredEntries(
       delegateId,
       entity.cryptedForeignKeys?.[delegateId] ?? [],
-      parentIdsToShare,
-      (x) => this.validateParentId(x)
+      owningEntityIdsToShare,
+      (x) => this.validateOwningEntityId(x)
     )
     /*TODO
      * Temporary hack since secret id is necessary to create a delegation for access control: if there is no delegation existing from me to the
@@ -269,7 +275,7 @@ export class EntitiesEncryption {
     if (
       deduplicateInfoSecretIds.missingEntries.length === 0 &&
       deduplicateInfoEncryptionKeys.missingEntries.length === 0 &&
-      deduplicateInfoParentIds.missingEntries.length === 0
+      deduplicateInfoOwningEntityIds.missingEntries.length === 0
     )
       return entity
     const { updatedEntity, keysForDelegates } = await this.loadEncryptionKeysForDelegates(entity, [delegateId])
@@ -278,10 +284,10 @@ export class EntitiesEncryption {
       delegateId,
       deduplicateInfoSecretIds.deduplicatedDelegations,
       deduplicateInfoEncryptionKeys.deduplicatedDelegations,
-      deduplicateInfoParentIds.deduplicatedDelegations,
+      deduplicateInfoOwningEntityIds.deduplicatedDelegations,
       deduplicateInfoSecretIds.missingEntries,
       deduplicateInfoEncryptionKeys.missingEntries,
-      deduplicateInfoParentIds.missingEntries,
+      deduplicateInfoOwningEntityIds.missingEntries,
       newTags,
       keysForDelegates
     )
@@ -602,7 +608,7 @@ export class EntitiesEncryption {
     return !!key
   }
 
-  private validateParentId(key: string): boolean {
+  private validateOwningEntityId(key: string): boolean {
     return !!key
   }
 
@@ -628,15 +634,15 @@ export class EntitiesEncryption {
     return this.createDelegation(entityId, delegateId, exchangeKey, secretId, newTags)
   }
 
-  private async createParentIdDelegation(
+  private async createOwningEntityIdDelegation(
     entityId: string,
     delegateId: string,
     exchangeKey: CryptoKey,
-    parentId: string,
+    owningEntityId: string,
     newTags: string[]
   ): Promise<Delegation> {
-    if (!this.validateParentId(parentId)) throw new Error(`Invalid parent id ${parentId}`)
-    return this.createDelegation(entityId, delegateId, exchangeKey, parentId, newTags)
+    if (!this.validateOwningEntityId(owningEntityId)) throw new Error(`Invalid owning id ${owningEntityId}`)
+    return this.createDelegation(entityId, delegateId, exchangeKey, owningEntityId, newTags)
   }
 
   private async createDelegation(
@@ -694,14 +700,14 @@ export class EntitiesEncryption {
     delegateId: string,
     existingSecretIds: Delegation[],
     existingEncryptionKeys: Delegation[],
-    existingParentIds: Delegation[],
+    existingOwningEntityIds: Delegation[],
     newSecretIds: string[],
     newEncryptionKeys: string[],
-    newParentIds: string[],
+    newOwningEntityIds: string[],
     newTags: string[],
     keysForDelegates: { [delegateId: string]: CryptoKey[] }
   ): Promise<T> {
-    if (newSecretIds.length === 0 && newEncryptionKeys.length === 0 && newParentIds.length === 0) return entity
+    if (newSecretIds.length === 0 && newEncryptionKeys.length === 0 && newOwningEntityIds.length === 0) return entity
     const chosenKey = keysForDelegates[delegateId][0]
     const updatedSecretIds = [
       ...existingSecretIds,
@@ -711,9 +717,9 @@ export class EntitiesEncryption {
       ...existingEncryptionKeys,
       ...(await Promise.all(newEncryptionKeys.map((x) => this.createEncryptionKeyDelegation(entity.id!, delegateId, chosenKey, x, newTags)))),
     ]
-    const updatedParentIds = [
-      ...existingParentIds,
-      ...(await Promise.all(newParentIds.map((x) => this.createParentIdDelegation(entity.id!, delegateId, chosenKey, x, newTags)))),
+    const updatedOwningEntityIds = [
+      ...existingOwningEntityIds,
+      ...(await Promise.all(newOwningEntityIds.map((x) => this.createOwningEntityIdDelegation(entity.id!, delegateId, chosenKey, x, newTags)))),
     ]
     if (updatedSecretIds.length > 0) {
       entity.delegations = {
@@ -727,10 +733,10 @@ export class EntitiesEncryption {
         [delegateId]: updatedEncryptionKeys,
       }
     }
-    if (updatedParentIds.length > 0) {
+    if (updatedOwningEntityIds.length > 0) {
       entity.cryptedForeignKeys = {
         ...(entity.cryptedForeignKeys ?? {}),
-        [delegateId]: updatedParentIds,
+        [delegateId]: updatedOwningEntityIds,
       }
     }
     return entity
