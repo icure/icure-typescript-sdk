@@ -197,7 +197,7 @@
   dependencies:
     "@jridgewell/trace-mapping" "0.3.9"
 
-"@icure/api@^6.0.6":
+"@icure/api@^6.0.6", "@icure/apiV6@npm:@icure/api@6.x":
   version "6.2.0"
   resolved "https://registry.yarnpkg.com/@icure/api/-/api-6.2.0.tgz#b4a1099080866280563118953117fee63e7f4aff"
   integrity sha512-xY0aUFBilDfjPxn9MVBr4HWxfGQ0orCA/gPEE/mU5E9Otcbiv7czFZrS9Rs8sCRHHx554Fx535h19EkfzMJNOQ==
