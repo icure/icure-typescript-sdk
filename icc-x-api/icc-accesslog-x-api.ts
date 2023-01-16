@@ -224,7 +224,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
         (decryptedLogs) =>
           Promise.all(
             _.map(decryptedLogs, (decryptedLog) => {
-              return this.crypto.entities.parentIdsOf(decryptedLog, user.healthcarePartyId as string).then(
+              return this.crypto.entities.owningEntityIdsOf(decryptedLog, user.healthcarePartyId as string).then(
                 (keys) =>
                   ({
                     ...decryptedLog,

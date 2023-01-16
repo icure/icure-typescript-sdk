@@ -516,7 +516,7 @@ export class IccCryptoXApi {
 
   /**
    * @deprecated (light) You should use:
-   * - {@link EntitiesEncryption.parentIdsOf} in {@link entities} to get the crypted foreign keys (now parent ids)
+   * - {@link EntitiesEncryption.owningEntityIdsOf} in {@link entities} to get the crypted foreign keys (now parent ids)
    * - {@link IccDataOwnerXApi.getCurrentDataOwnerHierarchyIds} to get the full hierarchy for the current data owner (cached). The first element is
    *   the id of the topmost parent, while the last is the current data owner.
    * Note that the behaviour of this method has some subtle changes compared to the past:
@@ -534,7 +534,7 @@ export class IccCryptoXApi {
       return Promise.resolve({ extractedKeys: [], hcpartyId: hcpartyId })
     }
     return {
-      extractedKeys: await this.entities.parentIdsOf(document, hcpartyId),
+      extractedKeys: await this.entities.owningEntityIdsOf(document, hcpartyId),
       hcpartyId: (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0],
     }
   }
@@ -569,7 +569,7 @@ export class IccCryptoXApi {
    * the delegations come from:
    * - {@link EntitiesEncryption.secretIdsOf} for {@link EncryptedEntity.delegations} (see {@link extractDelegationsSFKs} for more info)
    * - {@link EntitiesEncryption.encryptionKeysOf} for {@link EncryptedEntity.encryptionKeys} (see {@link extractEncryptionsSKs} for more info
-   * - {@link EntitiesEncryption.parentIdsOf} for {@link EncryptedEntity.cryptedForeignKeys} (see {@link extractCryptedFKs} for more info)
+   * - {@link EntitiesEncryption.owningEntityIdsOf} for {@link EncryptedEntity.cryptedForeignKeys} (see {@link extractCryptedFKs} for more info)
    */
   async extractKeysFromDelegationsForHcpHierarchy(
     dataOwnerId: string,

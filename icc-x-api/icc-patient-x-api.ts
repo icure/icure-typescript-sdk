@@ -548,7 +548,7 @@ export class IccPatientXApi extends IccPatientApi {
           p.then(async () => {
             const secretIds = await this.crypto.entities.secretIdsOf(x, ownerId)
             const encryptionKeys = await this.crypto.entities.encryptionKeysOf(x, ownerId)
-            const parentIds = await this.crypto.entities.parentIdsOf(x, ownerId)
+            const parentIds = await this.crypto.entities.owningEntityIdsOf(x, ownerId)
             return this.crypto.entities
               .entityWithExtendedEncryptedMetadata(x, delegateId, secretIds, encryptionKeys, parentIds, [])
               .catch((e: any) => {
@@ -1078,7 +1078,7 @@ export class IccPatientXApi extends IccPatientApi {
     childDocument: models.Invoice | models.CalendarItem | models.Contact | models.AccessLog,
     hcpId: string
   ): Promise<string> {
-    const parentIdsArray = await this.crypto.entities.parentIdsOf(childDocument, hcpId)
+    const parentIdsArray = await this.crypto.entities.owningEntityIdsOf(childDocument, hcpId)
 
     const multipleParentIds = _.uniq(parentIdsArray).length > 1
 

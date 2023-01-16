@@ -2,7 +2,7 @@
 import { acyclic, graphFromEdges, StronglyConnectedGraph } from '../utils/graph-utils'
 import { DataOwner } from '../icc-data-owner-x-api'
 import { RSAUtils } from './RSA'
-import { hex2ua } from '@icure/api'
+import { hex2ua } from '../utils'
 
 /**
  * @internal this function is meant only for internal use and may be changed without notice.
