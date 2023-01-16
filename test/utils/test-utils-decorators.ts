@@ -1,5 +1,5 @@
 import { bootstrapOssKraken, retry, setup, setupCouchDb, checkIfDockerIsOnline, bootstrapCloudKraken } from '@icure/test-setup'
-import { Api, Apis, hex2ua, pkcs8ToJwk, spkiToJwk } from '@icure/api'
+import { Api, Apis, hex2ua, pkcs8ToJwk, spkiToJwk } from '@icure/apiV6'
 import { webcrypto } from 'crypto'
 import { createGroup } from '@icure/test-setup/groups'
 import { createDeviceUser, createHealthcarePartyUser, createMasterHcpUser, createPatientUser } from '@icure/test-setup/creation'
