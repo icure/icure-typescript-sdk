@@ -197,7 +197,20 @@
   dependencies:
     "@jridgewell/trace-mapping" "0.3.9"
 
-"@icure/api@^6.0.6", "@icure/apiV6@npm:@icure/api@6.x":
+"@icure/api@^6.0.6":
+  version "6.0.6"
+  resolved "https://registry.yarnpkg.com/@icure/api/-/api-6.0.6.tgz#61705e8cc4cb1843af6931962d38ea82698c0815"
+  integrity sha512-iJoqyrdklynEQ8/lmUNun2g38JHh9XAv9PwXffrVCWCBi0D0Ea6oaOconnpVIVhqaQbwzY0mHTdQfSuhK2UK2w==
+  dependencies:
+    date-fns "^2.23.0"
+    libphonenumber-js "^1.7.18"
+    lodash "^4.17.21"
+    moment "^2.22.1"
+    text-encoding "^0.7.0"
+    uuid "^8.3.2"
+    uuid-encoder "^1.1.0"
+
+"@icure/apiV6@npm:@icure/api@6.x":
   version "6.2.0"
   resolved "https://registry.yarnpkg.com/@icure/api/-/api-6.2.0.tgz#b4a1099080866280563118953117fee63e7f4aff"
   integrity sha512-xY0aUFBilDfjPxn9MVBr4HWxfGQ0orCA/gPEE/mU5E9Otcbiv7czFZrS9Rs8sCRHHx554Fx535h19EkfzMJNOQ==
