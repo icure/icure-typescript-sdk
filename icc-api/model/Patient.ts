@@ -130,6 +130,10 @@ export class Patient {
    */
   deactivationReason?: Patient.DeactivationReasonEnum
   /**
+   * Deactivation date of the patient
+   */
+  deactivationDate?: number
+  /**
    * Social security inscription number.
    */
   ssin?: string

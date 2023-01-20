@@ -26,6 +26,8 @@ export class PermissionItem {
 export namespace PermissionItem {
   export type TypeEnum =
     | 'AUTHENTICATE'
+    | 'HCP'
+    | 'PHYSICIAN'
     | 'ADMIN'
     | 'PATIENT_VIEW'
     | 'PATIENT_CREATE'
@@ -38,6 +40,8 @@ export namespace PermissionItem {
     | 'FINANCIAL_CHANGE_DELETE'
   export const TypeEnum = {
     AUTHENTICATE: 'AUTHENTICATE' as TypeEnum,
+    HCP: 'HCP' as TypeEnum,
+    PHYSICIAN: 'PHYSICIAN' as TypeEnum,
     ADMIN: 'ADMIN' as TypeEnum,
     PATIENTVIEW: 'PATIENT_VIEW' as TypeEnum,
     PATIENTCREATE: 'PATIENT_CREATE' as TypeEnum,
