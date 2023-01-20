@@ -10,6 +10,7 @@
  * Do not edit the class manually.
  */
 import { CodeStub } from './CodeStub'
+import { Content } from './Content'
 import { Duration } from './Duration'
 import { Medicinalproduct } from './Medicinalproduct'
 import { ParagraphAgreement } from './ParagraphAgreement'
@@ -48,6 +49,7 @@ export class Medication {
   knownUsage?: boolean
   regimen?: Array<RegimenItem>
   posology?: string
+  options?: { [key: string]: Content }
   agreements?: { [key: string]: ParagraphAgreement }
   medicationSchemeIdOnSafe?: string
   medicationSchemeSafeVersion?: number
