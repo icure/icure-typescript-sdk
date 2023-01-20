@@ -24,8 +24,8 @@ export class Measure {
   severityCode?: string
   evolution?: number
   unit?: string
+  sign?: string
   unitCodes?: Array<CodeStub>
   comment?: string
   comparator?: string
-  sign?: string
 }
