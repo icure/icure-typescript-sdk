@@ -16,6 +16,7 @@ export class TimeTableItem {
     Object.assign(this as TimeTableItem, json)
   }
 
+  rruleStartDate?: number
   rrule?: string
   days?: Array<string>
   recurrenceTypes?: Array<string>

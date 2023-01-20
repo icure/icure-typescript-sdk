@@ -89,10 +89,6 @@ export class Document {
    */
   externalUri?: string
   /**
-   * The main Uniform Type Identifier of the document (https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/understanding_utis/understand_utis_conc/understand_utis_conc.html#//apple_ref/doc/uid/TP40001319-CH202-CHDHIJDE)
-   */
-  mainUti?: string
-  /**
    * Name of the document
    */
   name?: string
@@ -100,10 +96,6 @@ export class Document {
    * The document version
    */
   version?: string
-  /**
-   * Extra Uniform Type Identifiers
-   */
-  otherUtis?: Array<string>
   /**
    * The ICureDocument (Form, Contact, ...) that has been used to generate the document
    */
@@ -132,6 +124,14 @@ export class Document {
    * Id of the main attachment of this document, if stored using the object storage service
    */
   objectStoreReference?: string
+  /**
+   * The main Uniform Type Identifier for the main attachment (https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/understanding_utis/understand_utis_conc/understand_utis_conc.html#//apple_ref/doc/uid/TP40001319-CH202-CHDHIJDE)
+   */
+  mainUti?: string
+  /**
+   * Extra Uniform Type Identifiers for the main attachment
+   */
+  otherUtis?: Array<string>
   /**
    * Secondary attachments for this document
    */
