@@ -1,6 +1,6 @@
 import { CryptoStrategies } from '../../icc-x-api/crypto/CryptoStrategies'
 import { KeyPair, RSAUtils } from '../../icc-x-api/crypto/RSA'
-import { DataOwner } from '../../icc-x-api/icc-data-owner-x-api'
+import { DataOwner, DataOwnerTypeEnum, DataOwnerWithType } from '../../icc-x-api/icc-data-owner-x-api'
 import { hexPublicKeysOf } from '../../icc-x-api/crypto/utils'
 import { webcrypto } from 'crypto'
 import { ua2hex } from '../../icc-x-api'
@@ -45,5 +45,9 @@ export class TestCryptoStrategies implements CryptoStrategies {
 
   verifyDelegatePublicKeys(delegate: DataOwner, publicKeys: string[]): Promise<string[]> {
     return Promise.resolve(publicKeys)
+  }
+
+  dataOwnerRequiresAnonymousDelegation(dataOwner: DataOwnerWithType): boolean {
+    return dataOwner.type !== DataOwnerTypeEnum.Hcp
   }
 }
