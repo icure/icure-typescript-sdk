@@ -1,5 +1,5 @@
 import { KeyPair } from './RSA'
-import { DataOwner } from '../icc-data-owner-x-api'
+import { DataOwner, DataOwnerWithType } from '../icc-data-owner-x-api'
 import { CryptoPrimitives } from './CryptoPrimitives'
 
 /**
@@ -81,4 +81,12 @@ export interface CryptoStrategies {
    * @return all verified public keys, in spki hex-encoded format.
    */
   verifyDelegatePublicKeys(delegate: DataOwner, publicKeys: string[], cryptoPrimitives: CryptoPrimitives): Promise<string[]>
+
+  /**
+   * Specifies if a data owner requires anonymous delegations, i.e. his id should not appear unencrypted in new secure delegations. This should always
+   * be the case for patient data owners.
+   * @param dataOwner a data owner.
+   * @return true if the delegation.
+   */
+  dataOwnerRequiresAnonymousDelegation(dataOwner: DataOwnerWithType): boolean
 }
