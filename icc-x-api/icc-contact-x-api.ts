@@ -178,7 +178,22 @@ export class IccContactXApi extends IccContactApi {
                 ])
               }, [] as Array<{ hcpartyId: string; extractedKeys: Array<string> }>)
               .filter((l) => l.extractedKeys.length > 0)
-              .map(({ hcpartyId, extractedKeys }) => this.findByHCPartyPatientSecretFKeys(hcpartyId, _.uniq(extractedKeys).join(',')))
+              .map(({ hcpartyId, extractedKeys }) => {
+                const chunkSize = 30
+                const chunks = []
+                for (let i = 0; i < extractedKeys.length; i += chunkSize) {
+                  const chunk = extractedKeys.slice(i, i + chunkSize)
+                  chunks.push(chunk)
+                }
+                return Promise.all(
+                  chunks.map(chunk => {
+                    return this.findByHCPartyPatientSecretFKeys(
+                      hcpartyId,
+                      _.uniq(chunk).join(",")
+                    )
+                  })
+                )
+              })
           ).then((results) => _.uniqBy(_.flatMap(results), (x) => x.id))
         : Promise.resolve([])
     )
