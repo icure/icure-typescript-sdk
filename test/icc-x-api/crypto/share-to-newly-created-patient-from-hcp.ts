@@ -9,7 +9,6 @@ import 'isomorphic-fetch'
 import { IccPatientApi } from '../../../icc-api'
 import { expect } from 'chai'
 
-import { cleanup } from '@icure/test-setup'
 import { BasicAuthenticationProvider } from '../../../icc-x-api/auth/AuthenticationProvider'
 import { getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStorage, TestVars } from '../../utils/test_utils'
 import { crypto } from '../../../node-compat'
@@ -75,12 +74,6 @@ describe('Full battery of tests on crypto and keys', async function () {
     )
 
     console.log('All prerequisites are started')
-  })
-
-  after(async () => {
-    const env = getEnvVariables()
-    await cleanup('test/scratch', env.composeFileUrl)
-    console.log('Cleanup complete')
   })
 
   it(`Share patient from hcp to patient`, async () => {
