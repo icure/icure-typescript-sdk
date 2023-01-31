@@ -158,17 +158,13 @@ export class IccPatientXApi extends IccPatientApi {
     }
 
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-    if (Object.keys(patient.encryptionKeys ?? {}).length || Object.keys(patient.encryptionKeys ?? {}).length) {
+    if (Object.keys(patient.delegations ?? {}).length || Object.keys(patient.encryptionKeys ?? {}).length) {
       throw Error(`Encryption metadata for patient ${patient.id} is already initialised.`)
     }
     const dels = await this.crypto.initObjectDelegations(patient, null, dataOwnerId!, null)
     updatePatientWithDataOwnerIfSame(dels.owner)
     const eks = await this.crypto.initEncryptionKeys(patient, dataOwnerId!)
-    updatePatientWithDataOwnerIfSame(dels.owner)
-    _.extend(patient, {
-      delegations: dels.delegations,
-      encryptionKeys: eks.encryptionKeys,
-    })
+    updatePatientWithDataOwnerIfSame(eks.modifiedOwner)
 
     let promise = Promise.resolve(patient)
     _.uniq(
@@ -341,14 +337,14 @@ export class IccPatientXApi extends IccPatientApi {
   getPatientWithUser(user: models.User, patientId: string): Promise<models.Patient | any> {
     return super
       .getPatient(patientId)
-      .then((p) => this.tryDecrypt(user, [p], false))
+      .then((p) => this.tryDecryptOrReturnOriginal(user, [p], false))
       .then((pats) => pats[0].patient)
   }
 
   getPotentiallyEncryptedPatientWithUser(user: models.User, patientId: string): Promise<{ patient: models.Patient, decrypted: boolean }> {
     return super
       .getPatient(patientId)
-      .then((p) => this.tryDecrypt(user, [p], false))
+      .then((p) => this.tryDecryptOrReturnOriginal(user, [p], false))
       .then((pats) => pats[0])
   }
 
@@ -567,17 +563,7 @@ export class IccPatientXApi extends IccPatientApi {
         } else {
           const cryptedCopyWithRandomKey = await crypt(
             _.cloneDeep(patientWithInitialisedEks),
-            async (obj: { [key: string]: string }) =>
-              this.crypto.AES.encrypt(
-                await this.crypto.AES.generateCryptoKey(false),
-                utf8_2ua(
-                  JSON.stringify(obj, (k, v) => {
-                    return v instanceof ArrayBuffer || v instanceof Uint8Array
-                      ? b2a(new Uint8Array(v).reduce((d, b) => d + String.fromCharCode(b), ''))
-                      : v
-                  })
-                )
-              ),
+            async (obj: { [key: string]: string }) => Promise.resolve(new ArrayBuffer(1)),
             this.encryptedKeys
           )
           if (!_.isEqual(
@@ -594,10 +580,10 @@ export class IccPatientXApi extends IccPatientApi {
 
   // If patient can't be decrypted returns patient with encrypted data.
   decrypt(user: models.User, patients: Array<models.Patient>, fillDelegations = true): Promise<Array<models.Patient>> {
-    return this.tryDecrypt(user, patients, fillDelegations).then((ps) => ps.map((p) => p.patient))
+    return this.tryDecryptOrReturnOriginal(user, patients, fillDelegations).then((ps) => ps.map((p) => p.patient))
   }
 
-  private async tryDecrypt(user: models.User, patients: Array<models.Patient>, fillDelegations = true): Promise<{ patient: models.Patient, decrypted: boolean }[]> {
+  private async tryDecryptOrReturnOriginal(user: models.User, patients: Array<models.Patient>, fillDelegations = true): Promise<{ patient: models.Patient, decrypted: boolean }[]> {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
     const ids = await (user.healthcarePartyId ? this.hcpartyApi.getHealthcarePartyHierarchyIds(user.healthcarePartyId) : Promise.resolve([dataOwnerId]))
 
