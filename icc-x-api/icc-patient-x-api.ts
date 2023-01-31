@@ -158,9 +158,6 @@ export class IccPatientXApi extends IccPatientApi {
     }
 
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-    if (Object.keys(patient.delegations ?? {}).length || Object.keys(patient.encryptionKeys ?? {}).length) {
-      throw Error(`Encryption metadata for patient ${patient.id} is already initialised.`)
-    }
     const dels = await this.crypto.initObjectDelegations(patient, null, dataOwnerId!, null)
     updatePatientWithDataOwnerIfSame(dels.owner)
     const eks = await this.crypto.initEncryptionKeys(patient, dataOwnerId!)
