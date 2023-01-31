@@ -620,34 +620,30 @@ export class IccCryptoXApi {
 
       return {
         owner: modifiedOwner,
-        delegations: _.fromPairs([
-          [
-            ownerId,
-            [
-              {
-                owner: ownerId,
-                delegatedTo: ownerId,
-                key: ua2hex(encryptedDelegation!),
-              },
-            ],
-          ],
-        ]),
+        delegations: {
+          ...(createdObject.delegations ?? {}),
+          [ownerId]: [
+            {
+              owner: ownerId,
+              delegatedTo: ownerId,
+              key: ua2hex(encryptedDelegation!),
+            },
+          ]
+        },
         cryptedForeignKeys:
           (encryptedSecretForeignKey
-            ? _.fromPairs([
-                [
-                  ownerId,
-                  [
-                    {
-                      owner: ownerId,
-                      delegatedTo: ownerId,
-                      key: ua2hex(encryptedSecretForeignKey!),
-                    },
-                  ],
-                ],
-              ])
+            ? {
+              ...(createdObject.cryptedForeignKeys ?? {}),
+              [ownerId]: [
+                {
+                  owner: ownerId,
+                  delegatedTo: ownerId,
+                  key: ua2hex(encryptedSecretForeignKey!),
+                },
+              ]
+            }
             : {}) || {},
-        secretForeignKeys: (secretForeignKeyOfParent && [secretForeignKeyOfParent]) || [],
+        secretForeignKeys: secretForeignKeyOfParent ? [secretForeignKeyOfParent] : [],
         secretId: secretId,
       }
     })
@@ -927,7 +923,8 @@ export class IccCryptoXApi {
     ownerId: string
   ): Promise<{
     encryptionKeys: any
-    secretId: string
+    secretId: string,
+    modifiedOwner: Patient | Device | HealthcareParty
   }> {
     this.throwDetailedExceptionForInvalidParameter('createdObject.id', createdObject.id, 'initEncryptionKeys', arguments)
 
@@ -956,6 +953,7 @@ export class IccCryptoXApi {
           ],
         ]),
         secretId: secretId,
+        modifiedOwner
       }
     })
   }
