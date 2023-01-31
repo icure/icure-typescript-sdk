@@ -165,6 +165,8 @@ export class IccPatientXApi extends IccPatientApi {
     updatePatientWithDataOwnerIfSame(dels.owner)
     const eks = await this.crypto.initEncryptionKeys(patient, dataOwnerId!)
     updatePatientWithDataOwnerIfSame(eks.modifiedOwner)
+    patient.delegations = dels.delegations
+    patient.encryptionKeys = eks.encryptionKeys
 
     let promise = Promise.resolve(patient)
     _.uniq(
