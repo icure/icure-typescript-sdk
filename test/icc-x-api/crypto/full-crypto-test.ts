@@ -254,43 +254,45 @@ describe('Full battery of tests on crypto and keys', async function () {
 
     const api = await Api(
       env!.iCureUrl,
-      env!.dataOwnerDetails[hcp1Username].user,
-      env!.dataOwnerDetails[hcp1Username].password,
+      env!.masterHcp!.user,
+      env!.masterHcp!.password,
       webcrypto as unknown as Crypto
     )
     const user = await api.userApi.getCurrentUser()
     const dataOwnerId = api.dataOwnerApi.getDataOwnerOf(user)
     const jwk = {
-      publicKey: spkiToJwk(hex2ua(env!.dataOwnerDetails[hcp1Username].publicKey)),
-      privateKey: pkcs8ToJwk(hex2ua(env!.dataOwnerDetails[hcp1Username].privateKey)),
+      publicKey: spkiToJwk(hex2ua(env!.masterHcp!.publicKey)),
+      privateKey: pkcs8ToJwk(hex2ua(env!.masterHcp!.privateKey)),
     }
     await api.cryptoApi.cacheKeyPair(jwk)
-    await api.cryptoApi.keyStorage.storeKeyPair(`${dataOwnerId}.${env!.dataOwnerDetails[hcp1Username].publicKey.slice(-32)}`, jwk)
+    await api.cryptoApi.keyStorage.storeKeyPair(`${dataOwnerId}.${env!.masterHcp!.publicKey.slice(-32)}`, jwk)
 
     const { userApi, patientApi, healthcarePartyApi, cryptoApi } = api
 
-    const publicKeyDelegate = await makeKeyPair(cryptoApi, `hcp-delegate`)
+    const hcpDelegateLogin = `hcp-delegate-${uuid()}`
+    const publicKeyDelegate = await makeKeyPair(cryptoApi, hcpDelegateLogin)
     delegateHcp = await healthcarePartyApi.createHealthcareParty(
       new HealthcareParty({ id: uuid(), publicKey: publicKeyDelegate, firstName: 'test', lastName: 'test' }) //FIXME Shouldn't we call addNewKeyPair directly, instead of initialising like before ?
     )
     delegateUser = await userApi.createUser(
       new User({
         id: `user-${uuid()}-hcp`,
-        login: `hcp-delegate`,
+        login: hcpDelegateLogin,
         status: 'ACTIVE',
         healthcarePartyId: delegateHcp.id,
       })
     )
     delegateHcpPassword = await userApi.getToken(delegateUser!.id!, uuid())
 
-    const publicKeyHcpGivingAccessBack = await makeKeyPair(cryptoApi, `hcp-giving-access-back`)
+    const hcpGivingAccessBackLogin = `hcp-giving-access-back-${uuid()}`
+    const publicKeyHcpGivingAccessBack = await makeKeyPair(cryptoApi, hcpGivingAccessBackLogin)
     hcpGivingAccessBack = await healthcarePartyApi.createHealthcareParty(
       new HealthcareParty({ id: uuid(), publicKey: publicKeyHcpGivingAccessBack, firstName: 'test', lastName: 'test' })
     )
     userGivingAccessBack = await userApi.createUser(
       new User({
         id: `user-${uuid()}-hcp`,
-        login: `hcp-giving-access-back`,
+        login: hcpGivingAccessBackLogin,
         status: 'ACTIVE',
         healthcarePartyId: hcpGivingAccessBack.id,
       })
