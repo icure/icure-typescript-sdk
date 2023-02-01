@@ -15,8 +15,6 @@ import { crypto } from '../../../node-compat'
 
 setLocalStorage(fetch)
 
-const AS_PORT = 16044
-
 const privateKeys = {} as Record<string, Record<string, string>>
 let hcpUser: User | undefined = undefined
 let delegateHcp: HealthcareParty | undefined = undefined
@@ -29,7 +27,7 @@ async function makeKeyPair(cryptoApi: IccCryptoXApi, login: string) {
 }
 
 async function getApiAndAddPrivateKeysForUser(u: User) {
-  const api = await Api(`http://127.0.0.1:${AS_PORT}/rest/v1`, u.login!, 'LetMeInForReal', webcrypto as unknown as Crypto, fetch)
+  const api = await Api(env!.iCureUrl, u.login!, 'LetMeInForReal', webcrypto as unknown as Crypto, fetch)
   await Object.entries(privateKeys[u.login!]).reduce(async (p, [pubKey, privKey]) => {
     await p
     await api.cryptoApi.cacheKeyPair({ publicKey: spkiToJwk(hex2ua(pubKey)), privateKey: pkcs8ToJwk(hex2ua(privKey)) })
@@ -42,7 +40,7 @@ let env: TestVars | undefined
 describe('Full battery of tests on crypto and keys', async function () {
   this.timeout(600000)
 
-  before(async function () {
+  before(async () => {
     this.timeout(300000)
 
     const initializer = await getEnvironmentInitializer()
@@ -99,7 +97,7 @@ describe('Full battery of tests on crypto and keys', async function () {
     )
 
     const apiAsPatient = await Api(
-      `http://127.0.0.1:${AS_PORT}/rest/v1`,
+      env!.iCureUrl,
       newPatientUser.login!,
       'LetMeInForReal',
       webcrypto as unknown as Crypto,
@@ -109,7 +107,7 @@ describe('Full battery of tests on crypto and keys', async function () {
     const publicKeyPatient = await makeKeyPair(apiAsPatient.cryptoApi, newPatientUser.login!)
 
     const patientBaseApi = new IccPatientApi(
-      `http://127.0.0.1:${AS_PORT}/rest/v1`,
+      env!.iCureUrl,
       {},
       new BasicAuthenticationProvider(newPatientUser.login!, 'LetMeInForReal')
     )
