@@ -191,8 +191,10 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
     false,
     grandStorage.storage,
     grandStorage.keyStorage,
-    grandStorage.keyFactory,
-    new TestCryptoStrategies()
+    {
+      entryKeysFactory: grandStorage.keyFactory,
+      cryptoStrategies: new TestCryptoStrategies(),
+    }
   )
   const parentStorage = await testStorageWithKeys([
     { dataOwnerId: grandCredentials.dataOwnerId, pairs: [{ privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }] },
@@ -208,8 +210,10 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
     false,
     parentStorage.storage,
     parentStorage.keyStorage,
-    parentStorage.keyFactory,
-    new TestCryptoStrategies()
+    {
+      entryKeysFactory: parentStorage.keyFactory,
+      cryptoStrategies: new TestCryptoStrategies(),
+    }
   )
   const parentUser = await parentApi.userApi.modifyUser({
     ...(await parentApi.userApi.getCurrentUser()),
@@ -230,8 +234,10 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
     false,
     childStorage.storage,
     childStorage.keyStorage,
-    childStorage.keyFactory,
-    new TestCryptoStrategies()
+    {
+      entryKeysFactory: childStorage.keyFactory,
+      cryptoStrategies: new TestCryptoStrategies(),
+    }
   )
   const childUser = await childApi.userApi.modifyUser({
     ...(await childApi.userApi.getCurrentUser()),
@@ -251,8 +257,10 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
     false,
     child2Storage.storage,
     child2Storage.keyStorage,
-    child2Storage.keyFactory,
-    new TestCryptoStrategies()
+    {
+      entryKeysFactory: child2Storage.keyFactory,
+      cryptoStrategies: new TestCryptoStrategies(),
+    }
   )
   const child2User = await child2Api.userApi.modifyUser({
     ...(await child2Api.userApi.getCurrentUser()),

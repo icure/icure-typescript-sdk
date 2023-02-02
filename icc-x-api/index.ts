@@ -105,6 +105,24 @@ export interface Apis {
   icureMaintenanceTaskApi: IccIcureMaintenanceXApi
 }
 
+export type NamedApiParameters = {
+  readonly entryKeysFactory?: StorageEntryKeysFactory
+  readonly cryptoStrategies?: CryptoStrategies
+  readonly createMaintenanceTasksOnNewKey?: boolean
+}
+
+class NamedApiParametersWithDefault implements NamedApiParameters {
+  constructor(custom: NamedApiParameters) {
+    this.entryKeysFactory = custom.entryKeysFactory ?? new DefaultStorageEntryKeysFactory()
+    this.cryptoStrategies = custom.cryptoStrategies ?? new LegacyCryptoStrategies()
+    this.createMaintenanceTasksOnNewKey = custom.createMaintenanceTasksOnNewKey ?? false
+  }
+
+  readonly entryKeysFactory: StorageEntryKeysFactory
+  readonly cryptoStrategies: CryptoStrategies
+  readonly createMaintenanceTasksOnNewKey: boolean
+}
+
 export const Api = async function (
   host: string,
   username: string,
@@ -119,10 +137,9 @@ export const Api = async function (
   autoLogin: boolean = false,
   storage: StorageFacade<string> = new LocalStorageImpl(),
   keyStorage: KeyStorageFacade = new KeyStorageImpl(storage),
-  entryKeysFactory: StorageEntryKeysFactory = new DefaultStorageEntryKeysFactory(),
-  cryptoStrategies: CryptoStrategies = new LegacyCryptoStrategies(),
-  createMaintenanceTasksOnNewKey: boolean = false
+  namedParameters: NamedApiParameters = {}
 ): Promise<Apis> {
+  const params = new NamedApiParametersWithDefault(namedParameters)
   const headers = {}
   const authenticationProvider = forceBasic
     ? new BasicAuthenticationProvider(username, password)
@@ -139,11 +156,11 @@ export const Api = async function (
   const basePatientApi = new IccPatientApi(host, headers, authenticationProvider, fetchImpl)
   const dataOwnerApi = new IccDataOwnerXApi(userApi, healthcarePartyApi, basePatientApi, deviceApi)
   // Crypto initialisation
-  const icureStorage = new IcureStorageFacade(keyStorage, storage, entryKeysFactory)
+  const icureStorage = new IcureStorageFacade(keyStorage, storage, params.entryKeysFactory)
   const cryptoPrimitives = new CryptoPrimitives(crypto)
   const baseExchangeKeysManager = new BaseExchangeKeysManager(cryptoPrimitives, dataOwnerApi, healthcarePartyApi, basePatientApi, deviceApi)
   const keyRecovery = new KeyRecovery(cryptoPrimitives, baseExchangeKeysManager, dataOwnerApi)
-  const keyManager = new KeyManager(cryptoPrimitives, dataOwnerApi, icureStorage, keyRecovery, baseExchangeKeysManager, cryptoStrategies!)
+  const keyManager = new KeyManager(cryptoPrimitives, dataOwnerApi, icureStorage, keyRecovery, baseExchangeKeysManager, params.cryptoStrategies)
   const newKey = await keyManager.initialiseKeys()
   await new TransferKeysManager(cryptoPrimitives, baseExchangeKeysManager, dataOwnerApi, keyManager, icureStorage).updateTransferKeys(
     await dataOwnerApi.getCurrentDataOwner()
@@ -154,7 +171,7 @@ export const Api = async function (
     500,
     60000,
     600000,
-    cryptoStrategies!,
+    params.cryptoStrategies,
     cryptoPrimitives,
     keyManager,
     baseExchangeKeysManager,
@@ -241,7 +258,7 @@ export const Api = async function (
   } else {
     console.info('Auto login skipped')
   }
-  if (newKey && createMaintenanceTasksOnNewKey) {
+  if (newKey && params.createMaintenanceTasksOnNewKey) {
     await icureMaintenanceTaskApi.createMaintenanceTasksForNewKeypair(await userApi.getCurrentUser(), newKey.newKeyPair)
   }
   return {

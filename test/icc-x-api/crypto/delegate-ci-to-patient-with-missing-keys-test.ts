@@ -85,8 +85,9 @@ describe('Full battery of tests on crypto and keys', async function () {
       false,
       new TestStorage(),
       new TestKeyStorage(),
-      new DefaultStorageEntryKeysFactory(),
-      new TestCryptoStrategies(newKey)
+      {
+        cryptoStrategies: new TestCryptoStrategies(newKey),
+      }
     )
     const user = await apiAfterNewKey.userApi.getCurrentUser()
     await apiAfterNewKey.icureMaintenanceTaskApi.createMaintenanceTasksForNewKeypair(user, newKey)
@@ -139,8 +140,9 @@ describe('Full battery of tests on crypto and keys', async function () {
       false,
       new TestStorage(),
       new TestKeyStorage(),
-      new DefaultStorageEntryKeysFactory(),
-      new TestCryptoStrategies(newKey)
+      {
+        cryptoStrategies: new TestCryptoStrategies(newKey),
+      }
     )
     await apiAfterSharedBack.cryptoApi.forceReload(true)
     const decryptedAesWithShareBack = await apiAfterSharedBack.cryptoApi.exchangeKeys.getDecryptionExchangeKeysFor(patient.id!, delegateHcp.id!)
