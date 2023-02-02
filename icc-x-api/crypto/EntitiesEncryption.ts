@@ -248,19 +248,19 @@ export class EntitiesEncryption {
     const owningEntityIdsToShare = await checkInputAndGet(shareOwningEntityIds, 'owningEntityIds', (x) => this.validateOwningEntityId(x))
     const deduplicateInfoSecretIds = await this.deduplicateDelegationsAndFilterRequiredEntries(
       delegateId,
-      entity.delegations?.[delegateId] ?? [],
+      entity.delegations ?? {},
       secretIdsToShare,
       (x) => this.validateSecretId(x)
     )
     const deduplicateInfoEncryptionKeys = await this.deduplicateDelegationsAndFilterRequiredEntries(
       delegateId,
-      entity.encryptionKeys?.[delegateId] ?? [],
+      entity.encryptionKeys ?? {},
       encryptionKeysToShare,
       (x) => this.validateEncryptionKey(x)
     )
     const deduplicateInfoOwningEntityIds = await this.deduplicateDelegationsAndFilterRequiredEntries(
       delegateId,
-      entity.cryptedForeignKeys?.[delegateId] ?? [],
+      entity.cryptedForeignKeys ?? {},
       owningEntityIdsToShare,
       (x) => this.validateOwningEntityId(x)
     )
@@ -785,14 +785,14 @@ export class EntitiesEncryption {
    * De-duplicates all currently accessible delegations, by removing any delegations created by the current data owner which have duplicated content,
    * and checks if any of the required entries are currently available to the delegate through the existing delegations.
    * @param delegateId id of the delegate.
-   * @param delegations delegations towards the delegate.
+   * @param allDelegations delegations of the entity.
    * @param requiredEntries potentially new entries that the delegate needs to be able to access from the delegations.
    * @param validateDecrypted validator for decrypted delegation content
    * @return the deduplicated delegations
    */
   private async deduplicateDelegationsAndFilterRequiredEntries(
     delegateId: string,
-    delegations: Delegation[],
+    allDelegations: { [delegateId: string]: Delegation[] },
     requiredEntries: string[],
     validateDecrypted: (x: string) => boolean | Promise<boolean>
   ): Promise<{
@@ -800,10 +800,11 @@ export class EntitiesEncryption {
     missingEntries: string[]
   }> {
     const selfId = await this.dataOwnerApi.getCurrentDataOwnerId()
+    const delegationsToDelegate = allDelegations[delegateId] ?? []
     const decryptedDelegations = await Promise.all(
-      delegations.map(async (d) => ({
+      delegationsToDelegate.map(async (d) => ({
         delegation: d,
-        content: d.owner === selfId ? await this.tryDecryptDelegation(d, validateDecrypted) : undefined,
+        content: d.owner === selfId ? await this.tryDecryptDelegation(d, (x) => validateDecrypted(x)) : undefined,
       }))
     )
     const deduplicatedDelegations: Delegation[] = []
@@ -823,9 +824,15 @@ export class EntitiesEncryption {
         }
       }
     })
+    const delegationsFromDelegateToSelf = (allDelegations[selfId] ?? []).filter((d) => d.owner === delegateId)
+    const decryptedDelegationsFromDelegate = new Set(
+      await Promise.all(delegationsFromDelegateToSelf.map((d) => this.tryDecryptDelegation(d, (x) => validateDecrypted(x)))).then((dels) =>
+        dels.flatMap((x) => (x ? [x] : []))
+      )
+    )
     return {
       deduplicatedDelegations,
-      missingEntries: requiredEntries.filter((entry) => !deduplicatedContent.has(entry)),
+      missingEntries: requiredEntries.filter((entry) => !(deduplicatedContent.has(entry) || decryptedDelegationsFromDelegate.has(entry))),
     }
   }
 
