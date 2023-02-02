@@ -1,4 +1,4 @@
-import { Delegation, EncryptedEntity } from '../../icc-api/model/models'
+import { Delegation, EncryptedEntity, EncryptedEntityStub } from '../../icc-api/model/models'
 import { DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { ExchangeKeysManager } from './ExchangeKeysManager'
 import { b2a, crypt, decrypt, string2ua, truncateTrailingNulls, ua2hex, ua2string, ua2utf8, utf8_2ua, hex2ua } from '../utils'
@@ -29,7 +29,7 @@ export class EntitiesEncryption {
    * @return the encryption keys that the provided data owner can decrypt, deduplicated.
    */
   async encryptionKeysOf(
-    entity: EncryptedEntity,
+    entity: EncryptedEntity | EncryptedEntityStub,
     dataOwnerId?: string,
     tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<string[]> {
@@ -53,7 +53,7 @@ export class EntitiesEncryption {
    * @return the encryption keys that each member of the current data owner hierarchy can decrypt using only his keys and not keys of his parents.
    */
   async encryptionKeysForHcpHierarchyOf(
-    entity: EncryptedEntity,
+    entity: EncryptedEntity | EncryptedEntityStub,
     tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<{ ownerId: string; extracted: string[] }[]> {
     return this.extractedHierarchyFromDelegation(
@@ -71,7 +71,7 @@ export class EntitiesEncryption {
    * @return the secret ids (SFKs) that the provided data owner can decrypt, deduplicated.
    */
   async secretIdsOf(
-    entity: EncryptedEntity,
+    entity: EncryptedEntity | EncryptedEntityStub,
     dataOwnerId?: string,
     tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<string[]> {
@@ -93,7 +93,7 @@ export class EntitiesEncryption {
    * @return the secret ids that each member of the current data owner hierarchy can decrypt using only his keys and not keys of his parents.
    */
   async secretIdsForHcpHierarchyOf(
-    entity: EncryptedEntity,
+    entity: EncryptedEntity | EncryptedEntityStub,
     tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<{ ownerId: string; extracted: string[] }[]> {
     return this.extractedHierarchyFromDelegation(
@@ -115,7 +115,7 @@ export class EntitiesEncryption {
    * @return the owning entity ids (CFKs) that the provided data owner can decrypt, deduplicated.
    */
   async owningEntityIdsOf(
-    entity: EncryptedEntity,
+    entity: EncryptedEntity | EncryptedEntityStub,
     dataOwnerId?: string,
     tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<string[]> {
@@ -142,7 +142,7 @@ export class EntitiesEncryption {
    * @return the owning entity ids that each member of the current data owner hierarchy can decrypt using only his keys and not keys of his parents.
    */
   async owningEntityIdsForHcpHierarchyOf(
-    entity: EncryptedEntity,
+    entity: EncryptedEntity | EncryptedEntityStub,
     tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<{ ownerId: string; extracted: string[] }[]> {
     return this.extractedHierarchyFromDelegation(
@@ -306,7 +306,7 @@ export class EntitiesEncryption {
    * @throws if the provided data owner can't access any encryption keys for the entity.
    */
   async encryptDataOf(
-    entity: EncryptedEntity,
+    entity: EncryptedEntity | EncryptedEntityStub,
     content: ArrayBuffer | Uint8Array,
     dataOwnerId?: string,
     tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
@@ -314,7 +314,7 @@ export class EntitiesEncryption {
     const keys = await this.encryptionKeysOf(await this.ensureEncryptionKeysInitialised(entity), dataOwnerId, tagsFilter)
     if (keys.length === 0)
       throw new Error(
-        `Could not extract any encryption keys of entity ${entity.id} for data owner ${
+        `Could not extract any encryption keys of entity ${entity} for data owner ${
           dataOwnerId ?? (await this.dataOwnerApi.getCurrentDataOwnerId())
         }.`
       )
@@ -338,7 +338,7 @@ export class EntitiesEncryption {
    * content according to the validator.
    */
   async decryptDataOf(
-    entity: EncryptedEntity,
+    entity: EncryptedEntity | EncryptedEntityStub,
     content: ArrayBuffer | Uint8Array,
     validator: (decryptedData: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true),
     dataOwnerId?: string,
@@ -354,7 +354,7 @@ export class EntitiesEncryption {
       }
     }
     throw new Error(
-      `No valid key found to decrypt data of ${entity.id} for data owner ${dataOwnerId ?? (await this.dataOwnerApi.getCurrentDataOwnerId())}.`
+      `No valid key found to decrypt data of ${entity} for data owner ${dataOwnerId ?? (await this.dataOwnerApi.getCurrentDataOwnerId())}.`
     )
   }
 
