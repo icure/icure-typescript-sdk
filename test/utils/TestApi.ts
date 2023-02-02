@@ -22,7 +22,8 @@ export const TestApi = async function (
     false,
     new TestStorage(),
     new TestKeyStorage(),
-    new DefaultStorageEntryKeysFactory(),
-    new TestCryptoStrategies(initialisedKeys)
+    {
+      cryptoStrategies: new TestCryptoStrategies(initialisedKeys),
+    }
   )
 }

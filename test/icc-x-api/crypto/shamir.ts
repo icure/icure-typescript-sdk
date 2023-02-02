@@ -127,8 +127,10 @@ describe('Shamir key recovery', async function () {
       false,
       lostKeyStorage.storage,
       lostKeyStorage.keyStorage,
-      lostKeyStorage.keyFactory,
-      new TestCryptoStrategies(newKey)
+      {
+        entryKeysFactory: lostKeyStorage.keyFactory,
+        cryptoStrategies: new TestCryptoStrategies(newKey),
+      }
     )
     const lostUser = await lostKeyApi.userApi.getCurrentUser()
     const lostPatient = await lostKeyApi.patientApi.getPatientWithUser(lostUser, pat.id!)

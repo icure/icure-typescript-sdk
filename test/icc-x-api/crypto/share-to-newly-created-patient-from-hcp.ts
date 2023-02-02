@@ -69,8 +69,9 @@ describe('Full battery of tests on crypto and keys', async function () {
       false,
       new TestStorage(),
       new TestKeyStorage(),
-      new DefaultStorageEntryKeysFactory(),
-      new TestCryptoStrategies(await api.cryptoApi.primitives.RSA.generateKeyPair())
+      {
+        cryptoStrategies: new TestCryptoStrategies(await api.cryptoApi.primitives.RSA.generateKeyPair()),
+      }
     )
 
     const patientBaseApi = new IccPatientApi(env!.iCureUrl, {}, new BasicAuthenticationProvider(newPatientUser.login!, 'LetMeInForReal'))

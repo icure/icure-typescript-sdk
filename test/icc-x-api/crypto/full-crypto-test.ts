@@ -186,22 +186,17 @@ const userDefinitions: Record<
       false,
       new TestStorage(),
       new TestKeyStorage(),
-      new DefaultStorageEntryKeysFactory(),
-      new TestCryptoStrategies(newKey, { [ua2hex(await primitives.RSA.exportKey(originalKey.publicKey, 'spki')).slice(-32)]: true })
+      {
+        cryptoStrategies: new TestCryptoStrategies(newKey, {
+          [ua2hex(await primitives.RSA.exportKey(originalKey.publicKey, 'spki')).slice(-32)]: true,
+        }),
+      }
     )
-    const apis = await Api(
-      env!.iCureUrl,
-      user.login!,
-      password,
-      webcrypto as any,
-      fetch,
-      false,
-      false,
-      new TestStorage(),
-      new TestKeyStorage(),
-      new DefaultStorageEntryKeysFactory(),
-      new TestCryptoStrategies(originalKey, { [ua2hex(await primitives.RSA.exportKey(newKey.publicKey, 'spki')).slice(-32)]: true })
-    )
+    const apis = await Api(env!.iCureUrl, user.login!, password, webcrypto as any, fetch, false, false, new TestStorage(), new TestKeyStorage(), {
+      cryptoStrategies: new TestCryptoStrategies(originalKey, {
+        [ua2hex(await primitives.RSA.exportKey(newKey.publicKey, 'spki')).slice(-32)]: true,
+      }),
+    })
     expect(Object.keys(apis.cryptoApi.userKeysManager.getDecryptionKeys())).to.have.length(2)
     return { user, apis, didLoseKey: false }
   },
@@ -217,8 +212,9 @@ const userDefinitions: Record<
       false,
       new TestStorage(),
       new TestKeyStorage(),
-      new DefaultStorageEntryKeysFactory(),
-      new TestCryptoStrategies(newKey)
+      {
+        cryptoStrategies: new TestCryptoStrategies(newKey),
+      }
     )
     const keyStrings = await Promise.all(
       [originalKey, newKey].map(async (pair) => ({
@@ -227,19 +223,10 @@ const userDefinitions: Record<
       }))
     )
     const storage = await testStorageWithKeys([{ dataOwnerId: user.healthcarePartyId ?? user.patientId!, pairs: keyStrings }])
-    const apis = await Api(
-      env!.iCureUrl,
-      user.login!,
-      password,
-      webcrypto as any,
-      fetch,
-      false,
-      false,
-      storage.storage,
-      storage.keyStorage,
-      storage.keyFactory,
-      new TestCryptoStrategies()
-    )
+    const apis = await Api(env!.iCureUrl, user.login!, password, webcrypto as any, fetch, false, false, storage.storage, storage.keyStorage, {
+      entryKeysFactory: storage.keyFactory,
+      cryptoStrategies: new TestCryptoStrategies(),
+    })
     return { user, apis, didLoseKey: false }
   },
   'a single available key in old format': async (user, password, originalKey) => ({

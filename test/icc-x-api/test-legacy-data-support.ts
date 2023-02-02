@@ -166,8 +166,9 @@ class ApiFactoryV7 implements ApiFactory {
       false,
       new TestStorage(),
       new TestKeyStorage(),
-      new DefaultStorageEntryKeysFactory(),
-      new TestCryptoStrategies(key)
+      {
+        cryptoStrategies: new TestCryptoStrategies(key),
+      }
     )
     return <UniformizedMasterApi>{
       createUser: async () => {
@@ -213,8 +214,10 @@ class ApiFactoryV7 implements ApiFactory {
       false,
       testStorage.storage,
       testStorage.keyStorage,
-      testStorage.keyFactory,
-      new TestCryptoStrategies(credentials.key)
+      {
+        entryKeysFactory: testStorage.keyFactory,
+        cryptoStrategies: new TestCryptoStrategies(credentials.key),
+      }
     )
     const user = await apis.userApi.getCurrentUser()
     return {
