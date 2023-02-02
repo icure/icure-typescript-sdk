@@ -199,11 +199,13 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
   encrypt(user: models.User, calendarItems: Array<models.CalendarItem>): Promise<Array<models.CalendarItem>> {
     const owner = this.dataOwnerApi.getDataOwnerIdOf(user)
     return Promise.all(
-      calendarItems.map((x) => this.crypto.entities.encryptEntity(x, owner, this.encryptedKeys, false, (json) => new CalendarItem(json)))
+      calendarItems.map((x) => this.crypto.entities.tryEncryptEntity(x, owner, this.encryptedKeys, false, true, (json) => new CalendarItem(json)))
     )
   }
 
   decrypt(hcpId: string, calendarItems: Array<models.CalendarItem>): Promise<Array<models.CalendarItem>> {
-    return Promise.all(calendarItems.map((x) => this.crypto.entities.decryptEntity(x, hcpId, (json) => new CalendarItem(json))))
+    return Promise.all(
+      calendarItems.map((x) => this.crypto.entities.decryptEntity(x, hcpId, (json) => new CalendarItem(json)).then(({ entity }) => entity))
+    )
   }
 }

@@ -109,12 +109,16 @@ export class IccAccesslogXApi extends IccAccesslogApi {
   }
 
   decrypt(hcpId: string, accessLogs: Array<models.AccessLog>): Promise<Array<models.AccessLog>> {
-    return Promise.all(accessLogs.map((x) => this.crypto.entities.decryptEntity(x, hcpId, (json) => new AccessLog(json))))
+    return Promise.all(
+      accessLogs.map((x) => this.crypto.entities.decryptEntity(x, hcpId, (json) => new AccessLog(json)).then(({ entity }) => entity))
+    )
   }
 
   encrypt(user: models.User, accessLogs: Array<models.AccessLog>): Promise<Array<models.AccessLog>> {
     const owner = this.dataOwnerApi.getDataOwnerIdOf(user)
-    return Promise.all(accessLogs.map((x) => this.crypto.entities.encryptEntity(x, owner, this.cryptedKeys, false, (json) => new AccessLog(json))))
+    return Promise.all(
+      accessLogs.map((x) => this.crypto.entities.tryEncryptEntity(x, owner, this.cryptedKeys, false, true, (json) => new AccessLog(json)))
+    )
   }
 
   createAccessLog(body?: models.AccessLog): never {
