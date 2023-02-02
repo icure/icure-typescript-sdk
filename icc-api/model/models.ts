@@ -11,6 +11,7 @@ import { MaintenanceTask } from './MaintenanceTask'
 import { Message } from './Message'
 import { Receipt } from './Receipt'
 import { Patient } from './Patient'
+import { Delegation } from './Delegation'
 
 export * from './AbstractFilterCode'
 export * from './AbstractFilterContact'
@@ -278,4 +279,13 @@ export type EncryptedEntity =
   | Message
   | Patient
   | Receipt
+
+export type EncryptedEntityStub = {
+  secretForeignKeys?: Array<string>
+  cryptedForeignKeys?: { [key: string]: Delegation[] }
+  delegations?: { [key: string]: Delegation[] }
+  encryptionKeys?: { [key: string]: Delegation[] }
+  encryptedSelf?: string
+}
+
 export type EncryptedParentEntity = Message | Patient
