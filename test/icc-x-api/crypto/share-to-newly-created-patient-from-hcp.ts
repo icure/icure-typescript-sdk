@@ -17,8 +17,6 @@ import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
 
 setLocalStorage(fetch)
 
-const AS_PORT = 16044
-
 const privateKeys = {} as Record<string, Record<string, string>>
 let hcpUser: User | undefined = undefined
 let delegateHcp: HealthcareParty | undefined = undefined
@@ -28,15 +26,6 @@ async function makeKeyPair(cryptoApi: IccCryptoXApi, login: string) {
   const publicKeyHex = ua2hex(await cryptoApi.RSA.exportKey(publicKey!, 'spki'))
   privateKeys[login] = { [publicKeyHex]: ua2hex((await cryptoApi.RSA.exportKey(privateKey!, 'pkcs8')) as ArrayBuffer) }
   return publicKeyHex
-}
-
-async function getApiAndAddPrivateKeysForUser(u: User) {
-  const api = await Api(`http://127.0.0.1:${AS_PORT}/rest/v1`, u.login!, 'LetMeInForReal', webcrypto as unknown as Crypto, fetch)
-  await Object.entries(privateKeys[u.login!]).reduce(async (p, [pubKey, privKey]) => {
-    await p
-    await api.cryptoApi.cacheKeyPair({ publicKey: spkiToJwk(hex2ua(pubKey)), privateKey: pkcs8ToJwk(hex2ua(privKey)) })
-  }, Promise.resolve())
-  return api
 }
 
 let env: TestVars | undefined
