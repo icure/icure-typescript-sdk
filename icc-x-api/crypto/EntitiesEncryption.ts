@@ -360,17 +360,26 @@ export class EntitiesEncryption {
 
   /**
    * @internal this method is intended for internal use only and may be changed without notice.
-   * Encrypts the content of an encrypted entity.
+   * Decrypts the content of an encrypted entity.
    */
-  async decryptEntity<T extends EncryptedEntity>(entity: T, ownerId: string, constructor: (json: any) => T): Promise<T> {
-    if (!entity.encryptedSelf) return constructor(entity)
+  async decryptEntity<T extends EncryptedEntity>(
+    entity: T,
+    ownerId: string,
+    constructor: (json: any) => T
+  ): Promise<{ entity: T; decrypted: boolean }> {
+    // TODO rememver everything is stashed
+    // TODO trying to decrypt with hierarchy in patient?
+    if (!entity.encryptedSelf) return { entity, decrypted: true }
     const encryptionKeys = await this.importAllValidKeys(await this.encryptionKeysOf(entity, ownerId))
-    if (encryptionKeys.length === 0) return constructor(entity)
-    return constructor(
-      await decrypt(entity, async (encrypted) => {
-        return (await this.tryDecryptJson(encryptionKeys, encrypted, false)) ?? {}
-      })
-    )
+    if (!encryptionKeys.length) return { entity, decrypted: false }
+    return {
+      entity: constructor(
+        await decrypt(entity, async (encrypted) => {
+          return (await this.tryDecryptJson(encryptionKeys, encrypted, false)) ?? {}
+        })
+      ),
+      decrypted: true,
+    }
   }
 
   /**
@@ -393,33 +402,58 @@ export class EntitiesEncryption {
 
   /**
    * @internal this method is intended for internal use only and may be changed without notice.
-   * Encrypts the content of an encrypted entity.
+   * Tries to encrypt the content of an encrypted entity.
+   * 1. If valid key for encryption is found the method returns the entity with the encrypted fields specified by cryptedKeys
+   * 2. If requireEncryption is true and no key could be found for encryption of the entity the method fails.
+   * 3. If requireEncryption is false and no key could be found for encryption the method will only check that the entity does not specify any value
+   * for fields which should be encrypted according to cryptedKeys (e.g. note in a patient by default). If the entity specifies a value for any field
+   * which should be encrypted the method throws an error, otherwise the method returns the original entity.
    */
-  async encryptEntity<T extends EncryptedEntity>(
+  async tryEncryptEntity<T extends EncryptedEntity>(
     entity: T,
     dataOwnerId: string,
     cryptedKeys: string[],
     encodeBinaryData: boolean,
+    requireEncryption: boolean,
     constructor: (json: any) => T
   ): Promise<T> {
     const entityWithInitialisedEncryptionKeys = await this.ensureEncryptionKeysInitialised(entity)
-    const encryptionKey = await this.importFirstValidKey(await this.encryptionKeysOf(entity, dataOwnerId), entity.id!)
-    return constructor(
-      await crypt(
-        entityWithInitialisedEncryptionKeys,
-        (obj) => {
-          const json = encodeBinaryData
-            ? JSON.stringify(obj, (k, v) => {
-                return v instanceof ArrayBuffer || v instanceof Uint8Array
-                  ? b2a(new Uint8Array(v).reduce((d, b) => d + String.fromCharCode(b), ''))
-                  : v
-              })
-            : JSON.stringify(obj)
-          return this.primitives.AES.encrypt(encryptionKey.key, utf8_2ua(json), encryptionKey.raw)
-        },
+    const encryptionKey = await this.tryImportFirstValidKey(await this.encryptionKeysOf(entity, dataOwnerId), entity.id!)
+    if (!!encryptionKey) {
+      return constructor(
+        await crypt(
+          entityWithInitialisedEncryptionKeys,
+          (obj) => {
+            const json = encodeBinaryData
+              ? JSON.stringify(obj, (k, v) => {
+                  return v instanceof ArrayBuffer || v instanceof Uint8Array
+                    ? b2a(new Uint8Array(v).reduce((d, b) => d + String.fromCharCode(b), ''))
+                    : v
+                })
+              : JSON.stringify(obj)
+            return this.primitives.AES.encrypt(encryptionKey.key, utf8_2ua(json), encryptionKey.raw)
+          },
+          cryptedKeys
+        )
+      )
+    } else if (requireEncryption) {
+      throw new Error(`No key found for encryption of entity ${entity}`)
+    } else {
+      const cryptedCopyWithRandomKey = await crypt(
+        _.cloneDeep(entity),
+        async (obj: { [key: string]: string }) => Promise.resolve(new ArrayBuffer(1)),
         cryptedKeys
       )
-    )
+      if (
+        !_.isEqual(
+          _.omitBy({ ...cryptedCopyWithRandomKey, encryptedSelf: undefined }, _.isNil),
+          _.omitBy({ ...entity, encryptedSelf: undefined }, _.isNil)
+        )
+      ) {
+        throw new Error(`Impossible to modify encrypted value of an entity if no encryption key is known.\n${entity}`)
+      }
+      return entity
+    }
   }
 
   /**
@@ -581,11 +615,16 @@ export class EntitiesEncryption {
    * @internal this method is for internal use only and may be changed without notice.
    */
   async importFirstValidKey(keys: string[], entityId: string): Promise<{ key: CryptoKey; raw: string }> {
+    const res = await this.tryImportFirstValidKey(keys, entityId)
+    if (!res) throw new Error(`Could not find any valid key for entity ${entityId}.`)
+    return res
+  }
+
+  private async tryImportFirstValidKey(keys: string[], entityId: string): Promise<{ key: CryptoKey; raw: string } | undefined> {
     for (const key of keys) {
       const imported = await this.tryImportKey(key)
       if (imported) return { key: imported, raw: key }
     }
-    throw new Error(`Could not find any valid key for entity ${entityId}.`)
   }
 
   /**

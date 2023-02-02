@@ -100,6 +100,8 @@ export class IccFormXApi extends IccFormApi {
 
   // TODO Decrypt but no encrypt?
   decrypt(hcpartyId: string, forms: Array<models.Form>) {
-    return Promise.all(forms.map((form) => this.crypto.entities.decryptEntity(form, hcpartyId, (x) => new models.Form(x))))
+    return Promise.all(
+      forms.map((form) => this.crypto.entities.decryptEntity(form, hcpartyId, (x) => new models.Form(x)).then(({ entity }) => entity))
+    )
   }
 }

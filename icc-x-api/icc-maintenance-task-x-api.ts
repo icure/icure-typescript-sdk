@@ -130,13 +130,19 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
 
     return Promise.all(
-      maintenanceTasks.map((m) => this.crypto.entities.encryptEntity(m, dataOwnerId, this.encryptedKeys, true, (x) => new models.MaintenanceTask(x)))
+      maintenanceTasks.map((m) =>
+        this.crypto.entities.tryEncryptEntity(m, dataOwnerId, this.encryptedKeys, true, true, (x) => new models.MaintenanceTask(x))
+      )
     )
   }
 
   decrypt(user: models.User, maintenanceTasks: Array<models.MaintenanceTask>): Promise<Array<models.MaintenanceTask>> {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
 
-    return Promise.all(maintenanceTasks.map(async (mT) => this.crypto.entities.decryptEntity(mT, dataOwnerId, (x) => new MaintenanceTask(x))))
+    return Promise.all(
+      maintenanceTasks.map(async (mT) =>
+        this.crypto.entities.decryptEntity(mT, dataOwnerId, (x) => new MaintenanceTask(x)).then(({ entity }) => entity)
+      )
+    )
   }
 }
