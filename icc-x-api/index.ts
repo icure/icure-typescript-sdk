@@ -241,7 +241,6 @@ export const Api = async function (
   } else {
     console.info('Auto login skipped')
   }
-  // TODO what is auto login? Can we do this if it is false?
   if (newKey && createMaintenanceTasksOnNewKey) {
     await icureMaintenanceTaskApi.createMaintenanceTasksForNewKeypair(await userApi.getCurrentUser(), newKey.newKeyPair)
   }

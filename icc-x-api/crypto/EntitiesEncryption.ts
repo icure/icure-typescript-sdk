@@ -367,8 +367,6 @@ export class EntitiesEncryption {
     ownerId: string,
     constructor: (json: any) => T
   ): Promise<{ entity: T; decrypted: boolean }> {
-    // TODO rememver everything is stashed
-    // TODO trying to decrypt with hierarchy in patient?
     if (!entity.encryptedSelf) return { entity, decrypted: true }
     const encryptionKeys = await this.importAllValidKeys(await this.encryptionKeysOf(entity, ownerId))
     if (!encryptionKeys.length) return { entity, decrypted: false }

@@ -104,7 +104,6 @@ export class IccPatientXApi extends IccPatientApi {
       extraDelegations,
       delegationTags
     )
-    // TODO previously anonymous delegations were used also for patient but this does not make sense...
     return new models.Patient(initialisationInfo.updatedEntity)
   }
 
