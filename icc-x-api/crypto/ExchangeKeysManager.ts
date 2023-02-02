@@ -27,7 +27,7 @@ export class ExchangeKeysManager {
    * an action from the delegator (unless he does this action from another device), so it should be safe to store them without expiration. However,
    * the delegator may still have a lot of exchange keys (e.g. doctor -> all patients), so it is not safe to have a cache with unlimited size.
    */
-  private delegatorExchangeKeysCache: LruTemporisedAsyncCache<string, { key: CryptoKey; isVerified: boolean }[]>
+  private delegatorExchangeKeysCache: LruTemporisedAsyncCache<string, CryptoKey[]>
   /*
    * Exchange keys cache where the current user is not the delegator. There may be many keys where the current user is the delegate,
    * and they may change over time without any action from the current data owner, since the delegator is someone else. For this reason the cache must
@@ -73,9 +73,8 @@ export class ExchangeKeysManager {
    */
   async getOrCreateEncryptionExchangeKeysTo(delegateId: string): Promise<{ updatedDelegator?: DataOwnerWithType; keys: CryptoKey[] }> {
     const currentKeys = await this.getSelfExchangeKeysTo(delegateId)
-    const verifiedKeys = currentKeys.filter((x) => x.isVerified)
-    if (verifiedKeys.length > 0) {
-      return { keys: verifiedKeys.map((x) => x.key) }
+    if (currentKeys.length > 0) {
+      return { keys: currentKeys }
     } else {
       while (true) {
         let updatedDelegatorJob: Promise<DataOwnerWithType> | undefined = undefined
@@ -85,15 +84,13 @@ export class ExchangeKeysManager {
             const fullJob = this.forceCreateVerifiedExchangeKeyTo(delegateId)
             updatedDelegatorJob = fullJob.then(({ updatedDelegator }) => updatedDelegator)
             let existingKeys = previous ? previous : await this.forceGetSelfExchangeKeysTo(delegateId)
-            return fullJob.then(({ key }) => [...existingKeys, { key, isVerified: true }])
+            return fullJob.then(({ key }) => [...existingKeys, key])
           },
-          (v) => !v.some((x) => x.isVerified)
+          (v) => !v.length
         )
-        const verifiedKeysWithNew = keysWithNew.filter((x) => x.isVerified)
-        if (verifiedKeysWithNew.length > 0) {
+        if (keysWithNew.length > 0) {
           const updatedDelegator = updatedDelegatorJob ? await updatedDelegatorJob : undefined
-          const mappedKeys = verifiedKeysWithNew.map((x) => x.key)
-          return updatedDelegator ? { keys: mappedKeys, updatedDelegator } : { keys: mappedKeys }
+          return updatedDelegator ? { keys: keysWithNew, updatedDelegator } : { keys: keysWithNew }
         }
       }
       /*NOTE:
@@ -115,8 +112,7 @@ export class ExchangeKeysManager {
    */
   async getDecryptionExchangeKeysFor(delegatorId: string, delegateId: string): Promise<CryptoKey[]> {
     if (delegatorId === (await this.dataOwnerApi.getCurrentDataOwnerId())) {
-      const keysWithVerification = await this.getSelfExchangeKeysTo(delegateId)
-      return keysWithVerification.map((x) => x.key)
+      return await this.getSelfExchangeKeysTo(delegateId)
     } else {
       const key = `${delegatorId}->${delegateId}`
       const hierarchyIds = await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
@@ -140,15 +136,15 @@ export class ExchangeKeysManager {
     return (await this.baseExchangeKeysManager.tryDecryptExchangeKeys(encKeys, this.keyManager.getDecryptionKeys())).successfulDecryptions
   }
 
-  private async getSelfExchangeKeysTo(delegateId: string): Promise<{ key: CryptoKey; isVerified: boolean }[]> {
+  private async getSelfExchangeKeysTo(delegateId: string): Promise<CryptoKey[]> {
     return await this.delegatorExchangeKeysCache.get(delegateId, () => this.forceGetSelfExchangeKeysTo(delegateId))
   }
 
-  private async forceGetSelfExchangeKeysTo(delegateId: string): Promise<{ key: CryptoKey; isVerified: boolean }[]> {
+  private async forceGetSelfExchangeKeysTo(delegateId: string): Promise<CryptoKey[]> {
     // Retrieve then try to decrypt with own and parent key pairs
     const encKeys = await this.baseExchangeKeysManager.getEncryptedExchangeKeysFor(await this.dataOwnerApi.getCurrentDataOwnerId(), delegateId)
     const { successfulDecryptions } = await this.baseExchangeKeysManager.tryDecryptExchangeKeys(encKeys, this.keyManager.getDecryptionKeys())
-    return successfulDecryptions.map((x) => ({ key: x, isVerified: true })) // TODO currently there is no verification
+    return successfulDecryptions
   }
 
   private async forceCreateVerifiedExchangeKeyTo(delegateId: string): Promise<{ updatedDelegator: DataOwnerWithType; key: CryptoKey }> {
@@ -171,16 +167,5 @@ export class ExchangeKeysManager {
       }
     }
     return await this.baseExchangeKeysManager.createOrUpdateEncryptedExchangeKeyTo(delegateId, mainKey.pair, otherPublicKeys)
-  }
-
-  /**
-   * @internal for testing purposes only
-   */
-  async addFakeKeyTo(delegateId: string, key: { key: CryptoKey; isVerified: boolean }) {
-    await this.delegatorExchangeKeysCache.get(
-      delegateId,
-      (old) => Promise.resolve([...(old ?? []), key]),
-      () => true
-    )
   }
 }
