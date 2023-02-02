@@ -484,6 +484,7 @@ export class IccPatientXApi extends IccPatientApi {
     )
   }
 
+  // If patient can't be decrypted returns patient with encrypted data.
   decrypt(user: models.User, patients: Array<models.Patient>, fillDelegations = true): Promise<Array<models.Patient>> {
     return this.tryDecryptOrReturnOriginal(user, patients, fillDelegations).then((ps) => ps.map((p) => p.entity))
   }
