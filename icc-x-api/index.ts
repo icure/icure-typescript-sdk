@@ -49,6 +49,7 @@ import { IccIcureMaintenanceXApi } from './icc-icure-maintenance-x-api'
 import { EntitiesEncryption } from './crypto/EntitiesEncryption'
 import { ConfidentialEntities } from './crypto/ConfidentialEntities'
 import { LegacyCryptoStrategies } from './crypto/LegacyCryptoStrategies'
+import { ensureDelegationForSelf } from './crypto/utils'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -181,6 +182,7 @@ export const Api = async function (
   const entitiesEncryption = new EntitiesEncryption(cryptoPrimitives, dataOwnerApi, exchangeKeysManager)
   const shamirManager = new ShamirKeysManager(cryptoPrimitives, dataOwnerApi, keyManager, exchangeKeysManager)
   const confidentialEntitites = new ConfidentialEntities(entitiesEncryption, cryptoPrimitives, dataOwnerApi)
+  await ensureDelegationForSelf(dataOwnerApi, entitiesEncryption, cryptoPrimitives)
   const cryptoApi = new IccCryptoXApi(
     exchangeKeysManager,
     cryptoPrimitives,

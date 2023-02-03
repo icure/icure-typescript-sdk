@@ -159,7 +159,7 @@ export class EntitiesEncryption {
    * This method MODIFIES THE ENTITY IN PLACE then returns it.
    * @param entity entity which requires encryption metadata initialisation.
    * @param owningEntity id of the owning entity, if any (e.g. patient id for Contact/HealtchareElement, message id for Document, ...).
-   * @param parentSecretId secret id of the parent entity, to use in the secret foreign keys for the provided entity, if any.
+   * @param owningEntitySecretId secret id of the parent entity, to use in the secret foreign keys for the provided entity, if any.
    * @param initialiseEncryptionKeys if false this method will not initialize any encryption keys. Use only for entities which use delegations for
    * access control but don't actually have any encrypted content.
    * @param additionalDelegations automatically shares the
@@ -170,7 +170,7 @@ export class EntitiesEncryption {
   async entityWithInitialisedEncryptedMetadata<T extends EncryptedEntity>(
     entity: T,
     owningEntity: string | undefined,
-    parentSecretId: string | undefined,
+    owningEntitySecretId: string | undefined,
     initialiseEncryptionKeys: boolean,
     additionalDelegations: string[] = [],
     tags: string[] = []
@@ -202,8 +202,8 @@ export class EntitiesEncryption {
         ),
       Promise.resolve(loadKeysResult.updatedEntity)
     )
-    if (parentSecretId) {
-      updatedEntity.secretForeignKeys = [parentSecretId]
+    if (owningEntitySecretId) {
+      updatedEntity.secretForeignKeys = [owningEntitySecretId]
     }
     return { updatedEntity, secretId, rawEncryptionKey }
   }
