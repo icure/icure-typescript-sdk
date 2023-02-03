@@ -8,6 +8,8 @@ import { Patient } from '../../icc-api/model/Patient'
 import { Device } from '../../icc-api/model/Device'
 import { EntitiesEncryption } from './EntitiesEncryption'
 import { CryptoPrimitives } from './CryptoPrimitives'
+import { Delegation, EncryptedEntityStub } from '../../icc-api/model/models'
+import { setEquals } from '../utils/collection-utils'
 
 /**
  * @internal this function is meant only for internal use and may be changed without notice.
@@ -105,4 +107,29 @@ export async function ensureDelegationForSelf(
   } else {
     return self
   }
+}
+
+export function encryptedStubEquals(a: EncryptedEntityStub, b: EncryptedEntityStub): boolean {
+  if (!delegationLikeEquality(a.delegations, b.delegations)) return false
+  if (!delegationLikeEquality(a.encryptionKeys, b.encryptionKeys)) return false
+  if (!delegationLikeEquality(a.cryptedForeignKeys, b.cryptedForeignKeys)) return false
+  if (!setEquals(new Set(a.secretForeignKeys), new Set(b.secretForeignKeys))) return false
+  return a.encryptedSelf === b.encryptedSelf
+}
+
+function delegationLikeEquality(a: { [s: string]: Delegation[] } | undefined, b: { [s: string]: Delegation[] } | undefined): boolean {
+  if (!setEquals(new Set(Object.keys(a ?? {})), new Set(Object.keys(b ?? {})))) return false
+  for (const [k, aDelegations] of Object.entries(a ?? {})) {
+    const bDelegations = (b ?? {})[k]
+    if (
+      !aDelegations.every(
+        (da) =>
+          !!bDelegations.find(
+            (db) => da.key === db.key && da.delegatedTo === db.delegatedTo && da.owner === db.owner && setEquals(new Set(da.tags), new Set(db.tags))
+          )
+      )
+    )
+      return false
+  }
+  return true
 }
