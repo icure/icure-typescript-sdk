@@ -1,8 +1,13 @@
 // Uses fp as node names
 import { acyclic, graphFromEdges, StronglyConnectedGraph } from '../utils/graph-utils'
-import { DataOwner } from '../icc-data-owner-x-api'
+import { DataOwner, DataOwnerTypeEnum, DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { RSAUtils } from './RSA'
 import { hex2ua } from '../utils'
+import { HealthcareParty } from '../../icc-api/model/HealthcareParty'
+import { Patient } from '../../icc-api/model/Patient'
+import { Device } from '../../icc-api/model/Device'
+import { EntitiesEncryption } from './EntitiesEncryption'
+import { CryptoPrimitives } from './CryptoPrimitives'
 
 /**
  * @internal this function is meant only for internal use and may be changed without notice.
@@ -62,4 +67,42 @@ export async function loadPublicKeys(rsa: RSAUtils, publicKeysSpkiHex: string[])
   return Object.fromEntries(
     await Promise.all(publicKeysSpkiHex.map(async (x) => [x.slice(-32), await rsa.importKey('spki', hex2ua(x), ['encrypt'])]))
   )
+}
+
+/**
+ * @internal This method is intended only for internal use and may be changed without notice.
+ * Creates a delegation for the current data owner if the data owner is an encrypted entity and there is no delegation to himself.
+ * @return the updated self.
+ */
+export async function ensureDelegationForSelf(
+  dataOwnerApi: IccDataOwnerXApi,
+  entitiesEncryption: EntitiesEncryption,
+  cryptoPrimitives: CryptoPrimitives
+): Promise<DataOwnerWithType> {
+  const self = await dataOwnerApi.getCurrentDataOwner()
+  if (self.type === DataOwnerTypeEnum.Patient) {
+    const patient: Patient & DataOwner = self.dataOwner
+    const availableSecretIds = await entitiesEncryption.secretIdsOf(patient)
+    if (availableSecretIds.length) {
+      return self
+    } else {
+      const updatedPatient =
+        Object.entries(patient.encryptionKeys ?? {}).length || Object.entries(patient.delegations ?? {}).length
+          ? await entitiesEncryption.entityWithExtendedEncryptedMetadata(
+              // If there is already something initialise only a new delegation to self
+              patient,
+              patient.id!,
+              [cryptoPrimitives.randomUuid()],
+              [],
+              []
+            ) // else initialise also encryption keys
+          : await entitiesEncryption.entityWithInitialisedEncryptedMetadata(patient, undefined, undefined, true).then((x) => x.updatedEntity)
+      return await dataOwnerApi.updateDataOwner({
+        dataOwner: updatedPatient,
+        type: DataOwnerTypeEnum.Patient,
+      })
+    }
+  } else {
+    return self
+  }
 }

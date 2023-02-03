@@ -29,77 +29,53 @@ describe('Patient', () => {
   })
 
   it('should be capable of creating a patient from scratch', async () => {
-    try {
-      const rawPatientApiForHcp = new IccPatientApi(
-        env.iCureUrl,
-        {},
-        new BasicAuthenticationProvider(env.dataOwnerDetails[hcp1Username].user, env.dataOwnerDetails[hcp1Username].password)
-      )
-      const patient = await rawPatientApiForHcp.createPatient(
-        new Patient({ id: api.cryptoApi.primitives.randomUuid(), firstName: 'Tasty', lastName: 'Test' })
-      )
-      const pwd = api.cryptoApi.primitives.randomUuid()
-      const tmpUser = await api.userApi.createUser(
-        new User({
-          id: api.cryptoApi.primitives.randomUuid(),
-          login: api.cryptoApi.primitives.randomUuid(),
-          passwordHash: pwd,
-          patientId: patient.id,
-        })
-      )
+    const rawPatientApiForHcp = new IccPatientApi(
+      env.iCureUrl,
+      {},
+      new BasicAuthenticationProvider(env.dataOwnerDetails[hcp1Username].user, env.dataOwnerDetails[hcp1Username].password)
+    )
+    const patient = await rawPatientApiForHcp.createPatient(
+      new Patient({ id: api.cryptoApi.primitives.randomUuid(), firstName: 'Tasty', lastName: 'Test' })
+    )
+    const pwd = api.cryptoApi.primitives.randomUuid()
+    const tmpUser = await api.userApi.createUser(
+      new User({
+        id: api.cryptoApi.primitives.randomUuid(),
+        login: api.cryptoApi.primitives.randomUuid(),
+        passwordHash: pwd,
+        patientId: patient.id,
+      })
+    )
 
-      try {
-        const rsa = new RSAUtils(crypto)
-        const keyPair = await rsa.generateKeyPair()
-        const { publicKey, privateKey } = keyPair
-        const publicKeyHex = ua2hex(await rsa.exportKey(publicKey, 'spki'))
-        const rawPatientApi = new IccPatientApi(env.iCureUrl, {}, new BasicAuthenticationProvider(tmpUser.id!, pwd))
-        await rawPatientApi.modifyPatient({ ...patient, publicKey: publicKeyHex })
+    const rsa = new RSAUtils(crypto)
+    const keyPair = await rsa.generateKeyPair()
+    const { publicKey, privateKey } = keyPair
+    const publicKeyHex = ua2hex(await rsa.exportKey(publicKey, 'spki'))
+    const rawPatientApi = new IccPatientApi(env.iCureUrl, {}, new BasicAuthenticationProvider(tmpUser.id!, pwd))
+    await rawPatientApi.modifyPatient({ ...patient, publicKey: publicKeyHex })
 
-        try {
-          // TODO some of these operations may be forbidden by the backend in future versions...
-          const { userApi, patientApi, cryptoApi } = await TestApi(env.iCureUrl, tmpUser.id!, pwd!, crypto, keyPair)
-          const user = await userApi.getCurrentUser()
-          let me = await patientApi.getPatientWithUser(user, user.patientId!)
-          me = (await cryptoApi.exchangeKeys.getOrCreateEncryptionExchangeKeysTo(user.patientId!)).updatedDelegator?.dataOwner ?? me
-          expect((await patientApi.getPatientWithUser(user, user.patientId!)).rev).to.equal(me.rev)
-          me = (await cryptoApi.exchangeKeys.getOrCreateEncryptionExchangeKeysTo(hcpUser.healthcarePartyId!)).updatedDelegator?.dataOwner ?? me
-          expect((await patientApi.getPatientWithUser(user, user.patientId!)).rev).to.equal(me.rev)
-          me = (await patientApi.modifyPatientWithUser(
-            user,
-            (
-              await cryptoApi.entities.entityWithInitialisedEncryptedMetadata(me, undefined, undefined, true, [], [])
-            ).updatedEntity
-          ))!
+    // TODO some of these operations may be forbidden by the backend in future versions...
+    const { userApi, patientApi, cryptoApi } = await TestApi(env.iCureUrl, tmpUser.id!, pwd!, crypto, keyPair)
+    const user = await userApi.getCurrentUser()
+    let me = await patientApi.getPatientWithUser(user, user.patientId!)
+    me = (await cryptoApi.exchangeKeys.getOrCreateEncryptionExchangeKeysTo(user.patientId!)).updatedDelegator?.dataOwner ?? me
+    expect((await patientApi.getPatientWithUser(user, user.patientId!)).rev).to.equal(me.rev)
+    me = (await cryptoApi.exchangeKeys.getOrCreateEncryptionExchangeKeysTo(hcpUser.healthcarePartyId!)).updatedDelegator?.dataOwner ?? me
+    expect((await patientApi.getPatientWithUser(user, user.patientId!)).rev).to.equal(me.rev)
+    const mySecretIds = await cryptoApi.entities.secretIdsOf(me)
+    const myEncryptionKeys = await cryptoApi.entities.encryptionKeysOf(me)
+    expect(mySecretIds).to.have.length(1)
+    expect(myEncryptionKeys).to.have.length(1)
 
-          me = (await patientApi.modifyPatientWithUser(
-            user,
-            await cryptoApi.entities.entityWithExtendedEncryptedMetadata(
-              me,
-              hcpUser.healthcarePartyId!,
-              await cryptoApi.entities.secretIdsOf(me),
-              await cryptoApi.entities.encryptionKeysOf(me),
-              [],
-              []
-            )
-          ))!
-          await patientApi.modifyPatientWithUser(user, new Patient({ ...me, note: 'This is secret' }))
+    me = (await patientApi.modifyPatientWithUser(
+      user,
+      await cryptoApi.entities.entityWithExtendedEncryptedMetadata(me, hcpUser.healthcarePartyId!, mySecretIds, myEncryptionKeys, [], [])
+    ))!
+    await patientApi.modifyPatientWithUser(user, new Patient({ ...me, note: 'This is secret' }))
 
-          const pat2 = await api.patientApi.getPatientWithUser(hcpUser, patient.id!)
-          expect(pat2 != null)
-          expect(pat2.note != null)
-        } catch (e) {
-          console.log('Error in phase 3')
-          throw e
-        }
-      } catch (e) {
-        console.log('Error in phase 2')
-        throw e
-      }
-    } catch (e) {
-      console.log('Error in phase 1')
-      throw e
-    }
+    const pat2 = await api.patientApi.getPatientWithUser(hcpUser, patient.id!)
+    expect(pat2 != null)
+    expect(pat2.note != null)
   }).timeout(60000)
 
   it('should be capable of logging in and encryption', async () => {
