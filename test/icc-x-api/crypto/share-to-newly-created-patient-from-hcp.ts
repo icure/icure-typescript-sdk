@@ -45,6 +45,8 @@ describe('Full battery of tests on crypto and keys', async function () {
       u,
       await api.patientApi.newInstance(u, { id: uuid(), firstName: 'test', lastName: 'test', note: 'secure' })
     )
+    const heNote = 'Some encrypted note'
+    const he = await api.healthcareElementApi.createHealthElementWithUser(u, await api.healthcareElementApi.newInstance(u, patient, { note: heNote }))
     const check = await api.patientApi.getPatientWithUser(u, patient.id)
 
     expect(check.note).to.equal('secure')
@@ -81,12 +83,15 @@ describe('Full battery of tests on crypto and keys', async function () {
     expect(pat.note ?? undefined).to.be.undefined
 
     await api.patientApi.share(u, patient.id, u.healthcarePartyId!, [patient.id], { [patient.id]: ['all'] })
-
     await apiAsPatient.cryptoApi.forceReload(true)
-    const entity = await apiAsPatient.patientApi.getPatientWithUser(await apiAsPatient.userApi.getCurrentUser(), patient.id)
+    const patUser = await apiAsPatient.userApi.getCurrentUser()
+    const entity = await apiAsPatient.patientApi.getPatientWithUser(patUser, patient.id)
+    const retrievedHe = await apiAsPatient.healthcareElementApi.getHealthElementWithUser(patUser, he.id!)
 
     expect(entity.id).to.be.not.null
     expect(entity.rev).to.be.not.null
     expect(entity.note).to.equal('secure')
+    expect(retrievedHe.id).to.equal(he.id)
+    expect(retrievedHe.note).to.equal(heNote)
   })
 })
