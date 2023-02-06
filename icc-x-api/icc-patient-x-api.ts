@@ -528,8 +528,7 @@ export class IccPatientXApi extends IccPatientApi {
     const addDelegationsAndKeys = (
       dtos: Array<models.Form | models.Document | models.Contact | models.HealthElement | models.Classification | models.CalendarItem>,
       markerPromise: Promise<any>,
-      delegateId: string,
-      patient: models.Patient | null
+      delegateId: string
     ) => {
       return dtos.reduce(
         (p, x) =>
@@ -714,28 +713,30 @@ export class IccPatientXApi extends IccPatientApi {
                   let markerPromise: Promise<any> = Promise.resolve(null)
                   delegateIds.forEach((delegateId) => {
                     const tags = delegationTags[delegateId]
-                    markerPromise = markerPromise.then(() => {
+                    markerPromise = markerPromise.then(async () => {
                       //Share patient
-                      //console.log(`share ${patient.id} to ${delegateId}`)
-                      return this.crypto.entities.entityWithExtendedEncryptedMetadata(patient, delegateId, delSfks, ecKeys, [], []).catch((e) => {
-                        console.log(e)
-                        return patient
-                      })
+                      const updatedPatient = await this.crypto.entities
+                        .entityWithExtendedEncryptedMetadata(patient, delegateId, delSfks, ecKeys, [], [])
+                        .catch((e) => {
+                          console.log(e)
+                          return patient
+                        })
+                      return _.assign(patient, updatedPatient)
                     })
                     ;(tags.includes('medicalInformation') || tags.includes('all')) &&
-                      (markerPromise = addDelegationsAndKeys(hes, markerPromise, delegateId, patient))
+                      (markerPromise = addDelegationsAndKeys(hes, markerPromise, delegateId))
                     ;(tags.includes('medicalInformation') || tags.includes('all')) &&
-                      (markerPromise = addDelegationsAndKeys(frms, markerPromise, delegateId, patient))
+                      (markerPromise = addDelegationsAndKeys(frms, markerPromise, delegateId))
                     ;(tags.includes('medicalInformation') || tags.includes('all')) &&
-                      (markerPromise = addDelegationsAndKeys(ctcsStubs, markerPromise, delegateId, patient))
+                      (markerPromise = addDelegationsAndKeys(ctcsStubs, markerPromise, delegateId))
                     ;(tags.includes('medicalInformation') || tags.includes('all')) &&
-                      (markerPromise = addDelegationsAndKeys(cls, markerPromise, delegateId, patient))
+                      (markerPromise = addDelegationsAndKeys(cls, markerPromise, delegateId))
                     ;(tags.includes('medicalInformation') || tags.includes('all')) &&
-                      (markerPromise = addDelegationsAndKeys(cis, markerPromise, delegateId, patient))
+                      (markerPromise = addDelegationsAndKeys(cis, markerPromise, delegateId))
                     ;(tags.includes('financialInformation') || tags.includes('all')) &&
-                      (markerPromise = addDelegationsAndKeys(ivs, markerPromise, delegateId, patient))
+                      (markerPromise = addDelegationsAndKeys(ivs, markerPromise, delegateId))
                     ;(tags.includes('medicalInformation') || tags.includes('all')) &&
-                      (markerPromise = addDelegationsAndKeys(docs, markerPromise, delegateId, null))
+                      (markerPromise = addDelegationsAndKeys(docs, markerPromise, delegateId))
                   })
 
                   return markerPromise

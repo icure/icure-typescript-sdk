@@ -156,7 +156,7 @@ export class EntitiesEncryption {
    * @internal this method is intended only for internal use and may be changed without notice.
    * Initializes encryption metadata for an entity. This includes the encrypted secret id, owning entity id, and encryption key for the entity, and
    * the clear text secret foreign key of the parent entity.
-   * This method MODIFIES THE ENTITY IN PLACE then returns it.
+   * This method returns a modified copy of the entity.
    * @param entity entity which requires encryption metadata initialisation.
    * @param owningEntity id of the owning entity, if any (e.g. patient id for Contact/HealtchareElement, message id for Document, ...).
    * @param owningEntitySecretId secret id of the parent entity, to use in the secret foreign keys for the provided entity, if any.
@@ -165,7 +165,7 @@ export class EntitiesEncryption {
    * @param additionalDelegations automatically shares the
    * @param tags tags to associate with the initial encryption keys and metadata
    * @throws if the entity already has non-empty values for encryption metadata.
-   * @return the updated entity.
+   * @return an updated copy of the entity.
    */
   async entityWithInitialisedEncryptedMetadata<T extends EncryptedEntity>(
     entity: T,
@@ -217,7 +217,7 @@ export class EntitiesEncryption {
    * You can use methods like {@link secretIdsOf}, {@link secretIdsForHcpHierarchyOf}, {@link encryptionKeysOf}, ... to retrieve the data you want to
    * share. In most cases you may want to share everything related to the entity, but note that if you use confidential delegations for patients you
    * may want to avoid sharing the confidential secret ids of the current user with other hcps.
-   * This method MODIFIES THE ENTITY IN PLACE then returns it.
+   * This method returns a modified copy of the entity.
    * @param entity entity which requires encryption metadata initialisation.
    * @param delegateId id of the delegate to share data with.
    * @param shareSecretIds secret ids to share.
@@ -225,7 +225,7 @@ export class EntitiesEncryption {
    * @param shareOwningEntityIds owning enttiy ids to share.
    * @param newTags tags to associate with the new encryption keys and metadata. Existing data won't be changed.
    * @throws if any of the shareX parameters is set to `true` but the corresponding piece of data could not be retrieved.
-   * @return the updated entity.
+   * @return an updated copy of the entity.
    */
   async entityWithExtendedEncryptedMetadata<T extends EncryptedEntity>(
     entity: T,
@@ -277,7 +277,7 @@ export class EntitiesEncryption {
       deduplicateInfoEncryptionKeys.missingEntries.length === 0 &&
       deduplicateInfoOwningEntityIds.missingEntries.length === 0
     )
-      return entity
+      return _.cloneDeep(entity)
     const { updatedEntity, keysForDelegates } = await this.loadEncryptionKeysForDelegates(entity, [delegateId])
     return this.createOrUpdateEntityDelegations(
       updatedEntity,
@@ -744,7 +744,8 @@ export class EntitiesEncryption {
     newTags: string[],
     keysForDelegates: { [delegateId: string]: CryptoKey[] }
   ): Promise<T> {
-    if (newSecretIds.length === 0 && newEncryptionKeys.length === 0 && newOwningEntityIds.length === 0) return entity
+    const entityCopy = _.cloneDeep(entity)
+    if (newSecretIds.length === 0 && newEncryptionKeys.length === 0 && newOwningEntityIds.length === 0) return entityCopy
     const chosenKey = keysForDelegates[delegateId][0]
     const updatedSecretIds = [
       ...existingSecretIds,
@@ -759,24 +760,24 @@ export class EntitiesEncryption {
       ...(await Promise.all(newOwningEntityIds.map((x) => this.createOwningEntityIdDelegation(entity.id!, delegateId, chosenKey, x, newTags)))),
     ]
     if (updatedSecretIds.length > 0) {
-      entity.delegations = {
+      entityCopy.delegations = {
         ...(entity.delegations ?? {}),
         [delegateId]: updatedSecretIds,
       }
     }
     if (updatedEncryptionKeys.length > 0) {
-      entity.encryptionKeys = {
+      entityCopy.encryptionKeys = {
         ...(entity.encryptionKeys ?? {}),
         [delegateId]: updatedEncryptionKeys,
       }
     }
     if (updatedOwningEntityIds.length > 0) {
-      entity.cryptedForeignKeys = {
+      entityCopy.cryptedForeignKeys = {
         ...(entity.cryptedForeignKeys ?? {}),
         [delegateId]: updatedOwningEntityIds,
       }
     }
-    return entity
+    return entityCopy
   }
 
   /**
