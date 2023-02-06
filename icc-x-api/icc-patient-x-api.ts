@@ -536,12 +536,14 @@ export class IccPatientXApi extends IccPatientApi {
             const secretIds = await this.crypto.entities.secretIdsOf(x, ownerId)
             const encryptionKeys = await this.crypto.entities.encryptionKeysOf(x, ownerId)
             const parentIds = await this.crypto.entities.owningEntityIdsOf(x, ownerId)
-            return this.crypto.entities
+            const updatedX = await this.crypto.entities
               .entityWithExtendedEncryptedMetadata(x, delegateId, secretIds, encryptionKeys, parentIds, [])
               .catch((e: any) => {
                 console.log(e)
                 return x
               })
+            _.assign(x, updatedX)
+            return x
           }),
         markerPromise
       )
