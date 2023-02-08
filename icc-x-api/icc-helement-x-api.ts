@@ -167,7 +167,7 @@ export class IccHelementXApi extends IccHelementApi {
   }
 
   findHealthElementsByHCPartyPatientForeignKeysWithUser(user: models.User, hcPartyId: string, secretFKeys: string): Promise<HealthElement[]> {
-    return super.findHealthElementsByHCPartyPatientForeignKeys(hcPartyId, secretFKeys).then((hes) => this.decryptWithUser(user, hes))
+    return super.findHealthElementsByHCPartyPatientForeignKeysUsingPost(hcPartyId, secretFKeys.split(',')).then((hes) => this.decryptWithUser(user, hes))
   }
 
   findHealthElementsByHCPartyAndPatientWithUser(user: models.User, hcPartyId: string, patient: models.Patient): Promise<models.HealthElement[]> {
@@ -268,7 +268,7 @@ export class IccHelementXApi extends IccHelementApi {
   }
 
   findByHCPartyPatientSecretFKeys(hcPartyId: string, secretFKeys: string): Promise<Array<models.Contact> | any> {
-    return super.findHealthElementsByHCPartyPatientForeignKeys(hcPartyId, secretFKeys).then((helements) => this.decrypt(hcPartyId, helements))
+    return super.findHealthElementsByHCPartyPatientForeignKeysUsingPost(hcPartyId, secretFKeys.split(',')).then((helements) => this.decrypt(hcPartyId, helements))
   }
 
   encrypt(user: models.User, healthElements: Array<models.HealthElement>): Promise<Array<models.HealthElement>> {

@@ -266,7 +266,7 @@ export class IccContactXApi extends IccContactApi {
     skipClosedContacts?: boolean
   ): Promise<Array<models.Contact> | any> {
     return super
-      .findByHCPartyPatientSecretFKeys(hcPartyId, secretFKeys, planOfActionIds, skipClosedContacts)
+      .findByHCPartyPatientSecretFKeysUsingPost(hcPartyId, planOfActionIds, skipClosedContacts, secretFKeys.split(','))
       .then((contacts) => this.decrypt(hcPartyId, contacts))
   }
 

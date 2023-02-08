@@ -97,7 +97,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
   }
 
   findByHCPartyPatientSecretFKeys(hcPartyId: string, secretFKeys: string): Promise<Array<models.CalendarItem> | any> {
-    return super.findCalendarItemsByHCPartyPatientForeignKeys(hcPartyId, secretFKeys).then((calendarItems) => this.decrypt(hcPartyId, calendarItems))
+    return super.findCalendarItemsByHCPartyPatientForeignKeysUsingPost(hcPartyId, secretFKeys.split(',')).then((calendarItems) => this.decrypt(hcPartyId, calendarItems))
   }
 
   createCalendarItem(body?: CalendarItem): never {

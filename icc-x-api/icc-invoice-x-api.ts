@@ -181,7 +181,7 @@ export class IccInvoiceXApi extends IccInvoiceApi {
     return this.crypto
       .extractDelegationsSFKs(patient, hcpartyId)
       .then((secretForeignKeys) =>
-        this.findInvoicesByHCPartyPatientForeignKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(','))
+        this.findInvoicesByHCPartyPatientForeignKeysUsingPost(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys))
       )
       .then((invoices) => this.decrypt(hcpartyId, invoices))
       .then(function (decryptedInvoices) {

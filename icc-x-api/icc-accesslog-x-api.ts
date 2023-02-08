@@ -110,7 +110,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
   }
 
   findByHCPartyPatientSecretFKeys(hcPartyId: string, secretFKeys: string): Promise<Array<AccessLog> | any> {
-    return super.findAccessLogsByHCPartyPatientForeignKeys(hcPartyId, secretFKeys).then((accesslogs) => this.decrypt(hcPartyId, accesslogs))
+    return super.findAccessLogsByHCPartyPatientForeignKeysUsingPost(hcPartyId, secretFKeys.split(',')).then((accesslogs) => this.decrypt(hcPartyId, accesslogs))
   }
 
   decrypt(hcpId: string, accessLogs: Array<models.AccessLog>): Promise<Array<models.AccessLog>> {
