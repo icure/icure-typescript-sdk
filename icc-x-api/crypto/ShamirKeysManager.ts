@@ -1,5 +1,5 @@
 import { DataOwner, DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
-import { KeyManager } from './KeyManager'
+import { UserEncryptionKeysManager } from './UserEncryptionKeysManager'
 import { ExchangeKeysManager } from './ExchangeKeysManager'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { KeyPair } from './RSA'
@@ -11,10 +11,15 @@ import { hex2ua, ua2hex } from '../utils'
 export class ShamirKeysManager {
   private readonly primitives: CryptoPrimitives
   private readonly dataOwnerApi: IccDataOwnerXApi
-  private readonly keyManager: KeyManager
+  private readonly keyManager: UserEncryptionKeysManager
   private readonly exchangeKeysManager: ExchangeKeysManager
 
-  constructor(primitives: CryptoPrimitives, dataOwnerApi: IccDataOwnerXApi, keyManager: KeyManager, exchangeKeysManager: ExchangeKeysManager) {
+  constructor(
+    primitives: CryptoPrimitives,
+    dataOwnerApi: IccDataOwnerXApi,
+    keyManager: UserEncryptionKeysManager,
+    exchangeKeysManager: ExchangeKeysManager
+  ) {
     this.primitives = primitives
     this.dataOwnerApi = dataOwnerApi
     this.keyManager = keyManager

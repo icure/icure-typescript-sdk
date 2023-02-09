@@ -33,4 +33,12 @@ export class KeyStorageImpl implements KeyStorageFacade {
   async storeKeyPair(key: string, keyPair: { publicKey: JsonWebKey; privateKey: JsonWebKey }): Promise<void> {
     return await this._storage.setItem(key, JSON.stringify(keyPair))
   }
+
+  async storePublicKey(key: string, publicKey: JsonWebKey): Promise<void> {
+    return await this._storage.setItem(key, JSON.stringify({ publicKey }))
+  }
+
+  async storePrivateKey(key: string, privateKey: JsonWebKey): Promise<void> {
+    return await this._storage.setItem(key, JSON.stringify({ privateKey }))
+  }
 }

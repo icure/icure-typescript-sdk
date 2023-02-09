@@ -35,7 +35,7 @@ import { LocalStorageImpl } from './storage/LocalStorageImpl'
 import { KeyStorageImpl } from './storage/KeyStorageImpl'
 import { BasicAuthenticationProvider, EnsembleAuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { CryptoPrimitives } from './crypto/CryptoPrimitives'
-import { KeyManager } from './crypto/KeyManager'
+import { UserEncryptionKeysManager } from './crypto/UserEncryptionKeysManager'
 import { IcureStorageFacade } from './storage/IcureStorageFacade'
 import { DefaultStorageEntryKeysFactory } from './storage/DefaultStorageEntryKeysFactory'
 import { KeyRecovery } from './crypto/KeyRecovery'
@@ -161,7 +161,14 @@ export const Api = async function (
   const cryptoPrimitives = new CryptoPrimitives(crypto)
   const baseExchangeKeysManager = new BaseExchangeKeysManager(cryptoPrimitives, dataOwnerApi, healthcarePartyApi, basePatientApi, deviceApi)
   const keyRecovery = new KeyRecovery(cryptoPrimitives, baseExchangeKeysManager, dataOwnerApi)
-  const keyManager = new KeyManager(cryptoPrimitives, dataOwnerApi, icureStorage, keyRecovery, baseExchangeKeysManager, params.cryptoStrategies)
+  const keyManager = new UserEncryptionKeysManager(
+    cryptoPrimitives,
+    dataOwnerApi,
+    icureStorage,
+    keyRecovery,
+    baseExchangeKeysManager,
+    params.cryptoStrategies
+  )
   const newKey = await keyManager.initialiseKeys()
   await new TransferKeysManager(cryptoPrimitives, baseExchangeKeysManager, dataOwnerApi, keyManager, icureStorage).updateTransferKeys(
     await dataOwnerApi.getCurrentDataOwner()

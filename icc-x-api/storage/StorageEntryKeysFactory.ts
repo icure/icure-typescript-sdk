@@ -24,12 +24,27 @@ export interface StorageEntryKeysFactory {
   cachedRecoveredKeypairOfDataOwner(dataOwnerId: string, publicKeyFingerprint: string): string
 
   /**
-   * Get the entry key for the storage of answers to own public key verification (from {@link CryptoStrategies.verifyOwnPublicKeys}).
+   * Get the entry key for the storage of answers to own public key verification.
    * This entry key will be used in a {@link StorageFacade}.
    * @param dataOwnerId Id of a data owner.
    * @return entry key for verified public keys of the data owner.
    */
   selfPublicKeysVerificationCacheForDataOwner(dataOwnerId: string): string
+
+  /**
+   * Get the entry key for the storage of the private key of a data owner to use for signature.
+   * @param dataOwnerId Id of a data owner.
+   * @return entry key for signature private key of the data owner.
+   */
+  signatureKeyForDataOwner(dataOwnerId: string): string
+
+  /**
+   * Get the entry key for the storage of a public key of a data owner to use for signature verification.
+   * @param dataOwnerId Id of a data owner.
+   * @param publicKeyFingerprint fingerprint of the public key.
+   * @return entry key for a signature verification public key of the data owner.
+   */
+  signatureVerificationKeyForDataOwner(dataOwnerId: string, publicKeyFingerprint: string): string
 
   /*
    * There is no need to store verified public keys for other data owners: we verify only when we want to create a new exchange key, and we need to

@@ -26,7 +26,7 @@ type CurrentOwnerKeyGenerator = (self: DataOwner) => Promise<KeyPair<CryptoKey> 
 /**
  * Allows to manage public and private keys for the current user and his parent hierarchy.
  */
-export class KeyManager {
+export class UserEncryptionKeysManager {
   private readonly primitives: CryptoPrimitives
   private readonly dataOwnerApi: IccDataOwnerXApi
   private readonly keyRecovery: KeyRecovery

@@ -18,6 +18,7 @@ export class ConfidentialEntities {
   ) {}
 
   /**
+   * @internal this method is intended for internal use only and may be changed without notice.
    * Ensures that the current data owner has access to a confidential secret id for the provided entity: this is an id that is known to the data owner
    * but is not known by any of his parents. If there is currently no confidential secret id for this entity the method returns a copy of the entity
    * with a new confidential secret id for the current data owner (the entity in the database won't be updated), else this method returns undefined.

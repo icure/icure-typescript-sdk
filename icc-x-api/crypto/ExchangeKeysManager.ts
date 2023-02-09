@@ -1,4 +1,4 @@
-import { KeyManager } from './KeyManager'
+import { UserEncryptionKeysManager } from './UserEncryptionKeysManager'
 import { BaseExchangeKeysManager } from './BaseExchangeKeysManager'
 import { DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { LruTemporisedAsyncCache } from '../utils/lru-temporised-async-cache'
@@ -16,7 +16,7 @@ import { IcureStorageFacade } from '../storage/IcureStorageFacade'
  * - Automatically retrieves the private keys to use during decryption.
  */
 export class ExchangeKeysManager {
-  private readonly keyManager: KeyManager
+  private readonly keyManager: UserEncryptionKeysManager
   private readonly baseExchangeKeysManager: BaseExchangeKeysManager
   private readonly dataOwnerApi: IccDataOwnerXApi
   private readonly cryptoStrategies: CryptoStrategies
@@ -46,7 +46,7 @@ export class ExchangeKeysManager {
     delegatedKeysCacheLifetimeMsNoKeys: number,
     cryptoStrategies: CryptoStrategies,
     primitives: CryptoPrimitives,
-    keyManager: KeyManager,
+    keyManager: UserEncryptionKeysManager,
     baseExchangeKeysManager: BaseExchangeKeysManager,
     dataOwnerApi: IccDataOwnerXApi,
     icureStorage: IcureStorageFacade
