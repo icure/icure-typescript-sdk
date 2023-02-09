@@ -32,4 +32,18 @@ export interface KeyStorageFacade {
    * @param keyPair should be JWK
    */
   storeKeyPair(key: string, keyPair: { publicKey: JsonWebKey; privateKey: JsonWebKey }): Promise<void>
+
+  /**
+   * Stores the given public key under the given key in the storage.
+   * @param key The id of the entry in storage
+   * @param publicKey the public key to store
+   */
+  storePublicKey(key: string, publicKey: JsonWebKey): Promise<void>
+
+  /**
+   * Stores the given public key under the given key in the storage.
+   * @param key The id of the entry in storage
+   * @param publicKey the public key to store
+   */
+  storePrivateKey(key: string, privateKey: JsonWebKey): Promise<void>
 }

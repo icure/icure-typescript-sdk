@@ -17,6 +17,12 @@ export class RSAUtils {
     publicExponent: new Uint8Array([0x01, 0x00, 0x01]), // Equivalent to 65537 (Fermat F4), read http://en.wikipedia.org/wiki/65537_(number)
     hash: { name: 'sha-1' },
   }
+  private readonly signatureKeysGenerationParams = {
+    name: 'RSA-PSS',
+    modulusLength: 2048,
+    publicExponent: new Uint8Array([0x01, 0x00, 0x01]), // Equivalent to 65537 (Fermat F4), read http://en.wikipedia.org/wiki/65537_(number)
+    hash: { name: 'SHA-256' },
+  }
 
   private crypto: Crypto
 
@@ -25,10 +31,7 @@ export class RSAUtils {
   }
 
   /**
-   * It returns CryptoKey promise, which doesn't hold the bytes of the key.
-   * If bytes are needed, you must export the generated key.
-   *
-   * @returns {Promise} will be {publicKey: CryptoKey, privateKey: CryptoKey}
+   * Generates a key pair for encryption/decryption of data.
    */
   generateKeyPair(): Promise<KeyPair<CryptoKey>> {
     const extractable = true
@@ -37,6 +40,13 @@ export class RSAUtils {
     return new Promise<KeyPair<CryptoKey>>((resolve, reject) => {
       this.crypto.subtle.generateKey(this.rsaHashedParams, extractable, keyUsages).then(resolve, reject)
     })
+  }
+
+  /**
+   * Generates a key pair for signing data and signature verification.
+   */
+  async generateSignatureKeyPair(): Promise<KeyPair<CryptoKey>> {
+    return await this.crypto.subtle.generateKey(this.signatureKeysGenerationParams, true, ['sign', 'verify'])
   }
 
   /**
@@ -174,6 +184,27 @@ export class RSAUtils {
     } catch (e) {
       return false
     }
+  }
+
+  /**
+   * Generates a signature for some data. The signature algorithm used is RSA-PSS with SHA-256.
+   * @param privateKey private key to use for signature
+   * @param data the data to sign
+   * @return the signature.
+   */
+  async sign(privateKey: CryptoKey, data: ArrayBuffer): Promise<ArrayBuffer> {
+    return await this.crypto.subtle.sign({ name: 'RSA-PSS', saltLength: 32 }, privateKey, data)
+  }
+
+  /**
+   * Verifies if a signature matches the data. The signature algorithm used is RSA-PSS with sha-256.
+   * @param publicKey public key to use for signature verification.
+   * @param signature the signature to verify
+   * @param data the data that was signed
+   * @return if the signature matches the data and key.
+   */
+  async verifySignature(publicKey: CryptoKey, signature: ArrayBuffer, data: ArrayBuffer): Promise<boolean> {
+    return await this.crypto.subtle.verify({ name: 'RSA-PSS', saltLength: 32 }, publicKey, signature, data)
   }
 }
 

@@ -10,7 +10,7 @@ import { StorageFacade } from './storage/StorageFacade'
 import { KeyStorageFacade } from './storage/KeyStorageFacade'
 import { ExchangeKeysManager } from './crypto/ExchangeKeysManager'
 import { CryptoPrimitives } from './crypto/CryptoPrimitives'
-import { KeyManager } from './crypto/KeyManager'
+import { UserEncryptionKeysManager } from './crypto/UserEncryptionKeysManager'
 import { DataOwner, DataOwnerWithType, IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { EntitiesEncryption } from './crypto/EntitiesEncryption'
 import { IcureStorageFacade } from './storage/IcureStorageFacade'
@@ -33,7 +33,7 @@ export class IccCryptoXApi {
   rsaLocalStoreIdPrefix = 'org.taktik.icure.rsa.'
   private readonly exchangeKeysManager: ExchangeKeysManager
   private readonly cryptoPrimitives: CryptoPrimitives
-  private readonly keyManager: KeyManager
+  private readonly keyManager: UserEncryptionKeysManager
   private readonly dataOwnerApi: IccDataOwnerXApi
   private readonly entitiesEncrypiton: EntitiesEncryption
   private readonly confidentialEntities: ConfidentialEntities
@@ -99,7 +99,7 @@ export class IccCryptoXApi {
     return this.confidentialEntities
   }
 
-  get userKeysManager(): KeyManager {
+  get userKeysManager(): UserEncryptionKeysManager {
     return this.keyManager
   }
 
@@ -113,7 +113,7 @@ export class IccCryptoXApi {
   constructor(
     exchangeKeysManager: ExchangeKeysManager,
     cryptoPrimitives: CryptoPrimitives,
-    keyManager: KeyManager,
+    keyManager: UserEncryptionKeysManager,
     dataOwnerApi: IccDataOwnerXApi,
     entitiesEncrypiton: EntitiesEncryption,
     shamirManager: ShamirKeysManager,
@@ -175,7 +175,7 @@ export class IccCryptoXApi {
    * Note that keys returned by the current implementation of this method may not be safe for encryption/sharing.
    * If instead you are using this method to retrieve key pairs for other purposes, for example because you want to reuse the user keys in iCure for
    * other services consider the following alternatives:
-   * - If you want to use all iCure facilities including key recovery and key verification you can use {@link KeyManager.getKeyPairForFingerprint}.
+   * - If you want to use all iCure facilities including key recovery and key verification you can use {@link UserEncryptionKeysManager.getKeyPairForFingerprint}.
    *   Note that this solution can only give access to keys for the data owner of the instantiated api and his parents.
    * - Alternatively you can use directly your choice of {@link KeyStorageFacade} and {@link StorageEntryKeysFactory}: if these are the same you use
    *   for the iCure API client the keys will be shared with it. Note however that the iCure api client uses
@@ -197,9 +197,9 @@ export class IccCryptoXApi {
    * @deprecated You have different options to replace this method, depending on what you actually need. All options return the hex-encoded spki
    * representation of the public keys.
    * - If you want only the public keys for which we have a private key available
-   *   - you can replicate the current behaviour using {@link KeyManager.getCurrentUserHierarchyAvailablePublicKeysHex} (the key manager is available
+   *   - you can replicate the current behaviour using {@link UserEncryptionKeysManager.getCurrentUserHierarchyAvailablePublicKeysHex} (the key manager is available
    *     at {@link userKeysManager}). This includes keys for the current user and his parents.
-   *   - use {@link KeyManager.getCurrentUserAvailablePublicKeysHex} to get public keys only for the current data owner, ignoring any keys of the
+   *   - use {@link UserEncryptionKeysManager.getCurrentUserAvailablePublicKeysHex} to get public keys only for the current data owner, ignoring any keys of the
    *     parent hierarchy. In this case you can also apply a filter to only get verified keys (safe for encryption).
    * - If you need all public keys for the data owner, including those for which there is no corresponding private key available on the device use
    *   {@link IccDataOwnerXApi.getHexPublicKeysOf} with the current data owner. If you don't have it available you may get it from

@@ -90,4 +90,34 @@ export class IcureStorageFacade {
       return parsed
     } else return {}
   }
+
+  /**
+   * Saves a signature and verification key pair. Overrides previously saved signature keys (but keeps signature verification keys).
+   * @param dataOwnerId id of the data owner with the key.
+   * @param publicKeyFingerprint fingerprint of the public key of the pair.
+   * @param keyPair the key pair to save.
+   */
+  async saveSignatureKeyPair(dataOwnerId: string, publicKeyFingerprint: string, keyPair: KeyPair<JsonWebKey>): Promise<void> {
+    await this.keys.storeKeyPair(this.entryFor.signatureKeyForDataOwner(dataOwnerId), keyPair)
+    await this.keys.storePublicKey(this.entryFor.signatureVerificationKeyForDataOwner(dataOwnerId, publicKeyFingerprint), keyPair.publicKey)
+  }
+
+  /**
+   * Loads the signature key for the data owner.
+   * @param dataOwnerId id of the data owner with the key.
+   * @return the signature key for the data owner or undefined if there is no signature key stored.
+   */
+  async loadSignatureKey(dataOwnerId: string): Promise<KeyPair<JsonWebKey> | undefined> {
+    return await this.keys.getKeypair(this.entryFor.signatureKeyForDataOwner(dataOwnerId))
+  }
+
+  /**
+   * Loads the signature verification key for a data owner with the provided fingerprint.
+   * @param dataOwnerId id of the data owner with the key.
+   * @param publicKeyFingerprint fingerprint of the verification key.
+   * @return the requested signature verification key or undefined if the key could not be found.
+   */
+  async loadSignatureVerificationKey(dataOwnerId: string, publicKeyFingerprint: string): Promise<JsonWebKey | undefined> {
+    return await this.keys.getPublicKey(this.entryFor.signatureVerificationKeyForDataOwner(dataOwnerId, publicKeyFingerprint))
+  }
 }

@@ -2,7 +2,7 @@ import { KeyPair } from './RSA'
 import { BaseExchangeKeysManager } from './BaseExchangeKeysManager'
 import { DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { ua2hex } from '../utils'
-import { KeyManager } from './KeyManager'
+import { UserEncryptionKeysManager } from './UserEncryptionKeysManager'
 import { reachSetsAcyclic, StronglyConnectedGraph } from '../utils/graph-utils'
 import { fingerprintToPublicKeysMapOf, loadPublicKeys, transferKeysFpGraphOf } from './utils'
 import { CryptoPrimitives } from './CryptoPrimitives'
@@ -16,14 +16,14 @@ export class TransferKeysManager {
   private readonly primitives: CryptoPrimitives
   private readonly baseExchangeKeysManager: BaseExchangeKeysManager
   private readonly dataOwnerApi: IccDataOwnerXApi
-  private readonly keyManager: KeyManager
+  private readonly keyManager: UserEncryptionKeysManager
   private readonly icureStorage: IcureStorageFacade
 
   constructor(
     primitives: CryptoPrimitives,
     baseExchangeKeysManager: BaseExchangeKeysManager,
     dataOwnerApi: IccDataOwnerXApi,
-    keyManager: KeyManager,
+    keyManager: UserEncryptionKeysManager,
     icureStorage: IcureStorageFacade
   ) {
     this.primitives = primitives
@@ -85,7 +85,7 @@ export class TransferKeysManager {
       .map((x) => x[0])
   }
 
-  private async transferTargetVerifiedKey(keyManager: KeyManager): Promise<{ fingerprint: string; pair: KeyPair<CryptoKey> }> {
+  private async transferTargetVerifiedKey(keyManager: UserEncryptionKeysManager): Promise<{ fingerprint: string; pair: KeyPair<CryptoKey> }> {
     return keyManager.getSelfVerifiedKeys()[0]
   }
 
