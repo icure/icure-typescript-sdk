@@ -26,7 +26,7 @@ export class LruTemporisedAsyncCache<K, V> {
    */
   get(
     key: K,
-    retrieve: (previousValue: V | undefined) => Promise<V>,
+    retrieve: (previousValue: V | undefined) => Promise<{ item: V; onEviction?: () => void }>,
     additionalExpirationCondition: (value: V) => boolean = () => false
   ): Promise<V> {
     const retrieved = this.nodesMap.get(key)
@@ -50,9 +50,14 @@ export class LruTemporisedAsyncCache<K, V> {
     }
   }
 
-  clear() {
+  clear(doOnEvictionOfCleared: boolean = true) {
     this.firstNode = null
     this.lastNode = null
+    if (doOnEvictionOfCleared) {
+      for (const node of this.nodesMap.values()) {
+        node.onEviction()
+      }
+    }
     this.nodesMap.clear()
   }
 
@@ -71,6 +76,7 @@ export class LruTemporisedAsyncCache<K, V> {
     if (this.firstNode === node) this.firstNode = node.next
     if (this.lastNode === node) this.lastNode = node.previous
     if (key !== null) this.nodesMap.delete(key)
+    node.onEviction()
   }
 
   private markUsed(node: CacheNode<K, V>) {
@@ -81,13 +87,13 @@ export class LruTemporisedAsyncCache<K, V> {
     }
   }
 
-  private registerJob(key: K, retrieve: () => Promise<V>): Promise<V> {
+  private registerJob(key: K, retrieve: () => Promise<{ item: V; onEviction?: () => void }>): Promise<V> {
     // The node may have already been evicted by the time the promise completed if the cached surpassed the maximum size.
     return retrieve()
-      .then((v) => {
+      .then(({ item: v, onEviction }) => {
         const node = this.nodesMap.get(key)
         if (node) {
-          node.value = { cached: v, timestamp: Date.now() }
+          node.value = { cached: v, timestamp: Date.now(), onEviction: () => onEviction?.() }
         }
         return v
       })
@@ -101,7 +107,7 @@ export class LruTemporisedAsyncCache<K, V> {
   }
 }
 
-type Cached<V> = { cached: V; timestamp: number }
+type Cached<V> = { cached: V; timestamp: number; onEviction: () => void }
 
 class CacheNode<K, V> {
   readonly key: K
@@ -125,6 +131,12 @@ class CacheNode<K, V> {
 
   valuePromise(): Promise<V> {
     return 'timestamp' in this.value ? Promise.resolve(this.value.cached) : this.value
+  }
+
+  onEviction(): void {
+    if ('timestamp' in this.value) {
+      this.value.onEviction()
+    }
   }
 
   get cachedValue(): V | undefined {

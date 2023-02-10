@@ -84,7 +84,7 @@ export class ExchangeKeysManager {
             const fullJob = this.forceCreateVerifiedExchangeKeyTo(delegateId)
             updatedDelegatorJob = fullJob.then(({ updatedDelegator }) => updatedDelegator)
             let existingKeys = previous ? previous : await this.forceGetSelfExchangeKeysTo(delegateId)
-            return fullJob.then(({ key }) => [...existingKeys, key])
+            return fullJob.then(({ key }) => ({ item: [...existingKeys, key] }))
           },
           (v) => !v.length
         )
@@ -118,7 +118,7 @@ export class ExchangeKeysManager {
       const hierarchyIds = await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
       if (!hierarchyIds.some((x) => x === delegateId || x === delegatorId))
         throw new Error(`Trying to retrieve exchange key ${key} but current data owner hierarchy is ${hierarchyIds}`)
-      return await this.delegatedExchangeKeysCache.get(key, () => this.forceGetExchangeKeysFor(delegatorId, delegateId))
+      return await this.delegatedExchangeKeysCache.get(key, () => this.forceGetExchangeKeysFor(delegatorId, delegateId).then((x) => ({ item: x })))
     }
   }
 
@@ -137,7 +137,7 @@ export class ExchangeKeysManager {
   }
 
   private async getSelfExchangeKeysTo(delegateId: string): Promise<CryptoKey[]> {
-    return await this.delegatorExchangeKeysCache.get(delegateId, () => this.forceGetSelfExchangeKeysTo(delegateId))
+    return await this.delegatorExchangeKeysCache.get(delegateId, () => this.forceGetSelfExchangeKeysTo(delegateId).then((x) => ({ item: x })))
   }
 
   private async forceGetSelfExchangeKeysTo(delegateId: string): Promise<CryptoKey[]> {

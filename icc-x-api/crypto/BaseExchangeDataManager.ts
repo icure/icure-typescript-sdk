@@ -7,6 +7,7 @@ import XHRError = XHR.XHRError
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { b64_2ua, ua2b64, ua2hex, utf8_2ua } from '../utils'
 import * as _ from 'lodash'
+import { CryptoStrategies } from './CryptoStrategies'
 
 /**
  * @internal this class is intended for internal use only and may be modified without notice
@@ -17,28 +18,28 @@ export class BaseExchangeDataManager {
   constructor(
     private readonly exchangeDataApi: IccExchangeDataApi,
     private readonly dataOwnerApi: IccDataOwnerXApi,
-    private readonly primitives: CryptoPrimitives
+    private readonly primitives: CryptoPrimitives,
+    private readonly cryptoStrategies: CryptoStrategies
   ) {}
 
   /**
-   * Get all the exchange data where the provided data owner is a delegate or a delegator.
-   * @param dataOwnerId id of a data owner.
-   * @param limit limit of exchange data returned by this method
-   * @throws if limit is not greater than or equal to 1, or if the amount of exchange data found for the provided data
-   * owner exceeds this limit.
-   * @return all exchange data where the provided data owner is a delegate or a delegator.
+   * Get all the exchange data where the current data owner is the delegator or the delegate. However, some data owners, generally HCPs, may have a
+   * prohibitively high amount of exchange data. If the crypto strategies allow it this method returns all the exchange data found for the data owner,
+   * else the method returns undefined.
+   * @return all the exchange data for the current data owner or undefined if the crypto strategies don't allow to retrieve all data for the current
+   * data owner.
    */
-  async getAllExchangeDataFor(dataOwnerId: string, limit: number = 200): Promise<ExchangeData[]> {
-    if (limit < 1) throw new Error('Limit must be a positive integer')
-    const requestLimit = limit > 1000 ? 1000 : limit
-    let latestResult = await this.exchangeDataApi.getExchangeDataByParticipant(dataOwnerId, undefined, requestLimit)
+  async getAllExchangeDataForCurrentDataOwnerIfAllowed(): Promise<ExchangeData[] | undefined> {
+    const currentDataOwner = await this.dataOwnerApi.getCurrentDataOwner()
+    if (!this.cryptoStrategies.dataOwnerCanRequestAllHisExchangeData(currentDataOwner)) return undefined
+    const dataOwnerId = currentDataOwner.dataOwner.id
+    let latestResult = await this.exchangeDataApi.getExchangeDataByParticipant(dataOwnerId, undefined, 1000)
     const allRetrieved = latestResult.rows ?? []
-    while (allRetrieved.length < limit && latestResult.nextKeyPair) {
-      latestResult = await this.exchangeDataApi.getExchangeDataByParticipant(dataOwnerId, latestResult.nextKeyPair.startKeyDocId, requestLimit)
-      allRetrieved.concat(latestResult.rows ?? [])
+    while (latestResult.nextKeyPair) {
+      latestResult = await this.exchangeDataApi.getExchangeDataByParticipant(dataOwnerId, latestResult.nextKeyPair.startKeyDocId, 1000)
+      if (latestResult.rows) allRetrieved.push(...latestResult.rows)
     }
-    if (allRetrieved.length <= limit && !latestResult.nextKeyPair) return allRetrieved
-    throw new Error(`Number of exchange data found for data owner ${dataOwnerId} exceeds limit of ${limit}.`)
+    return allRetrieved
   }
 
   /**
@@ -68,9 +69,7 @@ export class BaseExchangeDataManager {
    * Filters exchange data returning only the instances that could be verified using their signature and the provided verification
    * keys.
    * Note that all exchange data created by data owners other than the current data owner (including members of his hierarchy)
-   * is unverifiable, and there should be no need to ever request verification of exchange data created by other data owners.
-   * Since this could be an indication of a programming error this method will throw an error if any of the provided exchange
-   * data has been created by a data owner other than the current data owner.
+   * will always be unverified.
    * @param exchangeData the exchange data to verify.
    * @param getVerificationKey function to retrieve keys to use for verification by fingerprint.
    * @return the exchange data which could be verified given his signature and the available verification keys.
@@ -80,21 +79,28 @@ export class BaseExchangeDataManager {
     exchangeData: ExchangeData[],
     getVerificationKey: (publicKeyFingerprint: string) => Promise<CryptoKey | undefined>
   ): Promise<ExchangeData[]> {
-    const dataOwnerId = await this.dataOwnerApi.getCurrentDataOwnerId()
-    if (exchangeData.some((x) => x.delegator != dataOwnerId)) {
-      throw new Error('Only exchange data from the current data owner can be verified')
-    }
     const verified: ExchangeData[] = []
     for (const ed of exchangeData) {
-      if (await this.verifyExchangeData(ed, (x) => getVerificationKey(x))) verified.concat(ed)
+      if (await this.verifyExchangeData(ed, (x) => getVerificationKey(x))) verified.push(ed)
     }
     return verified
   }
 
-  private async verifyExchangeData(
+  /**
+   * Verifies the authenticity of the exchange data by checking the signature.
+   * Note that all exchange data created by data owners other than the current data owner (including members of his hierarchy)
+   * will always be unverified.
+   * @param exchangeData the exchange data to verify.
+   * @param getVerificationKey function to retrieve keys to use for verification by fingerprint.
+   * @return the exchange data which could be verified given his signature and the available verification keys.
+   * @throws if any of the provided exchange data has been created by a data owner other than the current data owner.
+   */
+  async verifyExchangeData(
     exchangeData: ExchangeData,
     getVerificationKey: (publicKeyFingerprint: string) => Promise<CryptoKey | undefined>
   ): Promise<boolean> {
+    const dataOwnerId = await this.dataOwnerApi.getCurrentDataOwnerId()
+    if (exchangeData.delegator !== dataOwnerId) return false
     const signatureData = await this.bytesToSign(exchangeData)
     for (const [fp, signature] of Object.entries(exchangeData.signature)) {
       const verificationKey = await getVerificationKey(fp.slice(-32))
@@ -166,12 +172,12 @@ export class BaseExchangeDataManager {
       try {
         const decrypted = await this.tryDecrypt(encryptedDataSelector(ed), decryptionKeys)
         if (decrypted) {
-          successfulDecryptions.concat(await unmarshalDecrypted(decrypted))
+          successfulDecryptions.push(await unmarshalDecrypted(decrypted))
         } else {
-          failedDecryptions.concat(ed)
+          failedDecryptions.push(ed)
         }
       } catch (e) {
-        failedDecryptions.concat(ed)
+        failedDecryptions.push(ed)
       }
     }
     return { successfulDecryptions, failedDecryptions }
@@ -197,12 +203,16 @@ export class BaseExchangeDataManager {
    * @param delegateId id of the delegate for the new exchange data.
    * @param signatureKeys private keys to use for signing the created data.
    * @param encryptionKeys public keys to use for the encryption of the exchange data (from delegator and delegate).
+   * @param optionalAttributes optional precalculated attributes for the creation of data
    * @return the newly created exchange data, and its decrypted exchange key and access control secret.
    */
   async createExchangeData(
     delegateId: string,
     signatureKeys: { [keyPairFingerprint: string]: CryptoKey },
-    encryptionKeys: { [keyPairFingerprint: string]: CryptoKey }
+    encryptionKeys: { [keyPairFingerprint: string]: CryptoKey },
+    optionalAttributes: {
+      id?: string
+    } = {}
   ): Promise<{
     exchangeData: ExchangeData
     exchangeKey: CryptoKey
@@ -216,7 +226,7 @@ export class BaseExchangeDataManager {
     const encryptedExchangeKey = await this.encryptDataWithKeys(exchangeKey.rawBytes, encryptionKeys)
     const encryptedAccessControlSecret = await this.encryptDataWithKeys(accessControlSecret.rawBytes, encryptionKeys)
     const baseExchangeData = {
-      id: this.primitives.randomUuid(),
+      id: optionalAttributes.id ?? this.primitives.randomUuid(),
       delegator: await this.dataOwnerApi.getCurrentDataOwnerId(),
       delegate: delegateId,
       exchangeKey: encryptedExchangeKey,
