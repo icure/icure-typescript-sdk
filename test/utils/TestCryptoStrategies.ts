@@ -6,14 +6,13 @@ import { webcrypto } from 'crypto'
 import { ua2hex } from '../../icc-x-api'
 
 export class TestCryptoStrategies implements CryptoStrategies {
-  private readonly keyPair: KeyPair<CryptoKey> | undefined
-  private readonly verifiedSelfKeys: { [p: string]: boolean }
   private readonly RSA = new RSAUtils(webcrypto as any)
 
-  constructor(keyPair?: KeyPair<CryptoKey>, verifiedSelfKeys: { [p: string]: boolean } = {}) {
-    this.keyPair = keyPair
-    this.verifiedSelfKeys = verifiedSelfKeys
-  }
+  constructor(
+    private readonly keyPair?: KeyPair<CryptoKey>,
+    private readonly verifiedSelfKeys: { [p: string]: boolean } = {},
+    private readonly limitVerifiedDelegatesKeys?: Set<string>
+  ) {}
 
   async generateNewKeyForDataOwner(self: DataOwner): Promise<KeyPair<CryptoKey> | boolean> {
     if (!this.keyPair) return false
@@ -44,7 +43,9 @@ export class TestCryptoStrategies implements CryptoStrategies {
   }
 
   verifyDelegatePublicKeys(delegate: DataOwner, publicKeys: string[]): Promise<string[]> {
-    return Promise.resolve(publicKeys)
+    if (this.limitVerifiedDelegatesKeys) {
+      return Promise.resolve(publicKeys.filter((x) => this.limitVerifiedDelegatesKeys!.has(x)))
+    } else return Promise.resolve(publicKeys)
   }
 
   dataOwnerRequiresAnonymousDelegation(dataOwner: DataOwnerWithType): boolean {

@@ -75,8 +75,10 @@ export class LruTemporisedAsyncCache<K, V> {
     if (node.next) node.next.previous = node.previous
     if (this.firstNode === node) this.firstNode = node.next
     if (this.lastNode === node) this.lastNode = node.previous
-    if (key !== null) this.nodesMap.delete(key)
-    node.onEviction()
+    if (key !== null) {
+      this.nodesMap.delete(key)
+      node.onEviction()
+    }
   }
 
   private markUsed(node: CacheNode<K, V>) {

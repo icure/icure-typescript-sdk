@@ -1,6 +1,6 @@
 export class ExchangeData {
   constructor(json: JSON | any) {
-    if (!json.delegator || !json.delegate || !json.exchangeKey || !json.accessControlKey || !json.signature)
+    if (!json.delegator || !json.delegate || !json.exchangeKey || !json.accessControlSecret || !json.signature)
       throw new Error(`Exchange data json is missing required properties.\n${json}`)
     Object.assign(this as ExchangeData, json)
   }

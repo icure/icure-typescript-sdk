@@ -21,7 +21,7 @@ export class TestStorage implements StorageFacade<string> {
 }
 
 export class TestKeyStorage implements KeyStorageFacade {
-  private readonly data = new Map<string, KeyPair<JsonWebKey>>()
+  private readonly data = new Map<string, any>()
 
   async deleteKeypair(key: string): Promise<void> {
     this.data.delete(key)
@@ -41,6 +41,14 @@ export class TestKeyStorage implements KeyStorageFacade {
 
   async storeKeyPair(key: string, keyPair: { publicKey: JsonWebKey; privateKey: JsonWebKey }): Promise<void> {
     this.data.set(key, keyPair)
+  }
+
+  async storePrivateKey(key: string, privateKey: JsonWebKey): Promise<void> {
+    this.data.set(key, privateKey)
+  }
+
+  async storePublicKey(key: string, publicKey: JsonWebKey): Promise<void> {
+    this.data.set(key, publicKey)
   }
 }
 
