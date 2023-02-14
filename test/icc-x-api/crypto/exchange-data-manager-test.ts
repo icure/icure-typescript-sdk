@@ -1,0 +1,494 @@
+import { describe } from 'mocha'
+import {
+  ExchangeDataManager,
+  ExchangeDataManagerOptionalParameters,
+  initialiseExchangeDataManagerForCurrentDataOwner,
+} from '../../../icc-x-api/crypto/ExchangeDataManager'
+import { CryptoPrimitives } from '../../../icc-x-api/crypto/CryptoPrimitives'
+import { webcrypto } from 'crypto'
+import { BaseExchangeDataManager } from '../../../icc-x-api/crypto/BaseExchangeDataManager'
+import { FakeExchangeDataApi } from '../../utils/FakeExchangeDataApi'
+import { FakeDataOwnerApi } from '../../utils/FakeDataOwnerApi'
+import { DataOwnerTypeEnum } from '../../../icc-x-api/icc-data-owner-x-api'
+import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
+import { ua2hex } from '../../../icc-x-api'
+import { FakeEncryptionKeysManager } from '../../utils/FakeEncryptionKeysManager'
+import { FakeSignatureKeysManager } from '../../utils/FakeSignatureKeysManager'
+import { AccessControlSecretUtils } from '../../../icc-x-api/crypto/AccessControlSecretUtils'
+import { ExchangeData } from '../../../icc-api/model/ExchangeData'
+import { expect } from 'chai'
+import { setEquals } from '../../../icc-x-api/utils/collection-utils'
+import { KeyPair } from '../../../icc-x-api/crypto/RSA'
+import * as _ from 'lodash'
+
+describe('Exchange data manager', async function () {
+  const primitives = new CryptoPrimitives(webcrypto as any)
+  const accessControlSecretUtils = new AccessControlSecretUtils(primitives)
+  let selfId: string
+  let selfKeyFp: string
+  let selfKeypair: KeyPair<CryptoKey>
+  let delegateId: string
+  let delegateKeyFp: string
+  let delegateKeypair: KeyPair<CryptoKey>
+  let dataOwnerApi: FakeDataOwnerApi
+  let exchangeDataApi: FakeExchangeDataApi
+  let baseExchangeData: BaseExchangeDataManager
+  let exchangeData: ExchangeDataManager
+  let encryptionKeysManager: FakeEncryptionKeysManager
+  let signatureKeysManager: FakeSignatureKeysManager
+
+  async function initialiseComponents(
+    allowFullExchangeDataLoad: boolean,
+    optionalParameters: ExchangeDataManagerOptionalParameters & { verifiedDelegateKeys?: Set<string> } = {}
+  ) {
+    const dataOwnerType = allowFullExchangeDataLoad ? DataOwnerTypeEnum.Patient : DataOwnerTypeEnum.Hcp
+    selfId = primitives.randomUuid()
+    selfKeypair = await primitives.RSA.generateKeyPair()
+    selfKeyFp = ua2hex(await primitives.RSA.exportKey(selfKeypair.publicKey, 'spki')).slice(-32)
+    delegateId = primitives.randomUuid()
+    delegateKeypair = await primitives.RSA.generateKeyPair()
+    delegateKeyFp = ua2hex(await primitives.RSA.exportKey(delegateKeypair.publicKey, 'spki')).slice(-32)
+    dataOwnerApi = new FakeDataOwnerApi(
+      {
+        id: selfId,
+        type: dataOwnerType,
+        publicKey: ua2hex(await primitives.RSA.exportKey(selfKeypair.publicKey, 'spki')),
+      },
+      [
+        {
+          id: delegateId,
+          type: dataOwnerType,
+          publicKey: ua2hex(await primitives.RSA.exportKey(delegateKeypair.publicKey, 'spki')),
+        },
+      ]
+    )
+    const cryptoStrategies = new TestCryptoStrategies(undefined, undefined, optionalParameters.verifiedDelegateKeys)
+    exchangeDataApi = new FakeExchangeDataApi()
+    baseExchangeData = new BaseExchangeDataManager(exchangeDataApi, dataOwnerApi, primitives, cryptoStrategies)
+    encryptionKeysManager = await FakeEncryptionKeysManager.create(primitives, [selfKeypair])
+    signatureKeysManager = new FakeSignatureKeysManager(primitives)
+    exchangeData = await initialiseExchangeDataManagerForCurrentDataOwner(
+      baseExchangeData,
+      encryptionKeysManager,
+      signatureKeysManager,
+      accessControlSecretUtils,
+      cryptoStrategies,
+      dataOwnerApi,
+      primitives,
+      optionalParameters
+    )
+  }
+
+  async function checkEncryptionDataEqual(
+    actual: { exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey },
+    expected: { exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey }
+  ) {
+    expect(_.isEqual(_.omit(expected.exchangeData, ['rev']), _.omit(actual.exchangeData, ['rev']))).to.equal(
+      true,
+      `Data should be equivalent\nExpected: ${JSON.stringify(expected.exchangeData, undefined, 2)}\nActual: ${JSON.stringify(
+        actual.exchangeData,
+        undefined,
+        2
+      )}\n`
+    )
+    expect(expected.accessControlSecret).to.equal(actual.accessControlSecret)
+    await checkAesKeysEquality(actual.exchangeKey, expected.exchangeKey)
+  }
+
+  async function checkAesKeysEquality(actual: CryptoKey | undefined, expected: CryptoKey | undefined) {
+    if (!actual && !expected) return true
+    if (!actual || !expected) return false
+    expect(ua2hex(await primitives.AES.exportKey(expected, 'raw'))).to.equal(ua2hex(await primitives.AES.exportKey(actual, 'raw')))
+  }
+
+  async function createDataFromRandomToSelf(): Promise<{ exchangeData: ExchangeData; exchangeKey: CryptoKey; accessControlSecret: string }> {
+    const encryptionKey = await primitives.RSA.generateKeyPair()
+    const encryptionFp = ua2hex(await primitives.RSA.exportKey(encryptionKey.publicKey, 'spki')).slice(-32)
+    const signatureKey = await primitives.RSA.generateSignatureKeyPair()
+    const signatureFp = ua2hex(await primitives.RSA.exportKey(signatureKey.publicKey, 'spki')).slice(-32)
+    const created = await baseExchangeData.createExchangeData(
+      selfId,
+      { [signatureFp]: signatureKey.privateKey },
+      { [encryptionFp]: encryptionKey.publicKey, [selfKeyFp]: selfKeypair.publicKey }
+    )
+    const modified = await exchangeDataApi.modifyExchangeData(
+      new ExchangeData({
+        ...created.exchangeData,
+        delegator: primitives.randomUuid(),
+      })
+    )
+    return { exchangeData: modified, exchangeKey: created.exchangeKey, accessControlSecret: created.accessControlSecret }
+  }
+
+  async function generateEncryptionKeys(n: number): Promise<{ pair: KeyPair<CryptoKey>; fingerprint: string; hexPub: string }[]> {
+    return await Promise.all(
+      Array(n)
+        .fill(null)
+        .map(async () => {
+          const pair = await primitives.RSA.generateKeyPair()
+          const hexPub = ua2hex(await primitives.RSA.exportKey(pair.publicKey, 'spki'))
+          const fingerprint = hexPub.slice(-32)
+          return { pair, fingerprint, hexPub }
+        })
+    )
+  }
+
+  it('base should be able to retrieve all exchange data for the current data owner if allowed by the crypto strategies', async function () {
+    async function doTest(allowFullExchangeDataLoad: boolean) {
+      await initialiseComponents(allowFullExchangeDataLoad)
+      const expectedData = await Promise.all(
+        Array.from(Array(3500), async (_, i) => {
+          const data = new ExchangeData({
+            id: primitives.randomUuid(),
+            delegate: i % 2 === 0 ? selfId : primitives.randomUuid(),
+            delegator: i % 2 === 0 ? primitives.randomUuid() : selfId,
+            exchangeKey: { not: 'important' },
+            accessControlSecret: { not: 'important' },
+            signature: { not: 'important' },
+          })
+          await exchangeDataApi.createExchangeData(data)
+          return data
+        })
+      )
+      await Promise.all(
+        Array.from(Array(500), async () => {
+          // Should not be in result
+          const data = new ExchangeData({
+            id: primitives.randomUuid(),
+            delegate: primitives.randomUuid(),
+            delegator: primitives.randomUuid(),
+            exchangeKey: { not: 'important' },
+            accessControlSecret: { not: 'important' },
+            signature: { not: 'important' },
+          })
+          await exchangeDataApi.createExchangeData(data)
+        })
+      )
+      const retrieved = await baseExchangeData.getAllExchangeDataForCurrentDataOwnerIfAllowed()
+      if (allowFullExchangeDataLoad) {
+        expect(retrieved).to.not.be.undefined
+        expect(retrieved).to.have.length(expectedData.length)
+        expect(setEquals(new Set(expectedData.map((x) => x.id)), new Set(retrieved!.map((x) => x.id))), 'Retrieved and expected ids').to.be.true
+      } else {
+        expect(retrieved).to.be.undefined
+      }
+    }
+    await doTest(true)
+    await doTest(false)
+  })
+
+  it('should create new encryption keys when none is available', async function () {
+    async function doTest(allowFullExchangeDataLoad: boolean) {
+      await initialiseComponents(allowFullExchangeDataLoad)
+      const initialisedCount = exchangeDataApi.callCount
+      const createdData = await exchangeData.getOrCreateEncryptionDataTo(delegateId)
+      const retrievedCachedData = await exchangeData.getOrCreateEncryptionDataTo(delegateId)
+      exchangeDataApi.compareCallCountFromBaseline(initialisedCount, {
+        createExchangeData: 1,
+        // If we could fully preload we already know whether the exchange key already exists or not, otherwise we have to request from the api
+        getExchangeDataByDelegatorDelegate: allowFullExchangeDataLoad ? 0 : 1,
+        modifyExchangeData: 0,
+        getExchangeDataById: 0,
+        getExchangeDataByParticipant: 0,
+      })
+      await checkEncryptionDataEqual(retrievedCachedData, createdData)
+      const decryptedKeyByDelegate = await baseExchangeData.tryDecryptExchangeKeys([createdData.exchangeData], { [delegateKeyFp]: delegateKeypair })
+      const decryptedAccessControlSecretByDelegate = await baseExchangeData.tryDecryptAccessControlSecret([createdData.exchangeData], {
+        [delegateKeyFp]: delegateKeypair,
+      })
+      await checkAesKeysEquality(decryptedKeyByDelegate.successfulDecryptions[0], createdData.exchangeKey)
+      expect(decryptedAccessControlSecretByDelegate.successfulDecryptions[0]).to.equal(createdData.accessControlSecret)
+      expect(retrievedCachedData.exchangeData.delegator).to.equal(selfId)
+      expect(retrievedCachedData.exchangeData.delegate).to.equal(delegateId)
+      expect(Object.keys(retrievedCachedData.exchangeData.signature)).to.have.length(1)
+      expect(Object.keys(retrievedCachedData.exchangeData.exchangeKey)).to.have.length(2)
+      expect(Object.keys(retrievedCachedData.exchangeData.accessControlSecret)).to.have.length(2)
+    }
+    await doTest(true)
+    await doTest(false)
+  })
+
+  it('should create encryption keys to self when none is available', async function () {
+    async function doTest(allowFullExchangeDataLoad: boolean) {
+      await initialiseComponents(allowFullExchangeDataLoad)
+      const createdData = await exchangeData.getOrCreateEncryptionDataTo(selfId)
+      expect(createdData.exchangeData.delegator).to.equal(selfId)
+      expect(createdData.exchangeData.delegate).to.equal(selfId)
+      expect(Object.keys(createdData.exchangeData.signature)).to.have.length(1)
+      expect(Object.keys(createdData.exchangeData.exchangeKey)).to.have.length(1)
+      expect(Object.keys(createdData.exchangeData.accessControlSecret)).to.have.length(1)
+    }
+    await doTest(true)
+    await doTest(false)
+  })
+
+  it('should ignore unverified keys when creating new exchange data', async function () {
+    async function doTest(allowFullExchangeDataLoad: boolean) {
+      const delegateVerifiedKeys = await generateEncryptionKeys(5)
+      const extraDelegateUnverifiedKeys = await generateEncryptionKeys(5)
+      const extraDelegatorVerifiedKeys = await generateEncryptionKeys(5)
+      const delegatorUnverifiedKeys = await generateEncryptionKeys(5)
+      await initialiseComponents(allowFullExchangeDataLoad, { verifiedDelegateKeys: new Set(delegateVerifiedKeys.map((x) => x.hexPub)) })
+      for (const keyData of [...delegateVerifiedKeys, ...extraDelegateUnverifiedKeys]) {
+        await dataOwnerApi.addPublicKeyForOwner(delegateId, keyData.pair)
+      }
+      for (const keyData of extraDelegatorVerifiedKeys) {
+        await dataOwnerApi.addPublicKeyForOwner(selfId, keyData.pair)
+        await encryptionKeysManager.addOrUpdateKey(primitives, keyData.pair, true)
+      }
+      for (const keyData of delegatorUnverifiedKeys) {
+        await dataOwnerApi.addPublicKeyForOwner(selfId, keyData.pair)
+        await encryptionKeysManager.addOrUpdateKey(primitives, keyData.pair, false)
+      }
+      const created = await exchangeData.getOrCreateEncryptionDataTo(delegateId)
+      expect(
+        setEquals(new Set(Object.keys(created.exchangeData.exchangeKey)), new Set(Object.keys(created.exchangeData.accessControlSecret))),
+        'Keys used for encryption of exchange key and access control secret must be the same.'
+      ).to.be.true
+      expect(
+        setEquals(
+          new Set(Object.keys(created.exchangeData.exchangeKey)),
+          new Set([...delegateVerifiedKeys.map((x) => x.fingerprint), ...extraDelegatorVerifiedKeys.map((x) => x.fingerprint), selfKeyFp])
+        ),
+        'Only verified keys of delegate and delegator should be used for encryption of exchange key and access control secret.'
+      ).to.be.true
+      for (const keyData of [{ pair: selfKeypair, fingerprint: selfKeyFp }, ...extraDelegatorVerifiedKeys, ...delegateVerifiedKeys]) {
+        await checkAesKeysEquality(
+          (
+            await baseExchangeData.tryDecryptExchangeKeys([created.exchangeData], { [keyData.fingerprint]: keyData.pair })
+          ).successfulDecryptions[0],
+          created.exchangeKey
+        )
+        expect(
+          (await baseExchangeData.tryDecryptAccessControlSecret([created.exchangeData], { [keyData.fingerprint]: keyData.pair }))
+            .successfulDecryptions[0]
+        ).to.equal(created.accessControlSecret)
+      }
+    }
+    await doTest(true)
+    await doTest(false)
+  })
+
+  it('should reuse existing exchange data for encryption when it can be verified', async function () {
+    async function doTest(allowFullExchangeDataLoad: boolean) {
+      await initialiseComponents(allowFullExchangeDataLoad)
+      const createdData = await exchangeData.getOrCreateEncryptionDataTo(delegateId)
+      await exchangeData.clearOrRepopulateCache()
+      const countAfterCacheClear = exchangeDataApi.callCount
+      const reloadedData = await exchangeData.getOrCreateEncryptionDataTo(delegateId)
+      exchangeDataApi.compareCallCountFromBaseline(countAfterCacheClear, {
+        createExchangeData: 0,
+        getExchangeDataByDelegatorDelegate: allowFullExchangeDataLoad ? 0 : 1,
+        modifyExchangeData: 0,
+        getExchangeDataById: 0,
+        getExchangeDataByParticipant: 0,
+      })
+      await checkEncryptionDataEqual(reloadedData, createdData)
+    }
+    await doTest(true)
+    await doTest(false)
+  })
+
+  it('should create new exchange data for encryption when the existing data can not be verified', async function () {
+    async function doTest(allowFullExchangeDataLoad: boolean) {
+      await initialiseComponents(allowFullExchangeDataLoad)
+      const createdData = await exchangeData.getOrCreateEncryptionDataTo(delegateId)
+      signatureKeysManager.clearKeys()
+      await exchangeData.clearOrRepopulateCache()
+      const countAfterCacheClear = exchangeDataApi.callCount
+      const newData = await exchangeData.getOrCreateEncryptionDataTo(delegateId)
+      exchangeDataApi.compareCallCountFromBaseline(countAfterCacheClear, {
+        createExchangeData: 1,
+        getExchangeDataByDelegatorDelegate: allowFullExchangeDataLoad ? 0 : 1,
+        modifyExchangeData: 0,
+        getExchangeDataById: 0,
+        getExchangeDataByParticipant: 0,
+      })
+      expect(_.isEqual(_.omit(createdData.exchangeData, ['rev']), _.omit(newData.exchangeData, ['rev']))).to.equal(
+        false,
+        'Exchange data manager should have created new exchange data for encryption'
+      )
+      expect(ua2hex(await primitives.AES.exportKey(createdData.exchangeKey, 'raw'))).to.not.equal(
+        ua2hex(await primitives.AES.exportKey(newData.exchangeKey, 'raw'))
+      )
+      expect(createdData.accessControlSecret).to.not.equal(newData.accessControlSecret)
+    }
+    await doTest(true)
+    await doTest(false)
+  })
+
+  it('should return existing exchange data keys for decryption even if the data authenticity could not be verified', async function () {
+    async function doTest(allowFullExchangeDataLoad: boolean) {
+      await initialiseComponents(allowFullExchangeDataLoad)
+      const createdData1 = await exchangeData.getOrCreateEncryptionDataTo(delegateId)
+      const createdData2 = await createDataFromRandomToSelf()
+      signatureKeysManager.clearKeys()
+      await exchangeData.clearOrRepopulateCache()
+      await checkAesKeysEquality(await exchangeData.getDecryptionDataKeyById(createdData1.exchangeData.id!), createdData1.exchangeKey)
+      await checkAesKeysEquality(await exchangeData.getDecryptionDataKeyById(createdData2.exchangeData.id!), createdData2.exchangeKey)
+    }
+    await doTest(true)
+    await doTest(false)
+  })
+
+  it('data retrieved by id should be cached and retrievable by hash', async function () {
+    async function doTest(allowFullExchangeDataLoad: boolean) {
+      await initialiseComponents(allowFullExchangeDataLoad)
+      const createdData1 = await exchangeData.getOrCreateEncryptionDataTo(delegateId)
+      const hashes1 = await accessControlSecretUtils.allHashesForSecret(createdData1.accessControlSecret)
+      const createdData2 = await createDataFromRandomToSelf()
+      const hashes2 = await accessControlSecretUtils.allHashesForSecret(createdData2.accessControlSecret)
+      await checkAesKeysEquality(await exchangeData.getDecryptionDataKeyById(createdData2.exchangeData.id!), createdData2.exchangeKey)
+      expect(hashes1.length).to.equal(hashes2.length, 'There should be the same number of hashes regardless of the access control secret')
+      const retrievedKeys = await exchangeData.getCachedDecryptionDataKeyByAccessControlHash([...hashes1, ...hashes2])
+      expect(Object.keys(retrievedKeys)).to.have.length(hashes1.length + hashes2.length)
+      for (const hash of hashes1) {
+        await checkAesKeysEquality(retrievedKeys[hash], createdData1.exchangeKey)
+      }
+      for (const hash of hashes2) {
+        await checkAesKeysEquality(retrievedKeys[hash], createdData2.exchangeKey)
+      }
+    }
+    await doTest(true)
+    await doTest(false)
+  })
+
+  it('if data can not be decrypted the retrieval method should return undefined', async function () {
+    async function doTest(allowFullExchangeDataLoad: boolean) {
+      await initialiseComponents(allowFullExchangeDataLoad)
+      const createdBySelf = await exchangeData.getOrCreateEncryptionDataTo(selfId)
+      const createdByOther = await createDataFromRandomToSelf()
+      const newKey = await primitives.RSA.generateKeyPair()
+      await dataOwnerApi.addPublicKeyForOwner(selfId, newKey)
+      encryptionKeysManager.deleteKey(selfKeyFp)
+      await encryptionKeysManager.addOrUpdateKey(primitives, newKey, true)
+      await exchangeData.clearOrRepopulateCache()
+      expect(await exchangeData.getDecryptionDataKeyById(createdBySelf.exchangeData.id!)).to.be.undefined
+      expect(await exchangeData.getDecryptionDataKeyById(createdByOther.exchangeData.id!)).to.be.undefined
+    }
+    await doTest(true)
+    await doTest(false)
+  })
+
+  it('unverified keys should still be usable for decryption of data', async function () {
+    async function doTest(allowFullExchangeDataLoad: boolean) {
+      await initialiseComponents(allowFullExchangeDataLoad)
+      const createdBySelf = await exchangeData.getOrCreateEncryptionDataTo(selfId)
+      const createdByOther = await createDataFromRandomToSelf()
+      await encryptionKeysManager.addOrUpdateKey(primitives, selfKeypair, false)
+      await exchangeData.clearOrRepopulateCache()
+      await checkAesKeysEquality(await exchangeData.getDecryptionDataKeyById(createdBySelf.exchangeData.id!), createdBySelf.exchangeKey)
+      await checkAesKeysEquality(await exchangeData.getDecryptionDataKeyById(createdByOther.exchangeData.id!), createdByOther.exchangeKey)
+    }
+    await doTest(true)
+    await doTest(false)
+  })
+
+  it('implementation with limited cache should trigger eviction of delegate and hash cache on eviction of data by id cache', async function () {
+    await initialiseComponents(false, { lruCacheSize: 3 })
+
+    async function verifyCached(data: { exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey }) {
+      const apiCallsBaseline = exchangeDataApi.callCount
+      const hashes = await accessControlSecretUtils.allHashesForSecret(data.accessControlSecret)
+      for (const hash of hashes) {
+        await checkAesKeysEquality((await exchangeData.getCachedDecryptionDataKeyByAccessControlHash([hash]))[hash], data.exchangeKey)
+      }
+      if (data.exchangeData.delegator === selfId) {
+        await checkEncryptionDataEqual(await exchangeData.getOrCreateEncryptionDataTo(data.exchangeData.delegate), data)
+      }
+      await checkAesKeysEquality(await exchangeData.getDecryptionDataKeyById(data.exchangeData.id!), data.exchangeKey)
+      exchangeDataApi.compareCallCountFromBaseline(apiCallsBaseline, {
+        getExchangeDataById: 0,
+        createExchangeData: 0,
+        modifyExchangeData: 0,
+        getExchangeDataByParticipant: 0,
+        getExchangeDataByDelegatorDelegate: 0,
+      })
+    }
+
+    async function verifyNotCachedThenCache(data: { exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey }) {
+      const apiCallsBaseline = exchangeDataApi.callCount
+      const hashes = await accessControlSecretUtils.allHashesForSecret(data.accessControlSecret)
+      for (const hash of hashes) {
+        expect(Object.keys(await exchangeData.getCachedDecryptionDataKeyByAccessControlHash([hash]))).to.have.length(0)
+      }
+      if (data.exchangeData.delegator === selfId) {
+        await checkEncryptionDataEqual(await exchangeData.getOrCreateEncryptionDataTo(data.exchangeData.delegate), data)
+        exchangeDataApi.compareCallCountFromBaseline(apiCallsBaseline, {
+          getExchangeDataById: 0,
+          createExchangeData: 0,
+          modifyExchangeData: 0,
+          getExchangeDataByParticipant: 0,
+          getExchangeDataByDelegatorDelegate: 1,
+        })
+      } else {
+        await checkAesKeysEquality(await exchangeData.getDecryptionDataKeyById(data.exchangeData.id!), data.exchangeKey)
+        exchangeDataApi.compareCallCountFromBaseline(apiCallsBaseline, {
+          getExchangeDataById: 1,
+          createExchangeData: 0,
+          modifyExchangeData: 0,
+          getExchangeDataByParticipant: 0,
+          getExchangeDataByDelegatorDelegate: 0,
+        })
+      }
+    }
+
+    const createdBySelf1 = await exchangeData.getOrCreateEncryptionDataTo(selfId)
+    const createdBySelf2 = await exchangeData.getOrCreateEncryptionDataTo(delegateId)
+    const createdByOther1 = await createDataFromRandomToSelf() // Not automatically cached: created by someone else
+    const createdByOther2 = await createDataFromRandomToSelf() // Not automatically cached: created by someone else
+    // noinspection DuplicatedCode
+    await verifyCached(createdBySelf1)
+    await verifyCached(createdBySelf2)
+    await verifyNotCachedThenCache(createdByOther1)
+    await verifyCached(createdBySelf1)
+    await verifyCached(createdBySelf2)
+    await verifyCached(createdByOther1)
+    await verifyNotCachedThenCache(createdByOther2)
+    await verifyCached(createdBySelf2)
+    await verifyCached(createdByOther1)
+    await verifyCached(createdByOther2)
+    await verifyNotCachedThenCache(createdBySelf1)
+    await verifyCached(createdByOther1)
+    await verifyCached(createdByOther2)
+    await verifyCached(createdBySelf1)
+    await verifyNotCachedThenCache(createdBySelf2)
+    await verifyCached(createdByOther2)
+    // noinspection DuplicatedCode
+    await verifyCached(createdBySelf1)
+    await verifyCached(createdBySelf2)
+    await verifyNotCachedThenCache(createdByOther1)
+    await verifyCached(createdBySelf1)
+    await verifyCached(createdBySelf2)
+    await verifyCached(createdByOther1)
+    await verifyNotCachedThenCache(createdByOther2)
+    await verifyCached(createdBySelf2)
+    await verifyCached(createdByOther1)
+    await verifyCached(createdByOther2)
+  })
+
+  it('implementation with unlimited cache should preload all existing exchange data on creation', async function () {
+    await initialiseComponents(true)
+    const createdBySelf = await exchangeData.getOrCreateEncryptionDataTo(selfId)
+    const createdByOther = await createDataFromRandomToSelf()
+    const recreatedExchangeData = await initialiseExchangeDataManagerForCurrentDataOwner(
+      baseExchangeData,
+      encryptionKeysManager,
+      signatureKeysManager,
+      accessControlSecretUtils,
+      new TestCryptoStrategies(),
+      dataOwnerApi,
+      primitives
+    )
+    const apiCallsAfterCreation = exchangeDataApi.callCount
+    await checkAesKeysEquality(await recreatedExchangeData.getDecryptionDataKeyById(createdBySelf.exchangeData.id!), createdBySelf.exchangeKey)
+    await checkAesKeysEquality(await recreatedExchangeData.getDecryptionDataKeyById(createdByOther.exchangeData.id!), createdByOther.exchangeKey)
+    exchangeDataApi.compareCallCountFromBaseline(apiCallsAfterCreation, {
+      getExchangeDataById: 0,
+      createExchangeData: 0,
+      modifyExchangeData: 0,
+      getExchangeDataByParticipant: 0,
+      getExchangeDataByDelegatorDelegate: 0,
+    })
+  })
+})

@@ -35,7 +35,7 @@ export class BaseExchangeDataManager {
     const dataOwnerId = currentDataOwner.dataOwner.id
     let latestResult = await this.exchangeDataApi.getExchangeDataByParticipant(dataOwnerId, undefined, 1000)
     const allRetrieved = latestResult.rows ?? []
-    while (latestResult.nextKeyPair) {
+    while (latestResult.nextKeyPair?.startKeyDocId) {
       latestResult = await this.exchangeDataApi.getExchangeDataByParticipant(dataOwnerId, latestResult.nextKeyPair.startKeyDocId, 1000)
       if (latestResult.rows) allRetrieved.push(...latestResult.rows)
     }
@@ -234,9 +234,8 @@ export class BaseExchangeDataManager {
     }
     const signature = await this.signDataWithKeys(await this.bytesToSign(baseExchangeData), signatureKeys)
     const exchangeData = new ExchangeData({ ...baseExchangeData, signature })
-    await this.exchangeDataApi.createExchangeData(exchangeData)
     return {
-      exchangeData,
+      exchangeData: await this.exchangeDataApi.createExchangeData(exchangeData),
       exchangeKey: exchangeKey.key,
       accessControlSecret: accessControlSecret.secret,
     }

@@ -10,17 +10,24 @@ import { CryptoPrimitives } from './CryptoPrimitives'
 import { hex2ua } from '../utils'
 import { LruTemporisedAsyncCache } from '../utils/lru-temporised-async-cache'
 
+export type ExchangeDataManagerOptionalParameters = {
+  // Only for not fully cached implementation (data owner can't request all his exchange data), amount of exchange data which can be cached
+  lruCacheSize?: number // default = 2000
+}
+
 /**
+ * @internal this function is for internal use only and may be changed without notice.
  * Initialises and returns the exchange data manager which is most appropriate for the current data owner.
  */
-async function initialiseForCurrentDataOwner(
+export async function initialiseExchangeDataManagerForCurrentDataOwner(
   base: BaseExchangeDataManager,
   encryptionKeys: UserEncryptionKeysManager,
   signatureKeys: UserSignatureKeysManager,
   accessControlSecret: AccessControlSecretUtils,
   cryptoStrategies: CryptoStrategies,
   dataOwnerApi: IccDataOwnerXApi,
-  primitives: CryptoPrimitives
+  primitives: CryptoPrimitives,
+  optionalParameters: ExchangeDataManagerOptionalParameters = {}
 ): Promise<ExchangeDataManager> {
   const currentOwner = await dataOwnerApi.getCurrentDataOwner()
   if (cryptoStrategies.dataOwnerCanRequestAllHisExchangeData(currentOwner)) {
@@ -43,7 +50,8 @@ async function initialiseForCurrentDataOwner(
       accessControlSecret,
       cryptoStrategies,
       dataOwnerApi,
-      primitives
+      primitives,
+      optionalParameters
     )
   }
 }
@@ -229,12 +237,18 @@ class FullyCachedExchangeDataManager extends AbstractExchangeDataManager {
   }
 
   async getDecryptionDataKeyById(id: string): Promise<CryptoKey | undefined> {
-    const data = await this.base.getExchangeDataById(id)
-    if (!data) throw new Error(`Could not find exchange data with id ${id}`)
-    const decrypted = await this.decryptData(data)
-    if (!decrypted) return undefined
-    this.cacheData(decrypted.exchangeData, decrypted.accessControlSecret, decrypted.exchangeKey, decrypted.verified, decrypted.hashes)
-    return decrypted.exchangeKey
+    const caches = await this.caches
+    const cachedData = caches.dataById[id]
+    if (cachedData) {
+      return cachedData.exchangeKey
+    } else {
+      const data = await this.base.getExchangeDataById(id)
+      if (!data) throw new Error(`Could not find exchange data with id ${id}`)
+      const decrypted = await this.decryptData(data)
+      if (!decrypted) return undefined
+      this.cacheData(decrypted.exchangeData, decrypted.accessControlSecret, decrypted.exchangeKey, decrypted.verified, decrypted.hashes)
+      return decrypted.exchangeKey
+    }
   }
 
   private cacheData(exchangeData: ExchangeData, accessControlSecret: string, exchangeKey: CryptoKey, verified: boolean, hashes: string[]): void {
@@ -286,9 +300,25 @@ class FullyCachedExchangeDataManager extends AbstractExchangeDataManager {
 }
 
 class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
-  private readonly idToDataCache: LruTemporisedAsyncCache<string, CachedExchangeData | undefined> = new LruTemporisedAsyncCache(2000, () => -1)
+  private readonly idToDataCache: LruTemporisedAsyncCache<string, CachedExchangeData | undefined>
   private readonly hashToId: Map<string, string> = new Map()
   private readonly delegateToVerifiedEncryptionDataId: Map<string, string> = new Map()
+
+  constructor(
+    base: BaseExchangeDataManager,
+    encryptionKeys: UserEncryptionKeysManager,
+    signatureKeys: UserSignatureKeysManager,
+    accessControlSecret: AccessControlSecretUtils,
+    cryptoStrategies: CryptoStrategies,
+    dataOwnerApi: IccDataOwnerXApi,
+    primitives: CryptoPrimitives,
+    optionalParameters: {
+      lruCacheSize?: number
+    }
+  ) {
+    super(base, encryptionKeys, signatureKeys, accessControlSecret, cryptoStrategies, dataOwnerApi, primitives)
+    this.idToDataCache = new LruTemporisedAsyncCache(optionalParameters.lruCacheSize ?? 2000, () => -1)
+  }
 
   async clearOrRepopulateCache(): Promise<void> {
     this.idToDataCache.clear(false)
@@ -372,8 +402,8 @@ class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
   private async populateCacheToDelegate(delegateId: string): Promise<void> {
     const dataToDelegate = await this.base.getExchangeDataByDelegatorDelegatePair(await this.dataOwnerApi.getCurrentDataOwnerId(), delegateId)
     await Promise.all(
-      dataToDelegate.map((data) => {
-        this.idToDataCache.get(data.id!, () => this.cacheJob(() => this.decryptData(data)))
+      dataToDelegate.map(async (data) => {
+        await this.idToDataCache.get(data.id!, () => this.cacheJob(() => this.decryptData(data)))
       })
     )
   }
