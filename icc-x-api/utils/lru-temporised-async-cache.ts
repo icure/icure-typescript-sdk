@@ -6,9 +6,11 @@ export class LruTemporisedAsyncCache<K, V> {
   private firstNode: CacheNode<K, V> | null = null
   private lastNode: CacheNode<K, V> | null = null
 
+  private sequentialJobId = 0
+
   /**
    * @param maxCacheSize Maximum size of the cache. Any value <= 0 is considered as no limit.
-   * @param lifetimeForValue Get the maximum lifetime for an entry given its value.
+   * @param lifetimeForValue Get the maximum lifetime for an entry given its value, in milliseconds.
    */
   constructor(maxCacheSize: number, lifetimeForValue: (value: V) => number) {
     this.maxCacheSize = maxCacheSize
@@ -34,18 +36,23 @@ export class LruTemporisedAsyncCache<K, V> {
       this.markUsed(retrieved)
       const cachedValue = retrieved.cachedValue
       if (retrieved.expired((x) => this.lifetimeForValue(x)) || (cachedValue !== undefined && additionalExpirationCondition(cachedValue))) {
-        retrieved.value = this.registerJob(key, () => retrieve(cachedValue))
+        const newId = this.nextJobId()
+        retrieved.onEviction()
+        retrieved.jobId = newId
+        retrieved.value = this.registerJob(key, newId, () => retrieve(cachedValue))
       }
       return retrieved.valuePromise()
     } else {
+      const jobId = this.nextJobId()
       const newNode = new CacheNode(
         key,
+        jobId,
         this.lastNode,
         null,
-        this.registerJob(key, () => retrieve(undefined))
+        this.registerJob(key, jobId, () => retrieve(undefined))
       )
       this.addToTail(key, newNode)
-      if (this.maxCacheSize > 0 && this.nodesMap.size > this.maxCacheSize) this.evict(this.firstNode!.key, this.firstNode!)
+      if (this.maxCacheSize > 0 && this.nodesMap.size > this.maxCacheSize) this.evict(this.firstNode!.key, this.firstNode!, true)
       return newNode.valuePromise()
     }
   }
@@ -70,13 +77,15 @@ export class LruTemporisedAsyncCache<K, V> {
     if (key != null) this.nodesMap.set(key, node)
   }
 
-  private evict(key: K | null, node: CacheNode<K, V>) {
+  private evict(key: K | null, node: CacheNode<K, V>, doEvictionTriggers: boolean) {
     if (node.previous) node.previous.next = node.next
     if (node.next) node.next.previous = node.previous
     if (this.firstNode === node) this.firstNode = node.next
     if (this.lastNode === node) this.lastNode = node.previous
     if (key !== null) {
       this.nodesMap.delete(key)
+    }
+    if (doEvictionTriggers) {
       node.onEviction()
     }
   }
@@ -84,28 +93,40 @@ export class LruTemporisedAsyncCache<K, V> {
   private markUsed(node: CacheNode<K, V>) {
     if (node !== this.lastNode) {
       // No need to modify the nodes map
-      this.evict(null, node)
+      this.evict(null, node, false)
       this.addToTail(null, node)
     }
   }
 
-  private registerJob(key: K, retrieve: () => Promise<{ item: V; onEviction?: () => void }>): Promise<V> {
+  private registerJob(key: K, jobId: number, retrieve: () => Promise<{ item: V; onEviction?: () => void }>): Promise<V> {
     // The node may have already been evicted by the time the promise completed if the cached surpassed the maximum size.
     return retrieve()
       .then(({ item: v, onEviction }) => {
         const node = this.nodesMap.get(key)
-        if (node) {
+        if (node && node.jobId == jobId) {
           node.value = { cached: v, timestamp: Date.now(), onEviction: () => onEviction?.() }
+        } else {
+          onEviction?.()
         }
         return v
       })
       .catch((e) => {
         const node = this.nodesMap.get(key)
-        if (node) {
-          this.evict(key, node)
+        if (node && node.jobId == jobId) {
+          this.evict(key, node, true)
         }
         throw e
       })
+  }
+
+  private nextJobId(): number {
+    const res = this.sequentialJobId
+    if (this.sequentialJobId < Number.MAX_SAFE_INTEGER) {
+      this.sequentialJobId = res + 1
+    } else {
+      this.sequentialJobId = 0
+    }
+    return res
   }
 }
 
@@ -116,9 +137,11 @@ class CacheNode<K, V> {
   previous: CacheNode<K, V> | null
   next: CacheNode<K, V> | null
   value: Promise<V> | Cached<V>
+  jobId: number
 
-  constructor(key: K, previous: CacheNode<K, V> | null, next: CacheNode<K, V> | null, value: Promise<V>) {
+  constructor(key: K, jobId: number, previous: CacheNode<K, V> | null, next: CacheNode<K, V> | null, value: Promise<V>) {
     this.key = key
+    this.jobId = jobId
     this.previous = previous
     this.next = next
     this.value = value
