@@ -167,7 +167,11 @@ export class IccHelementXApi extends IccHelementApi {
   }
 
   findHealthElementsByHCPartyPatientForeignKeysWithUser(user: models.User, hcPartyId: string, secretFKeys: string): Promise<HealthElement[]> {
-    return super.findHealthElementsByHCPartyPatientForeignKeysUsingPost(hcPartyId, secretFKeys.split(',')).then((hes) => this.decryptWithUser(user, hes))
+    return super.findHealthElementsByHCPartyPatientForeignKeys(hcPartyId, secretFKeys).then((hes) => this.decryptWithUser(user, hes))
+  }
+
+  findHealthElementsByHCPartyPatientForeignKeysArrayWithUser(user: models.User, hcPartyId: string, secretFKeys: string[]): Promise<HealthElement[]> {
+    return super.findHealthElementsByHCPartyPatientForeignKeysUsingPost(hcPartyId, secretFKeys).then((hes) => this.decryptWithUser(user, hes))
   }
 
   findHealthElementsByHCPartyAndPatientWithUser(user: models.User, hcPartyId: string, patient: models.Patient): Promise<models.HealthElement[]> {
@@ -179,6 +183,18 @@ export class IccHelementXApi extends IccHelementApi {
       }
 
       return this.findHealthElementsByHCPartyPatientForeignKeysWithUser(user, hcPartyId, keys.join(','))
+    })
+  }
+
+  findHealthElementsByHCPartyAndPatientWithUserUsingPost(user: models.User, hcPartyId: string, patient: models.Patient): Promise<models.HealthElement[]> {
+    return this.crypto.extractSFKsHierarchyFromDelegations(patient, hcPartyId).then((keysAndHcPartyId) => {
+      const keys = keysAndHcPartyId.find((secretForeignKeys) => secretForeignKeys.hcpartyId == hcPartyId)?.extractedKeys
+
+      if (keys == undefined) {
+        throw Error('No delegation for user')
+      }
+
+      return this.findHealthElementsByHCPartyPatientForeignKeysArrayWithUser(user, hcPartyId, keys)
     })
   }
 
