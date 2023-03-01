@@ -175,8 +175,8 @@ export class IccInvoiceXApi extends IccInvoiceApi {
    * After these painful steps, you have the invoices of the patient.
    *
    * @param hcpartyId
-   * @param patient
-   * @param usingPost (Promise)
+   * @param patient (Promise)
+   * @param usingPost
    */
   findBy(hcpartyId: string, patient: models.Patient, usingPost: boolean = false): Promise<Array<models.Invoice>> {
     return this.crypto
