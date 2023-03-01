@@ -421,7 +421,7 @@ export class IccUserApi {
       (startKey ? '&startKey=' + encodeURIComponent(String(startKey)) : '') +
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '') +
-      (skipPatients ? '&skipPatients=' + encodeURIComponent(String(skipPatients)) : '')
+      (skipPatients !== undefined ? '&skipPatients=' + encodeURIComponent(String(skipPatients)) : '')
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListUser(doc.body as JSON))
