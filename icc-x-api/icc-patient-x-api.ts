@@ -646,7 +646,8 @@ export class IccPatientXApi extends IccPatientApi {
     patId: string,
     ownerId: string,
     delegateIds: Array<string>,
-    delegationTags: { [key: string]: Array<string> }
+    delegationTags: { [key: string]: Array<string> },
+    usingPost: boolean = false
   ): Promise<{
     patient: models.Patient | null
     statuses: { [key: string]: { success: boolean | null; error: Error | null } }
@@ -748,42 +749,49 @@ export class IccPatientXApi extends IccPatientApi {
             return delSfks.length
               ? Promise.all([
                   retry(() =>
-                    this.helementApi
-                      .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
+                      (usingPost ? this.helementApi
+                        .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(ownerId, _.uniq(delSfks)) : this.helementApi
+                      .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(',')))
                       .then((hes) =>
                         parentId
-                          ? this.helementApi
+                          ? (usingPost ? this.helementApi
+                              .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(parentId, _.uniq(delSfks)) : this.helementApi
                               .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                              .then((moreHes) => _.uniqBy(hes.concat(moreHes), 'id'))
+                          ).then((moreHes) => _.uniqBy(hes.concat(moreHes), 'id'))
                           : hes
                       )
                   ) as Promise<Array<models.IcureStub>>,
                   retry(() =>
-                    this.formApi
-                      .findFormsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                      .then((frms) =>
+                      (usingPost ? this.formApi
+                          .findFormsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(ownerId, _.uniq(delSfks)) : this.formApi
+                          .findFormsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
+                      ).then((frms) =>
                         parentId
-                          ? this.formApi
+                          ? (usingPost ? this.formApi
+                              .findFormsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(parentId, _.uniq(delSfks)) : this.formApi
                               .findFormsDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                              .then((moreFrms) => _.uniqBy(frms.concat(moreFrms), 'id'))
+                          ).then((moreFrms) => _.uniqBy(frms.concat(moreFrms), 'id'))
                           : frms
                       )
                   ) as Promise<Array<models.Form>>,
                   retry(() =>
-                    this.contactApi
+                      (usingPost ? this.contactApi
+                          .findByHCPartyPatientSecretFKeysUsingPost(ownerId, undefined, undefined, _.uniq(delSfks)) : this.contactApi
                       .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
-                      .then((ctcs) =>
+                      ).then((ctcs) =>
                         parentId
-                          ? this.contactApi
+                          ? (usingPost ? this.contactApi
+                              .findByHCPartyPatientSecretFKeysUsingPost(parentId, undefined, undefined, _.uniq(delSfks)) : this.contactApi
                               .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
-                              .then((moreCtcs) => _.uniqBy(ctcs.concat(moreCtcs), 'id'))
+                          ).then((moreCtcs) => _.uniqBy(ctcs.concat(moreCtcs), 'id'))
                           : ctcs
                       )
                   ) as Promise<Array<models.Contact>>,
                   retry(() =>
-                    this.invoiceApi
+                      (usingPost ? this.invoiceApi
+                          .findInvoicesDelegationsStubsByHCPartyPatientForeignKeysUsingPost(ownerId, _.uniq(delSfks)) : this.invoiceApi
                       .findInvoicesDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                      .then((ivs) =>
+                      ).then((ivs) =>
                         parentId
                           ? this.invoiceApi
                               .findInvoicesDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
@@ -803,13 +811,15 @@ export class IccPatientXApi extends IccPatientApi {
                       )
                   ) as Promise<Array<models.Classification>>,
                   retry(() =>
-                    this.calendarItemApi
+                    (usingPost ? this.calendarItemApi
+                        .findByHCPartyPatientSecretFKeysArray(ownerId, _.uniq(delSfks)) : this.calendarItemApi
                       .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
-                      .then((cls) =>
+                    ).then((cls) =>
                         parentId
-                          ? this.calendarItemApi
+                          ? (usingPost ? this.calendarItemApi
+                              .findByHCPartyPatientSecretFKeysArray(parentId, _.uniq(delSfks)) : this.calendarItemApi
                               .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
-                              .then((moreCls) => _.uniqBy(cls.concat(moreCls), 'id'))
+                          ).then((moreCls) => _.uniqBy(cls.concat(moreCls), 'id'))
                           : cls
                       )
                   ) as Promise<Array<models.CalendarItem>>,
@@ -1052,418 +1062,7 @@ export class IccPatientXApi extends IccPatientApi {
     })
   }
 
-  shareUsingPost(
-    user: models.User,
-    patId: string,
-    ownerId: string,
-    delegateIds: Array<string>,
-    delegationTags: { [key: string]: Array<string> }
-  ): Promise<{
-    patient: models.Patient | null
-    statuses: { [key: string]: { success: boolean | null; error: Error | null } }
-  } | null> {
-    const addDelegationsAndKeys = (
-      dtos: Array<models.Form | models.Document | models.Contact | models.HealthElement | models.Classification | models.CalendarItem>,
-      markerPromise: Promise<any>,
-      delegateId: string,
-      patient: models.Patient | null
-    ) => {
-      return dtos.reduce(
-        (p, x) =>
-          p.then(() =>
-            Promise.all([this.crypto.extractDelegationsSFKs(x, ownerId), this.crypto.extractEncryptionsSKs(x, ownerId)]).then(([sfks, eks]) => {
-              //console.log(`share ${x.id} to ${delegateId}`)
-              return this.crypto
-                .addDelegationsAndEncryptionKeys(patient, x, ownerId, delegateId, sfks.extractedKeys[0], eks.extractedKeys[0])
-                .catch((e: any) => {
-                  console.log(e)
-                  return x
-                })
-            })
-          ),
-        markerPromise
-      )
-    }
-
-    const allTags: string[] = _.uniq(_.flatMap(Object.values(delegationTags)))
-
-    // Determine which keys to share, depending on the delegation tag. For example, anonymousMedicalData only shares encryption keys and no delegations or secret foreign keys.
-    const shareDelegations: boolean = allTags.some((tag) => tag != 'anonymousMedicalInformation')
-    const shareEncryptionKeys = true
-    const shareCryptedForeignKeys: boolean = allTags.some((tag) => tag != 'anonymousMedicalInformation')
-
-    // Anonymous sharing, will not change anything to the patient, only its contacts and health elements.
-    const shareAnonymously: boolean = allTags.every((tag) => tag == 'anonymousMedicalInformation')
-
-    return this.hcpartyApi.getHealthcareParty(ownerId).then((hcp) => {
-      const parentId = hcp.parentId
-      const status = {
-        contacts: {
-          success:
-            allTags.includes('medicalInformation') || allTags.includes('anonymousMedicalInformation') || allTags.includes('all') ? false : null,
-          error: null,
-          modified: 0,
-        },
-        forms: {
-          success: allTags.includes('medicalInformation') || allTags.includes('all') ? false : null,
-          error: null,
-          modified: 0,
-        },
-        healthElements: {
-          success:
-            allTags.includes('medicalInformation') || allTags.includes('anonymousMedicalInformation') || allTags.includes('all') ? false : null,
-          error: null,
-          modified: 0,
-        },
-        invoices: {
-          success: allTags.includes('financialInformation') || allTags.includes('all') ? false : null,
-          error: null,
-          modified: 0,
-        },
-        documents: {
-          success: allTags.includes('medicalInformation') || allTags.includes('all') ? false : null,
-          error: null,
-          modified: 0,
-        },
-        classifications: {
-          success: allTags.includes('medicalInformation') || allTags.includes('all') ? false : null,
-          error: null,
-          modified: 0,
-        },
-        calendarItems: {
-          success: allTags.includes('medicalInformation') || allTags.includes('all') ? false : null,
-          error: null,
-          modified: 0,
-        },
-        patient: { success: false, error: null, modified: 0 } as {
-          success: boolean
-          error: Error | null
-        },
-      }
-      return retry(() => this.getPatientWithUser(user, patId))
-        .then((patient: models.Patient) =>
-          patient.encryptionKeys && Object.keys(patient.encryptionKeys || {}).length
-            ? Promise.resolve(patient)
-            : this.initEncryptionKeys(user, patient).then((patient: models.Patient) => this.modifyPatientWithUser(user, patient))
-        )
-        .then((patient: models.Patient | null) => {
-          if (!patient) {
-            status.patient = {
-              success: false,
-              error: new Error('Patient does not exist or cannot initialise encryption keys'),
-            }
-            return Promise.resolve({ patient: patient, statuses: status })
-          }
-
-          return this.crypto.extractDelegationsSFKsAndEncryptionSKs(patient, ownerId).then(([delSfks, ecKeys]) => {
-            return delSfks.length
-              ? Promise.all([
-                retry(() =>
-                  this.helementApi
-                    .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(ownerId, _.uniq(delSfks))
-                    .then((hes) =>
-                      parentId
-                        ? this.helementApi
-                          .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(parentId, _.uniq(delSfks))
-                          .then((moreHes) => _.uniqBy(hes.concat(moreHes), 'id'))
-                        : hes
-                    )
-                ) as Promise<Array<models.IcureStub>>,
-                retry(() =>
-                  this.formApi
-                    .findFormsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(ownerId, _.uniq(delSfks))
-                    .then((frms) =>
-                      parentId
-                        ? this.formApi
-                          .findFormsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(parentId, _.uniq(delSfks))
-                          .then((moreFrms) => _.uniqBy(frms.concat(moreFrms), 'id'))
-                        : frms
-                    )
-                ) as Promise<Array<models.Form>>,
-                retry(() =>
-                  this.contactApi
-                    .findByHCPartyPatientSecretFKeysUsingPost(ownerId, undefined, undefined, _.uniq(delSfks))
-                    .then((ctcs) =>
-                      parentId
-                        ? this.contactApi
-                          .findByHCPartyPatientSecretFKeysUsingPost(parentId, undefined, undefined, _.uniq(delSfks))
-                          .then((moreCtcs) => _.uniqBy(ctcs.concat(moreCtcs), 'id'))
-                        : ctcs
-                    )
-                ) as Promise<Array<models.Contact>>,
-                retry(() =>
-                  this.invoiceApi
-                    .findInvoicesDelegationsStubsByHCPartyPatientForeignKeysUsingPost(ownerId, _.uniq(delSfks))
-                    .then((ivs) =>
-                      parentId
-                        ? this.invoiceApi
-                          .findInvoicesDelegationsStubsByHCPartyPatientForeignKeysUsingPost(parentId, _.uniq(delSfks))
-                          .then((moreIvs) => _.uniqBy(ivs.concat(moreIvs), 'id'))
-                        : ivs
-                    )
-                ) as Promise<Array<models.IcureStub>>,
-                retry(() =>
-                  this.classificationApi
-                    .findClassificationsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                    .then((cls) =>
-                      parentId
-                        ? this.classificationApi
-                          .findClassificationsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                          .then((moreCls) => _.uniqBy(cls.concat(moreCls), 'id'))
-                        : cls
-                    )
-                ) as Promise<Array<models.Classification>>,
-                retry(() =>
-                  this.calendarItemApi
-                    .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
-                    .then((cls) =>
-                      parentId
-                        ? this.calendarItemApi
-                          .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
-                          .then((moreCls) => _.uniqBy(cls.concat(moreCls), 'id'))
-                        : cls
-                    )
-                ) as Promise<Array<models.CalendarItem>>,
-              ]).then(([hes, frms, ctcs, ivs, cls, cis]) => {
-                const cloneKeysAndDelegations = function (x: models.IcureStub) {
-                  return {
-                    delegations: shareDelegations ? _.clone(x.delegations) : undefined,
-                    cryptedForeignKeys: shareCryptedForeignKeys ? _.clone(x.cryptedForeignKeys) : undefined,
-                    encryptionKeys: shareEncryptionKeys ? _.clone(x.encryptionKeys) : undefined,
-                  }
-                }
-
-                const ctcsStubs = ctcs.map((c) => ({
-                  id: c.id,
-                  rev: c.rev,
-                  ...cloneKeysAndDelegations(c),
-                }))
-                const oHes = hes.map((x) => _.assign(new IcureStub({}), x, cloneKeysAndDelegations(x)))
-                const oFrms = frms.map((x) => _.assign(new IcureStub({}), x, cloneKeysAndDelegations(x)))
-                const oCtcsStubs = ctcsStubs.map((x) => _.assign({}, x, cloneKeysAndDelegations(x)))
-                const oIvs = ivs.map((x) => _.assign(new Invoice({}), x, cloneKeysAndDelegations(x)))
-                const oCls = cls.map((x) => _.assign(new Classification({}), x, cloneKeysAndDelegations(x)))
-                const oCis = cis.map((x) => _.assign(new CalendarItem({}), x, cloneKeysAndDelegations(x)))
-
-                const docIds: { [key: string]: number } = {}
-                ctcs.forEach(
-                  (c: models.Contact) =>
-                    c.services &&
-                    c.services.forEach((s) => s.content && Object.values(s.content).forEach((c) => c && c.documentId && (docIds[c.documentId] = 1)))
-                )
-
-                return retry(() => this.documentApi.getDocuments(new ListOfIds({ ids: Object.keys(docIds) }))).then((docs: Array<Document>) => {
-                  const oDocs = docs.map((x) => _.assign({}, x, cloneKeysAndDelegations(x)))
-
-                  let markerPromise: Promise<any> = Promise.resolve(null)
-                  delegateIds.forEach((delegateId) => {
-                    const tags = delegationTags[delegateId]
-                    markerPromise = markerPromise.then(() => {
-                      //Share patient
-                      //console.log(`share ${patient.id} to ${delegateId}`)
-                      return shareAnonymously
-                        ? patient
-                        : this.crypto
-                          .addDelegationsAndEncryptionKeys(null, patient, ownerId, delegateId, delSfks[0], ecKeys[0])
-                          .then(async (patient) => {
-                            if (delSfks.length > 1) {
-                              return delSfks.slice(1).reduce(async (patientPromise: Promise<models.Patient>, delSfk: string) => {
-                                const patient = await patientPromise
-                                return shareAnonymously
-                                  ? patient
-                                  : this.crypto
-                                    .addDelegationsAndEncryptionKeys(null, patient, ownerId, delegateId, delSfk, null)
-                                    .catch((e: any) => {
-                                      console.log(e)
-                                      return patient
-                                    })
-                              }, Promise.resolve(patient))
-                            }
-                            return patient
-                          })
-                          .catch((e) => {
-                            console.log(e)
-                            return patient
-                          })
-                    })
-                    ;(tags.includes('medicalInformation') || tags.includes('anonymousMedicalInformation') || tags.includes('all')) &&
-                    (markerPromise = addDelegationsAndKeys(hes, markerPromise, delegateId, patient))
-                    ;(tags.includes('medicalInformation') || tags.includes('all')) &&
-                    (markerPromise = addDelegationsAndKeys(frms, markerPromise, delegateId, patient))
-                    ;(tags.includes('medicalInformation') || tags.includes('anonymousMedicalInformation') || tags.includes('all')) &&
-                    (markerPromise = addDelegationsAndKeys(ctcsStubs, markerPromise, delegateId, patient))
-                    ;(tags.includes('medicalInformation') || tags.includes('all')) &&
-                    (markerPromise = addDelegationsAndKeys(cls, markerPromise, delegateId, patient))
-                    ;(tags.includes('medicalInformation') || tags.includes('all')) &&
-                    (markerPromise = addDelegationsAndKeys(cis, markerPromise, delegateId, patient))
-                    ;(tags.includes('financialInformation') || tags.includes('all')) &&
-                    (markerPromise = addDelegationsAndKeys(ivs, markerPromise, delegateId, patient))
-                    ;(tags.includes('medicalInformation') || tags.includes('all')) &&
-                    (markerPromise = addDelegationsAndKeys(docs, markerPromise, delegateId, null))
-                  })
-
-                  return markerPromise
-                    .then(() => {
-                      //console.log("scd")
-                      return (
-                        ((allTags.includes('medicalInformation') || allTags.includes('anonymousMedicalInformation') || allTags.includes('all')) &&
-                          ctcsStubs &&
-                          ctcsStubs.length &&
-                          !_.isEqual(oCtcsStubs, ctcsStubs) &&
-                          this.contactApi
-                            .setContactsDelegations(ctcsStubs)
-                            .then(() => {
-                              status.contacts.success = true
-                              status.contacts.modified += ctcsStubs.length
-                            })
-                            .catch((e) => (status.contacts.error = e))) ||
-                        Promise.resolve((status.contacts.success = true))
-                      )
-                    })
-                    .then(() => {
-                      //console.log("shed")
-                      return (
-                        ((allTags.includes('medicalInformation') || allTags.includes('anonymousMedicalInformation') || allTags.includes('all')) &&
-                          hes &&
-                          hes.length &&
-                          !_.isEqual(oHes, hes) &&
-                          this.helementApi
-                            .setHealthElementsDelegations(hes)
-                            .then(() => {
-                              status.healthElements.success = true
-                              status.healthElements.modified += hes.length
-                            })
-                            .catch((e) => (status.healthElements.error = e))) ||
-                        Promise.resolve((status.healthElements.success = true))
-                      )
-                    })
-                    .then(() => {
-                      //console.log("sfd")
-                      return (
-                        ((allTags.includes('medicalInformation') || allTags.includes('all')) &&
-                          frms &&
-                          frms.length &&
-                          !_.isEqual(oFrms, frms) &&
-                          this.formApi
-                            .setFormsDelegations(frms)
-                            .then(() => {
-                              status.forms.success = true
-                              status.forms.modified += frms.length
-                            })
-                            .catch((e) => (status.forms.error = e))) ||
-                        Promise.resolve((status.forms.success = true))
-                      )
-                    })
-                    .then(() => {
-                      //console.log("sid")
-                      return (
-                        ((allTags.includes('financialInformation') || allTags.includes('all')) &&
-                          ivs &&
-                          ivs.length &&
-                          !_.isEqual(oIvs, ivs) &&
-                          this.invoiceApi
-                            .setInvoicesDelegations(ivs)
-                            .then(() => {
-                              status.invoices.success = true
-                              status.invoices.modified += ivs.length
-                            })
-                            .catch((e) => (status.invoices.error = e))) ||
-                        Promise.resolve((status.invoices.success = true))
-                      )
-                    })
-                    .then(() => {
-                      //console.log("sdd")
-                      return (
-                        ((allTags.includes('medicalInformation') || allTags.includes('all')) &&
-                          docs &&
-                          docs.length &&
-                          !_.isEqual(oDocs, docs) &&
-                          this.documentApi
-                            .setDocumentsDelegations(docs)
-                            .then(() => {
-                              status.documents.success = true
-                              status.documents.modified += docs.length
-                            })
-                            .catch((e) => (status.documents.error = e))) ||
-                        Promise.resolve((status.documents.success = true))
-                      )
-                    })
-                    .then(() => {
-                      //console.log("scld")
-                      return (
-                        ((allTags.includes('medicalInformation') || allTags.includes('all')) &&
-                          cls &&
-                          cls.length &&
-                          !_.isEqual(oCls, cls) &&
-                          this.classificationApi
-                            .setClassificationsDelegations(cls)
-                            .then(() => {
-                              status.classifications.success = true
-                              status.classifications.modified += cls.length
-                            })
-                            .catch((e) => (status.classifications.error = e))) ||
-                        Promise.resolve((status.classifications.success = true))
-                      )
-                    })
-                    .then(() => {
-                      //console.log("scid")
-                      return (
-                        ((allTags.includes('medicalInformation') || allTags.includes('all')) &&
-                          cis &&
-                          cis.length &&
-                          !_.isEqual(oCis, cis) &&
-                          this.calendarItemApi
-                            .setCalendarItemsDelegations(cis)
-                            .then(() => {
-                              status.calendarItems.success = true
-                              status.calendarItems.modified += cis.length
-                            })
-                            .catch((e) => (status.calendarItems.error = e))) ||
-                        Promise.resolve((status.calendarItems.success = true))
-                      )
-                    })
-                    .then(() => this.modifyPatientWithUser(user, patient))
-                    .then((p) => {
-                      status.patient.success = true
-                      console.log(
-                        `c: ${status.contacts.modified}, he: ${status.healthElements.modified}, docs: ${status.documents.modified}, frms: ${status.forms.modified}, ivs: ${status.invoices.modified}, cis: ${status.calendarItems.modified}, cls: ${status.classifications.modified}`
-                      )
-                      return { patient: p, statuses: status }
-                    })
-                    .catch((e) => {
-                      status.patient.error = e
-                      return { patient: patient, statuses: status }
-                    })
-                })
-              })
-              : (allTags.includes('anonymousMedicalInformation')
-                  ? Promise.resolve(patient)
-                  : this.modifyPatientWithUser(
-                    user,
-                    _.assign(patient, {
-                      delegations: _.assign(
-                        patient.delegations,
-                        delegateIds
-                          .filter((id) => !patient.delegations || !patient.delegations[id]) //If there are delegations do not modify
-                          .reduce((acc, del: string) => Object.assign(acc, _.fromPairs([[del, []]])), patient.delegations || {})
-                      ),
-                    })
-                  )
-              )
-                .then((p) => {
-                  status.patient.success = true
-                  return { patient: p, statuses: status }
-                })
-                .catch((e) => {
-                  status.patient.error = e
-                  return { patient: patient, statuses: status }
-                })
-          })
-        })
-    })
-  }
-
-  export(user: models.User, patId: string, ownerId: string): Promise<{ id: string }> {
+  export(user: models.User, patId: string, ownerId: string, usingPost: boolean = false): Promise<{ id: string }> {
     return this.hcpartyApi.getHealthcareParty(ownerId).then((hcp) => {
       const parentId = hcp.parentId
 
@@ -1482,9 +1081,10 @@ export class IccPatientXApi extends IccPatientApi {
             return delSfks.length
               ? Promise.all([
                   retry(() =>
-                    this.helementApi
+                      (usingPost ? this.helementApi
+                          .findByHCPartyPatientSecretFKeysArray(ownerId, _.uniq(delSfks)) : this.helementApi
                       .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
-                      .then((hes) =>
+                      ).then((hes) =>
                         parentId
                           ? this.helementApi
                               .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
@@ -1493,35 +1093,41 @@ export class IccPatientXApi extends IccPatientApi {
                       )
                   ) as Promise<Array<models.IcureStub>>,
                   retry(() =>
-                    this.formApi
+                      (usingPost ? this.formApi
+                          .findFormsByHCPartyPatientForeignKeysUsingPost(ownerId, undefined, undefined, undefined, _.uniq(delSfks)) : this.formApi
                       .findFormsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                      .then((frms) =>
+                      ).then((frms) =>
                         parentId
-                          ? this.formApi
+                          ? (usingPost ? this.formApi
+                              .findFormsByHCPartyPatientForeignKeysUsingPost(parentId, undefined, undefined, undefined, _.uniq(delSfks)) : this.formApi
                               .findFormsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                              .then((moreFrms) => _.uniqBy(frms.concat(moreFrms), 'id'))
+                          ).then((moreFrms) => _.uniqBy(frms.concat(moreFrms), 'id'))
                           : frms
                       )
                   ) as Promise<Array<models.Form>>,
                   retry(() =>
-                    this.contactApi
+                      (usingPost ? this.contactApi
+                          .findByHCPartyPatientSecretFKeysArray(ownerId, _.uniq(delSfks)) : this.contactApi
                       .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
-                      .then((ctcs) =>
+                      ).then((ctcs) =>
                         parentId
-                          ? this.contactApi
+                          ? (usingPost ? this.contactApi
+                              .findByHCPartyPatientSecretFKeysArray(parentId, _.uniq(delSfks)) : this.contactApi
                               .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
-                              .then((moreCtcs) => _.uniqBy(ctcs.concat(moreCtcs), 'id'))
+                          ).then((moreCtcs) => _.uniqBy(ctcs.concat(moreCtcs), 'id'))
                           : ctcs
                       )
                   ) as Promise<Array<models.Contact>>,
                   retry(() =>
-                    this.invoiceApi
+                      (usingPost ? this.invoiceApi
+                          .findInvoicesByHCPartyPatientForeignKeysUsingPost(ownerId, _.uniq(delSfks)) : this.invoiceApi
                       .findInvoicesByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                      .then((ivs) =>
+                      ).then((ivs) =>
                         parentId
-                          ? this.invoiceApi
+                          ? (usingPost ? this.invoiceApi
+                              .findInvoicesByHCPartyPatientForeignKeysUsingPost(parentId, _.uniq(delSfks)) : this.invoiceApi
                               .findInvoicesByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                              .then((moreIvs) => _.uniqBy(ivs.concat(moreIvs), 'id'))
+                          ).then((moreIvs) => _.uniqBy(ivs.concat(moreIvs), 'id'))
                           : ivs
                       )
                   ) as Promise<Array<models.IcureStub>>,
@@ -1537,12 +1143,15 @@ export class IccPatientXApi extends IccPatientApi {
                       )
                   ) as Promise<Array<models.Classification>>,
                   retry(async () => {
-                    const delegationSFKs = _.uniq(delSfks).join(',')
                     try {
-                      let calendarItems = await this.calendarItemApi.findByHCPartyPatientSecretFKeys(ownerId, delegationSFKs)
+                      let calendarItems = await (usingPost ?
+                        this.calendarItemApi.findByHCPartyPatientSecretFKeysArray(ownerId, _.uniq(delSfks)) :
+                        this.calendarItemApi.findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(',')))
 
                       if (parentId) {
-                        const moreCalendarItems = await this.calendarItemApi.findByHCPartyPatientSecretFKeys(parentId, delegationSFKs)
+                        const moreCalendarItems = await (usingPost ?
+                          this.calendarItemApi.findByHCPartyPatientSecretFKeysArray(parentId, _.uniq(delSfks)) :
+                          this.calendarItemApi.findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(',')))
                         calendarItems = _.uniqBy(calendarItems.concat(moreCalendarItems), 'id')
                       }
 
@@ -1585,133 +1194,6 @@ export class IccPatientXApi extends IccPatientApi {
                   calItems: [],
                   documents: [],
                 })
-          })
-        })
-    })
-  }
-
-  exportUsingPost(user: models.User, patId: string, ownerId: string): Promise<{ id: string }> {
-    return this.hcpartyApi.getHealthcareParty(ownerId).then((hcp) => {
-      const parentId = hcp.parentId
-
-      return retry(() => this.getPatientWithUser(user, patId))
-        .then((patient: models.Patient) =>
-          patient.encryptionKeys && Object.keys(patient.encryptionKeys || {}).length
-            ? Promise.resolve(patient)
-            : this.initEncryptionKeys(user, patient).then((patient: models.Patient) => this.modifyPatientWithUser(user, patient))
-        )
-        .then((patient: models.Patient | null) => {
-          if (!patient) {
-            return Promise.resolve({ id: patId })
-          }
-
-          return this.crypto.extractDelegationsSFKsAndEncryptionSKs(patient, ownerId).then(([delSfks, ecKeys]) => {
-            return delSfks.length
-              ? Promise.all([
-                retry(() =>
-                  this.helementApi
-                    .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
-                    .then((hes) =>
-                      parentId
-                        ? this.helementApi
-                          .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
-                          .then((moreHes) => _.uniqBy(hes.concat(moreHes), 'id'))
-                        : hes
-                    )
-                ) as Promise<Array<models.IcureStub>>,
-                retry(() =>
-                  this.formApi
-                    .findFormsByHCPartyPatientForeignKeysUsingPost(ownerId, undefined, undefined, undefined, _.uniq(delSfks))
-                    .then((frms) =>
-                      parentId
-                        ? this.formApi
-                          .findFormsByHCPartyPatientForeignKeysUsingPost(parentId, undefined, undefined, undefined, _.uniq(delSfks))
-                          .then((moreFrms) => _.uniqBy(frms.concat(moreFrms), 'id'))
-                        : frms
-                    )
-                ) as Promise<Array<models.Form>>,
-                retry(() =>
-                  this.contactApi
-                    .findByHCPartyPatientSecretFKeysUsingPost(ownerId, undefined, undefined, _.uniq(delSfks))
-                    .then((ctcs) =>
-                      parentId
-                        ? this.contactApi
-                          .findByHCPartyPatientSecretFKeysUsingPost(parentId, undefined, undefined, _.uniq(delSfks))
-                          .then((moreCtcs) => _.uniqBy(ctcs.concat(moreCtcs), 'id'))
-                        : ctcs
-                    )
-                ) as Promise<Array<models.Contact>>,
-                retry(() =>
-                  this.invoiceApi
-                    .findInvoicesByHCPartyPatientForeignKeysUsingPost(ownerId, _.uniq(delSfks))
-                    .then((ivs) =>
-                      parentId
-                        ? this.invoiceApi
-                          .findInvoicesByHCPartyPatientForeignKeysUsingPost(parentId, _.uniq(delSfks))
-                          .then((moreIvs) => _.uniqBy(ivs.concat(moreIvs), 'id'))
-                        : ivs
-                    )
-                ) as Promise<Array<models.IcureStub>>,
-                retry(() =>
-                  this.classificationApi
-                    .findClassificationsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                    .then((cls) =>
-                      parentId
-                        ? this.classificationApi
-                          .findClassificationsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                          .then((moreCls) => _.uniqBy(cls.concat(moreCls), 'id'))
-                        : cls
-                    )
-                ) as Promise<Array<models.Classification>>,
-                retry(async () => {
-                  const delegationSFKs = _.uniq(delSfks).join(',')
-                  try {
-                    let calendarItems = await this.calendarItemApi.findByHCPartyPatientSecretFKeys(ownerId, delegationSFKs)
-
-                    if (parentId) {
-                      const moreCalendarItems = await this.calendarItemApi.findByHCPartyPatientSecretFKeys(parentId, delegationSFKs)
-                      calendarItems = _.uniqBy(calendarItems.concat(moreCalendarItems), 'id')
-                    }
-
-                    return calendarItems
-                  } catch (ex) {
-                    console.log(`exception occured exporting calendarItem for ownerId: ${ownerId} - ${ex}`)
-                    //throw ex
-                  }
-                }) as Promise<Array<models.CalendarItem>>,
-              ]).then(([hes, frms, ctcs, ivs, cls, cis]) => {
-                const docIds: { [key: string]: number } = {}
-                ctcs.forEach(
-                  (c: models.Contact) =>
-                    c.services &&
-                    c.services.forEach((s) => s.content && Object.values(s.content).forEach((c) => c && c.documentId && (docIds[c.documentId] = 1)))
-                )
-
-                return retry(() => this.documentApi.getDocuments(new ListOfIds({ ids: Object.keys(docIds) }))).then((docs: Array<Document>) => {
-                  return {
-                    id: patId,
-                    patient: patient,
-                    contacts: ctcs,
-                    forms: frms,
-                    healthElements: hes,
-                    invoices: ivs,
-                    classifications: cls,
-                    calItems: cis,
-                    documents: docs,
-                  }
-                })
-              })
-              : Promise.resolve({
-                id: patId,
-                patient: patient,
-                contacts: [],
-                forms: [],
-                healthElements: [],
-                invoices: [],
-                classifications: [],
-                calItems: [],
-                documents: [],
-              })
           })
         })
     })

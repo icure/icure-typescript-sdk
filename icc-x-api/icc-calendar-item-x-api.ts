@@ -88,18 +88,12 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
     })
   }
 
-  findBy(hcpartyId: string, patient: models.Patient) {
+  findBy(hcpartyId: string, patient: models.Patient, usingPost: boolean = false) {
     return this.crypto.extractDelegationsSFKs(patient, hcpartyId).then((secretForeignKeys) => {
       return secretForeignKeys && secretForeignKeys.extractedKeys && secretForeignKeys.extractedKeys.length > 0
-        ? this.findByHCPartyPatientSecretFKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(','))
-        : Promise.resolve([])
-    })
-  }
-
-  findByUsingPost(hcpartyId: string, patient: models.Patient) {
-    return this.crypto.extractDelegationsSFKs(patient, hcpartyId).then((secretForeignKeys) => {
-      return secretForeignKeys && secretForeignKeys.extractedKeys && secretForeignKeys.extractedKeys.length > 0
-        ? this.findByHCPartyPatientSecretFKeysArray(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys))
+        ? (usingPost ?
+          this.findByHCPartyPatientSecretFKeysArray(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys)) :
+          this.findByHCPartyPatientSecretFKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(',')))
         : Promise.resolve([])
     })
   }
