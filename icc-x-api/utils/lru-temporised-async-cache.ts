@@ -18,6 +18,28 @@ export class LruTemporisedAsyncCache<K, V> {
   }
 
   /**
+   * Get a value if there is an already cached value or job for the provided key.
+   * - If the job is in progress this will return the job promise.
+   * - If there is already a cached value returns the value, regardless of whether his lifetime is expired or not.
+   * - If there is no job nor cached value this will return undefined.
+   * @param key key of the entry
+   * @return if there is a cached value or job in progress for the entry returns the item and if its lifetime has expired, otherwise returns
+   * undefined.
+   */
+  getIfCachedJob(key: K): Promise<{ item: V; expired: boolean } | undefined> {
+    const retrieved = this.nodesMap.get(key)
+    if (retrieved !== undefined) {
+      if (retrieved.expired((x) => this.lifetimeForValue(x))) {
+        return retrieved.valuePromise().then((x) => ({ item: x, expired: true }))
+      } else {
+        this.markUsed(retrieved)
+        return retrieved.valuePromise().then((x) => ({ item: x, expired: false }))
+      }
+    }
+    return Promise.resolve(undefined)
+  }
+
+  /**
    * Gets a cached value or retrieves it and caches it if the value is not available or if it is available but expired. A value will never be expired
    * if it was not yet retrieved, even if the retrieved value would be expired according to the {@link additionalExpirationCondition}
    * @param key key of the entry
@@ -28,7 +50,7 @@ export class LruTemporisedAsyncCache<K, V> {
    */
   get(
     key: K,
-    retrieve: (previousValue: V | undefined) => Promise<{ item: V; onEviction?: () => void }>,
+    retrieve: (previousValue: V | undefined) => Promise<{ item: V; onEviction?: (isReplacement: boolean) => void }>,
     additionalExpirationCondition: (value: V) => boolean = () => false
   ): Promise<V> {
     const retrieved = this.nodesMap.get(key)
@@ -37,7 +59,7 @@ export class LruTemporisedAsyncCache<K, V> {
       const cachedValue = retrieved.cachedValue
       if (retrieved.expired((x) => this.lifetimeForValue(x)) || (cachedValue !== undefined && additionalExpirationCondition(cachedValue))) {
         const newId = this.nextJobId()
-        retrieved.onEviction()
+        retrieved.onEviction(true)
         retrieved.jobId = newId
         retrieved.value = this.registerJob(key, newId, () => retrieve(cachedValue))
       }
@@ -57,12 +79,17 @@ export class LruTemporisedAsyncCache<K, V> {
     }
   }
 
+  /**
+   * Fully empties this cache.
+   * @param doOnEvictionOfCleared if true the onEviction triggers for the retrieved and cached data will be executed, otherwise not. onEviction
+   * triggers of data for which the retrieval jobs were not completed will automatically be called when the job completes.
+   */
   clear(doOnEvictionOfCleared: boolean = true) {
     this.firstNode = null
     this.lastNode = null
     if (doOnEvictionOfCleared) {
       for (const node of this.nodesMap.values()) {
-        node.onEviction()
+        node.onEviction(false)
       }
     }
     this.nodesMap.clear()
@@ -86,7 +113,7 @@ export class LruTemporisedAsyncCache<K, V> {
       this.nodesMap.delete(key)
     }
     if (doEvictionTriggers) {
-      node.onEviction()
+      node.onEviction(false)
     }
   }
 
@@ -98,15 +125,15 @@ export class LruTemporisedAsyncCache<K, V> {
     }
   }
 
-  private registerJob(key: K, jobId: number, retrieve: () => Promise<{ item: V; onEviction?: () => void }>): Promise<V> {
+  private registerJob(key: K, jobId: number, retrieve: () => Promise<{ item: V; onEviction?: (isReplacement: boolean) => void }>): Promise<V> {
     // The node may have already been evicted by the time the promise completed if the cached surpassed the maximum size.
     return retrieve()
       .then(({ item: v, onEviction }) => {
         const node = this.nodesMap.get(key)
         if (node && node.jobId == jobId) {
-          node.value = { cached: v, timestamp: Date.now(), onEviction: () => onEviction?.() }
+          node.value = { cached: v, timestamp: Date.now(), onEviction: (r) => onEviction?.(r) }
         } else {
-          onEviction?.()
+          onEviction?.(!!node)
         }
         return v
       })
@@ -130,7 +157,7 @@ export class LruTemporisedAsyncCache<K, V> {
   }
 }
 
-type Cached<V> = { cached: V; timestamp: number; onEviction: () => void }
+type Cached<V> = { cached: V; timestamp: number; onEviction: (isReplacement: boolean) => void }
 
 class CacheNode<K, V> {
   readonly key: K
@@ -158,9 +185,9 @@ class CacheNode<K, V> {
     return 'timestamp' in this.value ? Promise.resolve(this.value.cached) : this.value
   }
 
-  onEviction(): void {
+  onEviction(isReplacement: boolean): void {
     if ('timestamp' in this.value) {
-      this.value.onEviction()
+      this.value.onEviction(isReplacement)
     }
   }
 

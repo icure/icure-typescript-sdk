@@ -9,6 +9,7 @@ import { hexPublicKeysOf } from './utils'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { hex2ua } from '../utils'
 import { LruTemporisedAsyncCache } from '../utils/lru-temporised-async-cache'
+import { EntityWithDelegationTypeName } from '../utils/EntityWithDelegationTypeName'
 
 export type ExchangeDataManagerOptionalParameters = {
   // Only for not fully cached implementation (data owner can't request all his exchange data), amount of exchange data which can be cached
@@ -56,7 +57,14 @@ export async function initialiseExchangeDataManagerForCurrentDataOwner(
   }
 }
 
-type CachedExchangeData = { exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey }
+type CachedExchangeData = {
+  exchangeData: ExchangeData
+  decrypted?: {
+    accessControlSecret: string
+    exchangeKey: CryptoKey
+    verified: boolean
+  }
+}
 
 /**
  * @internal this class is intended for internal use only and may be changed without notice.
@@ -65,26 +73,51 @@ type CachedExchangeData = { exchangeData: ExchangeData; accessControlSecret: str
 export interface ExchangeDataManager {
   /**
    * Gets any existing and verified exchange data from the current data owner to the provided delegate or creates new data if no verified data is
-   * available.
+   * available, then caches it. The {@link entityType} and {@link entitySecretForeignKeys} will be used for the secure-delegation-hash-based cache
+   * of the exchange data and not for actually creating the exchange data.
    * @param delegateId the id of the delegate.
+   * @param entityType type of the entity for which you want to create new metadata.
+   * @param entitySecretForeignKeys the secret foreign keys of the entity which you want to create new metadata.
    * @return the access control secret and key of the data to use for encryption.
    */
-  getOrCreateEncryptionDataTo(delegateId: string): Promise<{ exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey }>
+  getOrCreateEncryptionDataTo(
+    delegateId: string,
+    entityType: EntityWithDelegationTypeName,
+    entitySecretForeignKeys: string[]
+  ): Promise<{ exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey }>
 
   /**
-   * Retrieve the cached decrypted exchange data key associated with any of the provided hashes/entry keys of a secure delegation.
+   * Retrieve the cached decrypted exchange data key associated with any of the provided hashes/entry keys of secure delegations. Depending on the
+   * implementation the {@link entityType} and {@link entitySecretForeignKeys} may be used to improve the secure-delegation-hash-based cache of
+   * exchange data from the other available exchange data caches.
    * @param hashes hashes of access control secrets for a specific entity, as they appear in the key of secure delegation entries
+   * @param entityType type of the entity containing the metadata for which you are retrieving the encryption key.
+   * @param entitySecretForeignKeys the secret foreign keys of the entity containing the metadata for which you are retrieving the encryption key.
    * @return the exchange key associated to that hash if cached
    */
-  getCachedDecryptionDataKeyByAccessControlHash(hashes: string[]): Promise<{ [hash: string]: CryptoKey }>
+  getCachedDecryptionDataKeyByAccessControlHash(
+    hashes: string[],
+    entityType: EntityWithDelegationTypeName,
+    entitySecretForeignKeys: string[]
+  ): Promise<{ [hash: string]: CryptoKey }>
 
   /**
-   * Retrieves the decrypted data exchange key given the id of the exchange data and attempts to decrypt it.
+   * Retrieves the exchange data with the provided id (from the cache if available or from the server otherwise if allowed by
+   * {@link retrieveIfNotCached}) and attempts to decrypt it, then caches the result. The {@link entityType} and {@link entitySecretForeignKeys} will
+   * be used for the secure-delegation-hash-based cache of the exchange data.
    * @param id id of the exchange data
+   * @param entityType type of the entity containing the metadata for which you are retrieving the encryption key.
+   * @param entitySecretForeignKeys the secret foreign keys of the entity containing the metadata for which you are retrieving the encryption key.
+   * @param retrieveIfNotCached
    * @return the exchange key associated to the exchange data with the provided id, or undefined if the exchange data could not be decrypted.
    * @throws if no exchange data with the given id could be found.
    */
-  getDecryptionDataKeyById(id: string): Promise<CryptoKey | undefined>
+  getDecryptionDataKeyById(
+    id: string,
+    entityType: EntityWithDelegationTypeName,
+    entitySecretForeignKeys: string[],
+    retrieveIfNotCached: boolean
+  ): Promise<{ decryptedKey: CryptoKey | undefined } | undefined>
 
   /**
    * Clears the cache or fully repopulates the cache if the current data owner can retrieve all of his exchange data according to the crypto
@@ -113,11 +146,9 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
 
   protected async decryptData(data: ExchangeData): Promise<
     | {
-        exchangeData: ExchangeData
         accessControlSecret: string
         exchangeKey: CryptoKey
         verified: boolean
-        hashes: string[]
       }
     | undefined
   > {
@@ -127,11 +158,9 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
     const decryptedAccessControlSecret = (await this.base.tryDecryptAccessControlSecret([data], decryptionKeys)).successfulDecryptions[0]
     if (!decryptedAccessControlSecret) throw new Error(`Decryption key could be decrypted but access control secret could not for data ${data}`)
     return {
-      exchangeData: data,
       accessControlSecret: decryptedAccessControlSecret,
       exchangeKey: decryptedKey,
       verified: await this.base.verifyExchangeData(data, (fp) => this.signatureKeys.getSignatureVerificationKey(fp)),
-      hashes: await this.accessControlSecret.allHashesForSecret(decryptedAccessControlSecret),
     }
   }
 
@@ -172,19 +201,32 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
     throw new Error('Implemented by concrete class')
   }
 
-  getCachedDecryptionDataKeyByAccessControlHash(hashes: string[]): Promise<{ [p: string]: CryptoKey }> {
+  getOrCreateEncryptionDataTo(
+    delegateId: string,
+    entityType: EntityWithDelegationTypeName,
+    entitySecretForeignKeys: string[]
+  ): Promise<{ exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey }> {
+    throw new Error('Implemented by concrete class')
+  }
+
+  getCachedDecryptionDataKeyByAccessControlHash(
+    hashes: string[],
+    entityType: EntityWithDelegationTypeName,
+    entitySecretForeignKeys: string[]
+  ): Promise<{ [p: string]: CryptoKey }> {
+    throw new Error('Implemented by concrete class')
+  }
+
+  getDecryptionDataKeyById(
+    id: string,
+    entityType: EntityWithDelegationTypeName,
+    entitySecretForeignKeys: string[],
+    retrieveIfNotCached: boolean
+  ): Promise<{ decryptedKey: CryptoKey | undefined } | undefined> {
     throw new Error('Implemented by concrete class')
   }
 
   getAllAccessControlSecretsIfAllowed(): Promise<string[] | undefined> {
-    throw new Error('Implemented by concrete class')
-  }
-
-  getOrCreateEncryptionDataTo(delegateId: string): Promise<{ exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey }> {
-    throw new Error('Implemented by concrete class')
-  }
-
-  getDecryptionDataKeyById(id: string): Promise<CryptoKey | undefined> {
     throw new Error('Implemented by concrete class')
   }
 }
@@ -192,77 +234,118 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
 class FullyCachedExchangeDataManager extends AbstractExchangeDataManager {
   private caches: Promise<{
     dataById: { [id: string]: CachedExchangeData }
-    hashToId: { [hash: string]: string }
+    hashToId: Map<string, string>
     delegateToVerifiedEncryptionDataId: { [delegate: string]: string }
-  }> = Promise.resolve({ dataById: {}, hashToId: {}, delegateToVerifiedEncryptionDataId: {} })
+  }> = Promise.resolve({ dataById: {}, hashToId: new Map(), delegateToVerifiedEncryptionDataId: {} })
 
   async clearOrRepopulateCache(): Promise<void> {
     this.caches = this.doRepopulateCache()
     await this.caches
   }
 
-  async getCachedDecryptionDataKeyByAccessControlHash(hashes: string[]): Promise<{ [hash: string]: CryptoKey }> {
-    const caches = await this.caches
-    return hashes.reduce((res, hash) => {
-      const id = caches.hashToId[hash]
-      if (id) {
-        res[hash] = caches.dataById[id].exchangeKey
-      }
-      return res
-    }, {} as { [hash: string]: CryptoKey })
+  async getCachedDecryptionDataKeyByAccessControlHash(
+    hashes: string[],
+    entityType: EntityWithDelegationTypeName,
+    entitySecretForeignKeys: string[]
+  ): Promise<{ [hash: string]: CryptoKey }> {
+    function retrieveByHashesFromCaches(caches: {
+      dataById: { [id: string]: CachedExchangeData }
+      hashToId: Map<string, string>
+      delegateToVerifiedEncryptionDataId: { [delegate: string]: string }
+    }) {
+      return hashes.reduce((res, hash) => {
+        const id = caches.hashToId.get(hash)
+        if (id) {
+          const decrypted = caches.dataById[id].decrypted
+          if (decrypted) {
+            res[hash] = decrypted.exchangeKey
+          }
+        }
+        return res
+      }, {} as { [hash: string]: CryptoKey })
+    }
+
+    const retrievedFromHashesCache = retrieveByHashesFromCaches(await this.caches)
+    if (Object.keys(retrievedFromHashesCache).length) {
+      return retrievedFromHashesCache
+    } else {
+      this.caches = this.caches.then(async (caches) => {
+        for (const currData of Object.values(caches.dataById)) {
+          if (currData.decrypted) {
+            const currDataHashes = await this.accessControlSecret.secureDelegationKeysFor(
+              currData.decrypted.accessControlSecret,
+              entityType,
+              entitySecretForeignKeys
+            )
+            currDataHashes.forEach((hash) => caches.hashToId.set(hash, currData.exchangeData.id!))
+          }
+        }
+        return caches
+      })
+      return retrieveByHashesFromCaches(await this.caches)
+    }
   }
 
   async getOrCreateEncryptionDataTo(
-    delegateId: string
+    delegateId: string,
+    entityType: EntityWithDelegationTypeName,
+    entitySecretForeignKeys: string[]
   ): Promise<{ exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey }> {
     const caches = await this.caches
     const dataId = caches.delegateToVerifiedEncryptionDataId[delegateId]
-    if (dataId) {
-      const cached = caches.dataById[dataId]
+    const cached = dataId ? caches.dataById[dataId] : undefined
+    if (cached && cached?.decrypted) {
       return {
         exchangeData: cached.exchangeData,
-        accessControlSecret: cached.accessControlSecret,
-        exchangeKey: cached.exchangeKey,
+        accessControlSecret: cached.decrypted.accessControlSecret,
+        exchangeKey: cached.decrypted.exchangeKey,
       }
     }
     const created = await this.createNewExchangeData(delegateId)
     this.cacheData(
       created.exchangeData,
-      created.accessControlSecret,
-      created.exchangeKey,
-      true,
-      await this.accessControlSecret.allHashesForSecret(created.accessControlSecret)
+      { accessControlSecret: created.accessControlSecret, exchangeKey: created.exchangeKey, verified: true },
+      entityType,
+      entitySecretForeignKeys
     )
     return created
   }
 
-  async getDecryptionDataKeyById(id: string): Promise<CryptoKey | undefined> {
+  async getDecryptionDataKeyById(
+    id: string,
+    entityType: EntityWithDelegationTypeName,
+    entitySecretForeignKeys: string[],
+    retrieveIfNotCached: boolean
+  ): Promise<{ decryptedKey: CryptoKey | undefined } | undefined> {
     const caches = await this.caches
     const cachedData = caches.dataById[id]
     if (cachedData) {
-      return cachedData.exchangeKey
-    } else {
+      return { decryptedKey: cachedData.decrypted?.exchangeKey }
+    } else if (retrieveIfNotCached) {
       const data = await this.base.getExchangeDataById(id)
       if (!data) throw new Error(`Could not find exchange data with id ${id}`)
       const decrypted = await this.decryptData(data)
-      if (!decrypted) return undefined
-      this.cacheData(decrypted.exchangeData, decrypted.accessControlSecret, decrypted.exchangeKey, decrypted.verified, decrypted.hashes)
-      return decrypted.exchangeKey
-    }
+      this.cacheData(data, decrypted, entityType, entitySecretForeignKeys)
+      return { decryptedKey: decrypted?.exchangeKey }
+    } else return undefined
   }
 
-  private cacheData(exchangeData: ExchangeData, accessControlSecret: string, exchangeKey: CryptoKey, verified: boolean, hashes: string[]): void {
-    this.caches = this.caches.then((caches) => {
-      caches.dataById[exchangeData.id!] = {
-        exchangeData,
-        accessControlSecret,
-        exchangeKey,
-      }
-      hashes.forEach((hash) => {
-        caches.hashToId[hash] = exchangeData.id!
-      })
-      if (verified) {
-        caches.delegateToVerifiedEncryptionDataId[exchangeData.delegate] = exchangeData.id!
+  private cacheData(
+    exchangeData: ExchangeData,
+    decrypted: { accessControlSecret: string; exchangeKey: CryptoKey; verified: boolean } | undefined,
+    entityType: EntityWithDelegationTypeName,
+    entitySecretForeignKeys: string[]
+  ): void {
+    this.caches = this.caches.then(async (caches) => {
+      caches.dataById[exchangeData.id!] = { exchangeData, decrypted }
+      if (decrypted) {
+        const hashes = await this.accessControlSecret.secureDelegationKeysFor(decrypted.accessControlSecret, entityType, entitySecretForeignKeys)
+        hashes.forEach((hash) => {
+          caches.hashToId.set(hash, exchangeData.id!)
+        })
+        if (decrypted.verified) {
+          caches.delegateToVerifiedEncryptionDataId[exchangeData.delegate] = exchangeData.id!
+        }
       }
       return caches
     })
@@ -270,24 +353,19 @@ class FullyCachedExchangeDataManager extends AbstractExchangeDataManager {
 
   private async doRepopulateCache(): Promise<{
     dataById: { [id: string]: CachedExchangeData }
-    hashToId: { [hash: string]: string }
+    hashToId: Map<string, string>
     delegateToVerifiedEncryptionDataId: { [delegate: string]: string }
   }> {
     const allData = await this.base.getAllExchangeDataForCurrentDataOwnerIfAllowed()
     if (!allData) throw new Error('Impossible to use fully cached exchange data manager for current data owner.')
     const dataById: { [id: string]: CachedExchangeData } = {}
-    const hashToId: { [hash: string]: string } = {}
+    const hashToId = new Map<string, string>()
     const delegateToVerifiedEncryptionDataId: { [delegate: string]: string } = {}
-    for (const data of allData) {
-      const currDecrypted = await this.decryptData(data)
-      if (currDecrypted) {
-        dataById[data.id!] = { exchangeData: data, exchangeKey: currDecrypted.exchangeKey, accessControlSecret: currDecrypted.accessControlSecret }
-        ;(await this.accessControlSecret.allHashesForSecret(currDecrypted.accessControlSecret)).forEach((hash) => {
-          hashToId[hash] = data.id!
-        })
-        if (currDecrypted.verified) {
-          delegateToVerifiedEncryptionDataId[data.delegate] = data.id!
-        }
+    for (const currData of allData) {
+      const currDecrypted = await this.decryptData(currData)
+      dataById[currData.id!] = { exchangeData: currData, decrypted: currDecrypted }
+      if (currDecrypted?.verified) {
+        delegateToVerifiedEncryptionDataId[currData.delegate] = currData.id!
       }
     }
     return { dataById, hashToId, delegateToVerifiedEncryptionDataId }
@@ -295,12 +373,12 @@ class FullyCachedExchangeDataManager extends AbstractExchangeDataManager {
 
   async getAllAccessControlSecretsIfAllowed(): Promise<string[] | undefined> {
     const caches = await this.caches
-    return Object.values(caches.dataById).map((x) => x.accessControlSecret)
+    return Object.values(caches.dataById).flatMap((x) => (x.decrypted ? [x.decrypted.accessControlSecret] : []))
   }
 }
 
 class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
-  private readonly idToDataCache: LruTemporisedAsyncCache<string, CachedExchangeData | undefined>
+  private readonly idToDataCache: LruTemporisedAsyncCache<string, CachedExchangeData & { hashes: string[] }>
   private readonly hashToId: Map<string, string> = new Map()
   private readonly delegateToVerifiedEncryptionDataId: Map<string, string> = new Map()
 
@@ -326,7 +404,11 @@ class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
     this.delegateToVerifiedEncryptionDataId.clear()
   }
 
-  async getCachedDecryptionDataKeyByAccessControlHash(hashes: string[]): Promise<{ [p: string]: CryptoKey }> {
+  async getCachedDecryptionDataKeyByAccessControlHash(
+    hashes: string[],
+    entityType: EntityWithDelegationTypeName,
+    entitySecretForeignKeys: string[]
+  ): Promise<{ [p: string]: CryptoKey }> {
     const res: { [p: string]: CryptoKey } = {}
     for (const hash of hashes) {
       const dataId = this.hashToId.get(hash)
@@ -335,7 +417,7 @@ class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
           await this.idToDataCache.get(dataId, () => {
             throw new Error(`Data with id ${dataId} should have been already cached.`)
           })
-        )?.exchangeKey
+        ).decrypted?.exchangeKey
         if (retrieved) {
           res[hash] = retrieved
         }
@@ -344,35 +426,77 @@ class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
     return res
   }
 
-  async getDecryptionDataKeyById(id: string): Promise<CryptoKey | undefined> {
-    return (
-      await this.idToDataCache.get(id, () =>
-        this.cacheJob(async () => {
-          const data = await this.base.getExchangeDataById(id)
-          if (!data) throw new Error(`Could not find exchange data with id ${id}`)
-          return await this.decryptData(data)
-        })
+  async getDecryptionDataKeyById(
+    id: string,
+    entityType: EntityWithDelegationTypeName,
+    entitySecretForeignKeys: string[],
+    retrieveIfNotCached: boolean
+  ): Promise<{ decryptedKey: CryptoKey | undefined } | undefined> {
+    const cached = await this.idToDataCache.getIfCachedJob(id)
+    if (cached) {
+      const updated = await this.idToDataCache.get(
+        id,
+        async (prevData) => {
+          const toUpdate = prevData ?? cached.item
+          if (toUpdate.decrypted) {
+            const hashes = await this.accessControlSecret.secureDelegationKeysFor(
+              toUpdate.decrypted.accessControlSecret,
+              entityType,
+              entitySecretForeignKeys
+            )
+            hashes.forEach((hash) => {
+              this.hashToId.set(hash, toUpdate.exchangeData.id!)
+            })
+            toUpdate.hashes.push(...hashes)
+          }
+          return { item: toUpdate, onEviction: (b) => this.doOnEvictionJob(b, toUpdate) }
+        },
+        () => true
       )
-    )?.exchangeKey
+      return { decryptedKey: updated.decrypted?.exchangeKey }
+    } else if (retrieveIfNotCached) {
+      return await this.idToDataCache
+        .get(id, async () =>
+          this.cacheJob(async () => {
+            const data = await this.base.getExchangeDataById(id)
+            if (!data) throw new Error(`Could not find exchange data with id ${id}`)
+            const decrypted = await this.decryptData(data)
+            if (decrypted) {
+              const hashes = await this.accessControlSecret.secureDelegationKeysFor(
+                decrypted.accessControlSecret,
+                entityType,
+                entitySecretForeignKeys
+              )
+              return { exchangeData: data, hashes, decrypted, verified: decrypted.verified }
+            } else {
+              return { exchangeData: data, hashes: [], verified: false }
+            }
+          })
+        )
+        .then((x) => ({ decryptedKey: x.decrypted?.exchangeKey }))
+    } else return undefined
   }
 
   async getOrCreateEncryptionDataTo(
-    delegateId: string
+    delegateId: string,
+    entityType: EntityWithDelegationTypeName,
+    entitySecretForeignKeys: string[]
   ): Promise<{ exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey }> {
     let existingId = this.delegateToVerifiedEncryptionDataId.get(delegateId)
     if (!existingId) {
-      await this.populateCacheToDelegate(delegateId)
+      await this.populateCacheToDelegate(delegateId, entityType, entitySecretForeignKeys)
       existingId = this.delegateToVerifiedEncryptionDataId.get(delegateId)
     }
     if (existingId) {
-      const cached = await this.idToDataCache.get(existingId, () => {
-        throw new Error(`Data with id ${existingId} should have been already cached.`)
-      })
-      return {
-        exchangeData: cached!.exchangeData,
-        exchangeKey: cached!.exchangeKey,
-        accessControlSecret: cached!.accessControlSecret,
-      }
+      const cached = await this.idToDataCache.getIfCachedJob(existingId)
+      if (!cached) throw new Error(`Illegal state: data with id ${existingId} should have been in cache`)
+      if (cached.item.decrypted) {
+        return {
+          exchangeData: cached.item.exchangeData,
+          exchangeKey: cached.item.decrypted.exchangeKey,
+          accessControlSecret: cached.item.decrypted.accessControlSecret,
+        }
+      } else throw new Error(`Illegal state: cached verified data should be decrypted.`)
     } else {
       const newDataId = this.primitives.randomUuid()
       this.delegateToVerifiedEncryptionDataId.set(delegateId, newDataId)
@@ -380,17 +504,21 @@ class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
         this.cacheJob(async () => {
           const created = await this.createNewExchangeData(delegateId, newDataId)
           return {
-            ...created,
-            verified: true,
-            hashes: await this.accessControlSecret.allHashesForSecret(created.accessControlSecret),
+            exchangeData: created.exchangeData,
+            decrypted: {
+              accessControlSecret: created.accessControlSecret,
+              exchangeKey: created.exchangeKey,
+              verified: true,
+            },
+            hashes: await this.accessControlSecret.secureDelegationKeysFor(created.accessControlSecret, entityType, entitySecretForeignKeys),
           }
         })
       )
       if (!createdAndCachedData) throw new Error('Data should have been successfully created')
       return {
         exchangeData: createdAndCachedData.exchangeData,
-        exchangeKey: createdAndCachedData.exchangeKey,
-        accessControlSecret: createdAndCachedData.accessControlSecret,
+        exchangeKey: createdAndCachedData.decrypted!.exchangeKey,
+        accessControlSecret: createdAndCachedData.decrypted!.accessControlSecret,
       }
     }
   }
@@ -399,34 +527,56 @@ class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
     return undefined
   }
 
-  private async populateCacheToDelegate(delegateId: string): Promise<void> {
+  private async populateCacheToDelegate(
+    delegateId: string,
+    entityType: EntityWithDelegationTypeName,
+    entitySecretForeignKeys: string[]
+  ): Promise<void> {
     const dataToDelegate = await this.base.getExchangeDataByDelegatorDelegatePair(await this.dataOwnerApi.getCurrentDataOwnerId(), delegateId)
     await Promise.all(
       dataToDelegate.map(async (data) => {
-        await this.idToDataCache.get(data.id!, () => this.cacheJob(() => this.decryptData(data)))
+        await this.idToDataCache.get(data.id!, () =>
+          this.cacheJob(async () => {
+            const decrypted = await this.decryptData(data)
+            if (decrypted) {
+              const hashes = await this.accessControlSecret.secureDelegationKeysFor(
+                decrypted.accessControlSecret,
+                entityType,
+                entitySecretForeignKeys
+              )
+              return { exchangeData: data, hashes, decrypted }
+            } else {
+              return { exchangeData: data, hashes: [] }
+            }
+          })
+        )
       })
     )
   }
 
   private async cacheJob(
-    retrieveDecryptedDataInfo: () => Promise<(CachedExchangeData & { hashes: string[]; verified: boolean }) | undefined>
-  ): Promise<{ item: CachedExchangeData | undefined; onEviction: () => void }> {
+    retrieveDecryptedDataInfo: () => Promise<CachedExchangeData & { hashes: string[] }>
+  ): Promise<{ item: CachedExchangeData & { hashes: string[] }; onEviction: (isReplacement: boolean) => void }> {
     const info = await retrieveDecryptedDataInfo()
-    if (!info) return { item: undefined, onEviction: () => {} }
     info.hashes.forEach((hash) => this.hashToId.set(hash, info?.exchangeData.id!))
-    if (info.verified) this.delegateToVerifiedEncryptionDataId.set(info.exchangeData.delegate, info.exchangeData.id!)
+    if (info.decrypted?.verified) this.delegateToVerifiedEncryptionDataId.set(info.exchangeData.delegate, info.exchangeData.id!)
+    const item = {
+      exchangeData: info.exchangeData,
+      hashes: info.hashes,
+      decrypted: info.decrypted,
+    }
     return {
-      item: {
-        exchangeData: info.exchangeData,
-        accessControlSecret: info.accessControlSecret,
-        exchangeKey: info.exchangeKey,
-      },
-      onEviction: () => {
-        info.hashes.forEach((hash) => this.hashToId.delete(hash))
-        if (this.delegateToVerifiedEncryptionDataId.get(info.exchangeData.delegate) === info.exchangeData.id) {
-          this.delegateToVerifiedEncryptionDataId.delete(info.exchangeData.delegate)
-        }
-      },
+      item,
+      onEviction: (b) => this.doOnEvictionJob(b, item),
+    }
+  }
+
+  private async doOnEvictionJob(isReplacement: boolean, item: CachedExchangeData & { hashes: string[] }) {
+    if (!isReplacement) {
+      item.hashes.forEach((hash) => this.hashToId.delete(hash))
+      if (this.delegateToVerifiedEncryptionDataId.get(item.exchangeData.delegate) === item.exchangeData.id) {
+        this.delegateToVerifiedEncryptionDataId.delete(item.exchangeData.delegate)
+      }
     }
   }
 }

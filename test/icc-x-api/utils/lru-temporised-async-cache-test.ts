@@ -183,7 +183,8 @@ describe('Lru temporised async cache ', function () {
     expect(
       await cache.get('a', async () => ({
         item: 1,
-        onEviction: () => {
+        onEviction: (isReplacement) => {
+          expect(isReplacement).to.be.true
           didTrigger = true
         },
       }))
@@ -201,7 +202,8 @@ describe('Lru temporised async cache ', function () {
     expect(
       await cache.get('a', async () => ({
         item: 1,
-        onEviction: () => {
+        onEviction: (isReplacement) => {
+          expect(isReplacement).to.be.true
           didTrigger = true
         },
       }))
@@ -223,7 +225,8 @@ describe('Lru temporised async cache ', function () {
     expect(
       await cache.get('a', async () => ({
         item: 1,
-        onEviction: () => {
+        onEviction: (isReplacement) => {
+          expect(isReplacement).to.be.false
           didTrigger = true
         },
       }))
@@ -251,7 +254,8 @@ describe('Lru temporised async cache ', function () {
         expect(previousValue).to.be.undefined
         return {
           item: 2,
-          onEviction: () => {
+          onEviction: (isReplacement) => {
+            expect(isReplacement).to.be.false
             didTrigger = true
           },
         }
@@ -340,24 +344,48 @@ describe('Lru temporised async cache ', function () {
       await sleep(20)
       return {
         item: 1,
-        onEviction: () => {
+        onEviction: (isReplacement) => {
+          expect(isReplacement).to.be.false
           eviction1Performed = true
         },
       }
     })
+    // Lose reference to existing and incomplete job for key 'a'
     expect(await cache.get('b', async () => ({ item: 2 }))).to.equal(2)
-    let eviction2Performed = false
+    // Can't evict because not yet completed
     expect(eviction1Performed).to.be.false
+    // Wait for job completion and eviction
+    expect(await job1).to.equal(1)
+    expect(eviction1Performed).to.be.true
+  })
+
+  it('should not replace newer data if old data completes after replacement by newer data', async function () {
+    const cache = new LruTemporisedAsyncCache<string, number>(1, () => 0)
+    let eviction1Performed = false
+    const job1 = cache.get('a', async () => {
+      await sleep(20)
+      return {
+        item: 1,
+        onEviction: (isReplacement) => {
+          expect(isReplacement).to.be.true
+          eviction1Performed = true
+        },
+      }
+    })
+    // Lose reference to existing and incomplete job for key 'a'
+    expect(await cache.get('b', async () => ({ item: 2 }))).to.equal(2)
+    // Can't evict because not yet completed
+    expect(eviction1Performed).to.be.false
+    // Start new job for 'a' since we don't know about the existing one
     expect(
       await cache.get('a', async () => ({
         item: 3,
         onEviction: () => {
-          eviction2Performed = true
+          throw new Error('This should not be called')
         },
       }))
     ).to.equal(3)
     expect(await job1).to.equal(1)
     expect(eviction1Performed).to.be.true
-    expect(eviction2Performed).to.be.false
   })
 })
