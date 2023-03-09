@@ -27,6 +27,7 @@ import { SchoolingInfo } from './SchoolingInfo'
  * This entity is a root level object. It represents a patient It is serialized in JSON and saved in the underlying icure-patient CouchDB database.
  */
 import { b64_2ab } from './ModelHelper'
+import { SecurityMetadata } from './SecurityMetadata'
 export class Patient {
   constructor(json: JSON | any) {
     Object.assign(this as Patient, json, json.picture ? { picture: b64_2ab(json.picture) } : {})
@@ -304,6 +305,7 @@ export class Patient {
   mainSourceOfIncome?: CodeStub
   schoolingInfos?: Array<SchoolingInfo>
   employementInfos?: Array<EmploymentInfo>
+  securityMetadata?: SecurityMetadata
 }
 export namespace Patient {
   export type GenderEnum = 'male' | 'female' | 'indeterminate' | 'changed' | 'changedToMale' | 'changedToFemale' | 'unknown'

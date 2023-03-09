@@ -13,6 +13,7 @@ import { CodeStub } from './CodeStub'
 import { Delegation } from './Delegation'
 import { Identifier } from './Identifier'
 import { PropertyStub } from './PropertyStub'
+import { SecurityMetadata } from './SecurityMetadata'
 
 export class MaintenanceTask {
   constructor(json: JSON | any) {
@@ -81,6 +82,7 @@ export class MaintenanceTask {
    * The base64 encoded data of this object, formatted as JSON and encrypted in AES using the random master key from encryptionKeys.
    */
   encryptedSelf?: string
+  securityMetadata?: SecurityMetadata
 }
 export namespace MaintenanceTask {
   export type StatusEnum = 'pending' | 'ongoing' | 'cancelled' | 'completed'

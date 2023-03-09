@@ -89,13 +89,4 @@ export interface CryptoStrategies {
    * @return true if the delegations for the provided data owner should be anonymous.
    */
   dataOwnerRequiresAnonymousDelegation(dataOwner: DataOwnerWithType): boolean
-
-  /**
-   * Specifies if a data owner is allowed to request all of his exchange data.
-   * Usually this method will return the same results as {@link dataOwnerRequiresAnonymousDelegation} since users with anonymous delegations usually
-   * won't have much exchange data.
-   * @param dataOwner a data owner.
-   * @return true if the data owner is allowed to request all of his exchange data.
-   */
-  dataOwnerCanRequestAllHisExchangeData(dataOwner: DataOwnerWithType): boolean
 }

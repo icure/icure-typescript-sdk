@@ -1,7 +1,7 @@
 /**
  * Names of all possible encrypted entity types.
  */
-import { EncryptedEntity } from '../../icc-api/model/models'
+import { EncryptedEntity, EncryptedEntityStub } from '../../icc-api/model/models'
 
 export const entityWithDelegationTypeNames: Set<EntityWithDelegationTypeName> = new Set([
   'AccessLog',
@@ -35,6 +35,8 @@ export type EntityWithDelegationTypeName =
   | 'Patient'
   | 'Receipt'
   | 'TimeTable'
+
+export type EncryptedEntityWithType = { entity: EncryptedEntityStub | EncryptedEntity; type: EntityWithDelegationTypeName }
 
 /**
  * @internal this function is meant for internal use only and may be changed without notice

@@ -12,6 +12,7 @@
 import { CodeStub } from './CodeStub'
 import { Delegation } from './Delegation'
 import { MessageReadStatus } from './MessageReadStatus'
+import { SecurityMetadata } from './SecurityMetadata'
 
 /**
  * This entity is a root level object. It represents a Message. It is serialized in JSON and saved in the underlying CouchDB database.
@@ -142,4 +143,5 @@ export class Message {
    * The base64 encoded data of this object, formatted as JSON and encrypted in AES using the random master key from encryptionKeys.
    */
   encryptedSelf?: string
+  securityMetadata?: SecurityMetadata
 }

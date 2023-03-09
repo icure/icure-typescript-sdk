@@ -10,6 +10,7 @@ import { EntitiesEncryption } from './EntitiesEncryption'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { Delegation, EncryptedEntityStub } from '../../icc-api/model/models'
 import { setEquals } from '../utils/collection-utils'
+import { SecurityMetadata } from '../../icc-api/model/SecurityMetadata'
 
 /**
  * @internal this function is meant only for internal use and may be changed without notice.
@@ -109,12 +110,21 @@ export async function ensureDelegationForSelf(
   }
 }
 
+/**
+ * Verifies that two encrypted stubs are equivalent.
+ */
 export function encryptedStubEquals(a: EncryptedEntityStub, b: EncryptedEntityStub): boolean {
+  if (a.encryptedSelf !== b.encryptedSelf) return false
+  if (!setEquals(new Set(a.secretForeignKeys), new Set(b.secretForeignKeys))) return false
   if (!delegationLikeEquality(a.delegations, b.delegations)) return false
   if (!delegationLikeEquality(a.encryptionKeys, b.encryptionKeys)) return false
   if (!delegationLikeEquality(a.cryptedForeignKeys, b.cryptedForeignKeys)) return false
-  if (!setEquals(new Set(a.secretForeignKeys), new Set(b.secretForeignKeys))) return false
-  return a.encryptedSelf === b.encryptedSelf
+  return securityMetadataEquals(a.securityMetadata, b.securityMetadata)
+}
+
+function securityMetadataEquals(a: SecurityMetadata | undefined, b: SecurityMetadata | undefined): boolean {
+  if (!!a !== !!b) return false
+  throw new Error('TODO')
 }
 
 function delegationLikeEquality(a: { [s: string]: Delegation[] } | undefined, b: { [s: string]: Delegation[] } | undefined): boolean {

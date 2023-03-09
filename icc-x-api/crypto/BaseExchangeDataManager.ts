@@ -24,14 +24,14 @@ export class BaseExchangeDataManager {
 
   /**
    * Get all the exchange data where the current data owner is the delegator or the delegate. However, some data owners, generally HCPs, may have a
-   * prohibitively high amount of exchange data. If the crypto strategies allow it this method returns all the exchange data found for the data owner,
-   * else the method returns undefined.
+   * prohibitively high amount of exchange data. If the crypto strategies specify that the current data owner requires anonymous delegation this
+   * method returns all the exchange data found for the data owner, else the method returns undefined.
    * @return all the exchange data for the current data owner or undefined if the crypto strategies don't allow to retrieve all data for the current
    * data owner.
    */
   async getAllExchangeDataForCurrentDataOwnerIfAllowed(): Promise<ExchangeData[] | undefined> {
     const currentDataOwner = await this.dataOwnerApi.getCurrentDataOwner()
-    if (!this.cryptoStrategies.dataOwnerCanRequestAllHisExchangeData(currentDataOwner)) return undefined
+    if (!this.cryptoStrategies.dataOwnerRequiresAnonymousDelegation(currentDataOwner)) return undefined
     const dataOwnerId = currentDataOwner.dataOwner.id
     let latestResult = await this.exchangeDataApi.getExchangeDataByParticipant(dataOwnerId, undefined, 1000)
     const allRetrieved = latestResult.rows ?? []

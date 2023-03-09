@@ -11,6 +11,7 @@
  */
 import { CodeStub } from './CodeStub'
 import { Delegation } from './Delegation'
+import { SecurityMetadata } from './SecurityMetadata'
 
 export class Classification {
   constructor(json: JSON | any) {
@@ -78,4 +79,5 @@ export class Classification {
    * The base64 encoded data of this object, formatted as JSON and encrypted in AES using the random master key from encryptionKeys.
    */
   encryptedSelf?: string
+  securityMetadata?: SecurityMetadata
 }
