@@ -31,7 +31,7 @@ export async function initialiseExchangeDataManagerForCurrentDataOwner(
   optionalParameters: ExchangeDataManagerOptionalParameters = {}
 ): Promise<ExchangeDataManager> {
   const currentOwner = await dataOwnerApi.getCurrentDataOwner()
-  if (cryptoStrategies.dataOwnerCanRequestAllHisExchangeData(currentOwner)) {
+  if (cryptoStrategies.dataOwnerRequiresAnonymousDelegation(currentOwner)) {
     const res = new FullyCachedExchangeDataManager(
       base,
       encryptionKeys,
@@ -93,13 +93,13 @@ export interface ExchangeDataManager {
    * @param hashes hashes of access control secrets for a specific entity, as they appear in the key of secure delegation entries
    * @param entityType type of the entity containing the metadata for which you are retrieving the encryption key.
    * @param entitySecretForeignKeys the secret foreign keys of the entity containing the metadata for which you are retrieving the encryption key.
-   * @return the exchange key associated to that hash if cached
+   * @return the exchange data and decrypted key associated to that hash if cached
    */
   getCachedDecryptionDataKeyByAccessControlHash(
     hashes: string[],
     entityType: EntityWithDelegationTypeName,
     entitySecretForeignKeys: string[]
-  ): Promise<{ [hash: string]: CryptoKey }>
+  ): Promise<{ [hash: string]: { exchangeData: ExchangeData; exchangeKey: CryptoKey } }>
 
   /**
    * Retrieves the exchange data with the provided id (from the cache if available or from the server otherwise if allowed by
@@ -108,16 +108,19 @@ export interface ExchangeDataManager {
    * @param id id of the exchange data
    * @param entityType type of the entity containing the metadata for which you are retrieving the encryption key.
    * @param entitySecretForeignKeys the secret foreign keys of the entity containing the metadata for which you are retrieving the encryption key.
-   * @param retrieveIfNotCached
-   * @return the exchange key associated to the exchange data with the provided id, or undefined if the exchange data could not be decrypted.
-   * @throws if no exchange data with the given id could be found.
+   * @param retrieveIfNotCached if false and there is no cached exchange data with the provided id the method returns undefined, else the method will
+   * attempt to load the exchange data from the server.
+   * @return the exchange data with the provided id and its key if it could be decrypted, or undefined if the exchange data was not cached and
+   * {@link retrieveIfNotCached} is false.
+   * @throws if no exchange data with the given id is cached and {@link retrieveIfNotCached} is true and the data could not be found in the server
+   * either.
    */
   getDecryptionDataKeyById(
     id: string,
     entityType: EntityWithDelegationTypeName,
     entitySecretForeignKeys: string[],
     retrieveIfNotCached: boolean
-  ): Promise<{ decryptedKey: CryptoKey | undefined } | undefined>
+  ): Promise<{ exchangeKey: CryptoKey | undefined; exchangeData: ExchangeData } | undefined>
 
   /**
    * Clears the cache or fully repopulates the cache if the current data owner can retrieve all of his exchange data according to the crypto
@@ -213,7 +216,7 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
     hashes: string[],
     entityType: EntityWithDelegationTypeName,
     entitySecretForeignKeys: string[]
-  ): Promise<{ [p: string]: CryptoKey }> {
+  ): Promise<{ [p: string]: { exchangeData: ExchangeData; exchangeKey: CryptoKey } }> {
     throw new Error('Implemented by concrete class')
   }
 
@@ -222,7 +225,7 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
     entityType: EntityWithDelegationTypeName,
     entitySecretForeignKeys: string[],
     retrieveIfNotCached: boolean
-  ): Promise<{ decryptedKey: CryptoKey | undefined } | undefined> {
+  ): Promise<{ exchangeData: ExchangeData; exchangeKey: CryptoKey | undefined } | undefined> {
     throw new Error('Implemented by concrete class')
   }
 
@@ -247,22 +250,22 @@ class FullyCachedExchangeDataManager extends AbstractExchangeDataManager {
     hashes: string[],
     entityType: EntityWithDelegationTypeName,
     entitySecretForeignKeys: string[]
-  ): Promise<{ [hash: string]: CryptoKey }> {
+  ): Promise<{ [hash: string]: { exchangeData: ExchangeData; exchangeKey: CryptoKey } }> {
     function retrieveByHashesFromCaches(caches: {
       dataById: { [id: string]: CachedExchangeData }
       hashToId: Map<string, string>
       delegateToVerifiedEncryptionDataId: { [delegate: string]: string }
-    }) {
+    }): { [hash: string]: { exchangeData: ExchangeData; exchangeKey: CryptoKey } } {
       return hashes.reduce((res, hash) => {
         const id = caches.hashToId.get(hash)
         if (id) {
-          const decrypted = caches.dataById[id].decrypted
-          if (decrypted) {
-            res[hash] = decrypted.exchangeKey
+          const cached = caches.dataById[id]
+          if (cached?.decrypted?.exchangeKey) {
+            res[hash] = { exchangeData: cached.exchangeData, exchangeKey: cached.decrypted.exchangeKey }
           }
         }
         return res
-      }, {} as { [hash: string]: CryptoKey })
+      }, {} as { [hash: string]: { exchangeData: ExchangeData; exchangeKey: CryptoKey } })
     }
 
     const retrievedFromHashesCache = retrieveByHashesFromCaches(await this.caches)
@@ -316,17 +319,17 @@ class FullyCachedExchangeDataManager extends AbstractExchangeDataManager {
     entityType: EntityWithDelegationTypeName,
     entitySecretForeignKeys: string[],
     retrieveIfNotCached: boolean
-  ): Promise<{ decryptedKey: CryptoKey | undefined } | undefined> {
+  ): Promise<{ exchangeData: ExchangeData; exchangeKey: CryptoKey | undefined } | undefined> {
     const caches = await this.caches
     const cachedData = caches.dataById[id]
     if (cachedData) {
-      return { decryptedKey: cachedData.decrypted?.exchangeKey }
+      return { exchangeData: cachedData.exchangeData, exchangeKey: cachedData.decrypted?.exchangeKey }
     } else if (retrieveIfNotCached) {
       const data = await this.base.getExchangeDataById(id)
       if (!data) throw new Error(`Could not find exchange data with id ${id}`)
       const decrypted = await this.decryptData(data)
       this.cacheData(data, decrypted, entityType, entitySecretForeignKeys)
-      return { decryptedKey: decrypted?.exchangeKey }
+      return { exchangeData: data, exchangeKey: decrypted?.exchangeKey }
     } else return undefined
   }
 
@@ -408,18 +411,16 @@ class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
     hashes: string[],
     entityType: EntityWithDelegationTypeName,
     entitySecretForeignKeys: string[]
-  ): Promise<{ [p: string]: CryptoKey }> {
-    const res: { [p: string]: CryptoKey } = {}
+  ): Promise<{ [p: string]: { exchangeData: ExchangeData; exchangeKey: CryptoKey } }> {
+    const res: { [p: string]: { exchangeData: ExchangeData; exchangeKey: CryptoKey } } = {}
     for (const hash of hashes) {
       const dataId = this.hashToId.get(hash)
       if (dataId) {
-        const retrieved = (
-          await this.idToDataCache.get(dataId, () => {
-            throw new Error(`Data with id ${dataId} should have been already cached.`)
-          })
-        ).decrypted?.exchangeKey
-        if (retrieved) {
-          res[hash] = retrieved
+        const retrieved = await this.idToDataCache.get(dataId, () => {
+          throw new Error(`Data with id ${dataId} should have been already cached.`)
+        })
+        if (retrieved?.decrypted?.exchangeKey) {
+          res[hash] = { exchangeData: retrieved.exchangeData, exchangeKey: retrieved.decrypted.exchangeKey }
         }
       }
     }
@@ -431,7 +432,7 @@ class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
     entityType: EntityWithDelegationTypeName,
     entitySecretForeignKeys: string[],
     retrieveIfNotCached: boolean
-  ): Promise<{ decryptedKey: CryptoKey | undefined } | undefined> {
+  ): Promise<{ exchangeData: ExchangeData; exchangeKey: CryptoKey | undefined } | undefined> {
     const cached = await this.idToDataCache.getIfCachedJob(id)
     if (cached) {
       const updated = await this.idToDataCache.get(
@@ -453,7 +454,7 @@ class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
         },
         () => true
       )
-      return { decryptedKey: updated.decrypted?.exchangeKey }
+      return { exchangeData: updated.exchangeData, exchangeKey: updated.decrypted?.exchangeKey }
     } else if (retrieveIfNotCached) {
       return await this.idToDataCache
         .get(id, async () =>
@@ -473,7 +474,7 @@ class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
             }
           })
         )
-        .then((x) => ({ decryptedKey: x.decrypted?.exchangeKey }))
+        .then((x) => ({ exchangeData: x.exchangeData, exchangeKey: x.decrypted?.exchangeKey }))
     } else return undefined
   }
 

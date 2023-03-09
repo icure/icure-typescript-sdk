@@ -14,6 +14,7 @@ import { CalendarItemTag } from './CalendarItemTag'
 import { CodeStub } from './CodeStub'
 import { Delegation } from './Delegation'
 import { FlowItem } from './FlowItem'
+import { SecurityMetadata } from './SecurityMetadata'
 
 export class CalendarItem {
   constructor(json: JSON | any) {
@@ -100,4 +101,5 @@ export class CalendarItem {
    * The base64 encoded data of this object, formatted as JSON and encrypted in AES using the random master key from encryptionKeys.
    */
   encryptedSelf?: string
+  securityMetadata?: SecurityMetadata
 }

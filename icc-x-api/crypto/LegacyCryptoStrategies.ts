@@ -32,8 +32,4 @@ export class LegacyCryptoStrategies implements CryptoStrategies {
   dataOwnerRequiresAnonymousDelegation(dataOwner: DataOwnerWithType): boolean {
     return dataOwner.type !== DataOwnerTypeEnum.Hcp
   }
-
-  dataOwnerCanRequestAllHisExchangeData(dataOwner: DataOwnerWithType): boolean {
-    return this.dataOwnerRequiresAnonymousDelegation(dataOwner)
-  }
 }

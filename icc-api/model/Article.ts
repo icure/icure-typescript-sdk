@@ -12,6 +12,7 @@
 import { CodeStub } from './CodeStub'
 import { Content } from './Content'
 import { Delegation } from './Delegation'
+import { SecurityMetadata } from './SecurityMetadata'
 
 export class Article {
   constructor(json: JSON | any) {
@@ -79,4 +80,5 @@ export class Article {
    * The base64 encoded data of this object, formatted as JSON and encrypted in AES using the random master key from encryptionKeys.
    */
   encryptedSelf?: string
+  securityMetadata?: SecurityMetadata
 }
