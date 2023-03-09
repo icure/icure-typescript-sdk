@@ -13,13 +13,12 @@ export class LegacyDelegationSecurityMetadataDecryptor implements SecurityMetada
     typedEntity: EncryptedEntityWithType,
     dataOwnersHierarchySubset: string[],
     tagsFilter: (tags: string[]) => boolean
-  ): AsyncGenerator<{ encryptionKey: string; dataOwnersWithAccess: string[] }, void, never> {
+  ): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never> {
     return this.extractFromDelegations(
       dataOwnersHierarchySubset,
       typedEntity.entity.encryptionKeys ?? {},
       (d) => this.validateEncryptionKey(d),
-      (t) => tagsFilter(t),
-      (encryptionKey, dataOwnersWithAccess) => ({ encryptionKey, dataOwnersWithAccess })
+      (t) => tagsFilter(t)
     )
   }
 
@@ -27,13 +26,12 @@ export class LegacyDelegationSecurityMetadataDecryptor implements SecurityMetada
     typedEntity: EncryptedEntityWithType,
     dataOwnersHierarchySubset: string[],
     tagsFilter: (tags: string[]) => boolean
-  ): AsyncGenerator<{ owningEntityId: string; dataOwnersWithAccess: string[] }, void, never> {
+  ): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never> {
     return this.extractFromDelegations(
       dataOwnersHierarchySubset,
       typedEntity.entity.cryptedForeignKeys ?? {},
       (d) => Promise.resolve(this.validateOwningEntityId(d)),
-      (t) => tagsFilter(t),
-      (owningEntityId, dataOwnersWithAccess) => ({ owningEntityId, dataOwnersWithAccess })
+      (t) => tagsFilter(t)
     )
   }
 
@@ -41,23 +39,21 @@ export class LegacyDelegationSecurityMetadataDecryptor implements SecurityMetada
     typedEntity: EncryptedEntityWithType,
     dataOwnersHierarchySubset: string[],
     tagsFilter: (tags: string[]) => boolean
-  ): AsyncGenerator<{ secretId: string; dataOwnersWithAccess: string[] }, void, never> {
+  ): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never> {
     return this.extractFromDelegations(
       dataOwnersHierarchySubset,
       typedEntity.entity.delegations ?? {},
       (d) => Promise.resolve(this.validateSecretId(d)),
-      (t) => tagsFilter(t),
-      (secretId, dataOwnersWithAccess) => ({ secretId, dataOwnersWithAccess })
+      (t) => tagsFilter(t)
     )
   }
 
-  private extractFromDelegations<T>(
+  private extractFromDelegations(
     dataOwnersHierarchySubset: string[],
     delegations: { [delegateId: string]: Delegation[] },
     validateDecrypted: (result: string) => Promise<boolean>,
-    tagsFilter: (tags: string[]) => boolean,
-    makeResult: (decrypted: string, dataOwnersWithAccess: string[]) => T
-  ): AsyncGenerator<T, void, never> {
+    tagsFilter: (tags: string[]) => boolean
+  ): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never> {
     if (!dataOwnersHierarchySubset.length) throw new Error("`dataOwnersHierarchySubset` can't be empty")
     const delegationsWithOwner = Object.entries(delegations).flatMap(([delegateId, delegations]) =>
       dataOwnersHierarchySubset.some((dataOwnerId) => dataOwnerId === delegateId)
@@ -71,7 +67,11 @@ export class LegacyDelegationSecurityMetadataDecryptor implements SecurityMetada
     async function* generator() {
       for (const delegation of delegationsWithOwner) {
         const decrypted = await self.tryDecryptDelegation(delegation, (k) => validateDecrypted(k))
-        if (decrypted) yield makeResult(decrypted, delegation.owner ? [delegation.owner, delegation.delegatedTo!] : [delegation.delegatedTo!])
+        if (decrypted)
+          yield {
+            decrypted,
+            dataOwnersWithAccess: delegation.owner ? [delegation.owner, delegation.delegatedTo!] : [delegation.delegatedTo!],
+          }
       }
     }
     return generator()
