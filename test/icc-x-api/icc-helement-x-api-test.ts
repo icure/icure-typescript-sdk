@@ -142,4 +142,31 @@ describe('icc-helement-x-api Tests', () => {
     assert(foundHealthElements.length == 1)
     assert(foundHealthElements[0].id == createdHealthElement.id)
   })
+
+  it('findHealthElementsByHCPartyAndPatientWithUser Using Post Success for HCP', async () => {
+    // Given
+    const {
+      userApi: userApiForHcp,
+      dataOwnerApi: dataOwnerApiForHcp,
+      patientApi: patientApiForHcp,
+      healthcareElementApi: hElementApiForHcp,
+      cryptoApi: cryptoApiForHcp,
+    } = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password, crypto)
+
+    const hcpUser = await userApiForHcp.getCurrentUser()
+    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, env!.dataOwnerDetails[hcp1Username].privateKey)
+
+    const patient = (await createPatient(patientApiForHcp, hcpUser)) as Patient
+    const createdHealthElement = await hElementApiForHcp.createHealthElementWithUser(
+      hcpUser,
+      await healthElementToCreate(hElementApiForHcp, hcpUser, patient)
+    )
+
+    // When
+    const foundHealthElements = await hElementApiForHcp.findHealthElementsByHCPartyAndPatientWithUser(hcpUser, hcpUser.healthcarePartyId!, patient, true)
+
+    // Then
+    assert(foundHealthElements.length == 1)
+    assert(foundHealthElements[0].id == createdHealthElement.id)
+  })
 })
