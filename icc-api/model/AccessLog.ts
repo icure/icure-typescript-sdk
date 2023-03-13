@@ -12,6 +12,7 @@
 import { CodeStub } from './CodeStub'
 import { Delegation } from './Delegation'
 import { SecurityMetadata } from './SecurityMetadata'
+import { EntityWithDelegationTypeName } from '../../icc-x-api/utils/EntityWithDelegationTypeName'
 
 /**
  * This entity represents Access Log.
@@ -107,4 +108,5 @@ export class AccessLog {
    */
   encryptedSelf?: string
   securityMetadata?: SecurityMetadata
+  readonly _type?: EntityWithDelegationTypeName = 'AccessLog'
 }

@@ -84,8 +84,8 @@ export async function ensureDelegationForSelf(
 ): Promise<DataOwnerWithType> {
   const self = await dataOwnerApi.getCurrentDataOwner()
   if (self.type === DataOwnerTypeEnum.Patient) {
-    const patient: Patient & DataOwner = self.dataOwner
-    const availableSecretIds = await entitiesEncryption.secretIdsOf(patient)
+    const patient = new Patient(self.dataOwner)
+    const availableSecretIds = await entitiesEncryption.secretIdsOf(patient, 'Patient')
     if (availableSecretIds.length) {
       return self
     } else {
@@ -100,10 +100,7 @@ export async function ensureDelegationForSelf(
               []
             ) // else initialise also encryption keys
           : await entitiesEncryption.entityWithInitialisedEncryptedMetadata(patient, undefined, undefined, true).then((x) => x.updatedEntity)
-      return await dataOwnerApi.updateDataOwner({
-        dataOwner: updatedPatient,
-        type: DataOwnerTypeEnum.Patient,
-      })
+      return await dataOwnerApi.updateDataOwner(IccDataOwnerXApi.instantiateDataOwnerWithType(updatedPatient, DataOwnerTypeEnum.Patient))
     }
   } else {
     return self

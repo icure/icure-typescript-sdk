@@ -78,7 +78,7 @@ export class IccClassificationXApi extends IccClassificationApi {
   }
 
   async findBy(hcpartyId: string, patient: models.Patient) {
-    const extractedKeys = await this.crypto.entities.secretIdsOf(patient, hcpartyId)
+    const extractedKeys = await this.crypto.entities.secretIdsOf(patient, 'Patient', hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     return extractedKeys && extractedKeys.length > 0
       ? this.findClassificationsByHCPartyPatientForeignKeys(topmostParentId, _.uniq(extractedKeys).join(','))

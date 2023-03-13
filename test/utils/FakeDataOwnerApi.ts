@@ -15,7 +15,7 @@ export class FakeDataOwnerApi extends IccDataOwnerXApi {
 
   constructor(self: DataOwner & { type: DataOwnerTypeEnum }, others: (DataOwner & { type: DataOwnerTypeEnum })[] = []) {
     super(null as any, null as any, null as any, null as any)
-    this.selfId = self.id
+    this.selfId = self.id!
     this.data.createObject(self)
     others.forEach((x) => this.data.createObject(x))
   }
@@ -61,7 +61,7 @@ export class FakeDataOwnerApi extends IccDataOwnerXApi {
   }
 
   async updateDataOwner(dataOwner: DataOwnerWithType): Promise<DataOwnerWithType> {
-    if (this.data.getById(dataOwner.dataOwner.id)?.type !== dataOwner.type) throw new Error('Unexpected type for data owner.')
+    if (this.data.getById(dataOwner.dataOwner.id!)?.type !== dataOwner.type) throw new Error('Unexpected type for data owner.')
     return this.mapObject(this.data.modifyObject({ ...dataOwner.dataOwner, type: dataOwner.type }))
   }
 
@@ -83,21 +83,6 @@ export class FakeDataOwnerApi extends IccDataOwnerXApi {
   private mapObject(x: DataOwner & { type: DataOwnerTypeEnum }): DataOwnerWithType {
     const type = x.type
     delete (x as any).type
-    if (type === DataOwnerTypeEnum.Patient) {
-      return {
-        dataOwner: new Patient(x) as DataOwner,
-        type,
-      }
-    } else if (type === DataOwnerTypeEnum.Device) {
-      return {
-        dataOwner: new Device(x) as DataOwner,
-        type,
-      }
-    } else if (type === DataOwnerTypeEnum.Hcp) {
-      return {
-        dataOwner: new HealthcareParty(x) as DataOwner,
-        type,
-      }
-    } else throw new Error(`Unexpected data owner type: ${x.type}`)
+    return IccDataOwnerXApi.instantiateDataOwnerWithType(x, type)
   }
 }

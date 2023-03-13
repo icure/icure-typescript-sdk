@@ -383,7 +383,10 @@ export class IccContactXApi extends IccContactApi {
           ? ctc
           : await this.crypto.entities.ensureEncryptionKeysInitialised(ctc)
 
-        const encryptionKey = await this.crypto.entities.importFirstValidKey(await this.crypto.entities.encryptionKeysOf(ctc, hcpartyId), ctc.id!)
+        const encryptionKey = await this.crypto.entities.importFirstValidKey(
+          await this.crypto.entities.encryptionKeysOf(ctc, 'Contact', hcpartyId),
+          ctc.id!
+        )
 
         initialisedCtc.services = await this.encryptServices(encryptionKey.key, encryptionKey.raw, ctc.services || [])
         initialisedCtc.encryptedSelf = b2a(
@@ -399,7 +402,7 @@ export class IccContactXApi extends IccContactApi {
   decrypt(hcpartyId: string, ctcs: Array<models.Contact>): Promise<Array<models.Contact>> {
     return Promise.all(
       ctcs.map(async (ctc) => {
-        const keys = await this.crypto.entities.importAllValidKeys(await this.crypto.entities.encryptionKeysOf(ctc, hcpartyId))
+        const keys = await this.crypto.entities.importAllValidKeys(await this.crypto.entities.encryptionKeysOf(ctc, 'Contact', hcpartyId))
         if (!keys || !keys.length) {
           console.log('Cannot decrypt contact', ctc.id)
           return ctc
@@ -426,7 +429,7 @@ export class IccContactXApi extends IccContactApi {
     return Promise.all(
       svcs.map(async (svc) => {
         if (!keys) {
-          keys = await this.crypto.entities.importAllValidKeys(await this.crypto.entities.encryptionKeysOf(svc, hcpartyId))
+          keys = await this.crypto.entities.importAllValidKeys(await this.crypto.entities.encryptionKeysOf(svc, 'Service', hcpartyId))
         }
 
         if (svc.encryptedContent) {

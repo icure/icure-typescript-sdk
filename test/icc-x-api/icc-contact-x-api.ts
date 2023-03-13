@@ -158,7 +158,7 @@ describe('icc-x-contact-api Tests', () => {
       }
     })
 
-    const createdContact = (await contactApiForHcp.createContactWithUser(hcpUser, contactToCreate)) as Contact
+    const createdContact = (await contactApiForHcp.createContactWithUser(hcpUser, new Contact(contactToCreate))) as Contact
     assert(createdContact != null)
 
     // When

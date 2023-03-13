@@ -20,16 +20,12 @@ export const DataOwnerTypeEnum: { [key: string]: DataOwnerTypeEnum } = {
 /**
  * Represents any data owner.
  */
-// Trick to make typechecking work: without this you can pass anything to a data owner
-export type DataOwner = (Patient | Device | HealthcareParty) & { id: string }
+export type DataOwner = Patient | Device | HealthcareParty
 
 /**
  * Represents any data owner enriched with type information.
  */
-export type DataOwnerWithType =
-  | { type: 'patient'; dataOwner: Patient & DataOwner }
-  | { type: 'device'; dataOwner: Device & DataOwner }
-  | { type: 'hcp'; dataOwner: HealthcareParty & DataOwner }
+export type DataOwnerWithType = { type: DataOwnerTypeEnum; dataOwner: DataOwner } & 'asd'
 
 export class IccDataOwnerXApi {
   private readonly userBaseApi: IccUserApi
@@ -206,6 +202,21 @@ export class IccDataOwnerXApi {
     } else if (ownerType === 'device') {
       return await this.deviceBaseApi.updateDevice(ownerToUpdate as Device).then((x) => ({ type: 'device', dataOwner: x } as DataOwnerWithType))
     } else throw new Error(`Unrecognised data owner type: ${ownerType}`)
+  }
+
+  /**
+   * @internal This method is for internal use only and may be changed without notice
+   */
+  static instantiateDataOwnerWithType(dataOwner: any, type: DataOwnerTypeEnum): DataOwnerWithType {
+    if (type === DataOwnerTypeEnum.Patient) {
+      return { type: DataOwnerTypeEnum.Patient, dataOwner: new Patient(dataOwner) } as DataOwnerWithType
+    } else if (type === DataOwnerTypeEnum.Device) {
+      return { type: DataOwnerTypeEnum.Device, dataOwner: new Device(dataOwner) } as DataOwnerWithType
+    } else if (type === DataOwnerTypeEnum.Hcp) {
+      return { type: DataOwnerTypeEnum.Hcp, dataOwner: new HealthcareParty(dataOwner) } as DataOwnerWithType
+    } else {
+      throw new Error(`Invalid data owner type ${type}`)
+    }
   }
 
   private checkDataOwnerIntegrity(dataOwner: DataOwner) {

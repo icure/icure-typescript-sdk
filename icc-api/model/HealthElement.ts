@@ -16,6 +16,7 @@ import { Episode } from './Episode'
 import { Identifier } from './Identifier'
 import { PlanOfAction } from './PlanOfAction'
 import { SecurityMetadata } from './SecurityMetadata'
+import { EntityWithDelegationTypeName } from '../../icc-x-api/utils/EntityWithDelegationTypeName'
 
 /**
  * This entity is a root level object. It represents a healthcare element. It is serialized in JSON and saved in the underlying CouchDB database.
@@ -151,6 +152,7 @@ export class HealthElement {
    */
   encryptedSelf?: string
   securityMetadata?: SecurityMetadata
+  readonly _type?: EntityWithDelegationTypeName = 'HealthElement'
 }
 export namespace HealthElement {
   export type LateralityEnum = 'left' | 'right'

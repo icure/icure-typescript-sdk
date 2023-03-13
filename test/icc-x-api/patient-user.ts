@@ -52,7 +52,7 @@ describe('Patient', () => {
     const { publicKey, privateKey } = keyPair
     const publicKeyHex = ua2hex(await rsa.exportKey(publicKey, 'spki'))
     const rawPatientApi = new IccPatientApi(env.iCureUrl, {}, new BasicAuthenticationProvider(tmpUser.id!, pwd))
-    await rawPatientApi.modifyPatient({ ...patient, publicKey: publicKeyHex })
+    await rawPatientApi.modifyPatient(new Patient({ ...patient, publicKey: publicKeyHex }))
 
     // TODO some of these operations may be forbidden by the backend in future versions...
     const { userApi, patientApi, cryptoApi } = await TestApi(env.iCureUrl, tmpUser.id!, pwd!, crypto, keyPair)

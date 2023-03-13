@@ -96,7 +96,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
    */
 
   async findBy(hcpartyId: string, patient: models.Patient): Promise<models.AccessLog[]> {
-    const extractedKeys = await this.crypto.entities.secretIdsOf(patient, hcpartyId)
+    const extractedKeys = await this.crypto.entities.secretIdsOf(patient, 'Patient', hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     return extractedKeys && extractedKeys.length > 0
       ? this.findByHCPartyPatientSecretFKeys(topmostParentId, _.uniq(extractedKeys).join(','))
@@ -110,14 +110,16 @@ export class IccAccesslogXApi extends IccAccesslogApi {
 
   decrypt(hcpId: string, accessLogs: Array<models.AccessLog>): Promise<Array<models.AccessLog>> {
     return Promise.all(
-      accessLogs.map((x) => this.crypto.entities.decryptEntity(x, hcpId, (json) => new AccessLog(json)).then(({ entity }) => entity))
+      accessLogs.map((x) => this.crypto.entities.decryptEntity(x, 'AccessLog', hcpId, (json) => new AccessLog(json)).then(({ entity }) => entity))
     )
   }
 
   encrypt(user: models.User, accessLogs: Array<models.AccessLog>): Promise<Array<models.AccessLog>> {
     const owner = this.dataOwnerApi.getDataOwnerIdOf(user)
     return Promise.all(
-      accessLogs.map((x) => this.crypto.entities.tryEncryptEntity(x, owner, this.cryptedKeys, false, true, (json) => new AccessLog(json)))
+      accessLogs.map((x) =>
+        this.crypto.entities.tryEncryptEntity(x, 'AccessLog', owner, this.cryptedKeys, false, true, (json) => new AccessLog(json))
+      )
     )
   }
 
@@ -228,7 +230,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
         (decryptedLogs) =>
           Promise.all(
             _.map(decryptedLogs, (decryptedLog) => {
-              return this.crypto.entities.owningEntityIdsOf(decryptedLog, user.healthcarePartyId as string).then(
+              return this.crypto.entities.owningEntityIdsOf(decryptedLog, 'AccessLog', user.healthcarePartyId as string).then(
                 (keys) =>
                   ({
                     ...decryptedLog,

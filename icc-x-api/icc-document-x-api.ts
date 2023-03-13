@@ -612,7 +612,7 @@ export class IccDocumentXApi extends IccDocumentApi {
 
   // noinspection JSUnusedGlobalSymbols
   async findByMessage(hcpartyId: string, message: models.Message) {
-    const extractedKeys = await this.crypto.entities.secretIdsOf(message, hcpartyId)
+    const extractedKeys = await this.crypto.entities.secretIdsOf(message, 'Message', hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     let documents: Array<models.Document> = await this.findDocumentsByHCPartyPatientForeignKeys(topmostParentId, _.uniq(extractedKeys).join(','))
     return await this.decrypt(hcpartyId, documents)
@@ -733,7 +733,7 @@ export class IccDocumentXApi extends IccDocumentApi {
    * @return the updated document.
    */
   async encryptAndSetDocumentAttachment(document: models.Document, attachment: ArrayBuffer | Uint8Array): Promise<models.Document> {
-    const encryptedData = await this.crypto.entities.encryptDataOf(document, attachment)
+    const encryptedData = await this.crypto.entities.encryptDataOf(document, attachment, 'Document')
     return await this.setDocumentAttachment(document.id!, undefined, encryptedData)
   }
 
@@ -749,7 +749,7 @@ export class IccDocumentXApi extends IccDocumentApi {
     secondaryAttachmentKey: string,
     attachment: ArrayBuffer | Uint8Array
   ): Promise<models.Document> {
-    const encryptedData = await this.crypto.entities.encryptDataOf(document, attachment)
+    const encryptedData = await this.crypto.entities.encryptDataOf(document, attachment, 'Document')
     return await this.setSecondaryAttachment(document.id!, secondaryAttachmentKey, document.rev!, encryptedData)
   }
 
@@ -764,7 +764,9 @@ export class IccDocumentXApi extends IccDocumentApi {
     document: models.Document,
     validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<ArrayBuffer> {
-    return await this.crypto.entities.decryptDataOf(document, await this.getDocumentAttachment(document.id!, 'ignored'), (x) => validator(x))
+    return await this.crypto.entities.decryptDataOf(document, await this.getDocumentAttachment(document.id!, 'ignored'), 'Document', (x) =>
+      validator(x)
+    )
   }
 
   /**
@@ -780,8 +782,11 @@ export class IccDocumentXApi extends IccDocumentApi {
     secondaryAttachmentKey: string,
     validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<ArrayBuffer> {
-    return await this.crypto.entities.decryptDataOf(document, await this.getSecondaryAttachment(document.id!, secondaryAttachmentKey), (x) =>
-      validator(x)
+    return await this.crypto.entities.decryptDataOf(
+      document,
+      await this.getSecondaryAttachment(document.id!, secondaryAttachmentKey),
+      'Document',
+      (x) => validator(x)
     )
   }
 }

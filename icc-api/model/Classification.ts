@@ -12,6 +12,7 @@
 import { CodeStub } from './CodeStub'
 import { Delegation } from './Delegation'
 import { SecurityMetadata } from './SecurityMetadata'
+import { EntityWithDelegationTypeName } from '../../icc-x-api/utils/EntityWithDelegationTypeName'
 
 export class Classification {
   constructor(json: JSON | any) {
@@ -80,4 +81,5 @@ export class Classification {
    */
   encryptedSelf?: string
   securityMetadata?: SecurityMetadata
+  readonly _type?: EntityWithDelegationTypeName = 'Classification'
 }

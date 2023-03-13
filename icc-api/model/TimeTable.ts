@@ -13,6 +13,7 @@ import { CodeStub } from './CodeStub'
 import { Delegation } from './Delegation'
 import { TimeTableItem } from './TimeTableItem'
 import { SecurityMetadata } from './SecurityMetadata'
+import { EntityWithDelegationTypeName } from '../../icc-x-api/utils/EntityWithDelegationTypeName'
 
 export class TimeTable {
   constructor(json: JSON | any) {
@@ -83,4 +84,5 @@ export class TimeTable {
    */
   encryptedSelf?: string
   securityMetadata?: SecurityMetadata
+  readonly _type?: EntityWithDelegationTypeName = 'TimeTable'
 }

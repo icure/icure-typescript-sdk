@@ -16,3 +16,17 @@ export function arrayEquals<T>(arrayA: T[], arrayB: T[]): boolean {
   }
   return true
 }
+
+/**
+ * Fully consumes an async generator and provides all results as an array.
+ * @param generator an async generator.
+ */
+export async function asyncGeneratorToArray<T>(generator: AsyncGenerator<T, any, never>): Promise<T[]> {
+  const res = []
+  let latest = await generator.next()
+  while (!latest.done) {
+    res.push(latest.value)
+    latest = await generator.next()
+  }
+  return res
+}

@@ -86,10 +86,9 @@ export class BaseExchangeKeysManager {
       if (delegator.dataOwner.publicKey === mainDelegatorKeyPairPubHex) {
         updatedDataOwner.hcPartyKeys = this.updateLegacyExchangeKeys(delegator, delegate, encryptedKeyInfo.encryptedExchangeKey)
       }
-      const updatedDelegator = await this.dataOwnerApi.updateDataOwner({
-        type: delegator.type,
-        dataOwner: updatedDataOwner,
-      })
+      const updatedDelegator = await this.dataOwnerApi.updateDataOwner(
+        IccDataOwnerXApi.instantiateDataOwnerWithType(updatedDataOwner, delegator.type)
+      )
       return {
         key: encryptedKeyInfo.exchangeKey,
         updatedDelegator,
@@ -255,13 +254,15 @@ export class BaseExchangeKeysManager {
         updatedExchangeKeys[currDelegatorKey] = updatedDelegatesToKeys
       }
       if (didUpdateSomeKey) {
-        await this.dataOwnerApi.updateDataOwner({
-          type: delegator.type,
-          dataOwner: {
-            ...delegator.dataOwner,
-            aesExchangeKeys: updatedExchangeKeys,
-          },
-        })
+        await this.dataOwnerApi.updateDataOwner(
+          IccDataOwnerXApi.instantiateDataOwnerWithType(
+            {
+              ...delegator.dataOwner,
+              aesExchangeKeys: updatedExchangeKeys,
+            },
+            delegator.type
+          )
+        )
       }
     })
   }

@@ -13,6 +13,7 @@ import { CodeStub } from './CodeStub'
 import { Content } from './Content'
 import { Delegation } from './Delegation'
 import { SecurityMetadata } from './SecurityMetadata'
+import { EntityWithDelegationTypeName } from '../../icc-x-api/utils/EntityWithDelegationTypeName'
 
 export class Article {
   constructor(json: JSON | any) {
@@ -81,4 +82,5 @@ export class Article {
    */
   encryptedSelf?: string
   securityMetadata?: SecurityMetadata
+  readonly _type?: EntityWithDelegationTypeName = 'Article'
 }
