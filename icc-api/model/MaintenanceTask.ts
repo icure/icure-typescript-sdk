@@ -14,6 +14,7 @@ import { Delegation } from './Delegation'
 import { Identifier } from './Identifier'
 import { PropertyStub } from './PropertyStub'
 import { SecurityMetadata } from './SecurityMetadata'
+import { EntityWithDelegationTypeName } from '../../icc-x-api/utils/EntityWithDelegationTypeName'
 
 export class MaintenanceTask {
   constructor(json: JSON | any) {
@@ -83,6 +84,7 @@ export class MaintenanceTask {
    */
   encryptedSelf?: string
   securityMetadata?: SecurityMetadata
+  readonly _type?: EntityWithDelegationTypeName = 'MaintenanceTask'
 }
 export namespace MaintenanceTask {
   export type StatusEnum = 'pending' | 'ongoing' | 'cancelled' | 'completed'

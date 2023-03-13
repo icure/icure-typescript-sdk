@@ -4,41 +4,40 @@ import { ExchangeKeysManager } from './ExchangeKeysManager'
 import { b2a, crypt, decrypt, string2ua, truncateTrailingNulls, ua2hex, ua2string, ua2utf8, utf8_2ua, hex2ua } from '../utils'
 import * as _ from 'lodash'
 import { CryptoPrimitives } from './CryptoPrimitives'
-import { arrayEquals } from '../utils/collection-utils'
+import { arrayEquals, asyncGeneratorToArray } from '../utils/collection-utils'
+import { SecurityMetadataDecryptor } from './SecurityMetadataDecryptor'
+import { encryptedEntityClassOf, EncryptedEntityWithType, EntityWithDelegationTypeName } from '../utils/EntityWithDelegationTypeName'
 
 /**
  * Give access to functions for retrieving encryption metadata of entities.
  */
 export class EntitiesEncryption {
-  private readonly primitives: CryptoPrimitives
-  private readonly dataOwnerApi: IccDataOwnerXApi
-  private readonly exchangeKeysManager: ExchangeKeysManager
-
-  constructor(primitives: CryptoPrimitives, dataOwnerApi: IccDataOwnerXApi, exchangeKeysManager: ExchangeKeysManager) {
-    this.primitives = primitives
-    this.dataOwnerApi = dataOwnerApi
-    this.exchangeKeysManager = exchangeKeysManager
-  }
+  constructor(
+    private readonly primitives: CryptoPrimitives,
+    private readonly dataOwnerApi: IccDataOwnerXApi,
+    private readonly exchangeKeysManager: ExchangeKeysManager,
+    private readonly securityMetadataDecryptor: SecurityMetadataDecryptor
+  ) {}
 
   /**
    * Get the encryption keys of an entity that the provided data owner can access, potentially using the keys for his parent.
    * There should only be one encryption key for each entity, but the method supports more to allow to deal with conflicts and merged duplicate data.
    * @param entity an encrypted entity.
+   * @param entityType the type of {@link entity}. This is necessary in cases where entity has not been instantiated using a constructor and in cases
+   * where entity is just a stub.
    * @param dataOwnerId optionally a data owner part of the hierarchy for the current data owner, defaults to the current data owner.
    * @param tagsFilter allows to obtain only encryption keys associated to tags which satisfy the provided filter.
    * @return the encryption keys that the provided data owner can decrypt, deduplicated.
    */
   async encryptionKeysOf(
     entity: EncryptedEntity | EncryptedEntityStub,
+    entityType?: EntityWithDelegationTypeName,
     dataOwnerId?: string,
-    tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
+    tagsFilter: (tags: string[]) => boolean = () => true
   ): Promise<string[]> {
     // Legacy entities may have encryption keys in delegations.
-    return this.extractMergedHierarchyFromDelegationAndOwner(
-      Object.keys(entity.encryptionKeys ?? {}).length > 0 ? entity.encryptionKeys! : entity.delegations ?? {},
-      dataOwnerId,
-      (k) => this.validateEncryptionKey(k),
-      (t) => tagsFilter(t)
+    return await this.decryptAndMergeHierarchy(entity, entityType, dataOwnerId, (entityWithType, hierarchy) =>
+      this.securityMetadataDecryptor.decryptEncryptionKeysOf(entityWithType, hierarchy, (t) => tagsFilter(t))
     )
   }
 
@@ -49,37 +48,38 @@ export class EntitiesEncryption {
    * Note that different data owners may have access to the same keys, but the keys extracted for each data owner are deduplicated.
    * There should only be one encryption key for each entity, but the method supports more to allow to deal with conflicts and merged duplicate data.
    * @param entity an encrypted entity.
+   * @param entityType the type of {@link entity}. This is necessary in cases where entity has not been instantiated using a constructor and in cases
+   * where entity is just a stub.
    * @param tagsFilter allows to obtain only encryption keys associated to tags which satisfy the provided filter.
    * @return the encryption keys that each member of the current data owner hierarchy can decrypt using only his keys and not keys of his parents.
    */
   async encryptionKeysForHcpHierarchyOf(
     entity: EncryptedEntity | EncryptedEntityStub,
-    tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
+    entityType?: EntityWithDelegationTypeName,
+    tagsFilter: (tags: string[]) => boolean = () => true
   ): Promise<{ ownerId: string; extracted: string[] }[]> {
-    return this.extractedHierarchyFromDelegation(
-      entity.encryptionKeys ?? {},
-      (k) => this.validateEncryptionKey(k),
-      (t) => tagsFilter(t)
+    return this.decryptHierarchy(entity, entityType, (entityWithType, hierarchy) =>
+      this.securityMetadataDecryptor.decryptEncryptionKeysOf(entityWithType, hierarchy, (t) => tagsFilter(t))
     )
   }
 
   /**
    * Get the secret ids (SFKs) of an entity that the provided data owner can access, potentially using the keys for his parent.
    * @param entity an encrypted entity.
+   * @param entityType the type of {@link entity}. This is necessary in cases where entity has not been instantiated using a constructor and in cases
+   * where entity is just a stub.
    * @param dataOwnerId optionally a data owner part of the hierarchy for the current data owner, defaults to the current data owner.
    * @param tagsFilter allows to obtain only secret ids associated to tags which satisfy the provided filter.
    * @return the secret ids (SFKs) that the provided data owner can decrypt, deduplicated.
    */
   async secretIdsOf(
     entity: EncryptedEntity | EncryptedEntityStub,
+    entityType?: EntityWithDelegationTypeName,
     dataOwnerId?: string,
-    tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
+    tagsFilter: (tags: string[]) => boolean = () => true
   ): Promise<string[]> {
-    return this.extractMergedHierarchyFromDelegationAndOwner(
-      entity.delegations ?? {},
-      dataOwnerId,
-      (k) => this.validateSecretId(k),
-      (t) => tagsFilter(t)
+    return await this.decryptAndMergeHierarchy(entity, entityType, dataOwnerId, (entityWithType, hierarchy) =>
+      this.securityMetadataDecryptor.decryptSecretIdsOf(entityWithType, hierarchy, (t) => tagsFilter(t))
     )
   }
 
@@ -89,17 +89,18 @@ export class EntitiesEncryption {
    * the array is the same as in {@link IccDataOwnerXApi.getCurrentDataOwnerHierarchyIds}.
    * Note that different data owners may have access to the same secret ids, but the secret ids extracted for each data owner are deduplicated.
    * @param entity an encrypted entity.
+   * @param entityType the type of {@link entity}. This is necessary in cases where entity has not been instantiated using a constructor and in cases
+   * where entity is just a stub.
    * @param tagsFilter allows to obtain only secret ids associated to tags which satisfy the provided filter.
    * @return the secret ids that each member of the current data owner hierarchy can decrypt using only his keys and not keys of his parents.
    */
   async secretIdsForHcpHierarchyOf(
     entity: EncryptedEntity | EncryptedEntityStub,
-    tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
+    entityType?: EntityWithDelegationTypeName,
+    tagsFilter: (tags: string[]) => boolean = () => true
   ): Promise<{ ownerId: string; extracted: string[] }[]> {
-    return this.extractedHierarchyFromDelegation(
-      entity.delegations ?? {},
-      (k) => this.validateSecretId(k),
-      (t) => tagsFilter(t)
+    return this.decryptHierarchy(entity, entityType, (entityWithType, hierarchy) =>
+      this.securityMetadataDecryptor.decryptSecretIdsOf(entityWithType, hierarchy, (t) => tagsFilter(t))
     )
   }
 
@@ -110,20 +111,20 @@ export class EntitiesEncryption {
    * There should only be one owning entity id for each entity, but the method supports more to allow to deal with conflicts and merged duplicate
    * data.
    * @param entity an encrypted entity.
+   * @param entityType the type of {@link entity}. This is necessary in cases where entity has not been instantiated using a constructor and in cases
+   * where entity is just a stub.
    * @param dataOwnerId optionally a data owner part of the hierarchy for the current data owner, defaults to the current data owner.
    * @param tagsFilter allows to obtain only owning entity ids associated to tags which satisfy the provided filter.
    * @return the owning entity ids (CFKs) that the provided data owner can decrypt, deduplicated.
    */
   async owningEntityIdsOf(
     entity: EncryptedEntity | EncryptedEntityStub,
+    entityType?: EntityWithDelegationTypeName,
     dataOwnerId?: string,
-    tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
+    tagsFilter: (tags: string[]) => boolean = () => true
   ): Promise<string[]> {
-    return this.extractMergedHierarchyFromDelegationAndOwner(
-      entity.cryptedForeignKeys ?? {},
-      dataOwnerId,
-      (k) => this.validateOwningEntityId(k),
-      (t) => tagsFilter(t)
+    return await this.decryptAndMergeHierarchy(entity, entityType, dataOwnerId, (entityWithType, hierarchy) =>
+      this.securityMetadataDecryptor.decryptOwningEntityIdsOf(entityWithType, hierarchy, (t) => tagsFilter(t))
     )
   }
 
@@ -138,17 +139,18 @@ export class EntitiesEncryption {
    * There should only be one owning entity id for each entity, but the method supports more to allow to deal with conflicts and merged duplicate
    * data.
    * @param entity an encrypted entity.
+   * @param entityType the type of {@link entity}. This is necessary in cases where entity has not been instantiated using a constructor and in cases
+   * where entity is just a stub.
    * @param tagsFilter allows to obtain only owning entity ids associated to tags which satisfy the provided filter.
    * @return the owning entity ids that each member of the current data owner hierarchy can decrypt using only his keys and not keys of his parents.
    */
   async owningEntityIdsForHcpHierarchyOf(
     entity: EncryptedEntity | EncryptedEntityStub,
-    tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
+    entityType?: EntityWithDelegationTypeName,
+    tagsFilter: (tags: string[]) => boolean = () => true
   ): Promise<{ ownerId: string; extracted: string[] }[]> {
-    return this.extractedHierarchyFromDelegation(
-      entity.cryptedForeignKeys ?? {},
-      (k) => this.validateOwningEntityId(k),
-      (t) => tagsFilter(t)
+    return this.decryptHierarchy(entity, entityType, (entityWithType, hierarchy) =>
+      this.securityMetadataDecryptor.decryptOwningEntityIdsOf(entityWithType, hierarchy, (t) => tagsFilter(t))
     )
   }
 
@@ -227,7 +229,7 @@ export class EntitiesEncryption {
    * @throws if any of the shareX parameters is set to `true` but the corresponding piece of data could not be retrieved.
    * @return an updated copy of the entity.
    */
-  async entityWithExtendedEncryptedMetadata<T extends EncryptedEntity>(
+  async entityWithExtendedEncryptedMetadata<T extends EncryptedEntity | EncryptedEntityStub>(
     entity: T,
     delegateId: string,
     shareSecretIds: string[],
@@ -299,6 +301,8 @@ export class EntitiesEncryption {
    * Note: you should not use this method to encrypt the `encryptedSelf` of iCure entities, since that will be automatically handled by the extended
    * apis. You should use this method only to encrypt additional data, such as document attachments.
    * @param entity an entity.
+   * @param entityType the type of {@link entity}. This is necessary in cases where entity has not been instantiated using a constructor and in cases
+   * where entity is just a stub.
    * @param content data of the entity which you want to encrypt.
    * @param dataOwnerId optionally a data owner part of the hierarchy for the current data owner, defaults to the current data owner.
    * @param tagsFilter allows to use for encryption only keys associated to tags which pass the filter.
@@ -308,10 +312,11 @@ export class EntitiesEncryption {
   async encryptDataOf(
     entity: EncryptedEntity | EncryptedEntityStub,
     content: ArrayBuffer | Uint8Array,
+    entityType?: EntityWithDelegationTypeName,
     dataOwnerId?: string,
-    tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
+    tagsFilter: (tags: string[]) => boolean = () => true
   ): Promise<ArrayBuffer> {
-    const keys = await this.encryptionKeysOf(await this.ensureEncryptionKeysInitialised(entity), dataOwnerId, tagsFilter)
+    const keys = await this.encryptionKeysOf(entity, entityType, dataOwnerId, tagsFilter)
     if (keys.length === 0)
       throw new Error(
         `Could not extract any encryption keys of entity ${entity} for data owner ${
@@ -328,6 +333,8 @@ export class EntitiesEncryption {
    * Note: you should not use this method to decrypt the `encryptedSelf` of iCure entities, since that will be automatically handled by the extended
    * apis. You should use this method only to decrypt additional data, such as document attachments.
    * @param entity an entity.
+   * @param entityType the type of {@link entity}. This is necessary in cases where entity has not been instantiated using a constructor and in cases
+   * where entity is just a stub.
    * @param content data of the entity which you want to decrypt.
    * @param dataOwnerId optionally a data owner part of the hierarchy for the current data owner, defaults to the current data owner.
    * @param validator a function which verifies the correctness of decrypted content: helps to identify decryption with the wrong key without relying
@@ -340,11 +347,12 @@ export class EntitiesEncryption {
   async decryptDataOf(
     entity: EncryptedEntity | EncryptedEntityStub,
     content: ArrayBuffer | Uint8Array,
+    entityType?: EntityWithDelegationTypeName,
     validator: (decryptedData: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true),
     dataOwnerId?: string,
-    tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
+    tagsFilter: (tags: string[]) => boolean = () => true
   ): Promise<ArrayBuffer> {
-    const keys = await this.encryptionKeysOf(entity, dataOwnerId, tagsFilter)
+    const keys = await this.encryptionKeysOf(entity, entityType, dataOwnerId, tagsFilter)
     for (const key of keys) {
       try {
         const decrypted = await this.primitives.AES.decryptWithRawKey(key, content)
@@ -364,11 +372,12 @@ export class EntitiesEncryption {
    */
   async decryptEntity<T extends EncryptedEntity>(
     entity: T,
+    entityType: EntityWithDelegationTypeName,
     ownerId: string,
     constructor: (json: any) => T
   ): Promise<{ entity: T; decrypted: boolean }> {
     if (!entity.encryptedSelf) return { entity, decrypted: true }
-    const encryptionKeys = await this.importAllValidKeys(await this.encryptionKeysOf(entity, ownerId))
+    const encryptionKeys = await this.importAllValidKeys(await this.encryptionKeysOf(entity, entityType, ownerId))
     if (!encryptionKeys.length) return { entity, decrypted: false }
     return {
       entity: constructor(
@@ -409,6 +418,7 @@ export class EntitiesEncryption {
    */
   async tryEncryptEntity<T extends EncryptedEntity>(
     entity: T,
+    entityType: EntityWithDelegationTypeName,
     dataOwnerId: string,
     cryptedKeys: string[],
     encodeBinaryData: boolean,
@@ -416,7 +426,7 @@ export class EntitiesEncryption {
     constructor: (json: any) => T
   ): Promise<T> {
     const entityWithInitialisedEncryptionKeys = await this.ensureEncryptionKeysInitialised(entity)
-    const encryptionKey = await this.tryImportFirstValidKey(await this.encryptionKeysOf(entity, dataOwnerId), entity.id!)
+    const encryptionKey = await this.tryImportFirstValidKey(await this.encryptionKeysOf(entity, entityType, dataOwnerId), entity.id!)
     if (!!encryptionKey) {
       return constructor(
         await crypt(
@@ -482,97 +492,40 @@ export class EntitiesEncryption {
     )
   }
 
-  /**
-   * Get the decrypted content of a delegation-like object which the provided data owner would be able to access using ONLY HIS EXCHANGE KEYS (does
-   * not consider exchange keys for parents).
-   * Note that the retrieved exchange keys are decrypted using the private keys available on the device, and results may vary from other devices.
-   * @param dataOwnerId id of a data owner, he should be part of the current data owner hierarchy.
-   * @param delegations a delegation-like object containing the encrypted key
-   * @param includeFromDelegations if true also considers delegation from the provided data owner (or parents) to look for values. This allows to
-   * decrypt delegations associated to exchange keys recovered after a giveAccessBack request.
-   * @param validateDecrypted validates the decrypted result, to drop decryption results with wrong key that still gave a valid checksum.
-   * @param tagsFilter allows to obtain only encryption keys associated to tags which satisfy the provided filter.
-   * @return the key which could be decrypted using only keys available on the current device and delegations from/to the provided data owner. May
-   * contain duplicates.
-   */
-  private async extractFromDelegationsForDataOwner(
-    dataOwnerId: string,
-    delegations: { [delegateId: string]: Delegation[] },
-    includeFromDelegations: boolean,
-    validateDecrypted: (result: string) => boolean | Promise<boolean>,
-    tagsFilter: (tags: string[]) => Promise<boolean>
-  ): Promise<string[]> {
-    const delegationsWithOwner = includeFromDelegations
-      ? Object.entries(delegations).flatMap(([delegateId, delegations]) =>
-          dataOwnerId === delegateId
-            ? this.populateDelegatedTo(delegateId, delegations)
-            : this.populateDelegatedTo(
-                delegateId,
-                delegations.filter((d) => d.owner === dataOwnerId)
-              )
-        )
-      : delegations[dataOwnerId] ?? []
-    const res = []
-    for (const delegation of delegationsWithOwner) {
-      if (await tagsFilter(delegation.tags ?? [])) {
-        const decrypted = await this.tryDecryptDelegation(delegation, (k) => validateDecrypted(k))
-        if (decrypted) res.push(decrypted)
-      }
-    }
-    return res
-  }
-
-  // Ensures that the delegatedTo field of delegations has the appropriate values, else returns a copy of the delegations with the appropriate value.
-  private populateDelegatedTo(delegateId: string, delegations: Delegation[]): Delegation[] {
-    return delegations.map((d) => (d.delegatedTo === delegateId ? d : { ...d, delegatedTo: delegateId }))
-  }
-
-  private async extractedHierarchyFromDelegation(
-    delegations: { [delegateId: string]: Delegation[] },
-    validateDecrypted: (result: string) => boolean | Promise<boolean>,
-    tagsFilter: (tags: string[]) => Promise<boolean>
+  private async decryptHierarchy(
+    entity: EncryptedEntity | EncryptedEntityStub,
+    declaredEntityType: EntityWithDelegationTypeName | undefined,
+    decryptedDataGeneratorProvider: (
+      entityWithType: EncryptedEntityWithType,
+      dataOwners: string[]
+    ) => AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never>
   ): Promise<{ ownerId: string; extracted: string[] }[]> {
-    return Promise.all(
-      (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()).map(async (ownerId) => {
-        const extracted = this.deduplicate(
-          await this.extractFromDelegationsForDataOwner(
-            ownerId,
-            delegations,
-            true,
-            (k) => validateDecrypted(k),
-            (t) => tagsFilter(t)
-          )
-        )
-        return { ownerId, extracted }
-      })
+    const hierarchy = await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
+    const decryptedData = await asyncGeneratorToArray(
+      decryptedDataGeneratorProvider({ entity, type: encryptedEntityClassOf(entity, declaredEntityType) }, hierarchy)
     )
+    return hierarchy.map((ownerId) => {
+      const extracted = this.deduplicate(decryptedData.filter((x) => x.dataOwnersWithAccess.some((o) => o === ownerId)).map((x) => x.decrypted))
+      return { ownerId, extracted }
+    })
   }
 
-  /**
-   * @internal This method should be private but is currently public/internal to allow to continue supporting legacy methods
-   */
-  async extractMergedHierarchyFromDelegationAndOwner(
-    delegations: { [delegateId: string]: Delegation[] },
+  private async decryptAndMergeHierarchy(
+    entity: EncryptedEntity | EncryptedEntityStub,
+    declaredEntityType: EntityWithDelegationTypeName | undefined,
     dataOwnerId: string | undefined,
-    validateDecrypted: (result: string) => boolean | Promise<boolean>,
-    tagsFilter: (tags: string[]) => Promise<boolean>
+    decryptedDataGeneratorProvider: (
+      entityWithType: EncryptedEntityWithType,
+      dataOwners: string[]
+    ) => AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never>
   ): Promise<string[]> {
     const hierarchy = dataOwnerId
       ? await this.dataOwnerApi.getCurrentDataOwnerHierarchyIdsFrom(dataOwnerId)
       : await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
-    const extractedByOwner = await Promise.all(
-      // Reverse is just to keep method behaviour as close as possible to the legacy behaviour, in case someone depended on the ordering.
-      [...hierarchy].reverse().map((ownerId) =>
-        this.extractFromDelegationsForDataOwner(
-          ownerId,
-          delegations,
-          true,
-          (k) => validateDecrypted(k),
-          (t) => tagsFilter(t)
-        )
-      )
+    const decryptedData = await asyncGeneratorToArray(
+      decryptedDataGeneratorProvider({ entity, type: encryptedEntityClassOf(entity, declaredEntityType) }, hierarchy)
     )
-    return this.deduplicate(extractedByOwner.flatMap((x) => x))
+    return this.deduplicate(decryptedData.map((x) => x.decrypted))
   }
 
   private async tryDecryptDelegation(
@@ -699,7 +652,7 @@ export class EntitiesEncryption {
     }
   }
 
-  private async loadEncryptionKeysForDelegates<T extends EncryptedEntity>(
+  private async loadEncryptionKeysForDelegates<T extends EncryptedEntity | EncryptedEntityStub>(
     entity: T,
     delegates: string[]
   ): Promise<{ updatedEntity: T; keysForDelegates: { [delegateId: string]: CryptoKey[] } }> {
@@ -732,7 +685,7 @@ export class EntitiesEncryption {
     return { updatedEntity, keysForDelegates }
   }
 
-  private async createOrUpdateEntityDelegations<T extends EncryptedEntity>(
+  private async createOrUpdateEntityDelegations<T extends EncryptedEntity | EncryptedEntityStub>(
     entity: T,
     delegateId: string,
     existingSecretIds: Delegation[],

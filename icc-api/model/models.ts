@@ -13,6 +13,7 @@ import { Receipt } from './Receipt'
 import { Patient } from './Patient'
 import { Delegation } from './Delegation'
 import { SecurityMetadata } from './SecurityMetadata'
+import { IcureStub } from './IcureStub'
 
 export * from './AbstractFilterCode'
 export * from './AbstractFilterContact'
@@ -281,14 +282,17 @@ export type EncryptedEntity =
   | Patient
   | Receipt
 
-export type EncryptedEntityStub = {
-  // When changing remember to also update icc-x-api/crypto/utils/encryptedStubEquals
-  secretForeignKeys?: Array<string>
-  cryptedForeignKeys?: { [key: string]: Delegation[] }
-  delegations?: { [key: string]: Delegation[] }
-  encryptionKeys?: { [key: string]: Delegation[] }
-  encryptedSelf?: string
-  securityMetadata?: SecurityMetadata
-}
+export type EncryptedEntityStub =
+  | {
+      // When changing remember to also update icc-x-api/crypto/utils/encryptedStubEquals
+      id?: string
+      secretForeignKeys?: Array<string>
+      cryptedForeignKeys?: { [key: string]: Delegation[] }
+      delegations?: { [key: string]: Delegation[] }
+      encryptionKeys?: { [key: string]: Delegation[] }
+      encryptedSelf?: string
+      securityMetadata?: SecurityMetadata
+    }
+  | IcureStub
 
 export type EncryptedParentEntity = Message | Patient

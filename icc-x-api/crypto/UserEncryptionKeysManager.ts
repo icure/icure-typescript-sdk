@@ -124,7 +124,7 @@ export class UserEncryptionKeysManager {
       (x) =>
         Promise.resolve(
           x.reduce(
-            (acc, { dataOwner }) => ({ ...acc, [dataOwner.id]: { recoveredKeys: {}, keyAuthenticity: {} } }),
+            (acc, { dataOwner }) => ({ ...acc, [dataOwner.id!]: { recoveredKeys: {}, keyAuthenticity: {} } }),
             {} as {
               [dataOwnerId: string]: {
                 recoveredKeys: { [keyPairFingerprint: string]: KeyPair<CryptoKey> }
@@ -181,7 +181,7 @@ export class UserEncryptionKeysManager {
     if (!availableKeys) throw new Error(`Data owner ${dataOwner.id} is not part of the hierarchy of the current data owner ${this.selfId}`)
     const availableVerifiedKeysFp = new Set(Object.entries(availableKeys).flatMap(([fp, info]) => (info.isVerified || info.isDevice ? [fp] : [])))
     const otherVerifiedFp = new Set(
-      Object.entries(await this.icureStorage.loadSelfVerifiedKeys(dataOwner.id)).flatMap(([fp, verified]) => (verified ? [fp] : []))
+      Object.entries(await this.icureStorage.loadSelfVerifiedKeys(dataOwner.id!)).flatMap(([fp, verified]) => (verified ? [fp] : []))
     )
     return Array.from(this.dataOwnerApi.getHexPublicKeysOf(dataOwner)).filter((key) => {
       const fp = key.slice(-32)
@@ -232,8 +232,8 @@ export class UserEncryptionKeysManager {
     )
     const keysCache: { [dataOwnerId: string]: { [fp: string]: KeyPairData } } = {}
     for (const keyData of keysData) {
-      const currAuthenticity = this.ensureFingerprintKeys(recoveryAndVerificationResult[keyData.dowt.dataOwner.id].keyAuthenticity)
-      const currExternallyRecovered = this.ensureFingerprintKeys(recoveryAndVerificationResult[keyData.dowt.dataOwner.id].recoveredKeys)
+      const currAuthenticity = this.ensureFingerprintKeys(recoveryAndVerificationResult[keyData.dowt.dataOwner.id!].keyAuthenticity)
+      const currExternallyRecovered = this.ensureFingerprintKeys(recoveryAndVerificationResult[keyData.dowt.dataOwner.id!].recoveredKeys)
       for (const [fp, keyPair] of Object.entries(currExternallyRecovered)) {
         const jwkPair = await this.primitives.RSA.exportKeys(keyPair, 'jwk', 'jwk')
         await this.icureStorage.saveKey(keyData.dowt.dataOwner.id!, fp, jwkPair, true)
@@ -261,7 +261,7 @@ export class UserEncryptionKeysManager {
     }
     if (Object.entries(keysCache).some(([ownerId, data]) => ownerId !== self.dataOwner.id && !this.hasVerifiedKey(data))) {
       throw new Error('Some parent hcps have no verified keys: impossible to generate locally a new key for a parent.')
-    } else if (this.hasVerifiedKey(keysCache[self.dataOwner.id])) {
+    } else if (this.hasVerifiedKey(keysCache[self.dataOwner.id!])) {
       this.keysCache = keysCache
       this.selfLegacyPublicKey = self.dataOwner.publicKey
       return undefined
@@ -276,7 +276,7 @@ export class UserEncryptionKeysManager {
         this.keysCache = {
           ...keysCache,
           [self.dataOwner.id!]: {
-            ...keysCache[self.dataOwner.id],
+            ...keysCache[self.dataOwner.id!],
             [updateInfo.publicKeyFingerprint]: { pair: updateInfo.keyPair, isDevice: true, isVerified: true },
           },
         }

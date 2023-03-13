@@ -238,7 +238,10 @@ describe('icc-x-maintenance-task-api Tests', () => {
     const startTimestamp = new Date().getTime() + 1000
     const taskToCreate = { ...(await maintenanceTaskToCreate(apiForHcp1.maintenanceTaskApi, hcp1User, hcp1)), created: startTimestamp }
 
-    const createdTask: MaintenanceTask = (await apiForHcp1.maintenanceTaskApi.createMaintenanceTaskWithUser(hcp1User, taskToCreate))!
+    const createdTask: MaintenanceTask = (await apiForHcp1.maintenanceTaskApi.createMaintenanceTaskWithUser(
+      hcp1User,
+      new MaintenanceTask(taskToCreate)
+    ))!
 
     // When
     const foundTask = (

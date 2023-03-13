@@ -131,7 +131,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
 
     return Promise.all(
       maintenanceTasks.map((m) =>
-        this.crypto.entities.tryEncryptEntity(m, dataOwnerId, this.encryptedKeys, true, true, (x) => new models.MaintenanceTask(x))
+        this.crypto.entities.tryEncryptEntity(m, 'MaintenanceTask', dataOwnerId, this.encryptedKeys, true, true, (x) => new models.MaintenanceTask(x))
       )
     )
   }
@@ -141,7 +141,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
 
     return Promise.all(
       maintenanceTasks.map(async (mT) =>
-        this.crypto.entities.decryptEntity(mT, dataOwnerId, (x) => new MaintenanceTask(x)).then(({ entity }) => entity)
+        this.crypto.entities.decryptEntity(mT, 'MaintenanceTask', dataOwnerId, (x) => new MaintenanceTask(x)).then(({ entity }) => entity)
       )
     )
   }

@@ -62,13 +62,15 @@ export class TransferKeysManager {
       },
       { ...(updatedSelf.dataOwner.transferKeys ?? {}) }
     )
-    await this.dataOwnerApi.updateDataOwner({
-      type: updatedSelf.type,
-      dataOwner: {
-        ...updatedSelf.dataOwner,
-        transferKeys: newTransferKeys,
-      },
-    })
+    await this.dataOwnerApi.updateDataOwner(
+      IccDataOwnerXApi.instantiateDataOwnerWithType(
+        {
+          ...updatedSelf.dataOwner,
+          transferKeys: newTransferKeys,
+        },
+        updatedSelf.type
+      )
+    )
   }
 
   // encrypts a transfer key in pkcs8 format using an exchange key, returns the hex representation

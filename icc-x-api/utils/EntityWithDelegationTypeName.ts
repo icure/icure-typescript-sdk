@@ -4,8 +4,8 @@
 import { EncryptedEntity, EncryptedEntityStub } from '../../icc-api/model/models'
 
 export const entityWithDelegationTypeNames: Set<EntityWithDelegationTypeName> = new Set([
-  'AccessLog',
   'Article',
+  'AccessLog',
   'CalendarItem',
   'Classification',
   'Contact',
@@ -17,12 +17,13 @@ export const entityWithDelegationTypeNames: Set<EntityWithDelegationTypeName> = 
   'Message',
   'Patient',
   'Receipt',
+  'Service',
   'TimeTable',
 ])
 
 export type EntityWithDelegationTypeName =
-  | 'AccessLog'
   | 'Article'
+  | 'AccessLog'
   | 'CalendarItem'
   | 'Classification'
   | 'Contact'
@@ -34,8 +35,12 @@ export type EntityWithDelegationTypeName =
   | 'Message'
   | 'Patient'
   | 'Receipt'
+  | 'Service'
   | 'TimeTable'
-
+/**
+ * Type containing information on an entity and its type. If the entity is a stub (EncryptedEntityStub or IcureStub) the type should refer to the
+ * original entity from which the stub was extracted.
+ */
 export type EncryptedEntityWithType = { entity: EncryptedEntityStub | EncryptedEntity; type: EntityWithDelegationTypeName }
 
 /**
@@ -47,7 +52,7 @@ export type EncryptedEntityWithType = { entity: EncryptedEntityStub | EncryptedE
  * @return the class of the encrypted entity
  */
 export function encryptedEntityClassOf(
-  entity: EncryptedEntity,
+  entity: EncryptedEntity | EncryptedEntityStub,
   declaredClassName: EntityWithDelegationTypeName | undefined
 ): EntityWithDelegationTypeName {
   const entityClass = tryGetEncryptedEntityClassOf(entity, declaredClassName)
@@ -55,8 +60,9 @@ export function encryptedEntityClassOf(
     return entityClass
   } else
     throw new Error(
-      `No valid encrypted entity class name (constructor: "${entity.constructor.name}", declared: "${declaredClassName}").` +
-        `Please specify a valid class name. Valid class names are ${entityWithDelegationTypeNames}.`
+      `No valid encrypted entity class name (constructor: "${entity.constructor.name}",` +
+        `declared: ${declaredClassName ? '"' + declaredClassName + '"' : 'undefined'}).` +
+        `Please specify a valid class name.\nValid class names are ${Array.from(entityWithDelegationTypeNames)}.`
     )
 }
 
@@ -69,7 +75,7 @@ export function encryptedEntityClassOf(
  * @return the class of the encrypted entity
  */
 export function tryGetEncryptedEntityClassOf(
-  entity: EncryptedEntity,
+  entity: EncryptedEntity | EncryptedEntityStub,
   declaredClassName: EntityWithDelegationTypeName | undefined
 ): EntityWithDelegationTypeName | undefined {
   const _type = (entity as any)._type

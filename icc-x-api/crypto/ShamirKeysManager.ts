@@ -105,13 +105,13 @@ export class ShamirKeysManager {
     if (keyFp !== dataOwner.dataOwner.publicKey?.slice(-32)) {
       throw new Error('Currently it is possible to use shamir splits only for the legacy public key')
     }
-    return {
-      type: dataOwner.type,
-      dataOwner: {
+    return IccDataOwnerXApi.instantiateDataOwnerWithType(
+      {
         ...dataOwner.dataOwner,
         privateKeyShamirPartitions: {},
       },
-    }
+      dataOwner.type
+    )
   }
 
   private async updateKeySplit(
@@ -125,13 +125,13 @@ export class ShamirKeysManager {
     if (keyFp !== dataOwner.dataOwner.publicKey?.slice(-32)) {
       throw new Error('Currently it is possible to use shamir splits only for the legacy public key')
     }
-    return {
-      type: dataOwner.type,
-      dataOwner: {
+    return IccDataOwnerXApi.instantiateDataOwnerWithType(
+      {
         ...dataOwner.dataOwner,
         privateKeyShamirPartitions: await this.createPartitionsFor(allKeys[keyFp], delegateIds, minShares, delegatesKeys),
       },
-    }
+      dataOwner.type
+    )
   }
 
   private async createPartitionsFor(

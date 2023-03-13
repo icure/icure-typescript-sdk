@@ -308,7 +308,7 @@ describe('test that confidential contact information cannot be retrieved at MH l
 
     const confidentialCtc = await childApi.contactApi.createContactWithUser(
       childUser,
-      await childApi.healthcareElementApi.newInstance(
+      await childApi.contactApi.newInstance(
         childUser,
         modifiedPatient,
 
@@ -319,7 +319,7 @@ describe('test that confidential contact information cannot be retrieved at MH l
 
     await childApi.contactApi.createContactWithUser(
       childUser,
-      await childApi.healthcareElementApi.newInstance(
+      await childApi.contactApi.newInstance(
         childUser,
         modifiedPatient,
 

@@ -14,6 +14,8 @@ import { CodeStub } from './CodeStub'
 import { Content } from './Content'
 import { Delegation } from './Delegation'
 import { Identifier } from './Identifier'
+import { SecurityMetadata } from './SecurityMetadata'
+import { EntityWithDelegationTypeName } from '../../icc-x-api/utils/EntityWithDelegationTypeName'
 
 /**
  * This entity represents a Service. A Service is created in the course a contact. Services include subjective information provided by the patient, such as complaints, reason for visit, feelings, etc. or objective information like bio-metric measures (blood pressure, temperature, heart beat, etc.), or physical exam description, diagnosis, prescription, integration of lab reports from another healthcare party, action plan, etc. Any action performed by the healthcare party which is relevant for the healthcare element of a patient is considered a service. The services can be linked to healthcare elements or other structuring elements of the medical record
@@ -152,4 +154,6 @@ export class Service {
    * The base64 encoded data of this object, formatted as JSON and encrypted in AES using the random master key from encryptionKeys.
    */
   encryptedSelf?: string
+  securityMetadata?: SecurityMetadata
+  readonly _type?: EntityWithDelegationTypeName = 'Service'
 }

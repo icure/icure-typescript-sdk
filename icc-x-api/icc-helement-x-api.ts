@@ -283,7 +283,7 @@ export class IccHelementXApi extends IccHelementApi {
     const owner = this.dataOwnerApi.getDataOwnerIdOf(user)
     return Promise.all(
       healthElements.map((he) =>
-        this.crypto.entities.tryEncryptEntity(he, owner, this.encryptedKeys, false, true, (x) => new models.HealthElement(x))
+        this.crypto.entities.tryEncryptEntity(he, 'HealthElement', owner, this.encryptedKeys, false, true, (x) => new models.HealthElement(x))
       )
     )
   }
@@ -294,7 +294,9 @@ export class IccHelementXApi extends IccHelementApi {
 
   decrypt(dataOwnerId: string, hes: Array<models.HealthElement>): Promise<Array<models.HealthElement>> {
     return Promise.all(
-      hes.map((he) => this.crypto.entities.decryptEntity(he, dataOwnerId, (x) => new models.HealthElement(x)).then(({ entity }) => entity))
+      hes.map((he) =>
+        this.crypto.entities.decryptEntity(he, 'HealthElement', dataOwnerId, (x) => new models.HealthElement(x)).then(({ entity }) => entity)
+      )
     )
   }
 

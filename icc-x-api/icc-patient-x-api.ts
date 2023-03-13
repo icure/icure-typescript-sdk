@@ -17,6 +17,7 @@ import { findName, garnishPersonWithName, hasName } from './utils/person-util'
 import { retry } from './utils'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import { EntityWithDelegationTypeName } from './utils/EntityWithDelegationTypeName'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccPatientXApi extends IccPatientApi {
@@ -108,7 +109,7 @@ export class IccPatientXApi extends IccPatientApi {
   }
 
   completeNames(patient: models.Patient): models.Patient {
-    let finalPatient = patient
+    let finalPatient: any = patient
 
     if (!!finalPatient.lastName && !hasName(finalPatient, models.PersonName.UseEnum.Official)) {
       finalPatient = garnishPersonWithName(finalPatient, models.PersonName.UseEnum.Official, finalPatient.lastName, finalPatient.firstName)
@@ -145,7 +146,7 @@ export class IccPatientXApi extends IccPatientApi {
       }
     }
 
-    return finalPatient
+    return new Patient(finalPatient)
   }
 
   /**
@@ -479,7 +480,7 @@ export class IccPatientXApi extends IccPatientApi {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
 
     return Promise.all(
-      pats.map((p) => this.crypto.entities.tryEncryptEntity(p, dataOwnerId, this.encryptedKeys, true, false, (x) => new models.Patient(x)))
+      pats.map((p) => this.crypto.entities.tryEncryptEntity(p, 'Patient', dataOwnerId, this.encryptedKeys, true, false, (x) => new models.Patient(x)))
     )
   }
 
@@ -499,7 +500,7 @@ export class IccPatientXApi extends IccPatientApi {
       patients.map(
         async (p) =>
           await this.crypto.entities
-            .decryptEntity(p, dataOwnerId, (x) => new models.Patient(x))
+            .decryptEntity(p, 'Patient', dataOwnerId, (x) => new models.Patient(x))
             .then((p) => {
               if (p.entity.picture && !(p.entity.picture instanceof ArrayBuffer)) {
                 return {
@@ -526,23 +527,26 @@ export class IccPatientXApi extends IccPatientApi {
     statuses: { [key: string]: { success: boolean | null; error: Error | null } }
   } | null> {
     const addDelegationsAndKeys = (
-      dtos: Array<models.Form | models.Document | models.Contact | models.HealthElement | models.Classification | models.CalendarItem>,
+      dtos: Array<{
+        entity: models.IcureStub
+        type: EntityWithDelegationTypeName
+      }>,
       markerPromise: Promise<any>,
       delegateId: string
     ) => {
       return dtos.reduce(
         (p, x) =>
           p.then(async () => {
-            const secretIds = await this.crypto.entities.secretIdsOf(x, ownerId)
-            const encryptionKeys = await this.crypto.entities.encryptionKeysOf(x, ownerId)
-            const parentIds = await this.crypto.entities.owningEntityIdsOf(x, ownerId)
+            const secretIds = await this.crypto.entities.secretIdsOf(x.entity, x.type, ownerId)
+            const encryptionKeys = await this.crypto.entities.encryptionKeysOf(x.entity, x.type, ownerId)
+            const parentIds = await this.crypto.entities.owningEntityIdsOf(x.entity, x.type, ownerId)
             const updatedX = await this.crypto.entities
-              .entityWithExtendedEncryptedMetadata(x, delegateId, secretIds, encryptionKeys, parentIds, [])
+              .entityWithExtendedEncryptedMetadata(x.entity, delegateId, secretIds, encryptionKeys, parentIds, [])
               .catch((e: any) => {
                 console.log(e)
                 return x
               })
-            _.assign(x, updatedX)
+            _.assign(x.entity, updatedX)
             return x
           }),
         markerPromise
@@ -611,8 +615,8 @@ export class IccPatientXApi extends IccPatientApi {
             return Promise.resolve({ patient: patient, statuses: status })
           }
 
-          const delSfks = await this.crypto.entities.secretIdsOf(patient, ownerId)
-          const ecKeys = await this.crypto.entities.encryptionKeysOf(patient, ownerId)
+          const delSfks = await this.crypto.entities.secretIdsOf(patient, 'Patient', ownerId)
+          const ecKeys = await this.crypto.entities.encryptionKeysOf(patient, 'Patient', ownerId)
           return delSfks.length
             ? Promise.all([
                 retry(() =>
@@ -726,19 +730,47 @@ export class IccPatientXApi extends IccPatientApi {
                       return _.assign(patient, updatedPatient)
                     })
                     ;(tags.includes('medicalInformation') || tags.includes('all')) &&
-                      (markerPromise = addDelegationsAndKeys(hes, markerPromise, delegateId))
+                      (markerPromise = addDelegationsAndKeys(
+                        hes.map((x) => ({ entity: x, type: 'HealthElement' })),
+                        markerPromise,
+                        delegateId
+                      ))
                     ;(tags.includes('medicalInformation') || tags.includes('all')) &&
-                      (markerPromise = addDelegationsAndKeys(frms, markerPromise, delegateId))
+                      (markerPromise = addDelegationsAndKeys(
+                        frms.map((x) => ({ entity: x, type: 'Form' })),
+                        markerPromise,
+                        delegateId
+                      ))
                     ;(tags.includes('medicalInformation') || tags.includes('all')) &&
-                      (markerPromise = addDelegationsAndKeys(ctcsStubs, markerPromise, delegateId))
+                      (markerPromise = addDelegationsAndKeys(
+                        ctcsStubs.map((x) => ({ entity: x, type: 'Contact' })),
+                        markerPromise,
+                        delegateId
+                      ))
                     ;(tags.includes('medicalInformation') || tags.includes('all')) &&
-                      (markerPromise = addDelegationsAndKeys(cls, markerPromise, delegateId))
+                      (markerPromise = addDelegationsAndKeys(
+                        cls.map((x) => ({ entity: x, type: 'Classification' })),
+                        markerPromise,
+                        delegateId
+                      ))
                     ;(tags.includes('medicalInformation') || tags.includes('all')) &&
-                      (markerPromise = addDelegationsAndKeys(cis, markerPromise, delegateId))
+                      (markerPromise = addDelegationsAndKeys(
+                        cis.map((x) => ({ entity: x, type: 'CalendarItem' })),
+                        markerPromise,
+                        delegateId
+                      ))
                     ;(tags.includes('financialInformation') || tags.includes('all')) &&
-                      (markerPromise = addDelegationsAndKeys(ivs, markerPromise, delegateId))
+                      (markerPromise = addDelegationsAndKeys(
+                        ivs.map((x) => ({ entity: x, type: 'Invoice' })),
+                        markerPromise,
+                        delegateId
+                      ))
                     ;(tags.includes('medicalInformation') || tags.includes('all')) &&
-                      (markerPromise = addDelegationsAndKeys(docs, markerPromise, delegateId))
+                      (markerPromise = addDelegationsAndKeys(
+                        docs.map((x) => ({ entity: x, type: 'Document' })),
+                        markerPromise,
+                        delegateId
+                      ))
                   })
 
                   return markerPromise
@@ -914,7 +946,7 @@ export class IccPatientXApi extends IccPatientApi {
           if (!patient) {
             return Promise.resolve({ id: patId })
           }
-          const delSfks = await this.crypto.entities.secretIdsOf(patient, ownerId)
+          const delSfks = await this.crypto.entities.secretIdsOf(patient, 'Patient', ownerId)
           return delSfks.length
             ? Promise.all([
                 retry(() =>
@@ -1069,7 +1101,7 @@ export class IccPatientXApi extends IccPatientApi {
     childDocument: models.Invoice | models.CalendarItem | models.Contact | models.AccessLog,
     hcpId: string
   ): Promise<string> {
-    const parentIdsArray = await this.crypto.entities.owningEntityIdsOf(childDocument, hcpId)
+    const parentIdsArray = await this.crypto.entities.owningEntityIdsOf(childDocument, undefined, hcpId)
 
     const multipleParentIds = _.uniq(parentIdsArray).length > 1
 

@@ -28,6 +28,7 @@ import { SchoolingInfo } from './SchoolingInfo'
  */
 import { b64_2ab } from './ModelHelper'
 import { SecurityMetadata } from './SecurityMetadata'
+import { EntityWithDelegationTypeName } from '../../icc-x-api/utils/EntityWithDelegationTypeName'
 export class Patient {
   constructor(json: JSON | any) {
     Object.assign(this as Patient, json, json.picture ? { picture: b64_2ab(json.picture) } : {})
@@ -306,6 +307,7 @@ export class Patient {
   schoolingInfos?: Array<SchoolingInfo>
   employementInfos?: Array<EmploymentInfo>
   securityMetadata?: SecurityMetadata
+  readonly _type?: EntityWithDelegationTypeName = 'Patient'
 }
 export namespace Patient {
   export type GenderEnum = 'male' | 'female' | 'indeterminate' | 'changed' | 'changedToMale' | 'changedToFemale' | 'unknown'

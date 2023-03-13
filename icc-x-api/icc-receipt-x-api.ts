@@ -72,7 +72,7 @@ export class IccReceiptXApi extends IccReceiptApi {
    * @return the updated receipt.
    */
   async encryptAndSetReceiptAttachment(receipt: models.Receipt, blobType: string, attachment: ArrayBuffer | Uint8Array): Promise<models.Receipt> {
-    const encryptedData = await this.crypto.entities.encryptDataOf(receipt, attachment)
+    const encryptedData = await this.crypto.entities.encryptDataOf(receipt, attachment, 'Receipt')
     return await this.setReceiptAttachment(receipt.id!, blobType, undefined, encryptedData)
   }
 
@@ -89,6 +89,8 @@ export class IccReceiptXApi extends IccReceiptApi {
     attachmentId: string,
     validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<ArrayBuffer> {
-    return await this.crypto.entities.decryptDataOf(receipt, await this.getReceiptAttachment(receipt.id!, attachmentId, ''), (x) => validator(x))
+    return await this.crypto.entities.decryptDataOf(receipt, await this.getReceiptAttachment(receipt.id!, attachmentId, ''), 'Receipt', (x) =>
+      validator(x)
+    )
   }
 }

@@ -32,7 +32,7 @@ export class BaseExchangeDataManager {
   async getAllExchangeDataForCurrentDataOwnerIfAllowed(): Promise<ExchangeData[] | undefined> {
     const currentDataOwner = await this.dataOwnerApi.getCurrentDataOwner()
     if (!this.cryptoStrategies.dataOwnerRequiresAnonymousDelegation(currentDataOwner)) return undefined
-    const dataOwnerId = currentDataOwner.dataOwner.id
+    const dataOwnerId = currentDataOwner.dataOwner.id!
     let latestResult = await this.exchangeDataApi.getExchangeDataByParticipant(dataOwnerId, undefined, 1000)
     const allRetrieved = latestResult.rows ?? []
     while (latestResult.nextKeyPair?.startKeyDocId) {

@@ -19,6 +19,7 @@ import { DeletedAttachment } from './DeletedAttachment'
  */
 import { b64_2ab } from './ModelHelper'
 import { SecurityMetadata } from './SecurityMetadata'
+import { EntityWithDelegationTypeName } from '../../icc-x-api/utils/EntityWithDelegationTypeName'
 export class Document {
   constructor(json: JSON | any) {
     Object.assign(
@@ -164,6 +165,7 @@ export class Document {
    */
   encryptedSelf?: string
   securityMetadata?: SecurityMetadata
+  readonly _type?: EntityWithDelegationTypeName = 'Document'
 }
 export namespace Document {
   export type DocumentLocationEnum = 'annex' | 'body'

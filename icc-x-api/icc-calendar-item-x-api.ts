@@ -33,7 +33,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
     this.encryptedKeys = encryptedKeys
   }
 
-  newInstance(user: User, ci: CalendarItem, delegates: string[] = []) {
+  newInstance(user: User, ci: any | CalendarItem, delegates: string[] = []) {
     return this.newInstancePatient(user, null, ci, delegates)
   }
 
@@ -85,7 +85,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
   }
 
   async findBy(hcpartyId: string, patient: models.Patient) {
-    const extractedKeys = await this.crypto.entities.secretIdsOf(patient, hcpartyId)
+    const extractedKeys = await this.crypto.entities.secretIdsOf(patient, 'Patient', hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     return extractedKeys && extractedKeys.length > 0
       ? this.findByHCPartyPatientSecretFKeys(topmostParentId, _.uniq(extractedKeys).join(','))
@@ -184,7 +184,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
    */
   resetCalendarDelegationObjects(calendarItem: models.CalendarItem): models.CalendarItem {
     const { cryptedForeignKeys, secretForeignKeys, ...resetCalendarItem } = calendarItem
-    return resetCalendarItem
+    return new CalendarItem(resetCalendarItem)
   }
 
   async modifyCalendarItemWithHcParty(user: models.User, body?: models.CalendarItem): Promise<models.CalendarItem | any> {
@@ -199,13 +199,17 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
   encrypt(user: models.User, calendarItems: Array<models.CalendarItem>): Promise<Array<models.CalendarItem>> {
     const owner = this.dataOwnerApi.getDataOwnerIdOf(user)
     return Promise.all(
-      calendarItems.map((x) => this.crypto.entities.tryEncryptEntity(x, owner, this.encryptedKeys, false, true, (json) => new CalendarItem(json)))
+      calendarItems.map((x) =>
+        this.crypto.entities.tryEncryptEntity(x, 'CalendarItem', owner, this.encryptedKeys, false, true, (json) => new CalendarItem(json))
+      )
     )
   }
 
   decrypt(hcpId: string, calendarItems: Array<models.CalendarItem>): Promise<Array<models.CalendarItem>> {
     return Promise.all(
-      calendarItems.map((x) => this.crypto.entities.decryptEntity(x, hcpId, (json) => new CalendarItem(json)).then(({ entity }) => entity))
+      calendarItems.map((x) =>
+        this.crypto.entities.decryptEntity(x, 'CalendarItem', hcpId, (json) => new CalendarItem(json)).then(({ entity }) => entity)
+      )
     )
   }
 }

@@ -509,7 +509,7 @@ export class IccCryptoXApi {
       return Promise.resolve({ extractedKeys: [], hcpartyId: hcpartyId })
     }
     return {
-      extractedKeys: await this.entities.secretIdsOf(document, hcpartyId),
+      extractedKeys: await this.entities.secretIdsOf(document, undefined, hcpartyId),
       hcpartyId: (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0],
     }
   }
@@ -534,7 +534,7 @@ export class IccCryptoXApi {
       return Promise.resolve({ extractedKeys: [], hcpartyId: hcpartyId })
     }
     return {
-      extractedKeys: await this.entities.owningEntityIdsOf(document, hcpartyId),
+      extractedKeys: await this.entities.owningEntityIdsOf(document, undefined, hcpartyId),
       hcpartyId: (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0],
     }
   }
@@ -559,7 +559,7 @@ export class IccCryptoXApi {
       return Promise.resolve({ extractedKeys: [], hcpartyId: hcpartyId })
     }
     return {
-      extractedKeys: await this.entities.encryptionKeysOf(document, hcpartyId),
+      extractedKeys: await this.entities.encryptionKeysOf(document, undefined, hcpartyId),
       hcpartyId: (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0],
     }
   }
@@ -576,15 +576,7 @@ export class IccCryptoXApi {
     objectId: string,
     delegations: { [key: string]: Array<Delegation> }
   ): Promise<{ extractedKeys: Array<string>; hcpartyId: string }> {
-    return {
-      extractedKeys: await this.entities.extractMergedHierarchyFromDelegationAndOwner(
-        delegations,
-        dataOwnerId,
-        (x) => !!x,
-        () => Promise.resolve(true)
-      ),
-      hcpartyId: (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0],
-    }
+    throw new Error('This method is not supported anymore')
   }
 
   /**
@@ -880,7 +872,7 @@ export class IccCryptoXApi {
    *   the id of the topmost parent, while the last is the current data owner.
    */
   async getEncryptionDecryptionKeys(dataOwnerId: string, document: EncryptedEntity): Promise<Array<string> | undefined> {
-    return this.entities.encryptionKeysOf(document, dataOwnerId)
+    return this.entities.encryptionKeysOf(document, undefined, dataOwnerId)
   }
 
   /**
@@ -911,7 +903,7 @@ export class IccCryptoXApi {
       }
     }
 
-    const encryptionKeys = await this.entities.encryptionKeysOf(documentObject!, user?.healthcarePartyId!)
+    const encryptionKeys = await this.entities.encryptionKeysOf(documentObject!, undefined, user?.healthcarePartyId!)
     const importedEdKey = await this.primitives.AES.importKey('raw', hex2ua(encryptionKeys[0].replace(/-/g, '')))
     try {
       return await this.primitives.AES[method](importedEdKey, content)

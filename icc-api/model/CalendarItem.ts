@@ -15,6 +15,7 @@ import { CodeStub } from './CodeStub'
 import { Delegation } from './Delegation'
 import { FlowItem } from './FlowItem'
 import { SecurityMetadata } from './SecurityMetadata'
+import { EntityWithDelegationTypeName } from '../../icc-x-api/utils/EntityWithDelegationTypeName'
 
 export class CalendarItem {
   constructor(json: JSON | any) {
@@ -102,4 +103,5 @@ export class CalendarItem {
    */
   encryptedSelf?: string
   securityMetadata?: SecurityMetadata
+  readonly _type?: EntityWithDelegationTypeName = 'CalendarItem'
 }

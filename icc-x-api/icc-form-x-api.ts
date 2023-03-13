@@ -92,7 +92,7 @@ export class IccFormXApi extends IccFormApi {
    * @param patient (Promise)
    */
   async findBy(hcpartyId: string, patient: models.Patient) {
-    const extractedKeys = await this.crypto.entities.secretIdsOf(patient, hcpartyId)
+    const extractedKeys = await this.crypto.entities.secretIdsOf(patient, 'Patient', hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     let forms: Array<models.Form> = await this.findFormsByHCPartyPatientForeignKeys(topmostParentId, _.uniq(extractedKeys).join(','))
     return await this.decrypt(hcpartyId, forms)
@@ -100,7 +100,7 @@ export class IccFormXApi extends IccFormApi {
 
   decrypt(hcpartyId: string, forms: Array<models.Form>) {
     return Promise.all(
-      forms.map((form) => this.crypto.entities.decryptEntity(form, hcpartyId, (x) => new models.Form(x)).then(({ entity }) => entity))
+      forms.map((form) => this.crypto.entities.decryptEntity(form, 'Form', hcpartyId, (x) => new models.Form(x)).then(({ entity }) => entity))
     )
   }
 }

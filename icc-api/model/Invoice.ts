@@ -15,6 +15,7 @@ import { IdentityDocumentReader } from './IdentityDocumentReader'
 import { InvoicingCode } from './InvoicingCode'
 import { Payment } from './Payment'
 import { SecurityMetadata } from './SecurityMetadata'
+import { EntityWithDelegationTypeName } from '../../icc-x-api/utils/EntityWithDelegationTypeName'
 
 /**
  * This entity is a root level object. It represents an Invoice. It is serialized in JSON and saved in the underlying iCure CouchDB database.
@@ -167,6 +168,7 @@ export class Invoice {
    */
   encryptedSelf?: string
   securityMetadata?: SecurityMetadata
+  readonly _type?: EntityWithDelegationTypeName = 'Invoice'
 }
 export namespace Invoice {
   export type InvoiceTypeEnum = 'patient' | 'mutualfund' | 'payingagency' | 'insurance' | 'efact' | 'other'
