@@ -6,7 +6,7 @@ import { hex2ua } from '../utils'
 import { HealthcareParty } from '../../icc-api/model/HealthcareParty'
 import { Patient } from '../../icc-api/model/Patient'
 import { Device } from '../../icc-api/model/Device'
-import { EntitiesEncryption } from './EntitiesEncryption'
+import { ExtendedApisUtils } from './ExtendedApisUtils'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { Delegation, EncryptedEntityStub } from '../../icc-api/model/models'
 import { setEquals } from '../utils/collection-utils'
@@ -79,7 +79,7 @@ export async function loadPublicKeys(rsa: RSAUtils, publicKeysSpkiHex: string[])
  */
 export async function ensureDelegationForSelf(
   dataOwnerApi: IccDataOwnerXApi,
-  entitiesEncryption: EntitiesEncryption,
+  entitiesEncryption: ExtendedApisUtils,
   cryptoPrimitives: CryptoPrimitives
 ): Promise<DataOwnerWithType> {
   const self = await dataOwnerApi.getCurrentDataOwner()
