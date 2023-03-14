@@ -28,10 +28,10 @@ export class SecureDelegation {
    */
   owningEntityIds?: string[]
   /**
-   * Key of the parent delegation in the [SecurityMetadata.secureDelegations]. Users are allowed to modify/delete
+   * Key of the parent delegations in the [SecurityMetadata.secureDelegations]. Users are allowed to modify/delete
    * only [SecureDelegation] that they can directly access or any children delegations.
    */
-  parentDelegation!: string
+  parentDelegations?: string[]
   /**
    * If both the [delegator] and [delegate] are explicit in this secure delegation this field will hold the id of the exchange
    * data used for the encryption of this delegation. Otherwise, this will be null.

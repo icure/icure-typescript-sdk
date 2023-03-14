@@ -5,6 +5,8 @@ import { ua2string } from '../../icc-api/model/ModelHelper'
 import { hex2ua } from '../utils'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { ExchangeKeysManager } from './ExchangeKeysManager'
+import { SecureDelegation } from '../../icc-api/model/SecureDelegation'
+import AccessLevel = SecureDelegation.AccessLevel
 
 export class LegacyDelegationSecurityMetadataDecryptor implements SecurityMetadataDecryptor {
   constructor(private readonly exchangeKeysManager: ExchangeKeysManager, private readonly primitives: CryptoPrimitives) {}
@@ -46,6 +48,13 @@ export class LegacyDelegationSecurityMetadataDecryptor implements SecurityMetada
       (d) => Promise.resolve(this.validateSecretId(d)),
       (t) => tagsFilter(t)
     )
+  }
+
+  getFullEntityAccessLevel(typedEntity: EncryptedEntityWithType, dataOwnersHierarchySubset: string[]): Promise<AccessLevel | undefined> {
+    const delegatesSet = new Set(Object.keys(typedEntity.entity.delegations ?? {}))
+    return dataOwnersHierarchySubset.some((dataOwner) => delegatesSet.has(dataOwner))
+      ? Promise.resolve(AccessLevel.WRITE)
+      : Promise.resolve(undefined)
   }
 
   private extractFromDelegations(

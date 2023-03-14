@@ -1,5 +1,7 @@
 import { EncryptedEntity, EncryptedEntityStub } from '../../icc-api/model/models'
 import { EntityWithDelegationTypeName } from '../utils/EntityWithDelegationTypeName'
+import { SecureDelegation } from '../../icc-api/model/SecureDelegation'
+import AccessLevel = SecureDelegation.AccessLevel
 
 /**
  * Gives access to several functions to access encrypted entities metadata.
@@ -171,4 +173,22 @@ export interface EntitiesEncryption {
     dataOwnerId?: string,
     tagsFilter?: (tags: string[]) => boolean
   ): Promise<ArrayBuffer>
+
+  /**
+   * Get if the current data owner has access to the entirety of the provided entity in some way, and if yes specifies whether the access is read-only
+   * or read-write. There is currently no support for field-level permissions so currently a user will only have either full write-only or full
+   * read-only access on an entity, and never read access to some fields and write in others. In future whn field-level are introduced this method
+   * will behave in the following way: if the data owner has read-only permissions in at least one field this method will return at most read access
+   * level, even if all other fields are accessible with write permissions. Similarly, if the data owners has no read access to at least a field then
+   * this method will return undefined (even though the data owner could still access some fields).
+   * @param entity an entity
+   * @param entityType the type of {@link entity}. This is necessary in cases where entity has not been instantiated using a constructor and in cases
+   * where entity is just a stub.
+   * @return if the current data owner (or one of his parents) has access to the entirety of the provided entity returns the AccessLevel (full
+   * read-only or full read-write), else undefined.
+   */
+  getAccessLevelOfCurrentDataOwnerOnEntireEntity(
+    entity: EncryptedEntity | EncryptedEntityStub,
+    entityType?: EntityWithDelegationTypeName
+  ): Promise<AccessLevel | undefined>
 }
