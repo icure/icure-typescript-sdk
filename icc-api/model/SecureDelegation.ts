@@ -70,7 +70,7 @@ export class SecureDelegation {
 export namespace SecureDelegation {
   export type AccessLevel = 'READ' | 'WRITE'
   export const AccessLevel = {
-    READ: 'READ',
-    WRITE: 'WRITE',
+    READ: 'READ' as AccessLevel,
+    WRITE: 'WRITE' as AccessLevel,
   }
 }

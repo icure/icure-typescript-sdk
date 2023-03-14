@@ -4,11 +4,15 @@ import { ExchangeDataManager } from './ExchangeDataManager'
 import { UserEncryptionKeysManager } from './UserEncryptionKeysManager'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { hex2ua } from '@icure/apiV6'
+import { EncryptedEntity, EncryptedEntityStub } from '../../icc-api/model/models'
+import { CryptoStrategies } from './CryptoStrategies'
+import { EntityWithDelegationTypeName } from '../utils/EntityWithDelegationTypeName'
+import AccessLevel = SecureDelegation.AccessLevel
 
 /**
  * @internal this class is for internal use only and may be changed without notice.
  */
-export class SecureDelegationsUtils {
+export class SecureDelegationsEncryption {
   constructor(private readonly userKeys: UserEncryptionKeysManager, private readonly primitives: CryptoPrimitives) {}
 
   /**
@@ -26,27 +30,39 @@ export class SecureDelegationsUtils {
     return undefined
   }
 
+  /**
+   * Encrypts the exchange data id for a secure delegation. To avoid leaks of sensitive data the provided public keys should be only keys of users
+   * which DO NOT REQUIRE anonymous delegations
+   */
+  async encryptExchangeDataId(exchangeDataId: string, publicKeys: { [fp: string]: CryptoKey }): Promise<{ [fp: string]: string }> {
+    const res = {} as { [fp: string]: string }
+    for (const [fp, key] of Object.entries(publicKeys)) {
+      res[fp] = ua2b64(await this.primitives.RSA.encrypt(key, utf8_2ua(exchangeDataId)))
+    }
+    return res
+  }
+
   async decryptEncryptionKey(encrypted: string, key: CryptoKey): Promise<string> {
     return ua2hex(await this.primitives.AES.decrypt(key, b64_2ua(encrypted)))
   }
 
-  private async encryptEncryptionKey(encrypted: string, key: CryptoKey): Promise<string> {
-    return ua2b64(await this.primitives.AES.encrypt(key, hex2ua(encrypted)))
+  async encryptEncryptionKey(hexKey: string, key: CryptoKey): Promise<string> {
+    return ua2b64(await this.primitives.AES.encrypt(key, hex2ua(hexKey)))
   }
 
   async decryptSecretId(encrypted: string, key: CryptoKey): Promise<string> {
     return ua2utf8(await this.primitives.AES.decrypt(key, b64_2ua(encrypted)))
   }
 
-  private async encryptSecretId(encrypted: string, key: CryptoKey): Promise<string> {
-    return ua2b64(await this.primitives.AES.encrypt(key, utf8_2ua(encrypted)))
+  async encryptSecretId(secretId: string, key: CryptoKey): Promise<string> {
+    return ua2b64(await this.primitives.AES.encrypt(key, utf8_2ua(secretId)))
   }
 
   async decryptOwningEntityId(encrypted: string, key: CryptoKey): Promise<string> {
     return ua2utf8(await this.primitives.AES.decrypt(key, b64_2ua(encrypted)))
   }
 
-  private async encryptOwningEntityId(encrypted: string, key: CryptoKey): Promise<string> {
-    return ua2b64(await this.primitives.AES.encrypt(key, utf8_2ua(encrypted)))
+  async encryptOwningEntityId(owningEntityId: string, key: CryptoKey): Promise<string> {
+    return ua2b64(await this.primitives.AES.encrypt(key, utf8_2ua(owningEntityId)))
   }
 }

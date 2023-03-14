@@ -1,0 +1,447 @@
+import { describe } from 'mocha'
+import { CryptoPrimitives } from '../../../icc-x-api/crypto/CryptoPrimitives'
+import { webcrypto } from 'crypto'
+import { FakeEncryptionKeysManager } from '../../utils/FakeEncryptionKeysManager'
+import { SecureDelegationsSecurityMetadataDecryptor } from '../../../icc-x-api/crypto/SecureDelegationsSecurityMetadataDecryptor'
+import { SecureDelegationsEncryption } from '../../../icc-x-api/crypto/SecureDelegationsEncryption'
+import { FakeDecryptionExchangeDataManager } from '../../utils/FakeExchangeDataManager'
+import { EncryptedEntityWithType, EntityWithDelegationTypeName } from '../../../icc-x-api/utils/EntityWithDelegationTypeName'
+import { ExchangeData } from '../../../icc-api/model/ExchangeData'
+import { expect } from 'chai'
+import { IcureStub } from '../../../icc-api/model/IcureStub'
+import { SecureDelegation } from '../../../icc-api/model/SecureDelegation'
+import AccessLevel = SecureDelegation.AccessLevel
+import { ua2hex } from '../../../icc-x-api'
+import { SecurityMetadata } from '../../../icc-api/model/SecurityMetadata'
+import { asyncGeneratorToArray } from '../../../icc-x-api/utils/collection-utils'
+
+describe('Secure delegations security metadata decryptor', async function () {
+  const primitives = new CryptoPrimitives(webcrypto as any)
+  const expectedType: EntityWithDelegationTypeName = 'AccessLog'
+  const expectedSfks = [primitives.randomUuid(), primitives.randomUuid()]
+  let encryptionKeysManager: FakeEncryptionKeysManager
+  let exchangeData: FakeDecryptionExchangeDataManager
+  let decryptor: SecureDelegationsSecurityMetadataDecryptor
+  let secureDelegationsEncryption: SecureDelegationsEncryption
+
+  async function initialiseComponents() {
+    encryptionKeysManager = await FakeEncryptionKeysManager.create(primitives, [], [await primitives.RSA.generateKeyPair()])
+    exchangeData = new FakeDecryptionExchangeDataManager(expectedType, expectedSfks)
+    secureDelegationsEncryption = new SecureDelegationsEncryption(encryptionKeysManager, primitives)
+    decryptor = new SecureDelegationsSecurityMetadataDecryptor(exchangeData, secureDelegationsEncryption)
+  }
+
+  async function randomHash(): Promise<string> {
+    return ua2hex(await primitives.sha256(primitives.randomBytes(4)))
+  }
+
+  async function createExchangeDataSecureDelegationEncryptedData(
+    exchangeDataDelegator: string,
+    exchangeDataDelegate: string
+  ): Promise<{
+    exchangeData: ExchangeData
+    exchangeKey: CryptoKey
+    secureDelegationEncryptedData: {
+      secretIds: string[]
+      encryptionKeys: string[]
+      owningEntityIds: string[]
+    }
+    expectedDecryptedData: {
+      secretIds: string[]
+      encryptionKeys: string[]
+      owningEntityIds: string[]
+    }
+  }> {
+    const exchangeKey = await primitives.AES.generateCryptoKey(false)
+    const exchangeData = new ExchangeData({
+      id: primitives.randomUuid(),
+      delegator: exchangeDataDelegator,
+      delegate: exchangeDataDelegate,
+      exchangeKey: { ignored: 'in this test' },
+      accessControlSecret: { ignored: 'in this test' },
+      signature: { ignored: 'in this test' },
+    })
+    const expectedDecryptedData = {
+      secretIds: [primitives.randomUuid(), primitives.randomUuid()],
+      encryptionKeys: [await primitives.AES.generateCryptoKey(true), await primitives.AES.generateCryptoKey(true)],
+      owningEntityIds: [primitives.randomUuid(), primitives.randomUuid()],
+    }
+    const secureDelegationEncryptedData = {
+      secretIds: await Promise.all(expectedDecryptedData.secretIds.map((x) => secureDelegationsEncryption.encryptSecretId(x, exchangeKey))),
+      encryptionKeys: await Promise.all(
+        expectedDecryptedData.encryptionKeys.map((x) => secureDelegationsEncryption.encryptEncryptionKey(x, exchangeKey))
+      ),
+      owningEntityIds: await Promise.all(
+        expectedDecryptedData.owningEntityIds.map((x) => secureDelegationsEncryption.encryptOwningEntityId(x, exchangeKey))
+      ),
+    }
+    return { exchangeKey, exchangeData, expectedDecryptedData, secureDelegationEncryptedData }
+  }
+
+  function entityWithSecurityMetadata(securityMetadata: SecurityMetadata): EncryptedEntityWithType {
+    return {
+      entity: new IcureStub({
+        secretForeignKeys: expectedSfks,
+        securityMetadata,
+      }),
+      type: expectedType,
+    }
+  }
+
+  function toSortedJson(data: { decrypted: string; dataOwnersWithAccess: string[] }): string {
+    return JSON.stringify({
+      decrypted: data.decrypted,
+      dataOwnersWithAccess: [...data.dataOwnersWithAccess].sort(),
+    })
+  }
+
+  async function verifyCanDecryptEntityData(
+    entity: EncryptedEntityWithType,
+    dataOwnerHierarchySubset: string[],
+    expected: {
+      exchangeData: ExchangeData
+      expectedDecryptedData: {
+        secretIds: string[]
+        encryptionKeys: string[]
+        owningEntityIds: string[]
+      }
+    }[],
+    tagsFilter: (tags: string[]) => boolean = () => true
+  ) {
+    const actualSecretIds = (
+      await asyncGeneratorToArray(decryptor.decryptSecretIdsOf(entity, dataOwnerHierarchySubset, (tags) => tagsFilter(tags)))
+    ).map(toSortedJson)
+    const actualOwningEntityIds = (
+      await asyncGeneratorToArray(decryptor.decryptOwningEntityIdsOf(entity, dataOwnerHierarchySubset, (tags) => tagsFilter(tags)))
+    ).map(toSortedJson)
+    const actualEncryptionKeys = (
+      await asyncGeneratorToArray(decryptor.decryptEncryptionKeysOf(entity, dataOwnerHierarchySubset, (tags) => tagsFilter(tags)))
+    ).map(toSortedJson)
+    const expectedSecretIds: string[] = []
+    const expectedOwningEntityIds: string[] = []
+    const expectedEncryptionKeys: string[] = []
+    for (const data of expected) {
+      data.expectedDecryptedData.secretIds.forEach((x) =>
+        expectedSecretIds.push(toSortedJson({ decrypted: x, dataOwnersWithAccess: [data.exchangeData.delegate, data.exchangeData.delegator] }))
+      )
+      data.expectedDecryptedData.owningEntityIds.forEach((x) =>
+        expectedOwningEntityIds.push(toSortedJson({ decrypted: x, dataOwnersWithAccess: [data.exchangeData.delegate, data.exchangeData.delegator] }))
+      )
+      data.expectedDecryptedData.encryptionKeys.forEach((x) =>
+        expectedEncryptionKeys.push(toSortedJson({ decrypted: x, dataOwnersWithAccess: [data.exchangeData.delegate, data.exchangeData.delegator] }))
+      )
+    }
+    expect(actualSecretIds).to.have.members(expectedSecretIds)
+    expect(actualOwningEntityIds).to.have.members(expectedOwningEntityIds)
+    expect(actualEncryptionKeys).to.have.members(expectedEncryptionKeys)
+  }
+
+  it('should be able to decrypt data from a secure delegation accessible by hash if the hash is cached', async function () {
+    await initialiseComponents()
+    const self = primitives.randomUuid()
+    const createdData1 = await createExchangeDataSecureDelegationEncryptedData(self, primitives.randomUuid())
+    const createdData2 = await createExchangeDataSecureDelegationEncryptedData(primitives.randomUuid(), self)
+    const delegation1 = new SecureDelegation({
+      ...createdData1.secureDelegationEncryptedData,
+      delegator: undefined,
+      delegate: undefined,
+      exchangeDataId: undefined,
+      encryptedExchangeDataId: undefined,
+    })
+    const delegation2 = new SecureDelegation({
+      ...createdData2.secureDelegationEncryptedData,
+      delegator: undefined,
+      delegate: undefined,
+      exchangeDataId: undefined,
+      encryptedExchangeDataId: undefined,
+    })
+    const hash1 = await randomHash()
+    const hash2 = await randomHash()
+    const hash3 = await randomHash()
+    const entity = entityWithSecurityMetadata(
+      new SecurityMetadata({
+        secureDelegations: { [hash1]: delegation1, [hash2]: delegation2 },
+        keysEquivalences: { [hash3]: hash2 },
+      })
+    )
+    exchangeData.cacheFakeData(createdData1.exchangeData, { exchangeKey: createdData1.exchangeKey, hashes: [hash1] })
+    exchangeData.cacheFakeData(createdData2.exchangeData, { exchangeKey: createdData2.exchangeKey, hashes: [hash3] })
+    await verifyCanDecryptEntityData(entity, [self], [createdData1, createdData2])
+  })
+
+  it('should be able to decrypt data from a secure delegation with clear text id where the delegator or delegate are in dataOwnersHierarchySubset', async function () {
+    await initialiseComponents()
+    const self = primitives.randomUuid()
+    const other1 = primitives.randomUuid()
+    const other2 = primitives.randomUuid()
+    const createdData1 = await createExchangeDataSecureDelegationEncryptedData(self, other1)
+    const createdData2 = await createExchangeDataSecureDelegationEncryptedData(other2, self)
+    const delegation1 = new SecureDelegation({
+      ...createdData1.secureDelegationEncryptedData,
+      delegator: self,
+      delegate: other1,
+      exchangeDataId: createdData1.exchangeData.id,
+      encryptedExchangeDataId: undefined,
+    })
+    const delegation2 = new SecureDelegation({
+      ...createdData2.secureDelegationEncryptedData,
+      delegator: other2,
+      delegate: self,
+      exchangeDataId: createdData2.exchangeData.id,
+      encryptedExchangeDataId: undefined,
+    })
+    const entity = entityWithSecurityMetadata(
+      new SecurityMetadata({
+        secureDelegations: { [await randomHash()]: delegation1, [await randomHash()]: delegation2 },
+      })
+    )
+    exchangeData.cacheFakeData(createdData1.exchangeData, { exchangeKey: createdData1.exchangeKey, hashes: [] }, true)
+    exchangeData.cacheFakeData(createdData2.exchangeData, { exchangeKey: createdData2.exchangeKey, hashes: [] })
+    await verifyCanDecryptEntityData(entity, [self], [createdData1, createdData2])
+  })
+
+  it('should be able to decrypt data from a secure delegation with encrypted id if the keys to decrypt the id are available and the delegator or delegate is in dataOwnersHierarchySubset', async function () {
+    await initialiseComponents()
+    const self = primitives.randomUuid()
+    const createdData1 = await createExchangeDataSecureDelegationEncryptedData(self, primitives.randomUuid())
+    const createdData2 = await createExchangeDataSecureDelegationEncryptedData(primitives.randomUuid(), self)
+    const encryptionKeys = Object.fromEntries(Object.entries(encryptionKeysManager.getDecryptionKeys()).map(([fp, pair]) => [fp, pair.publicKey]))
+    const delegation1 = new SecureDelegation({
+      ...createdData1.secureDelegationEncryptedData,
+      delegator: self,
+      encryptedExchangeDataId: await secureDelegationsEncryption.encryptExchangeDataId(createdData1.exchangeData.id!, encryptionKeys),
+    })
+    const delegation2 = new SecureDelegation({
+      ...createdData2.secureDelegationEncryptedData,
+      delegate: self,
+      encryptedExchangeDataId: await secureDelegationsEncryption.encryptExchangeDataId(createdData2.exchangeData.id!, encryptionKeys),
+    })
+    const entity = entityWithSecurityMetadata(
+      new SecurityMetadata({
+        secureDelegations: { [await randomHash()]: delegation1, [await randomHash()]: delegation2 },
+      })
+    )
+    exchangeData.cacheFakeData(createdData1.exchangeData, { exchangeKey: createdData1.exchangeKey, hashes: [] }, true)
+    exchangeData.cacheFakeData(createdData2.exchangeData, { exchangeKey: createdData2.exchangeKey, hashes: [] })
+    await verifyCanDecryptEntityData(entity, [self], [createdData1, createdData2])
+  })
+
+  it('should be able to decrypt data from all valid secure delegations regardless of how the corresponding exchange data is retrieved', async function () {
+    await initialiseComponents()
+    const self = primitives.randomUuid()
+    const other1 = primitives.randomUuid()
+    const other2 = primitives.randomUuid()
+    const createdData1 = await createExchangeDataSecureDelegationEncryptedData(self, primitives.randomUuid())
+    const createdData2 = await createExchangeDataSecureDelegationEncryptedData(primitives.randomUuid(), self)
+    const createdData3 = await createExchangeDataSecureDelegationEncryptedData(self, other1)
+    const createdData4 = await createExchangeDataSecureDelegationEncryptedData(other2, self)
+    const createdData5 = await createExchangeDataSecureDelegationEncryptedData(self, primitives.randomUuid())
+    const createdData6 = await createExchangeDataSecureDelegationEncryptedData(primitives.randomUuid(), self)
+    const encryptionKeys = Object.fromEntries(Object.entries(encryptionKeysManager.getDecryptionKeys()).map(([fp, pair]) => [fp, pair.publicKey]))
+    const delegation1 = new SecureDelegation({
+      ...createdData1.secureDelegationEncryptedData,
+      delegator: undefined,
+      delegate: undefined,
+      exchangeDataId: undefined,
+      encryptedExchangeDataId: undefined,
+    })
+    const delegation2 = new SecureDelegation({
+      ...createdData2.secureDelegationEncryptedData,
+      delegator: undefined,
+      delegate: undefined,
+      exchangeDataId: undefined,
+      encryptedExchangeDataId: undefined,
+    })
+    const delegation3 = new SecureDelegation({
+      ...createdData3.secureDelegationEncryptedData,
+      delegator: self,
+      delegate: other1,
+      exchangeDataId: createdData3.exchangeData.id,
+      encryptedExchangeDataId: undefined,
+    })
+    const delegation4 = new SecureDelegation({
+      ...createdData4.secureDelegationEncryptedData,
+      delegator: other2,
+      delegate: self,
+      exchangeDataId: createdData4.exchangeData.id,
+      encryptedExchangeDataId: undefined,
+    })
+    const delegation5 = new SecureDelegation({
+      ...createdData5.secureDelegationEncryptedData,
+      delegator: self,
+      encryptedExchangeDataId: await secureDelegationsEncryption.encryptExchangeDataId(createdData5.exchangeData.id!, encryptionKeys),
+    })
+    const delegation6 = new SecureDelegation({
+      ...createdData6.secureDelegationEncryptedData,
+      delegate: self,
+      encryptedExchangeDataId: await secureDelegationsEncryption.encryptExchangeDataId(createdData6.exchangeData.id!, encryptionKeys),
+    })
+    const hash1 = await randomHash()
+    const hash2 = await randomHash()
+    const hash3 = await randomHash()
+    const entity = entityWithSecurityMetadata(
+      new SecurityMetadata({
+        secureDelegations: {
+          [hash1]: delegation1,
+          [hash2]: delegation2,
+          [await randomHash()]: delegation3,
+          [await randomHash()]: delegation4,
+          [await randomHash()]: delegation5,
+          [await randomHash()]: delegation6,
+        },
+        keysEquivalences: { [hash3]: hash2 },
+      })
+    )
+    exchangeData.cacheFakeData(createdData1.exchangeData, { exchangeKey: createdData1.exchangeKey, hashes: [hash1] })
+    exchangeData.cacheFakeData(createdData2.exchangeData, { exchangeKey: createdData2.exchangeKey, hashes: [hash3] })
+    exchangeData.cacheFakeData(createdData3.exchangeData, { exchangeKey: createdData3.exchangeKey, hashes: [] }, true)
+    exchangeData.cacheFakeData(createdData4.exchangeData, { exchangeKey: createdData4.exchangeKey, hashes: [] })
+    exchangeData.cacheFakeData(createdData5.exchangeData, { exchangeKey: createdData5.exchangeKey, hashes: [] }, true)
+    exchangeData.cacheFakeData(createdData6.exchangeData, { exchangeKey: createdData6.exchangeKey, hashes: [] })
+    await verifyCanDecryptEntityData(entity, [self], [createdData1, createdData2, createdData3, createdData4, createdData5, createdData6])
+  })
+
+  it('should ignore delegations accessible by id where the neither the delegator nor delegate are in dataOwnersHierarchySubset', async function () {
+    await initialiseComponents()
+    const createdData1 = await createExchangeDataSecureDelegationEncryptedData(primitives.randomUuid(), primitives.randomUuid())
+    const createdData2 = await createExchangeDataSecureDelegationEncryptedData(primitives.randomUuid(), primitives.randomUuid())
+    const delegation1 = new SecureDelegation({
+      ...createdData1.secureDelegationEncryptedData,
+      delegator: primitives.randomUuid(),
+      delegate: primitives.randomUuid(),
+      exchangeDataId: createdData1.exchangeData.id,
+      encryptedExchangeDataId: undefined,
+    })
+    const delegation2 = new SecureDelegation({
+      ...createdData2.secureDelegationEncryptedData,
+      delegator: primitives.randomUuid(),
+      delegate: primitives.randomUuid(),
+      exchangeDataId: createdData2.exchangeData.id,
+      encryptedExchangeDataId: undefined,
+    })
+    const entity = entityWithSecurityMetadata(
+      new SecurityMetadata({
+        secureDelegations: { [await randomHash()]: delegation1, [await randomHash()]: delegation2 },
+      })
+    )
+    await verifyCanDecryptEntityData(entity, [primitives.randomUuid()], [])
+  })
+
+  it('should ignore secure delegation with encrypted id if the keys to decrypt the id are not available', async function () {
+    await initialiseComponents()
+    const self = primitives.randomUuid()
+    const createdData = await createExchangeDataSecureDelegationEncryptedData(self, primitives.randomUuid())
+    const newKey = await primitives.RSA.generateKeyPair()
+    const newKeyFp = ua2hex(await primitives.RSA.exportKey(newKey.publicKey, 'spki')).slice(-32)
+    const delegation = new SecureDelegation({
+      ...createdData.secureDelegationEncryptedData,
+      delegator: self,
+      encryptedExchangeDataId: await secureDelegationsEncryption.encryptExchangeDataId(createdData.exchangeData.id!, {
+        [newKeyFp]: newKey.publicKey,
+      }),
+    })
+    const entity = entityWithSecurityMetadata(
+      new SecurityMetadata({
+        secureDelegations: { [await randomHash()]: delegation },
+      })
+    )
+    exchangeData.cacheFakeData(createdData.exchangeData, { exchangeKey: createdData.exchangeKey, hashes: [] })
+    await verifyCanDecryptEntityData(entity, [self], [])
+  })
+
+  it('should ignore secure delegations corresponding to exchange data which could not be decrypted', async function () {
+    await initialiseComponents()
+    const self = primitives.randomUuid()
+    const other1 = primitives.randomUuid()
+    const other2 = primitives.randomUuid()
+    const createdData1 = await createExchangeDataSecureDelegationEncryptedData(self, other1)
+    const createdData2 = await createExchangeDataSecureDelegationEncryptedData(other2, self)
+    const delegation1 = new SecureDelegation({
+      ...createdData1.secureDelegationEncryptedData,
+      delegator: self,
+      delegate: other1,
+      exchangeDataId: createdData1.exchangeData.id,
+      encryptedExchangeDataId: undefined,
+    })
+    const delegation2 = new SecureDelegation({
+      ...createdData2.secureDelegationEncryptedData,
+      delegator: other2,
+      delegate: self,
+      exchangeDataId: createdData2.exchangeData.id,
+      encryptedExchangeDataId: undefined,
+    })
+    const entity = entityWithSecurityMetadata(
+      new SecurityMetadata({
+        secureDelegations: { [await randomHash()]: delegation1, [await randomHash()]: delegation2 },
+      })
+    )
+    exchangeData.cacheFakeData(createdData1.exchangeData, { exchangeKey: createdData1.exchangeKey, hashes: [] })
+    exchangeData.cacheFakeData(createdData2.exchangeData, undefined)
+    await verifyCanDecryptEntityData(entity, [self], [createdData1])
+  })
+
+  it('should ignore secure delegations which do not pass the tags filter', async function () {
+    await initialiseComponents()
+    const self = primitives.randomUuid()
+    const other1 = primitives.randomUuid()
+    const other2 = primitives.randomUuid()
+    const createdData1 = await createExchangeDataSecureDelegationEncryptedData(self, other1)
+    const createdData2 = await createExchangeDataSecureDelegationEncryptedData(other2, self)
+    const delegation1 = new SecureDelegation({
+      ...createdData1.secureDelegationEncryptedData,
+      delegator: self,
+      delegate: other1,
+      exchangeDataId: createdData1.exchangeData.id,
+      encryptedExchangeDataId: undefined,
+      tags: ['ignore'],
+    })
+    const delegation2 = new SecureDelegation({
+      ...createdData2.secureDelegationEncryptedData,
+      delegator: other2,
+      delegate: self,
+      exchangeDataId: createdData2.exchangeData.id,
+      encryptedExchangeDataId: undefined,
+    })
+    const entity = entityWithSecurityMetadata(
+      new SecurityMetadata({
+        secureDelegations: { [await randomHash()]: delegation1, [await randomHash()]: delegation2 },
+      })
+    )
+    exchangeData.cacheFakeData(createdData2.exchangeData, { exchangeKey: createdData2.exchangeKey, hashes: [] })
+    await verifyCanDecryptEntityData(entity, [self], [createdData2], (tags) => {
+      expect(tags.length === 0 || tags.length === 1).to.be.true
+      if (tags.length === 1) {
+        expect(tags[0]).to.equal('ignore')
+      }
+      return !tags.some((x) => x == 'ignore')
+    })
+  })
+
+  it('should give an error if dataOwnersHierarchySubset is empty', async function () {
+    await initialiseComponents()
+    const entity = {
+      entity: new IcureStub({ secretForeignKeys: expectedSfks }),
+      type: expectedType,
+    }
+    let failed = 0
+    try {
+      decryptor.decryptEncryptionKeysOf(entity, [], () => true)
+    } catch (e) {
+      console.log(e)
+      failed++
+    }
+    try {
+      decryptor.decryptSecretIdsOf(entity, [], () => true)
+    } catch (e) {
+      console.log(e)
+      failed++
+    }
+    try {
+      decryptor.decryptOwningEntityIdsOf(entity, [], () => true)
+    } catch (e) {
+      console.log(e)
+      failed++
+    }
+    expect(failed).to.equal(3)
+  })
+})

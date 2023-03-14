@@ -7,6 +7,8 @@ import { CryptoPrimitives } from './CryptoPrimitives'
 import { arrayEquals, asyncGeneratorToArray } from '../utils/collection-utils'
 import { SecurityMetadataDecryptor } from './SecurityMetadataDecryptor'
 import { encryptedEntityClassOf, EncryptedEntityWithType, EntityWithDelegationTypeName } from '../utils/EntityWithDelegationTypeName'
+import { SecureDelegation } from '../../icc-api/model/SecureDelegation'
+import AccessLevel = SecureDelegation.AccessLevel
 
 /**
  * Give access to functions for retrieving encryption metadata of entities.
@@ -821,5 +823,36 @@ export class EntitiesEncryption {
           JSON.stringify(entity, undefined, 2)
       )
     }
+  }
+
+  /**
+   * Creates a new secure delegations from the current data owner to a data owner or updates an existing delegation for an entity.
+   * If there is already a secure delegation corresponding to the encryption exchange data chosen by this implementation then that secure delegation
+   * will be updated with the new values. Note, however, that in rare cases there may be many instances of exchange data valid for encryption, and
+   * this could cause the creation of duplicate secure delegations (pointing to the same metadata) since the choice of exchange data to use for
+   * encryption may be non-deterministic.
+   * In order to avoid data duplication users of this method should ensure that the delegate does not already have access to the provided metadata and
+   * the provided access level.
+   * @param entity an entity
+   * @param entityType the type of {@link entity}
+   * @param delegateId a data owner id (delegate for the secure delegation)
+   * @param secretIds secret ids to share with the delegate
+   * @param owningEntityIds owning entity ids to share with the delegate
+   * @param encryptionKeys encryption keys to share with the delegate
+   * @param accessLevel access level for the delegate
+   * @param entityConstructor constructor to create a new instance of the entity.
+   * @return an updated copy of entity with the new/updated secure delegation
+   */
+  async createOrExtendSecureDelegation<T extends EncryptedEntity | EncryptedEntityStub>(
+    entity: T,
+    entityType: EntityWithDelegationTypeName,
+    delegateId: string,
+    secretIds: string[],
+    owningEntityIds: string[],
+    encryptionKeys: string[],
+    accessLevel: AccessLevel,
+    entityConstructor: (json: any) => T
+  ): Promise<T> {
+    throw new Error('TODO')
   }
 }
