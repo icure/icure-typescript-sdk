@@ -106,37 +106,3 @@ export async function ensureDelegationForSelf(
     return self
   }
 }
-
-/**
- * Verifies that two encrypted stubs are equivalent.
- */
-export function encryptedStubEquals(a: EncryptedEntityStub, b: EncryptedEntityStub): boolean {
-  if (a.encryptedSelf !== b.encryptedSelf) return false
-  if (!setEquals(new Set(a.secretForeignKeys), new Set(b.secretForeignKeys))) return false
-  if (!delegationLikeEquality(a.delegations, b.delegations)) return false
-  if (!delegationLikeEquality(a.encryptionKeys, b.encryptionKeys)) return false
-  if (!delegationLikeEquality(a.cryptedForeignKeys, b.cryptedForeignKeys)) return false
-  return securityMetadataEquals(a.securityMetadata, b.securityMetadata)
-}
-
-function securityMetadataEquals(a: SecurityMetadata | undefined, b: SecurityMetadata | undefined): boolean {
-  if (!!a !== !!b) return false
-  throw new Error('TODO')
-}
-
-function delegationLikeEquality(a: { [s: string]: Delegation[] } | undefined, b: { [s: string]: Delegation[] } | undefined): boolean {
-  if (!setEquals(new Set(Object.keys(a ?? {})), new Set(Object.keys(b ?? {})))) return false
-  for (const [k, aDelegations] of Object.entries(a ?? {})) {
-    const bDelegations = (b ?? {})[k]
-    if (
-      !aDelegations.every(
-        (da) =>
-          !!bDelegations.find(
-            (db) => da.key === db.key && da.delegatedTo === db.delegatedTo && da.owner === db.owner && setEquals(new Set(da.tags), new Set(db.tags))
-          )
-      )
-    )
-      return false
-  }
-  return true
-}

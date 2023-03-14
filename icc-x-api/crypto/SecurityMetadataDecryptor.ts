@@ -1,5 +1,7 @@
 import { EncryptedEntity, EncryptedEntityStub } from '../../icc-api/model/models'
 import { EncryptedEntityWithType, EntityWithDelegationTypeName } from '../utils/EntityWithDelegationTypeName'
+import { SecureDelegation } from '../../icc-api/model/SecureDelegation'
+import AccessLevel = SecureDelegation.AccessLevel
 
 /**
  * @internal this class is for internal use only and may be changed without notice.
@@ -59,6 +61,23 @@ export interface SecurityMetadataDecryptor {
     dataOwnersHierarchySubset: string[],
     tagsFilter: (tags: string[]) => boolean
   ): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never>
+
+  /**
+   * Get the maximum access level that any data owner in {@link dataOwnersHierarchySubset} has to the entirety of {@link typedEntity}:
+   * - If at least a data owner in {@link dataOwnersHierarchySubset} has full write access then the returned access level is write
+   * - If at least a data owner in {@link dataOwnersHierarchySubset} has full read access then the returned access level, and no data owner has full
+   * write access the method the returned access level is read
+   * - If no data owner in {@link dataOwnersHierarchySubset} has full read or write access then the method returns undefined.
+   * There is currently no support for field level permissions, but when that will be introduced this method will behave in the following way: if none
+   * of the data owners in {@link dataOwnersHierarchySubset} has write access to a specific field of the entity the method returns at most read access
+   * level, even if all other fields are accessible with write permissions. Similarly, if none of the data owners has at least read access to a
+   * specific field of the entity the method will return undefined.
+   * @param typedEntity an entity
+   * @param dataOwnersHierarchySubset only exchange data that is accessible to data owners in this array will be considered when calculating the
+   * access level. This array should contain only data owners from the current data owner hierarchy.
+   * @return the access level to the entity or undefined if none of the data owners has full access to the entity.
+   */
+  getFullEntityAccessLevel(typedEntity: EncryptedEntityWithType, dataOwnersHierarchySubset: string[]): Promise<AccessLevel | undefined>
 }
 
 /**
@@ -90,6 +109,23 @@ export class SecurityMetadataDecryptorChain implements SecurityMetadataDecryptor
     tagsFilter: (tags: string[]) => boolean
   ): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never> {
     return this.concatenate((d) => d.decryptSecretIdsOf(typedEntity, dataOwnersHierarchySubset, (t) => tagsFilter(t)))
+  }
+
+  async getFullEntityAccessLevel(
+    typedEntity: EncryptedEntityWithType,
+    dataOwnersHierarchySubset: string[]
+  ): Promise<SecureDelegation.AccessLevel | undefined> {
+    let currMaxLevel: SecureDelegation.AccessLevel | undefined = undefined
+    for (const d of this.decryptors) {
+      const currLevel = await d.getFullEntityAccessLevel(typedEntity, dataOwnersHierarchySubset)
+      if (currLevel === AccessLevel.WRITE) {
+        return currLevel
+      }
+      if (currLevel === AccessLevel.READ) {
+        currMaxLevel = AccessLevel.READ
+      }
+    }
+    return currMaxLevel
   }
 
   private concatenate<T>(getGenerator: (d: SecurityMetadataDecryptor) => AsyncGenerator<T, void, never>): AsyncGenerator<T, void, never> {

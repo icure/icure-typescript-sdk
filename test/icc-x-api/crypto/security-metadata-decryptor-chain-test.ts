@@ -1,9 +1,11 @@
 import { describe } from 'mocha'
 import { expect } from 'chai'
-import { SecurityMetadataDecryptorChain } from '../../../icc-x-api/crypto/SecurityMetadataDecryptor'
+import { SecurityMetadataDecryptor, SecurityMetadataDecryptorChain } from '../../../icc-x-api/crypto/SecurityMetadataDecryptor'
 import { EncryptedEntity, EncryptedEntityStub } from '../../../icc-api/model/models'
 import { toString } from 'lodash'
 import { EncryptedEntityWithType } from '../../../icc-x-api/utils/EntityWithDelegationTypeName'
+import { SecureDelegation } from '../../../icc-api/model/SecureDelegation'
+import AccessLevel = SecureDelegation.AccessLevel
 
 describe('Security metadata decryptor chain', async function () {
   const expectedEntity: EncryptedEntityWithType = { entity: {} as EncryptedEntityStub, type: 'Patient' }
@@ -33,6 +35,9 @@ describe('Security metadata decryptor chain', async function () {
         decryptSecretIdsOf: () => {
           throw new Error('This should not be called')
         },
+        getFullEntityAccessLevel: () => {
+          throw new Error('This should not be called')
+        },
       },
       {
         decryptEncryptionKeysOf(
@@ -54,6 +59,9 @@ describe('Security metadata decryptor chain', async function () {
           throw new Error('This should not be called')
         },
         decryptSecretIdsOf: () => {
+          throw new Error('This should not be called')
+        },
+        getFullEntityAccessLevel: () => {
           throw new Error('This should not be called')
         },
       },
@@ -101,6 +109,9 @@ describe('Security metadata decryptor chain', async function () {
         decryptOwningEntityIdsOf: () => {
           throw new Error('This should not be called')
         },
+        getFullEntityAccessLevel: () => {
+          throw new Error('This should not be called')
+        },
       },
       {
         decryptSecretIdsOf(
@@ -122,6 +133,9 @@ describe('Security metadata decryptor chain', async function () {
           throw new Error('This should not be called')
         },
         decryptOwningEntityIdsOf: () => {
+          throw new Error('This should not be called')
+        },
+        getFullEntityAccessLevel: () => {
           throw new Error('This should not be called')
         },
       },
@@ -169,6 +183,9 @@ describe('Security metadata decryptor chain', async function () {
         decryptSecretIdsOf: () => {
           throw new Error('This should not be called')
         },
+        getFullEntityAccessLevel: () => {
+          throw new Error('This should not be called')
+        },
       },
       {
         decryptOwningEntityIdsOf(
@@ -192,6 +209,9 @@ describe('Security metadata decryptor chain', async function () {
         decryptSecretIdsOf: () => {
           throw new Error('This should not be called')
         },
+        getFullEntityAccessLevel: () => {
+          throw new Error('This should not be called')
+        },
       },
     ])
     let callsToTags = 0
@@ -211,5 +231,61 @@ describe('Security metadata decryptor chain', async function () {
     expect(next.value).to.be.undefined
     expect(next.done).to.be.true
     expect(callsToTags).to.equal(2)
+  })
+
+  it('should return the best access level across all decryptors of the chain', async function () {
+    function newAccessLevelDecryptor(accessLevel: AccessLevel | undefined): SecurityMetadataDecryptor {
+      return {
+        decryptOwningEntityIdsOf: () => {
+          throw new Error('This should not be called')
+        },
+        decryptEncryptionKeysOf: () => {
+          throw new Error('This should not be called')
+        },
+        decryptSecretIdsOf: () => {
+          throw new Error('This should not be called')
+        },
+        getFullEntityAccessLevel: (typedEntity, dataOwnersHierarchySubset) => {
+          expect(typedEntity).to.equal(expectedEntity)
+          expect(dataOwnersHierarchySubset).to.equal(expectedDataOwnerHierarchySubset)
+          return Promise.resolve(accessLevel)
+        },
+      }
+    }
+    expect(
+      await new SecurityMetadataDecryptorChain([
+        newAccessLevelDecryptor(undefined),
+        newAccessLevelDecryptor(AccessLevel.READ),
+      ]).getFullEntityAccessLevel(expectedEntity, expectedDataOwnerHierarchySubset)
+    ).to.equal(AccessLevel.READ)
+    expect(
+      await new SecurityMetadataDecryptorChain([
+        newAccessLevelDecryptor(AccessLevel.READ),
+        newAccessLevelDecryptor(undefined),
+      ]).getFullEntityAccessLevel(expectedEntity, expectedDataOwnerHierarchySubset)
+    ).to.equal(AccessLevel.READ)
+    expect(
+      await new SecurityMetadataDecryptorChain([
+        newAccessLevelDecryptor(AccessLevel.READ),
+        newAccessLevelDecryptor(undefined),
+        newAccessLevelDecryptor(AccessLevel.WRITE),
+        newAccessLevelDecryptor(AccessLevel.READ),
+      ]).getFullEntityAccessLevel(expectedEntity, expectedDataOwnerHierarchySubset)
+    ).to.equal(AccessLevel.WRITE)
+    expect(
+      await new SecurityMetadataDecryptorChain([newAccessLevelDecryptor(undefined), newAccessLevelDecryptor(undefined)]).getFullEntityAccessLevel(
+        expectedEntity,
+        expectedDataOwnerHierarchySubset
+      )
+    ).to.equal(undefined)
+    expect(
+      await new SecurityMetadataDecryptorChain([
+        newAccessLevelDecryptor(undefined),
+        newAccessLevelDecryptor(AccessLevel.READ),
+        newAccessLevelDecryptor(AccessLevel.READ),
+        newAccessLevelDecryptor(undefined),
+        newAccessLevelDecryptor(AccessLevel.WRITE),
+      ]).getFullEntityAccessLevel(expectedEntity, expectedDataOwnerHierarchySubset)
+    ).to.equal(AccessLevel.WRITE)
   })
 })

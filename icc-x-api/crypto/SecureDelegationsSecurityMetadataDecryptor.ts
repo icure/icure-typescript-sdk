@@ -4,6 +4,7 @@ import { ExchangeDataManager } from './ExchangeDataManager'
 import { EncryptedEntityWithType } from '../utils/EntityWithDelegationTypeName'
 import { ExchangeData } from '../../icc-api/model/ExchangeData'
 import { SecureDelegationsEncryption } from './SecureDelegationsEncryption'
+import AccessLevel = SecureDelegation.AccessLevel
 
 type DelegationDecryptionDetails = {
   delegation: SecureDelegation
@@ -54,6 +55,61 @@ export class SecureDelegationsSecurityMetadataDecryptor implements SecurityMetad
       (d) => d.secretIds ?? [],
       (e, k) => this.secureDelegationsEncryption.decryptSecretId(e, k)
     )
+  }
+
+  async getFullEntityAccessLevel(typedEntity: EncryptedEntityWithType, dataOwnersHierarchySubset: string[]): Promise<AccessLevel | undefined> {
+    if (!dataOwnersHierarchySubset.length) throw new Error("`dataOwnersHierarchySubset` can't be empty")
+    // All delegations are either accessible directly or through a hash/access control key. There is no "mixed scenario" possible
+    let accessibleDelegations: SecureDelegation[] = Object.values(typedEntity.entity.securityMetadata?.secureDelegations ?? {}).filter(
+      (secureDelegation) =>
+        dataOwnersHierarchySubset.some((dataOwner) => dataOwner === secureDelegation.delegator || dataOwner === secureDelegation.delegate)
+    )
+    if (!accessibleDelegations.length) {
+      const equivalences = typedEntity.entity.securityMetadata?.keysEquivalences
+      const availableCanonicalHashes = Array.from(
+        new Set(
+          Object.keys(
+            await this.exchangeData.getCachedDecryptionDataKeyByAccessControlHash(
+              [
+                ...Object.keys(typedEntity.entity.securityMetadata?.secureDelegations ?? {}),
+                ...Object.keys(typedEntity.entity.securityMetadata?.keysEquivalences ?? {}),
+              ],
+              typedEntity.type,
+              typedEntity.entity.secretForeignKeys ?? []
+            )
+          ).map((hash) => {
+            const canonicalEquivalence = equivalences ? equivalences[hash] : undefined
+            return canonicalEquivalence ? canonicalEquivalence : hash
+          })
+        )
+      )
+      accessibleDelegations = availableCanonicalHashes.map((hash) => (typedEntity.entity.securityMetadata?.secureDelegations ?? {})[hash])
+    }
+
+    const entityId = typedEntity.entity.id
+    const permissions = accessibleDelegations.map((secureDelegation) => this.accessLevelOfDelegation(secureDelegation, entityId))
+    let maxLevel: AccessLevel | undefined = undefined
+    for (const permission of permissions) {
+      if (permission === AccessLevel.WRITE) {
+        return AccessLevel.WRITE
+      }
+      if (permission === AccessLevel.READ) {
+        maxLevel = AccessLevel.READ
+      }
+    }
+    return maxLevel
+  }
+
+  private accessLevelOfDelegation(secureDelegation: SecureDelegation, entityId: string | undefined): AccessLevel | undefined {
+    if (Object.keys(secureDelegation.permissions ?? {}).length === 0 && (secureDelegation.parentDelegations ?? []).length === 0)
+      return AccessLevel.WRITE
+    const globalPermissions = (secureDelegation.permissions ?? {})['*']
+    if (!globalPermissions)
+      console.warn(
+        `Unexpected permissions in secure delegations: ${JSON.stringify(secureDelegation.permissions)}.` +
+          `Entity ${entityId} may have been created with a newer version of the api and may not be fully supported`
+      )
+    return globalPermissions
   }
 
   private decryptSecureDelegations(
