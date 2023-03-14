@@ -1,5 +1,5 @@
 import { EncryptedEntity } from '../../icc-api/model/models'
-import { EntitiesEncryption } from './EntitiesEncryption'
+import { ExtendedApisUtils } from './ExtendedApisUtils'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
 
@@ -12,7 +12,7 @@ import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
  */
 export class ConfidentialEntities {
   constructor(
-    private readonly entitiesEncryption: EntitiesEncryption,
+    private readonly entitiesEncryption: ExtendedApisUtils,
     private readonly primitives: CryptoPrimitives,
     private readonly dataOwnerApi: IccDataOwnerXApi
   ) {}

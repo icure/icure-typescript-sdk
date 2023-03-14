@@ -12,7 +12,7 @@ import { ExchangeKeysManager } from './crypto/ExchangeKeysManager'
 import { CryptoPrimitives } from './crypto/CryptoPrimitives'
 import { UserEncryptionKeysManager } from './crypto/UserEncryptionKeysManager'
 import { DataOwner, DataOwnerWithType, IccDataOwnerXApi } from './icc-data-owner-x-api'
-import { EntitiesEncryption } from './crypto/EntitiesEncryption'
+import { ExtendedApisUtils } from './crypto/ExtendedApisUtils'
 import { IcureStorageFacade } from './storage/IcureStorageFacade'
 import { ShamirKeysManager } from './crypto/ShamirKeysManager'
 import { IccHcpartyApi } from '../icc-api'
@@ -35,7 +35,7 @@ export class IccCryptoXApi {
   private readonly cryptoPrimitives: CryptoPrimitives
   private readonly keyManager: UserEncryptionKeysManager
   private readonly dataOwnerApi: IccDataOwnerXApi
-  private readonly entitiesEncrypiton: EntitiesEncryption
+  private readonly entitiesEncrypiton: ExtendedApisUtils
   private readonly confidentialEntities: ConfidentialEntities
   private readonly icureStorage: IcureStorageFacade
   private readonly shamirManager: ShamirKeysManager
@@ -91,7 +91,7 @@ export class IccCryptoXApi {
     return this._storage
   }
 
-  get entities(): EntitiesEncryption {
+  get entities(): ExtendedApisUtils {
     return this.entitiesEncrypiton
   }
 
@@ -115,7 +115,7 @@ export class IccCryptoXApi {
     cryptoPrimitives: CryptoPrimitives,
     keyManager: UserEncryptionKeysManager,
     dataOwnerApi: IccDataOwnerXApi,
-    entitiesEncrypiton: EntitiesEncryption,
+    entitiesEncrypiton: ExtendedApisUtils,
     shamirManager: ShamirKeysManager,
     storage: StorageFacade<string>,
     keyStorage: KeyStorageFacade,
@@ -170,7 +170,7 @@ export class IccCryptoXApi {
 
   /**
    * @deprecated you should not need this method anymore to deal with the encryption of iCure entities because everything related to entities
-   * encryption should be done either through the entity-specific extended api or through the {@link EntitiesEncryption} object available at
+   * encryption should be done either through the entity-specific extended api or through the {@link ExtendedApisUtils} object available at
    * {@link entities}.
    * Note that keys returned by the current implementation of this method may not be safe for encryption/sharing.
    * If instead you are using this method to retrieve key pairs for other purposes, for example because you want to reuse the user keys in iCure for
@@ -308,7 +308,7 @@ export class IccCryptoXApi {
 
   /**
    * @deprecated you should not need this method anymore because everything related to entities encryption should be done either through the
-   * entity-specific extended api or through the {@link EntitiesEncryption} object available at {@link entities}. Please contact us if you have a
+   * entity-specific extended api or through the {@link ExtendedApisUtils} object available at {@link entities}. Please contact us if you have a
    * scenario where you really need to get the exchange keys for the user.
    * Note that currently this method does not cache results anymore (but the updated methods do).
    */
@@ -395,7 +395,7 @@ export class IccCryptoXApi {
 
   /**
    * @deprecated you should not need this method anymore because everything related to entities encryption should be done either through the
-   * entity-specific extended api or through the {@link EntitiesEncryption} object available at {@link entities}. Please contact us if you have a
+   * entity-specific extended api or through the {@link ExtendedApisUtils} object available at {@link entities}. Please contact us if you have a
    * scenario where you really need to get the exchange keys for the user.
    */
   async decryptAndImportAesHcPartyKeysForDelegators(
@@ -424,7 +424,7 @@ export class IccCryptoXApi {
 
   /**
    * @deprecated you should not need this method anymore because everything related to entities encryption should be done either through the
-   * entity-specific extended api or through the {@link EntitiesEncryption} object available at {@link entities}. Please contact us if you have a
+   * entity-specific extended api or through the {@link ExtendedApisUtils} object available at {@link entities}. Please contact us if you have a
    * scenario where you really need to get the exchange keys for the user.
    * Note that currently this method does not cache results anymore (but the updated methods do).
    */
@@ -491,7 +491,7 @@ export class IccCryptoXApi {
 
   /**
    * @deprecated (light) You should use:
-   * - {@link EntitiesEncryption.secretIdsOf} in {@link entities} to get the secret foreign keys (now secret ids)
+   * - {@link ExtendedApisUtils.secretIdsOf} in {@link entities} to get the secret foreign keys (now secret ids)
    * - {@link IccDataOwnerXApi.getCurrentDataOwnerHierarchyIds} to get the full hierarchy for the current data owner (cached). The first element is
    *   the id of the topmost parent, while the last is the current data owner.
    * Note that the behaviour of this method has some subtle changes compared to the past:
@@ -516,7 +516,7 @@ export class IccCryptoXApi {
 
   /**
    * @deprecated (light) You should use:
-   * - {@link EntitiesEncryption.owningEntityIdsOf} in {@link entities} to get the crypted foreign keys (now parent ids)
+   * - {@link ExtendedApisUtils.owningEntityIdsOf} in {@link entities} to get the crypted foreign keys (now parent ids)
    * - {@link IccDataOwnerXApi.getCurrentDataOwnerHierarchyIds} to get the full hierarchy for the current data owner (cached). The first element is
    *   the id of the topmost parent, while the last is the current data owner.
    * Note that the behaviour of this method has some subtle changes compared to the past:
@@ -542,7 +542,7 @@ export class IccCryptoXApi {
   /**
    * @deprecated If you were using this method to encrypt/decrypt directly the `encryptedEntities` you should instead rely on the extended apis
    * methods. If instead you were using this method to get keys for encryption/decryption of attachments you should replace it with:
-   * - {@link EntitiesEncryption.encryptionKeysOf} in {@link entities} to get the encryption keys.
+   * - {@link ExtendedApisUtils.encryptionKeysOf} in {@link entities} to get the encryption keys.
    * - {@link IccDataOwnerXApi.getCurrentDataOwnerHierarchyIds} to get the full hierarchy for the current data owner (cached). The first element is
    *   the id of the topmost parent, while the last is the current data owner.
    * Note that the behaviour of this method has some subtle changes compared to the past:
@@ -567,9 +567,9 @@ export class IccCryptoXApi {
   /**
    * @deprecated You should not use this method anymore, and instead replace it with the appropriate methods from {@link entities} depending on where
    * the delegations come from:
-   * - {@link EntitiesEncryption.secretIdsOf} for {@link EncryptedEntity.delegations} (see {@link extractDelegationsSFKs} for more info)
-   * - {@link EntitiesEncryption.encryptionKeysOf} for {@link EncryptedEntity.encryptionKeys} (see {@link extractEncryptionsSKs} for more info
-   * - {@link EntitiesEncryption.owningEntityIdsOf} for {@link EncryptedEntity.cryptedForeignKeys} (see {@link extractCryptedFKs} for more info)
+   * - {@link ExtendedApisUtils.secretIdsOf} for {@link EncryptedEntity.delegations} (see {@link extractDelegationsSFKs} for more info)
+   * - {@link ExtendedApisUtils.encryptionKeysOf} for {@link EncryptedEntity.encryptionKeys} (see {@link extractEncryptionsSKs} for more info
+   * - {@link ExtendedApisUtils.owningEntityIdsOf} for {@link EncryptedEntity.cryptedForeignKeys} (see {@link extractCryptedFKs} for more info)
    */
   async extractKeysFromDelegationsForHcpHierarchy(
     dataOwnerId: string,
@@ -796,7 +796,7 @@ export class IccCryptoXApi {
 
   /**
    * @deprecated you should not need this method anymore to deal with the encryption of iCure entities because everything related to entities
-   * encryption should be done either through the entity-specific extended api or through the {@link EntitiesEncryption} object available at
+   * encryption should be done either through the entity-specific extended api or through the {@link ExtendedApisUtils} object available at
    * {@link entities}. If instead you were using the method for other reasons check {@link getCachedRsaKeyPairForFingerprint} to get an idea of
    * possible replacements.
    */
@@ -867,7 +867,7 @@ export class IccCryptoXApi {
 
   /**
    * @deprecated (See {@link extractEncryptionsSKs} for a detailed explanation) Use only for attachment encryption keys and replace with:
-   * - {@link EntitiesEncryption.encryptionKeysOf} in {@link entities} to get the encryption keys.
+   * - {@link ExtendedApisUtils.encryptionKeysOf} in {@link entities} to get the encryption keys.
    * - {@link IccDataOwnerXApi.getCurrentDataOwnerHierarchyIds} to get the full hierarchy for the current data owner (cached). The first element is
    *   the id of the topmost parent, while the last is the current data owner.
    */
@@ -878,9 +878,9 @@ export class IccCryptoXApi {
   /**
    * @deprecated For the encryption/decryption of iCure entities you should rely solely on the extended apis methods. For encryption/decryption of
    * attachments you should use the following methods instead:
-   * - {@link EntitiesEncryption.encryptDataOf} to encrypt entity-specific data using a key which is retrieved automatically from the entity.
+   * - {@link ExtendedApisUtils.encryptDataOf} to encrypt entity-specific data using a key which is retrieved automatically from the entity.
    * - {@link AES.encryptWithRawKey} to encrypt data with a specific key
-   * - {@link EntitiesEncryption.decryptDataOf} to decrypt entity-specific data using a key which is retrieved automatically from the entity. This
+   * - {@link ExtendedApisUtils.decryptDataOf} to decrypt entity-specific data using a key which is retrieved automatically from the entity. This
    *   method also allows to specify a validator to verify the data matches the predicted pattern (e.g. is a plain text file utf-8), which allows to
    *   better identify decryptions with bad keys and allows to try other keys instead of returning invalid data.
    * - {@link AES.decryptWithRawKey} to decrypt data with a specific key

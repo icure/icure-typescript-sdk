@@ -46,7 +46,7 @@ import { ExchangeKeysManager } from './crypto/ExchangeKeysManager'
 import { ShamirKeysManager } from './crypto/ShamirKeysManager'
 import { TransferKeysManager } from './crypto/TransferKeysManager'
 import { IccIcureMaintenanceXApi } from './icc-icure-maintenance-x-api'
-import { EntitiesEncryption } from './crypto/EntitiesEncryption'
+import { ExtendedApisUtils } from './crypto/ExtendedApisUtils'
 import { ConfidentialEntities } from './crypto/ConfidentialEntities'
 import { LegacyCryptoStrategies } from './crypto/LegacyCryptoStrategies'
 import { ensureDelegationForSelf } from './crypto/utils'
@@ -209,7 +209,7 @@ export const Api = async function (
   //   cryptoPrimitives
   // )
   const secureDelegationsEncryption = new SecureDelegationsEncryption(userEncryptionKeysManager, cryptoPrimitives)
-  const entitiesEncryption = new EntitiesEncryption(
+  const entitiesEncryption = new ExtendedApisUtils(
     cryptoPrimitives,
     dataOwnerApi,
     exchangeKeysManager,
