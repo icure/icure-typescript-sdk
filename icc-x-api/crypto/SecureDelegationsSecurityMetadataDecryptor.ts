@@ -3,7 +3,7 @@ import { SecureDelegation } from '../../icc-api/model/SecureDelegation'
 import { ExchangeDataManager } from './ExchangeDataManager'
 import { EncryptedEntityWithType } from '../utils/EntityWithDelegationTypeName'
 import { ExchangeData } from '../../icc-api/model/ExchangeData'
-import { SecureDelegationsUtils } from './SecureDelegationsUtils'
+import { SecureDelegationsEncryption } from './SecureDelegationsEncryption'
 
 type DelegationDecryptionDetails = {
   delegation: SecureDelegation
@@ -12,7 +12,7 @@ type DelegationDecryptionDetails = {
 }
 
 export class SecureDelegationsSecurityMetadataDecryptor implements SecurityMetadataDecryptor {
-  constructor(private readonly exchangeData: ExchangeDataManager, private readonly secureDelegationsUtils: SecureDelegationsUtils) {}
+  constructor(private readonly exchangeData: ExchangeDataManager, private readonly secureDelegationsEncryption: SecureDelegationsEncryption) {}
 
   decryptEncryptionKeysOf(
     typedEntity: EncryptedEntityWithType,
@@ -24,7 +24,7 @@ export class SecureDelegationsSecurityMetadataDecryptor implements SecurityMetad
       dataOwnersHierarchySubset,
       (t) => tagsFilter(t),
       (d) => d.encryptionKeys ?? [],
-      (e, k) => this.secureDelegationsUtils.decryptEncryptionKey(e, k)
+      (e, k) => this.secureDelegationsEncryption.decryptEncryptionKey(e, k)
     )
   }
 
@@ -38,7 +38,7 @@ export class SecureDelegationsSecurityMetadataDecryptor implements SecurityMetad
       dataOwnersHierarchySubset,
       (t) => tagsFilter(t),
       (d) => d.owningEntityIds ?? [],
-      (e, k) => this.secureDelegationsUtils.decryptOwningEntityId(e, k)
+      (e, k) => this.secureDelegationsEncryption.decryptOwningEntityId(e, k)
     )
   }
 
@@ -52,7 +52,7 @@ export class SecureDelegationsSecurityMetadataDecryptor implements SecurityMetad
       dataOwnersHierarchySubset,
       (t) => tagsFilter(t),
       (d) => d.secretIds ?? [],
-      (e, k) => this.secureDelegationsUtils.decryptSecretId(e, k)
+      (e, k) => this.secureDelegationsEncryption.decryptSecretId(e, k)
     )
   }
 
@@ -121,7 +121,7 @@ export class SecureDelegationsSecurityMetadataDecryptor implements SecurityMetad
         if (exchangeDataDetails) {
           for (const decrypted of await decrypt(decryptionDetails.delegation, exchangeDataDetails)) yield decrypted
         } else if (
-          (!!decryptionDetails.delegation.delegate || !!decryptionDetails.delegation.delegate) &&
+          (!!decryptionDetails.delegation.delegate || !!decryptionDetails.delegation.delegator) &&
           dataOwnersHierarchySubset.some((x) => x === decryptionDetails.delegation.delegate || x === decryptionDetails.delegation.delegator)
         ) {
           updatedRemainingDelegations.push(decryptionDetails)
@@ -154,7 +154,7 @@ export class SecureDelegationsSecurityMetadataDecryptor implements SecurityMetad
       if (!remainingDelegations.length) return
       for (const decryptionDetails of remainingDelegations) {
         if (!decryptionDetails.exchangeDataId) {
-          const decryptedExchangeDataId = await self.secureDelegationsUtils.decryptExchangeDataId(decryptionDetails.delegation)
+          const decryptedExchangeDataId = await self.secureDelegationsEncryption.decryptExchangeDataId(decryptionDetails.delegation)
           if (decryptedExchangeDataId) {
             const exchangeDataDetails = await self.exchangeData.getDecryptionDataKeyById(
               decryptedExchangeDataId,
@@ -172,7 +172,7 @@ export class SecureDelegationsSecurityMetadataDecryptor implements SecurityMetad
               })
             }
           }
-        } else remainingDelegations.push(decryptionDetails)
+        } else updatedRemainingDelegations.push(decryptionDetails)
       }
       remainingDelegations = updatedRemainingDelegations
 
@@ -183,7 +183,7 @@ export class SecureDelegationsSecurityMetadataDecryptor implements SecurityMetad
           decryptionDetails.exchangeDataId!,
           typedEntity.type,
           typedEntity.entity.secretForeignKeys ?? [],
-          false
+          true
         )
         if (exchangeDataDetails) {
           for (const decrypted of await decrypt(decryptionDetails.delegation, exchangeDataDetails)) yield decrypted

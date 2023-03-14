@@ -57,7 +57,7 @@ import { BaseExchangeDataManager } from './crypto/BaseExchangeDataManager'
 import { IccExchangeDataApi } from '../icc-api/api/IccExchangeDataApi'
 import { UserSignatureKeysManager } from './crypto/UserSignatureKeysManager'
 import { AccessControlSecretUtils } from './crypto/AccessControlSecretUtils'
-import { SecureDelegationsUtils } from './crypto/SecureDelegationsUtils'
+import { SecureDelegationsEncryption } from './crypto/SecureDelegationsEncryption'
 import { LegacyDelegationSecurityMetadataDecryptor } from './crypto/LegacyDelegationSecurityMetadataDecryptor'
 
 export * from './icc-accesslog-x-api'
@@ -208,7 +208,7 @@ export const Api = async function (
   //   dataOwnerApi,
   //   cryptoPrimitives
   // )
-  const secureDelegationsUtils = new SecureDelegationsUtils(userEncryptionKeysManager, cryptoPrimitives)
+  const secureDelegationsEncryption = new SecureDelegationsEncryption(userEncryptionKeysManager, cryptoPrimitives)
   const entitiesEncryption = new EntitiesEncryption(
     cryptoPrimitives,
     dataOwnerApi,

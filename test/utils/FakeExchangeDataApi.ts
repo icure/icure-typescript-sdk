@@ -68,7 +68,9 @@ export class FakeExchangeDataApi extends IccExchangeDataApi {
 
   getExchangeDataById(exchangeDataId: string): Promise<ExchangeData> {
     this._callCount.getExchangeDataById += 1
-    return Promise.resolve(new ExchangeData(this.data.getById(exchangeDataId)))
+    const retrieved = this.data.getById(exchangeDataId)
+    if (!retrieved) throw new Error(`Exchange data with id ${exchangeDataId} does not exist`)
+    return Promise.resolve(new ExchangeData(retrieved))
   }
 
   getExchangeDataByDelegatorDelegate(delegatorId: string, delegateId: string): Promise<ExchangeData[]> {
