@@ -189,4 +189,41 @@ describe('icc-x-contact-api Tests', () => {
     assert(foundServices.rows![0].id == createdContact.services![0].id)
     assert(foundServices.rows![0].healthElementsIds!.find((heId) => heId == healthElement!.id!) != undefined)
   })
+
+  it('contacts findBy Using Post for HCP', async () => {
+    // Given
+    const {
+      userApi: userApiForHcp,
+      dataOwnerApi: dataOwnerApiForHcp,
+      patientApi: patientApiForHcp,
+      contactApi: contactApiForHcp,
+      healthcareElementApi: hElementApiForHcp,
+      cryptoApi: cryptoApiForHcp,
+    } = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password, crypto)
+
+    const hcpUser = await userApiForHcp.getCurrentUser()
+    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, env!.dataOwnerDetails[hcp1Username].privateKey)
+
+    const patient = (await createPatient(patientApiForHcp, hcpUser)) as Patient
+    const healthElement = await createHealthElement(hElementApiForHcp, hcpUser, patient)
+    const contactToCreate = await createBasicContact(contactApiForHcp, hcpUser, patient).then((contact) => {
+      return {
+        ...contact,
+        subContacts: [
+          new SubContact({
+            id: randomUUID(),
+            healthElementId: healthElement!.id!,
+            services: [new ServiceLink({ serviceId: contact.services![0].id })],
+          }),
+        ],
+      }
+    })
+
+    // When
+    const foundContats = await contactApiForHcp.findBy(hcpUser.healthcarePartyId!, patient, true);
+
+    // Then
+    assert(foundContats.length == 1)
+    assert(foundContats[0].id == contactToCreate.id)
+  })
 })
