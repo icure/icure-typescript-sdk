@@ -1,9 +1,9 @@
 import 'isomorphic-fetch'
 import {getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStorage, TestUtils, TestVars} from '../utils/test_utils'
 import { before } from 'mocha'
-import {Api, IccFormXApi, IccPatientXApi, IccUserXApi} from '../../icc-x-api'
+import {Api, IccInvoiceXApi, IccPatientXApi, IccUserXApi} from '../../icc-x-api'
 import { BasicAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
-import {IccFormApi} from '../../icc-api'
+import {IccInvoiceApi} from '../../icc-api'
 import {Patient} from "../../icc-api/model/Patient"
 import {User} from "../../icc-api/model/User"
 import {randomUUID} from "crypto"
@@ -43,7 +43,7 @@ describe('icc-calendar-item-x-api Tests', () => {
     const authProvider = new BasicAuthenticationProvider(username, password)
 
     const userApi = new IccUserXApi(env.iCureUrl, {}, authProvider, fetch)
-    const formApi = new IccFormApi(env.iCureUrl, {}, authProvider, fetch)
+    const invoiceApi = new IccInvoiceApi(env.iCureUrl, {}, authProvider, fetch)
 
     const currentUser = await userApi.getCurrentUser()
 
@@ -57,6 +57,7 @@ describe('icc-calendar-item-x-api Tests', () => {
       patientApi: patientApiForHcp,
       cryptoApi: cryptoApiForHcp,
       dataOwnerApi: dateOwnerApiForHcp,
+      entityReferenceApi: entityReferenceApiForHcp,
     } = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password, crypto)
     const hcpUser = await userApiForHcp.getCurrentUser()
     await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, env!.dataOwnerDetails[hcp1Username].privateKey)
@@ -66,11 +67,11 @@ describe('icc-calendar-item-x-api Tests', () => {
 
     const authProvider = new BasicAuthenticationProvider(username, password)
 
-    const formXApi = new IccFormXApi(env.iCureUrl, {}, cryptoApiForHcp, dateOwnerApiForHcp, authProvider, fetch)
+    const invoiceXApi = new IccInvoiceXApi(env.iCureUrl, {}, cryptoApiForHcp, entityReferenceApiForHcp, dateOwnerApiForHcp, authProvider, fetch)
 
     const patient = (await createPatient(patientApiForHcp, hcpUser)) as Patient
 
-    await formXApi.findBy(hcpUser.healthcarePartyId!, patient, false)
+    await invoiceXApi.findBy(hcpUser.healthcarePartyId!, patient, false)
   })
 
   it('Test findBy usingPost', async () => {
@@ -81,6 +82,7 @@ describe('icc-calendar-item-x-api Tests', () => {
       patientApi: patientApiForHcp,
       cryptoApi: cryptoApiForHcp,
       dataOwnerApi: dateOwnerApiForHcp,
+      entityReferenceApi: entityReferenceApiForHcp,
     } = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password, crypto)
     const hcpUser = await userApiForHcp.getCurrentUser()
     await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, env!.dataOwnerDetails[hcp1Username].privateKey)
@@ -90,10 +92,10 @@ describe('icc-calendar-item-x-api Tests', () => {
 
     const authProvider = new BasicAuthenticationProvider(username, password)
 
-    const formXApi = new IccFormXApi(env.iCureUrl, {}, cryptoApiForHcp, dateOwnerApiForHcp, authProvider, fetch)
+    const invoiceXApi = new IccInvoiceXApi(env.iCureUrl, {}, cryptoApiForHcp, entityReferenceApiForHcp, dateOwnerApiForHcp, authProvider, fetch)
 
     const patient = (await createPatient(patientApiForHcp, hcpUser)) as Patient
 
-    await formXApi.findBy(hcpUser.healthcarePartyId!, patient, true)
+    await invoiceXApi.findBy(hcpUser.healthcarePartyId!, patient, true)
   })
 })
