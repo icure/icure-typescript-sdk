@@ -1,9 +1,9 @@
 import 'isomorphic-fetch'
 import {getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStorage, TestUtils, TestVars} from '../utils/test_utils'
 import { before } from 'mocha'
-import {Api, IccCalendarItemXApi, IccPatientXApi, IccUserXApi} from '../../icc-x-api'
+import {Api, IccCalendarItemXApi, IccFormXApi, IccPatientXApi, IccUserXApi} from '../../icc-x-api'
 import { BasicAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
-import {IccCalendarItemApi} from '../../icc-api'
+import {IccCalendarItemApi, IccFormApi} from '../../icc-api'
 import {Patient} from "../../icc-api/model/Patient"
 import {User} from "../../icc-api/model/User"
 import {randomUUID} from "crypto"
@@ -43,10 +43,10 @@ describe('icc-calendar-item-x-api Tests', () => {
     const authProvider = new BasicAuthenticationProvider(username, password)
 
     const userApi = new IccUserXApi(env.iCureUrl, {}, authProvider, fetch)
-    const calenderItemApi = new IccCalendarItemApi(env.iCureUrl, {}, authProvider, fetch)
+    const formApi = new IccFormApi(env.iCureUrl, {}, authProvider, fetch)
 
     const currentUser = await userApi.getCurrentUser()
-    
+
   })
 
   it('Test findBy not usingPost', async () => {
@@ -66,11 +66,11 @@ describe('icc-calendar-item-x-api Tests', () => {
 
     const authProvider = new BasicAuthenticationProvider(username, password)
 
-    const calendarItemXApi = new IccCalendarItemXApi(env.iCureUrl, {}, cryptoApiForHcp, dateOwnerApiForHcp, undefined, authProvider, fetch)
+    const formXApi = new IccFormXApi(env.iCureUrl, {}, cryptoApiForHcp, dateOwnerApiForHcp, authProvider, fetch)
 
     const patient = (await createPatient(patientApiForHcp, hcpUser)) as Patient
 
-    await calendarItemXApi.findBy(hcpUser.healthcarePartyId!, patient, false)
+    await formXApi.findBy(hcpUser.healthcarePartyId!, patient, false)
   })
 
   it('Test findBy usingPost', async () => {
@@ -90,11 +90,10 @@ describe('icc-calendar-item-x-api Tests', () => {
 
     const authProvider = new BasicAuthenticationProvider(username, password)
 
-
-    const calendarItemXApi = new IccCalendarItemXApi(env.iCureUrl, {}, cryptoApiForHcp, dateOwnerApiForHcp, undefined, authProvider, fetch)
+    const formXApi = new IccFormXApi(env.iCureUrl, {}, cryptoApiForHcp, dateOwnerApiForHcp, authProvider, fetch)
 
     const patient = (await createPatient(patientApiForHcp, hcpUser)) as Patient
 
-    await calendarItemXApi.findBy(hcpUser.healthcarePartyId!, patient, true)
+    await formXApi.findBy(hcpUser.healthcarePartyId!, patient, true)
   })
 })
