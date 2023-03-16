@@ -50,7 +50,31 @@ describe('icc-x-accesslog-api Tests', () => {
     await accessLogApi.findByUserAfterDate(currentUser.id!)
   })
 
-  it('Test usingPost', async () => {
+  it('Test findBy not usingPost', async () => {
+    // Given
+    const {
+      userApi: userApiForHcp,
+      dataOwnerApi: dataOwnerApiForHcp,
+      patientApi: patientApiForHcp,
+      cryptoApi: cryptoApiForHcp,
+      dataOwnerApi: dateOwnerApiForHcp,
+    } = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password, crypto)
+    const hcpUser = await userApiForHcp.getCurrentUser()
+    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, env!.dataOwnerDetails[hcp1Username].privateKey)
+
+    const username = env.dataOwnerDetails[hcp1Username].user
+    const password = env.dataOwnerDetails[hcp1Username].password
+
+    const authProvider = new BasicAuthenticationProvider(username, password)
+
+    const accessLogXApi = new IccAccesslogXApi(env.iCureUrl, {}, cryptoApiForHcp, dateOwnerApiForHcp, authProvider, fetch)
+
+    const patient = (await createPatient(patientApiForHcp, hcpUser)) as Patient
+
+    await accessLogXApi.findBy(hcpUser.healthcarePartyId!, patient, false)
+  })
+
+  it('Test findBy usingPost', async () => {
     // Given
     const {
       userApi: userApiForHcp,
