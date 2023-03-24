@@ -190,7 +190,7 @@ describe('icc-x-contact-api Tests', () => {
     assert(foundServices.rows![0].healthElementsIds!.find((heId) => heId == healthElement!.id!) != undefined)
   })
 
-  it('contacts findBy Using Post for HCP', async () => {
+  it('contacts findBy for HCP GET and POSt', async () => {
     // Given
     const {
       userApi: userApiForHcp,
@@ -219,11 +219,17 @@ describe('icc-x-contact-api Tests', () => {
       }
     })
 
+    const createdContact = (await contactApiForHcp.createContactWithUser(hcpUser, contactToCreate)) as Contact
+
     // When
-    const foundContats = await contactApiForHcp.findBy(hcpUser.healthcarePartyId!, patient, true);
+    const foundContats = await contactApiForHcp.findBy(hcpUser.healthcarePartyId!, patient, false);
+    const foundContatsUsingPost = await contactApiForHcp.findBy(hcpUser.healthcarePartyId!, patient, true);
 
     // Then
     assert(foundContats.length == 1)
     assert(foundContats[0].id == contactToCreate.id)
+
+    assert(foundContatsUsingPost.length == 1)
+    assert(foundContatsUsingPost[0].id == createdContact.id)
   })
 })
