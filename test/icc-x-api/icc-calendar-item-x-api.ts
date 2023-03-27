@@ -9,6 +9,8 @@ import {User} from "../../icc-api/model/User"
 import {randomUUID} from "crypto"
 import {crypto} from "../../node-compat"
 import initKey = TestUtils.initKey
+import {CalendarItem} from "../../icc-api/model/CalendarItem"
+import {assert} from "chai"
 
 setLocalStorage(fetch)
 let env: TestVars
@@ -49,7 +51,7 @@ describe('icc-calendar-item-x-api Tests', () => {
     
   })
 
-  it('Test findBy not usingPost', async () => {
+  it('Test findBy', async () => {
     // Given
     const {
       userApi: userApiForHcp,
@@ -65,36 +67,31 @@ describe('icc-calendar-item-x-api Tests', () => {
     const password = env.dataOwnerDetails[hcp1Username].password
 
     const authProvider = new BasicAuthenticationProvider(username, password)
-
     const calendarItemXApi = new IccCalendarItemXApi(env.iCureUrl, {}, cryptoApiForHcp, dateOwnerApiForHcp, undefined, authProvider, fetch)
-
     const patient = (await createPatient(patientApiForHcp, hcpUser)) as Patient
 
-    await calendarItemXApi.findBy(hcpUser.healthcarePartyId!, patient, false)
-  })
+    const calendarItem: CalendarItem = {
+      id: randomUUID(),
+      created: new Date().getTime(),
+      modified: new Date().getTime(),
+      startTime: 20230327131313,
+      endTime: 20230327141313,
+      responsible: hcpUser.healthcarePartyId!,
+      author: hcpUser.id,
+      codes: [],
+      tags: [],
+    }
+    await calendarItemXApi.initDelegationsAndEncryptionKeys(hcpUser, patient, calendarItem)
+    const calendarItemToCreate: CalendarItem = await calendarItemXApi.newInstancePatient(hcpUser, patient, calendarItem);
+    const createdCalendarItem = await calendarItemXApi.createCalendarItemWithHcParty(hcpUser, calendarItemToCreate);
 
-  it('Test findBy usingPost', async () => {
-    // Given
-    const {
-      userApi: userApiForHcp,
-      dataOwnerApi: dataOwnerApiForHcp,
-      patientApi: patientApiForHcp,
-      cryptoApi: cryptoApiForHcp,
-      dataOwnerApi: dateOwnerApiForHcp,
-    } = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password, crypto)
-    const hcpUser = await userApiForHcp.getCurrentUser()
-    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, env!.dataOwnerDetails[hcp1Username].privateKey)
+    const foundItems = await calendarItemXApi.findBy(hcpUser.healthcarePartyId!, patient, false)
+    const foundItemsUsingPost = await calendarItemXApi.findBy(hcpUser.healthcarePartyId!, patient, true)
 
-    const username = env.dataOwnerDetails[hcp1Username].user
-    const password = env.dataOwnerDetails[hcp1Username].password
+    assert(foundItems.length == 1, 'Found items should be 1')
+    assert( foundItems[0].id == createdCalendarItem.id, 'Found item should be the same as created item')
 
-    const authProvider = new BasicAuthenticationProvider(username, password)
-
-
-    const calendarItemXApi = new IccCalendarItemXApi(env.iCureUrl, {}, cryptoApiForHcp, dateOwnerApiForHcp, undefined, authProvider, fetch)
-
-    const patient = (await createPatient(patientApiForHcp, hcpUser)) as Patient
-
-    await calendarItemXApi.findBy(hcpUser.healthcarePartyId!, patient, true)
+    assert(foundItemsUsingPost.length == 1,  'Found items using post should be 1')
+    assert( foundItemsUsingPost[0].id == createdCalendarItem.id, 'Found item using post should be the same as created item')
   })
 })
