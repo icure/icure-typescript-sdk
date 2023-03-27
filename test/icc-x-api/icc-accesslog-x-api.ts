@@ -9,6 +9,8 @@ import {User} from "../../icc-api/model/User"
 import {randomUUID} from "crypto"
 import {crypto} from "../../node-compat"
 import initKey = TestUtils.initKey
+import {AccessLog} from "../../icc-api/model/AccessLog"
+import { assert } from 'chai'
 
 setLocalStorage(fetch)
 let env: TestVars
@@ -50,7 +52,7 @@ describe('icc-x-accesslog-api Tests', () => {
     await accessLogApi.findByUserAfterDate(currentUser.id!)
   })
 
-  it('Test findBy not usingPost', async () => {
+  it('Test findBy', async () => {
     // Given
     const {
       userApi: userApiForHcp,
@@ -71,30 +73,32 @@ describe('icc-x-accesslog-api Tests', () => {
 
     const patient = (await createPatient(patientApiForHcp, hcpUser)) as Patient
 
-    await accessLogXApi.findBy(hcpUser.healthcarePartyId!, patient, false)
-  })
+    const accessLog = new AccessLog({
+      id: randomUUID(),
+      _type: 'org.taktik.icure.entities.AccessLog',
+      created: new Date().getTime(),
+      modified: new Date().getTime(),
+      date: +new Date(),
+      responsible: hcpUser.healthcarePartyId!,
+      author: hcpUser.id,
+      codes: [],
+      tags: [],
+      user: hcpUser.id,
+      patient: patient.id,
+      accessType: 'USER_ACCESS',
+    })
 
-  it('Test findBy usingPost', async () => {
-    // Given
-    const {
-      userApi: userApiForHcp,
-      dataOwnerApi: dataOwnerApiForHcp,
-      patientApi: patientApiForHcp,
-      cryptoApi: cryptoApiForHcp,
-      dataOwnerApi: dateOwnerApiForHcp,
-    } = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password, crypto)
-    const hcpUser = await userApiForHcp.getCurrentUser()
-    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, env!.dataOwnerDetails[hcp1Username].privateKey)
+    const accessLogToCreate = await accessLogXApi.newInstance(hcpUser, patient, accessLog);
+    const createdAccessLog = await accessLogXApi.createAccessLogWithUser(hcpUser, accessLogToCreate);
 
-    const username = env.dataOwnerDetails[hcp1Username].user
-    const password = env.dataOwnerDetails[hcp1Username].password
+    const foundItems: AccessLog[] = await accessLogXApi.findBy(hcpUser.healthcarePartyId!, patient, false)
+    const foundItemsUsingPost: AccessLog[] = await accessLogXApi.findBy(hcpUser.healthcarePartyId!, patient, true)
 
-    const authProvider = new BasicAuthenticationProvider(username, password)
+    assert(foundItems.length == 1)
+    assert( foundItems[0].id == createdAccessLog.id)
 
-    const accessLogXApi = new IccAccesslogXApi(env.iCureUrl, {}, cryptoApiForHcp, dateOwnerApiForHcp, authProvider, fetch)
+    assert(foundItemsUsingPost.length == 1)
+    assert( foundItemsUsingPost[0].id == createdAccessLog.id)
 
-    const patient = (await createPatient(patientApiForHcp, hcpUser)) as Patient
-
-    await accessLogXApi.findBy(hcpUser.healthcarePartyId!, patient, true)
   })
 })
