@@ -94,11 +94,11 @@ describe('icc-x-accesslog-api Tests', () => {
     const foundItems: AccessLog[] = await accessLogXApi.findBy(hcpUser.healthcarePartyId!, patient, false)
     const foundItemsUsingPost: AccessLog[] = await accessLogXApi.findBy(hcpUser.healthcarePartyId!, patient, true)
 
-    assert(foundItems.length == 1)
-    assert( foundItems[0].id == createdAccessLog.id)
+    assert(foundItems.length == 1, 'Found items should be 1')
+    assert( foundItems[0].id == createdAccessLog.id, 'Found item should be the same as the created one')
 
-    assert(foundItemsUsingPost.length == 1)
-    assert( foundItemsUsingPost[0].id == createdAccessLog.id)
+    assert(foundItemsUsingPost.length == 1, 'Found items using post should be 1')
+    assert( foundItemsUsingPost[0].id == createdAccessLog.id, 'Found item using post should be the same as the created one')
 
   })
 })

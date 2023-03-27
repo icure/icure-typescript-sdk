@@ -226,10 +226,10 @@ describe('icc-x-contact-api Tests', () => {
     const foundContatsUsingPost = await contactApiForHcp.findBy(hcpUser.healthcarePartyId!, patient, true);
 
     // Then
-    assert(foundContats.length == 1)
-    assert(foundContats[0].id == contactToCreate.id)
+    assert(foundContats.length == 1, 'Found items should be 1')
+    assert(foundContats[0].id == contactToCreate.id, 'Found item should be the same as the created one')
 
-    assert(foundContatsUsingPost.length == 1)
-    assert(foundContatsUsingPost[0].id == createdContact.id)
+    assert(foundContatsUsingPost.length == 1, 'Found items using post should be 1')
+    assert(foundContatsUsingPost[0].id == createdContact.id, 'Found item using post should be the same as the created one')
   })
 })
