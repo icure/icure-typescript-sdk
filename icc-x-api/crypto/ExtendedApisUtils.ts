@@ -23,6 +23,13 @@ export class ExtendedApisUtils implements EntitiesEncryption {
     private readonly securityMetadataDecryptor: SecurityMetadataDecryptor
   ) {}
 
+  getAccessLevelOfCurrentDataOwnerOnEntireEntity(
+    entity: EncryptedEntity | EncryptedEntityStub,
+    entityType?: EntityWithDelegationTypeName
+  ): Promise<SecureDelegation.AccessLevel | undefined> {
+    return Promise.resolve(undefined)
+  }
+
   async encryptionKeysOf(
     entity: EncryptedEntity | EncryptedEntityStub,
     entityType?: EntityWithDelegationTypeName,

@@ -1,5 +1,5 @@
 import 'isomorphic-fetch'
-import { expect } from 'chai'
+import { expect, use as chaiUse } from 'chai'
 import 'mocha'
 import { Apis } from '../../icc-x-api'
 import { IccPatientApi } from '../../icc-api'
@@ -13,6 +13,8 @@ import { BasicAuthenticationProvider } from '../../icc-x-api/auth/Authentication
 import initApi = TestUtils.initApi
 import { TestApi } from '../utils/TestApi'
 import { RSAUtils } from '../../icc-x-api/crypto/RSA'
+import * as chaiAsPromised from 'chai-as-promised'
+chaiUse(chaiAsPromised)
 
 setLocalStorage(fetch)
 let env: TestVars
@@ -103,13 +105,8 @@ describe('Patient', () => {
       await calendarItemApi.newInstancePatient(user, patient, { patientId: patient.id, title: ciTitle, details: ciDetails }, [])
     )
 
-    const pat2 = await api.patientApi.getPatientWithUser(hcpUser, patient.id!)
-    const ci2 = await api.calendarItemApi.getCalendarItemWithUser(hcpUser, ci.id)
-    expect(pat2).to.not.be.null
-    expect(pat2.note).to.be.undefined
-    expect(ci2).to.not.be.null
-    expect(ci2.title).to.be.undefined
-    expect(ci2.details).to.be.undefined
+    await expect(api.patientApi.getPatientWithUser(hcpUser, patient.id!)).to.be.rejected
+    await expect(api.calendarItemApi.getCalendarItemWithUser(hcpUser, ci.id)).to.be.rejected
 
     await patientApi.modifyPatientWithUser(
       user,

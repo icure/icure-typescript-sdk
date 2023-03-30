@@ -4,6 +4,7 @@ import { assert, expect } from 'chai'
 import { randomBytes, randomUUID } from 'crypto'
 import { getEnvironmentInitializer, getEnvVariables, hcp1Username, TestUtils, TestVars } from '../../utils/test_utils'
 import initApi = TestUtils.initApi
+import { Delegation } from '../../../icc-api/model/Delegation'
 
 const sampleKey = 'thumbnail'
 const sampleKey2 = 'thumbnail2'
@@ -36,19 +37,39 @@ async function assertRequestFails(request: Promise<any>, status: number) {
   assert(!succeeded, 'Request should have not succeeded')
 }
 
-let env: TestVars | undefined
-let documentApi: IccDocumentXApi | undefined
+let env: TestVars
+let documentApi: IccDocumentXApi
+let dataOwnerId: string
 
 describe('Document api', () => {
   before(async function () {
     this.timeout(600000)
     const initializer = await getEnvironmentInitializer()
     env = await initializer.execute(getEnvVariables())
-    documentApi = (await initApi(env!, hcp1Username)).documentApi
+    const api = await initApi(env!, hcp1Username)
+    documentApi = api.documentApi
+    dataOwnerId = await api.dataOwnerApi.getCurrentDataOwnerId()
   })
 
+  async function createDocument(): Promise<Document> {
+    return await documentApi.createDocument(
+      new Document({
+        id: randomUUID(),
+        delegations: {
+          [dataOwnerId]: [
+            new Delegation({
+              owner: dataOwnerId,
+              delegatedTo: dataOwnerId,
+              key: 'fakekey',
+            }),
+          ],
+        },
+      })
+    )
+  }
+
   it('should allow to create and retrieve main attachments', async () => {
-    const document = await documentApi!.createDocument(new Document({ id: randomUUID() }))
+    const document = await createDocument()
     const data = randomBytes(32)
     const updated = await documentApi!.setDocumentAttachment(document.id!, undefined, data)
     const retrievedData = await documentApi!.getDocumentAttachment(document.id!, updated.attachmentId!)
@@ -56,7 +77,7 @@ describe('Document api', () => {
   })
 
   it('should allow to create and retrieve secondary attachments', async () => {
-    const document = await documentApi!.createDocument(new Document({ id: randomUUID() }))
+    const document = await createDocument()
     const data = randomBytes(32)
     const updated = await documentApi!.setSecondaryAttachment(document.id!, sampleKey, document.rev!, data)
     expect(updated.secondaryAttachments).to.contain.keys([sampleKey])
@@ -66,14 +87,14 @@ describe('Document api', () => {
   })
 
   it('should allow to initialise utis in secondary attachments', async () => {
-    const document = await documentApi!.createDocument(new Document({ id: randomUUID() }))
+    const document = await createDocument()
     const data = randomBytes(32)
     const updated = await documentApi!.setSecondaryAttachment(document.id!, sampleKey, document.rev!, data, sampleUti)
     assert(arrayEquals(updated.secondaryAttachments![sampleKey].utis!, sampleUti))
   })
 
   it('should allow to update utis in secondary attachments', async () => {
-    const document = await documentApi!.createDocument(new Document({ id: randomUUID() }))
+    const document = await createDocument()
     const data = randomBytes(32)
     const updated = await documentApi!.setSecondaryAttachment(document.id!, sampleKey, document.rev!, data)
     assert(arrayEquals(updated.secondaryAttachments![sampleKey].utis!, []))
@@ -82,7 +103,7 @@ describe('Document api', () => {
   })
 
   it('should allow to delete secondary attachments', async () => {
-    const document = await documentApi!.createDocument(new Document({ id: randomUUID() }))
+    const document = await createDocument()
     const data = randomBytes(32)
     const updated = await documentApi!.setSecondaryAttachment(document.id!, sampleKey, document.rev!, data)
     const originalAttachment = updated.secondaryAttachments![sampleKey]
@@ -99,7 +120,7 @@ describe('Document api', () => {
   })
 
   it('should treat secondary attachments with different keys as different attachments', async () => {
-    const document = await documentApi!.createDocument(new Document({ id: randomUUID() }))
+    const document = await createDocument()
     const data1 = randomBytes(32)
     const data2 = randomBytes(32)
     const data3 = randomBytes(32)
@@ -126,14 +147,14 @@ describe('Document api', () => {
   })
 
   it('should refuse update methods which do not provide the latest rev', async () => {
-    const document = await documentApi!.createDocument(new Document({ id: randomUUID() }))
+    const document = await createDocument()
     await documentApi!.setDocumentAttachment(document.id!, undefined, randomBytes(32))
     await assertRequestFails(documentApi!.setSecondaryAttachment(document.id!, sampleKey, document.rev!, randomBytes(32)), 409)
     await assertRequestFails(documentApi!.deleteSecondaryAttachment(document.id!, sampleKey, document.rev!), 409)
   })
 
   it('should prevent using the document id as an attachment key', async () => {
-    const document = await documentApi!.createDocument(new Document({ id: randomUUID() }))
+    const document = await createDocument()
     await assertRequestFails(documentApi!.setSecondaryAttachment(document.id!, document.id!, document.rev!, randomBytes(32)), 400)
     await assertRequestFails(documentApi!.deleteSecondaryAttachment(document.id!, document.id!, document.rev!), 400)
     await assertRequestFails(documentApi!.getSecondaryAttachment(document.id!, document.id!, document.rev!), 400)
