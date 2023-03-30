@@ -60,7 +60,7 @@ class ApiFactoryV6 implements ApiFactory {
 
   async masterApi(env: TestVars): Promise<UniformizedMasterApi> {
     const apis = await ApiV6(
-      env.iCureUrl,
+      env.iCureUrl + '/rest/v1',
       env.masterHcp!.user,
       env.masterHcp!.password,
       webcrypto as any,
@@ -93,7 +93,7 @@ class ApiFactoryV6 implements ApiFactory {
   }
 
   async testApi(credentials: UserCredentials): Promise<UniformizedTestApi> {
-    const apis = await ApiV6(env.iCureUrl, credentials.login, credentials.password, webcrypto as any, fetch)
+    const apis = await ApiV6(env.iCureUrl + '/rest/v1', credentials.login, credentials.password, webcrypto as any, fetch)
     // await apis.cryptoApi.cacheKeyPair(await cryptoPrimitives.RSA.exportKeys(credentials.key, "jwk", "jwk"))
     const user = await apis.userApi.getCurrentUser()
     await apis.cryptoApi.addKeyPairForOwner(
