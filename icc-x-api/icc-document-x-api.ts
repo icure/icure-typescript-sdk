@@ -734,7 +734,9 @@ export class IccDocumentXApi extends IccDocumentApi {
    */
   async encryptAndSetDocumentAttachment(document: models.Document, attachment: ArrayBuffer | Uint8Array): Promise<models.Document> {
     const encryptedData = await this.crypto.entities.encryptDataOf(document, attachment, 'Document')
-    return await this.setDocumentAttachment(document.id!, undefined, encryptedData)
+    const rev = document.rev
+    if (!rev) throw new Error('Cannot set attachment on document without rev')
+    return await this.setMainDocumentAttachment(document.id!, rev, encryptedData)
   }
 
   /**
@@ -764,9 +766,7 @@ export class IccDocumentXApi extends IccDocumentApi {
     document: models.Document,
     validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<ArrayBuffer> {
-    return await this.crypto.entities.decryptDataOf(document, await this.getDocumentAttachment(document.id!, 'ignored'), 'Document', (x) =>
-      validator(x)
-    )
+    return await this.crypto.entities.decryptDataOf(document, await this.getMainDocumentAttachment(document.id!), 'Document', (x) => validator(x))
   }
 
   /**

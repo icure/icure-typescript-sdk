@@ -166,23 +166,24 @@ export class IccDocumentApi {
   }
 
   /**
-   *
-   * @summary Load document's attachment
-   * @param documentId
-   * @param attachmentId
-   * @param enckeys
-   * @param fileName
+   * @deprecated use getMainDocumentAttachment instead
    */
   getDocumentAttachment(documentId: string, attachmentId: string, enckeys?: string, fileName?: string): Promise<ArrayBuffer> {
+    if (enckeys) {
+      throw new Error('Server-side encryption of attachment is not allowed anymore')
+    }
+    return this.getMainDocumentAttachment(documentId)
+  }
+
+  /**
+   * Get the main attachment of a document
+   * @param documentId id of the document
+   * @return the content of the main attachment for the document (if any)
+   */
+  getMainDocumentAttachment(documentId: string): Promise<ArrayBuffer> {
     let _body = null
 
-    const _url =
-      this.host +
-      `/document/${encodeURIComponent(String(documentId))}/attachment/${encodeURIComponent(String(attachmentId))}` +
-      '?ts=' +
-      new Date().getTime() +
-      (enckeys ? '&enckeys=' + encodeURIComponent(String(enckeys)) : '') +
-      (fileName ? '&fileName=' + encodeURIComponent(String(fileName)) : '')
+    const _url = this.host + `/document/${encodeURIComponent(String(documentId))}/attachment` + '?ts=' + new Date().getTime()
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
@@ -213,7 +214,7 @@ export class IccDocumentApi {
     let _body = null
     _body = body
 
-    const _url = this.host + `/document/batch` + '?ts=' + new Date().getTime()
+    const _url = this.host + `/document/byIds` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
@@ -271,22 +272,22 @@ export class IccDocumentApi {
   }
 
   /**
-   * Creates a document's attachment and returns the modified document instance afterward
-   * @summary Create a document's attachment
-   * @param body
-   * @param documentId
-   * @param enckeys
+   * Creates a main attachment for a document and returns the modified document instance afterward
+   * @param documentId id of the document
+   * @param documentRev revision of the document
+   * @param body content of the attachment (must be compatible with XHR body)
    */
-  setDocumentAttachment(documentId: string, enckeys?: string, body?: Object): Promise<Document> {
-    let _body = null
-    _body = body
+  setMainDocumentAttachment(documentId: string, documentRev: string, body: Object): Promise<Document> {
+    if (!documentRev) throw new Error('Document rev is required')
+    let _body = body
 
     const _url =
       this.host +
       `/document/${encodeURIComponent(String(documentId))}/attachment` +
       '?ts=' +
       new Date().getTime() +
-      (enckeys ? '&enckeys=' + encodeURIComponent(String(enckeys)) : '')
+      '&rev=' +
+      encodeURIComponent(String(documentRev))
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
@@ -295,57 +296,39 @@ export class IccDocumentApi {
   }
 
   /**
-   * Creates a document attachment and returns the modified document instance afterward
-   * @summary Create a document's attachment
-   * @param body
-   * @param documentId
-   * @param enckeys
+   * @deprecated use setMainDocumentAttachment instead
    */
-  setDocumentAttachmentBody(documentId: string, enckeys?: string, body?: Object): Promise<Document> {
-    let _body = null
-    _body = body
-
-    const _url =
-      this.host +
-      `/document/attachment` +
-      '?ts=' +
-      new Date().getTime() +
-      (documentId ? '&documentId=' + encodeURIComponent(String(documentId)) : '') +
-      (enckeys ? '&enckeys=' + encodeURIComponent(String(enckeys)) : '')
-    let headers = this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new Document(doc.body as JSON))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
-   *
-   * @summary Creates a document's attachment
-   * @param attachment
-   * @param documentId
-   * @param enckeys
-   */
-  setDocumentAttachmentMulti(attachment: ArrayBuffer, documentId: string, enckeys?: string): Promise<Document> {
-    let _body = null
-    if (attachment && !_body) {
-      const parts = Array.isArray(attachment) ? (attachment as any[]) : [attachment as ArrayBuffer]
-      const _blob = new Blob(parts, { type: 'application/octet-stream' })
-      _body = new FormData()
-      _body.append('attachment', _blob)
+  setDocumentAttachmentBody(documentId: string, documentRev: string, enckeys?: null, body?: Object): Promise<Document> {
+    if (enckeys) {
+      throw new Error('Server-side encryption of attachment is not allowed anymore')
     }
+    if (!body) {
+      throw new Error('body is now required.')
+    }
+    return this.setMainDocumentAttachment(documentId, documentRev, body)
+  }
 
-    const _url =
-      this.host +
-      `/document/${encodeURIComponent(String(documentId))}/attachment/multipart` +
-      '?ts=' +
-      new Date().getTime() +
-      (enckeys ? '&enckeys=' + encodeURIComponent(String(enckeys)) : '')
-    let headers = this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'multipart/form-data'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new Document(doc.body as JSON))
-      .catch((err) => this.handleError(err))
+  /**
+   * @deprecated use setMainDocumentAttachment instead
+   */
+  setDocumentAttachment(documentId: string, documentRev: string, enckeys?: null, body?: Object): Promise<Document> {
+    if (enckeys) {
+      throw new Error('Server-side encryption of attachment is not allowed anymore')
+    }
+    if (!body) {
+      throw new Error('body is now required.')
+    }
+    return this.setMainDocumentAttachment(documentId, documentRev, body)
+  }
+
+  /**
+   * @deprecated use setMainDocumentAttachment instead
+   */
+  setDocumentAttachmentMulti(attachment: ArrayBuffer, documentRev: string, documentId: string, enckeys?: null): Promise<Document> {
+    if (enckeys) {
+      throw new Error('Server-side encryption of attachment is not allowed anymore')
+    }
+    return this.setMainDocumentAttachment(documentId, documentRev, attachment)
   }
 
   /**

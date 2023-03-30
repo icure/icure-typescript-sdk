@@ -62,7 +62,7 @@ const entityWithAttachmentApis = {
         return apis.receiptApi.getAndDecryptReceiptAttachment(entity, (entity.attachmentIds ?? {})['tack'], validator)
       },
       getEncryptedAttachment(entity: models.Receipt): Promise<ArrayBuffer> {
-        return apis.receiptApi.getReceiptAttachment(entity.id!, (entity.attachmentIds ?? {})['tack'], '')
+        return apis.receiptApi.getReceiptAttachment(entity.id!, (entity.attachmentIds ?? {})['tack'])
       },
     },
 }

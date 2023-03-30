@@ -71,8 +71,10 @@ describe('Document api', () => {
   it('should allow to create and retrieve main attachments', async () => {
     const document = await createDocument()
     const data = randomBytes(32)
-    const updated = await documentApi!.setDocumentAttachment(document.id!, undefined, data)
-    const retrievedData = await documentApi!.getDocumentAttachment(document.id!, updated.attachmentId!)
+    expect(document.rev).to.not.be.undefined
+    const updated = await documentApi!.setMainDocumentAttachment(document.id!, document.rev!, data)
+    expect(updated).to.not.be.undefined
+    const retrievedData = await documentApi!.getMainDocumentAttachment(document.id!)
     assert(bufferEquals(retrievedData, data))
   })
 
@@ -148,7 +150,9 @@ describe('Document api', () => {
 
   it('should refuse update methods which do not provide the latest rev', async () => {
     const document = await createDocument()
-    await documentApi!.setDocumentAttachment(document.id!, undefined, randomBytes(32))
+    expect(document.rev).to.not.be.undefined
+    expect((await documentApi.modifyDocument({ ...document, name: 'new name' })).rev).to.not.equal(document.rev)
+    await assertRequestFails(documentApi!.setMainDocumentAttachment(document.id!, document.rev!, randomBytes(32)), 409)
     await assertRequestFails(documentApi!.setSecondaryAttachment(document.id!, sampleKey, document.rev!, randomBytes(32)), 409)
     await assertRequestFails(documentApi!.deleteSecondaryAttachment(document.id!, sampleKey, document.rev!), 409)
   })
