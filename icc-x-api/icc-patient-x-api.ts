@@ -76,10 +76,9 @@ export class IccPatientXApi extends IccPatientApi {
    * @param p initialised data for the patient. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
    * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
    * @param delegates initial delegates which will have access to the patient other than the current data owner.
-   * @param delegationTags tags for the initialised delegations.
    * @return a new instance of patient.
    */
-  async newInstance(user: models.User, p: any = {}, delegates: string[] = [], delegationTags?: string[]) {
+  async newInstance(user: models.User, p: any = {}, delegates: string[] = []) {
     const patient = _.extend(
       {
         id: this.crypto.primitives.randomUuid(),
@@ -102,8 +101,7 @@ export class IccPatientXApi extends IccPatientApi {
       undefined,
       undefined,
       true,
-      extraDelegations,
-      delegationTags
+      extraDelegations
     )
     return new models.Patient(initialisationInfo.updatedEntity)
   }
@@ -541,7 +539,7 @@ export class IccPatientXApi extends IccPatientApi {
             const encryptionKeys = await this.crypto.entities.encryptionKeysOf(x.entity, x.type, ownerId)
             const parentIds = await this.crypto.entities.owningEntityIdsOf(x.entity, x.type, ownerId)
             const updatedX = await this.crypto.entities
-              .entityWithExtendedEncryptedMetadata(x.entity, delegateId, secretIds, encryptionKeys, parentIds, [])
+              .entityWithExtendedEncryptedMetadata(x.entity, delegateId, secretIds, encryptionKeys, parentIds)
               .catch((e: any) => {
                 console.log(e)
                 return x
@@ -722,7 +720,7 @@ export class IccPatientXApi extends IccPatientApi {
                     markerPromise = markerPromise.then(async () => {
                       //Share patient
                       const updatedPatient = await this.crypto.entities
-                        .entityWithExtendedEncryptedMetadata(patient, delegateId, delSfks, ecKeys, [], [])
+                        .entityWithExtendedEncryptedMetadata(patient, delegateId, delSfks, ecKeys, [])
                         .catch((e) => {
                           console.log(e)
                           return patient

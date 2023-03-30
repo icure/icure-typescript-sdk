@@ -33,64 +33,58 @@ export class ExtendedApisUtils implements EntitiesEncryption {
   async encryptionKeysOf(
     entity: EncryptedEntity | EncryptedEntityStub,
     entityType?: EntityWithDelegationTypeName,
-    dataOwnerId?: string,
-    tagsFilter?: (tags: string[]) => boolean
+    dataOwnerId?: string
   ): Promise<string[]> {
     // Legacy entities may have encryption keys in delegations.
     return await this.decryptAndMergeHierarchy(entity, entityType, dataOwnerId, (entityWithType, hierarchy) =>
-      this.securityMetadataDecryptor.decryptEncryptionKeysOf(entityWithType, hierarchy, tagsFilter ? (t) => tagsFilter(t) : () => true)
+      this.securityMetadataDecryptor.decryptEncryptionKeysOf(entityWithType, hierarchy)
     )
   }
 
   async encryptionKeysForHcpHierarchyOf(
     entity: EncryptedEntity | EncryptedEntityStub,
-    entityType?: EntityWithDelegationTypeName,
-    tagsFilter?: (tags: string[]) => boolean
+    entityType?: EntityWithDelegationTypeName
   ): Promise<{ ownerId: string; extracted: string[] }[]> {
     return this.decryptHierarchy(entity, entityType, (entityWithType, hierarchy) =>
-      this.securityMetadataDecryptor.decryptEncryptionKeysOf(entityWithType, hierarchy, tagsFilter ? (t) => tagsFilter(t) : () => true)
+      this.securityMetadataDecryptor.decryptEncryptionKeysOf(entityWithType, hierarchy)
     )
   }
 
   async secretIdsOf(
     entity: EncryptedEntity | EncryptedEntityStub,
     entityType?: EntityWithDelegationTypeName,
-    dataOwnerId?: string,
-    tagsFilter?: (tags: string[]) => boolean
+    dataOwnerId?: string
   ): Promise<string[]> {
     return await this.decryptAndMergeHierarchy(entity, entityType, dataOwnerId, (entityWithType, hierarchy) =>
-      this.securityMetadataDecryptor.decryptSecretIdsOf(entityWithType, hierarchy, tagsFilter ? (t) => tagsFilter(t) : () => true)
+      this.securityMetadataDecryptor.decryptSecretIdsOf(entityWithType, hierarchy)
     )
   }
 
   async secretIdsForHcpHierarchyOf(
     entity: EncryptedEntity | EncryptedEntityStub,
-    entityType?: EntityWithDelegationTypeName,
-    tagsFilter?: (tags: string[]) => boolean
+    entityType?: EntityWithDelegationTypeName
   ): Promise<{ ownerId: string; extracted: string[] }[]> {
     return this.decryptHierarchy(entity, entityType, (entityWithType, hierarchy) =>
-      this.securityMetadataDecryptor.decryptSecretIdsOf(entityWithType, hierarchy, tagsFilter ? (t) => tagsFilter(t) : () => true)
+      this.securityMetadataDecryptor.decryptSecretIdsOf(entityWithType, hierarchy)
     )
   }
 
   async owningEntityIdsOf(
     entity: EncryptedEntity | EncryptedEntityStub,
     entityType?: EntityWithDelegationTypeName,
-    dataOwnerId?: string,
-    tagsFilter?: (tags: string[]) => boolean
+    dataOwnerId?: string
   ): Promise<string[]> {
     return await this.decryptAndMergeHierarchy(entity, entityType, dataOwnerId, (entityWithType, hierarchy) =>
-      this.securityMetadataDecryptor.decryptOwningEntityIdsOf(entityWithType, hierarchy, tagsFilter ? (t) => tagsFilter(t) : () => true)
+      this.securityMetadataDecryptor.decryptOwningEntityIdsOf(entityWithType, hierarchy)
     )
   }
 
   async owningEntityIdsForHcpHierarchyOf(
     entity: EncryptedEntity | EncryptedEntityStub,
-    entityType?: EntityWithDelegationTypeName,
-    tagsFilter?: (tags: string[]) => boolean
+    entityType?: EntityWithDelegationTypeName
   ): Promise<{ ownerId: string; extracted: string[] }[]> {
     return this.decryptHierarchy(entity, entityType, (entityWithType, hierarchy) =>
-      this.securityMetadataDecryptor.decryptOwningEntityIdsOf(entityWithType, hierarchy, tagsFilter ? (t) => tagsFilter(t) : () => true)
+      this.securityMetadataDecryptor.decryptOwningEntityIdsOf(entityWithType, hierarchy)
     )
   }
 
@@ -104,7 +98,6 @@ export class ExtendedApisUtils implements EntitiesEncryption {
    * @param initialiseEncryptionKeys if false this method will not initialize any encryption keys. Use only for entities which use delegations for
    * access control but don't actually have any encrypted content.
    * @param additionalDelegations automatically shares the
-   * @param tags tags to associate with the initial encryption keys and metadata
    * @throws if the entity already has non-empty values for encryption metadata.
    * @return an updated copy of the entity.
    */
@@ -113,8 +106,7 @@ export class ExtendedApisUtils implements EntitiesEncryption {
     owningEntity: string | undefined,
     owningEntitySecretId: string | undefined,
     initialiseEncryptionKeys: boolean,
-    additionalDelegations: string[] = [],
-    tags: string[] = []
+    additionalDelegations: string[] = []
   ): Promise<{
     updatedEntity: T
     rawEncryptionKey: string | undefined
@@ -138,7 +130,6 @@ export class ExtendedApisUtils implements EntitiesEncryption {
           [secretId],
           initialiseEncryptionKeys ? [rawEncryptionKey!] : [],
           owningEntity ? [owningEntity] : [],
-          tags,
           loadKeysResult.keysForDelegates
         ),
       Promise.resolve(loadKeysResult.updatedEntity)
@@ -164,7 +155,6 @@ export class ExtendedApisUtils implements EntitiesEncryption {
    * @param shareSecretIds secret ids to share.
    * @param shareEncryptionKeys encryption keys to share.
    * @param shareOwningEntityIds owning enttiy ids to share.
-   * @param newTags tags to associate with the new encryption keys and metadata. Existing data won't be changed.
    * @throws if any of the shareX parameters is set to `true` but the corresponding piece of data could not be retrieved.
    * @return an updated copy of the entity.
    */
@@ -173,8 +163,7 @@ export class ExtendedApisUtils implements EntitiesEncryption {
     delegateId: string,
     shareSecretIds: string[],
     shareEncryptionKeys: string[],
-    shareOwningEntityIds: string[],
-    newTags: string[] = []
+    shareOwningEntityIds: string[]
   ): Promise<T> {
     this.throwDetailedExceptionForInvalidParameter('entity.id', entity.id, 'entityWithSharedEncryptedMetadata', arguments)
     async function checkInputAndGet(input: string[], inputName: string, validate: (x: string) => boolean | Promise<boolean>): Promise<string[]> {
@@ -229,7 +218,6 @@ export class ExtendedApisUtils implements EntitiesEncryption {
       deduplicateInfoSecretIds.missingEntries,
       deduplicateInfoEncryptionKeys.missingEntries,
       deduplicateInfoOwningEntityIds.missingEntries,
-      newTags,
       keysForDelegates
     )
   }
@@ -238,10 +226,9 @@ export class ExtendedApisUtils implements EntitiesEncryption {
     entity: EncryptedEntity | EncryptedEntityStub,
     content: ArrayBuffer | Uint8Array,
     entityType?: EntityWithDelegationTypeName,
-    dataOwnerId?: string,
-    tagsFilter?: (tags: string[]) => boolean
+    dataOwnerId?: string
   ): Promise<ArrayBuffer> {
-    const keys = await this.encryptionKeysOf(entity, entityType, dataOwnerId, tagsFilter ? (t) => tagsFilter(t) : () => true)
+    const keys = await this.encryptionKeysOf(entity, entityType, dataOwnerId)
     if (keys.length === 0)
       throw new Error(
         `Could not extract any encryption keys of entity ${entity} for data owner ${
@@ -256,10 +243,9 @@ export class ExtendedApisUtils implements EntitiesEncryption {
     content: ArrayBuffer | Uint8Array,
     entityType?: EntityWithDelegationTypeName,
     validator?: (decryptedData: ArrayBuffer) => Promise<boolean>,
-    dataOwnerId?: string,
-    tagsFilter?: (tags: string[]) => boolean
+    dataOwnerId?: string
   ): Promise<ArrayBuffer> {
-    const keys = await this.encryptionKeysOf(entity, entityType, dataOwnerId, tagsFilter ? (t) => tagsFilter(t) : () => true)
+    const keys = await this.encryptionKeysOf(entity, entityType, dataOwnerId)
     for (const key of keys) {
       try {
         const decrypted = await this.primitives.AES.decryptWithRawKey(key, content)
@@ -513,49 +499,34 @@ export class ExtendedApisUtils implements EntitiesEncryption {
     entityId: string,
     delegateId: string,
     exchangeKey: CryptoKey,
-    encryptionKey: string,
-    newTags: string[]
+    encryptionKey: string
   ): Promise<Delegation> {
     if (!(await this.validateEncryptionKey(encryptionKey))) throw new Error(`Invalid encryption key ${encryptionKey}`)
-    return this.createDelegation(entityId, delegateId, exchangeKey, encryptionKey, newTags)
+    return this.createDelegation(entityId, delegateId, exchangeKey, encryptionKey)
   }
 
-  private async createSecretIdDelegation(
-    entityId: string,
-    delegateId: string,
-    exchangeKey: CryptoKey,
-    secretId: string,
-    newTags: string[]
-  ): Promise<Delegation> {
+  private async createSecretIdDelegation(entityId: string, delegateId: string, exchangeKey: CryptoKey, secretId: string): Promise<Delegation> {
     if (!this.validateSecretId(secretId)) throw new Error(`Invalid secret id ${secretId}`)
-    return this.createDelegation(entityId, delegateId, exchangeKey, secretId, newTags)
+    return this.createDelegation(entityId, delegateId, exchangeKey, secretId)
   }
 
   private async createOwningEntityIdDelegation(
     entityId: string,
     delegateId: string,
     exchangeKey: CryptoKey,
-    owningEntityId: string,
-    newTags: string[]
+    owningEntityId: string
   ): Promise<Delegation> {
     if (!this.validateOwningEntityId(owningEntityId)) throw new Error(`Invalid owning id ${owningEntityId}`)
-    return this.createDelegation(entityId, delegateId, exchangeKey, owningEntityId, newTags)
+    return this.createDelegation(entityId, delegateId, exchangeKey, owningEntityId)
   }
 
-  private async createDelegation(
-    entityId: string,
-    delegateId: string,
-    exchangeKey: CryptoKey,
-    content: string,
-    newTags: string[]
-  ): Promise<Delegation> {
+  private async createDelegation(entityId: string, delegateId: string, exchangeKey: CryptoKey, content: string): Promise<Delegation> {
     if (entityId.includes(':')) throw new Error("Ids for encrypted entities are not allowed to contain ':'")
     if (content.includes(':')) throw new Error("Content of delegations can not contain ':'")
     return {
       delegatedTo: delegateId,
       owner: await this.dataOwnerApi.getCurrentDataOwnerId(),
       key: ua2hex(await this.primitives.AES.encrypt(exchangeKey, string2ua(entityId + ':' + content))),
-      tags: newTags,
     }
   }
 
@@ -601,7 +572,6 @@ export class ExtendedApisUtils implements EntitiesEncryption {
     newSecretIds: string[],
     newEncryptionKeys: string[],
     newOwningEntityIds: string[],
-    newTags: string[],
     keysForDelegates: { [delegateId: string]: CryptoKey[] }
   ): Promise<T> {
     const entityCopy = _.cloneDeep(entity)
@@ -609,15 +579,15 @@ export class ExtendedApisUtils implements EntitiesEncryption {
     const chosenKey = keysForDelegates[delegateId][0]
     const updatedSecretIds = [
       ...existingSecretIds,
-      ...(await Promise.all(newSecretIds.map((x) => this.createSecretIdDelegation(entity.id!, delegateId, chosenKey, x, newTags)))),
+      ...(await Promise.all(newSecretIds.map((x) => this.createSecretIdDelegation(entity.id!, delegateId, chosenKey, x)))),
     ]
     const updatedEncryptionKeys = [
       ...existingEncryptionKeys,
-      ...(await Promise.all(newEncryptionKeys.map((x) => this.createEncryptionKeyDelegation(entity.id!, delegateId, chosenKey, x, newTags)))),
+      ...(await Promise.all(newEncryptionKeys.map((x) => this.createEncryptionKeyDelegation(entity.id!, delegateId, chosenKey, x)))),
     ]
     const updatedOwningEntityIds = [
       ...existingOwningEntityIds,
-      ...(await Promise.all(newOwningEntityIds.map((x) => this.createOwningEntityIdDelegation(entity.id!, delegateId, chosenKey, x, newTags)))),
+      ...(await Promise.all(newOwningEntityIds.map((x) => this.createOwningEntityIdDelegation(entity.id!, delegateId, chosenKey, x)))),
     ]
     if (updatedSecretIds.length > 0) {
       entityCopy.delegations = {

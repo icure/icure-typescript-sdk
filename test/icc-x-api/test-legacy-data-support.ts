@@ -254,7 +254,7 @@ class ApiFactoryV7 implements ApiFactory {
         const owningEntityIds = await apis.cryptoApi.entities.owningEntityIdsOf(healthElement)
         await apis.healthcareElementApi.modifyHealthElementWithUser(
           user,
-          await apis.cryptoApi.entities.entityWithExtendedEncryptedMetadata(healthElement, delegateId, secretIds, encryptionKeys, owningEntityIds, [])
+          await apis.cryptoApi.entities.entityWithExtendedEncryptedMetadata(healthElement, delegateId, secretIds, encryptionKeys, owningEntityIds)
         )
       },
     }

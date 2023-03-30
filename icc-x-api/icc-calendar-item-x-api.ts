@@ -46,7 +46,6 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
    * @param delegates initial delegates which will have access to the calendar item other than the current data owner.
    * @param preferredSfk secret id of the patient to use as the secret foreign key to use for the calendar item. The default value will be a secret id
    * of patient known by the topmost parent in the current data owner hierarchy.
-   * @param delegationTags tags for the initialised delegations.
    * @return a new instance of calendar item.
    */
   async newInstancePatient(
@@ -54,8 +53,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
     patient: models.Patient | null,
     ci: any,
     delegates: string[] = [],
-    preferredSfk?: string,
-    delegationTags?: string[]
+    preferredSfk?: string
   ): Promise<models.CalendarItem> {
     if (!patient && preferredSfk) throw new Error('You need to specify parent patient in order to use secret foreign keys.')
     const calendarItem = _.extend(
@@ -79,7 +77,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
     const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
     return new CalendarItem(
       await this.crypto.entities
-        .entityWithInitialisedEncryptedMetadata(calendarItem, patient?.id, sfk, true, extraDelegations, delegationTags)
+        .entityWithInitialisedEncryptedMetadata(calendarItem, patient?.id, sfk, true, extraDelegations)
         .then((x) => x.updatedEntity)
     )
   }

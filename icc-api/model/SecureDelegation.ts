@@ -43,29 +43,16 @@ export class SecureDelegation {
    */
   encryptedExchangeDataId?: { [pubKeyFp: string]: string }
   /**
-   * Permissions of users with access to this [SecureDelegation] on the corresponding entity. Each entry represents
-   * a field or group of fields of the entity that the user can read and/or modify; any field not covered by this map
-   * will not be accessible to the users. Note that the same user may have access to multiple instances of [SecureDelegation]
-   * for the same entity with different permission levels.
-   *
+   * Permissions of users with access to this [SecureDelegation] on the corresponding entity.
    * The permissions only refer to the actual content of the entity and not to any metadata (excluding the `encryptedSelf`):
-   * - any data owner is always allowed to extend his [SecureDelegation] or its children (according to the hierarchy specified
-   * by the [parentDelegation]).
-   * - any data owner can create new [SecureDelegation] to share an entity he can access with other data owners, but he can
-   * only give equivalent or lower permissions.
+   * any data owner will always be allowed to use the methods to share the with other data owners, even if these method
+   * require to modify the entity and the data owner has read-only permissions.
+   * Delegations without any parents will always have full read-write permissions.
    *
-   * Top level delegations must not specify any permissions, as any top-level delegation implicitly has full-write-permissions.
-   * All other delegations instead must specify at least a permission.
-   *
-   * The full syntax of permissions is to be defined, currently only "*" is allowed as a key, meaning all entries: essentially
-   * currently it is only possible to give full-read-permissions or full-write-permissions. This should allow for a smoother
-   * transition when fine-grained permissions will be implemented.
+   * In the future we plan to implement fine-grained permissions; for this purpose we may be change this field to have
+   * a polymorphic type or we may add additional fields.
    */
-  permissions?: { [fieldPattern: string]: SecureDelegation.AccessLevel }
-  /**
-   * Tags for delegations, allows user to implement custom delegation logic.
-   */
-  tags?: string[]
+  permissions?: SecureDelegation.AccessLevel
 }
 export namespace SecureDelegation {
   export type AccessLevel = 'READ' | 'WRITE'

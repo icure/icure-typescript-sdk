@@ -40,7 +40,6 @@ export class IccInvoiceXApi extends IccInvoiceApi {
    * @param delegates initial delegates which will have access to the invoice other than the current data owner.
    * @param preferredSfk secret id of the patient to use as the secret foreign key to use for the invoice. The default value will be a secret
    * id of patient known by the topmost parent in the current data owner hierarchy.
-   * @param delegationTags tags for the initialised delegations.
    * @return a new instance of invoice.
    */
   async newInstance(
@@ -48,8 +47,7 @@ export class IccInvoiceXApi extends IccInvoiceApi {
     patient: models.Patient,
     inv: any = {},
     delegates: string[] = [],
-    preferredSfk?: string,
-    delegationTags?: string[]
+    preferredSfk?: string
   ): Promise<models.Invoice> {
     const invoice = new models.Invoice(
       _.extend(
@@ -75,9 +73,7 @@ export class IccInvoiceXApi extends IccInvoiceApi {
     if (!sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id}`)
     const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.financialInformation ?? [])]
     return new models.Invoice(
-      await this.crypto.entities
-        .entityWithInitialisedEncryptedMetadata(invoice, patient.id, sfk, true, extraDelegations, delegationTags)
-        .then((x) => x.updatedEntity)
+      await this.crypto.entities.entityWithInitialisedEncryptedMetadata(invoice, patient.id, sfk, true, extraDelegations).then((x) => x.updatedEntity)
     )
   }
 

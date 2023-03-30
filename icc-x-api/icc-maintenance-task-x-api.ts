@@ -41,10 +41,9 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
    * @param m initialised data for the maintenance task. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
    * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
    * @param delegates initial delegates which will have access to the maintenance task other than the current data owner.
-   * @param delegationTags tags for the initialised delegations.
    * @return a new instance of maintenance task.
    */
-  async newInstance(user: models.User, m: any, delegates: string[] = [], delegationTags?: string[]) {
+  async newInstance(user: models.User, m: any, delegates: string[] = []) {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     const maintenanceTask = _.assign(
       {
@@ -61,7 +60,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
     const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? [])]
     return new models.MaintenanceTask(
       await this.crypto.entities
-        .entityWithInitialisedEncryptedMetadata(maintenanceTask, undefined, undefined, true, extraDelegations, delegationTags)
+        .entityWithInitialisedEncryptedMetadata(maintenanceTask, undefined, undefined, true, extraDelegations)
         .then((x) => x.updatedEntity)
     )
   }

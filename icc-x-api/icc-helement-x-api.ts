@@ -38,15 +38,8 @@ export class IccHelementXApi extends IccHelementApi {
    * Temporary version of new instance without the `confidential` parameter, to simplify the transition to the updated api. In a future version
    * the confidential parameter from new instance will be removed and this will be deprecated.
    */
-  async newInstanceNoConfidential(
-    user: models.User,
-    patient: models.Patient,
-    h: any,
-    delegates: string[] = [],
-    preferredSfk?: string,
-    delegationTags?: string[]
-  ) {
-    return this.newInstance(user, patient, h, false, delegates, preferredSfk, delegationTags)
+  async newInstanceNoConfidential(user: models.User, patient: models.Patient, h: any, delegates: string[] = [], preferredSfk?: string) {
+    return this.newInstance(user, patient, h, false, delegates, preferredSfk)
   }
 
   /**
@@ -62,18 +55,9 @@ export class IccHelementXApi extends IccHelementApi {
    * default confidential secret foreign keys the delegates may not be able to find the health element.
    * @param preferredSfk secret id of the patient to use as the secret foreign key to use for the health element. If provided overrides the default
    * value, regardless of the value of {@link confidential}
-   * @param delegationTags tags for the initialised delegations.
    * @return a new instance of health element.
    */
-  async newInstance(
-    user: models.User,
-    patient: models.Patient,
-    h: any,
-    confidential = false,
-    delegates: string[] = [],
-    preferredSfk?: string,
-    delegationTags?: string[]
-  ) {
+  async newInstance(user: models.User, patient: models.Patient, h: any, confidential = false, delegates: string[] = [], preferredSfk?: string) {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     const helement = _.assign(
       {
@@ -105,8 +89,7 @@ export class IccHelementXApi extends IccHelementApi {
       patient.id,
       sfk,
       true,
-      confidential ? [] : extraDelegations,
-      delegationTags
+      confidential ? [] : extraDelegations
     )
     return new models.HealthElement(initialisationInfo.updatedEntity)
   }

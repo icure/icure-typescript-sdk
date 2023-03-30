@@ -37,10 +37,9 @@ export class IccTimeTableXApi extends IccTimeTableApi {
    * @param tt initialised data for the timetable. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
    * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
    * @param delegates initial delegates which will have access to the timetable other than the current data owner.
-   * @param delegationTags tags for the initialised delegations.
    * @return a new instance of timetable.
    */
-  async newInstance(user: User, tt: TimeTable, delegates: string[] = [], delegationTags?: string[]) {
+  async newInstance(user: User, tt: TimeTable, delegates: string[] = []) {
     const timeTable = _.extend(
       {
         id: this.crypto.primitives.randomUuid(),
@@ -58,7 +57,7 @@ export class IccTimeTableXApi extends IccTimeTableApi {
     const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.administrativeData ?? [])]
     return new models.TimeTable(
       await this.crypto.entities
-        .entityWithInitialisedEncryptedMetadata(timeTable, undefined, undefined, true, extraDelegations, delegationTags)
+        .entityWithInitialisedEncryptedMetadata(timeTable, undefined, undefined, true, extraDelegations)
         .then((x) => x.updatedEntity)
     )
   }

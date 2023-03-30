@@ -35,8 +35,7 @@ export class ConfidentialEntities {
       await this.dataOwnerApi.getCurrentDataOwnerId(),
       [confidentialSecretId],
       [],
-      [],
-      ['confidential']
+      []
     )
   }
 

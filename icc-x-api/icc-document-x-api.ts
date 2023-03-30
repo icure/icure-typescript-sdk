@@ -573,17 +573,9 @@ export class IccDocumentXApi extends IccDocumentApi {
    * @param delegates initial delegates which will have access to the document other than the current data owner.
    * @param preferredSfk secret id of the message to use as the secret foreign key to use for the document. The default value will be a secret
    * id of message known by the topmost parent in the current data owner hierarchy.
-   * @param delegationTags tags for the initialised delegations.
    * @return a new instance of document.
    */
-  async newInstance(
-    user: models.User,
-    message?: models.Message,
-    c: any = {},
-    delegates?: string[],
-    preferredSfk?: string,
-    delegationTags?: string[]
-  ) {
+  async newInstance(user: models.User, message?: models.Message, c: any = {}, delegates?: string[], preferredSfk?: string) {
     const document = _.extend(
       {
         id: this.crypto.primitives.randomUuid(),
@@ -605,7 +597,7 @@ export class IccDocumentXApi extends IccDocumentApi {
     const extraDelegations = [...(delegates ?? []), ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
     return new models.Document(
       await this.crypto.entities
-        .entityWithInitialisedEncryptedMetadata(document, message?.id, sfk, true, extraDelegations, delegationTags)
+        .entityWithInitialisedEncryptedMetadata(document, message?.id, sfk, true, extraDelegations)
         .then((x) => x.updatedEntity)
     )
   }

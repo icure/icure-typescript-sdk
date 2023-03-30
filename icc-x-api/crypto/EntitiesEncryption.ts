@@ -14,16 +14,9 @@ export interface EntitiesEncryption {
    * @param entityType the type of {@link entity}. This is necessary in cases where entity has not been instantiated using a constructor and in cases
    * where entity is just a stub.
    * @param dataOwnerId optionally a data owner part of the hierarchy for the current data owner, defaults to the current data owner.
-   * @param tagsFilter allows to obtain only encryption keys associated to tags which satisfy the provided filter. The default filter always returns
-   * true.
    * @return the encryption keys that the provided data owner can decrypt, deduplicated.
    */
-  encryptionKeysOf(
-    entity: EncryptedEntity | EncryptedEntityStub,
-    entityType?: EntityWithDelegationTypeName,
-    dataOwnerId?: string,
-    tagsFilter?: (tags: string[]) => boolean
-  ): Promise<string[]>
+  encryptionKeysOf(entity: EncryptedEntity | EncryptedEntityStub, entityType?: EntityWithDelegationTypeName, dataOwnerId?: string): Promise<string[]>
 
   /**
    * Get the encryption keys of an entity that the current data owner and his parents can access. The resulting array contains the keys for each data
@@ -34,14 +27,11 @@ export interface EntitiesEncryption {
    * @param entity an encrypted entity.
    * @param entityType the type of {@link entity}. This is necessary in cases where entity has not been instantiated using a constructor and in cases
    * where entity is just a stub.
-   * @param tagsFilter allows to obtain only encryption keys associated to tags which satisfy the provided filter. The default filter always returns
-   * true.
    * @return the encryption keys that each member of the current data owner hierarchy can decrypt using only his keys and not keys of his parents.
    */
   encryptionKeysForHcpHierarchyOf(
     entity: EncryptedEntity | EncryptedEntityStub,
-    entityType?: EntityWithDelegationTypeName,
-    tagsFilter?: (tags: string[]) => boolean
+    entityType?: EntityWithDelegationTypeName
   ): Promise<{ ownerId: string; extracted: string[] }[]>
 
   /**
@@ -50,16 +40,9 @@ export interface EntitiesEncryption {
    * @param entityType the type of {@link entity}. This is necessary in cases where entity has not been instantiated using a constructor and in cases
    * where entity is just a stub.
    * @param dataOwnerId optionally a data owner part of the hierarchy for the current data owner, defaults to the current data owner.
-   * @param tagsFilter allows to obtain only secret ids associated to tags which satisfy the provided filter. The default filter always returns
-   * true.
    * @return the secret ids (SFKs) that the provided data owner can decrypt, deduplicated.
    */
-  secretIdsOf(
-    entity: EncryptedEntity | EncryptedEntityStub,
-    entityType?: EntityWithDelegationTypeName,
-    dataOwnerId?: string,
-    tagsFilter?: (tags: string[]) => boolean
-  ): Promise<string[]>
+  secretIdsOf(entity: EncryptedEntity | EncryptedEntityStub, entityType?: EntityWithDelegationTypeName, dataOwnerId?: string): Promise<string[]>
 
   /**
    * Get the secret ids (SFKs) of an entity that the current data owner and his parents can access. The resulting array contains the ids for each data
@@ -69,14 +52,11 @@ export interface EntitiesEncryption {
    * @param entity an encrypted entity.
    * @param entityType the type of {@link entity}. This is necessary in cases where entity has not been instantiated using a constructor and in cases
    * where entity is just a stub.
-   * @param tagsFilter allows to obtain only secret ids associated to tags which satisfy the provided filter. The default filter always returns
-   * true.
    * @return the secret ids that each member of the current data owner hierarchy can decrypt using only his keys and not keys of his parents.
    */
   secretIdsForHcpHierarchyOf(
     entity: EncryptedEntity | EncryptedEntityStub,
-    entityType?: EntityWithDelegationTypeName,
-    tagsFilter?: (tags: string[]) => boolean
+    entityType?: EntityWithDelegationTypeName
   ): Promise<{ ownerId: string; extracted: string[] }[]>
 
   /**
@@ -89,16 +69,9 @@ export interface EntitiesEncryption {
    * @param entityType the type of {@link entity}. This is necessary in cases where entity has not been instantiated using a constructor and in cases
    * where entity is just a stub.
    * @param dataOwnerId optionally a data owner part of the hierarchy for the current data owner, defaults to the current data owner.
-   * @param tagsFilter allows to obtain only owning entity ids associated to tags which satisfy the provided filter. The default filter always returns
-   * true.
    * @return the owning entity ids (CFKs) that the provided data owner can decrypt, deduplicated.
    */
-  owningEntityIdsOf(
-    entity: EncryptedEntity | EncryptedEntityStub,
-    entityType?: EntityWithDelegationTypeName,
-    dataOwnerId?: string,
-    tagsFilter?: (tags: string[]) => boolean
-  ): Promise<string[]>
+  owningEntityIdsOf(entity: EncryptedEntity | EncryptedEntityStub, entityType?: EntityWithDelegationTypeName, dataOwnerId?: string): Promise<string[]>
 
   /**
    * Get the decrypted owning entity ids (formerly CFKs) for the provided entity that can be decrypted using the private keys of the current data
@@ -113,14 +86,11 @@ export interface EntitiesEncryption {
    * @param entity an encrypted entity.
    * @param entityType the type of {@link entity}. This is necessary in cases where entity has not been instantiated using a constructor and in cases
    * where entity is just a stub.
-   * @param tagsFilter allows to obtain only owning entity ids associated to tags which satisfy the provided filter. The default filter always returns
-   * true.
    * @return the owning entity ids that each member of the current data owner hierarchy can decrypt using only his keys and not keys of his parents.
    */
   owningEntityIdsForHcpHierarchyOf(
     entity: EncryptedEntity | EncryptedEntityStub,
-    entityType?: EntityWithDelegationTypeName,
-    tagsFilter?: (tags: string[]) => boolean
+    entityType?: EntityWithDelegationTypeName
   ): Promise<{ ownerId: string; extracted: string[] }[]>
 
   // TODO share method
@@ -135,7 +105,6 @@ export interface EntitiesEncryption {
    * where entity is just a stub.
    * @param content data of the entity which you want to encrypt.
    * @param dataOwnerId optionally a data owner part of the hierarchy for the current data owner, defaults to the current data owner.
-   * @param tagsFilter allows to use for encryption only keys associated to tags which pass the filter.
    * @return the encrypted data.
    * @throws if the provided data owner can't access any encryption keys for the entity.
    */
@@ -143,8 +112,7 @@ export interface EntitiesEncryption {
     entity: EncryptedEntity | EncryptedEntityStub,
     content: ArrayBuffer | Uint8Array,
     entityType?: EntityWithDelegationTypeName,
-    dataOwnerId?: string,
-    tagsFilter?: (tags: string[]) => boolean
+    dataOwnerId?: string
   ): Promise<ArrayBuffer>
 
   /**
@@ -160,7 +128,6 @@ export interface EntitiesEncryption {
    * @param dataOwnerId optionally a data owner part of the hierarchy for the current data owner, defaults to the current data owner.
    * @param validator a function which verifies the correctness of decrypted content: helps to identify decryption with the wrong key without relying
    * solely on padding.
-   * @param tagsFilter allows to use for decryption only keys associated to tags which pass the filter.
    * @return the decrypted data.
    * @throws if the provided data owner can't access any encryption keys for the entity, or if no key could be found which provided valid decrypted
    * content according to the validator.
@@ -170,8 +137,7 @@ export interface EntitiesEncryption {
     content: ArrayBuffer | Uint8Array,
     entityType?: EntityWithDelegationTypeName,
     validator?: (decryptedData: ArrayBuffer) => Promise<boolean>,
-    dataOwnerId?: string,
-    tagsFilter?: (tags: string[]) => boolean
+    dataOwnerId?: string
   ): Promise<ArrayBuffer>
 
   /**

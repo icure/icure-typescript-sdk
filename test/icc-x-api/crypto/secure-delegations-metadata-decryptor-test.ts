@@ -105,18 +105,13 @@ describe('Secure delegations security metadata decryptor', async function () {
         encryptionKeys: string[]
         owningEntityIds: string[]
       }
-    }[],
-    tagsFilter: (tags: string[]) => boolean = () => true
+    }[]
   ) {
-    const actualSecretIds = (
-      await asyncGeneratorToArray(decryptor.decryptSecretIdsOf(entity, dataOwnerHierarchySubset, (tags) => tagsFilter(tags)))
-    ).map(toSortedJson)
-    const actualOwningEntityIds = (
-      await asyncGeneratorToArray(decryptor.decryptOwningEntityIdsOf(entity, dataOwnerHierarchySubset, (tags) => tagsFilter(tags)))
-    ).map(toSortedJson)
-    const actualEncryptionKeys = (
-      await asyncGeneratorToArray(decryptor.decryptEncryptionKeysOf(entity, dataOwnerHierarchySubset, (tags) => tagsFilter(tags)))
-    ).map(toSortedJson)
+    const actualSecretIds = (await asyncGeneratorToArray(decryptor.decryptSecretIdsOf(entity, dataOwnerHierarchySubset))).map(toSortedJson)
+    const actualOwningEntityIds = (await asyncGeneratorToArray(decryptor.decryptOwningEntityIdsOf(entity, dataOwnerHierarchySubset))).map(
+      toSortedJson
+    )
+    const actualEncryptionKeys = (await asyncGeneratorToArray(decryptor.decryptEncryptionKeysOf(entity, dataOwnerHierarchySubset))).map(toSortedJson)
     const expectedSecretIds: string[] = []
     const expectedOwningEntityIds: string[] = []
     const expectedEncryptionKeys: string[] = []
@@ -147,6 +142,7 @@ describe('Secure delegations security metadata decryptor', async function () {
       delegate: undefined,
       exchangeDataId: undefined,
       encryptedExchangeDataId: undefined,
+      permissions: AccessLevel.WRITE,
     })
     const delegation2 = new SecureDelegation({
       ...createdData2.secureDelegationEncryptedData,
@@ -154,6 +150,7 @@ describe('Secure delegations security metadata decryptor', async function () {
       delegate: undefined,
       exchangeDataId: undefined,
       encryptedExchangeDataId: undefined,
+      permissions: AccessLevel.WRITE,
     })
     const hash1 = await randomHash()
     const hash2 = await randomHash()
@@ -182,6 +179,7 @@ describe('Secure delegations security metadata decryptor', async function () {
       delegate: other1,
       exchangeDataId: createdData1.exchangeData.id,
       encryptedExchangeDataId: undefined,
+      permissions: AccessLevel.WRITE,
     })
     const delegation2 = new SecureDelegation({
       ...createdData2.secureDelegationEncryptedData,
@@ -189,6 +187,7 @@ describe('Secure delegations security metadata decryptor', async function () {
       delegate: self,
       exchangeDataId: createdData2.exchangeData.id,
       encryptedExchangeDataId: undefined,
+      permissions: AccessLevel.WRITE,
     })
     const entity = entityWithSecurityMetadata(
       new SecurityMetadata({
@@ -210,11 +209,13 @@ describe('Secure delegations security metadata decryptor', async function () {
       ...createdData1.secureDelegationEncryptedData,
       delegator: self,
       encryptedExchangeDataId: await secureDelegationsEncryption.encryptExchangeDataId(createdData1.exchangeData.id!, encryptionKeys),
+      permissions: AccessLevel.WRITE,
     })
     const delegation2 = new SecureDelegation({
       ...createdData2.secureDelegationEncryptedData,
       delegate: self,
       encryptedExchangeDataId: await secureDelegationsEncryption.encryptExchangeDataId(createdData2.exchangeData.id!, encryptionKeys),
+      permissions: AccessLevel.WRITE,
     })
     const entity = entityWithSecurityMetadata(
       new SecurityMetadata({
@@ -242,6 +243,7 @@ describe('Secure delegations security metadata decryptor', async function () {
       delegate: other1,
       exchangeDataId: createdData1.exchangeData.id,
       encryptedExchangeDataId: undefined,
+      permissions: AccessLevel.WRITE,
     })
     const delegation2 = new SecureDelegation({
       ...createdData2.secureDelegationEncryptedData,
@@ -249,16 +251,19 @@ describe('Secure delegations security metadata decryptor', async function () {
       delegate: self,
       exchangeDataId: createdData2.exchangeData.id,
       encryptedExchangeDataId: undefined,
+      permissions: AccessLevel.WRITE,
     })
     const delegation3 = new SecureDelegation({
       ...createdData3.secureDelegationEncryptedData,
       delegator: self,
       encryptedExchangeDataId: await secureDelegationsEncryption.encryptExchangeDataId(createdData3.exchangeData.id!, encryptionKeys),
+      permissions: AccessLevel.WRITE,
     })
     const delegation4 = new SecureDelegation({
       ...createdData4.secureDelegationEncryptedData,
       delegate: self,
       encryptedExchangeDataId: await secureDelegationsEncryption.encryptExchangeDataId(createdData4.exchangeData.id!, encryptionKeys),
+      permissions: AccessLevel.WRITE,
     })
     const entity = entityWithSecurityMetadata(
       new SecurityMetadata({
@@ -289,6 +294,7 @@ describe('Secure delegations security metadata decryptor', async function () {
       delegate: primitives.randomUuid(),
       exchangeDataId: createdData1.exchangeData.id,
       encryptedExchangeDataId: undefined,
+      permissions: AccessLevel.WRITE,
     })
     const delegation2 = new SecureDelegation({
       ...createdData2.secureDelegationEncryptedData,
@@ -296,6 +302,7 @@ describe('Secure delegations security metadata decryptor', async function () {
       delegate: primitives.randomUuid(),
       exchangeDataId: createdData2.exchangeData.id,
       encryptedExchangeDataId: undefined,
+      permissions: AccessLevel.WRITE,
     })
     const entity = entityWithSecurityMetadata(
       new SecurityMetadata({
@@ -317,6 +324,7 @@ describe('Secure delegations security metadata decryptor', async function () {
       encryptedExchangeDataId: await secureDelegationsEncryption.encryptExchangeDataId(createdData.exchangeData.id!, {
         [newKeyFp]: newKey.publicKey,
       }),
+      permissions: AccessLevel.WRITE,
     })
     const entity = entityWithSecurityMetadata(
       new SecurityMetadata({
@@ -340,6 +348,7 @@ describe('Secure delegations security metadata decryptor', async function () {
       delegate: other1,
       exchangeDataId: createdData1.exchangeData.id,
       encryptedExchangeDataId: undefined,
+      permissions: AccessLevel.WRITE,
     })
     const delegation2 = new SecureDelegation({
       ...createdData2.secureDelegationEncryptedData,
@@ -347,6 +356,7 @@ describe('Secure delegations security metadata decryptor', async function () {
       delegate: self,
       exchangeDataId: createdData2.exchangeData.id,
       encryptedExchangeDataId: undefined,
+      permissions: AccessLevel.WRITE,
     })
     const entity = entityWithSecurityMetadata(
       new SecurityMetadata({
@@ -358,43 +368,6 @@ describe('Secure delegations security metadata decryptor', async function () {
     await verifyCanDecryptEntityData(entity, [self], [createdData1])
   })
 
-  it('should ignore secure delegations which do not pass the tags filter', async function () {
-    await initialiseComponents()
-    const self = primitives.randomUuid()
-    const other1 = primitives.randomUuid()
-    const other2 = primitives.randomUuid()
-    const createdData1 = await createExchangeDataAndSecureDelegationEncryptedData(self, other1)
-    const createdData2 = await createExchangeDataAndSecureDelegationEncryptedData(other2, self)
-    const delegation1 = new SecureDelegation({
-      ...createdData1.secureDelegationEncryptedData,
-      delegator: self,
-      delegate: other1,
-      exchangeDataId: createdData1.exchangeData.id,
-      encryptedExchangeDataId: undefined,
-      tags: ['ignore'],
-    })
-    const delegation2 = new SecureDelegation({
-      ...createdData2.secureDelegationEncryptedData,
-      delegator: other2,
-      delegate: self,
-      exchangeDataId: createdData2.exchangeData.id,
-      encryptedExchangeDataId: undefined,
-    })
-    const entity = entityWithSecurityMetadata(
-      new SecurityMetadata({
-        secureDelegations: { [await randomHash()]: delegation1, [await randomHash()]: delegation2 },
-      })
-    )
-    exchangeData.cacheFakeData(createdData2.exchangeData, { exchangeKey: createdData2.exchangeKey, hashes: [] })
-    await verifyCanDecryptEntityData(entity, [self], [createdData2], (tags) => {
-      expect(tags.length === 0 || tags.length === 1).to.be.true
-      if (tags.length === 1) {
-        expect(tags[0]).to.equal('ignore')
-      }
-      return !tags.some((x) => x == 'ignore')
-    })
-  })
-
   it('should give an error if dataOwnersHierarchySubset is empty', async function () {
     await initialiseComponents()
     const entity = {
@@ -403,19 +376,19 @@ describe('Secure delegations security metadata decryptor', async function () {
     }
     let failed = 0
     try {
-      decryptor.decryptEncryptionKeysOf(entity, [], () => true)
+      decryptor.decryptEncryptionKeysOf(entity, [])
     } catch (e) {
       console.log(e)
       failed++
     }
     try {
-      decryptor.decryptSecretIdsOf(entity, [], () => true)
+      decryptor.decryptSecretIdsOf(entity, [])
     } catch (e) {
       console.log(e)
       failed++
     }
     try {
-      decryptor.decryptOwningEntityIdsOf(entity, [], () => true)
+      decryptor.decryptOwningEntityIdsOf(entity, [])
     } catch (e) {
       console.log(e)
       failed++
@@ -433,12 +406,12 @@ describe('Secure delegations security metadata decryptor', async function () {
     await initialiseComponents()
     const dataOwnerA = primitives.randomUuid()
     const dataOwnerB = primitives.randomUuid()
-    const secureDelegationWriteA = new SecureDelegation({ delegator: dataOwnerA, permissions: { '*': AccessLevel.WRITE } })
-    const secureDelegationReadA = new SecureDelegation({ delegate: dataOwnerA, permissions: { '*': AccessLevel.READ } })
-    const secureDelegationWriteB = new SecureDelegation({ delegate: dataOwnerB /* no permissions and top-level => should be considered as write */ })
-    const secureDelegationReadB = new SecureDelegation({ delegator: dataOwnerB, permissions: { '*': AccessLevel.READ } })
-    const secureDelegationWriteOther = new SecureDelegation({ delegator: primitives.randomUuid() })
-    const secureDelegationReadOther = new SecureDelegation({ delegator: primitives.randomUuid(), permissions: { '*': AccessLevel.READ } })
+    const secureDelegationWriteA = new SecureDelegation({ delegator: dataOwnerA, permissions: AccessLevel.WRITE })
+    const secureDelegationReadA = new SecureDelegation({ delegate: dataOwnerA, permissions: AccessLevel.READ })
+    const secureDelegationWriteB = new SecureDelegation({ delegate: dataOwnerB, permissions: AccessLevel.WRITE })
+    const secureDelegationReadB = new SecureDelegation({ delegator: dataOwnerB, permissions: AccessLevel.READ })
+    const secureDelegationWriteOther = new SecureDelegation({ delegator: primitives.randomUuid(), permissions: AccessLevel.WRITE })
+    const secureDelegationReadOther = new SecureDelegation({ delegator: primitives.randomUuid(), permissions: AccessLevel.READ })
     expect(
       await decryptor.getFullEntityAccessLevel(
         entityWithSecurityMetadata({
@@ -513,19 +486,17 @@ describe('Secure delegations security metadata decryptor', async function () {
   it('should return the best access level with secure delegations accessible through hash', async function () {
     const hashA = await randomHash()
     const hashB = await randomHash()
-    const secureDelegationWriteA: [string, SecureDelegation] = [hashA, new SecureDelegation({ permissions: { '*': AccessLevel.WRITE } })]
-    const secureDelegationReadA: [string, SecureDelegation] = [hashA, new SecureDelegation({ permissions: { '*': AccessLevel.READ } })]
-    const secureDelegationWriteB: [string, SecureDelegation] = [
-      hashB,
-      new SecureDelegation({
-        /* no permissions and top-level => should be considered as write */
-      }),
+    const secureDelegationWriteA: [string, SecureDelegation] = [hashA, new SecureDelegation({ permissions: AccessLevel.WRITE })]
+    const secureDelegationReadA: [string, SecureDelegation] = [hashA, new SecureDelegation({ permissions: AccessLevel.READ })]
+    const secureDelegationWriteB: [string, SecureDelegation] = [hashB, new SecureDelegation({ permissions: AccessLevel.WRITE })]
+    const secureDelegationReadB: [string, SecureDelegation] = [hashB, new SecureDelegation({ permissions: AccessLevel.READ })]
+    const secureDelegationWriteOther: [string, SecureDelegation] = [
+      await randomHash(),
+      new SecureDelegation({ delegator: primitives.randomUuid(), permissions: AccessLevel.WRITE }),
     ]
-    const secureDelegationReadB: [string, SecureDelegation] = [hashB, new SecureDelegation({ permissions: { '*': AccessLevel.READ } })]
-    const secureDelegationWriteOther: [string, SecureDelegation] = [await randomHash(), new SecureDelegation({ delegator: primitives.randomUuid() })]
     const secureDelegationReadOther: [string, SecureDelegation] = [
       await randomHash(),
-      new SecureDelegation({ delegator: primitives.randomUuid(), permissions: { '*': AccessLevel.READ } }),
+      new SecureDelegation({ delegator: primitives.randomUuid(), permissions: AccessLevel.READ }),
     ]
 
     async function testWithEntriesAndHashes(entries: [string, SecureDelegation][], hashes: string[], expectedLevel: AccessLevel | undefined) {
