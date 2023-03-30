@@ -41,10 +41,9 @@ export class IccAccesslogXApi extends IccAccesslogApi {
    * @param delegates initial delegates which will have access to the access log other than the current data owner.
    * @param preferredSfk secret id of the patient to use as the secret foreign key to use for the access log. The default value will be a secret id of
    * patient known by the topmost parent in the current data owner hierarchy.
-   * @param delegationTags tags for the initialised delegations.
    * @return a new instance of access log.
    */
-  async newInstance(user: models.User, patient: models.Patient, h: any, delegates: string[] = [], preferredSfk?: string, delegationTags?: string[]) {
+  async newInstance(user: models.User, patient: models.Patient, h: any, delegates: string[] = [], preferredSfk?: string) {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
 
     const accessLog = _.assign(
@@ -72,7 +71,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
     const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.administrativeData ?? [])]
     return new AccessLog(
       await this.crypto.entities
-        .entityWithInitialisedEncryptedMetadata(accessLog, patient.id, sfk, true, extraDelegations, delegationTags)
+        .entityWithInitialisedEncryptedMetadata(accessLog, patient.id, sfk, true, extraDelegations)
         .then((x) => x.updatedEntity)
     )
   }

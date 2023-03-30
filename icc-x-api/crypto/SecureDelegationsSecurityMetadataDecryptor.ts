@@ -17,13 +17,11 @@ export class SecureDelegationsSecurityMetadataDecryptor implements SecurityMetad
 
   decryptEncryptionKeysOf(
     typedEntity: EncryptedEntityWithType,
-    dataOwnersHierarchySubset: string[],
-    tagsFilter: (tags: string[]) => boolean
+    dataOwnersHierarchySubset: string[]
   ): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never> {
     return this.decryptSecureDelegations(
       typedEntity,
       dataOwnersHierarchySubset,
-      (t) => tagsFilter(t),
       (d) => d.encryptionKeys ?? [],
       (e, k) => this.secureDelegationsEncryption.decryptEncryptionKey(e, k)
     )
@@ -31,13 +29,11 @@ export class SecureDelegationsSecurityMetadataDecryptor implements SecurityMetad
 
   decryptOwningEntityIdsOf(
     typedEntity: EncryptedEntityWithType,
-    dataOwnersHierarchySubset: string[],
-    tagsFilter: (tags: string[]) => boolean
+    dataOwnersHierarchySubset: string[]
   ): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never> {
     return this.decryptSecureDelegations(
       typedEntity,
       dataOwnersHierarchySubset,
-      (t) => tagsFilter(t),
       (d) => d.owningEntityIds ?? [],
       (e, k) => this.secureDelegationsEncryption.decryptOwningEntityId(e, k)
     )
@@ -45,13 +41,11 @@ export class SecureDelegationsSecurityMetadataDecryptor implements SecurityMetad
 
   decryptSecretIdsOf(
     typedEntity: EncryptedEntityWithType,
-    dataOwnersHierarchySubset: string[],
-    tagsFilter: (tags: string[]) => boolean
+    dataOwnersHierarchySubset: string[]
   ): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never> {
     return this.decryptSecureDelegations(
       typedEntity,
       dataOwnersHierarchySubset,
-      (t) => tagsFilter(t),
       (d) => d.secretIds ?? [],
       (e, k) => this.secureDelegationsEncryption.decryptSecretId(e, k)
     )
@@ -86,8 +80,7 @@ export class SecureDelegationsSecurityMetadataDecryptor implements SecurityMetad
       accessibleDelegations = availableCanonicalHashes.map((hash) => (typedEntity.entity.securityMetadata?.secureDelegations ?? {})[hash])
     }
 
-    const entityId = typedEntity.entity.id
-    const permissions = accessibleDelegations.map((secureDelegation) => this.accessLevelOfDelegation(secureDelegation, entityId))
+    const permissions = accessibleDelegations.map((secureDelegation) => secureDelegation.permissions)
     let maxLevel: AccessLevel | undefined = undefined
     for (const permission of permissions) {
       if (permission === AccessLevel.WRITE) {
@@ -100,22 +93,9 @@ export class SecureDelegationsSecurityMetadataDecryptor implements SecurityMetad
     return maxLevel
   }
 
-  private accessLevelOfDelegation(secureDelegation: SecureDelegation, entityId: string | undefined): AccessLevel | undefined {
-    if (Object.keys(secureDelegation.permissions ?? {}).length === 0 && (secureDelegation.parentDelegations ?? []).length === 0)
-      return AccessLevel.WRITE
-    const globalPermissions = (secureDelegation.permissions ?? {})['*']
-    if (!globalPermissions)
-      console.warn(
-        `Unexpected permissions in secure delegations: ${JSON.stringify(secureDelegation.permissions)}.` +
-          `Entity ${entityId} may have been created with a newer version of the api and may not be fully supported`
-      )
-    return globalPermissions
-  }
-
   private decryptSecureDelegations(
     typedEntity: EncryptedEntityWithType,
     dataOwnersHierarchySubset: string[],
-    tagsFilter: (tags: string[]) => boolean,
     getDataToDecrypt: (delegation: SecureDelegation) => string[],
     decryptDataWithKey: (encryptedData: string, key: CryptoKey) => Promise<string>
   ): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never> {
@@ -140,9 +120,8 @@ export class SecureDelegationsSecurityMetadataDecryptor implements SecurityMetad
     }
 
     async function* generator(): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never> {
-      let remainingDelegations: DelegationDecryptionDetails[] = Object.entries(typedEntity.entity.securityMetadata?.secureDelegations ?? {})
-        .filter(([_, delegation]) => tagsFilter(delegation.tags ?? []))
-        .map(([canonicalHash, delegation]) => ({
+      let remainingDelegations: DelegationDecryptionDetails[] = Object.entries(typedEntity.entity.securityMetadata?.secureDelegations ?? {}).map(
+        ([canonicalHash, delegation]) => ({
           delegation,
           exchangeDataId: delegation.exchangeDataId, // Initially only if explicit, later will also fill for encrypted
           hashes: [
@@ -151,7 +130,8 @@ export class SecureDelegationsSecurityMetadataDecryptor implements SecurityMetad
               .filter((x) => x[1] == canonicalHash)
               .map((x) => x[0]),
           ],
-        }))
+        })
+      )
       if (!remainingDelegations.length) return
       /*
        * Generate from least expensive to most (in terms of time to decrypt). 1 and 2a have equivalent costs.

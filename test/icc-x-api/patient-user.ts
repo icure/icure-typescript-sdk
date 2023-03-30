@@ -71,7 +71,7 @@ describe('Patient', () => {
 
     me = (await patientApi.modifyPatientWithUser(
       user,
-      await cryptoApi.entities.entityWithExtendedEncryptedMetadata(me, hcpUser.healthcarePartyId!, mySecretIds, myEncryptionKeys, [], [])
+      await cryptoApi.entities.entityWithExtendedEncryptedMetadata(me, hcpUser.healthcarePartyId!, mySecretIds, myEncryptionKeys, [])
     ))!
     await patientApi.modifyPatientWithUser(user, new Patient({ ...me, note: 'This is secret' }))
 
@@ -115,7 +115,6 @@ describe('Patient', () => {
         hcpUser.healthcarePartyId!,
         await cryptoApi.entities.secretIdsOf(pat!),
         await cryptoApi.entities.encryptionKeysOf(pat!),
-        [],
         []
       )
     )
@@ -126,7 +125,6 @@ describe('Patient', () => {
         hcpUser.healthcarePartyId!,
         await cryptoApi.entities.secretIdsOf(ci),
         await cryptoApi.entities.encryptionKeysOf(ci),
-        [],
         []
       )
     )

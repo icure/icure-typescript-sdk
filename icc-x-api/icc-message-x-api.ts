@@ -42,17 +42,9 @@ export class IccMessageXApi extends IccMessageApi {
    * @param delegates initial delegates which will have access to the message other than the current data owner.
    * @param preferredSfk secret id of the patient to use as the secret foreign key to use for the message. The default value will be a secret
    * id of patient known by the topmost parent in the current data owner hierarchy.
-   * @param delegationTags tags for the initialised delegations.
    * @return a new instance of message.
    */
-  async newInstanceWithPatient(
-    user: User,
-    patient: Patient | null,
-    m: any = {},
-    delegates: string[] = [],
-    preferredSfk?: string,
-    delegationTags?: string[]
-  ) {
+  async newInstanceWithPatient(user: User, patient: Patient | null, m: any = {}, delegates: string[] = [], preferredSfk?: string) {
     const message = _.extend(
       {
         id: this.crypto.randomUuid(),
@@ -74,7 +66,7 @@ export class IccMessageXApi extends IccMessageApi {
     const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
     return new models.Message(
       await this.crypto.entities
-        .entityWithInitialisedEncryptedMetadata(message, patient?.id, sfk, true, extraDelegations, delegationTags)
+        .entityWithInitialisedEncryptedMetadata(message, patient?.id, sfk, true, extraDelegations)
         .then((x) => x.updatedEntity)
     )
   }

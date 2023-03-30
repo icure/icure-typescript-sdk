@@ -38,7 +38,6 @@ export class IccClassificationXApi extends IccClassificationApi {
    * @param delegates initial delegates which will have access to the classification other than the current data owner.
    * @param preferredSfk secret id of the patient to use as the secret foreign key to use for the classification. The default value will be a secret
    * id of patient known by the topmost parent in the current data owner hierarchy.
-   * @param delegationTags tags for the initialised delegations.
    * @return a new instance of classification.
    */
   async newInstance(
@@ -46,8 +45,7 @@ export class IccClassificationXApi extends IccClassificationApi {
     patient: models.Patient,
     c: any = {},
     delegates: string[] = [],
-    preferredSfk?: string,
-    delegationTags?: string[]
+    preferredSfk?: string
   ): Promise<models.Classification> {
     const classification = _.assign(
       {
@@ -72,7 +70,7 @@ export class IccClassificationXApi extends IccClassificationApi {
     const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
     return new models.Classification(
       await this.crypto.entities
-        .entityWithInitialisedEncryptedMetadata(classification, patient?.id, sfk, true, extraDelegations, delegationTags)
+        .entityWithInitialisedEncryptedMetadata(classification, patient?.id, sfk, true, extraDelegations)
         .then((x) => x.updatedEntity)
     )
   }

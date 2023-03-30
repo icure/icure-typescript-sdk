@@ -13,7 +13,6 @@ export interface SecurityMetadataDecryptor {
    * @param typedEntity an encrypted entity or its stub.
    * @param dataOwnersHierarchySubset only exchange data that is accessible to data owners in this array will be considered when decrypting. It should
    * contain only data owners from the current data owner hierarchy.
-   * @param tagsFilter only metadata with tags that pass the filter will be considered for decryption.
    * @throws if dataOwnersHierarchySubset is empty
    * @return a generator for the decrypted exchange key which yields objects containing:
    * - `decrypted`: a decrypted encryption key for {@link typedEntity}. Note that the same key may be yielded multiple times by the generator.
@@ -22,8 +21,7 @@ export interface SecurityMetadataDecryptor {
    */
   decryptEncryptionKeysOf(
     typedEntity: EncryptedEntityWithType,
-    dataOwnersHierarchySubset: string[],
-    tagsFilter: (tags: string[]) => boolean
+    dataOwnersHierarchySubset: string[]
   ): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never>
 
   /**
@@ -31,7 +29,6 @@ export interface SecurityMetadataDecryptor {
    * @param typedEntity an encrypted entity or its stub.
    * @param dataOwnersHierarchySubset only exchange data that is accessible to data owners in this array will be considered when decrypting. It should
    * contain only data owners from the current data owner hierarchy.
-   * @param tagsFilter only metadata with tags that pass the filter will be considered for decryption.
    * @throws if dataOwnersHierarchySubset is empty
    * @return a generator for the decrypted secret ids which yields objects containing:
    * - `decrypted`: a decrypted secret id of {@link entity}. Note that the same id may be yielded multiple times by the generator.
@@ -40,8 +37,7 @@ export interface SecurityMetadataDecryptor {
    */
   decryptSecretIdsOf(
     typedEntity: EncryptedEntityWithType,
-    dataOwnersHierarchySubset: string[],
-    tagsFilter: (tags: string[]) => boolean
+    dataOwnersHierarchySubset: string[]
   ): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never>
 
   /**
@@ -49,7 +45,6 @@ export interface SecurityMetadataDecryptor {
    * @param typedEntity an encrypted entity or its stub.
    * @param dataOwnersHierarchySubset only exchange data that is accessible to data owners in this array will be considered when decrypting. It should
    * contain only data owners from the current data owner hierarchy.
-   * @param tagsFilter only metadata with tags that pass the filter will be considered for decryption.
    * @throws if dataOwnersHierarchySubset is empty
    * @return a generator for the decrypted owning entity ids which yields objects containing:
    * - `decrypted`: a decrypted owning entity id of {@link entity}. Note that the same id may be yielded multiple times by the generator.
@@ -58,8 +53,7 @@ export interface SecurityMetadataDecryptor {
    */
   decryptOwningEntityIdsOf(
     typedEntity: EncryptedEntityWithType,
-    dataOwnersHierarchySubset: string[],
-    tagsFilter: (tags: string[]) => boolean
+    dataOwnersHierarchySubset: string[]
   ): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never>
 
   /**
@@ -89,26 +83,23 @@ export class SecurityMetadataDecryptorChain implements SecurityMetadataDecryptor
 
   decryptEncryptionKeysOf(
     typedEntity: EncryptedEntityWithType,
-    dataOwnersHierarchySubset: string[],
-    tagsFilter: (tags: string[]) => boolean
+    dataOwnersHierarchySubset: string[]
   ): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never> {
-    return this.concatenate((d) => d.decryptEncryptionKeysOf(typedEntity, dataOwnersHierarchySubset, (t) => tagsFilter(t)))
+    return this.concatenate((d) => d.decryptEncryptionKeysOf(typedEntity, dataOwnersHierarchySubset))
   }
 
   decryptOwningEntityIdsOf(
     typedEntity: EncryptedEntityWithType,
-    dataOwnersHierarchySubset: string[],
-    tagsFilter: (tags: string[]) => boolean
+    dataOwnersHierarchySubset: string[]
   ): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never> {
-    return this.concatenate((d) => d.decryptOwningEntityIdsOf(typedEntity, dataOwnersHierarchySubset, (t) => tagsFilter(t)))
+    return this.concatenate((d) => d.decryptOwningEntityIdsOf(typedEntity, dataOwnersHierarchySubset))
   }
 
   decryptSecretIdsOf(
     typedEntity: EncryptedEntityWithType,
-    dataOwnersHierarchySubset: string[],
-    tagsFilter: (tags: string[]) => boolean
+    dataOwnersHierarchySubset: string[]
   ): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never> {
-    return this.concatenate((d) => d.decryptSecretIdsOf(typedEntity, dataOwnersHierarchySubset, (t) => tagsFilter(t)))
+    return this.concatenate((d) => d.decryptSecretIdsOf(typedEntity, dataOwnersHierarchySubset))
   }
 
   async getFullEntityAccessLevel(

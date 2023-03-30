@@ -16,12 +16,10 @@ describe('Security metadata decryptor chain', async function () {
       {
         decryptEncryptionKeysOf(
           typedEntity: EncryptedEntityWithType,
-          dataOwnersHierarchySubset: string[],
-          tagsFilter: (tags: string[]) => boolean
+          dataOwnersHierarchySubset: string[]
         ): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never> {
           expect(typedEntity).to.equal(expectedEntity)
           expect(dataOwnersHierarchySubset).to.equal(expectedDataOwnerHierarchySubset)
-          tagsFilter([])
           async function* generator(): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never> {
             yield { decrypted: '1', dataOwnersWithAccess: ['1'] }
             yield { decrypted: '2', dataOwnersWithAccess: ['2'] }
@@ -42,12 +40,10 @@ describe('Security metadata decryptor chain', async function () {
       {
         decryptEncryptionKeysOf(
           typedEntity: EncryptedEntityWithType,
-          dataOwnersHierarchySubset: string[],
-          tagsFilter: (tags: string[]) => boolean
+          dataOwnersHierarchySubset: string[]
         ): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never> {
           expect(typedEntity).to.equal(expectedEntity)
           expect(dataOwnersHierarchySubset).to.equal(expectedDataOwnerHierarchySubset)
-          tagsFilter([])
           async function* generator(): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never> {
             yield { decrypted: '4', dataOwnersWithAccess: ['4'] }
             yield { decrypted: '5', dataOwnersWithAccess: ['5'] }
@@ -66,11 +62,7 @@ describe('Security metadata decryptor chain', async function () {
         },
       },
     ])
-    let callsToTags = 0
-    let generator = chained.decryptEncryptionKeysOf(expectedEntity, expectedDataOwnerHierarchySubset, () => {
-      callsToTags++
-      return true
-    })
+    let generator = chained.decryptEncryptionKeysOf(expectedEntity, expectedDataOwnerHierarchySubset)
     let next = await generator.next()
     for (let i = 1; i <= 6; i++) {
       const si = toString(i)
@@ -82,7 +74,6 @@ describe('Security metadata decryptor chain', async function () {
     }
     expect(next.value).to.be.undefined
     expect(next.done).to.be.true
-    expect(callsToTags).to.equal(2)
   })
 
   it('should return all elements in order for secret ids', async function () {
@@ -90,12 +81,10 @@ describe('Security metadata decryptor chain', async function () {
       {
         decryptSecretIdsOf(
           typedEntity: EncryptedEntityWithType,
-          dataOwnersHierarchySubset: string[],
-          tagsFilter: (tags: string[]) => boolean
+          dataOwnersHierarchySubset: string[]
         ): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never> {
           expect(typedEntity).to.equal(expectedEntity)
           expect(dataOwnersHierarchySubset).to.equal(expectedDataOwnerHierarchySubset)
-          tagsFilter([])
           async function* generator(): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never> {
             yield { decrypted: '1', dataOwnersWithAccess: ['1'] }
             yield { decrypted: '2', dataOwnersWithAccess: ['2'] }
@@ -116,12 +105,10 @@ describe('Security metadata decryptor chain', async function () {
       {
         decryptSecretIdsOf(
           typedEntity: EncryptedEntityWithType,
-          dataOwnersHierarchySubset: string[],
-          tagsFilter: (tags: string[]) => boolean
+          dataOwnersHierarchySubset: string[]
         ): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never> {
           expect(typedEntity).to.equal(expectedEntity)
           expect(dataOwnersHierarchySubset).to.equal(expectedDataOwnerHierarchySubset)
-          tagsFilter([])
           async function* generator(): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never> {
             yield { decrypted: '4', dataOwnersWithAccess: ['4'] }
             yield { decrypted: '5', dataOwnersWithAccess: ['5'] }
@@ -140,11 +127,7 @@ describe('Security metadata decryptor chain', async function () {
         },
       },
     ])
-    let callsToTags = 0
-    let generator = chained.decryptSecretIdsOf(expectedEntity, expectedDataOwnerHierarchySubset, () => {
-      callsToTags++
-      return true
-    })
+    let generator = chained.decryptSecretIdsOf(expectedEntity, expectedDataOwnerHierarchySubset)
     let next = await generator.next()
     for (let i = 1; i <= 6; i++) {
       const si = toString(i)
@@ -156,7 +139,6 @@ describe('Security metadata decryptor chain', async function () {
     }
     expect(next.value).to.be.undefined
     expect(next.done).to.be.true
-    expect(callsToTags).to.equal(2)
   })
 
   it('should return all elements in order for owning entity id', async function () {
@@ -164,12 +146,10 @@ describe('Security metadata decryptor chain', async function () {
       {
         decryptOwningEntityIdsOf(
           typedEntity: EncryptedEntityWithType,
-          dataOwnersHierarchySubset: string[],
-          tagsFilter: (tags: string[]) => boolean
+          dataOwnersHierarchySubset: string[]
         ): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never> {
           expect(typedEntity).to.equal(expectedEntity)
           expect(dataOwnersHierarchySubset).to.equal(expectedDataOwnerHierarchySubset)
-          tagsFilter([])
           async function* generator(): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never> {
             yield { decrypted: '1', dataOwnersWithAccess: ['1'] }
             yield { decrypted: '2', dataOwnersWithAccess: ['2'] }
@@ -190,12 +170,10 @@ describe('Security metadata decryptor chain', async function () {
       {
         decryptOwningEntityIdsOf(
           typedEntity: EncryptedEntityWithType,
-          dataOwnersHierarchySubset: string[],
-          tagsFilter: (tags: string[]) => boolean
+          dataOwnersHierarchySubset: string[]
         ): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never> {
           expect(typedEntity).to.equal(expectedEntity)
           expect(dataOwnersHierarchySubset).to.equal(expectedDataOwnerHierarchySubset)
-          tagsFilter([])
           async function* generator(): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never> {
             yield { decrypted: '4', dataOwnersWithAccess: ['4'] }
             yield { decrypted: '5', dataOwnersWithAccess: ['5'] }
@@ -214,11 +192,7 @@ describe('Security metadata decryptor chain', async function () {
         },
       },
     ])
-    let callsToTags = 0
-    let generator = chained.decryptOwningEntityIdsOf(expectedEntity, expectedDataOwnerHierarchySubset, () => {
-      callsToTags++
-      return true
-    })
+    let generator = chained.decryptOwningEntityIdsOf(expectedEntity, expectedDataOwnerHierarchySubset)
     let next = await generator.next()
     for (let i = 1; i <= 6; i++) {
       const si = toString(i)
@@ -230,7 +204,6 @@ describe('Security metadata decryptor chain', async function () {
     }
     expect(next.value).to.be.undefined
     expect(next.done).to.be.true
-    expect(callsToTags).to.equal(2)
   })
 
   it('should return the best access level across all decryptors of the chain', async function () {
