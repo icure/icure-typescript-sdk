@@ -11,7 +11,7 @@ import { FakeExchangeDataApi } from '../../utils/FakeExchangeDataApi'
 import { FakeDataOwnerApi } from '../../utils/FakeDataOwnerApi'
 import { DataOwnerTypeEnum } from '../../../icc-x-api/icc-data-owner-x-api'
 import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
-import { ua2hex } from '../../../icc-x-api'
+import { ua2b64, ua2hex } from '../../../icc-x-api'
 import { FakeEncryptionKeysManager } from '../../utils/FakeEncryptionKeysManager'
 import { FakeSignatureKeysManager } from '../../utils/FakeSignatureKeysManager'
 import { AccessControlSecretUtils } from '../../../icc-x-api/crypto/AccessControlSecretUtils'
@@ -322,7 +322,77 @@ describe('Exchange data manager', async function () {
 
   it('should create new exchange data for encryption when the existing data can not be verified due to tampering of the data', async function () {
     // Test tampering by adding new key or changing value corresponding to a key in encryption data, access control data or both.
-    throw new Error('Implement')
+    async function doTest(
+      allowFullExchangeDataLoad: boolean,
+      tamper: (exchangeData: ExchangeData, selfKeyPair: KeyPair<CryptoKey>, selfKeyFp: string) => Promise<ExchangeData>
+    ) {
+      await initialiseComponents(allowFullExchangeDataLoad)
+      const sfk = primitives.randomUuid()
+      const createdData = await exchangeData.getOrCreateEncryptionDataTo(delegateId, 'Contact', [sfk])
+      // Tamper with exchange data
+      await exchangeDataApi.modifyExchangeData(await tamper(createdData.exchangeData, selfKeypair, selfKeyFp))
+      await exchangeData.clearOrRepopulateCache()
+      const countAfterCacheClear = exchangeDataApi.callCount
+      const newData = await exchangeData.getOrCreateEncryptionDataTo(delegateId, 'Contact', [sfk])
+      exchangeDataApi.compareCallCountFromBaseline(countAfterCacheClear, {
+        createExchangeData: 1,
+        getExchangeDataByDelegatorDelegate: allowFullExchangeDataLoad ? 0 : 1,
+        modifyExchangeData: 0,
+        getExchangeDataById: 0,
+        getExchangeDataByParticipant: 0,
+      })
+      expect(_.isEqual(_.omit(createdData.exchangeData, ['rev']), _.omit(newData.exchangeData, ['rev']))).to.equal(
+        false,
+        'Exchange data manager should have created new exchange data for encryption'
+      )
+      expect(ua2hex(await primitives.AES.exportKey(createdData.exchangeKey, 'raw'))).to.not.equal(
+        ua2hex(await primitives.AES.exportKey(newData.exchangeKey, 'raw'))
+      )
+      expect(createdData.accessControlSecret).to.not.equal(newData.accessControlSecret)
+    }
+    const extraKeyPair = await primitives.RSA.generateKeyPair()
+    const extraKeyPairFp = ua2hex(await primitives.RSA.exportKey(extraKeyPair.publicKey, 'spki')).slice(-32)
+    const fakeKey = primitives.randomBytes(16)
+    const tamperByAddingEncryptionKey = async (exchangeData: ExchangeData) =>
+      new ExchangeData({
+        ...exchangeData,
+        exchangeKey: {
+          ...exchangeData.exchangeKey,
+          [extraKeyPairFp]: ua2b64(await primitives.RSA.encrypt(extraKeyPair.publicKey, fakeKey)),
+        },
+      })
+    const tamperByChangingEncryptionKey = async (exchangeData: ExchangeData, selfKeyPair: KeyPair<CryptoKey>, selfKeyFp: string) =>
+      new ExchangeData({
+        ...exchangeData,
+        exchangeKey: {
+          ...exchangeData.exchangeKey,
+          [selfKeyFp]: ua2b64(await primitives.RSA.encrypt(selfKeyPair.publicKey, fakeKey)),
+        },
+      })
+    const tamperByAddingAccessControlSecret = async (exchangeData: ExchangeData) =>
+      new ExchangeData({
+        ...exchangeData,
+        accessControlSecret: {
+          ...exchangeData.accessControlSecret,
+          [extraKeyPairFp]: ua2b64(await primitives.RSA.encrypt(extraKeyPair.publicKey, fakeKey)),
+        },
+      })
+    const tamperByChangingAccessControlSecret = async (exchangeData: ExchangeData, selfKeyPair: KeyPair<CryptoKey>, selfKeyFp: string) =>
+      new ExchangeData({
+        ...exchangeData,
+        accessControlSecret: {
+          ...exchangeData.accessControlSecret,
+          [selfKeyFp]: ua2b64(await primitives.RSA.encrypt(selfKeyPair.publicKey, fakeKey)),
+        },
+      })
+    await doTest(true, tamperByAddingEncryptionKey)
+    await doTest(false, tamperByAddingEncryptionKey)
+    await doTest(true, tamperByChangingEncryptionKey)
+    await doTest(false, tamperByChangingEncryptionKey)
+    await doTest(true, tamperByAddingAccessControlSecret)
+    await doTest(false, tamperByAddingAccessControlSecret)
+    await doTest(true, tamperByChangingAccessControlSecret)
+    await doTest(false, tamperByChangingAccessControlSecret)
   })
 
   it('should return existing exchange data keys for decryption even if the data authenticity could not be verified', async function () {
