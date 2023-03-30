@@ -53,7 +53,7 @@ export class FakeExchangeDataApi extends IccExchangeDataApi {
   }
 
   constructor() {
-    super(null as any, {}, null as any, null as any)
+    super('fake', {}, null as any, null as any)
   }
 
   createExchangeData(body: ExchangeData): Promise<ExchangeData> {

@@ -79,7 +79,7 @@ export function getEnvVariables(): TestVars {
       : undefined
   const testGroupId = process.env.ICURE_TEST_GROUP_ID ?? 'test-group'
   return {
-    iCureUrl: process.env.ICURE_TS_TEST_URL ?? 'http://127.0.0.1:16044/rest/v1',
+    iCureUrl: process.env.ICURE_TS_TEST_URL ?? 'http://127.0.0.1:16044',
     msgGtwUrl: process.env.ICURE_TS_TEST_MSG_GTW_URL ?? 'http://127.0.0.1:8081/msggtw',
     couchDbUrl: process.env.ICURE_COUCHDB_URL ?? 'http://127.0.0.1:15984',
     composeFileUrl: process.env.COMPOSE_FILE_URL ?? 'https://raw.githubusercontent.com/icure/icure-e2e-test-setup/master/docker-compose-cloud.yaml',
@@ -160,7 +160,15 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
   child2User: User
   child2Credentials: UserCredentials
 }> {
-  const initialisationApi = await TestSetupApi(env.iCureUrl, env.masterHcp!.user, env.masterHcp!.password, webcrypto as any, fetch, true, false)
+  const initialisationApi = await TestSetupApi(
+    env.iCureUrl + '/rest/v1',
+    env.masterHcp!.user,
+    env.masterHcp!.password,
+    webcrypto as any,
+    fetch,
+    true,
+    false
+  )
   const primitives = new CryptoPrimitives(webcrypto as any)
   const grandCredentials = await createHealthcarePartyUser(initialisationApi, `grand-${primitives.randomUuid()}`, primitives.randomUuid())
   const parentCredentials = await createHealthcarePartyUser(initialisationApi, `parent-${primitives.randomUuid()}`, primitives.randomUuid())

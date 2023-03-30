@@ -18,6 +18,7 @@ import { MikronoCredentials } from '../model/MikronoCredentials'
 import { Unit } from '../model/Unit'
 import { User } from '../model/User'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { iccRestApiPath } from './IccRestApiPath'
 
 export class IccBemikronoApi {
   host: string
@@ -31,7 +32,7 @@ export class IccBemikronoApi {
     authenticationProvider?: AuthenticationProvider,
     fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
   ) {
-    this.host = host
+    this.host = iccRestApiPath(host)
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
     this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
     this.fetchImpl = fetchImpl
