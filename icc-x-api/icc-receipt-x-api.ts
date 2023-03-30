@@ -61,7 +61,7 @@ export class IccReceiptXApi extends IccReceiptApi {
   logReceipt(user: models.User, docId: string, refs: Array<string>, blobType: string, blob: ArrayBuffer) {
     return this.newInstance(user, { documentId: docId, references: refs })
       .then((rcpt) => this.createReceipt(rcpt))
-      .then((rcpt) => (blob.byteLength != 0 ? this.setReceiptAttachment(rcpt.id!, blobType, '', <any>blob) : Promise.resolve(rcpt)))
+      .then((rcpt) => (blob.byteLength != 0 ? this.setReceiptAttachmentForBlobType(rcpt.id!, rcpt.rev!, blobType, <any>blob) : Promise.resolve(rcpt)))
   }
 
   /**
@@ -73,7 +73,7 @@ export class IccReceiptXApi extends IccReceiptApi {
    */
   async encryptAndSetReceiptAttachment(receipt: models.Receipt, blobType: string, attachment: ArrayBuffer | Uint8Array): Promise<models.Receipt> {
     const encryptedData = await this.crypto.entities.encryptDataOf(receipt, attachment, 'Receipt')
-    return await this.setReceiptAttachment(receipt.id!, blobType, undefined, encryptedData)
+    return await this.setReceiptAttachmentForBlobType(receipt.id!, receipt.rev!, blobType, encryptedData)
   }
 
   /**
@@ -89,7 +89,7 @@ export class IccReceiptXApi extends IccReceiptApi {
     attachmentId: string,
     validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<ArrayBuffer> {
-    return await this.crypto.entities.decryptDataOf(receipt, await this.getReceiptAttachment(receipt.id!, attachmentId, ''), 'Receipt', (x) =>
+    return await this.crypto.entities.decryptDataOf(receipt, await this.getReceiptAttachment(receipt.id!, attachmentId), 'Receipt', (x) =>
       validator(x)
     )
   }

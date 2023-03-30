@@ -94,15 +94,16 @@ export class IccReceiptApi {
    * @param attachmentId
    * @param enckeys
    */
-  getReceiptAttachment(receiptId: string, attachmentId: string, enckeys: string): Promise<ArrayBuffer> {
+  getReceiptAttachment(receiptId: string, attachmentId: string, enckeys?: null): Promise<ArrayBuffer> {
+    if (enckeys) {
+      throw new Error('Server-side encryption is not supported anymore.')
+    }
     let _body = null
-
     const _url =
       this.host +
       `/receipt/${encodeURIComponent(String(receiptId))}/attachment/${encodeURIComponent(String(attachmentId))}` +
       '?ts=' +
-      new Date().getTime() +
-      (enckeys ? '&enckeys=' + encodeURIComponent(String(enckeys)) : '')
+      new Date().getTime()
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
@@ -142,23 +143,37 @@ export class IccReceiptApi {
   }
 
   /**
-   *
-   * @summary Creates a receipt's attachment
-   * @param body
-   * @param receiptId
-   * @param blobType
-   * @param enckeys
+   * @deprecated use setReceiptAttachmentForBlobType instead
    */
-  setReceiptAttachment(receiptId: string, blobType: string, enckeys?: string, body?: ArrayBuffer): Promise<Receipt> {
-    let _body = null
-    _body = body
+  setReceiptAttachment(receiptId: string, receiptRev: string, blobType: string, enckeys?: null, body?: ArrayBuffer): Promise<Receipt> {
+    if (enckeys) {
+      throw new Error('Server-side encryption is not supported anymore.')
+    }
+    if (!body) {
+      throw new Error('Attachment content is requred')
+    }
+    return this.setReceiptAttachmentForBlobType(receiptId, receiptRev, blobType, body)
+  }
+
+  /**
+   * @summary Creates a receipt's attachment
+   * @param receiptId id of a receipt
+   * @param receiptRev rev of the receipt
+   * @param blobType receipt blob type
+   * @param body content of the attachment, already encrypted
+   */
+  setReceiptAttachmentForBlobType(receiptId: string, receiptRev: string, blobType: string, body: ArrayBuffer): Promise<Receipt> {
+    if (!receiptRev) throw new Error('Receipt rev is required')
+
+    let _body = body
 
     const _url =
       this.host +
       `/receipt/${encodeURIComponent(String(receiptId))}/attachment/${encodeURIComponent(String(blobType))}` +
       '?ts=' +
       new Date().getTime() +
-      (enckeys ? '&enckeys=' + encodeURIComponent(String(enckeys)) : '')
+      '&rev=' +
+      receiptRev
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
