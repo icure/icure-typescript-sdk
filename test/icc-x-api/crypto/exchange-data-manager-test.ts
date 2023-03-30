@@ -291,7 +291,7 @@ describe('Exchange data manager', async function () {
     await doTest(false)
   })
 
-  it('should create new exchange data for encryption when the existing data can not be verified', async function () {
+  it('should create new exchange data for encryption when the existing data can not be verified due to unavailable verification key', async function () {
     async function doTest(allowFullExchangeDataLoad: boolean) {
       await initialiseComponents(allowFullExchangeDataLoad)
       const sfk = primitives.randomUuid()
@@ -318,6 +318,11 @@ describe('Exchange data manager', async function () {
     }
     await doTest(true)
     await doTest(false)
+  })
+
+  it('should create new exchange data for encryption when the existing data can not be verified due to tampering of the data', async function () {
+    // Test tampering by adding new key or changing value corresponding to a key in encryption data, access control data or both.
+    throw new Error('Implement')
   })
 
   it('should return existing exchange data keys for decryption even if the data authenticity could not be verified', async function () {

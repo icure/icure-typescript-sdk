@@ -48,6 +48,8 @@ export class ConfidentialEntities {
    * @return the confidential secret id or undefined if there is no confidential secret id for the provided data owner.
    */
   async getConfidentialSecretId<T extends EncryptedEntity>(entity: T, dataOwnerId?: string): Promise<string | undefined> {
+    // TODO throw exception if any parent key is not available? if we are missing even only one single parent key we can't be sure it is confidential,
+    // or maybe include confidential as the secret id name...
     const chosenDataOwnerId = dataOwnerId ?? (await this.dataOwnerApi.getCurrentDataOwnerId())
     const dataOwnerHierarchy = await this.dataOwnerApi.getCurrentDataOwnerHierarchyIdsFrom(chosenDataOwnerId)
     const hierarchySecretIds = (await this.entitiesEncryption.secretIdsForHcpHierarchyOf(entity)).filter((x) =>

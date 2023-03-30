@@ -210,10 +210,10 @@
     uuid "^8.3.2"
     uuid-encoder "^1.1.0"
 
-"@icure/test-setup@^0.0.43":
-  version "0.0.43"
-  resolved "https://registry.yarnpkg.com/@icure/test-setup/-/test-setup-0.0.43.tgz#d2c8efb2f7f0b2c63a5ad5626430ba34036e4434"
-  integrity sha512-2S3Vea8pQW+D18qVGt14librWDCUF4OFHvC80MKucNzXyhT05Od41v8wSLiHlYQ61sYhGZVZoxE3W9nXNdrR1A==
+"@icure/test-setup@0.0.45":
+  version "0.0.45"
+  resolved "https://registry.yarnpkg.com/@icure/test-setup/-/test-setup-0.0.45.tgz#3f5cd1868ced048818593a364c0c026f0b3a9652"
+  integrity sha512-ZZjZMMXWnViYDkW2U/B+s3kVPPPPxHKfY2zpYVnrJJQmCasBz3FEbZMqH+GYxS/GbP6/eaIZvsBTxn1GgRDIaA==
   dependencies:
     "@icure/api" "^6.3.1"
     "@types/react-dom" "^18.0.6"
@@ -306,7 +306,14 @@
   resolved "https://registry.npmjs.org/@tsconfig/node16/-/node16-1.0.3.tgz#472eaab5f15c1ffdd7f8628bd4c4f753995ec79e"
   integrity sha512-yOlFc+7UtL/89t2ZhjPvvB/DeAr3r+Dq58IgzsFkOAvVC6NMJXmCGjbptdXdR9qsX7pKcTL+s87FtYREi2dEEQ==
 
-"@types/chai@^4.3.0":
+"@types/chai-as-promised@^7.1.1":
+  version "7.1.5"
+  resolved "https://registry.yarnpkg.com/@types/chai-as-promised/-/chai-as-promised-7.1.5.tgz#6e016811f6c7a64f2eed823191c3a6955094e255"
+  integrity sha512-jStwss93SITGBwt/niYrkf2C+/1KTeZCZl1LaeezTlqppAKeoQC7jxyqYuP72sxBGKCIbw7oHgbYssIRzT5FCQ==
+  dependencies:
+    "@types/chai" "*"
+
+"@types/chai@*", "@types/chai@^4.3.0":
   version "4.3.4"
   resolved "https://registry.npmjs.org/@types/chai/-/chai-4.3.4.tgz#e913e8175db8307d78b4e8fa690408ba6b65dee4"
   integrity sha512-KnRanxnpfpjUTqTCXslZSEdLfXExwgNxYPdiO2WGUj8+HDjFi8R3k5RVKPeSCzLjCcshCAtVO2QBbVuAV4kTnw==
@@ -614,6 +621,13 @@ caniuse-lite@^1.0.30001400:
   version "1.0.30001441"
   resolved "https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-1.0.30001441.tgz#987437b266260b640a23cd18fbddb509d7f69f3e"
   integrity sha512-OyxRR4Vof59I3yGWXws6i908EtGbMzVUi3ganaZQHmydk1iwDhRnvaPG2WaR0KcqrDFKrxVZHULT396LEPhXfg==
+
+chai-as-promised@^7.1.1:
+  version "7.1.1"
+  resolved "https://registry.yarnpkg.com/chai-as-promised/-/chai-as-promised-7.1.1.tgz#08645d825deb8696ee61725dbf590c012eb00ca0"
+  integrity sha512-azL6xMoi+uxu6z4rhWQ1jbdUhOMhis2PvscD/xjLqNMkv3BPPp2JyyuTHOrf9BOosGpNQ11v6BKv/g57RXbiaA==
+  dependencies:
+    check-error "^1.0.2"
 
 chai@^4.3.6:
   version "4.3.7"

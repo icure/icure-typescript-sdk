@@ -151,6 +151,7 @@ describe('icc-x-maintenance-task-api Tests', () => {
 
     // Then
     assert(!!deletedTask)
+    // TODO investigate why it fails
     assert(deletedTask.length == 1)
     assert(deletedTask[0].id === createdTask.id)
   })

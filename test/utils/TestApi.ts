@@ -1,8 +1,8 @@
 import { Api, Apis } from '../../icc-x-api'
 import { KeyPair, RSAUtils } from '../../icc-x-api/crypto/RSA'
 import { TestKeyStorage, TestStorage } from './TestStorage'
-import { DefaultStorageEntryKeysFactory } from '../../icc-x-api/storage/DefaultStorageEntryKeysFactory'
 import { TestCryptoStrategies } from './TestCryptoStrategies'
+import 'isomorphic-fetch'
 
 export const TestApi = async function (
   host: string,
