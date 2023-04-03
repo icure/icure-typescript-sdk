@@ -1,7 +1,7 @@
 import { EncryptedEntity, EncryptedEntityStub } from '../../icc-api/model/models'
 import { EncryptedEntityWithType, EntityWithDelegationTypeName } from '../utils/EntityWithDelegationTypeName'
 import { SecureDelegation } from '../../icc-api/model/SecureDelegation'
-import AccessLevel = SecureDelegation.AccessLevel
+import AccessLevel = SecureDelegation.AccessLevelEnum
 
 /**
  * @internal this class is for internal use only and may be changed without notice.
@@ -105,8 +105,8 @@ export class SecurityMetadataDecryptorChain implements SecurityMetadataDecryptor
   async getFullEntityAccessLevel(
     typedEntity: EncryptedEntityWithType,
     dataOwnersHierarchySubset: string[]
-  ): Promise<SecureDelegation.AccessLevel | undefined> {
-    let currMaxLevel: SecureDelegation.AccessLevel | undefined = undefined
+  ): Promise<SecureDelegation.AccessLevelEnum | undefined> {
+    let currMaxLevel: SecureDelegation.AccessLevelEnum | undefined = undefined
     for (const d of this.decryptors) {
       const currLevel = await d.getFullEntityAccessLevel(typedEntity, dataOwnersHierarchySubset)
       if (currLevel === AccessLevel.WRITE) {

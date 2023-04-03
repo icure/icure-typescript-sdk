@@ -5,7 +5,7 @@ import { EncryptedEntity, EncryptedEntityStub } from '../../../icc-api/model/mod
 import { toString } from 'lodash'
 import { EncryptedEntityWithType } from '../../../icc-x-api/utils/EntityWithDelegationTypeName'
 import { SecureDelegation } from '../../../icc-api/model/SecureDelegation'
-import AccessLevel = SecureDelegation.AccessLevel
+import AccessLevel = SecureDelegation.AccessLevelEnum
 
 describe('Security metadata decryptor chain', async function () {
   const expectedEntity: EncryptedEntityWithType = { entity: {} as EncryptedEntityStub, type: 'Patient' }
