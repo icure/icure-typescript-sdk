@@ -1,13 +1,8 @@
 import { SecureDelegation } from '../../icc-api/model/SecureDelegation'
 import { b64_2ua, ua2b64, ua2hex, ua2utf8, utf8_2ua } from '../utils'
-import { ExchangeDataManager } from './ExchangeDataManager'
 import { UserEncryptionKeysManager } from './UserEncryptionKeysManager'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { hex2ua } from '@icure/apiV6'
-import { EncryptedEntity, EncryptedEntityStub } from '../../icc-api/model/models'
-import { CryptoStrategies } from './CryptoStrategies'
-import { EntityWithDelegationTypeName } from '../utils/EntityWithDelegationTypeName'
-import AccessLevel = SecureDelegation.AccessLevel
 
 /**
  * @internal this class is for internal use only and may be changed without notice.
@@ -42,27 +37,75 @@ export class SecureDelegationsEncryption {
     return res
   }
 
-  async decryptEncryptionKey(encrypted: string, key: CryptoKey): Promise<string> {
-    return ua2hex(await this.primitives.AES.decrypt(key, b64_2ua(encrypted)))
-  }
-
   async encryptEncryptionKey(hexKey: string, key: CryptoKey): Promise<string> {
     return ua2b64(await this.primitives.AES.encrypt(key, hex2ua(hexKey)))
   }
 
-  async decryptSecretId(encrypted: string, key: CryptoKey): Promise<string> {
-    return ua2utf8(await this.primitives.AES.decrypt(key, b64_2ua(encrypted)))
+  async encryptEncryptionKeys(hexKeys: string[], key: CryptoKey): Promise<string[]> {
+    const res = []
+    for (const hexKey of hexKeys) {
+      res.push(await this.encryptEncryptionKey(hexKey, key))
+    }
+    return res
+  }
+
+  async decryptEncryptionKey(encrypted: string, key: CryptoKey): Promise<string> {
+    return ua2hex(await this.primitives.AES.decrypt(key, b64_2ua(encrypted)))
+  }
+
+  async decryptEncryptionKeys(delegation: SecureDelegation, key: CryptoKey): Promise<string[]> {
+    const res = []
+    for (const encrypted of delegation.encryptionKeys ?? []) {
+      res.push(await this.decryptEncryptionKey(encrypted, key))
+    }
+    return res
   }
 
   async encryptSecretId(secretId: string, key: CryptoKey): Promise<string> {
     return ua2b64(await this.primitives.AES.encrypt(key, utf8_2ua(secretId)))
   }
 
-  async decryptOwningEntityId(encrypted: string, key: CryptoKey): Promise<string> {
+  async encryptSecretIds(secretIds: string[], key: CryptoKey): Promise<string[]> {
+    const res = []
+    for (const secretId of secretIds) {
+      res.push(await this.encryptSecretId(secretId, key))
+    }
+    return res
+  }
+
+  async decryptSecretId(encrypted: string, key: CryptoKey): Promise<string> {
     return ua2utf8(await this.primitives.AES.decrypt(key, b64_2ua(encrypted)))
+  }
+
+  async decryptSecretIds(delegation: SecureDelegation, key: CryptoKey): Promise<string[]> {
+    const res = []
+    for (const encrypted of delegation.secretIds ?? []) {
+      res.push(await this.decryptSecretId(encrypted, key))
+    }
+    return res
   }
 
   async encryptOwningEntityId(owningEntityId: string, key: CryptoKey): Promise<string> {
     return ua2b64(await this.primitives.AES.encrypt(key, utf8_2ua(owningEntityId)))
+  }
+
+  async encryptOwningEntityIds(owningEntityIds: string[], key: CryptoKey): Promise<string[]> {
+    const res = []
+    for (const owningEntityId of owningEntityIds) {
+      res.push(await this.encryptOwningEntityId(owningEntityId, key))
+    }
+    return res
+  }
+
+  async decryptOwningEntityId(encrypted: string, key: CryptoKey): Promise<string> {
+    return ua2utf8(await this.primitives.AES.decrypt(key, b64_2ua(encrypted)))
+  }
+
+  async decryptOwningEntityIds(delegation: SecureDelegation, key: CryptoKey): Promise<string[]> {
+    const res = []
+    for (const encrypted of delegation.owningEntityIds ?? []) {
+      res.push(await this.decryptOwningEntityId(encrypted, key))
+    }
+    return res
   }
 }

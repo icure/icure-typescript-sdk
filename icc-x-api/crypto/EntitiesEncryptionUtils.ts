@@ -1,12 +1,12 @@
 import { EncryptedEntity, EncryptedEntityStub } from '../../icc-api/model/models'
 import { EntityWithDelegationTypeName } from '../utils/EntityWithDelegationTypeName'
 import { SecureDelegation } from '../../icc-api/model/SecureDelegation'
-import AccessLevel = SecureDelegation.AccessLevel
+import AccessLevel = SecureDelegation.AccessLevelEnum
 
 /**
  * Gives access to several functions to access encrypted entities metadata.
  */
-export interface EntitiesEncryption {
+export interface EntitiesEncryptionUtils {
   /**
    * Get the encryption keys of an entity that the provided data owner can access, potentially using the keys for his parent.
    * There should only be one encryption key for each entity, but the method supports more to allow to deal with conflicts and merged duplicate data.
@@ -157,4 +157,55 @@ export interface EntitiesEncryption {
     entity: EncryptedEntity | EncryptedEntityStub,
     entityType?: EntityWithDelegationTypeName
   ): Promise<AccessLevel | undefined>
+
+  /**
+   * Initializes encryption metadata for an entity. This includes the encrypted secret id, owning entity id, and encryption key for the entity, and
+   * the clear text secret foreign key of the parent entity.
+   * This method returns a modified copy of the entity.
+   * @param entity entity which requires encryption metadata initialisation.
+   * @param owningEntity id of the owning entity, if any (e.g. patient id for Contact/HealtchareElement, message id for Document, ...).
+   * @param owningEntitySecretId secret id of the parent entity, to use in the secret foreign keys for the provided entity, if any.
+   * @param initialiseEncryptionKeys if false this method will not initialize any encryption keys. Use only for entities which use delegations for
+   * access control but don't actually have any encrypted content.
+   * @param additionalDelegations automatically shares the
+   * @throws if the entity already has non-empty values for encryption metadata.
+   * @return an updated copy of the entity.
+   */
+  entityWithInitialisedEncryptedMetadata<T extends EncryptedEntity>(
+    entity: T,
+    owningEntity: string | undefined,
+    owningEntitySecretId: string | undefined,
+    initialiseEncryptionKeys: boolean,
+    additionalDelegations?: string[]
+  ): Promise<{
+    updatedEntity: T
+    rawEncryptionKey: string | undefined
+    secretId: string
+  }>
+
+  /**
+   * Updates encryption metadata for an entity in order to share it with a delegate or in order to add additional encrypted metadata for an existing
+   * delegate.
+   * The first time this method is used for a specific delegate it will give access to all unencrypted content of the entity to the delegate data
+   * owner. Additionally, this method also allows to share new or existing secret ids (shareSecretId), encryption keys (shareEncryptionKeys) and
+   * owning entity ids (shareOwningEntityIds) for the entity.
+   * You can use methods like {@link secretIdsOf}, {@link secretIdsForHcpHierarchyOf}, {@link encryptionKeysOf}, ... to retrieve the data you want to
+   * share. In most cases you may want to share everything related to the entity, but note that if you use confidential delegations for patients you
+   * may want to avoid sharing the confidential secret ids of the current user with other hcps.
+   * This method returns a modified copy of the entity.
+   * @param entity entity which requires encryption metadata initialisation.
+   * @param delegateId id of the delegate to share data with.
+   * @param shareSecretIds secret ids to share.
+   * @param shareEncryptionKeys encryption keys to share.
+   * @param shareOwningEntityIds owning enttiy ids to share.
+   * @throws if any of the shareX parameters is set to `true` but the corresponding piece of data could not be retrieved.
+   * @return an updated copy of the entity.
+   */
+  entityWithExtendedEncryptedMetadata<T extends EncryptedEntity | EncryptedEntityStub>(
+    entity: T,
+    delegateId: string,
+    shareSecretIds: string[],
+    shareEncryptionKeys: string[],
+    shareOwningEntityIds: string[]
+  ): Promise<T>
 }

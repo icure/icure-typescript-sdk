@@ -4,7 +4,7 @@ import { ExchangeDataManager } from './ExchangeDataManager'
 import { EncryptedEntityWithType } from '../utils/EntityWithDelegationTypeName'
 import { ExchangeData } from '../../icc-api/model/ExchangeData'
 import { SecureDelegationsEncryption } from './SecureDelegationsEncryption'
-import AccessLevel = SecureDelegation.AccessLevel
+import AccessLevel = SecureDelegation.AccessLevelEnum
 
 type DelegationDecryptionDetails = {
   delegation: SecureDelegation

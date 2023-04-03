@@ -52,12 +52,12 @@ export class SecureDelegation {
    * In the future we plan to implement fine-grained permissions; for this purpose we may be change this field to have
    * a polymorphic type or we may add additional fields.
    */
-  permissions?: SecureDelegation.AccessLevel
+  permissions!: SecureDelegation.AccessLevelEnum
 }
 export namespace SecureDelegation {
-  export type AccessLevel = 'READ' | 'WRITE'
-  export const AccessLevel = {
-    READ: 'READ' as AccessLevel,
-    WRITE: 'WRITE' as AccessLevel,
+  export type AccessLevelEnum = 'READ' | 'WRITE'
+  export const AccessLevelEnum = {
+    READ: 'READ' as AccessLevelEnum,
+    WRITE: 'WRITE' as AccessLevelEnum,
   }
 }

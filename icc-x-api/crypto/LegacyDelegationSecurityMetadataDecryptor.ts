@@ -6,7 +6,7 @@ import { hex2ua } from '../utils'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { ExchangeKeysManager } from './ExchangeKeysManager'
 import { SecureDelegation } from '../../icc-api/model/SecureDelegation'
-import AccessLevel = SecureDelegation.AccessLevel
+import AccessLevel = SecureDelegation.AccessLevelEnum
 
 export class LegacyDelegationSecurityMetadataDecryptor implements SecurityMetadataDecryptor {
   constructor(private readonly exchangeKeysManager: ExchangeKeysManager, private readonly primitives: CryptoPrimitives) {}

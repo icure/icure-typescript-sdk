@@ -10,7 +10,7 @@ import { ExchangeData } from '../../../icc-api/model/ExchangeData'
 import { expect } from 'chai'
 import { IcureStub } from '../../../icc-api/model/IcureStub'
 import { SecureDelegation } from '../../../icc-api/model/SecureDelegation'
-import AccessLevel = SecureDelegation.AccessLevel
+import AccessLevel = SecureDelegation.AccessLevelEnum
 import { ua2hex } from '../../../icc-x-api'
 import { SecurityMetadata } from '../../../icc-api/model/SecurityMetadata'
 import { asyncGeneratorToArray } from '../../../icc-x-api/utils/collection-utils'
