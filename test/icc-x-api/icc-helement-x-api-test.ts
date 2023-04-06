@@ -137,36 +137,14 @@ describe('icc-helement-x-api Tests', () => {
 
     // When
     const foundHealthElements = await hElementApiForHcp.findHealthElementsByHCPartyAndPatientWithUser(hcpUser, hcpUser.healthcarePartyId!, patient)
+    const foundHealthElementsUsingPost = await hElementApiForHcp.findHealthElementsByHCPartyAndPatientWithUser(hcpUser, hcpUser.healthcarePartyId!, patient, true)
 
     // Then
-    assert(foundHealthElements.length == 1)
-    assert(foundHealthElements[0].id == createdHealthElement.id)
+    assert(foundHealthElements.length == 1, 'Found health elements should be 1')
+    assert(foundHealthElements[0].id == createdHealthElement.id, 'Found health element should be the same as the created one')
+
+    assert(foundHealthElementsUsingPost.length == 1, 'Found health elements using POST should be 1')
+    assert(foundHealthElementsUsingPost[0].id == createdHealthElement.id, 'Found health element using POST should be the same as the created one')
   })
 
-  it('findHealthElementsByHCPartyAndPatientWithUser Using Post Success for HCP', async () => {
-    // Given
-    const {
-      userApi: userApiForHcp,
-      dataOwnerApi: dataOwnerApiForHcp,
-      patientApi: patientApiForHcp,
-      healthcareElementApi: hElementApiForHcp,
-      cryptoApi: cryptoApiForHcp,
-    } = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password, crypto)
-
-    const hcpUser = await userApiForHcp.getCurrentUser()
-    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, env!.dataOwnerDetails[hcp1Username].privateKey)
-
-    const patient = (await createPatient(patientApiForHcp, hcpUser)) as Patient
-    const createdHealthElement = await hElementApiForHcp.createHealthElementWithUser(
-      hcpUser,
-      await healthElementToCreate(hElementApiForHcp, hcpUser, patient)
-    )
-
-    // When
-    const foundHealthElements = await hElementApiForHcp.findHealthElementsByHCPartyAndPatientWithUser(hcpUser, hcpUser.healthcarePartyId!, patient, true)
-
-    // Then
-    assert(foundHealthElements.length == 1)
-    assert(foundHealthElements[0].id == createdHealthElement.id)
-  })
 })
