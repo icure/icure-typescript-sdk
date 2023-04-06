@@ -170,7 +170,11 @@ export class IccHelementXApi extends IccHelementApi {
     return super.findHealthElementsByHCPartyPatientForeignKeys(hcPartyId, secretFKeys).then((hes) => this.decryptWithUser(user, hes))
   }
 
-  findHealthElementsByHCPartyAndPatientWithUser(user: models.User, hcPartyId: string, patient: models.Patient): Promise<models.HealthElement[]> {
+  findHealthElementsByHCPartyPatientForeignKeysArrayWithUser(user: models.User, hcPartyId: string, secretFKeys: string[]): Promise<HealthElement[]> {
+    return super.findHealthElementsByHCPartyPatientForeignKeysUsingPost(hcPartyId, secretFKeys).then((hes) => this.decryptWithUser(user, hes))
+  }
+
+  findHealthElementsByHCPartyAndPatientWithUser(user: models.User, hcPartyId: string, patient: models.Patient, usingPost: boolean = false): Promise<models.HealthElement[]> {
     return this.crypto.extractSFKsHierarchyFromDelegations(patient, hcPartyId).then((keysAndHcPartyId) => {
       const keys = keysAndHcPartyId.find((secretForeignKeys) => secretForeignKeys.hcpartyId == hcPartyId)?.extractedKeys
 
@@ -178,7 +182,9 @@ export class IccHelementXApi extends IccHelementApi {
         throw Error('No delegation for user')
       }
 
-      return this.findHealthElementsByHCPartyPatientForeignKeysWithUser(user, hcPartyId, keys.join(','))
+      return usingPost ?
+        this.findHealthElementsByHCPartyPatientForeignKeysArrayWithUser(user, hcPartyId, keys) :
+        this.findHealthElementsByHCPartyPatientForeignKeysWithUser(user, hcPartyId, keys.join(','))
     })
   }
 
@@ -226,9 +232,10 @@ export class IccHelementXApi extends IccHelementApi {
    * @param hcpartyId
    * @param patient (Promise)
    * @param keepObsoleteVersions
+   * @param usingPost
    */
 
-  findBy(hcpartyId: string, patient: models.Patient, keepObsoleteVersions = false) {
+  findBy(hcpartyId: string, patient: models.Patient, keepObsoleteVersions = false, usingPost = false) {
     return this.crypto
       .extractSFKsHierarchyFromDelegations(patient, hcpartyId)
       .then((secretForeignKeys) =>
@@ -244,7 +251,7 @@ export class IccHelementXApi extends IccHelementApi {
                   ])
                 }, [] as Array<{ hcpartyId: string; extractedKeys: Array<string> }>)
                 .filter((l) => l.extractedKeys.length > 0)
-                .map(({ hcpartyId, extractedKeys }) => this.findByHCPartyPatientSecretFKeys(hcpartyId, _.uniq(extractedKeys).join(',')))
+                .map(({ hcpartyId, extractedKeys }) => usingPost ? this.findByHCPartyPatientSecretFKeysArray(hcpartyId, _.uniq(extractedKeys)) : this.findByHCPartyPatientSecretFKeys(hcpartyId, _.uniq(extractedKeys).join(',')))
             ).then((results) => _.uniqBy(_.flatMap(results), (x) => x.id))
           : Promise.resolve([])
       )
@@ -269,6 +276,10 @@ export class IccHelementXApi extends IccHelementApi {
 
   findByHCPartyPatientSecretFKeys(hcPartyId: string, secretFKeys: string): Promise<Array<models.Contact> | any> {
     return super.findHealthElementsByHCPartyPatientForeignKeys(hcPartyId, secretFKeys).then((helements) => this.decrypt(hcPartyId, helements))
+  }
+
+  findByHCPartyPatientSecretFKeysArray(hcPartyId: string, secretFKeys: string[]): Promise<Array<models.Contact> | any> {
+    return super.findHealthElementsByHCPartyPatientForeignKeysUsingPost(hcPartyId, secretFKeys).then((helements) => this.decrypt(hcPartyId, helements))
   }
 
   encrypt(user: models.User, healthElements: Array<models.HealthElement>): Promise<Array<models.HealthElement>> {

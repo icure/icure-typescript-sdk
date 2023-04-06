@@ -163,8 +163,9 @@ export class IccContactXApi extends IccContactApi {
    *
    * @param hcpartyId
    * @param patient (Promise)
+   * @param usingPost
    */
-  findBy(hcpartyId: string, patient: models.Patient) {
+  findBy(hcpartyId: string, patient: models.Patient, usingPost: boolean = false) {
     return this.crypto.extractSFKsHierarchyFromDelegations(patient, hcpartyId).then((secretForeignKeys) =>
       secretForeignKeys && secretForeignKeys.length > 0
         ? Promise.all(
@@ -178,7 +179,9 @@ export class IccContactXApi extends IccContactApi {
                 ])
               }, [] as Array<{ hcpartyId: string; extractedKeys: Array<string> }>)
               .filter((l) => l.extractedKeys.length > 0)
-              .map(({ hcpartyId, extractedKeys }) => this.findByHCPartyPatientSecretFKeys(hcpartyId, _.uniq(extractedKeys).join(',')))
+              .map(({ hcpartyId, extractedKeys }) => usingPost ?
+                this.findByHCPartyPatientSecretFKeysArray(hcpartyId, _.uniq(extractedKeys)) :
+                this.findByHCPartyPatientSecretFKeys(hcpartyId, _.uniq(extractedKeys).join(',')))
           ).then((results) => _.uniqBy(_.flatMap(results), (x) => x.id))
         : Promise.resolve([])
     )
@@ -267,6 +270,17 @@ export class IccContactXApi extends IccContactApi {
   ): Promise<Array<models.Contact> | any> {
     return super
       .findByHCPartyPatientSecretFKeys(hcPartyId, secretFKeys, planOfActionIds, skipClosedContacts)
+      .then((contacts) => this.decrypt(hcPartyId, contacts))
+  }
+
+  findByHCPartyPatientSecretFKeysArray(
+    hcPartyId: string,
+    secretFKeys: string[],
+    planOfActionIds?: string,
+    skipClosedContacts?: boolean
+  ): Promise<Array<models.Contact> | any> {
+    return super
+      .findByHCPartyPatientSecretFKeysUsingPost(hcPartyId, planOfActionIds, skipClosedContacts, secretFKeys)
       .then((contacts) => this.decrypt(hcPartyId, contacts))
   }
 

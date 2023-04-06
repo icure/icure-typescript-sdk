@@ -137,9 +137,14 @@ describe('icc-helement-x-api Tests', () => {
 
     // When
     const foundHealthElements = await hElementApiForHcp.findHealthElementsByHCPartyAndPatientWithUser(hcpUser, hcpUser.healthcarePartyId!, patient)
+    const foundHealthElementsUsingPost = await hElementApiForHcp.findHealthElementsByHCPartyAndPatientWithUser(hcpUser, hcpUser.healthcarePartyId!, patient, true)
 
     // Then
-    assert(foundHealthElements.length == 1)
-    assert(foundHealthElements[0].id == createdHealthElement.id)
+    assert(foundHealthElements.length == 1, 'Found health elements should be 1')
+    assert(foundHealthElements[0].id == createdHealthElement.id, 'Found health element should be the same as the created one')
+
+    assert(foundHealthElementsUsingPost.length == 1, 'Found health elements using POST should be 1')
+    assert(foundHealthElementsUsingPost[0].id == createdHealthElement.id, 'Found health element using POST should be the same as the created one')
   })
+
 })
