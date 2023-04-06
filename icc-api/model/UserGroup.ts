@@ -9,6 +9,7 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
+import { Group } from './Group'
 
 export class UserGroup {
   constructor(json: JSON | any) {
@@ -17,6 +18,7 @@ export class UserGroup {
 
   groupId?: string
   groupName?: string
+  groupsHierarchy?: Array<Group>
   userId?: string
   login?: string
   name?: string
