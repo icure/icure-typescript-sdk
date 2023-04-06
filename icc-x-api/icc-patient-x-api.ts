@@ -688,7 +688,8 @@ export class IccPatientXApi extends IccPatientApi {
     patId: string,
     ownerId: string,
     delegateIds: Array<string>,
-    delegationTags: { [key: string]: Array<string> }
+    delegationTags: { [key: string]: Array<string> },
+    usingPost: boolean = false
   ): Promise<{
     patient: models.Patient | null
     statuses: { [key: string]: { success: boolean | null; error: Error | null } }
@@ -790,42 +791,49 @@ export class IccPatientXApi extends IccPatientApi {
             return delSfks.length
               ? Promise.all([
                   retry(() =>
-                    this.helementApi
-                      .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
+                      (usingPost ? this.helementApi
+                        .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(ownerId, _.uniq(delSfks)) : this.helementApi
+                      .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(',')))
                       .then((hes) =>
                         parentId
-                          ? this.helementApi
+                          ? (usingPost ? this.helementApi
+                              .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(parentId, _.uniq(delSfks)) : this.helementApi
                               .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                              .then((moreHes) => _.uniqBy(hes.concat(moreHes), 'id'))
+                          ).then((moreHes) => _.uniqBy(hes.concat(moreHes), 'id'))
                           : hes
                       )
                   ) as Promise<Array<models.IcureStub>>,
                   retry(() =>
-                    this.formApi
-                      .findFormsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                      .then((frms) =>
+                      (usingPost ? this.formApi
+                          .findFormsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(ownerId, _.uniq(delSfks)) : this.formApi
+                          .findFormsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
+                      ).then((frms) =>
                         parentId
-                          ? this.formApi
+                          ? (usingPost ? this.formApi
+                              .findFormsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(parentId, _.uniq(delSfks)) : this.formApi
                               .findFormsDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                              .then((moreFrms) => _.uniqBy(frms.concat(moreFrms), 'id'))
+                          ).then((moreFrms) => _.uniqBy(frms.concat(moreFrms), 'id'))
                           : frms
                       )
                   ) as Promise<Array<models.Form>>,
                   retry(() =>
-                    this.contactApi
+                      (usingPost ? this.contactApi
+                          .findByHCPartyPatientSecretFKeysUsingPost(ownerId, undefined, undefined, _.uniq(delSfks)) : this.contactApi
                       .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
-                      .then((ctcs) =>
+                      ).then((ctcs) =>
                         parentId
-                          ? this.contactApi
+                          ? (usingPost ? this.contactApi
+                              .findByHCPartyPatientSecretFKeysUsingPost(parentId, undefined, undefined, _.uniq(delSfks)) : this.contactApi
                               .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
-                              .then((moreCtcs) => _.uniqBy(ctcs.concat(moreCtcs), 'id'))
+                          ).then((moreCtcs) => _.uniqBy(ctcs.concat(moreCtcs), 'id'))
                           : ctcs
                       )
                   ) as Promise<Array<models.Contact>>,
                   retry(() =>
-                    this.invoiceApi
+                      (usingPost ? this.invoiceApi
+                          .findInvoicesDelegationsStubsByHCPartyPatientForeignKeysUsingPost(ownerId, _.uniq(delSfks)) : this.invoiceApi
                       .findInvoicesDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                      .then((ivs) =>
+                      ).then((ivs) =>
                         parentId
                           ? this.invoiceApi
                               .findInvoicesDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
@@ -845,13 +853,15 @@ export class IccPatientXApi extends IccPatientApi {
                       )
                   ) as Promise<Array<models.Classification>>,
                   retry(() =>
-                    this.calendarItemApi
+                    (usingPost ? this.calendarItemApi
+                        .findByHCPartyPatientSecretFKeysArray(ownerId, _.uniq(delSfks)) : this.calendarItemApi
                       .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
-                      .then((cls) =>
+                    ).then((cls) =>
                         parentId
-                          ? this.calendarItemApi
+                          ? (usingPost ? this.calendarItemApi
+                              .findByHCPartyPatientSecretFKeysArray(parentId, _.uniq(delSfks)) : this.calendarItemApi
                               .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
-                              .then((moreCls) => _.uniqBy(cls.concat(moreCls), 'id'))
+                          ).then((moreCls) => _.uniqBy(cls.concat(moreCls), 'id'))
                           : cls
                       )
                   ) as Promise<Array<models.CalendarItem>>,
@@ -1094,7 +1104,7 @@ export class IccPatientXApi extends IccPatientApi {
     })
   }
 
-  export(user: models.User, patId: string, ownerId: string): Promise<{ id: string }> {
+  export(user: models.User, patId: string, ownerId: string, usingPost: boolean = false): Promise<{ id: string }> {
     return this.hcpartyApi.getHealthcareParty(ownerId).then((hcp) => {
       const parentId = hcp.parentId
 
@@ -1113,9 +1123,10 @@ export class IccPatientXApi extends IccPatientApi {
             return delSfks.length
               ? Promise.all([
                   retry(() =>
-                    this.helementApi
+                      (usingPost ? this.helementApi
+                          .findByHCPartyPatientSecretFKeysArray(ownerId, _.uniq(delSfks)) : this.helementApi
                       .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
-                      .then((hes) =>
+                      ).then((hes) =>
                         parentId
                           ? this.helementApi
                               .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
@@ -1124,35 +1135,41 @@ export class IccPatientXApi extends IccPatientApi {
                       )
                   ) as Promise<Array<models.IcureStub>>,
                   retry(() =>
-                    this.formApi
+                      (usingPost ? this.formApi
+                          .findFormsByHCPartyPatientForeignKeysUsingPost(ownerId, undefined, undefined, undefined, _.uniq(delSfks)) : this.formApi
                       .findFormsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                      .then((frms) =>
+                      ).then((frms) =>
                         parentId
-                          ? this.formApi
+                          ? (usingPost ? this.formApi
+                              .findFormsByHCPartyPatientForeignKeysUsingPost(parentId, undefined, undefined, undefined, _.uniq(delSfks)) : this.formApi
                               .findFormsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                              .then((moreFrms) => _.uniqBy(frms.concat(moreFrms), 'id'))
+                          ).then((moreFrms) => _.uniqBy(frms.concat(moreFrms), 'id'))
                           : frms
                       )
                   ) as Promise<Array<models.Form>>,
                   retry(() =>
-                    this.contactApi
+                      (usingPost ? this.contactApi
+                          .findByHCPartyPatientSecretFKeysArray(ownerId, _.uniq(delSfks)) : this.contactApi
                       .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
-                      .then((ctcs) =>
+                      ).then((ctcs) =>
                         parentId
-                          ? this.contactApi
+                          ? (usingPost ? this.contactApi
+                              .findByHCPartyPatientSecretFKeysArray(parentId, _.uniq(delSfks)) : this.contactApi
                               .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
-                              .then((moreCtcs) => _.uniqBy(ctcs.concat(moreCtcs), 'id'))
+                          ).then((moreCtcs) => _.uniqBy(ctcs.concat(moreCtcs), 'id'))
                           : ctcs
                       )
                   ) as Promise<Array<models.Contact>>,
                   retry(() =>
-                    this.invoiceApi
+                      (usingPost ? this.invoiceApi
+                          .findInvoicesByHCPartyPatientForeignKeysUsingPost(ownerId, _.uniq(delSfks)) : this.invoiceApi
                       .findInvoicesByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                      .then((ivs) =>
+                      ).then((ivs) =>
                         parentId
-                          ? this.invoiceApi
+                          ? (usingPost ? this.invoiceApi
+                              .findInvoicesByHCPartyPatientForeignKeysUsingPost(parentId, _.uniq(delSfks)) : this.invoiceApi
                               .findInvoicesByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                              .then((moreIvs) => _.uniqBy(ivs.concat(moreIvs), 'id'))
+                          ).then((moreIvs) => _.uniqBy(ivs.concat(moreIvs), 'id'))
                           : ivs
                       )
                   ) as Promise<Array<models.IcureStub>>,
@@ -1170,10 +1187,14 @@ export class IccPatientXApi extends IccPatientApi {
                   retry(async () => {
                     const delegationSFKs = _.uniq(delSfks).join(',')
                     try {
-                      let calendarItems = await this.calendarItemApi.findByHCPartyPatientSecretFKeys(ownerId, delegationSFKs)
+                      let calendarItems = await (usingPost ?
+                        this.calendarItemApi.findByHCPartyPatientSecretFKeysArray(ownerId, _.uniq(delSfks)) :
+                        this.calendarItemApi.findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(',')))
 
                       if (parentId) {
-                        const moreCalendarItems = await this.calendarItemApi.findByHCPartyPatientSecretFKeys(parentId, delegationSFKs)
+                        const moreCalendarItems = await (usingPost ?
+                          this.calendarItemApi.findByHCPartyPatientSecretFKeysArray(parentId, _.uniq(delSfks)) :
+                          this.calendarItemApi.findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(',')))
                         calendarItems = _.uniqBy(calendarItems.concat(moreCalendarItems), 'id')
                       }
 

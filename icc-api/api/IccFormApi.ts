@@ -166,6 +166,41 @@ export class IccFormApi {
    * Keys must be delimited by coma
    * @summary List forms found By Healthcare Party and secret foreign keys.
    * @param hcPartyId
+   * @param healthElementId
+   * @param planOfActionId
+   * @param formTemplateId
+   * @param body
+   */
+  findFormsByHCPartyPatientForeignKeysUsingPost(
+    hcPartyId: string,
+    healthElementId?: string,
+    planOfActionId?: string,
+    formTemplateId?: string,
+    body?: Array<string>
+  ): Promise<Array<Form>> {
+    let _body = null
+    _body = body
+
+    const _url =
+      this.host +
+      `/form/byHcPartySecretForeignKeys` +
+      '?ts=' +
+      new Date().getTime() +
+      (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
+      (healthElementId ? '&healthElementId=' + encodeURIComponent(String(healthElementId)) : '') +
+      (planOfActionId ? '&planOfActionId=' + encodeURIComponent(String(planOfActionId)) : '') +
+      (formTemplateId ? '&formTemplateId=' + encodeURIComponent(String(formTemplateId)) : '')
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Form(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Keys must be delimited by coma
+   * @summary List forms found By Healthcare Party and secret foreign keys.
+   * @param hcPartyId
    * @param secretFKeys
    * @param healthElementId
    * @param planOfActionId
@@ -198,6 +233,29 @@ export class IccFormApi {
 
   /**
    * Keys must be delimited by coma
+   * @summary List form stubs found By Healthcare Party and secret foreign keys.
+   * @param body
+   * @param hcPartyId
+   */
+  findFormsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(hcPartyId: string, body?: Array<string>): Promise<Array<IcureStub>> {
+    let _body = null
+    _body = body
+
+    const _url =
+      this.host +
+      `/form/byHcPartySecretForeignKeys/delegations` +
+      '?ts=' +
+      new Date().getTime() +
+      (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '')
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
    * @summary List form stubs found By Healthcare Party and secret foreign keys.
    * @param hcPartyId
    * @param secretFKeys

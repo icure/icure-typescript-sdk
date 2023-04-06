@@ -195,6 +195,29 @@ export class IccInvoiceApi {
   /**
    * Keys have to delimited by coma
    * @summary List invoices found By Healthcare Party and secret foreign patient keys.
+   * @param body
+   * @param hcPartyId
+   */
+  findInvoicesByHCPartyPatientForeignKeysUsingPost(hcPartyId: string, body?: Array<string>): Promise<Array<Invoice>> {
+    let _body = null
+    _body = body
+
+    const _url =
+      this.host +
+      `/invoice/byHcPartySecretForeignKeys` +
+      '?ts=' +
+      new Date().getTime() +
+      (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '')
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Keys have to delimited by coma
+   * @summary List invoices found By Healthcare Party and secret foreign patient keys.
    * @param hcPartyId
    * @param secretFKeys
    */
@@ -211,6 +234,29 @@ export class IccInvoiceApi {
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
+   * @summary List helement stubs found By Healthcare Party and secret foreign keys.
+   * @param body
+   * @param hcPartyId
+   */
+  findInvoicesDelegationsStubsByHCPartyPatientForeignKeysUsingPost(hcPartyId: string, body?: Array<string>): Promise<Array<IcureStub>> {
+    let _body = null
+    _body = body
+
+    const _url =
+      this.host +
+      `/invoice/byHcPartySecretForeignKeys/delegations` +
+      '?ts=' +
+      new Date().getTime() +
+      (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '')
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
       .catch((err) => this.handleError(err))
   }
 

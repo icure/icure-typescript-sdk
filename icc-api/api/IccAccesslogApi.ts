@@ -76,6 +76,29 @@ export class IccAccesslogApi {
   /**
    *
    * @summary List access logs found by Healthcare Party and secret foreign keyelementIds.
+   * @param body
+   * @param hcPartyId
+   */
+  findAccessLogsByHCPartyPatientForeignKeysUsingPost(hcPartyId: string, body?: Array<string>): Promise<Array<AccessLog>> {
+    let _body = null
+    _body = body
+
+    const _url =
+      this.host +
+      `/accesslog/byHcPartySecretForeignKeys` +
+      '?ts=' +
+      new Date().getTime() +
+      (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '')
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new AccessLog(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
+   * @summary List access logs found by Healthcare Party and secret foreign keyelementIds.
    * @param hcPartyId
    * @param secretFKeys
    */
