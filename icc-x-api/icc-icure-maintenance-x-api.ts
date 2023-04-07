@@ -9,6 +9,8 @@ import { IccCryptoXApi } from './icc-crypto-x-api'
 import { KeyPairUpdateRequest } from './maintenance/KeyPairUpdateRequest'
 import { DataOwnerTypeEnum, IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { User } from '../icc-api/model/User'
+import { SecureDelegation } from '../icc-api/model/SecureDelegation'
+import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 
 type ExchangeKeyInfo = { delegator: string; delegate: string; fingerprints: Set<string> }
 
@@ -69,7 +71,9 @@ export class IccIcureMaintenanceXApi {
           task: this.createMaintenanceTask(selfId, hexNewPubKey),
         }))
         for (const taskToCreate of tasksToCreate) {
-          const instance = await this.tasksApi.newInstance(user, taskToCreate.task, [taskToCreate.delegate])
+          const instance = await this.tasksApi.newInstance(user, taskToCreate.task, {
+            additionalDelegates: { [taskToCreate.delegate]: AccessLevelEnum.WRITE },
+          })
           if (instance) {
             // TODO create in bulk
             await this.tasksApi.createMaintenanceTaskWithUser(user, instance)

@@ -35,7 +35,7 @@ export class IccCryptoXApi {
   private readonly cryptoPrimitives: CryptoPrimitives
   private readonly keyManager: UserEncryptionKeysManager
   private readonly dataOwnerApi: IccDataOwnerXApi
-  private readonly entitiesEncrypiton: ExtendedApisUtils
+  private readonly xapiUtils: ExtendedApisUtils
   private readonly confidentialEntities: ConfidentialEntities
   private readonly icureStorage: IcureStorageFacade
   private readonly shamirManager: ShamirKeysManager
@@ -91,10 +91,16 @@ export class IccCryptoXApi {
     return this._storage
   }
 
-  get entities(): ExtendedApisUtils {
-    return this.entitiesEncrypiton
+  /**
+   * @internal this is for internal use only and may be changed without notice.
+   */
+  get xapi(): ExtendedApisUtils {
+    return this.xapiUtils
   }
 
+  /**
+   * @internal this is for internal use only and may be changed without notice.
+   */
   get confidential(): ConfidentialEntities {
     return this.confidentialEntities
   }
@@ -127,7 +133,7 @@ export class IccCryptoXApi {
     this.cryptoPrimitives = cryptoPrimitives
     this.keyManager = keyManager
     this.dataOwnerApi = dataOwnerApi
-    this.entitiesEncrypiton = entitiesEncrypiton
+    this.xapiUtils = entitiesEncrypiton
     this.shamirManager = shamirManager
     this._storage = storage
     this._keyStorage = keyStorage
@@ -171,7 +177,7 @@ export class IccCryptoXApi {
   /**
    * @deprecated you should not need this method anymore to deal with the encryption of iCure entities because everything related to entities
    * encryption should be done either through the entity-specific extended api or through the {@link ExtendedApisUtils} object available at
-   * {@link entities}.
+   * {@link xapi}.
    * Note that keys returned by the current implementation of this method may not be safe for encryption/sharing.
    * If instead you are using this method to retrieve key pairs for other purposes, for example because you want to reuse the user keys in iCure for
    * other services consider the following alternatives:
@@ -308,7 +314,7 @@ export class IccCryptoXApi {
 
   /**
    * @deprecated you should not need this method anymore because everything related to entities encryption should be done either through the
-   * entity-specific extended api or through the {@link ExtendedApisUtils} object available at {@link entities}. Please contact us if you have a
+   * entity-specific extended api or through the {@link ExtendedApisUtils} object available at {@link xapi}. Please contact us if you have a
    * scenario where you really need to get the exchange keys for the user.
    * Note that currently this method does not cache results anymore (but the updated methods do).
    */
@@ -395,7 +401,7 @@ export class IccCryptoXApi {
 
   /**
    * @deprecated you should not need this method anymore because everything related to entities encryption should be done either through the
-   * entity-specific extended api or through the {@link ExtendedApisUtils} object available at {@link entities}. Please contact us if you have a
+   * entity-specific extended api or through the {@link ExtendedApisUtils} object available at {@link xapi}. Please contact us if you have a
    * scenario where you really need to get the exchange keys for the user.
    */
   async decryptAndImportAesHcPartyKeysForDelegators(
@@ -424,7 +430,7 @@ export class IccCryptoXApi {
 
   /**
    * @deprecated you should not need this method anymore because everything related to entities encryption should be done either through the
-   * entity-specific extended api or through the {@link ExtendedApisUtils} object available at {@link entities}. Please contact us if you have a
+   * entity-specific extended api or through the {@link ExtendedApisUtils} object available at {@link xapi}. Please contact us if you have a
    * scenario where you really need to get the exchange keys for the user.
    * Note that currently this method does not cache results anymore (but the updated methods do).
    */
@@ -471,7 +477,7 @@ export class IccCryptoXApi {
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) {
       throw new Error('Impossible to initialise keys as a data owner which is not the current data owner')
     }
-    const { updatedEntity, rawEncryptionKey } = await this.entities.entityWithInitialisedEncryptedMetadata(
+    const { updatedEntity, rawEncryptionKey } = await this.xapi.entityWithInitialisedEncryptedMetadata(
       {
         ...createdObject,
         delegations: undefined,
@@ -491,7 +497,7 @@ export class IccCryptoXApi {
 
   /**
    * @deprecated (light) You should use:
-   * - {@link ExtendedApisUtils.secretIdsOf} in {@link entities} to get the secret foreign keys (now secret ids)
+   * - {@link ExtendedApisUtils.secretIdsOf} in {@link xapi} to get the secret foreign keys (now secret ids)
    * - {@link IccDataOwnerXApi.getCurrentDataOwnerHierarchyIds} to get the full hierarchy for the current data owner (cached). The first element is
    *   the id of the topmost parent, while the last is the current data owner.
    * Note that the behaviour of this method has some subtle changes compared to the past:
@@ -509,14 +515,14 @@ export class IccCryptoXApi {
       return Promise.resolve({ extractedKeys: [], hcpartyId: hcpartyId })
     }
     return {
-      extractedKeys: await this.entities.secretIdsOf(document, undefined, hcpartyId),
+      extractedKeys: await this.xapi.secretIdsOf(document, undefined, hcpartyId),
       hcpartyId: (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0],
     }
   }
 
   /**
    * @deprecated (light) You should use:
-   * - {@link ExtendedApisUtils.owningEntityIdsOf} in {@link entities} to get the crypted foreign keys (now parent ids)
+   * - {@link ExtendedApisUtils.owningEntityIdsOf} in {@link xapi} to get the crypted foreign keys (now parent ids)
    * - {@link IccDataOwnerXApi.getCurrentDataOwnerHierarchyIds} to get the full hierarchy for the current data owner (cached). The first element is
    *   the id of the topmost parent, while the last is the current data owner.
    * Note that the behaviour of this method has some subtle changes compared to the past:
@@ -534,7 +540,7 @@ export class IccCryptoXApi {
       return Promise.resolve({ extractedKeys: [], hcpartyId: hcpartyId })
     }
     return {
-      extractedKeys: await this.entities.owningEntityIdsOf(document, undefined, hcpartyId),
+      extractedKeys: await this.xapi.owningEntityIdsOf(document, undefined, hcpartyId),
       hcpartyId: (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0],
     }
   }
@@ -542,7 +548,7 @@ export class IccCryptoXApi {
   /**
    * @deprecated If you were using this method to encrypt/decrypt directly the `encryptedEntities` you should instead rely on the extended apis
    * methods. If instead you were using this method to get keys for encryption/decryption of attachments you should replace it with:
-   * - {@link ExtendedApisUtils.encryptionKeysOf} in {@link entities} to get the encryption keys.
+   * - {@link ExtendedApisUtils.encryptionKeysOf} in {@link xapi} to get the encryption keys.
    * - {@link IccDataOwnerXApi.getCurrentDataOwnerHierarchyIds} to get the full hierarchy for the current data owner (cached). The first element is
    *   the id of the topmost parent, while the last is the current data owner.
    * Note that the behaviour of this method has some subtle changes compared to the past:
@@ -559,13 +565,13 @@ export class IccCryptoXApi {
       return Promise.resolve({ extractedKeys: [], hcpartyId: hcpartyId })
     }
     return {
-      extractedKeys: await this.entities.encryptionKeysOf(document, undefined, hcpartyId),
+      extractedKeys: await this.xapi.encryptionKeysOf(document, undefined, hcpartyId),
       hcpartyId: (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0],
     }
   }
 
   /**
-   * @deprecated You should not use this method anymore, and instead replace it with the appropriate methods from {@link entities} depending on where
+   * @deprecated You should not use this method anymore, and instead replace it with the appropriate methods from {@link xapi} depending on where
    * the delegations come from:
    * - {@link ExtendedApisUtils.secretIdsOf} for {@link EncryptedEntity.delegations} (see {@link extractDelegationsSFKs} for more info)
    * - {@link ExtendedApisUtils.encryptionKeysOf} for {@link EncryptedEntity.encryptionKeys} (see {@link extractEncryptionsSKs} for more info
@@ -797,7 +803,7 @@ export class IccCryptoXApi {
   /**
    * @deprecated you should not need this method anymore to deal with the encryption of iCure entities because everything related to entities
    * encryption should be done either through the entity-specific extended api or through the {@link ExtendedApisUtils} object available at
-   * {@link entities}. If instead you were using the method for other reasons check {@link getCachedRsaKeyPairForFingerprint} to get an idea of
+   * {@link xapi}. If instead you were using the method for other reasons check {@link getCachedRsaKeyPairForFingerprint} to get an idea of
    * possible replacements.
    */
   async loadKeyPairNotImported(id: string, publicKeyFingerPrint?: string): Promise<{ publicKey: JsonWebKey; privateKey: JsonWebKey } | undefined> {
@@ -867,12 +873,12 @@ export class IccCryptoXApi {
 
   /**
    * @deprecated (See {@link extractEncryptionsSKs} for a detailed explanation) Use only for attachment encryption keys and replace with:
-   * - {@link ExtendedApisUtils.encryptionKeysOf} in {@link entities} to get the encryption keys.
+   * - {@link ExtendedApisUtils.encryptionKeysOf} in {@link xapi} to get the encryption keys.
    * - {@link IccDataOwnerXApi.getCurrentDataOwnerHierarchyIds} to get the full hierarchy for the current data owner (cached). The first element is
    *   the id of the topmost parent, while the last is the current data owner.
    */
   async getEncryptionDecryptionKeys(dataOwnerId: string, document: EncryptedEntity): Promise<Array<string> | undefined> {
-    return this.entities.encryptionKeysOf(document, undefined, dataOwnerId)
+    return this.xapi.encryptionKeysOf(document, undefined, dataOwnerId)
   }
 
   /**
@@ -903,7 +909,7 @@ export class IccCryptoXApi {
       }
     }
 
-    const encryptionKeys = await this.entities.encryptionKeysOf(documentObject!, undefined, user?.healthcarePartyId!)
+    const encryptionKeys = await this.xapi.encryptionKeysOf(documentObject!, undefined, user?.healthcarePartyId!)
     const importedEdKey = await this.primitives.AES.importKey('raw', hex2ua(encryptionKeys[0].replace(/-/g, '')))
     try {
       return await this.primitives.AES[method](importedEdKey, content)

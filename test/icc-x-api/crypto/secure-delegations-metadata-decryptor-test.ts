@@ -394,7 +394,7 @@ describe('Secure delegations security metadata decryptor', async function () {
       failed++
     }
     try {
-      await decryptor.getFullEntityAccessLevel(entity, [])
+      await decryptor.getEntityAccessLevel(entity, [])
     } catch (e) {
       console.log(e)
       failed++
@@ -413,7 +413,7 @@ describe('Secure delegations security metadata decryptor', async function () {
     const secureDelegationWriteOther = new SecureDelegation({ delegator: primitives.randomUuid(), permissions: AccessLevel.WRITE })
     const secureDelegationReadOther = new SecureDelegation({ delegator: primitives.randomUuid(), permissions: AccessLevel.READ })
     expect(
-      await decryptor.getFullEntityAccessLevel(
+      await decryptor.getEntityAccessLevel(
         entityWithSecurityMetadata({
           secureDelegations: {
             [await randomHash()]: secureDelegationReadA,
@@ -425,7 +425,7 @@ describe('Secure delegations security metadata decryptor', async function () {
       )
     ).to.equal(AccessLevel.READ)
     expect(
-      await decryptor.getFullEntityAccessLevel(
+      await decryptor.getEntityAccessLevel(
         entityWithSecurityMetadata({
           secureDelegations: {
             [await randomHash()]: secureDelegationReadA,
@@ -437,7 +437,7 @@ describe('Secure delegations security metadata decryptor', async function () {
       )
     ).to.equal(AccessLevel.WRITE)
     expect(
-      await decryptor.getFullEntityAccessLevel(
+      await decryptor.getEntityAccessLevel(
         entityWithSecurityMetadata({
           secureDelegations: {
             [await randomHash()]: secureDelegationReadOther,
@@ -448,7 +448,7 @@ describe('Secure delegations security metadata decryptor', async function () {
       )
     ).to.equal(undefined)
     expect(
-      await decryptor.getFullEntityAccessLevel(
+      await decryptor.getEntityAccessLevel(
         entityWithSecurityMetadata({
           secureDelegations: {
             [await randomHash()]: secureDelegationReadA,
@@ -460,7 +460,7 @@ describe('Secure delegations security metadata decryptor', async function () {
       )
     ).to.equal(AccessLevel.WRITE)
     expect(
-      await decryptor.getFullEntityAccessLevel(
+      await decryptor.getEntityAccessLevel(
         entityWithSecurityMetadata({
           secureDelegations: {
             [await randomHash()]: secureDelegationReadA,
@@ -472,7 +472,7 @@ describe('Secure delegations security metadata decryptor', async function () {
       )
     ).to.equal(AccessLevel.READ)
     expect(
-      await decryptor.getFullEntityAccessLevel(
+      await decryptor.getEntityAccessLevel(
         entityWithSecurityMetadata({
           secureDelegations: {
             [await randomHash()]: secureDelegationWriteA,
@@ -505,7 +505,7 @@ describe('Secure delegations security metadata decryptor', async function () {
         exchangeData.cacheFakeData({} as any, { exchangeKey: {} as any, hashes: [hash] })
       }
       expect(
-        await decryptor.getFullEntityAccessLevel(
+        await decryptor.getEntityAccessLevel(
           entityWithSecurityMetadata({
             secureDelegations: Object.fromEntries(entries),
           }),

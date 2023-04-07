@@ -10,7 +10,7 @@ import { IccClassificationXApi } from './icc-classification-x-api'
 
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import { CalendarItem, Classification, Document, IcureStub, Invoice, ListOfIds, Patient } from '../icc-api/model/models'
+import { Document, IcureStub, ListOfIds, Patient } from '../icc-api/model/models'
 import { IccCalendarItemXApi } from './icc-calendar-item-x-api'
 import { b64_2ab } from '../icc-api/model/ModelHelper'
 import { findName, garnishPersonWithName, hasName } from './utils/person-util'
@@ -18,6 +18,14 @@ import { retry } from './utils'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { EntityWithDelegationTypeName } from './utils/EntityWithDelegationTypeName'
+import { SecureDelegation } from '../icc-api/model/SecureDelegation'
+import { EntityShareOrMetadataUpdateRequest } from '../icc-api/model/requests/EntityShareOrMetadataUpdateRequest'
+import { MinimalEntityBulkShareResult } from '../icc-api/model/requests/MinimalEntityBulkShareResult'
+import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
+import { ShareMetadataBehaviour } from './utils/ShareMetadataBehaviour'
+import { ShareResult } from './utils/ShareResult'
+import AccessLevelEnum = SecureDelegation.AccessLevelEnum
+import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 
 // noinspection JSUnusedGlobalSymbols
 export class IccPatientXApi extends IccPatientApi {
@@ -75,10 +83,19 @@ export class IccPatientXApi extends IccPatientApi {
    * @param user the current user.
    * @param p initialised data for the patient. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
    * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
-   * @param delegates initial delegates which will have access to the patient other than the current data owner.
+   * @param optionalParams optional parameters:
+   * - additionalDelegates: delegates which will have access to the entity in addition to the current data owner and delegates from the
+   * auto-delegations. Must be an object which associates each data owner id with the access level to give to that data owner. May overlap with
+   * auto-delegations, in such case the access level specified here will be used.
    * @return a new instance of patient.
    */
-  async newInstance(user: models.User, p: any = {}, delegates: string[] = []) {
+  async newInstance(
+    user: models.User,
+    p: any = {},
+    optionalParams: {
+      additionalDelegates?: { [dataOwnerId: string]: AccessLevelEnum }
+    } = {}
+  ) {
     const patient = _.extend(
       {
         id: this.crypto.primitives.randomUuid(),
@@ -95,11 +112,18 @@ export class IccPatientXApi extends IccPatientApi {
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
-    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
-    const initialisationInfo = await this.crypto.entities.entityWithInitialisedEncryptedMetadata(
+    const extraDelegations = {
+      ...Object.fromEntries(
+        [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])].map((d) => [d, AccessLevelEnum.WRITE])
+      ),
+      ...(optionalParams?.additionalDelegates ?? {}),
+    }
+    const initialisationInfo = await this.crypto.xapi.entityWithInitialisedEncryptedMetadata(
       patient,
+      'Patient',
       undefined,
       undefined,
+      true,
       true,
       extraDelegations
     )
@@ -165,11 +189,16 @@ export class IccPatientXApi extends IccPatientApi {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (dataOwnerId !== (await this.dataOwnerApi.getCurrentDataOwnerId()))
       throw new Error('You can initialise confidential delegations only for the current data owner')
-    const initialised = await this.crypto.confidential.entityWithInitialisedConfidentialSecretId(patient)
+    let updatedPatient = patient
+    if (!patient.rev) {
+      updatedPatient = await this.createPatientWithUser(user, patient)
+      if (!updatedPatient) throw new Error('Could not create patient')
+    }
+    const initialised = await this.crypto.confidential.initialiseConfidentialSecretId(updatedPatient, 'Patient', (x) => this.bulkSharePatients(x))
     if (initialised) {
-      return initialised.rev ? this.modifyPatientWithUser(user, initialised) : this.createPatientWithUser(user, initialised)
+      return initialised
     } else {
-      return patient
+      return updatedPatient
     }
   }
 
@@ -293,14 +322,14 @@ export class IccPatientXApi extends IccPatientApi {
   getPatientWithUser(user: models.User, patientId: string): Promise<models.Patient | any> {
     return super
       .getPatient(patientId)
-      .then((p) => this.tryDecryptOrReturnOriginal(user, [p], false))
+      .then((p) => this.tryDecryptOrReturnOriginal(this.dataOwnerApi.getDataOwnerIdOf(user), [p], false))
       .then((pats) => pats[0].entity)
   }
 
   getPotentiallyEncryptedPatientWithUser(user: models.User, patientId: string): Promise<{ patient: models.Patient; decrypted: boolean }> {
     return super
       .getPatient(patientId)
-      .then((p) => this.tryDecryptOrReturnOriginal(user, [p], false))
+      .then((p) => this.tryDecryptOrReturnOriginal(this.dataOwnerApi.getDataOwnerIdOf(user), [p], false))
       .then((pats) => ({ patient: pats[0].entity, decrypted: pats[0].decrypted }))
   }
 
@@ -444,17 +473,22 @@ export class IccPatientXApi extends IccPatientApi {
     throw new Error('Cannot call a method that returns contacts without providing a user for de/encryption')
   }
 
+  /**
+   * @internal this method is for internal use only and may be changed without notice.
+   */
   modifyPatientRaw(body?: models.Patient): Promise<models.Patient | any> {
     return super.modifyPatient(body)
   }
 
   modifyPatientWithUser(user: models.User, body?: models.Patient): Promise<models.Patient | null> {
-    return body
-      ? this.encrypt(user, [_.cloneDeep(this.completeNames(body))])
-          .then((pats) => super.modifyPatient(pats[0]))
-          .then((p) => this.decrypt(user, [p]))
-          .then((pats) => pats[0])
-      : Promise.resolve(null)
+    return body ? this.modifyPatientAs(this.dataOwnerApi.getDataOwnerIdOf(user), body) : Promise.resolve(null)
+  }
+
+  private modifyPatientAs(dataOwner: string, body: models.Patient): Promise<models.Patient> {
+    return this.encryptAs(dataOwner, [_.cloneDeep(this.completeNames(body))])
+      .then((pats) => super.modifyPatient(pats[0]))
+      .then((p) => this.decryptAs(dataOwner, [p]))
+      .then((pats) => pats[0])
   }
 
   modifyPatientReferral(patientId: string, referralId: string, start?: number, end?: number): never {
@@ -476,29 +510,34 @@ export class IccPatientXApi extends IccPatientApi {
 
   encrypt(user: models.User, pats: Array<models.Patient>): Promise<Array<models.Patient>> {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
+    return this.encryptAs(dataOwnerId, pats)
+  }
 
+  private encryptAs(dataOwner: string, pats: Array<models.Patient>): Promise<Array<models.Patient>> {
     return Promise.all(
-      pats.map((p) => this.crypto.entities.tryEncryptEntity(p, 'Patient', dataOwnerId, this.encryptedKeys, true, false, (x) => new models.Patient(x)))
+      pats.map((p) => this.crypto.xapi.tryEncryptEntity(p, 'Patient', dataOwner, this.encryptedKeys, true, false, (x) => new models.Patient(x)))
     )
   }
 
   // If patient can't be decrypted returns patient with encrypted data.
   decrypt(user: models.User, patients: Array<models.Patient>, fillDelegations = true): Promise<Array<models.Patient>> {
-    return this.tryDecryptOrReturnOriginal(user, patients, fillDelegations).then((ps) => ps.map((p) => p.entity))
+    return this.decryptAs(this.dataOwnerApi.getDataOwnerIdOf(user), patients, fillDelegations)
+  }
+
+  private decryptAs(dataOwner: string, patients: Array<models.Patient>, fillDelegations = true): Promise<Array<models.Patient>> {
+    return this.tryDecryptOrReturnOriginal(dataOwner, patients, fillDelegations).then((ps) => ps.map((p) => p.entity))
   }
 
   private tryDecryptOrReturnOriginal(
-    user: models.User,
+    dataOwner: string,
     patients: Array<models.Patient>,
     fillDelegations = true
   ): Promise<{ entity: models.Patient; decrypted: boolean }[]> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
-
     return Promise.all(
       patients.map(
         async (p) =>
-          await this.crypto.entities
-            .decryptEntity(p, 'Patient', dataOwnerId, (x) => new models.Patient(x))
+          await this.crypto.xapi
+            .decryptEntity(p, 'Patient', dataOwner, (x) => new models.Patient(x))
             .then((p) => {
               if (p.entity.picture && !(p.entity.picture instanceof ArrayBuffer)) {
                 return {
@@ -514,7 +553,7 @@ export class IccPatientXApi extends IccPatientApi {
     )
   }
 
-  share(
+  async share(
     user: models.User,
     patId: string,
     ownerId: string,
@@ -524,408 +563,251 @@ export class IccPatientXApi extends IccPatientApi {
     patient: models.Patient | null
     statuses: { [key: string]: { success: boolean | null; error: Error | null } }
   } | null> {
-    const addDelegationsAndKeys = (
-      dtos: Array<{
-        entity: models.IcureStub
-        type: EntityWithDelegationTypeName
-      }>,
-      markerPromise: Promise<any>,
-      delegateId: string
-    ) => {
-      return dtos.reduce(
-        (p, x) =>
-          p.then(async () => {
-            const secretIds = await this.crypto.entities.secretIdsOf(x.entity, x.type, ownerId)
-            const encryptionKeys = await this.crypto.entities.encryptionKeysOf(x.entity, x.type, ownerId)
-            const parentIds = await this.crypto.entities.owningEntityIdsOf(x.entity, x.type, ownerId)
-            const updatedX = await this.crypto.entities
-              .entityWithExtendedEncryptedMetadata(x.entity, delegateId, secretIds, encryptionKeys, parentIds)
-              .catch((e: any) => {
-                console.log(e)
-                return x
-              })
-            _.assign(x.entity, updatedX)
-            return x
-          }),
-        markerPromise
-      )
+    const allTags: string[] = _.uniq(_.flatMap(Object.values(delegationTags)))
+    const status = {
+      contacts: {
+        success: allTags.includes('medicalInformation') || allTags.includes('all') ? false : null,
+        error: null,
+        modified: 0,
+      },
+      forms: {
+        success: allTags.includes('medicalInformation') || allTags.includes('all') ? false : null,
+        error: null,
+        modified: 0,
+      },
+      healthElements: {
+        success: allTags.includes('medicalInformation') || allTags.includes('all') ? false : null,
+        error: null,
+        modified: 0,
+      },
+      invoices: {
+        success: allTags.includes('financialInformation') || allTags.includes('all') ? false : null,
+        error: null,
+        modified: 0,
+      },
+      documents: {
+        success: allTags.includes('medicalInformation') || allTags.includes('all') ? false : null,
+        error: null,
+        modified: 0,
+      },
+      classifications: {
+        success: allTags.includes('medicalInformation') || allTags.includes('all') ? false : null,
+        error: null,
+        modified: 0,
+      },
+      calendarItems: {
+        success: allTags.includes('medicalInformation') || allTags.includes('all') ? false : null,
+        error: null,
+        modified: 0,
+      },
+      patient: { success: false, error: null, modified: 0 } as {
+        success: boolean
+        error: Error | null
+      },
+    }
+    const hcp = await this.hcpartyApi.getHealthcareParty(ownerId)
+    const parentId = hcp.parentId
+    let patient = await retry(() => this.getPatientWithUser(user, patId))
+    const patientWithInitialisedEncryption = await this.crypto.xapi.ensureEncryptionKeysInitialised(patient, 'Patient')
+    if (patientWithInitialisedEncryption) {
+      patient = await this.modifyPatientWithUser(user, patientWithInitialisedEncryption)
     }
 
-    const allTags: string[] = _.uniq(_.flatMap(Object.values(delegationTags)))
-
-    return this.hcpartyApi.getHealthcareParty(ownerId).then((hcp) => {
-      const parentId = hcp.parentId
-      const status = {
-        contacts: {
-          success: allTags.includes('medicalInformation') || allTags.includes('all') ? false : null,
-          error: null,
-          modified: 0,
-        },
-        forms: {
-          success: allTags.includes('medicalInformation') || allTags.includes('all') ? false : null,
-          error: null,
-          modified: 0,
-        },
-        healthElements: {
-          success: allTags.includes('medicalInformation') || allTags.includes('all') ? false : null,
-          error: null,
-          modified: 0,
-        },
-        invoices: {
-          success: allTags.includes('financialInformation') || allTags.includes('all') ? false : null,
-          error: null,
-          modified: 0,
-        },
-        documents: {
-          success: allTags.includes('medicalInformation') || allTags.includes('all') ? false : null,
-          error: null,
-          modified: 0,
-        },
-        classifications: {
-          success: allTags.includes('medicalInformation') || allTags.includes('all') ? false : null,
-          error: null,
-          modified: 0,
-        },
-        calendarItems: {
-          success: allTags.includes('medicalInformation') || allTags.includes('all') ? false : null,
-          error: null,
-          modified: 0,
-        },
-        patient: { success: false, error: null, modified: 0 } as {
-          success: boolean
-          error: Error | null
-        },
+    if (!patient) {
+      status.patient = {
+        success: false,
+        error: new Error('Patient does not exist or cannot initialise encryption keys'),
       }
-      return retry(() => this.getPatientWithUser(user, patId))
-        .then((patient: models.Patient) =>
-          patient.encryptionKeys && Object.keys(patient.encryptionKeys || {}).length
-            ? Promise.resolve(patient)
-            : this.crypto.entities
-                .ensureEncryptionKeysInitialised(patient)
-                .then((patient: models.Patient) => this.modifyPatientWithUser(user, patient))
-        )
-        .then(async (patient: models.Patient | null) => {
-          if (!patient) {
-            status.patient = {
-              success: false,
-              error: new Error('Patient does not exist or cannot initialise encryption keys'),
+      return { patient: patient, statuses: status }
+    }
+
+    const delSfks = await this.crypto.xapi.secretIdsOf({ entity: patient, type: 'Patient' }, ownerId)
+    const ecKeys = await this.crypto.xapi.encryptionKeysOf({ entity: patient, type: 'Patient' }, ownerId)
+
+    if (delSfks.length) {
+      const retrievedHealthElements = await retry(() =>
+        this.helementApi
+          .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
+          .then((hes) =>
+            parentId
+              ? this.helementApi
+                  .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
+                  .then((moreHes) => _.uniqBy(hes.concat(moreHes), 'id'))
+              : hes
+          )
+      )
+      const retrievedForms = await retry(() =>
+        this.formApi
+          .findFormsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
+          .then((frms) =>
+            parentId
+              ? this.formApi
+                  .findFormsDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
+                  .then((moreFrms) => _.uniqBy(frms.concat(moreFrms), 'id'))
+              : frms
+          )
+      )
+      const retrievedContacts = await retry(() =>
+        this.contactApi
+          .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
+          .then((ctcs) =>
+            parentId
+              ? this.contactApi
+                  .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
+                  .then((moreCtcs) => _.uniqBy(ctcs.concat(moreCtcs), 'id'))
+              : ctcs
+          )
+      )
+      const retrievedInvoices = await retry(() =>
+        this.invoiceApi
+          .findInvoicesDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
+          .then((ivs) =>
+            parentId
+              ? this.invoiceApi
+                  .findInvoicesDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
+                  .then((moreIvs) => _.uniqBy(ivs.concat(moreIvs), 'id'))
+              : ivs
+          )
+      )
+      const retrievedClassifications = await retry(() =>
+        this.classificationApi
+          .findClassificationsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
+          .then((cls) =>
+            parentId
+              ? this.classificationApi
+                  .findClassificationsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
+                  .then((moreCls) => _.uniqBy(cls.concat(moreCls), 'id'))
+              : cls
+          )
+      )
+      const retrievedCalendarItems = await retry(() =>
+        this.calendarItemApi
+          .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
+          .then((cls) =>
+            parentId
+              ? this.calendarItemApi
+                  .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
+                  .then((moreCls) => _.uniqBy(cls.concat(moreCls), 'id'))
+              : cls
+          )
+      )
+      const isMedicalInfoTags = (tags: string[]) => tags.includes('medicalInformation') || tags.includes('all')
+      const isFinancialInfoTags = (tags: string[]) => tags.includes('financialInformation') || tags.includes('all')
+      const doShareEntitiesAndUpdateStatus = async (
+        entities: models.IcureStub[],
+        entitiesType: EntityWithDelegationTypeName,
+        status: {
+          success: boolean | null
+          error: null | Error
+          modified: number
+        },
+        tagsCondition: (tags: string[]) => boolean,
+        doShareMinimal: (request: {
+          [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
+        }) => Promise<MinimalEntityBulkShareResult[]>
+      ): Promise<void> => {
+        const delegatesToApply = delegateIds.filter((delegateId) => tagsCondition(delegationTags[delegateId]))
+        if (entities.length && delegatesToApply.length) {
+          const requests: {
+            entity: IcureStub
+            dataForDelegates: {
+              [delegateId: string]: {
+                shareSecretIds: string[]
+                shareEncryptionKeys: string[]
+                shareOwningEntityIds: string[]
+                requestedPermissions: RequestedPermissionEnum
+              }
             }
-            return Promise.resolve({ patient: patient, statuses: status })
+          }[] = []
+          for (const entity of entities) {
+            const currentEntityRequests: {
+              [delegateId: string]: {
+                shareSecretIds: string[]
+                shareEncryptionKeys: string[]
+                shareOwningEntityIds: string[]
+                requestedPermissions: RequestedPermissionEnum
+              }
+            } = {}
+            const secretIds = await this.crypto.xapi.secretIdsOf({ entity, type: entitiesType }, undefined)
+            const encryptionKeys = await this.crypto.xapi.encryptionKeysOf({ entity, type: entitiesType }, undefined)
+            const request = {
+              shareSecretIds: secretIds,
+              shareEncryptionKeys: encryptionKeys,
+              shareOwningEntityIds: [patient.id!],
+              requestedPermissions: RequestedPermissionEnum.MAX_WRITE,
+            }
+            for (const delegateId of delegatesToApply) {
+              currentEntityRequests[delegateId] = request
+            }
+            requests.push({ dataForDelegates: currentEntityRequests, entity })
           }
-
-          const delSfks = await this.crypto.entities.secretIdsOf(patient, 'Patient', ownerId)
-          const ecKeys = await this.crypto.entities.encryptionKeysOf(patient, 'Patient', ownerId)
-          return delSfks.length
-            ? Promise.all([
-                retry(() =>
-                  this.helementApi
-                    .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                    .then((hes) =>
-                      parentId
-                        ? this.helementApi
-                            .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                            .then((moreHes) => _.uniqBy(hes.concat(moreHes), 'id'))
-                        : hes
-                    )
-                ) as Promise<Array<models.IcureStub>>,
-                retry(() =>
-                  this.formApi
-                    .findFormsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                    .then((frms) =>
-                      parentId
-                        ? this.formApi
-                            .findFormsDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                            .then((moreFrms) => _.uniqBy(frms.concat(moreFrms), 'id'))
-                        : frms
-                    )
-                ) as Promise<Array<models.Form>>,
-                retry(() =>
-                  this.contactApi
-                    .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
-                    .then((ctcs) =>
-                      parentId
-                        ? this.contactApi
-                            .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
-                            .then((moreCtcs) => _.uniqBy(ctcs.concat(moreCtcs), 'id'))
-                        : ctcs
-                    )
-                ) as Promise<Array<models.Contact>>,
-                retry(() =>
-                  this.invoiceApi
-                    .findInvoicesDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                    .then((ivs) =>
-                      parentId
-                        ? this.invoiceApi
-                            .findInvoicesDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                            .then((moreIvs) => _.uniqBy(ivs.concat(moreIvs), 'id'))
-                        : ivs
-                    )
-                ) as Promise<Array<models.IcureStub>>,
-                retry(() =>
-                  this.classificationApi
-                    .findClassificationsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                    .then((cls) =>
-                      parentId
-                        ? this.classificationApi
-                            .findClassificationsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                            .then((moreCls) => _.uniqBy(cls.concat(moreCls), 'id'))
-                        : cls
-                    )
-                ) as Promise<Array<models.Classification>>,
-                retry(() =>
-                  this.calendarItemApi
-                    .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
-                    .then((cls) =>
-                      parentId
-                        ? this.calendarItemApi
-                            .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
-                            .then((moreCls) => _.uniqBy(cls.concat(moreCls), 'id'))
-                        : cls
-                    )
-                ) as Promise<Array<models.CalendarItem>>,
-              ]).then(([hes, frms, ctcs, ivs, cls, cis]) => {
-                const cloneKeysAndDelegations = function (x: models.IcureStub) {
-                  return {
-                    delegations: _.clone(x.delegations),
-                    cryptedForeignKeys: _.clone(x.cryptedForeignKeys),
-                    encryptionKeys: _.clone(x.encryptionKeys),
-                  }
-                }
-
-                const ctcsStubs = ctcs.map((c) => ({
-                  id: c.id,
-                  rev: c.rev,
-                  ...cloneKeysAndDelegations(c),
-                }))
-                const oHes = hes.map((x) => _.assign(new IcureStub({}), x, cloneKeysAndDelegations(x)))
-                const oFrms = frms.map((x) => _.assign(new IcureStub({}), x, cloneKeysAndDelegations(x)))
-                const oCtcsStubs = ctcsStubs.map((x) => _.assign({}, x, cloneKeysAndDelegations(x)))
-                const oIvs = ivs.map((x) => _.assign(new Invoice({}), x, cloneKeysAndDelegations(x)))
-                const oCls = cls.map((x) => _.assign(new Classification({}), x, cloneKeysAndDelegations(x)))
-                const oCis = cis.map((x) => _.assign(new CalendarItem({}), x, cloneKeysAndDelegations(x)))
-
-                const docIds: { [key: string]: number } = {}
-                ctcs.forEach(
-                  (c: models.Contact) =>
-                    c.services &&
-                    c.services.forEach((s) => s.content && Object.values(s.content).forEach((c) => c && c.documentId && (docIds[c.documentId] = 1)))
-                )
-
-                return retry(() => this.documentApi.getDocuments(new ListOfIds({ ids: Object.keys(docIds) }))).then((docs: Array<Document>) => {
-                  const oDocs = docs.map((x) => _.assign({}, x, cloneKeysAndDelegations(x)))
-
-                  let markerPromise: Promise<any> = Promise.resolve(null)
-                  delegateIds.forEach((delegateId) => {
-                    const tags = delegationTags[delegateId]
-                    markerPromise = markerPromise.then(async () => {
-                      //Share patient
-                      const updatedPatient = await this.crypto.entities
-                        .entityWithExtendedEncryptedMetadata(patient, delegateId, delSfks, ecKeys, [])
-                        .catch((e) => {
-                          console.log(e)
-                          return patient
-                        })
-                      return _.assign(patient, updatedPatient)
-                    })
-                    ;(tags.includes('medicalInformation') || tags.includes('all')) &&
-                      (markerPromise = addDelegationsAndKeys(
-                        hes.map((x) => ({ entity: x, type: 'HealthElement' })),
-                        markerPromise,
-                        delegateId
-                      ))
-                    ;(tags.includes('medicalInformation') || tags.includes('all')) &&
-                      (markerPromise = addDelegationsAndKeys(
-                        frms.map((x) => ({ entity: x, type: 'Form' })),
-                        markerPromise,
-                        delegateId
-                      ))
-                    ;(tags.includes('medicalInformation') || tags.includes('all')) &&
-                      (markerPromise = addDelegationsAndKeys(
-                        ctcsStubs.map((x) => ({ entity: x, type: 'Contact' })),
-                        markerPromise,
-                        delegateId
-                      ))
-                    ;(tags.includes('medicalInformation') || tags.includes('all')) &&
-                      (markerPromise = addDelegationsAndKeys(
-                        cls.map((x) => ({ entity: x, type: 'Classification' })),
-                        markerPromise,
-                        delegateId
-                      ))
-                    ;(tags.includes('medicalInformation') || tags.includes('all')) &&
-                      (markerPromise = addDelegationsAndKeys(
-                        cis.map((x) => ({ entity: x, type: 'CalendarItem' })),
-                        markerPromise,
-                        delegateId
-                      ))
-                    ;(tags.includes('financialInformation') || tags.includes('all')) &&
-                      (markerPromise = addDelegationsAndKeys(
-                        ivs.map((x) => ({ entity: x, type: 'Invoice' })),
-                        markerPromise,
-                        delegateId
-                      ))
-                    ;(tags.includes('medicalInformation') || tags.includes('all')) &&
-                      (markerPromise = addDelegationsAndKeys(
-                        docs.map((x) => ({ entity: x, type: 'Document' })),
-                        markerPromise,
-                        delegateId
-                      ))
-                  })
-
-                  return markerPromise
-                    .then(() => {
-                      //console.log("scd")
-                      return (
-                        ((allTags.includes('medicalInformation') || allTags.includes('all')) &&
-                          ctcsStubs &&
-                          ctcsStubs.length &&
-                          !_.isEqual(oCtcsStubs, ctcsStubs) &&
-                          this.contactApi
-                            .setContactsDelegations(ctcsStubs)
-                            .then(() => {
-                              status.contacts.success = true
-                              status.contacts.modified += ctcsStubs.length
-                            })
-                            .catch((e) => (status.contacts.error = e))) ||
-                        Promise.resolve((status.contacts.success = true))
-                      )
-                    })
-                    .then(() => {
-                      //console.log("shed")
-                      return (
-                        ((allTags.includes('medicalInformation') || allTags.includes('all')) &&
-                          hes &&
-                          hes.length &&
-                          !_.isEqual(oHes, hes) &&
-                          this.helementApi
-                            .setHealthElementsDelegations(hes)
-                            .then(() => {
-                              status.healthElements.success = true
-                              status.healthElements.modified += hes.length
-                            })
-                            .catch((e) => (status.healthElements.error = e))) ||
-                        Promise.resolve((status.healthElements.success = true))
-                      )
-                    })
-                    .then(() => {
-                      //console.log("sfd")
-                      return (
-                        ((allTags.includes('medicalInformation') || allTags.includes('all')) &&
-                          frms &&
-                          frms.length &&
-                          !_.isEqual(oFrms, frms) &&
-                          this.formApi
-                            .setFormsDelegations(frms)
-                            .then(() => {
-                              status.forms.success = true
-                              status.forms.modified += frms.length
-                            })
-                            .catch((e) => (status.forms.error = e))) ||
-                        Promise.resolve((status.forms.success = true))
-                      )
-                    })
-                    .then(() => {
-                      //console.log("sid")
-                      return (
-                        ((allTags.includes('financialInformation') || allTags.includes('all')) &&
-                          ivs &&
-                          ivs.length &&
-                          !_.isEqual(oIvs, ivs) &&
-                          this.invoiceApi
-                            .setInvoicesDelegations(ivs)
-                            .then(() => {
-                              status.invoices.success = true
-                              status.invoices.modified += ivs.length
-                            })
-                            .catch((e) => (status.invoices.error = e))) ||
-                        Promise.resolve((status.invoices.success = true))
-                      )
-                    })
-                    .then(() => {
-                      //console.log("sdd")
-                      return (
-                        ((allTags.includes('medicalInformation') || allTags.includes('all')) &&
-                          docs &&
-                          docs.length &&
-                          !_.isEqual(oDocs, docs) &&
-                          this.documentApi
-                            .setDocumentsDelegations(docs)
-                            .then(() => {
-                              status.documents.success = true
-                              status.documents.modified += docs.length
-                            })
-                            .catch((e) => (status.documents.error = e))) ||
-                        Promise.resolve((status.documents.success = true))
-                      )
-                    })
-                    .then(() => {
-                      //console.log("scld")
-                      return (
-                        ((allTags.includes('medicalInformation') || allTags.includes('all')) &&
-                          cls &&
-                          cls.length &&
-                          !_.isEqual(oCls, cls) &&
-                          this.classificationApi
-                            .setClassificationsDelegations(cls)
-                            .then(() => {
-                              status.classifications.success = true
-                              status.classifications.modified += cls.length
-                            })
-                            .catch((e) => (status.classifications.error = e))) ||
-                        Promise.resolve((status.classifications.success = true))
-                      )
-                    })
-                    .then(() => {
-                      //console.log("scid")
-                      return (
-                        ((allTags.includes('medicalInformation') || allTags.includes('all')) &&
-                          cis &&
-                          cis.length &&
-                          !_.isEqual(oCis, cis) &&
-                          this.calendarItemApi
-                            .setCalendarItemsDelegations(cis)
-                            .then(() => {
-                              status.calendarItems.success = true
-                              status.calendarItems.modified += cis.length
-                            })
-                            .catch((e) => (status.calendarItems.error = e))) ||
-                        Promise.resolve((status.calendarItems.success = true))
-                      )
-                    })
-                    .then(() => this.modifyPatientWithUser(user, patient))
-                    .then((p) => {
-                      status.patient.success = true
-                      console.log(
-                        `c: ${status.contacts.modified}, he: ${status.healthElements.modified}, docs: ${status.documents.modified}, frms: ${status.forms.modified}, ivs: ${status.invoices.modified}, cis: ${status.calendarItems.modified}, cls: ${status.classifications.modified}`
-                      )
-                      return { patient: p, statuses: status }
-                    })
-                    .catch((e) => {
-                      status.patient.error = e
-                      return { patient: patient, statuses: status }
-                    })
-                })
-              })
-            : this.modifyPatientWithUser(
-                user,
-                _.assign(patient, {
-                  delegations: _.assign(
-                    patient.delegations,
-                    delegateIds
-                      .filter((id) => !patient.delegations || !patient.delegations[id]) //If there are delegations do not modify
-                      .reduce((acc, del: string) => Object.assign(acc, _.fromPairs([[del, []]])), patient.delegations || {})
-                  ),
-                })
-              )
-                .then((p) => {
-                  status.patient.success = true
-                  return { patient: p, statuses: status }
-                })
-                .catch((e) => {
-                  status.patient.error = e
-                  return { patient: patient, statuses: status }
-                })
-        })
-    })
+          await this.crypto.xapi
+            .bulkShareOrUpdateEncryptedEntityMetadataNoEntities(entitiesType, requests, (x) => doShareMinimal(x))
+            .then((shareResult) => {
+              status.modified = new Set(shareResult.successfulUpdates.map((x) => x.entityId)).size
+              status.success = shareResult.updateErrors.length === 0
+              if (!status.success) {
+                const errorMsg = `Error while sharing (some) entities of type ${entitiesType} for patient ${patient.id} : ${JSON.stringify(
+                  shareResult.updateErrors
+                )}`
+                console.error(errorMsg)
+                status.error = new Error(errorMsg)
+              }
+            })
+            .catch((e) => {
+              status.success = false
+              status.error = e
+            })
+        } else {
+          status.success = true
+        }
+      }
+      await doShareEntitiesAndUpdateStatus(retrievedHealthElements, 'HealthElement', status.healthElements, isMedicalInfoTags, (x) =>
+        this.helementApi.bulkShareHealthElementsMinimal(x)
+      )
+      await doShareEntitiesAndUpdateStatus(retrievedContacts, 'Contact', status.contacts, isMedicalInfoTags, (x) =>
+        this.contactApi.bulkShareContactsMinimal(x)
+      )
+      await doShareEntitiesAndUpdateStatus(retrievedInvoices, 'Invoice', status.invoices, isFinancialInfoTags, (x) =>
+        this.invoiceApi.bulkShareInvoicesMinimal(x)
+      )
+      await doShareEntitiesAndUpdateStatus(retrievedClassifications, 'Classification', status.classifications, isMedicalInfoTags, (x) =>
+        this.classificationApi.bulkShareClassificationsMinimal(x)
+      )
+      await doShareEntitiesAndUpdateStatus(retrievedCalendarItems, 'CalendarItem', status.calendarItems, isMedicalInfoTags, (x) =>
+        this.calendarItemApi.bulkShareCalendarItemsMinimal(x)
+      )
+      await doShareEntitiesAndUpdateStatus(retrievedForms, 'Form', status.forms, isMedicalInfoTags, (x) => this.formApi.bulkShareFormsMinimal(x))
+    }
+    const sharePatientDataRequest = {
+      shareSecretIds: delSfks,
+      shareEncryptionKeys: ecKeys,
+      shareOwningEntityIds: [],
+      requestedPermissions: RequestedPermissionEnum.MAX_WRITE,
+    }
+    const sharePatientRequest = {
+      entity: patient,
+      dataForDelegates: Object.fromEntries(delegateIds.map((delegateId) => [delegateId, sharePatientDataRequest])),
+    }
+    return await this.crypto.xapi
+      .bulkShareOrUpdateEncryptedEntityMetadata('Patient', [sharePatientRequest], (x) => this.bulkSharePatients(x))
+      .then((shareResult) => {
+        if (shareResult.updatedEntities.length && !shareResult.updateErrors.length) {
+          status.patient.success = true
+          return { patient: shareResult.updatedEntities[0], statuses: status }
+        } else {
+          const errorMsg = `Error while sharing patient with id ${patient.id} : ${JSON.stringify(shareResult.updateErrors)}`
+          console.error(errorMsg)
+          status.patient.error = new Error(errorMsg)
+          status.patient.success = false
+          return { patient: shareResult.updatedEntities[0] ?? patient, statuses: status }
+        }
+      })
+      .catch((e) => {
+        status.patient.error = e
+        status.patient.success = false
+        return { patient, statuses: status }
+      })
   }
 
   export(user: models.User, patId: string, ownerId: string): Promise<{ id: string }> {
@@ -933,18 +815,19 @@ export class IccPatientXApi extends IccPatientApi {
       const parentId = hcp.parentId
 
       return retry(() => this.getPatientWithUser(user, patId))
-        .then((patient: models.Patient) =>
-          patient.encryptionKeys && Object.keys(patient.encryptionKeys || {}).length
-            ? Promise.resolve(patient)
-            : this.crypto.entities
-                .ensureEncryptionKeysInitialised(patient)
-                .then((patient: models.Patient) => this.modifyPatientWithUser(user, patient))
-        )
+        .then(async (patient: models.Patient) => {
+          const initialised = await this.crypto.xapi.ensureEncryptionKeysInitialised(patient, 'Patient')
+          if (!initialised) {
+            return patient
+          } else {
+            return await this.modifyPatientWithUser(user, initialised)
+          }
+        })
         .then(async (patient: models.Patient | null) => {
           if (!patient) {
             return Promise.resolve({ id: patId })
           }
-          const delSfks = await this.crypto.entities.secretIdsOf(patient, 'Patient', ownerId)
+          const delSfks = await this.crypto.xapi.secretIdsOf({ entity: patient, type: 'Patient' }, ownerId)
           return delSfks.length
             ? Promise.all([
                 retry(() =>
@@ -1097,9 +980,10 @@ export class IccPatientXApi extends IccPatientApi {
 
   async getPatientIdOfChildDocumentForHcpAndHcpParents(
     childDocument: models.Invoice | models.CalendarItem | models.Contact | models.AccessLog,
-    hcpId: string
+    hcpId: string,
+    childDocumentType: EntityWithDelegationTypeName
   ): Promise<string> {
-    const parentIdsArray = await this.crypto.entities.owningEntityIdsOf(childDocument, undefined, hcpId)
+    const parentIdsArray = await this.crypto.xapi.owningEntityIdsOf({ entity: childDocument, type: childDocumentType }, hcpId)
 
     const multipleParentIds = _.uniq(parentIdsArray).length > 1
 
@@ -1127,5 +1011,53 @@ export class IccPatientXApi extends IccPatientApi {
     }
 
     return patient.id!
+  }
+
+  /**
+   * @return if the logged data owner has write access to the content of the given patient
+   */
+  async hasWriteAccess(patient: models.Patient): Promise<boolean> {
+    return this.crypto.xapi.hasWriteAccess({ entity: patient, type: 'Patient' })
+  }
+
+  /**
+   * Share an existing patient with other data owners, allowing them to access the non-encrypted data of the patient and optionally also
+   * the encrypted content, with read-only or read-write permissions.
+   * @param delegateId the id of the data owner which will be granted access to the patient.
+   * @param patient the patient to share.
+   * @param requestedPermissions the requested permissions for the delegate.
+   * @param shareSecretIds the secret ids of the Patient that the delegate will be given access to. Allows the delegate to search for data where the
+   * shared Patient is the owning entity id.
+   * @param optionalParams optional parameters to customize the sharing behaviour:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * patient does not have encrypted content.
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * @return a promise which will contain the result of the operation: the updated entity if the operation was successful or details of the error if
+   * the operation failed.
+   */
+  async shareWith(
+    delegateId: string,
+    patient: models.Patient,
+    requestedPermissions: RequestedPermissionEnum,
+    shareSecretIds: string[],
+    optionalParams: {
+      shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+    }
+  ): Promise<ShareResult<models.Patient>> {
+    // All entities should have an encryption key.
+    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(patient, 'Patient')
+    const updatedEntity = entityWithEncryptionKey
+      ? await this.modifyPatientAs(await this.dataOwnerApi.getCurrentDataOwnerId(), entityWithEncryptionKey)
+      : patient
+    return this.crypto.xapi.simpleShareOrUpdateEncryptedEntityMetadata(
+      { entity: updatedEntity, type: 'Patient' },
+      delegateId,
+      optionalParams?.shareEncryptionKey,
+      ShareMetadataBehaviour.NEVER,
+      shareSecretIds,
+      requestedPermissions,
+      (x) => this.bulkSharePatients(x)
+    )
   }
 }

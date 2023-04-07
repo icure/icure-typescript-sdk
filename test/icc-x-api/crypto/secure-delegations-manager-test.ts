@@ -22,7 +22,7 @@ import { EntityWithDelegationTypeName } from '../../../icc-x-api/utils/EntityWit
 import { SecurityMetadata } from '../../../icc-api/model/SecurityMetadata'
 import { SecureDelegation } from '../../../icc-api/model/SecureDelegation'
 import { asyncGeneratorToArray } from '../../../icc-x-api/utils/collection-utils'
-import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
+import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionInternal
 import { EntitySharedMetadataUpdateRequest } from '../../../icc-api/model/requests/EntitySharedMetadataUpdateRequest'
 import EntryUpdateTypeEnum = EntitySharedMetadataUpdateRequest.EntryUpdateTypeEnum
 
@@ -104,7 +104,7 @@ describe('Secure delegations manager', async function () {
         secretIds,
         encryptionKeys,
         owningEntityIds,
-        EntityShareRequest.RequestedPermissionEnum.MAX_WRITE
+        EntityShareRequest.RequestedPermissionDto.MAX_WRITE
       )
       expect(shareOrUpdateParams).to.not.be.undefined
       expect(shareOrUpdateParams!.update).to.be.undefined

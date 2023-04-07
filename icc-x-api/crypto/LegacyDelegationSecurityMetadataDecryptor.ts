@@ -7,6 +7,7 @@ import { CryptoPrimitives } from './CryptoPrimitives'
 import { ExchangeKeysManager } from './ExchangeKeysManager'
 import { SecureDelegation } from '../../icc-api/model/SecureDelegation'
 import AccessLevel = SecureDelegation.AccessLevelEnum
+import { EncryptedEntity, EncryptedEntityStub } from '../../icc-api/model/models'
 
 export class LegacyDelegationSecurityMetadataDecryptor implements SecurityMetadataDecryptor {
   constructor(private readonly exchangeKeysManager: ExchangeKeysManager, private readonly primitives: CryptoPrimitives) {}
@@ -36,11 +37,15 @@ export class LegacyDelegationSecurityMetadataDecryptor implements SecurityMetada
     )
   }
 
-  getFullEntityAccessLevel(typedEntity: EncryptedEntityWithType, dataOwnersHierarchySubset: string[]): Promise<AccessLevel | undefined> {
+  getEntityAccessLevel(typedEntity: EncryptedEntityWithType, dataOwnersHierarchySubset: string[]): Promise<AccessLevel | undefined> {
     const delegatesSet = new Set(Object.keys(typedEntity.entity.delegations ?? {}))
     return dataOwnersHierarchySubset.some((dataOwner) => delegatesSet.has(dataOwner))
       ? Promise.resolve(AccessLevel.WRITE)
       : Promise.resolve(undefined)
+  }
+
+  hasAnyEncryptionKeys(entity: EncryptedEntity | EncryptedEntityStub): boolean {
+    return Object.values(entity.encryptionKeys ?? {}).some((delegations) => delegations.length > 0)
   }
 
   private extractFromDelegations(

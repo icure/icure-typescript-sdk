@@ -8,6 +8,12 @@ import { IccCryptoXApi } from './icc-crypto-x-api'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import * as models from '../icc-api/model/models'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import { ShareMetadataBehaviour } from './utils/ShareMetadataBehaviour'
+import { ShareResult } from './utils/ShareResult'
+import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
+import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
+import { SecureDelegation } from '../icc-api/model/SecureDelegation'
+import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 
 export class IccTimeTableXApi extends IccTimeTableApi {
   i18n: any = i18n
@@ -36,10 +42,20 @@ export class IccTimeTableXApi extends IccTimeTableApi {
    * @param user the current user.
    * @param tt initialised data for the timetable. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
    * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
-   * @param delegates initial delegates which will have access to the timetable other than the current data owner.
+   * @param optionalParams optional parameters:
+   * - additionalDelegates: delegates which will have access to the entity in addition to the current data owner and delegates from the
+   * auto-delegations. Must be an object which associates each data owner id with the access level to give to that data owner. May overlap with
+   * auto-delegations, in such case the access level specified here will be used.
    * @return a new instance of timetable.
    */
-  async newInstance(user: User, tt: TimeTable, delegates: string[] = []) {
+  async newInstance(
+    user: User,
+    tt: TimeTable,
+    optionalParams: {
+      additionalDelegates?: { [dataOwnerId: string]: AccessLevelEnum }
+      preferredSfk?: string
+    } = {}
+  ) {
     const timeTable = _.extend(
       {
         id: this.crypto.primitives.randomUuid(),
@@ -53,12 +69,58 @@ export class IccTimeTableXApi extends IccTimeTableApi {
       },
       tt || {}
     )
-
-    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.administrativeData ?? [])]
+    const extraDelegations = {
+      ...Object.fromEntries(
+        [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.administrativeData ?? [])].map((d) => [d, AccessLevelEnum.WRITE])
+      ),
+      ...(optionalParams?.additionalDelegates ?? {}),
+    }
     return new models.TimeTable(
-      await this.crypto.entities
-        .entityWithInitialisedEncryptedMetadata(timeTable, undefined, undefined, true, extraDelegations)
+      await this.crypto.xapi
+        .entityWithInitialisedEncryptedMetadata(timeTable, 'TimeTable', undefined, undefined, true, false, extraDelegations)
         .then((x) => x.updatedEntity)
+    )
+  }
+
+  /**
+   * @return if the logged data owner has write access to the content of the given time table
+   */
+  async hasWriteAccess(timeTable: models.TimeTable): Promise<boolean> {
+    return this.crypto.xapi.hasWriteAccess({ entity: timeTable, type: 'TimeTable' })
+  }
+
+  /**
+   * Share an existing time table with other data owners, allowing them to access the non-encrypted data of the time table and optionally also
+   * the encrypted content, with read-only or read-write permissions.
+   * @param delegateId the id of the data owner which will be granted access to the time table.
+   * @param timeTable the time table to share.
+   * @param requestedPermissions the requested permissions for the delegate.
+   * @param optionalParams optional parameters to customize the sharing behaviour:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * time table does not have encrypted content.
+   * @return a promise which will contain the result of the operation: the updated entity if the operation was successful or details of the error if
+   * the operation failed.
+   */
+  async shareWith(
+    delegateId: string,
+    timeTable: models.TimeTable,
+    requestedPermissions: RequestedPermissionEnum,
+    optionalParams: {
+      shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+    }
+  ): Promise<ShareResult<models.TimeTable>> {
+    // All entities should have an encryption key.
+    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(timeTable, 'TimeTable')
+    const updatedEntity = entityWithEncryptionKey ? await this.modifyTimeTable(entityWithEncryptionKey) : timeTable
+    return this.crypto.xapi.simpleShareOrUpdateEncryptedEntityMetadata(
+      { entity: updatedEntity, type: 'TimeTable' },
+      delegateId,
+      optionalParams?.shareEncryptionKey,
+      undefined,
+      [],
+      requestedPermissions,
+      (x) => this.bulkShareTimeTable(x)
     )
   }
 }

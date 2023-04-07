@@ -2,8 +2,15 @@ import { EncryptedEntity } from '../../icc-api/model/models'
 import { ExtendedApisUtils } from './ExtendedApisUtils'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
+import { EncryptedEntityWithType, EntityWithDelegationTypeName } from '../utils/EntityWithDelegationTypeName'
+import { ShareMetadataBehaviour } from '../utils/ShareMetadataBehaviour'
+import { EntityShareRequest } from '../../icc-api/model/requests/EntityShareRequest'
+import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
+import { EntityShareOrMetadataUpdateRequest } from '../../icc-api/model/requests/EntityShareOrMetadataUpdateRequest'
+import { EntityBulkShareResult } from '../../icc-api/model/requests/EntityBulkShareResult'
 
 /**
+ * @internal this class is intended for internal use only and may be changed without notice.
  * This class helps to create confidential medical data in systems where multiple hcps share data with each other using parent hcps: while normally
  * the hcps would share all data with other hcps part of the same "family" (e.g. an hospital) there are situations where the medical data is
  * confidential and should only be known by the doctor which created the data. In these situations it is also important that the secret foreign key
@@ -18,25 +25,36 @@ export class ConfidentialEntities {
   ) {}
 
   /**
-   * @internal this method is intended for internal use only and may be changed without notice.
    * Ensures that the current data owner has access to a confidential secret id for the provided entity: this is an id that is known to the data owner
    * but is not known by any of his parents. If there is currently no confidential secret id for this entity the method returns a copy of the entity
    * with a new confidential secret id for the current data owner (the entity in the database won't be updated), else this method returns undefined.
    * New confidential secret ids will have an appropriate tag, but existing confidential secret ids may not necessarily have it.
    * @param entity an entity which needs to have a confidential secret id for the current data owner
-   * @return undefined if the entity already had a confidential secret id for the current user, or the updated entity with the new confidential secret
-   * id.
+   * @param entityType the type of the entity
+   * @param doRequestBulkShareOrUpdate perform the request to share or update an entity encrypted metadata on the cloud API (and save to DB).
+   * @return undefined if the entity already had a confidential secret id for the current user, or the updated AND SAVED entity with the new
+   * confidential secret id.
    */
-  async entityWithInitialisedConfidentialSecretId<T extends EncryptedEntity>(entity: T): Promise<T | undefined> {
-    if (await this.getConfidentialSecretId(entity)) return undefined
+  async initialiseConfidentialSecretId<T extends EncryptedEntity>(
+    entity: T,
+    entityType: EntityWithDelegationTypeName,
+    doRequestBulkShareOrUpdate: (request: {
+      [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
+    }) => Promise<EntityBulkShareResult<T>[]>
+  ): Promise<T | undefined> {
+    if (await this.getConfidentialSecretId({ entity, type: entityType })) return undefined
     const confidentialSecretId = this.primitives.randomUuid()
-    return await this.entitiesEncryption.entityWithExtendedEncryptedMetadata(
-      entity,
-      await this.dataOwnerApi.getCurrentDataOwnerId(),
-      [confidentialSecretId],
-      [],
-      []
-    )
+    return (
+      await this.entitiesEncryption.simpleShareOrUpdateEncryptedEntityMetadata(
+        { entity, type: entityType },
+        await this.dataOwnerApi.getCurrentDataOwnerId(),
+        ShareMetadataBehaviour.NEVER,
+        ShareMetadataBehaviour.NEVER,
+        [confidentialSecretId],
+        RequestedPermissionEnum.MAX_WRITE,
+        (request) => doRequestBulkShareOrUpdate(request)
+      )
+    ).updatedEntityOrThrow
   }
 
   /**
@@ -46,7 +64,7 @@ export class ConfidentialEntities {
    * @param dataOwnerId (current data owner by default) a data owner for which you want to get a confidential secret id.
    * @return the confidential secret id or undefined if there is no confidential secret id for the provided data owner.
    */
-  async getConfidentialSecretId<T extends EncryptedEntity>(entity: T, dataOwnerId?: string): Promise<string | undefined> {
+  async getConfidentialSecretId(entity: EncryptedEntityWithType, dataOwnerId?: string): Promise<string | undefined> {
     // TODO throw exception if any parent key is not available? if we are missing even only one single parent key we can't be sure it is confidential,
     // or maybe include confidential as the secret id name...
     const chosenDataOwnerId = dataOwnerId ?? (await this.dataOwnerApi.getCurrentDataOwnerId())
@@ -67,7 +85,7 @@ export class ConfidentialEntities {
    * @return a secret id known by the topmost parent of the current data owner hierarchy, or undefined if there is no secret id currently available
    * for the topmost parent.
    */
-  async getAnySecretIdSharedWithParents<T extends EncryptedEntity>(entity: T): Promise<string | undefined> {
+  async getAnySecretIdSharedWithParents(entity: EncryptedEntityWithType): Promise<string | undefined> {
     return (await this.entitiesEncryption.secretIdsForHcpHierarchyOf(entity))[0].extracted[0]
   }
 }

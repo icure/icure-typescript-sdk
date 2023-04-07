@@ -64,14 +64,14 @@ describe('Patient', () => {
     expect((await patientApi.getPatientWithUser(user, user.patientId!)).rev).to.equal(me.rev)
     me = (await cryptoApi.exchangeKeys.getOrCreateEncryptionExchangeKeysTo(hcpUser.healthcarePartyId!)).updatedDelegator?.dataOwner ?? me
     expect((await patientApi.getPatientWithUser(user, user.patientId!)).rev).to.equal(me.rev)
-    const mySecretIds = await cryptoApi.entities.secretIdsOf(me)
-    const myEncryptionKeys = await cryptoApi.entities.encryptionKeysOf(me)
+    const mySecretIds = await cryptoApi.xapi.secretIdsOf(me)
+    const myEncryptionKeys = await cryptoApi.xapi.encryptionKeysOf(me)
     expect(mySecretIds).to.have.length(1)
     expect(myEncryptionKeys).to.have.length(1)
 
     me = (await patientApi.modifyPatientWithUser(
       user,
-      await cryptoApi.entities.entityWithExtendedEncryptedMetadata(me, hcpUser.healthcarePartyId!, mySecretIds, myEncryptionKeys, [])
+      await cryptoApi.xapi.entityWithExtendedEncryptedMetadata(me, hcpUser.healthcarePartyId!, mySecretIds, myEncryptionKeys, [])
     ))!
     await patientApi.modifyPatientWithUser(user, new Patient({ ...me, note: 'This is secret' }))
 
@@ -110,21 +110,21 @@ describe('Patient', () => {
 
     await patientApi.modifyPatientWithUser(
       user,
-      await cryptoApi.entities.entityWithExtendedEncryptedMetadata(
+      await cryptoApi.xapi.entityWithExtendedEncryptedMetadata(
         pat!,
         hcpUser.healthcarePartyId!,
-        await cryptoApi.entities.secretIdsOf(pat!),
-        await cryptoApi.entities.encryptionKeysOf(pat!),
+        await cryptoApi.xapi.secretIdsOf(pat!),
+        await cryptoApi.xapi.encryptionKeysOf(pat!),
         []
       )
     )
     await calendarItemApi.modifyCalendarItemWithHcParty(
       user,
-      await cryptoApi.entities.entityWithExtendedEncryptedMetadata(
+      await cryptoApi.xapi.entityWithExtendedEncryptedMetadata(
         ci!,
         hcpUser.healthcarePartyId!,
-        await cryptoApi.entities.secretIdsOf(ci),
-        await cryptoApi.entities.encryptionKeysOf(ci),
+        await cryptoApi.xapi.secretIdsOf(ci),
+        await cryptoApi.xapi.encryptionKeysOf(ci),
         []
       )
     )

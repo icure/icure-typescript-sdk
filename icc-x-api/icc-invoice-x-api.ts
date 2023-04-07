@@ -6,6 +6,12 @@ import * as models from '../icc-api/model/models'
 import { Invoice } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import { SecureDelegation } from '../icc-api/model/SecureDelegation'
+import AccessLevelEnum = SecureDelegation.AccessLevelEnum
+import { ShareMetadataBehaviour } from './utils/ShareMetadataBehaviour'
+import { ShareResult } from './utils/ShareResult'
+import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
+import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 
 export class IccInvoiceXApi extends IccInvoiceApi {
   crypto: IccCryptoXApi
@@ -37,17 +43,22 @@ export class IccInvoiceXApi extends IccInvoiceApi {
    * @param patient the patient this invoice refers to.
    * @param inv initialised data for the invoice. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
    * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
-   * @param delegates initial delegates which will have access to the invoice other than the current data owner.
-   * @param preferredSfk secret id of the patient to use as the secret foreign key to use for the invoice. The default value will be a secret
-   * id of patient known by the topmost parent in the current data owner hierarchy.
+   * @param optionalParams optional parameters:
+   * - additionalDelegates: delegates which will have access to the entity in addition to the current data owner and delegates from the
+   * auto-delegations. Must be an object which associates each data owner id with the access level to give to that data owner. May overlap with
+   * auto-delegations, in such case the access level specified here will be used.
+   * - preferredSfk: secret id of the patient to use as the secret foreign key to use for the invoice. The default value will be a
+   * secret id of patient known by the topmost parent in the current data owner hierarchy.
    * @return a new instance of invoice.
    */
   async newInstance(
     user: models.User,
     patient: models.Patient,
     inv: any = {},
-    delegates: string[] = [],
-    preferredSfk?: string
+    optionalParams: {
+      additionalDelegates?: { [dataOwnerId: string]: AccessLevelEnum }
+      preferredSfk?: string
+    } = {}
   ): Promise<models.Invoice> {
     const invoice = new models.Invoice(
       _.extend(
@@ -69,11 +80,18 @@ export class IccInvoiceXApi extends IccInvoiceApi {
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
-    const sfk = preferredSfk ?? (await this.crypto.confidential.getAnySecretIdSharedWithParents(patient))
+    const sfk = optionalParams.preferredSfk ?? (await this.crypto.confidential.getAnySecretIdSharedWithParents({ entity: patient, type: 'Patient' }))
     if (!sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id}`)
-    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.financialInformation ?? [])]
+    const extraDelegations = {
+      ...Object.fromEntries(
+        [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.financialInformation ?? [])].map((d) => [d, AccessLevelEnum.WRITE])
+      ),
+      ...(optionalParams?.additionalDelegates ?? {}),
+    }
     return new models.Invoice(
-      await this.crypto.entities.entityWithInitialisedEncryptedMetadata(invoice, patient.id, sfk, true, extraDelegations).then((x) => x.updatedEntity)
+      await this.crypto.xapi
+        .entityWithInitialisedEncryptedMetadata(invoice, 'Invoice', patient.id, sfk, true, false, extraDelegations)
+        .then((x) => x.updatedEntity)
     )
   }
 
@@ -138,7 +156,7 @@ export class IccInvoiceXApi extends IccInvoiceApi {
    * @param patient (Promise)
    */
   async findBy(hcpartyId: string, patient: models.Patient): Promise<Array<models.Invoice>> {
-    const extractedKeys = await this.crypto.entities.secretIdsOf(patient, 'Patient', hcpartyId)
+    const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: 'Patient' }, hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     let invoices: Array<Invoice> = await this.findInvoicesByHCPartyPatientForeignKeys(topmostParentId, _.uniq(extractedKeys).join(','))
     return await this.decrypt(hcpartyId, invoices)
@@ -150,5 +168,59 @@ export class IccInvoiceXApi extends IccInvoiceApi {
 
   decrypt(hcpartyId: string, invoices: Array<models.Invoice>): Promise<Array<models.Invoice>> {
     return Promise.resolve(invoices)
+  }
+
+  /**
+   * @param invoice a invoice
+   * @return the id of the patient that the invoice refers to, retrieved from the encrypted metadata. Normally there should only be one element
+   * in the returned array, but in case of entity merges there could be multiple values.
+   */
+  async decryptPatientIdOf(invoice: models.Invoice): Promise<string[]> {
+    return this.crypto.xapi.owningEntityIdsOf({ entity: invoice, type: 'Invoice' }, undefined)
+  }
+
+  /**
+   * @return if the logged data owner has write access to the content of the given invoice
+   */
+  async hasWriteAccess(invoice: models.Invoice): Promise<boolean> {
+    return this.crypto.xapi.hasWriteAccess({ entity: invoice, type: 'Invoice' })
+  }
+
+  /**
+   * Share an existing invoice with other data owners, allowing them to access the non-encrypted data of the invoice and optionally also
+   * the encrypted content, with read-only or read-write permissions.
+   * @param delegateId the id of the data owner which will be granted access to the invoice.
+   * @param invoice the invoice to share.
+   * @param requestedPermissions the requested permissions for the delegate.
+   * @param optionalParams optional parameters to customize the sharing behaviour:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * invoice does not have encrypted content.
+   * - sharePatientId: specifies if the id of the patient that this invoice refers to should be shared with the delegate (defaults to
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * @return a promise which will contain the result of the operation: the updated entity if the operation was successful or details of the error if
+   * the operation failed.
+   */
+  async shareWith(
+    delegateId: string,
+    invoice: models.Invoice,
+    requestedPermissions: RequestedPermissionEnum,
+    optionalParams: {
+      shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+    }
+  ): Promise<ShareResult<models.Invoice>> {
+    // All entities should have an encryption key.
+    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(invoice, 'Invoice')
+    const updatedEntity = entityWithEncryptionKey ? await this.modifyInvoice(entityWithEncryptionKey) : invoice
+    return this.crypto.xapi.simpleShareOrUpdateEncryptedEntityMetadata(
+      { entity: updatedEntity, type: 'Invoice' },
+      delegateId,
+      optionalParams?.shareEncryptionKey,
+      optionalParams?.sharePatientId,
+      [],
+      requestedPermissions,
+      (x) => this.bulkShareInvoices(x)
+    )
   }
 }
