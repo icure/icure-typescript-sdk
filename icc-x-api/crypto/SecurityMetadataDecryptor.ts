@@ -57,21 +57,25 @@ export interface SecurityMetadataDecryptor {
   ): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never>
 
   /**
-   * Get the maximum access level that any data owner in {@link dataOwnersHierarchySubset} has to the entirety of {@link typedEntity}:
-   * - If at least a data owner in {@link dataOwnersHierarchySubset} has full write access then the returned access level is write
-   * - If at least a data owner in {@link dataOwnersHierarchySubset} has full read access then the returned access level, and no data owner has full
-   * write access the method the returned access level is read
-   * - If no data owner in {@link dataOwnersHierarchySubset} has full read or write access then the method returns undefined.
-   * There is currently no support for field level permissions, but when that will be introduced this method will behave in the following way: if none
-   * of the data owners in {@link dataOwnersHierarchySubset} has write access to a specific field of the entity the method returns at most read access
-   * level, even if all other fields are accessible with write permissions. Similarly, if none of the data owners has at least read access to a
-   * specific field of the entity the method will return undefined.
+   * Get the maximum access level that any data owner in {@link dataOwnersHierarchySubset} has to {@link typedEntity}, according to the metadata
+   * supported by this decryptor.
+   * - If at least a data owner in {@link dataOwnersHierarchySubset} has write access the method returns {@link AccessLevel.WRITE}.
+   * - If at least a data owner in {@link dataOwnersHierarchySubset} has read access and no data owner has write access the method returns
+   * {@link AccessLevel.READ}.
+   * - If a data owner has no access to the entity the method returns undefined (this can happen if the data owner has access to an entity through
+   * some metadata which is not supported by this decryptor).
    * @param typedEntity an entity
    * @param dataOwnersHierarchySubset only exchange data that is accessible to data owners in this array will be considered when calculating the
    * access level. This array should contain only data owners from the current data owner hierarchy.
    * @return the access level to the entity or undefined if none of the data owners has full access to the entity.
    */
-  getFullEntityAccessLevel(typedEntity: EncryptedEntityWithType, dataOwnersHierarchySubset: string[]): Promise<AccessLevel | undefined>
+  getEntityAccessLevel(typedEntity: EncryptedEntityWithType, dataOwnersHierarchySubset: string[]): Promise<AccessLevel | undefined>
+
+  /**
+   * Verifies if there is at least one (encrypted) encryption key in the metadata supported by this decryptor, even if it can't be decrypted by the
+   * current data owner.
+   */
+  hasAnyEncryptionKeys(entity: EncryptedEntity | EncryptedEntityStub): boolean
 }
 
 /**
@@ -102,13 +106,13 @@ export class SecurityMetadataDecryptorChain implements SecurityMetadataDecryptor
     return this.concatenate((d) => d.decryptSecretIdsOf(typedEntity, dataOwnersHierarchySubset))
   }
 
-  async getFullEntityAccessLevel(
+  async getEntityAccessLevel(
     typedEntity: EncryptedEntityWithType,
     dataOwnersHierarchySubset: string[]
   ): Promise<SecureDelegation.AccessLevelEnum | undefined> {
     let currMaxLevel: SecureDelegation.AccessLevelEnum | undefined = undefined
     for (const d of this.decryptors) {
-      const currLevel = await d.getFullEntityAccessLevel(typedEntity, dataOwnersHierarchySubset)
+      const currLevel = await d.getEntityAccessLevel(typedEntity, dataOwnersHierarchySubset)
       if (currLevel === AccessLevel.WRITE) {
         return currLevel
       }
@@ -117,6 +121,10 @@ export class SecurityMetadataDecryptorChain implements SecurityMetadataDecryptor
       }
     }
     return currMaxLevel
+  }
+
+  hasAnyEncryptionKeys(entity: EncryptedEntity | EncryptedEntityStub): boolean {
+    return this.decryptors.some((d) => d.hasAnyEncryptionKeys(entity))
   }
 
   private concatenate<T>(getGenerator: (d: SecurityMetadataDecryptor) => AsyncGenerator<T, void, never>): AsyncGenerator<T, void, never> {

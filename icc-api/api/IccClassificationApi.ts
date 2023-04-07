@@ -16,6 +16,9 @@ import { DocIdentifier } from '../model/DocIdentifier'
 import { IcureStub } from '../model/IcureStub'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
+import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
+import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
+import { MinimalEntityBulkShareResult } from '../model/requests/MinimalEntityBulkShareResult'
 
 export class IccClassificationApi {
   host: string
@@ -176,6 +179,34 @@ export class IccClassificationApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @internal this method is for internal use only and may be changed without notice
+   */
+  bulkShareClassifications(request: {
+    [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
+  }): Promise<EntityBulkShareResult<Classification>[]> {
+    const _url = this.host + '/classification/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((x) => new EntityBulkShareResult<Classification>(x, Classification)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @internal this method is for internal use only and may be changed without notice
+   */
+  bulkShareClassificationsMinimal(request: {
+    [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
+  }): Promise<MinimalEntityBulkShareResult[]> {
+    const _url = this.host + '/classification/bulkSharedMetadataUpdateMinimal' + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((x) => new MinimalEntityBulkShareResult(x)))
       .catch((err) => this.handleError(err))
   }
 }

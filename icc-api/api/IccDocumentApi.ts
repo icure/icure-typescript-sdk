@@ -16,6 +16,8 @@ import { IcureStub } from '../model/IcureStub'
 import { ListOfIds } from '../model/ListOfIds'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
+import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
+import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 
 export class IccDocumentApi {
   host: string
@@ -425,4 +427,18 @@ export class IccDocumentApi {
   }
 
   // TODO single request multi-attachment update
+
+  /**
+   * @internal this method is for internal use only and may be changed without notice
+   */
+  bulkShareDocument(request: {
+    [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
+  }): Promise<EntityBulkShareResult<Document>[]> {
+    const _url = this.host + '/document/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((x) => new EntityBulkShareResult<Document>(x, Document)))
+      .catch((err) => this.handleError(err))
+  }
 }

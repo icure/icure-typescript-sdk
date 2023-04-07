@@ -16,6 +16,9 @@ import { MaintenanceTask } from '../model/MaintenanceTask'
 import { PaginatedListMaintenanceTask } from '../model/PaginatedListMaintenanceTask'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
+import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
+import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
+import { Classification } from '../model/Classification'
 
 export class IccMaintenanceTaskApi {
   host: string
@@ -129,6 +132,20 @@ export class IccMaintenanceTaskApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new MaintenanceTask(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @internal this method is for internal use only and may be changed without notice
+   */
+  bulkShareMaintenanceTask(request: {
+    [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
+  }): Promise<EntityBulkShareResult<MaintenanceTask>[]> {
+    const _url = this.host + '/maintenancetask/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((x) => new EntityBulkShareResult<MaintenanceTask>(x, MaintenanceTask)))
       .catch((err) => this.handleError(err))
   }
 }

@@ -15,6 +15,8 @@ import { DocIdentifier } from '../model/DocIdentifier'
 import { PaginatedListAccessLog } from '../model/PaginatedListAccessLog'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
+import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
+import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 
 export class IccAccesslogApi {
   host: string
@@ -202,6 +204,20 @@ export class IccAccesslogApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new AccessLog(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @internal this method is for internal use only and may be changed without notice
+   */
+  bulkShareAccessLogs(request: {
+    [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
+  }): Promise<EntityBulkShareResult<AccessLog>[]> {
+    const _url = this.host + '/accesslog/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((x) => new EntityBulkShareResult<AccessLog>(x, AccessLog)))
       .catch((err) => this.handleError(err))
   }
 }

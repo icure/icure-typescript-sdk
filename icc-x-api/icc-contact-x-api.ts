@@ -13,6 +13,12 @@ import { ServiceByIdsFilter } from './filters/ServiceByIdsFilter'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { before } from './utils'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import { SecureDelegation } from '../icc-api/model/SecureDelegation'
+import AccessLevelEnum = SecureDelegation.AccessLevelEnum
+import { ShareMetadataBehaviour } from './utils/ShareMetadataBehaviour'
+import { ShareResult } from './utils/ShareResult'
+import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
+import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 
 export class IccContactXApi extends IccContactApi {
   i18n: any = i18n
@@ -37,35 +43,31 @@ export class IccContactXApi extends IccContactApi {
   }
 
   /**
-   * Temporary version of new instance without the `confidential` parameter, to simplify the transition to the updated api. In a future version
-   * the confidential parameter from new instance will be removed and this will be deprecated.
-   */
-  async newInstanceNoConfidential(user: models.User, patient: models.Patient, h: any, delegates: string[] = [], preferredSfk?: string) {
-    return this.newInstance(user, patient, h, false, delegates, preferredSfk)
-  }
-
-  /**
    * Creates a new instance of contact with initialised encryption metadata (not in the database).
    * @param user the current user.
    * @param patient the patient this contact refers to.
    * @param c initialised data for the contact. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify other
    * kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
-   * @param confidential if false the new contact will automatically be shared with all auto-delegations for the current user, and the default sfk
-   * will be a secret id of patient known by the topmost parent in the current data owner hierarchy. If true the new contact won't be shared with any
-   * of the auto delegations and the default sfk will be a confidential secret id of patient for the current data owner.
-   * @param delegates initial delegates which will have access to the contact other than the current data owner. Note that if you are using the
-   * default confidential secret foreign keys the delegates may not be able to find the contact.
-   * @param preferredSfk secret id of the patient to use as the secret foreign key to use for the contact. If provided overrides the default value,
-   * regardless of the value of {@link confidential}
+   * @param optionalParams optional parameters:
+   * - additionalDelegates: delegates which will have access to the entity in addition to the current data owner and delegates from the
+   * auto-delegations. Must be an object which associates each data owner id with the access level to give to that data owner. May overlap with
+   * auto-delegations, in such case the access level specified here will be used.
+   * - preferredSfk: secret id of the patient to use as the secret foreign key to use for the contact. The default value will be a
+   * secret id of patient known by the topmost parent in the current data owner hierarchy if the confidential is set to false, else a secret id that
+   * the data owner did not share with any of his parents.
+   * - confidential: if true, the entity will be created as confidential. Confidential entities are not shared with auto-delegations, and the default
+   * foreign key used is any key that is not shared with any of the data owner parents. By default entities are created as non-confidential.
    * @return a new instance of contact.
    */
   async newInstance(
     user: models.User,
     patient: models.Patient,
     c: any,
-    confidential = false,
-    delegates: string[] = [],
-    preferredSfk?: string
+    optionalParams: {
+      additionalDelegates?: { [dataOwnerId: string]: AccessLevelEnum }
+      preferredSfk?: string
+      confidential?: boolean
+    } = {}
   ): Promise<models.Contact> {
     const contact = new models.Contact(
       _.extend(
@@ -90,18 +92,27 @@ export class IccContactXApi extends IccContactApi {
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
     const sfk =
-      preferredSfk ??
-      (confidential
-        ? await this.crypto.confidential.getConfidentialSecretId(patient)
-        : await this.crypto.confidential.getAnySecretIdSharedWithParents(patient))
-    if (!sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id} for confidential=${confidential}`)
-    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
-    const initialisationInfo = await this.crypto.entities.entityWithInitialisedEncryptedMetadata(
+      optionalParams.preferredSfk ??
+      (optionalParams?.confidential
+        ? await this.crypto.confidential.getConfidentialSecretId({ entity: patient, type: 'Patient' })
+        : await this.crypto.confidential.getAnySecretIdSharedWithParents({ entity: patient, type: 'Patient' }))
+    if (!sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id} for confidential=${optionalParams.confidential ?? false}`)
+    const extraDelegations = {
+      ...(optionalParams.confidential
+        ? Object.fromEntries(
+            [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])].map((d) => [d, AccessLevelEnum.WRITE])
+          )
+        : {}),
+      ...(optionalParams?.additionalDelegates ?? {}),
+    }
+    const initialisationInfo = await this.crypto.xapi.entityWithInitialisedEncryptedMetadata(
       contact,
+      'Contact',
       patient.id,
       sfk,
       true,
-      confidential ? [] : extraDelegations
+      false,
+      extraDelegations
     )
     return new models.Contact(initialisationInfo.updatedEntity)
   }
@@ -122,7 +133,7 @@ export class IccContactXApi extends IccContactApi {
    * @param patient (Promise)
    */
   async findBy(hcpartyId: string, patient: models.Patient) {
-    return await this.crypto.entities.secretIdsForHcpHierarchyOf(patient).then((keysHierarchy) =>
+    return await this.crypto.xapi.secretIdsForHcpHierarchyOf({ entity: patient, type: 'Patient' }).then((keysHierarchy) =>
       keysHierarchy && keysHierarchy.length > 0
         ? Promise.all(
             keysHierarchy
@@ -144,7 +155,7 @@ export class IccContactXApi extends IccContactApi {
   async findByPatientSFKs(hcpartyId: string, patients: Array<models.Patient>): Promise<Array<models.Contact>> {
     const perHcpId: { [key: string]: string[] } = {}
     for (const patient of patients) {
-      ;(await this.crypto.entities.secretIdsForHcpHierarchyOf(patient))
+      ;(await this.crypto.xapi.secretIdsForHcpHierarchyOf({ entity: patient, type: 'Patient' }))
         .reduce((acc, level) => {
           return acc.concat([
             {
@@ -281,12 +292,14 @@ export class IccContactXApi extends IccContactApi {
   }
 
   async modifyContactWithUser(user: models.User, body?: models.Contact): Promise<models.Contact | any> {
-    return body
-      ? this.encrypt(user, [_.cloneDeep(body)])
-          .then((ctcs) => super.modifyContact(ctcs[0]))
-          .then((ctc) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, [ctc]))
-          .then((ctcs) => ctcs[0])
-      : null
+    return body ? this.modifyContactAs(this.dataOwnerApi.getDataOwnerIdOf(user)!, body) : null
+  }
+
+  private modifyContactAs(dataOwner: string, body: models.Contact): Promise<models.Contact> {
+    return this.encryptAs(dataOwner, [_.cloneDeep(body)])
+      .then((ctcs) => super.modifyContact(ctcs[0]))
+      .then((ctc) => this.decrypt(dataOwner, [ctc]))
+      .then((ctcs) => ctcs[0])
   }
 
   async modifyContactsWithUser(user: models.User, bodies?: Array<models.Contact>): Promise<models.Contact[] | any> {
@@ -365,18 +378,23 @@ export class IccContactXApi extends IccContactApi {
 
   encrypt(user: models.User, ctcs: Array<models.Contact>) {
     const hcpartyId = this.dataOwnerApi.getDataOwnerIdOf(user)!
-    const bypassEncryption = false //Used for debug
 
+    return this.encryptAs(hcpartyId, ctcs)
+  }
+
+  private encryptAs(dataOwner: string, ctcs: Array<models.Contact>): Promise<Array<models.Contact>> {
+    const bypassEncryption = false //Used for debug
     return Promise.all(
       ctcs.map(async (ctc) => {
-        const initialisedCtc = bypassEncryption //Prevent encryption for test ctc
-          ? ctc
-          : await this.crypto.entities.ensureEncryptionKeysInitialised(ctc)
+        let initialisedCtc = ctc
+        if (!bypassEncryption) {
+          const contactWithKeys = await this.crypto.xapi.ensureEncryptionKeysInitialised(ctc, 'Contact')
+          if (contactWithKeys) {
+            initialisedCtc = contactWithKeys
+          }
+        }
 
-        const encryptionKey = await this.crypto.entities.importFirstValidKey(
-          await this.crypto.entities.encryptionKeysOf(ctc, 'Contact', hcpartyId),
-          ctc.id!
-        )
+        const encryptionKey = await this.crypto.xapi.decryptAndImportAnyEncryptionKey({ entity: initialisedCtc, type: 'Contact' })
 
         initialisedCtc.services = await this.encryptServices(encryptionKey.key, encryptionKey.raw, ctc.services || [])
         initialisedCtc.encryptedSelf = b2a(
@@ -392,7 +410,7 @@ export class IccContactXApi extends IccContactApi {
   decrypt(hcpartyId: string, ctcs: Array<models.Contact>): Promise<Array<models.Contact>> {
     return Promise.all(
       ctcs.map(async (ctc) => {
-        const keys = await this.crypto.entities.importAllValidKeys(await this.crypto.entities.encryptionKeysOf(ctc, 'Contact', hcpartyId))
+        const keys = await this.crypto.xapi.decryptAndImportAllDecryptionKeys({ entity: ctc, type: 'Contact' })
         if (!keys || !keys.length) {
           console.log('Cannot decrypt contact', ctc.id)
           return ctc
@@ -400,7 +418,7 @@ export class IccContactXApi extends IccContactApi {
         ctc.services = await this.decryptServices(hcpartyId, ctc.services || [], keys)
         if (ctc.encryptedSelf) {
           try {
-            const json = await this.crypto.entities.tryDecryptJson(keys, string2ua(a2b(ctc.encryptedSelf!)), false)
+            const json = await this.crypto.xapi.tryDecryptJson(keys, string2ua(a2b(ctc.encryptedSelf!)), false)
             if (json) {
               _.assign(ctc, json)
             } else {
@@ -416,15 +434,21 @@ export class IccContactXApi extends IccContactApi {
   }
 
   decryptServices(hcpartyId: string, svcs: Array<models.Service>, keys?: { key: CryptoKey; raw: string }[]): Promise<Array<models.Service>> {
+    const contactKeysCache: { [contactId: string]: { key: CryptoKey; raw: string }[] } = {}
     return Promise.all(
       svcs.map(async (svc) => {
-        if (!keys) {
-          keys = await this.crypto.entities.importAllValidKeys(await this.crypto.entities.encryptionKeysOf(svc, 'Service', hcpartyId))
+        let currentKeys = keys ?? (svc.contactId ? contactKeysCache[svc.contactId!] : undefined)
+        if (!currentKeys) {
+          const decryptedKeys = await this.crypto.xapi.decryptAndImportAllDecryptionKeys({ entity: svc, type: 'Contact' })
+          if (svc.contactId) {
+            contactKeysCache[svc.contactId!] = decryptedKeys
+          }
+          currentKeys = decryptedKeys
         }
 
         if (svc.encryptedContent) {
           try {
-            const json = await this.crypto.entities.tryDecryptJson(keys, string2ua(a2b(svc.encryptedContent!)), true)
+            const json = await this.crypto.xapi.tryDecryptJson(currentKeys, string2ua(a2b(svc.encryptedContent!)), true)
             if (json) {
               Object.assign(svc, { content: json })
             } else {
@@ -435,7 +459,7 @@ export class IccContactXApi extends IccContactApi {
           }
         } else if (svc.encryptedSelf) {
           try {
-            const json = await this.crypto.entities.tryDecryptJson(keys, string2ua(a2b(svc.encryptedSelf!)), true)
+            const json = await this.crypto.xapi.tryDecryptJson(currentKeys, string2ua(a2b(svc.encryptedSelf!)), true)
             if (json) {
               Object.assign(svc, json)
             } else {
@@ -898,5 +922,61 @@ export class IccContactXApi extends IccContactApi {
       },
     }
     return myself
+  }
+
+  /**
+   * @param contact a contact
+   * @return the id of the patient that the contact refers to, retrieved from the encrypted metadata. Normally there should only be one element
+   * in the returned array, but in case of entity merges there could be multiple values.
+   */
+  async decryptPatientIdOf(contact: models.Contact): Promise<string[]> {
+    return this.crypto.xapi.owningEntityIdsOf({ entity: contact, type: 'Contact' }, undefined)
+  }
+
+  /**
+   * @return if the logged data owner has write access to the content of the given contact
+   */
+  async hasWriteAccess(contact: models.Contact): Promise<boolean> {
+    return this.crypto.xapi.hasWriteAccess({ entity: contact, type: 'Contact' })
+  }
+
+  /**
+   * Share an existing contact with other data owners, allowing them to access the non-encrypted data of the contact and optionally also
+   * the encrypted content, with read-only or read-write permissions.
+   * @param delegateId the id of the data owner which will be granted access to the contact.
+   * @param contact the contact to share.
+   * @param requestedPermissions the requested permissions for the delegate.
+   * @param optionalParams optional parameters to customize the sharing behaviour:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * contact does not have encrypted content.
+   * - sharePatientId: specifies if the id of the patient that this contact refers to should be shared with the delegate (defaults to
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * @return a promise which will contain the result of the operation: the updated entity if the operation was successful or details of the error if
+   * the operation failed.
+   */
+  async shareWith(
+    delegateId: string,
+    contact: models.Contact,
+    requestedPermissions: RequestedPermissionEnum,
+    optionalParams: {
+      shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+    }
+  ): Promise<ShareResult<models.Contact>> {
+    // All entities should have an encryption key.
+    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(contact, 'Contact')
+    const updatedEntity = entityWithEncryptionKey
+      ? await this.modifyContactAs(await this.dataOwnerApi.getCurrentDataOwnerId(), entityWithEncryptionKey)
+      : contact
+    return this.crypto.xapi.simpleShareOrUpdateEncryptedEntityMetadata(
+      { entity: updatedEntity, type: 'Contact' },
+      delegateId,
+      optionalParams?.shareEncryptionKey,
+      optionalParams?.sharePatientId,
+      [],
+      requestedPermissions,
+      (x) => this.bulkShareContacts(x)
+    )
   }
 }

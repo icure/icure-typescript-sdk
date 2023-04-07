@@ -20,6 +20,9 @@ import { ListOfIds } from '../model/ListOfIds'
 import { PaginatedListHealthElement } from '../model/PaginatedListHealthElement'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
+import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
+import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
+import { MinimalEntityBulkShareResult } from '../model/requests/MinimalEntityBulkShareResult'
 
 export class IccHelementApi {
   host: string
@@ -280,6 +283,34 @@ export class IccHelementApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new HealthElement(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @internal this method is for internal use only and may be changed without notice
+   */
+  bulkShareHealthElements(request: {
+    [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
+  }): Promise<EntityBulkShareResult<HealthElement>[]> {
+    const _url = this.host + '/helement/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((x) => new EntityBulkShareResult<HealthElement>(x, HealthElement)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @internal this method is for internal use only and may be changed without notice
+   */
+  bulkShareHealthElementsMinimal(request: {
+    [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
+  }): Promise<MinimalEntityBulkShareResult[]> {
+    const _url = this.host + '/helement/bulkSharedMetadataUpdateMinimal' + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((x) => new MinimalEntityBulkShareResult(x)))
       .catch((err) => this.handleError(err))
   }
 }

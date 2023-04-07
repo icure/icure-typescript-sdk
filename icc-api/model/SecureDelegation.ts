@@ -48,9 +48,6 @@ export class SecureDelegation {
    * any data owner will always be allowed to use the methods to share the with other data owners, even if these method
    * require to modify the entity and the data owner has read-only permissions.
    * Delegations without any parents will always have full read-write permissions.
-   *
-   * In the future we plan to implement fine-grained permissions; for this purpose we may be change this field to have
-   * a polymorphic type or we may add additional fields.
    */
   permissions!: SecureDelegation.AccessLevelEnum
 }

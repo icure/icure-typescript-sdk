@@ -243,18 +243,18 @@ class ApiFactoryV7 implements ApiFactory {
         const healthdata = await apis.healthcareElementApi.getHealthElementWithUser(user, id)
         return {
           secretContent: healthdata.note!,
-          secretIds: await apis.cryptoApi.entities.secretIdsOf(healthdata),
-          owningEntityIds: await apis.cryptoApi.entities.owningEntityIdsOf(healthdata),
+          secretIds: await apis.cryptoApi.xapi.secretIdsOf(healthdata),
+          owningEntityIds: await apis.cryptoApi.xapi.owningEntityIdsOf(healthdata),
         }
       },
       shareEncryptedData: async (dataId, delegateId) => {
         const healthElement = await apis.healthcareElementApi.getHealthElementWithUser(user, dataId)
-        const encryptionKeys = await apis.cryptoApi.entities.encryptionKeysOf(healthElement)
-        const secretIds = await apis.cryptoApi.entities.secretIdsOf(healthElement)
-        const owningEntityIds = await apis.cryptoApi.entities.owningEntityIdsOf(healthElement)
+        const encryptionKeys = await apis.cryptoApi.xapi.encryptionKeysOf(healthElement)
+        const secretIds = await apis.cryptoApi.xapi.secretIdsOf(healthElement)
+        const owningEntityIds = await apis.cryptoApi.xapi.owningEntityIdsOf(healthElement)
         await apis.healthcareElementApi.modifyHealthElementWithUser(
           user,
-          await apis.cryptoApi.entities.entityWithExtendedEncryptedMetadata(healthElement, delegateId, secretIds, encryptionKeys, owningEntityIds)
+          await apis.cryptoApi.xapi.entityWithExtendedEncryptedMetadata(healthElement, delegateId, secretIds, encryptionKeys, owningEntityIds)
         )
       },
     }
@@ -273,7 +273,7 @@ describe('All apis versions', async function () {
   for (let legacyApiIndex = 0; legacyApiIndex < chronologicalApiFactories.length - 1; legacyApiIndex++) {
     const legacyApiFactory = chronologicalApiFactories[legacyApiIndex]
     const newApiFactories = chronologicalApiFactories.slice(legacyApiIndex + 1)
-    it(`should be able to read data from older apis without affecting accessibility for older apis - ${legacyApiFactory.version}`, async function () {
+    it(`should be able to read and share data from older apis without affecting accessibility for older apis - ${legacyApiFactory.version}`, async function () {
       const legacyMasterApi = await legacyApiFactory.masterApi(env)
       const legacyUserCredentials = await legacyMasterApi.createUser()
       const legacyUserApi = await legacyApiFactory.testApi(legacyUserCredentials)

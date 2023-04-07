@@ -7,6 +7,12 @@ import * as _ from 'lodash'
 import * as moment from 'moment'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import { SecureDelegation } from '../icc-api/model/SecureDelegation'
+import { ShareMetadataBehaviour } from './utils/ShareMetadataBehaviour'
+import { ShareResult } from './utils/ShareResult'
+import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
+import AccessLevelEnum = SecureDelegation.AccessLevelEnum
+import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 
 export class IccClassificationXApi extends IccClassificationApi {
   crypto: IccCryptoXApi
@@ -35,17 +41,22 @@ export class IccClassificationXApi extends IccClassificationApi {
    * @param patient the patient this classification refers to.
    * @param c initialised data for the classification. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
    * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
-   * @param delegates initial delegates which will have access to the classification other than the current data owner.
-   * @param preferredSfk secret id of the patient to use as the secret foreign key to use for the classification. The default value will be a secret
-   * id of patient known by the topmost parent in the current data owner hierarchy.
+   * @param optionalParams optional parameters:
+   * - additionalDelegates: delegates which will have access to the entity in addition to the current data owner and delegates from the
+   * auto-delegations. Must be an object which associates each data owner id with the access level to give to that data owner. May overlap with
+   * auto-delegations, in such case the access level specified here will be used.
+   * - preferredSfk: secret id of the patient to use as the secret foreign key to use for the classification. The default value will be a
+   * secret id of patient known by the topmost parent in the current data owner hierarchy.
    * @return a new instance of classification.
    */
   async newInstance(
     user: models.User,
     patient: models.Patient,
     c: any = {},
-    delegates: string[] = [],
-    preferredSfk?: string
+    optionalParams: {
+      additionalDelegates?: { [dataOwnerId: string]: AccessLevelEnum }
+      preferredSfk?: string
+    } = {}
   ): Promise<models.Classification> {
     const classification = _.assign(
       {
@@ -65,21 +76,80 @@ export class IccClassificationXApi extends IccClassificationApi {
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
-    const sfk = preferredSfk ?? (await this.crypto.confidential.getAnySecretIdSharedWithParents(patient))
+    const sfk = optionalParams?.preferredSfk ?? (await this.crypto.confidential.getAnySecretIdSharedWithParents({ entity: patient, type: 'Patient' }))
     if (!sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id}`)
-    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
+    const extraDelegations = {
+      ...Object.fromEntries(
+        [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])].map((d) => [d, AccessLevelEnum.WRITE])
+      ),
+      ...(optionalParams?.additionalDelegates ?? {}),
+    }
     return new models.Classification(
-      await this.crypto.entities
-        .entityWithInitialisedEncryptedMetadata(classification, patient?.id, sfk, true, extraDelegations)
+      await this.crypto.xapi
+        .entityWithInitialisedEncryptedMetadata(classification, 'Classification', patient?.id, sfk, true, false, extraDelegations)
         .then((x) => x.updatedEntity)
     )
   }
 
   async findBy(hcpartyId: string, patient: models.Patient) {
-    const extractedKeys = await this.crypto.entities.secretIdsOf(patient, 'Patient', hcpartyId)
+    const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: 'Patient' }, hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     return extractedKeys && extractedKeys.length > 0
       ? this.findClassificationsByHCPartyPatientForeignKeys(topmostParentId, _.uniq(extractedKeys).join(','))
       : Promise.resolve([])
+  }
+
+  /**
+   * @param classification a classification
+   * @return the id of the patient that the classification refers to, retrieved from the encrypted metadata. Normally there should only be one element
+   * in the returned array, but in case of entity merges there could be multiple values.
+   */
+  async decryptPatientIdOf(classification: models.Classification): Promise<string[]> {
+    return this.crypto.xapi.owningEntityIdsOf({ entity: classification, type: 'Classification' }, undefined)
+  }
+
+  /**
+   * @return if the logged data owner has write access to the content of the given classification
+   */
+  async hasWriteAccess(classification: models.Classification): Promise<boolean> {
+    return this.crypto.xapi.hasWriteAccess({ entity: classification, type: 'Classification' })
+  }
+
+  /**
+   * Share an existing classification with other data owners, allowing them to access the non-encrypted data of the classification and optionally also
+   * the encrypted content, with read-only or read-write permissions.
+   * @param delegateId the id of the data owner which will be granted access to the classification.
+   * @param classification the classification to share.
+   * @param requestedPermissions the requested permissions for the delegate.
+   * @param optionalParams optional parameters to customize the sharing behaviour:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * classification does not have encrypted content.
+   * - sharePatientId: specifies if the id of the patient that this classification refers to should be shared with the delegate (defaults to
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * @return a promise which will contain the result of the operation: the updated entity if the operation was successful or details of the error if
+   * the operation failed.
+   */
+  async shareWith(
+    delegateId: string,
+    classification: models.Classification,
+    requestedPermissions: RequestedPermissionEnum,
+    optionalParams: {
+      shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+    }
+  ): Promise<ShareResult<models.Classification>> {
+    // All entities should have an encryption key.
+    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(classification, 'Classification')
+    const updatedEntity = entityWithEncryptionKey ? await this.modifyClassification(entityWithEncryptionKey) : classification
+    return this.crypto.xapi.simpleShareOrUpdateEncryptedEntityMetadata(
+      { entity: updatedEntity, type: 'Classification' },
+      delegateId,
+      optionalParams?.shareEncryptionKey,
+      optionalParams?.sharePatientId,
+      [],
+      requestedPermissions,
+      (x) => this.bulkShareClassifications(x)
+    )
   }
 }

@@ -5,6 +5,7 @@ import { EncryptedEntityWithType } from '../utils/EntityWithDelegationTypeName'
 import { ExchangeData } from '../../icc-api/model/ExchangeData'
 import { SecureDelegationsEncryption } from './SecureDelegationsEncryption'
 import AccessLevel = SecureDelegation.AccessLevelEnum
+import { EncryptedEntity, EncryptedEntityStub } from '../../icc-api/model/models'
 
 type DelegationDecryptionDetails = {
   delegation: SecureDelegation
@@ -51,7 +52,11 @@ export class SecureDelegationsSecurityMetadataDecryptor implements SecurityMetad
     )
   }
 
-  async getFullEntityAccessLevel(typedEntity: EncryptedEntityWithType, dataOwnersHierarchySubset: string[]): Promise<AccessLevel | undefined> {
+  hasAnyEncryptionKeys(entity: EncryptedEntity | EncryptedEntityStub): boolean {
+    return Object.values(entity.securityMetadata?.secureDelegations ?? {}).some((d) => d.encryptionKeys?.length)
+  }
+
+  async getEntityAccessLevel(typedEntity: EncryptedEntityWithType, dataOwnersHierarchySubset: string[]): Promise<AccessLevel | undefined> {
     if (!dataOwnersHierarchySubset.length) throw new Error("`dataOwnersHierarchySubset` can't be empty")
     // All delegations are either accessible directly or through a hash/access control key. There is no "mixed scenario" possible
     let accessibleDelegations: SecureDelegation[] = Object.values(typedEntity.entity.securityMetadata?.secureDelegations ?? {}).filter(

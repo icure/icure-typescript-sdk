@@ -8,7 +8,7 @@ export class EntityShareRequest {
     owningEntityIds?: string[]
     exchangeDataId?: string
     encryptedExchangeDataId?: { [fp: string]: string }
-    requestedPermissions?: EntityShareRequest.RequestedPermissionEnum
+    requestedPermissions?: EntityShareRequest.RequestedPermissionInternal
   }) {
     if (!params.accessControlHashes.length) throw new Error('Access control hashes should not be empty')
     this.explicitDelegator = params.explicitDelegator
@@ -19,7 +19,7 @@ export class EntityShareRequest {
     this.owningEntityIds = params.owningEntityIds
     this.exchangeDataId = params.exchangeDataId
     this.encryptedExchangeDataId = params.encryptedExchangeDataId
-    this.requestedPermissions = params.requestedPermissions ?? EntityShareRequest.RequestedPermissionEnum.MAX_WRITE
+    this.requestedPermissions = params.requestedPermissions ?? EntityShareRequest.RequestedPermissionInternal.MAX_WRITE
   }
 
   /**
@@ -62,27 +62,19 @@ export class EntityShareRequest {
   /**
    * Permissions requested for the delegate.
    */
-  requestedPermissions: EntityShareRequest.RequestedPermissionEnum
+  requestedPermissions: EntityShareRequest.RequestedPermissionInternal
 }
 
 export namespace EntityShareRequest {
   /**
    * Strategy to use for the calculation of permissions for the new [SecureDelegation.permissions]
    */
-  export type RequestedPermissionEnum = 'MAX_READ' | 'FULL_READ' | 'MAX_WRITE' | 'FULL_WRITE' | 'ROOT'
+  export type RequestedPermissionEnum = 'FULL_READ' | 'MAX_WRITE' | 'FULL_WRITE'
   export const RequestedPermissionEnum = {
     /**
-     * The new secure delegation will give maximum access to the delegate, depending on the rights of the delegator.
-     * This is currently equivalent to [FULL_READ], but with the introduction of fine-grained access control this
-     * would behave more similar to [FULL_WRITE].
-     */
-    MAX_READ: 'MAX_READ' as RequestedPermissionEnum,
-
-    /**
-     * The new secure delegation will give full-read access to the delegate.
-     *
-     * With the introduction of fine-grained access control a user may have limited read access to an entity, and
-     * in such case the request would fail (similarly to [FULL_WRITE]).
+     * The new secure delegation will give full-read access to the delegate. If in future iCure is going to support
+     * fine-grained access control a user may have limited read access to an entity, and in such case the request
+     * would fail (similarly to [FULL_WRITE]).
      */
     FULL_READ: 'FULL_READ' as RequestedPermissionEnum,
 
@@ -98,7 +90,15 @@ export namespace EntityShareRequest {
      * full-write access to the entity the request will fail.
      */
     FULL_WRITE: 'FULL_WRITE' as RequestedPermissionEnum,
+  }
 
+  /**
+   * @internal this type is for internal use only and may be changed without notice.
+   * Additional values for requested permissions which are used automatically by the extended apis and should not
+   * be used directly by the user.
+   */
+  export type RequestedPermissionInternal = 'ROOT' | RequestedPermissionEnum
+  export const RequestedPermissionInternal = {
     /**
      * Request to create a root delegation on the entity. Usually new entities are created with a root delegation
      * for the creator data owner and no other data owners will be able to obtain root permissions, but there are
@@ -114,6 +114,9 @@ export namespace EntityShareRequest {
      * on any other delegation: this means that no data owners except for the data owners with the root permission
      * can revoke it.
      */
-    ROOT: 'ROOT' as RequestedPermissionEnum,
+    ROOT: 'ROOT' as RequestedPermissionInternal,
+    FULL_READ: RequestedPermissionEnum.FULL_READ as RequestedPermissionInternal,
+    MAX_WRITE: RequestedPermissionEnum.MAX_WRITE as RequestedPermissionInternal,
+    FULL_WRITE: RequestedPermissionEnum.FULL_WRITE as RequestedPermissionInternal,
   }
 }

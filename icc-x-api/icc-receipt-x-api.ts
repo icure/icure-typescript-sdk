@@ -4,6 +4,12 @@ import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import { ShareMetadataBehaviour } from './utils/ShareMetadataBehaviour'
+import { ShareResult } from './utils/ShareResult'
+import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
+import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
+import { SecureDelegation } from '../icc-api/model/SecureDelegation'
+import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 
 export class IccReceiptXApi extends IccReceiptApi {
   dataOwnerApi: IccDataOwnerXApi
@@ -29,14 +35,23 @@ export class IccReceiptXApi extends IccReceiptApi {
    * @param user the current user.
    * @param r initialised data for the receipt. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
    * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
-   * @param delegates initial delegates which will have access to the receipt other than the current data owner.
+   * @param optionalParams optional parameters:
+   * - additionalDelegates: delegates which will have access to the entity in addition to the current data owner and delegates from the
+   * auto-delegations. Must be an object which associates each data owner id with the access level to give to that data owner. May overlap with
+   * auto-delegations, in such case the access level specified here will be used.
    * @return a new instance of receipt.
    */
-  async newInstance(user: models.User, r: any, delegates: string[] = []): Promise<models.Receipt> {
+  async newInstance(
+    user: models.User,
+    r: any,
+    optionalParams: {
+      additionalDelegates?: { [dataOwnerId: string]: AccessLevelEnum }
+    } = {}
+  ): Promise<models.Receipt> {
     const receipt = new models.Receipt(
       _.extend(
         {
-          id: this.crypto.randomUuid(),
+          id: this.crypto.primitives.randomUuid(),
           _type: 'org.taktik.icure.entities.Receipt',
           created: new Date().getTime(),
           modified: new Date().getTime(),
@@ -49,10 +64,15 @@ export class IccReceiptXApi extends IccReceiptApi {
       )
     )
 
-    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
+    const extraDelegations = {
+      ...Object.fromEntries(
+        [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])].map((d) => [d, AccessLevelEnum.WRITE])
+      ),
+      ...(optionalParams?.additionalDelegates ?? {}),
+    }
     return new models.Receipt(
-      await this.crypto.entities
-        .entityWithInitialisedEncryptedMetadata(receipt, undefined, undefined, true, extraDelegations)
+      await this.crypto.xapi
+        .entityWithInitialisedEncryptedMetadata(receipt, 'Receipt', undefined, undefined, true, false, extraDelegations)
         .then((x) => x.updatedEntity)
     )
   }
@@ -71,7 +91,7 @@ export class IccReceiptXApi extends IccReceiptApi {
    * @return the updated receipt.
    */
   async encryptAndSetReceiptAttachment(receipt: models.Receipt, blobType: string, attachment: ArrayBuffer | Uint8Array): Promise<models.Receipt> {
-    const encryptedData = await this.crypto.entities.encryptDataOf(receipt, attachment, 'Receipt')
+    const encryptedData = await this.crypto.xapi.encryptDataOf({ entity: receipt, type: 'Receipt' }, attachment)
     return await this.setReceiptAttachmentForBlobType(receipt.id!, receipt.rev!, blobType, encryptedData)
   }
 
@@ -88,8 +108,52 @@ export class IccReceiptXApi extends IccReceiptApi {
     attachmentId: string,
     validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<ArrayBuffer> {
-    return await this.crypto.entities.decryptDataOf(receipt, await this.getReceiptAttachment(receipt.id!, attachmentId), 'Receipt', (x) =>
-      validator(x)
+    return await this.crypto.xapi.decryptDataOf(
+      { entity: receipt, type: 'Receipt' },
+      await this.getReceiptAttachment(receipt.id!, attachmentId),
+      (x) => validator(x)
+    )
+  }
+
+  /**
+   * @return if the logged data owner has write access to the content of the given classification
+   */
+  async hasWriteAccess(classification: models.Classification): Promise<boolean> {
+    return this.crypto.xapi.hasWriteAccess({ entity: classification, type: 'Classification' })
+  }
+
+  /**
+   * Share an existing classification with other data owners, allowing them to access the non-encrypted data of the classification and optionally also
+   * the encrypted content, with read-only or read-write permissions.
+   * @param delegateId the id of the data owner which will be granted access to the classification.
+   * @param classification the classification to share.
+   * @param requestedPermissions the requested permissions for the delegate.
+   * @param optionalParams optional parameters to customize the sharing behaviour:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * classification does not have encrypted content.
+   * @return a promise which will contain the result of the operation: the updated entity if the operation was successful or details of the error if
+   * the operation failed.
+   */
+  async shareWith(
+    delegateId: string,
+    classification: models.Classification,
+    requestedPermissions: RequestedPermissionEnum,
+    optionalParams: {
+      shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+    }
+  ): Promise<ShareResult<models.Classification>> {
+    // All entities should have an encryption key.
+    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(classification, 'Receipt')
+    const updatedEntity = entityWithEncryptionKey ? await this.modifyReceipt(entityWithEncryptionKey) : classification
+    return this.crypto.xapi.simpleShareOrUpdateEncryptedEntityMetadata(
+      { entity: updatedEntity, type: 'Classification' },
+      delegateId,
+      optionalParams?.shareEncryptionKey,
+      undefined,
+      [],
+      requestedPermissions,
+      (x) => this.bulkShareReceipt(x)
     )
   }
 }

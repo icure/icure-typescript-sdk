@@ -58,11 +58,11 @@ const facades: EntityFacades = {
       const ownerId = api.dataOwnerApi.getDataOwnerIdOf(user)
       return api.patientApi.modifyPatientWithUser(
         await api.userApi.getCurrentUser(),
-        await api.cryptoApi.entities.entityWithExtendedEncryptedMetadata(
+        await api.cryptoApi.xapi.entityWithExtendedEncryptedMetadata(
           r,
           doId,
-          await api.cryptoApi.entities.secretIdsOf(r),
-          await api.cryptoApi.entities.encryptionKeysOf(r),
+          await api.cryptoApi.xapi.secretIdsOf(r),
+          await api.cryptoApi.xapi.encryptionKeysOf(r),
           p ? [p.id!] : []
         )
       )
@@ -79,11 +79,11 @@ const facades: EntityFacades = {
       const ownerId = api.dataOwnerApi.getDataOwnerIdOf(user)
       return api.contactApi.modifyContactWithUser(
         await api.userApi.getCurrentUser(),
-        await api.cryptoApi.entities.entityWithExtendedEncryptedMetadata(
+        await api.cryptoApi.xapi.entityWithExtendedEncryptedMetadata(
           r,
           doId,
-          await api.cryptoApi.entities.secretIdsOf(r),
-          await api.cryptoApi.entities.encryptionKeysOf(r),
+          await api.cryptoApi.xapi.secretIdsOf(r),
+          await api.cryptoApi.xapi.encryptionKeysOf(r),
           p ? [p.id!] : []
         )
       )
@@ -100,11 +100,11 @@ const facades: EntityFacades = {
       const ownerId = api.dataOwnerApi.getDataOwnerIdOf(user)
       return api.healthcareElementApi.modifyHealthElementWithUser(
         await api.userApi.getCurrentUser(),
-        await api.cryptoApi.entities.entityWithExtendedEncryptedMetadata(
+        await api.cryptoApi.xapi.entityWithExtendedEncryptedMetadata(
           r,
           doId,
-          await api.cryptoApi.entities.secretIdsOf(r),
-          await api.cryptoApi.entities.encryptionKeysOf(r),
+          await api.cryptoApi.xapi.secretIdsOf(r),
+          await api.cryptoApi.xapi.encryptionKeysOf(r),
           p ? [p.id!] : []
         )
       )
@@ -121,11 +121,11 @@ const facades: EntityFacades = {
       const ownerId = api.dataOwnerApi.getDataOwnerIdOf(user)
       return api.calendarItemApi.modifyCalendarItemWithHcParty(
         await api.userApi.getCurrentUser(),
-        await api.cryptoApi.entities.entityWithExtendedEncryptedMetadata(
+        await api.cryptoApi.xapi.entityWithExtendedEncryptedMetadata(
           r,
           doId,
-          await api.cryptoApi.entities.secretIdsOf(r),
-          await api.cryptoApi.entities.encryptionKeysOf(r),
+          await api.cryptoApi.xapi.secretIdsOf(r),
+          await api.cryptoApi.xapi.encryptionKeysOf(r),
           p ? [p.id!] : []
         )
       )
@@ -299,11 +299,11 @@ async function createPartialsForPatient(
   const pat = await patientCreatorApis.patientApi.getPatientWithUser(patientCreatorUser, user.patientId!)
   await patientCreatorApis.patientApi.modifyPatientWithUser(
     patientCreatorUser,
-    await patientCreatorApis.cryptoApi.entities.entityWithExtendedEncryptedMetadata(
+    await patientCreatorApis.cryptoApi.xapi.entityWithExtendedEncryptedMetadata(
       pat,
       user.patientId!,
-      await patientCreatorApis.cryptoApi.entities.secretIdsOf(pat),
-      await patientCreatorApis.cryptoApi.entities.encryptionKeysOf(pat),
+      await patientCreatorApis.cryptoApi.xapi.secretIdsOf(pat),
+      await patientCreatorApis.cryptoApi.xapi.encryptionKeysOf(pat),
       []
     )
   )

@@ -8,6 +8,12 @@ import * as models from '../icc-api/model/models'
 import { a2b, hex2ua, string2ua, ua2string } from './utils/binary-utils'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import { SecureDelegation } from '../icc-api/model/SecureDelegation'
+import AccessLevelEnum = SecureDelegation.AccessLevelEnum
+import { ShareMetadataBehaviour } from './utils/ShareMetadataBehaviour'
+import { ShareResult } from './utils/ShareResult'
+import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
+import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 
 // noinspection JSUnusedGlobalSymbols
 export class IccDocumentXApi extends IccDocumentApi {
@@ -570,12 +576,23 @@ export class IccDocumentXApi extends IccDocumentApi {
    * @param message the message this document refers to.
    * @param c initialised data for the document. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
    * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
-   * @param delegates initial delegates which will have access to the document other than the current data owner.
-   * @param preferredSfk secret id of the message to use as the secret foreign key to use for the document. The default value will be a secret
-   * id of message known by the topmost parent in the current data owner hierarchy.
+   * @param optionalParams optional parameters:
+   * - additionalDelegates: delegates which will have access to the entity in addition to the current data owner and delegates from the
+   * auto-delegations. Must be an object which associates each data owner id with the access level to give to that data owner. May overlap with
+   * auto-delegations, in such case the access level specified here will be used.
+   * - preferredSfk: secret id of the message to use as the secret foreign key to use for the document. The default value will be a
+   * secret id of the message known by the topmost parent in the current data owner hierarchy.
    * @return a new instance of document.
    */
-  async newInstance(user: models.User, message?: models.Message, c: any = {}, delegates?: string[], preferredSfk?: string) {
+  async newInstance(
+    user: models.User,
+    message?: models.Message,
+    c: any = {},
+    optionalParams: {
+      additionalDelegates?: { [dataOwnerId: string]: AccessLevelEnum }
+      preferredSfk?: string
+    } = {}
+  ) {
     const document = _.extend(
       {
         id: this.crypto.primitives.randomUuid(),
@@ -592,19 +609,26 @@ export class IccDocumentXApi extends IccDocumentApi {
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
-    const sfk = message ? preferredSfk ?? (await this.crypto.confidential.getAnySecretIdSharedWithParents(message)) : undefined
+    const sfk = message
+      ? optionalParams.preferredSfk ?? (await this.crypto.confidential.getAnySecretIdSharedWithParents({ entity: message, type: 'Message' }))
+      : undefined
     if (message && !sfk) throw new Error(`Couldn't find any sfk of parent message ${message.id}`)
-    const extraDelegations = [...(delegates ?? []), ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
+    const extraDelegations = {
+      ...Object.fromEntries(
+        [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])].map((d) => [d, AccessLevelEnum.WRITE])
+      ),
+      ...(optionalParams?.additionalDelegates ?? {}),
+    }
     return new models.Document(
-      await this.crypto.entities
-        .entityWithInitialisedEncryptedMetadata(document, message?.id, sfk, true, extraDelegations)
+      await this.crypto.xapi
+        .entityWithInitialisedEncryptedMetadata(document, 'Document', message?.id, sfk, true, false, extraDelegations)
         .then((x) => x.updatedEntity)
     )
   }
 
   // noinspection JSUnusedGlobalSymbols
   async findByMessage(hcpartyId: string, message: models.Message) {
-    const extractedKeys = await this.crypto.entities.secretIdsOf(message, 'Message', hcpartyId)
+    const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: message, type: 'Message' }, hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     let documents: Array<models.Document> = await this.findDocumentsByHCPartyPatientForeignKeys(topmostParentId, _.uniq(extractedKeys).join(','))
     return await this.decrypt(hcpartyId, documents)
@@ -614,55 +638,46 @@ export class IccDocumentXApi extends IccDocumentApi {
   decrypt(hcpartyId: string, documents: Array<models.Document>): Promise<Array<models.Document>> {
     return Promise.all(
       documents.map((document) =>
-        this.crypto
-          .extractKeysFromDelegationsForHcpHierarchy(
-            hcpartyId,
-            document.id!,
-            _.size(document.encryptionKeys) ? document.encryptionKeys! : document.delegations!
-          )
-          .then(({ extractedKeys: sfks }) => {
-            if (!sfks || !sfks.length) {
-              console.log('Cannot decrypt document', document.id)
-              return Promise.resolve(document)
-            }
+        this.crypto.xapi.decryptAndImportAllDecryptionKeys({ entity: document, type: 'Document' }).then((keys) => {
+          if (!keys.length) {
+            console.log('Cannot decrypt document', document.id)
+            return Promise.resolve(document)
+          }
 
-            if (sfks.length && (document.encryptedSelf || document.encryptedAttachment)) {
-              return this.crypto.AES.importKey('raw', hex2ua(sfks[0].replace(/-/g, '')))
-                .then((key: CryptoKey) =>
-                  Promise.all([
-                    document.encryptedSelf
-                      ? new Promise((resolve: (value: ArrayBuffer | null) => any) => {
-                          this.crypto.AES.decrypt(key, string2ua(a2b(document.encryptedSelf!))).then(resolve, () => {
-                            console.log('Cannot decrypt document', document.id)
-                            resolve(null)
-                          })
-                        })
-                      : Promise.resolve(null),
-                    document.encryptedAttachment
-                      ? new Promise((resolve: (value: ArrayBuffer | null) => any) => {
-                          this.crypto.AES.decrypt(key, document.encryptedAttachment!).then(resolve, () => {
-                            console.log('Cannot decrypt document', document.id)
-                            resolve(null)
-                          })
-                        })
-                      : Promise.resolve(null),
-                  ])
-                )
-                .then((decrypted: [ArrayBuffer | null, ArrayBuffer | null]) => {
-                  if (decrypted) {
-                    if (decrypted[0]) {
-                      document = _.extend(document, JSON.parse(ua2string(decrypted[0])))
-                    }
-                    if (decrypted[1]) {
-                      document.decryptedAttachment = decrypted[1]
-                    }
-                  }
-                  return document
-                })
-            } else {
-              return Promise.resolve(document)
-            }
-          })
+          if (keys.length && (document.encryptedSelf || document.encryptedAttachment)) {
+            const key = keys[0].key
+            return Promise.all([
+              document.encryptedSelf
+                ? new Promise((resolve: (value: ArrayBuffer | null) => any) => {
+                    this.crypto.primitives.AES.decrypt(key, string2ua(a2b(document.encryptedSelf!))).then(resolve, () => {
+                      console.log('Cannot decrypt document', document.id)
+                      resolve(null)
+                    })
+                  })
+                : Promise.resolve(null),
+              document.encryptedAttachment
+                ? new Promise((resolve: (value: ArrayBuffer | null) => any) => {
+                    this.crypto.primitives.AES.decrypt(key, document.encryptedAttachment!).then(resolve, () => {
+                      console.log('Cannot decrypt document', document.id)
+                      resolve(null)
+                    })
+                  })
+                : Promise.resolve(null),
+            ]).then((decrypted: [ArrayBuffer | null, ArrayBuffer | null]) => {
+              if (decrypted) {
+                if (decrypted[0]) {
+                  document = _.extend(document, JSON.parse(ua2string(decrypted[0])))
+                }
+                if (decrypted[1]) {
+                  document.decryptedAttachment = decrypted[1]
+                }
+              }
+              return document
+            })
+          } else {
+            return Promise.resolve(document)
+          }
+        })
       )
     ).catch(function (e: Error) {
       console.log(e)
@@ -725,7 +740,7 @@ export class IccDocumentXApi extends IccDocumentApi {
    * @return the updated document.
    */
   async encryptAndSetDocumentAttachment(document: models.Document, attachment: ArrayBuffer | Uint8Array): Promise<models.Document> {
-    const encryptedData = await this.crypto.entities.encryptDataOf(document, attachment, 'Document')
+    const encryptedData = await this.crypto.xapi.encryptDataOf({ entity: document, type: 'Document' }, attachment)
     const rev = document.rev
     if (!rev) throw new Error('Cannot set attachment on document without rev')
     return await this.setMainDocumentAttachment(document.id!, rev, encryptedData)
@@ -743,7 +758,7 @@ export class IccDocumentXApi extends IccDocumentApi {
     secondaryAttachmentKey: string,
     attachment: ArrayBuffer | Uint8Array
   ): Promise<models.Document> {
-    const encryptedData = await this.crypto.entities.encryptDataOf(document, attachment, 'Document')
+    const encryptedData = await this.crypto.xapi.encryptDataOf({ entity: document, type: 'Document' }, attachment)
     return await this.setSecondaryAttachment(document.id!, secondaryAttachmentKey, document.rev!, encryptedData)
   }
 
@@ -758,7 +773,9 @@ export class IccDocumentXApi extends IccDocumentApi {
     document: models.Document,
     validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<ArrayBuffer> {
-    return await this.crypto.entities.decryptDataOf(document, await this.getMainDocumentAttachment(document.id!), 'Document', (x) => validator(x))
+    return await this.crypto.xapi.decryptDataOf({ entity: document, type: 'Document' }, await this.getMainDocumentAttachment(document.id!), (x) =>
+      validator(x)
+    )
   }
 
   /**
@@ -774,11 +791,63 @@ export class IccDocumentXApi extends IccDocumentApi {
     secondaryAttachmentKey: string,
     validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<ArrayBuffer> {
-    return await this.crypto.entities.decryptDataOf(
-      document,
+    return await this.crypto.xapi.decryptDataOf(
+      { entity: document, type: 'Document' },
       await this.getSecondaryAttachment(document.id!, secondaryAttachmentKey),
-      'Document',
       (x) => validator(x)
+    )
+  }
+
+  /**
+   * @param document a document
+   * @return the id of the message that the document refers to, retrieved from the encrypted metadata. Normally there should only be one element
+   * in the returned array, but in case of entity merges there could be multiple values.
+   */
+  async decryptMessageIdOf(document: models.Document): Promise<string[]> {
+    return this.crypto.xapi.owningEntityIdsOf({ entity: document, type: 'Document' }, undefined)
+  }
+
+  /**
+   * @return if the logged data owner has write access to the content of the given document
+   */
+  async hasWriteAccess(document: models.Document): Promise<boolean> {
+    return this.crypto.xapi.hasWriteAccess({ entity: document, type: 'Document' })
+  }
+
+  /**
+   * Share an existing document with other data owners, allowing them to access the non-encrypted data of the document and optionally also
+   * the encrypted content, with read-only or read-write permissions.
+   * @param delegateId the id of the data owner which will be granted access to the document.
+   * @param document the document to share.
+   * @param requestedPermissions the requested permissions for the delegate.
+   * @param optionalParams optional parameters to customize the sharing behaviour:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * - shareMessageId: specifies if the id of the message that this document refers to should be shared with the delegate (defaults to
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * @return a promise which will contain the result of the operation: the updated entity if the operation was successful or details of the error if
+   * the operation failed.
+   */
+  async shareWith(
+    delegateId: string,
+    document: models.Document,
+    requestedPermissions: RequestedPermissionEnum,
+    optionalParams: {
+      shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      shareMessageId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+    }
+  ): Promise<ShareResult<models.Document>> {
+    // All entities should have an encryption key.
+    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(document, 'Document')
+    const updatedEntity = entityWithEncryptionKey ? await this.modifyDocument(entityWithEncryptionKey) : document
+    return this.crypto.xapi.simpleShareOrUpdateEncryptedEntityMetadata(
+      { entity: updatedEntity, type: 'Document' },
+      delegateId,
+      optionalParams?.shareEncryptionKey,
+      optionalParams?.shareMessageId,
+      [],
+      requestedPermissions,
+      (x) => this.bulkShareDocument(x)
     )
   }
 }

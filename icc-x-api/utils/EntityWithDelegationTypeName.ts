@@ -17,7 +17,6 @@ export const entityWithDelegationTypeNames: Set<EntityWithDelegationTypeName> = 
   'Message',
   'Patient',
   'Receipt',
-  'Service',
   'TimeTable',
 ])
 
@@ -35,7 +34,6 @@ export type EntityWithDelegationTypeName =
   | 'Message'
   | 'Patient'
   | 'Receipt'
-  | 'Service'
   | 'TimeTable'
 /**
  * Type containing information on an entity and its type. If the entity is a stub (EncryptedEntityStub or IcureStub) the type should refer to the
