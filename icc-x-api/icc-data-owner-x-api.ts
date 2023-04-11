@@ -25,7 +25,7 @@ export type DataOwner = Patient | Device | HealthcareParty
 /**
  * Represents any data owner enriched with type information.
  */
-export type DataOwnerWithType = { type: DataOwnerTypeEnum; dataOwner: DataOwner } & 'asd'
+export type DataOwnerWithType = { type: DataOwnerTypeEnum; dataOwner: DataOwner }
 
 export class IccDataOwnerXApi {
   private readonly userBaseApi: IccUserApi
@@ -79,8 +79,8 @@ export class IccDataOwnerXApi {
 
   /**
    * Get the hierarchy for the current data owner starting from the specified parent.
-   * @throws an array starting at the topmost parent and ending at the provided parent id. If the provided id is not part of the hierarchy throws an
-   * error.
+   * @return an array starting at the topmost parent and ending at the provided parent id.
+   * @throws if the provided id is not part of the hierarchy.
    */
   async getCurrentDataOwnerHierarchyIdsFrom(parentId: string): Promise<string[]> {
     if (!this.currentDataOwnerHierarchyIds) {

@@ -155,5 +155,4 @@ export class Service {
    */
   encryptedSelf?: string
   securityMetadata?: SecurityMetadata
-  readonly _type?: EntityWithDelegationTypeName = 'Service'
 }

@@ -59,6 +59,8 @@ import { UserSignatureKeysManager } from './crypto/UserSignatureKeysManager'
 import { AccessControlSecretUtils } from './crypto/AccessControlSecretUtils'
 import { SecureDelegationsEncryption } from './crypto/SecureDelegationsEncryption'
 import { LegacyDelegationSecurityMetadataDecryptor } from './crypto/LegacyDelegationSecurityMetadataDecryptor'
+import { ExtendedApisUtilsImpl } from './crypto/ExtendedApisUtilsImpl'
+import { SecureDelegationsManager } from './crypto/SecureDelegationsManager'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -199,40 +201,50 @@ export const Api = async function (
   )
   const accessControlSecretUtils = new AccessControlSecretUtils(cryptoPrimitives)
   const baseExchangeDataManager = new BaseExchangeDataManager(exchangeDataApi, dataOwnerApi, cryptoPrimitives, params.cryptoStrategies)
-  // const exchangeDataManager = await initialiseExchangeDataManagerForCurrentDataOwner(
-  //   baseExchangeDataManager,
-  //   userEncryptionKeysManager,
-  //   userSignatureKeysManager,
-  //   accessControlSecretUtils,
-  //   params.cryptoStrategies,
-  //   dataOwnerApi,
-  //   cryptoPrimitives
-  // )
+  const exchangeDataManager = await initialiseExchangeDataManagerForCurrentDataOwner(
+    baseExchangeDataManager,
+    userEncryptionKeysManager,
+    userSignatureKeysManager,
+    accessControlSecretUtils,
+    params.cryptoStrategies,
+    dataOwnerApi,
+    cryptoPrimitives
+  )
   const secureDelegationsEncryption = new SecureDelegationsEncryption(userEncryptionKeysManager, cryptoPrimitives)
-  const entitiesEncryption = new ExtendedApisUtils(
+  const xApiUtils = new ExtendedApisUtilsImpl(
     cryptoPrimitives,
     dataOwnerApi,
     exchangeKeysManager,
-    new SecurityMetadataDecryptorChain([
-      // new SecureDelegationsSecurityMetadataDecryptor(exchangeDataManager, secureDelegationsUtils),
-      new LegacyDelegationSecurityMetadataDecryptor(exchangeKeysManager, cryptoPrimitives),
-    ])
+    new LegacyDelegationSecurityMetadataDecryptor(exchangeKeysManager, cryptoPrimitives),
+    new SecureDelegationsSecurityMetadataDecryptor(exchangeDataManager, secureDelegationsEncryption),
+    new SecureDelegationsManager(
+      exchangeDataManager,
+      secureDelegationsEncryption,
+      accessControlSecretUtils,
+      userEncryptionKeysManager,
+      cryptoPrimitives,
+      dataOwnerApi,
+      params.cryptoStrategies,
+      params.cryptoStrategies.dataOwnerRequiresAnonymousDelegation(await dataOwnerApi.getCurrentDataOwner())
+    ),
+    userApi
   )
   const shamirManager = new ShamirKeysManager(cryptoPrimitives, dataOwnerApi, userEncryptionKeysManager, exchangeKeysManager)
-  const confidentialEntitites = new ConfidentialEntities(entitiesEncryption, cryptoPrimitives, dataOwnerApi)
-  await ensureDelegationForSelf(dataOwnerApi, entitiesEncryption, cryptoPrimitives)
+  const confidentialEntitites = new ConfidentialEntities(xApiUtils, cryptoPrimitives, dataOwnerApi)
+  await ensureDelegationForSelf(dataOwnerApi, xApiUtils, basePatientApi, cryptoPrimitives)
   const cryptoApi = new IccCryptoXApi(
     exchangeKeysManager,
     cryptoPrimitives,
     userEncryptionKeysManager,
     dataOwnerApi,
-    entitiesEncryption,
+    xApiUtils,
     shamirManager,
     storage,
     keyStorage,
     icureStorage,
     healthcarePartyApi,
-    confidentialEntitites
+    confidentialEntitites,
+    exchangeDataManager
   )
   const accessLogApi = new IccAccesslogXApi(host, headers, cryptoApi, dataOwnerApi, authenticationProvider, fetchImpl)
   const agendaApi = new IccAgendaApi(host, headers, authenticationProvider, fetchImpl)
