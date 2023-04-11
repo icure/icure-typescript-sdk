@@ -11,6 +11,13 @@ import { CryptoPrimitives } from './CryptoPrimitives'
 import { Delegation, EncryptedEntityStub } from '../../icc-api/model/models'
 import { setEquals } from '../utils/collection-utils'
 import { SecurityMetadata } from '../../icc-api/model/SecurityMetadata'
+import { EncryptedEntityWithType } from '../utils/EntityWithDelegationTypeName'
+import { IccPatientApi } from '../../icc-api'
+import { ShareMetadataBehaviour } from '../utils/ShareMetadataBehaviour'
+import { SecureDelegation } from '../../dist/icc-api/model/SecureDelegation'
+import AccessLevel = SecureDelegation.AccessLevel
+import { EntityShareRequest } from '../../icc-api/model/requests/EntityShareRequest'
+import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 
 /**
  * @internal this function is meant only for internal use and may be changed without notice.
@@ -79,28 +86,34 @@ export async function loadPublicKeys(rsa: RSAUtils, publicKeysSpkiHex: string[])
  */
 export async function ensureDelegationForSelf(
   dataOwnerApi: IccDataOwnerXApi,
-  entitiesEncryption: ExtendedApisUtils,
+  xapi: ExtendedApisUtils,
+  patientApi: IccPatientApi,
   cryptoPrimitives: CryptoPrimitives
 ): Promise<DataOwnerWithType> {
   const self = await dataOwnerApi.getCurrentDataOwner()
   if (self.type === DataOwnerTypeEnum.Patient) {
     const patient = new Patient(self.dataOwner)
-    const availableSecretIds = await entitiesEncryption.secretIdsOf(patient, 'Patient')
+    const patientWithType: EncryptedEntityWithType = { entity: patient, type: 'Patient' }
+    const availableSecretIds = await xapi.secretIdsOf(patientWithType, undefined)
     if (availableSecretIds.length) {
       return self
     } else {
-      const updatedPatient =
-        Object.entries(patient.encryptionKeys ?? {}).length || Object.entries(patient.delegations ?? {}).length
-          ? await entitiesEncryption.entityWithExtendedEncryptedMetadata(
-              // If there is already something initialise only a new delegation to self
-              patient,
-              patient.id!,
-              [cryptoPrimitives.randomUuid()],
-              [],
-              []
-            ) // else initialise also encryption keys
-          : await entitiesEncryption.entityWithInitialisedEncryptedMetadata(patient, undefined, undefined, true).then((x) => x.updatedEntity)
-      return await dataOwnerApi.updateDataOwner(IccDataOwnerXApi.instantiateDataOwnerWithType(updatedPatient, DataOwnerTypeEnum.Patient))
+      if (xapi.hasEmptyEncryptionMetadata(patient)) {
+        // This should not really happen, usually some user will have already initialised the patient and its encryption metadata.
+        const updatedPatient = await xapi.entityWithInitialisedEncryptedMetadata(patient, 'Patient', undefined, undefined, true, true, {})
+        return await dataOwnerApi.updateDataOwner(IccDataOwnerXApi.instantiateDataOwnerWithType(updatedPatient, DataOwnerTypeEnum.Patient))
+      } else {
+        const updatedPatient = await xapi.simpleShareOrUpdateEncryptedEntityMetadata(
+          { entity: patient, type: 'Patient' },
+          patient.id!,
+          ShareMetadataBehaviour.IF_AVAILABLE,
+          ShareMetadataBehaviour.NEVER,
+          [cryptoPrimitives.randomUuid()],
+          RequestedPermissionEnum.FULL_WRITE,
+          (x) => patientApi.bulkSharePatients(x)
+        )
+        return { dataOwner: updatedPatient.updatedEntityOrThrow, type: DataOwnerTypeEnum.Patient }
+      }
     }
   } else {
     return self

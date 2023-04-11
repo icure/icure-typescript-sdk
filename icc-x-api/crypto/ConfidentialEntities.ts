@@ -65,8 +65,18 @@ export class ConfidentialEntities {
    * @return the confidential secret id or undefined if there is no confidential secret id for the provided data owner.
    */
   async getConfidentialSecretId(entity: EncryptedEntityWithType, dataOwnerId?: string): Promise<string | undefined> {
-    // TODO throw exception if any parent key is not available? if we are missing even only one single parent key we can't be sure it is confidential,
-    // or maybe include confidential as the secret id name...
+    return this.getConfidentialSecretIds(entity, dataOwnerId).then((x) => x[0])
+  }
+
+  /**
+   * Get all existing confidential secret ids of the provided entity for the provided data owner (current data owner by default). A confidential secret
+   * id is a secret id known by the data owner but not known by any of his parents: note however that children will know confidential secret ids.
+   * @param entity an entity for which you want to retrieve the confidential secret id.
+   * @param dataOwnerId (current data owner by default) a data owner for which you want to get a confidential secret id.
+   * @return the confidential secret ids for the data owner (may be empty).
+   */
+  async getConfidentialSecretIds(entity: EncryptedEntityWithType, dataOwnerId?: string): Promise<string[]> {
+    // TODO throw exception if any parent key is not available? if we are missing even only one single parent key we can't be sure it is confidential
     const chosenDataOwnerId = dataOwnerId ?? (await this.dataOwnerApi.getCurrentDataOwnerId())
     const dataOwnerHierarchy = await this.dataOwnerApi.getCurrentDataOwnerHierarchyIdsFrom(chosenDataOwnerId)
     const hierarchySecretIds = (await this.entitiesEncryption.secretIdsForHcpHierarchyOf(entity)).filter((x) =>
@@ -74,8 +84,8 @@ export class ConfidentialEntities {
     )
     const keysForDataOwner = hierarchySecretIds.find((x) => x.ownerId === chosenDataOwnerId)
 
-    if (!keysForDataOwner) return undefined
-    return keysForDataOwner.extracted.find((k) => !hierarchySecretIds.some((x) => x.ownerId !== chosenDataOwnerId && x.extracted.includes(k)))
+    if (!keysForDataOwner) return []
+    return keysForDataOwner.extracted.filter((k) => !hierarchySecretIds.some((x) => x.ownerId !== chosenDataOwnerId && x.extracted.includes(k)))
   }
 
   /**
@@ -86,6 +96,16 @@ export class ConfidentialEntities {
    * for the topmost parent.
    */
   async getAnySecretIdSharedWithParents(entity: EncryptedEntityWithType): Promise<string | undefined> {
-    return (await this.entitiesEncryption.secretIdsForHcpHierarchyOf(entity))[0].extracted[0]
+    return (await this.getSecretIdsSharedWithParents(entity))[0]
+  }
+
+  /**
+   * Gets all secret ids known by the topmost parent of the current data owner hierarchy (or all secret ids known by the current data owner if he is
+   * not part of any data owner hierarchy).
+   * @param entity an entity.
+   * @return all secret ids known by the topmost parent of the current data owner hierarchy, may be empty.
+   */
+  async getSecretIdsSharedWithParents(entity: EncryptedEntityWithType): Promise<string[]> {
+    return (await this.entitiesEncryption.secretIdsForHcpHierarchyOf(entity))[0].extracted
   }
 }

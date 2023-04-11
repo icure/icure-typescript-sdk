@@ -88,6 +88,12 @@ export interface ExtendedApisUtils {
    * @return if the current data owner (or one of his parents) has write access to the content of the entity.
    */
   hasWriteAccess(entity: EncryptedEntityWithType): Promise<boolean>
+
+  /**
+   * @param entity an entity
+   * @return if the entity has no encryption metadata and can be safely initialised using .
+   */
+  hasEmptyEncryptionMetadata(entity: EncryptedEntity): boolean
   // endregion
 
   // region metadata initialisation and share
@@ -334,6 +340,5 @@ export interface ExtendedApisUtils {
    * After this method is called, if it returns an entity it should also be re-encrypted (using the new key) and saved to the cloud.
    */
   ensureEncryptionKeysInitialised<T extends EncryptedEntity>(entity: T, entityType: EntityWithDelegationTypeName): Promise<T | undefined>
-
   // endregion
 }

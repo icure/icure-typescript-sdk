@@ -156,7 +156,7 @@ export class IccMessageXApi extends IccMessageApi {
   /**
    * @param message a message
    * @return the secret ids of the message, retrieved from the encrypted metadata. The result may be used to find entities where the message is
-   * the 'owning entity', or to with the share method.
+   * the 'owning entity', or in the {@link shareWith} method in order to share it with other data owners.
    */
   getSecretIdsOf(message: models.Message): Promise<string[]> {
     return this.crypto.xapi.secretIdsOf({ entity: message, type: 'Message' }, undefined)

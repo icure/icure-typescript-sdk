@@ -766,6 +766,14 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
   }
 
   private checkEmptyEncryptionMetadata(entity: EncryptedEntity) {
+    this.doCheckEmptyEncryptionMetadata(entity, true)
+  }
+
+  hasEmptyEncryptionMetadata(entity: EncryptedEntity): boolean {
+    return this.doCheckEmptyEncryptionMetadata(entity, false)
+  }
+
+  private doCheckEmptyEncryptionMetadata(entity: EncryptedEntity, throwErrorIfNonEmpty: boolean): boolean {
     const existingMetadata = []
     if (entity.delegations && Object.keys(entity.delegations).length) existingMetadata.push('delegations')
     if (entity.cryptedForeignKeys && Object.keys(entity.cryptedForeignKeys).length) existingMetadata.push('cryptedForeignKeys')
@@ -773,10 +781,13 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     if (entity.secretForeignKeys && entity.secretForeignKeys.length) existingMetadata.push('secretForeignKeys')
     if (entity.securityMetadata && Object.keys(entity.securityMetadata).length) existingMetadata.push('securityMetadata')
     if (existingMetadata.length > 0) {
-      throw new Error(
-        `Entity should have no encryption metadata on initialisation, but the following fields already have some values: ${existingMetadata}\n` +
-          JSON.stringify(entity, undefined, 2)
-      )
+      if (throwErrorIfNonEmpty) {
+        throw new Error(
+          `Entity should have no encryption metadata on initialisation, but the following fields already have some values: ${existingMetadata}\n` +
+            JSON.stringify(entity, undefined, 2)
+        )
+      } else return false
     }
+    return true
   }
 }
