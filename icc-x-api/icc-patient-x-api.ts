@@ -553,7 +553,23 @@ export class IccPatientXApi extends IccPatientApi {
     )
   }
 
+  /**
+   * @deprecated replace with {@link shareAllDataOfPatient}
+   */
   async share(
+    user: models.User,
+    patId: string,
+    ownerId: string,
+    delegateIds: Array<string>,
+    delegationTags: { [key: string]: Array<string> }
+  ): Promise<{
+    patient: models.Patient | null
+    statuses: { [key: string]: { success: boolean | null; error: Error | null } }
+  } | null> {
+    return this.shareAllDataOfPatient(user, patId, ownerId, delegateIds, delegationTags)
+  }
+
+  async shareAllDataOfPatient(
     user: models.User,
     patId: string,
     ownerId: string,

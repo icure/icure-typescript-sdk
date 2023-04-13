@@ -633,7 +633,9 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
           _.omitBy({ ...entity, encryptedSelf: undefined }, _.isNil)
         )
       ) {
-        throw new Error(`Impossible to modify encrypted value of an entity if no encryption key is known.\n${entity}`)
+        throw new Error(
+          `Impossible to modify encrypted value of an entity if no encryption key is known.\nData owner: ${dataOwnerId}\n${JSON.stringify(entity)}`
+        )
       }
       return entity
     }

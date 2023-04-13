@@ -94,10 +94,10 @@ export class IccHelementXApi extends IccHelementApi {
     if (!sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id} for confidential=${optionalParams?.confidential ?? false}`)
     const extraDelegations = {
       ...(optionalParams.confidential
-        ? Object.fromEntries(
+        ? {}
+        : Object.fromEntries(
             [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])].map((d) => [d, AccessLevelEnum.WRITE])
-          )
-        : {}),
+          )),
       ...(optionalParams?.additionalDelegates ?? {}),
     }
     const initialisationInfo = await this.crypto.xapi.entityWithInitialisedEncryptedMetadata(
