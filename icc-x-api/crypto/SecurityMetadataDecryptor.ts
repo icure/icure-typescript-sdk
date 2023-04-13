@@ -9,7 +9,7 @@ import AccessLevel = SecureDelegation.AccessLevelEnum
  */
 export interface SecurityMetadataDecryptor {
   /**
-   * Decrypt the encryption keys for an entity.
+   * Decrypt the encryption keys for an entity. Keys must be returned in raw hex format, removing dashes if they were generated from a UUID.
    * @param typedEntity an encrypted entity or its stub.
    * @param dataOwnersHierarchySubset only exchange data that is accessible to data owners in this array will be considered when decrypting. It should
    * contain only data owners from the current data owner hierarchy.

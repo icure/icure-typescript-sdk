@@ -16,7 +16,19 @@ export class LegacyDelegationSecurityMetadataDecryptor implements SecurityMetada
     typedEntity: EncryptedEntityWithType,
     dataOwnersHierarchySubset: string[]
   ): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never> {
-    return this.extractFromDelegations(dataOwnersHierarchySubset, typedEntity.entity.encryptionKeys ?? {}, (d) => this.validateEncryptionKey(d))
+    async function* generator(
+      self: LegacyDelegationSecurityMetadataDecryptor
+    ): AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never> {
+      const decryptedGenerator = self.extractFromDelegations(dataOwnersHierarchySubset, typedEntity.entity.encryptionKeys ?? {}, (d) =>
+        self.validateEncryptionKey(d)
+      )
+      let next = await decryptedGenerator.next()
+      while (!next.done) {
+        yield { decrypted: next.value.decrypted.replace(/-/g, ''), dataOwnersWithAccess: next.value.dataOwnersWithAccess }
+        next = await decryptedGenerator.next()
+      }
+    }
+    return generator(this)
   }
 
   decryptOwningEntityIdsOf(
