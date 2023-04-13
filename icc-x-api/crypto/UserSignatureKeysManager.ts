@@ -11,6 +11,12 @@ export class UserSignatureKeysManager {
     private readonly primitives: CryptoPrimitives
   ) {}
 
+  private signatureKeysCache:
+    | {
+        fingerprint: string
+        keyPair: KeyPair<CryptoKey>
+      }
+    | undefined = undefined
   private verificationKeysCache = new Map<string, CryptoKey>()
 
   /**
@@ -20,20 +26,26 @@ export class UserSignatureKeysManager {
     fingerprint: string
     keyPair: KeyPair<CryptoKey>
   }> {
+    if (this.signatureKeysCache) return this.signatureKeysCache
     const dataOwnerId = await this.dataOwnerApi.getCurrentDataOwnerId()
     const existing = await this.iCureStorage.loadSignatureKey(dataOwnerId)
     if (existing) {
       const fingerprint = jwk2spki(existing.publicKey).slice(-32)
-      return {
+      this.signatureKeysCache = {
         fingerprint,
-        keyPair: await this.primitives.RSA.importKeyPair('jwk', existing.privateKey, 'jwk', existing.publicKey),
+        keyPair: {
+          privateKey: await this.primitives.RSA.importKey('jwk', existing.privateKey, ['sign']),
+          publicKey: await this.primitives.RSA.importKey('jwk', existing.publicKey, ['verify']),
+        },
       }
+      return this.signatureKeysCache
     } else {
       const generatedPair = await this.primitives.RSA.generateSignatureKeyPair()
       const fingerprint = ua2hex(await this.primitives.RSA.exportKey(generatedPair.publicKey, 'spki')).slice(-32)
       await this.iCureStorage.saveSignatureKeyPair(dataOwnerId, fingerprint, await this.primitives.RSA.exportKeys(generatedPair, 'jwk', 'jwk'))
       this.verificationKeysCache.set(fingerprint, generatedPair.publicKey)
-      return { fingerprint, keyPair: generatedPair }
+      this.signatureKeysCache = { fingerprint, keyPair: generatedPair }
+      return this.signatureKeysCache
     }
   }
 

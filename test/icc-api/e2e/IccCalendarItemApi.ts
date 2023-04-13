@@ -3,6 +3,8 @@ import { expect } from 'chai'
 import { randomUUID } from 'crypto'
 import { getEnvironmentInitializer, getEnvVariables, hcp1Username, patUsername, TestUtils, TestVars } from '../../utils/test_utils'
 import initApi = TestUtils.initApi
+import { SecureDelegation } from '../../../dist/icc-api/model/SecureDelegation'
+import AccessLevel = SecureDelegation.AccessLevel
 
 let env: TestVars | undefined
 
@@ -30,7 +32,13 @@ describe('Calendar', () => {
 
     const calendarItem = await api.calendarItemApi.createCalendarItemWithHcParty(
       currentUser,
-      await api.calendarItemApi.newInstance(currentUser, { id: randomUUID(), details: 'Hello' }, [hcp.healthcarePartyId!])
+      await api.calendarItemApi.newInstance(
+        currentUser,
+        { id: randomUUID(), details: 'Hello' },
+        {
+          additionalDelegates: { [hcp.healthcarePartyId!]: AccessLevel.WRITE },
+        }
+      )
     )
     expect(calendarItem.id).to.be.not.null
   })
