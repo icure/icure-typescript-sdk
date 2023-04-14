@@ -530,7 +530,7 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     const triedKeys: Set<string> = new Set()
     let latest = await decryptedKeys.next()
     while (!latest.done) {
-      if (triedKeys.has(latest.value.decrypted)) {
+      if (!triedKeys.has(latest.value.decrypted)) {
         triedKeys.add(latest.value.decrypted)
         try {
           const decrypted = await this.primitives.AES.decryptWithRawKey(latest.value.decrypted, content)
@@ -541,7 +541,7 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
       }
       latest = await decryptedKeys.next()
     }
-    throw new Error(`Could not extract any valid encryption keys for entity ${entity}.`)
+    throw new Error(`Could not extract any valid encryption keys for entity ${JSON.stringify(entity)}.`)
   }
 
   async encryptDataOf(entity: EncryptedEntityWithType, content: ArrayBuffer | Uint8Array): Promise<ArrayBuffer> {
@@ -555,7 +555,7 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
       }
       latest = await decryptedKeys.next()
     }
-    throw new Error(`Could not extract any valid encryption keys for entity ${entity}.`)
+    throw new Error(`Could not extract any valid encryption keys for entity ${JSON.stringify(entity)}.`)
   }
 
   async decryptEntity<T extends EncryptedEntity>(
