@@ -297,7 +297,7 @@ export const Api = async function (
     authenticationProvider,
     fetchImpl
   )
-  const icureMaintenanceTaskApi = new IccIcureMaintenanceXApi(cryptoApi, maintenanceTaskApi, dataOwnerApi)
+  const icureMaintenanceTaskApi = new IccIcureMaintenanceXApi(cryptoApi, maintenanceTaskApi, dataOwnerApi, exchangeDataApi)
 
   if (autoLogin) {
     if (username != undefined && password != undefined) {

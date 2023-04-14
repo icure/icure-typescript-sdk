@@ -21,7 +21,7 @@ import { checkIfDockerIsOnline } from '@icure/test-setup'
 import { RSAUtils } from '../../icc-x-api/crypto/RSA'
 import { TestApi } from './TestApi'
 import { Api as TestSetupApi } from '@icure/apiV6'
-import { createHealthcarePartyUser, UserCredentials } from '@icure/test-setup/creation'
+import { createHealthcarePartyUser, createPatientUser, UserCredentials } from '@icure/test-setup/creation'
 import { CryptoPrimitives } from '../../icc-x-api/crypto/CryptoPrimitives'
 import { testStorageWithKeys } from './TestStorage'
 import { TestCryptoStrategies } from './TestCryptoStrategies'
@@ -144,6 +144,43 @@ export async function getApiAndAddPrivateKeysForUser(iCureUrl: string, details: 
     privateKey: await RSA.importKey('pkcs8', hex2ua(details.privateKey), ['decrypt']),
   }
   return await TestApi(iCureUrl, details.user, details.password, webcrypto as any, keys)
+}
+
+export async function createNewHcpApi(env: TestVars): Promise<{
+  api: Apis
+  credentials: UserCredentials
+  user: User
+}> {
+  const initialisationApi = await TestSetupApi(
+    env.iCureUrl + '/rest/v1',
+    env.masterHcp!.user,
+    env.masterHcp!.password,
+    webcrypto as any,
+    fetch,
+    true,
+    false
+  )
+  const primitives = new CryptoPrimitives(webcrypto as any)
+  const credentials = await createHealthcarePartyUser(initialisationApi, `user-${primitives.randomUuid()}`, primitives.randomUuid())
+  const storage = await testStorageWithKeys([
+    { dataOwnerId: credentials.dataOwnerId, pairs: [{ privateKey: credentials.privateKey, publicKey: credentials.publicKey }] },
+  ])
+  const api = await Api(
+    env.iCureUrl,
+    credentials.login,
+    credentials.password,
+    webcrypto as any,
+    fetch,
+    false,
+    false,
+    storage.storage,
+    storage.keyStorage,
+    {
+      entryKeysFactory: storage.keyFactory,
+      cryptoStrategies: new TestCryptoStrategies(),
+    }
+  )
+  return { api, credentials, user: await api.userApi.getCurrentUser() }
 }
 
 export async function createHcpHierarchyApis(env: TestVars): Promise<{

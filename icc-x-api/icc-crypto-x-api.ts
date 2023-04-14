@@ -104,6 +104,13 @@ export class IccCryptoXApi {
   /**
    * @internal this is for internal use only and may be changed without notice.
    */
+  get exchangeData(): ExchangeDataManager {
+    return this.exchangeDataManager
+  }
+
+  /**
+   * @internal this is for internal use only and may be changed without notice.
+   */
   get confidential(): ConfidentialEntities {
     return this.confidentialEntities
   }
@@ -739,7 +746,8 @@ export class IccCryptoXApi {
    * @deprecated use {@link IccIcureMaintenanceXApi.applyKeyPairUpdate} instead.
    */
   async giveAccessBackTo(delegateUser: User, ownerId: string, ownerNewPublicKey: string): Promise<DataOwnerWithType> {
-    await this.exchangeKeys.base.giveAccessBackTo(ownerId, ownerNewPublicKey, this.userKeysManager.getDecryptionKeys())
+    await this.exchangeKeysManager.base.giveAccessBackTo(ownerId, ownerNewPublicKey, this.userKeysManager.getDecryptionKeys())
+    await this.exchangeDataManager.giveAccessBackTo(ownerId, ownerNewPublicKey)
     return this.dataOwnerApi.getDataOwner(ownerId)
   }
   /**

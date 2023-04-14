@@ -52,6 +52,7 @@ export class IccExchangeDataApi {
   getExchangeDataById(exchangeDataId: string): Promise<ExchangeData> {
     const _url = this.host + `/exchangedata/${encodeURIComponent(String(exchangeDataId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new ExchangeData(doc.body as JSON))
       .catch((err) => this.handleError(err))
@@ -64,6 +65,7 @@ export class IccExchangeDataApi {
       '?ts=' +
       new Date().getTime()
     let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new ExchangeData(it)))
       .catch((err) => this.handleError(err))
@@ -78,8 +80,24 @@ export class IccExchangeDataApi {
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListExchangeData(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  getExchangeDataParticipantCounterparts(dataOwnerId: string, counterpartTypes: string): Promise<string[]> {
+    const _url =
+      this.host +
+      `/exchangedata/byParticipant/${encodeURIComponent(String(dataOwnerId))}/counterparts` +
+      '?ts=' +
+      new Date().getTime() +
+      '&counterpartsTypes=' +
+      encodeURIComponent(String(counterpartTypes))
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
       .catch((err) => this.handleError(err))
   }
 }
