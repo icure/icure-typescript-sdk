@@ -1059,7 +1059,7 @@ export class IccPatientXApi extends IccPatientApi {
     shareSecretIds: string[],
     optionalParams: {
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
-    }
+    } = {}
   ): Promise<ShareResult<models.Patient>> {
     // All entities should have an encryption key.
     const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(patient, 'Patient')

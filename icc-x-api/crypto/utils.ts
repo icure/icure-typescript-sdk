@@ -101,7 +101,9 @@ export async function ensureDelegationForSelf(
       if (xapi.hasEmptyEncryptionMetadata(patient)) {
         // This should not really happen, usually some user will have already initialised the patient and its encryption metadata.
         const updatedPatient = await xapi.entityWithInitialisedEncryptedMetadata(patient, 'Patient', undefined, undefined, true, true, {})
-        return await dataOwnerApi.updateDataOwner(IccDataOwnerXApi.instantiateDataOwnerWithType(updatedPatient, DataOwnerTypeEnum.Patient))
+        return await dataOwnerApi.updateDataOwner(
+          IccDataOwnerXApi.instantiateDataOwnerWithType(updatedPatient.updatedEntity, DataOwnerTypeEnum.Patient)
+        )
       } else {
         const updatedPatient = await xapi.simpleShareOrUpdateEncryptedEntityMetadata(
           { entity: patient, type: 'Patient' },

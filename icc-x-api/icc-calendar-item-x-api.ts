@@ -279,7 +279,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
     optionalParams: {
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
       sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
-    }
+    } = {}
   ): Promise<ShareResult<models.CalendarItem>> {
     // All entities should have an encryption key.
     const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(calendarItem, 'CalendarItem')
