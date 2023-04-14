@@ -16,7 +16,7 @@ import { CryptoStrategies } from './CryptoStrategies'
  */
 export class BaseExchangeDataManager {
   constructor(
-    private readonly exchangeDataApi: IccExchangeDataApi,
+    readonly api: IccExchangeDataApi,
     private readonly dataOwnerApi: IccDataOwnerXApi,
     private readonly primitives: CryptoPrimitives,
     private readonly cryptoStrategies: CryptoStrategies
@@ -33,10 +33,10 @@ export class BaseExchangeDataManager {
     const currentDataOwner = await this.dataOwnerApi.getCurrentDataOwner()
     if (!this.cryptoStrategies.dataOwnerRequiresAnonymousDelegation(currentDataOwner)) return undefined
     const dataOwnerId = currentDataOwner.dataOwner.id!
-    let latestResult = await this.exchangeDataApi.getExchangeDataByParticipant(dataOwnerId, undefined, 1000)
+    let latestResult = await this.api.getExchangeDataByParticipant(dataOwnerId, undefined, 1000)
     const allRetrieved = latestResult.rows ?? []
     while (latestResult.nextKeyPair?.startKeyDocId) {
-      latestResult = await this.exchangeDataApi.getExchangeDataByParticipant(dataOwnerId, latestResult.nextKeyPair.startKeyDocId, 1000)
+      latestResult = await this.api.getExchangeDataByParticipant(dataOwnerId, latestResult.nextKeyPair.startKeyDocId, 1000)
       if (latestResult.rows) allRetrieved.push(...latestResult.rows)
     }
     return allRetrieved
@@ -49,7 +49,7 @@ export class BaseExchangeDataManager {
    * @return all exchange data for the provided delegator-delegate pair.
    */
   async getExchangeDataByDelegatorDelegatePair(delegatorId: string, delegateId: string): Promise<ExchangeData[]> {
-    return await this.exchangeDataApi.getExchangeDataByDelegatorDelegate(delegatorId, delegateId)
+    return await this.api.getExchangeDataByDelegatorDelegate(delegatorId, delegateId)
   }
 
   /**
@@ -58,7 +58,7 @@ export class BaseExchangeDataManager {
    * @return the exchange data with the provided id or undefined if no exchange data with such id could be found.
    */
   async getExchangeDataById(exchangeDataId: string): Promise<ExchangeData | undefined> {
-    return await this.exchangeDataApi.getExchangeDataById(exchangeDataId).catch((e) => {
+    return await this.api.getExchangeDataById(exchangeDataId).catch((e) => {
       if (e instanceof XHRError && e.statusCode === 404) {
         return undefined
       } else throw e
@@ -235,7 +235,7 @@ export class BaseExchangeDataManager {
     const signature = await this.signDataWithKeys(await this.bytesToSign(baseExchangeData), signatureKeys)
     const exchangeData = new ExchangeData({ ...baseExchangeData, signature })
     return {
-      exchangeData: await this.exchangeDataApi.createExchangeData(exchangeData),
+      exchangeData: await this.api.createExchangeData(exchangeData),
       exchangeKey: exchangeKey.key,
       accessControlSecret: accessControlSecret.secret,
     }
@@ -252,7 +252,7 @@ export class BaseExchangeDataManager {
    * the provided verification keys then the updated exchange data will become unverified, and won't ever be verifiable again.
    * @param exchangeData exchange data to update.
    * @param decryptionKeys keys to use to extract the content of the exchange data which will be shared with the new keys.
-   * @param signatureKeys new to use for the new signature of the updated exchange data.
+   * @param signatureKeys keys to use for the new signature of the updated exchange data.
    * @param newEncryptionKeys new keys to add to the exchange data.
    * @param getVerificationKey function to retrieve keys to use for verification by fingerprint.
    * @return the updated exchange data, and its decrypted exchange key and access control secret, or undefined if the exchange data content could not
@@ -300,7 +300,7 @@ export class BaseExchangeDataManager {
       const newDataToSign = await this.bytesToSign(updatedExchangeData)
       updatedExchangeData.signature = await this.signDataWithKeys(newDataToSign, signatureKeys)
     }
-    return { exchangeData: new ExchangeData(updatedExchangeData), exchangeKey, accessControlSecret }
+    return { exchangeData: await this.api.modifyExchangeData(new ExchangeData(updatedExchangeData)), exchangeKey, accessControlSecret }
   }
 
   // Gets a byte representation of the parts of exchange data which should be included in the signature.

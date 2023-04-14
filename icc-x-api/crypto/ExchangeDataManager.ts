@@ -71,6 +71,17 @@ type CachedExchangeData = {
  * Exchange data manager which automatically handles decryption and cache
  */
 export interface ExchangeDataManager {
+  readonly base: BaseExchangeDataManager
+
+  /**
+   * Updates all exchange data between the current data owner and another data owner to allow the other data owner to access existing exchange data
+   * using a new public key. Note that this will make existing exchange keys from the other data owner to the current data owner unverified, therefore
+   * invalid for encryption.
+   * @param otherDataOwner the other data owner.
+   * @param newDataOwnerPublicKey a new public key of the other data owner.
+   */
+  giveAccessBackTo(otherDataOwner: string, newDataOwnerPublicKey: string): Promise<void>
+
   /**
    * Gets any existing and verified exchange data from the current data owner to the provided delegate or creates new data if no verified data is
    * available, then caches it. The {@link entityType} and {@link entitySecretForeignKeys} will be used for the secure-delegation-hash-based cache
@@ -138,7 +149,7 @@ export interface ExchangeDataManager {
 
 abstract class AbstractExchangeDataManager implements ExchangeDataManager {
   constructor(
-    protected readonly base: BaseExchangeDataManager,
+    readonly base: BaseExchangeDataManager,
     protected readonly encryptionKeys: UserEncryptionKeysManager,
     protected readonly signatureKeys: UserSignatureKeysManager,
     protected readonly accessControlSecret: AccessControlSecretUtils,
@@ -197,6 +208,32 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
       exchangeData: newData.exchangeData,
       accessControlSecret: newData.accessControlSecret,
       exchangeKey: newData.exchangeKey,
+    }
+  }
+
+  async giveAccessBackTo(otherDataOwner: string, newDataOwnerPublicKey: string) {
+    const self = await this.dataOwnerApi.getCurrentDataOwnerId()
+    const newKeyFp = newDataOwnerPublicKey.slice(-32)
+    const importedNewKey = await this.primitives.RSA.importKey('spki', hex2ua(newDataOwnerPublicKey), ['encrypt'])
+    const signatureKey = await this.signatureKeys.getOrCreateSignatureKeyPair()
+    const decryptionKeys = this.encryptionKeys.getDecryptionKeys()
+    const allExchangeDataToUpdate = [
+      ...(await this.base.getExchangeDataByDelegatorDelegatePair(self, otherDataOwner)),
+      ...(await this.base.getExchangeDataByDelegatorDelegatePair(otherDataOwner, self)),
+    ]
+    for (const dataToUpdate of allExchangeDataToUpdate) {
+      if (!Object.keys(dataToUpdate.exchangeKey).find((fp) => fp == newKeyFp)) {
+        const updated = await this.base.tryUpdateExchangeData(
+          dataToUpdate,
+          decryptionKeys,
+          { [newKeyFp]: importedNewKey },
+          { [signatureKey.fingerprint]: signatureKey.keyPair.privateKey },
+          (verificationFp) => this.signatureKeys.getSignatureVerificationKey(verificationFp)
+        )
+        if (!updated) {
+          console.warn(`Failed to give access back to exchanged data ${JSON.stringify(dataToUpdate)}`)
+        }
+      }
     }
   }
 

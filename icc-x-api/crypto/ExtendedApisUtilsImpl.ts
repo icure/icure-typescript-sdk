@@ -474,8 +474,9 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     legacyEncryptionKeys: { decrypted: string; dataOwnersWithAccess: string[] }[],
     legacyOwningEntityIds: { decrypted: string; dataOwnersWithAccess: string[] }[]
   ): Promise<EntityShareOrMetadataUpdateRequest | undefined> {
+    const selfId = await this.dataOwnerApi.getCurrentDataOwnerId()
     const legacyAccess = await this.legacyDelMetadataDecryptor.getEntityAccessLevel(entity, [dataOwnerId])
-    if (!legacyAccess) return undefined
+    if (!legacyAccess && selfId !== entity.entity.id) return undefined
     const selfLegacySecretIds = legacySecretIds.filter((x) => x.dataOwnersWithAccess.includes(dataOwnerId)).map((x) => x.decrypted)
     const selfLegacyEncryptionKeys = legacyEncryptionKeys.filter((x) => x.dataOwnersWithAccess.includes(dataOwnerId)).map((x) => x.decrypted)
     const selfLegacyOwningEntityIds = legacyOwningEntityIds.filter((x) => x.dataOwnersWithAccess.includes(dataOwnerId)).map((x) => x.decrypted)
@@ -504,7 +505,7 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     }
     if (needsImprovedAccess || missingSecretIds.length > 0 || missingEncryptionKeys.length > 0 || missingOwningEntityIds.length > 0) {
       const requestedPermissions =
-        (await this.dataOwnerApi.getCurrentDataOwnerId()) == dataOwnerId
+        selfId == dataOwnerId
           ? RequestedPermissionInternal.ROOT
           : legacyAccess == AccessLevel.WRITE
           ? RequestedPermissionInternal.FULL_WRITE

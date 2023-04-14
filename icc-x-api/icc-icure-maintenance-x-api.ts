@@ -11,6 +11,7 @@ import { DataOwnerTypeEnum, IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { User } from '../icc-api/model/User'
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
+import { IccExchangeDataApi } from '../icc-api/api/IccExchangeDataApi'
 
 type ExchangeKeyInfo = { delegator: string; delegate: string; fingerprints: Set<string> }
 
@@ -18,15 +19,12 @@ type ExchangeKeyInfo = { delegator: string; delegate: string; fingerprints: Set<
  * Api for interpreting maintenance tasks and applying required client-side actions.
  */
 export class IccIcureMaintenanceXApi {
-  private readonly crypto: IccCryptoXApi
-  private readonly tasksApi: IccMaintenanceTaskXApi
-  private readonly dataOwnerApi: IccDataOwnerXApi
-
-  constructor(crypto: IccCryptoXApi, tasksApi: IccMaintenanceTaskXApi, dataOwnerApi: IccDataOwnerXApi) {
-    this.crypto = crypto
-    this.tasksApi = tasksApi
-    this.dataOwnerApi = dataOwnerApi
-  }
+  constructor(
+    private readonly crypto: IccCryptoXApi,
+    private readonly tasksApi: IccMaintenanceTaskXApi,
+    private readonly dataOwnerApi: IccDataOwnerXApi,
+    private readonly exchangeDataApi: IccExchangeDataApi
+  ) {}
 
   // TODO api to get all tasks for current owner from owner with id
 
@@ -42,6 +40,7 @@ export class IccIcureMaintenanceXApi {
       update.newPublicKey,
       this.crypto.userKeysManager.getDecryptionKeys()
     )
+    await this.crypto.exchangeData.giveAccessBackTo(update.concernedDataOwnerId, update.newPublicKey)
   }
 
   /**
@@ -60,11 +59,15 @@ export class IccIcureMaintenanceXApi {
       const hexNewPubKey = ua2hex(await this.crypto.primitives.RSA.exportKey(keypair.publicKey, 'spki'))
       const hexNewPubKeyFp = hexNewPubKey.slice(-32)
       const selfId = await this.dataOwnerApi.getCurrentDataOwnerId()
-      const keysInfo = await this.getExchangeKeysInfosOf(selfId, requestsToOwnerTypes)
-      const requestDataOwners = keysInfo
+      const requestDataOwnersForExchangeKeys = (await this.getExchangeKeysInfosOf(selfId, requestsToOwnerTypes))
         .filter((info) => !info.fingerprints.has(hexNewPubKeyFp))
         .flatMap((info) => [info.delegate, info.delegator])
         .filter((dataOwner) => dataOwner !== selfId)
+      const requestDataOwnersForExchangeData = await this.exchangeDataApi.getExchangeDataParticipantCounterparts(
+        selfId,
+        [...new Set(requestsToOwnerTypes)].join(',')
+      )
+      const requestDataOwners = [...new Set([...requestDataOwnersForExchangeKeys, ...requestDataOwnersForExchangeData])]
       if (requestDataOwners.length > 0) {
         const tasksToCreate = requestDataOwners.map((dataOwner) => ({
           delegate: dataOwner,
