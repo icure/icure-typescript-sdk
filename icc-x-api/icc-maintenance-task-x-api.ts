@@ -197,7 +197,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
     requestedPermissions: RequestedPermissionEnum,
     optionalParams: {
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
-    }
+    } = {}
   ): Promise<ShareResult<models.MaintenanceTask>> {
     // All entities should have an encryption key.
     const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(maintenanceTask, 'MaintenanceTask')
@@ -209,7 +209,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
       delegateId,
       optionalParams?.shareEncryptionKey,
       undefined,
-      [],
+      undefined,
       requestedPermissions,
       (x) => this.bulkShareMaintenanceTask(x)
     )

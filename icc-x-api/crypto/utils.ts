@@ -3,19 +3,12 @@ import { acyclic, graphFromEdges, StronglyConnectedGraph } from '../utils/graph-
 import { DataOwner, DataOwnerTypeEnum, DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { RSAUtils } from './RSA'
 import { hex2ua } from '../utils'
-import { HealthcareParty } from '../../icc-api/model/HealthcareParty'
 import { Patient } from '../../icc-api/model/Patient'
-import { Device } from '../../icc-api/model/Device'
 import { ExtendedApisUtils } from './ExtendedApisUtils'
 import { CryptoPrimitives } from './CryptoPrimitives'
-import { Delegation, EncryptedEntityStub } from '../../icc-api/model/models'
-import { setEquals } from '../utils/collection-utils'
-import { SecurityMetadata } from '../../icc-api/model/SecurityMetadata'
 import { EncryptedEntityWithType } from '../utils/EntityWithDelegationTypeName'
 import { IccPatientApi } from '../../icc-api'
 import { ShareMetadataBehaviour } from '../utils/ShareMetadataBehaviour'
-import { SecureDelegation } from '../../dist/icc-api/model/SecureDelegation'
-import AccessLevel = SecureDelegation.AccessLevel
 import { EntityShareRequest } from '../../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 

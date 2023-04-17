@@ -61,7 +61,7 @@ async function createHealthElement(healthElementApi: IccHelementXApi, hcpUser: U
           }),
         ],
       }),
-      true
+      { confidential: true }
     )
   )
 }
@@ -92,14 +92,14 @@ function createBasicContact(contactApiForHcp: IccContactXApi, hcpUser: User, pat
       ],
       descr: 'Weight value',
     }),
-    true
+    { confidential: true }
   )
 }
 
 describe('icc-x-contact-api Tests', () => {
   it('CreateContactWithUser Success for HCP', async () => {
     // Given
-    const { userApi: userApiForHcp, patientApi: patientApiForHcp, contactApi: contactApiForHcp } = await initApi(env!, hcp1Username)
+    const { userApi: userApiForHcp, patientApi: patientApiForHcp, contactApi: contactApiForHcp, cryptoApi } = await initApi(env!, hcp1Username)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
 
@@ -120,16 +120,14 @@ describe('icc-x-contact-api Tests', () => {
     expect(readContact.responsible).to.be.equal(hcpUser.healthcarePartyId)
     expect(readContact.id).to.be.equal(contactToCreate.id)
     expect(readContact.descr).to.be.equal(contactToCreate.descr)
-    expect(readContact.delegations![hcpUser.healthcarePartyId!].length).to.equals(1)
-    expect(readContact.delegations![hcpUser.healthcarePartyId!][0].key).to.not.be.undefined
-    expect(readContact.encryptionKeys![hcpUser.healthcarePartyId!].length).to.equals(1)
-    expect(readContact.encryptionKeys![hcpUser.healthcarePartyId!][0].key).to.not.be.undefined
-    expect(readContact.cryptedForeignKeys![hcpUser.healthcarePartyId!].length).to.equals(1)
-    expect(readContact.cryptedForeignKeys![hcpUser.healthcarePartyId!][0].key).to.not.be.undefined
     expect(readContact.services![0].responsible).to.be.equal(hcpUser.healthcarePartyId)
     expect(readContact.services![0].id).to.be.equal(contactToCreate.services![0].id)
     expect(readContact.services![0].valueDate).to.be.equal(contactToCreate.services![0].valueDate)
     expect(readContact.services![0].tags![0].id).to.be.equal(contactToCreate.services![0].tags![0].id!)
+    expect(await cryptoApi.xapi.encryptionKeysOf({ entity: readContact, type: 'Contact' }, undefined)).to.have.length(1)
+    const decryptedPatientIds = await contactApiForHcp.decryptPatientIdOf(readContact)
+    expect(decryptedPatientIds).to.have.length(1)
+    expect(decryptedPatientIds[0]).to.equal(patient.id)
   })
 
   it('Filter Services By HealthElementId - Success', async () => {

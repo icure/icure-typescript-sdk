@@ -137,7 +137,7 @@ export class IccClassificationXApi extends IccClassificationApi {
     optionalParams: {
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
       sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
-    }
+    } = {}
   ): Promise<ShareResult<models.Classification>> {
     // All entities should have an encryption key.
     const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(classification, 'Classification')
@@ -147,7 +147,7 @@ export class IccClassificationXApi extends IccClassificationApi {
       delegateId,
       optionalParams?.shareEncryptionKey,
       optionalParams?.sharePatientId,
-      [],
+      undefined,
       requestedPermissions,
       (x) => this.bulkShareClassifications(x)
     )

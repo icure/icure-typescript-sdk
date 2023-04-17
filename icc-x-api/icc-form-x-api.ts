@@ -156,7 +156,7 @@ export class IccFormXApi extends IccFormApi {
     optionalParams: {
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
       sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
-    }
+    } = {}
   ): Promise<ShareResult<models.Form>> {
     // All entities should have an encryption key.
     const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(form, 'Form')
@@ -166,7 +166,7 @@ export class IccFormXApi extends IccFormApi {
       delegateId,
       optionalParams?.shareEncryptionKey,
       optionalParams?.sharePatientId,
-      [],
+      undefined,
       requestedPermissions,
       (x) => this.bulkShareForms(x)
     )

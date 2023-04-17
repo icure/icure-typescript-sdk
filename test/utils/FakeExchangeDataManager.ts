@@ -2,6 +2,7 @@ import { ExchangeDataManager } from '../../icc-x-api/crypto/ExchangeDataManager'
 import { EntityWithDelegationTypeName } from '../../icc-x-api/utils/EntityWithDelegationTypeName'
 import { ExchangeData } from '../../icc-api/model/ExchangeData'
 import { expect } from 'chai'
+import { BaseExchangeDataManager } from '../../icc-x-api/crypto/BaseExchangeDataManager'
 
 export class FakeDecryptionExchangeDataManager implements ExchangeDataManager {
   constructor(private readonly expectedEntityType: EntityWithDelegationTypeName, private readonly expectedSecretForeignKeys: string[]) {}
@@ -74,5 +75,13 @@ export class FakeDecryptionExchangeDataManager implements ExchangeDataManager {
         this.dataByHash[hash] = { exchangeData, exchangeKey: keyAndHashesFromSecret.exchangeKey }
       }
     }
+  }
+
+  giveAccessBackTo(otherDataOwner: string, newDataOwnerPublicKey: string): Promise<void> {
+    throw new Error('This method should not be used with this fake exchange data manager: only retrieval decryption data is supported')
+  }
+
+  get base(): BaseExchangeDataManager {
+    throw new Error('This method should not be used with this fake exchange data manager: only retrieval decryption data is supported')
   }
 }

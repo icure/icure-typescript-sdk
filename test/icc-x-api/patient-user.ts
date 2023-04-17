@@ -14,6 +14,8 @@ import initApi = TestUtils.initApi
 import { TestApi } from '../utils/TestApi'
 import { RSAUtils } from '../../icc-x-api/crypto/RSA'
 import * as chaiAsPromised from 'chai-as-promised'
+import { EntityShareRequest } from '../../icc-api/model/requests/EntityShareRequest'
+import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 chaiUse(chaiAsPromised)
 
 setLocalStorage(fetch)
@@ -64,20 +66,17 @@ describe('Patient', () => {
     expect((await patientApi.getPatientWithUser(user, user.patientId!)).rev).to.equal(me.rev)
     me = (await cryptoApi.exchangeKeys.getOrCreateEncryptionExchangeKeysTo(hcpUser.healthcarePartyId!)).updatedDelegator?.dataOwner ?? me
     expect((await patientApi.getPatientWithUser(user, user.patientId!)).rev).to.equal(me.rev)
-    const mySecretIds = await cryptoApi.xapi.secretIdsOf(me)
-    const myEncryptionKeys = await cryptoApi.xapi.encryptionKeysOf(me)
+    const mySecretIds = await patientApi.getSecretIdsOf(me)
     expect(mySecretIds).to.have.length(1)
-    expect(myEncryptionKeys).to.have.length(1)
+    expect(await cryptoApi.xapi.encryptionKeysOf({ entity: me, type: 'Patient' }, undefined)).to.have.length(1)
 
-    me = (await patientApi.modifyPatientWithUser(
-      user,
-      await cryptoApi.xapi.entityWithExtendedEncryptedMetadata(me, hcpUser.healthcarePartyId!, mySecretIds, myEncryptionKeys, [])
-    ))!
-    await patientApi.modifyPatientWithUser(user, new Patient({ ...me, note: 'This is secret' }))
+    me = (await patientApi.shareWith(hcpUser.healthcarePartyId!, me, RequestedPermissionEnum.FULL_WRITE, mySecretIds)).updatedEntityOrThrow
+    const expectedNote = 'This will be encrypted'
+    await patientApi.modifyPatientWithUser(user, new Patient({ ...me, note: expectedNote }))
 
     const pat2 = await api.patientApi.getPatientWithUser(hcpUser, patient.id!)
-    expect(pat2 != null)
-    expect(pat2.note != null)
+    expect(!!pat2)
+    expect(pat2.note).to.equal(expectedNote)
   }).timeout(60000)
 
   it('should be capable of logging in and encryption', async () => {
@@ -102,33 +101,15 @@ describe('Patient', () => {
     const ciDetails = 'Important and private information'
     const ci = await calendarItemApi.createCalendarItemWithHcParty(
       user,
-      await calendarItemApi.newInstancePatient(user, patient, { patientId: patient.id, title: ciTitle, details: ciDetails }, [])
+      await calendarItemApi.newInstancePatient(user, patient, { patientId: patient.id, title: ciTitle, details: ciDetails })
     )
 
     await expect(api.patientApi.getPatientWithUser(hcpUser, patient.id!)).to.be.rejected
     await expect(api.calendarItemApi.getCalendarItemWithUser(hcpUser, ci.id)).to.be.rejected
 
-    await patientApi.modifyPatientWithUser(
-      user,
-      await cryptoApi.xapi.entityWithExtendedEncryptedMetadata(
-        pat!,
-        hcpUser.healthcarePartyId!,
-        await cryptoApi.xapi.secretIdsOf(pat!),
-        await cryptoApi.xapi.encryptionKeysOf(pat!),
-        []
-      )
-    )
-    await calendarItemApi.modifyCalendarItemWithHcParty(
-      user,
-      await cryptoApi.xapi.entityWithExtendedEncryptedMetadata(
-        ci!,
-        hcpUser.healthcarePartyId!,
-        await cryptoApi.xapi.secretIdsOf(ci),
-        await cryptoApi.xapi.encryptionKeysOf(ci),
-        []
-      )
-    )
-    await api.cryptoApi.forceReload(false)
+    await patientApi.shareWith(hcpUser.healthcarePartyId!, pat!, RequestedPermissionEnum.FULL_WRITE, await patientApi.getSecretIdsOf(pat!))
+    await calendarItemApi.shareWith(hcpUser.healthcarePartyId!, ci!, RequestedPermissionEnum.FULL_WRITE)
+    await api.cryptoApi.forceReload()
     const pat3 = await api.patientApi.getPatientWithUser(hcpUser, patient.id!)
     const ci3 = await api.calendarItemApi.getCalendarItemWithUser(hcpUser, ci.id)
     expect(pat3).to.not.be.null

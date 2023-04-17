@@ -141,7 +141,7 @@ export class IccReceiptXApi extends IccReceiptApi {
     requestedPermissions: RequestedPermissionEnum,
     optionalParams: {
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
-    }
+    } = {}
   ): Promise<ShareResult<models.Classification>> {
     // All entities should have an encryption key.
     const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(classification, 'Receipt')
@@ -151,7 +151,7 @@ export class IccReceiptXApi extends IccReceiptApi {
       delegateId,
       optionalParams?.shareEncryptionKey,
       undefined,
-      [],
+      undefined,
       requestedPermissions,
       (x) => this.bulkShareReceipt(x)
     )

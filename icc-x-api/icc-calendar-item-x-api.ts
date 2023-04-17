@@ -291,7 +291,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
       delegateId,
       optionalParams?.shareEncryptionKey,
       optionalParams?.sharePatientId,
-      [],
+      undefined,
       requestedPermissions,
       (x) => this.bulkShareCalendarItems(x)
     )

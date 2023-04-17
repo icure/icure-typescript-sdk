@@ -39,7 +39,7 @@ function healthElementToCreate(hElementApiForHcp: IccHelementXApi, hcpUser: User
       codes: [new Code({ system: 'LOINC', code: '95209', version: '3' })],
       note: 'SARS-V2',
     }),
-    true
+    { confidential: true }
   )
 }
 
@@ -73,9 +73,10 @@ describe('icc-helement-x-api Tests', () => {
     assert(readHealthElement != null)
     assert(readHealthElement.id != null)
     assert(readHealthElement.note == hElementToCreate.note)
-    assert(readHealthElement.delegations![hcpUser.healthcarePartyId!].length > 0)
-    assert(readHealthElement.encryptionKeys![hcpUser.healthcarePartyId!].length > 0)
-    assert(readHealthElement.cryptedForeignKeys![hcpUser.healthcarePartyId!].length > 0)
+    expect(await cryptoApiForHcp.xapi.encryptionKeysOf({ entity: readHealthElement, type: 'Contact' }, undefined)).to.have.length(1)
+    const decryptedPatientIds = await hElementApiForHcp.decryptPatientIdOf(readHealthElement)
+    expect(decryptedPatientIds).to.have.length(1)
+    expect(decryptedPatientIds[0]).to.equal(patient.id)
   })
 
   it('ModifyHealthElementWithUser Success for HCP', async () => {
@@ -98,9 +99,10 @@ describe('icc-helement-x-api Tests', () => {
     )
 
     // When
+    const newNote = 'SARS-V2 (COVID-19)'
     const modifiedHealthElement = await hElementApiForHcp.modifyHealthElementWithUser(hcpUser, {
       ...createdHealthElement,
-      note: 'SARS-V2 (COVID-19)',
+      note: newNote,
     })
 
     // Then
@@ -109,9 +111,11 @@ describe('icc-helement-x-api Tests', () => {
     assert(readHealthElement.id != null)
     assert(readHealthElement.note != createdHealthElement.note)
     assert(readHealthElement.note == modifiedHealthElement.note)
-    assert(readHealthElement.delegations![hcpUser.healthcarePartyId!].length > 0)
-    assert(readHealthElement.encryptionKeys![hcpUser.healthcarePartyId!].length > 0)
-    assert(readHealthElement.cryptedForeignKeys![hcpUser.healthcarePartyId!].length > 0)
+    assert(readHealthElement.note == newNote)
+    expect(await cryptoApiForHcp.xapi.encryptionKeysOf({ entity: readHealthElement, type: 'Contact' }, undefined)).to.have.length(1)
+    const decryptedPatientIds = await hElementApiForHcp.decryptPatientIdOf(readHealthElement)
+    expect(decryptedPatientIds).to.have.length(1)
+    expect(decryptedPatientIds[0]).to.equal(patient.id)
   })
 
   it('findHealthElementsByHCPartyAndPatientWithUser Success for HCP', async () => {
