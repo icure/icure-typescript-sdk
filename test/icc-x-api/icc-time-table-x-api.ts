@@ -57,14 +57,11 @@ describe('icc-x-time-table-api Tests', () => {
 
   it('Create TimeTable Success', async () => {
     // Given
-    const { userApi: userApiForHcp, timetableApi: timeTableApiForHcp } = await initApi(env, hcp1Username)
+    const { userApi: userApiForHcp, timetableApi: timeTableApiForHcp, cryptoApi } = await initApi(env, hcp1Username)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
 
     const baseTimeTable = await instanceTimeTableFor(timeTableApiForHcp, hcpUser)
-    expect(Object.keys(baseTimeTable.delegations!).length).to.equals(1)
-    // TODO old test, now we want to always create encryption keys on all entities, right?
-    // expect(baseTimeTable.encryptionKeys).to.be.undefined
 
     // When
     const createdTimeTable = await timeTableApiForHcp.createTimeTable(baseTimeTable)
@@ -74,5 +71,8 @@ describe('icc-x-time-table-api Tests', () => {
     expect(createdTimeTable.name).to.equals(baseTimeTable.name)
     expect(createdTimeTable.startTime).to.equals(baseTimeTable.startTime)
     expect(createdTimeTable.items!.length).to.equals(1)
+    expect(await cryptoApi.xapi.encryptionKeysOf({ entity: createdTimeTable, type: 'TimeTable' }, undefined)).to.have.length(1)
+    expect(await cryptoApi.xapi.secretIdsOf({ entity: createdTimeTable, type: 'TimeTable' }, undefined)).to.have.length(0)
+    expect(await cryptoApi.xapi.owningEntityIdsOf({ entity: createdTimeTable, type: 'TimeTable' }, undefined)).to.have.length(0)
   })
 })

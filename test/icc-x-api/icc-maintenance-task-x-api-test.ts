@@ -3,7 +3,7 @@ import { before } from 'mocha'
 import 'isomorphic-fetch'
 
 import { Apis } from '../../icc-x-api'
-import { assert } from 'chai'
+import { assert, expect } from 'chai'
 import { randomUUID } from 'crypto'
 import { getEnvironmentInitializer, getEnvVariables, hcp1Username, hcp2Username, setLocalStorage, TestUtils, TestVars } from '../utils/test_utils'
 import { User } from '../../icc-api/model/User'
@@ -20,6 +20,8 @@ import { MaintenanceTaskByHcPartyAndTypeFilter } from '../../icc-x-api/filters/M
 import { DocIdentifier } from '../../icc-api/model/DocIdentifier'
 import initApi = TestUtils.initApi
 import { MaintenanceTaskAfterDateFilter } from '../../icc-x-api/filters/MaintenanceTaskAfterDateFilter'
+import { SecureDelegation } from '../../dist/icc-api/model/SecureDelegation'
+import AccessLevel = SecureDelegation.AccessLevel
 
 setLocalStorage(fetch)
 let env: TestVars
@@ -50,7 +52,7 @@ function maintenanceTaskToCreate(mTaskApiForHcp: IccMaintenanceTaskXApi, hcpUser
         }),
       ],
     }),
-    [delegatedTo.id!]
+    { additionalDelegates: { [delegatedTo.id!]: AccessLevel.WRITE } }
   )
 }
 
@@ -87,16 +89,17 @@ describe('icc-x-maintenance-task-api Tests', () => {
     // Then
     assert(createdTask != null)
     assert(createdTask.id == taskToCreate.id)
-    assert(createdTask.delegations![hcp1User.healthcarePartyId!] != undefined)
-    assert(createdTask.delegations![hcp2User.healthcarePartyId!] != undefined)
-    assert(createdTask.encryptionKeys![hcp1User.healthcarePartyId!] != undefined)
-    assert(createdTask.encryptionKeys![hcp2User.healthcarePartyId!] != undefined)
+    const keysFor1 = await apiForHcp1.cryptoApi.xapi.encryptionKeysOf({ entity: createdTask, type: 'MaintenanceTask' }, undefined)
+    expect(keysFor1).to.have.length(1)
 
     const foundTask: MaintenanceTask = await apiForHcp2.maintenanceTaskApi.getMaintenanceTaskWithUser(hcp2User, createdTask.id!)
 
     assert(foundTask.id == createdTask.id)
     assert(foundTask.properties?.find((prop: PropertyStub) => prop.typedValue?.stringValue == hcp2.id) != undefined)
     assert(foundTask.properties?.find((prop: PropertyStub) => prop.typedValue?.stringValue == hcp2.publicKey) != undefined)
+    const keysFor2 = await apiForHcp2.cryptoApi.xapi.encryptionKeysOf({ entity: createdTask, type: 'MaintenanceTask' }, undefined)
+    expect(keysFor2).to.have.length(1)
+    expect(keysFor2[0]).to.equal(keysFor1[0])
   }).timeout(30000)
 
   it('ModifyMaintenanceTaskWithUser Success for HCP', async () => {

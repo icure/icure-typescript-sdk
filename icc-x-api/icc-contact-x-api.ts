@@ -962,7 +962,7 @@ export class IccContactXApi extends IccContactApi {
     optionalParams: {
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
       sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
-    }
+    } = {}
   ): Promise<ShareResult<models.Contact>> {
     // All entities should have an encryption key.
     const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(contact, 'Contact')
@@ -974,7 +974,7 @@ export class IccContactXApi extends IccContactApi {
       delegateId,
       optionalParams?.shareEncryptionKey,
       optionalParams?.sharePatientId,
-      [],
+      undefined,
       requestedPermissions,
       (x) => this.bulkShareContacts(x)
     )

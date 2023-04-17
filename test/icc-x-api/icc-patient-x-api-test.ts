@@ -3,7 +3,7 @@ import { before } from 'mocha'
 import 'isomorphic-fetch'
 
 import { Patient } from '../../icc-api/model/Patient'
-import { assert } from 'chai'
+import { assert, expect } from 'chai'
 import { randomUUID } from 'crypto'
 import { getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStorage, TestUtils, TestVars } from '../utils/test_utils'
 import initApi = TestUtils.initApi
@@ -49,7 +49,7 @@ describe('icc-x-patient-api Tests', () => {
     assert(readPatient.note == patientToCreate.note)
     assert(readPatient.firstName == patientToCreate.firstName)
     assert(readPatient.lastName == patientToCreate.lastName)
-    assert(readPatient.delegations![hcpUser.healthcarePartyId!].length > 0)
-    assert(readPatient.encryptionKeys![hcpUser.healthcarePartyId!].length > 0)
+    expect(await cryptoApiForHcp.xapi.encryptionKeysOf({ entity: readPatient, type: 'Patient' }, undefined)).to.have.length(1)
+    expect(await patientApiForHcp.getSecretIdsOf(readPatient)).to.have.length(1)
   })
 })

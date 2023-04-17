@@ -240,7 +240,7 @@ export interface ExtendedApisUtils {
     delegateId: string,
     shareEncryptionKeys: ShareMetadataBehaviour | undefined,
     shareOwningEntityIds: ShareMetadataBehaviour | undefined,
-    shareSecretIds: string[],
+    shareSecretIds: string[] | undefined,
     requestedPermissions: RequestedPermissionEnum,
     doRequestBulkShareOrUpdate: (request: {
       [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }

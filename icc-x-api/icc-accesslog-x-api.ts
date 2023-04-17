@@ -327,7 +327,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
     optionalParams: {
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
       sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
-    }
+    } = {}
   ): Promise<ShareResult<AccessLog>> {
     // All entities should have an encryption key.
     const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(accessLog, 'AccessLog')
@@ -339,7 +339,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
       delegateId,
       optionalParams?.shareEncryptionKey,
       optionalParams?.sharePatientId,
-      [],
+      undefined,
       requestedPermissions,
       (x) => this.bulkShareAccessLogs(x)
     )

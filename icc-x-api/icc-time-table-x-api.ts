@@ -108,7 +108,7 @@ export class IccTimeTableXApi extends IccTimeTableApi {
     requestedPermissions: RequestedPermissionEnum,
     optionalParams: {
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
-    }
+    } = {}
   ): Promise<ShareResult<models.TimeTable>> {
     // All entities should have an encryption key.
     const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(timeTable, 'TimeTable')
@@ -118,7 +118,7 @@ export class IccTimeTableXApi extends IccTimeTableApi {
       delegateId,
       optionalParams?.shareEncryptionKey,
       undefined,
-      [],
+      undefined,
       requestedPermissions,
       (x) => this.bulkShareTimeTable(x)
     )

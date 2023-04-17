@@ -12,7 +12,6 @@ import { expect } from 'chai'
 import { BasicAuthenticationProvider } from '../../../icc-x-api/auth/AuthenticationProvider'
 import { createHcpHierarchyApis, getEnvironmentInitializer, getEnvVariables, setLocalStorage, TestVars } from '../../utils/test_utils'
 import { TestKeyStorage, TestStorage } from '../../utils/TestStorage'
-import { DefaultStorageEntryKeysFactory } from '../../../icc-x-api/storage/DefaultStorageEntryKeysFactory'
 import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
 
 setLocalStorage(fetch)
@@ -82,8 +81,8 @@ describe('Full battery of tests on crypto and keys', async function () {
 
     expect(pat.note ?? undefined).to.be.undefined
 
-    await api.patientApi.share(u, patient.id, u.healthcarePartyId!, [patient.id], { [patient.id]: ['all'] })
-    await apiAsPatient.cryptoApi.forceReload(true)
+    await api.patientApi.shareAllDataOfPatient(u, patient.id, u.healthcarePartyId!, [patient.id], { [patient.id]: ['all'] })
+    await apiAsPatient.cryptoApi.forceReload()
     const patUser = await apiAsPatient.userApi.getCurrentUser()
     const entity = await apiAsPatient.patientApi.getPatientWithUser(patUser, patient.id)
     const retrievedHe = await apiAsPatient.healthcareElementApi.getHealthElementWithUser(patUser, he.id!)

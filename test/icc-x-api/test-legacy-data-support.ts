@@ -13,6 +13,8 @@ import { HealthcareParty } from '../../icc-api/model/HealthcareParty'
 import { TestKeyStorage, TestStorage, testStorageWithKeys } from '../utils/TestStorage'
 import { TestCryptoStrategies } from '../utils/TestCryptoStrategies'
 import { DefaultStorageEntryKeysFactory } from '../../icc-x-api/storage/DefaultStorageEntryKeysFactory'
+import { EntityShareRequest } from '../../icc-api/model/requests/EntityShareRequest'
+import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 
 type UserCredentials = {
   login: string
@@ -45,10 +47,14 @@ interface ApiFactory {
 
 function checkEncryptedData(actual: EncryptedData, expected: EncryptedData, actualName: string) {
   expect(actual.secretContent, `${actualName} - secret content`).to.equal(expected.secretContent)
-  expect(actual.secretIds, `${actualName} - secret ids`).to.have.length(1)
-  expect(actual.secretIds[0], `${actualName} - secret ids`).to.equal(expected.secretIds[0])
-  expect(actual.owningEntityIds, `${actualName} - owning entity id`).to.have.length(1)
-  expect(actual.owningEntityIds[0], `${actualName} - owning entity id`).to.equal(expected.owningEntityIds[0])
+  expect(actual.secretIds, `${actualName} - secret ids`).to.have.length(expected.secretIds.length)
+  for (const expectedId of expected.secretIds) {
+    expect(actual.secretIds, `${actualName} - secret id`).to.contain(expectedId)
+  }
+  expect(actual.owningEntityIds, `${actualName} - owning entity id`).to.have.length(expected.owningEntityIds.length)
+  for (const expectedId of expected.owningEntityIds) {
+    expect(actual.owningEntityIds, `${actualName} - owning entity id`).to.contain(expectedId)
+  }
 }
 
 setLocalStorage(fetch)
@@ -226,16 +232,15 @@ class ApiFactoryV7 implements ApiFactory {
       },
       createEncryptedData: async () => {
         const note = `v7 note ${uuid}`
-        const secretId = uuid()
         const patient = await apis.patientApi.createPatientWithUser(user, await apis.patientApi.newInstance(user))
         const healthdata = await apis.healthcareElementApi.createHealthElementWithUser(
           user,
-          await apis.healthcareElementApi.newInstance(user, patient, { note }, false, [], secretId)
+          await apis.healthcareElementApi.newInstance(user, patient, { note })
         )
         return {
           id: healthdata.id,
           secretContent: note,
-          secretIds: [secretId],
+          secretIds: [],
           owningEntityIds: [patient.id! as string],
         }
       },
@@ -243,19 +248,13 @@ class ApiFactoryV7 implements ApiFactory {
         const healthdata = await apis.healthcareElementApi.getHealthElementWithUser(user, id)
         return {
           secretContent: healthdata.note!,
-          secretIds: await apis.cryptoApi.xapi.secretIdsOf(healthdata),
-          owningEntityIds: await apis.cryptoApi.xapi.owningEntityIdsOf(healthdata),
+          secretIds: await apis.cryptoApi.xapi.secretIdsOf({ entity: healthdata, type: 'HealthElement' }, undefined),
+          owningEntityIds: await apis.healthcareElementApi.decryptPatientIdOf(healthdata),
         }
       },
       shareEncryptedData: async (dataId, delegateId) => {
         const healthElement = await apis.healthcareElementApi.getHealthElementWithUser(user, dataId)
-        const encryptionKeys = await apis.cryptoApi.xapi.encryptionKeysOf(healthElement)
-        const secretIds = await apis.cryptoApi.xapi.secretIdsOf(healthElement)
-        const owningEntityIds = await apis.cryptoApi.xapi.owningEntityIdsOf(healthElement)
-        await apis.healthcareElementApi.modifyHealthElementWithUser(
-          user,
-          await apis.cryptoApi.xapi.entityWithExtendedEncryptedMetadata(healthElement, delegateId, secretIds, encryptionKeys, owningEntityIds)
-        )
+        await apis.healthcareElementApi.shareWith(delegateId, healthElement, RequestedPermissionEnum.MAX_WRITE)
       },
     }
   }

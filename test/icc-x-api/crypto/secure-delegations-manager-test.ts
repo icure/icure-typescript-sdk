@@ -104,7 +104,7 @@ describe('Secure delegations manager', async function () {
         secretIds,
         encryptionKeys,
         owningEntityIds,
-        EntityShareRequest.RequestedPermissionDto.MAX_WRITE
+        EntityShareRequest.RequestedPermissionEnum.MAX_WRITE
       )
       expect(shareOrUpdateParams).to.not.be.undefined
       expect(shareOrUpdateParams!.update).to.be.undefined

@@ -137,7 +137,7 @@ export class IccMessageXApi extends IccMessageApi {
     optionalParams: {
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
       sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
-    }
+    } = {}
   ): Promise<ShareResult<models.Message>> {
     // All entities should have an encryption key.
     const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(message, 'Message')
@@ -147,7 +147,7 @@ export class IccMessageXApi extends IccMessageApi {
       delegateId,
       optionalParams?.shareEncryptionKey,
       optionalParams?.sharePatientId,
-      [],
+      shareSecretIds,
       requestedPermissions,
       (x) => this.bulkShareMessages(x)
     )
