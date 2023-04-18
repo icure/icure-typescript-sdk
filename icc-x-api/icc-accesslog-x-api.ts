@@ -7,11 +7,11 @@ import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
-import { EncryptedEntityWithType } from './utils/EntityWithDelegationTypeName'
 import { ShareMetadataBehaviour } from './utils/ShareMetadataBehaviour'
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { ShareResult } from './utils/ShareResult'
+import { XHR } from '../icc-api/api/XHR'
 
 export interface AccessLogWithPatientId extends AccessLog {
   patientId: string
@@ -21,6 +21,10 @@ export class IccAccesslogXApi extends IccAccesslogApi {
   crypto: IccCryptoXApi
   cryptedKeys = ['detail', 'objectId']
   dataOwnerApi: IccDataOwnerXApi
+
+  get headers(): Promise<Array<XHR.Header>> {
+    return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, 'AccessLog'))
+  }
 
   constructor(
     host: string,

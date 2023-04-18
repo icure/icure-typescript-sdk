@@ -14,11 +14,16 @@ import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
+import { XHR } from '../icc-api/api/XHR'
 
 export class IccTimeTableXApi extends IccTimeTableApi {
   i18n: any = i18n
   crypto: IccCryptoXApi
   dataOwnerApi: IccDataOwnerXApi
+
+  get headers(): Promise<Array<XHR.Header>> {
+    return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, 'TimeTable'))
+  }
 
   constructor(
     host: string,

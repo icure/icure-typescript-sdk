@@ -49,6 +49,6 @@ export class TestCryptoStrategies implements CryptoStrategies {
   }
 
   dataOwnerRequiresAnonymousDelegation(dataOwner: DataOwnerWithType): boolean {
-    return false // dataOwner.type !== DataOwnerTypeEnum.Hcp
+    return dataOwner.type !== DataOwnerTypeEnum.Hcp
   }
 }

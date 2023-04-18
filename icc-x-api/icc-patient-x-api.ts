@@ -26,6 +26,7 @@ import { ShareMetadataBehaviour } from './utils/ShareMetadataBehaviour'
 import { ShareResult } from './utils/ShareResult'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
+import { XHR } from '../icc-api/api/XHR'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccPatientXApi extends IccPatientApi {
@@ -41,6 +42,10 @@ export class IccPatientXApi extends IccPatientApi {
   dataOwnerApi: IccDataOwnerXApi
 
   private readonly encryptedKeys: Array<string>
+
+  get headers(): Promise<Array<XHR.Header>> {
+    return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, 'Patient'))
+  }
 
   constructor(
     host: string,

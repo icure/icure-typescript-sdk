@@ -22,9 +22,13 @@ import { MinimalEntityBulkShareResult } from '../model/requests/MinimalEntityBul
 
 export class IccClassificationApi {
   host: string
-  headers: Array<XHR.Header>
+  _headers: Array<XHR.Header>
   authenticationProvider: AuthenticationProvider
   fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
+
+  get headers(): Promise<Array<XHR.Header>> {
+    return Promise.resolve(this._headers)
+  }
 
   constructor(
     host: string,
@@ -33,13 +37,13 @@ export class IccClassificationApi {
     fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
   ) {
     this.host = iccRestApiPath(host)
-    this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
+    this._headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
     this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
     this.fetchImpl = fetchImpl
   }
 
   setHeaders(h: Array<XHR.Header>) {
-    this.headers = h
+    this._headers = h
   }
 
   handleError(e: XHR.XHRError): never {
@@ -51,12 +55,12 @@ export class IccClassificationApi {
    * @summary Create a classification with the current user
    * @param body
    */
-  createClassification(body?: Classification): Promise<Classification> {
+  async createClassification(body?: Classification): Promise<Classification> {
     let _body = null
     _body = body
 
     const _url = this.host + `/classification` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Classification(doc.body as JSON))
@@ -68,11 +72,11 @@ export class IccClassificationApi {
    * @summary Delete classification Templates.
    * @param classificationIds
    */
-  deleteClassifications(classificationIds: string): Promise<Array<DocIdentifier>> {
+  async deleteClassifications(classificationIds: string): Promise<Array<DocIdentifier>> {
     let _body = null
 
     const _url = this.host + `/classification/${encodeURIComponent(String(classificationIds))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
       .catch((err) => this.handleError(err))
@@ -84,7 +88,7 @@ export class IccClassificationApi {
    * @param hcPartyId
    * @param secretFKeys
    */
-  findClassificationsByHCPartyPatientForeignKeys(hcPartyId: string, secretFKeys: string): Promise<Array<Classification>> {
+  async findClassificationsByHCPartyPatientForeignKeys(hcPartyId: string, secretFKeys: string): Promise<Array<Classification>> {
     let _body = null
 
     const _url =
@@ -94,7 +98,7 @@ export class IccClassificationApi {
       new Date().getTime() +
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
       (secretFKeys ? '&secretFKeys=' + encodeURIComponent(String(secretFKeys)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Classification(it)))
       .catch((err) => this.handleError(err))
@@ -105,11 +109,11 @@ export class IccClassificationApi {
    * @summary Get a classification Template
    * @param classificationId
    */
-  getClassification(classificationId: string): Promise<Classification> {
+  async getClassification(classificationId: string): Promise<Classification> {
     let _body = null
 
     const _url = this.host + `/classification/${encodeURIComponent(String(classificationId))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Classification(doc.body as JSON))
       .catch((err) => this.handleError(err))
@@ -120,11 +124,11 @@ export class IccClassificationApi {
    * @summary Get a list of classifications
    * @param ids
    */
-  getClassificationByHcPartyId(ids: string): Promise<Array<Classification>> {
+  async getClassificationByHcPartyId(ids: string): Promise<Array<Classification>> {
     let _body = null
 
     const _url = this.host + `/classification/byIds/${encodeURIComponent(String(ids))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Classification(it)))
       .catch((err) => this.handleError(err))
@@ -135,12 +139,12 @@ export class IccClassificationApi {
    * @summary Modify a classification Template
    * @param body
    */
-  modifyClassification(body?: Classification): Promise<Classification> {
+  async modifyClassification(body?: Classification): Promise<Classification> {
     let _body = null
     _body = body
 
     const _url = this.host + `/classification` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Classification(doc.body as JSON))
@@ -153,12 +157,12 @@ export class IccClassificationApi {
    * @param body
    * @param classificationId
    */
-  newClassificationDelegations(classificationId: string, body?: Array<Delegation>): Promise<Classification> {
+  async newClassificationDelegations(classificationId: string, body?: Array<Delegation>): Promise<Classification> {
     let _body = null
     _body = body
 
     const _url = this.host + `/classification/${encodeURIComponent(String(classificationId))}/delegate` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Classification(doc.body as JSON))
@@ -170,12 +174,12 @@ export class IccClassificationApi {
    * @summary Update delegations in classification
    * @param body
    */
-  setClassificationsDelegations(body?: Array<IcureStub>): Promise<Array<IcureStub>> {
+  async setClassificationsDelegations(body?: Array<IcureStub>): Promise<Array<IcureStub>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/classification/delegations` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
@@ -185,11 +189,11 @@ export class IccClassificationApi {
   /**
    * @internal this method is for internal use only and may be changed without notice
    */
-  bulkShareClassifications(request: {
+  async bulkShareClassifications(request: {
     [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
   }): Promise<EntityBulkShareResult<Classification>[]> {
     const _url = this.host + '/classification/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((x) => new EntityBulkShareResult<Classification>(x, Classification)))
@@ -199,11 +203,11 @@ export class IccClassificationApi {
   /**
    * @internal this method is for internal use only and may be changed without notice
    */
-  bulkShareClassificationsMinimal(request: {
+  async bulkShareClassificationsMinimal(request: {
     [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
   }): Promise<MinimalEntityBulkShareResult[]> {
     const _url = this.host + '/classification/bulkSharedMetadataUpdateMinimal' + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((x) => new MinimalEntityBulkShareResult(x)))

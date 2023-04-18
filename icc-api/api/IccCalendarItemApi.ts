@@ -22,9 +22,13 @@ import { MinimalEntityBulkShareResult } from '../model/requests/MinimalEntityBul
 
 export class IccCalendarItemApi {
   host: string
-  headers: Array<XHR.Header>
+  _headers: Array<XHR.Header>
   authenticationProvider: AuthenticationProvider
   fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
+
+  get headers(): Promise<Array<XHR.Header>> {
+    return Promise.resolve(this._headers)
+  }
 
   constructor(
     host: string,
@@ -33,13 +37,13 @@ export class IccCalendarItemApi {
     fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
   ) {
     this.host = iccRestApiPath(host)
-    this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
+    this._headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
     this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
     this.fetchImpl = fetchImpl
   }
 
   setHeaders(h: Array<XHR.Header>) {
-    this.headers = h
+    this._headers = h
   }
 
   handleError(e: XHR.XHRError): never {
@@ -51,12 +55,12 @@ export class IccCalendarItemApi {
    * @summary Creates a calendarItem
    * @param body
    */
-  createCalendarItem(body?: CalendarItem): Promise<CalendarItem> {
+  async createCalendarItem(body?: CalendarItem): Promise<CalendarItem> {
     let _body = null
     _body = body
 
     const _url = this.host + `/calendarItem` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new CalendarItem(doc.body as JSON))
@@ -68,11 +72,11 @@ export class IccCalendarItemApi {
    * @summary Deletes an calendarItem
    * @param calendarItemIds
    */
-  deleteCalendarItem(calendarItemIds: string): Promise<Array<DocIdentifier>> {
+  async deleteCalendarItem(calendarItemIds: string): Promise<Array<DocIdentifier>> {
     let _body = null
 
     const _url = this.host + `/calendarItem/${encodeURIComponent(String(calendarItemIds))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
       .catch((err) => this.handleError(err))
@@ -83,12 +87,12 @@ export class IccCalendarItemApi {
    * @summary Deletes calendarItems
    * @param body
    */
-  deleteCalendarItems(body?: ListOfIds): Promise<Array<DocIdentifier>> {
+  async deleteCalendarItems(body?: ListOfIds): Promise<Array<DocIdentifier>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/calendarItem/delete/byIds` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
@@ -101,7 +105,7 @@ export class IccCalendarItemApi {
    * @param hcPartyId
    * @param secretFKeys
    */
-  findCalendarItemsByHCPartyPatientForeignKeys(hcPartyId: string, secretFKeys: string): Promise<Array<CalendarItem>> {
+  async findCalendarItemsByHCPartyPatientForeignKeys(hcPartyId: string, secretFKeys: string): Promise<Array<CalendarItem>> {
     let _body = null
 
     const _url =
@@ -111,7 +115,7 @@ export class IccCalendarItemApi {
       new Date().getTime() +
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
       (secretFKeys ? '&secretFKeys=' + encodeURIComponent(String(secretFKeys)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new CalendarItem(it)))
       .catch((err) => this.handleError(err))
@@ -122,7 +126,7 @@ export class IccCalendarItemApi {
    * @summary Find CalendarItems by recurrenceId
    * @param recurrenceId
    */
-  findCalendarItemsByRecurrenceId(recurrenceId: string): Promise<Array<CalendarItem>> {
+  async findCalendarItemsByRecurrenceId(recurrenceId: string): Promise<Array<CalendarItem>> {
     let _body = null
 
     const _url =
@@ -131,7 +135,7 @@ export class IccCalendarItemApi {
       '?ts=' +
       new Date().getTime() +
       (recurrenceId ? '&recurrenceId=' + encodeURIComponent(String(recurrenceId)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new CalendarItem(it)))
       .catch((err) => this.handleError(err))
@@ -142,11 +146,11 @@ export class IccCalendarItemApi {
    * @summary Gets an calendarItem
    * @param calendarItemId
    */
-  getCalendarItem(calendarItemId: string): Promise<CalendarItem> {
+  async getCalendarItem(calendarItemId: string): Promise<CalendarItem> {
     let _body = null
 
     const _url = this.host + `/calendarItem/${encodeURIComponent(String(calendarItemId))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new CalendarItem(doc.body as JSON))
       .catch((err) => this.handleError(err))
@@ -156,11 +160,11 @@ export class IccCalendarItemApi {
    *
    * @summary Gets all calendarItems
    */
-  getCalendarItems(): Promise<Array<CalendarItem>> {
+  async getCalendarItems(): Promise<Array<CalendarItem>> {
     let _body = null
 
     const _url = this.host + `/calendarItem` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new CalendarItem(it)))
       .catch((err) => this.handleError(err))
@@ -173,7 +177,7 @@ export class IccCalendarItemApi {
    * @param endDate
    * @param hcPartyId
    */
-  getCalendarItemsByPeriodAndHcPartyId(startDate: number, endDate: number, hcPartyId: string): Promise<Array<CalendarItem>> {
+  async getCalendarItemsByPeriodAndHcPartyId(startDate: number, endDate: number, hcPartyId: string): Promise<Array<CalendarItem>> {
     let _body = null
 
     const _url =
@@ -184,7 +188,7 @@ export class IccCalendarItemApi {
       (startDate ? '&startDate=' + encodeURIComponent(String(startDate)) : '') +
       (endDate ? '&endDate=' + encodeURIComponent(String(endDate)) : '') +
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new CalendarItem(it)))
       .catch((err) => this.handleError(err))
@@ -195,12 +199,12 @@ export class IccCalendarItemApi {
    * @summary Get calendarItems by id
    * @param body
    */
-  getCalendarItemsWithIds(body?: ListOfIds): Promise<Array<CalendarItem>> {
+  async getCalendarItemsWithIds(body?: ListOfIds): Promise<Array<CalendarItem>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/calendarItem/byIds` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new CalendarItem(it)))
@@ -214,7 +218,7 @@ export class IccCalendarItemApi {
    * @param endDate
    * @param agendaId
    */
-  getCalendarsByPeriodAndAgendaId(startDate: number, endDate: number, agendaId: string): Promise<Array<CalendarItem>> {
+  async getCalendarsByPeriodAndAgendaId(startDate: number, endDate: number, agendaId: string): Promise<Array<CalendarItem>> {
     let _body = null
 
     const _url =
@@ -225,7 +229,7 @@ export class IccCalendarItemApi {
       (startDate ? '&startDate=' + encodeURIComponent(String(startDate)) : '') +
       (endDate ? '&endDate=' + encodeURIComponent(String(endDate)) : '') +
       (agendaId ? '&agendaId=' + encodeURIComponent(String(agendaId)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new CalendarItem(it)))
       .catch((err) => this.handleError(err))
@@ -236,12 +240,12 @@ export class IccCalendarItemApi {
    * @summary Modifies an calendarItem
    * @param body
    */
-  modifyCalendarItem(body?: CalendarItem): Promise<CalendarItem> {
+  async modifyCalendarItem(body?: CalendarItem): Promise<CalendarItem> {
     let _body = null
     _body = body
 
     const _url = this.host + `/calendarItem` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new CalendarItem(doc.body as JSON))
@@ -253,12 +257,12 @@ export class IccCalendarItemApi {
    * @summary Update delegations in calendarItems
    * @param body
    */
-  setCalendarItemsDelegations(body?: Array<IcureStub>): Promise<Array<CalendarItem>> {
+  async setCalendarItemsDelegations(body?: Array<IcureStub>): Promise<Array<CalendarItem>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/calendarItem/delegations` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new CalendarItem(it)))
@@ -268,11 +272,11 @@ export class IccCalendarItemApi {
   /**
    * @internal this method is for internal use only and may be changed without notice
    */
-  bulkShareCalendarItems(request: {
+  async bulkShareCalendarItems(request: {
     [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
   }): Promise<EntityBulkShareResult<CalendarItem>[]> {
     const _url = this.host + '/calendarItem/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((x) => new EntityBulkShareResult<CalendarItem>(x, CalendarItem)))
@@ -282,11 +286,11 @@ export class IccCalendarItemApi {
   /**
    * @internal this method is for internal use only and may be changed without notice
    */
-  bulkShareCalendarItemsMinimal(request: {
+  async bulkShareCalendarItemsMinimal(request: {
     [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
   }): Promise<MinimalEntityBulkShareResult[]> {
     const _url = this.host + '/calendarItem/bulkSharedMetadataUpdateMinimal' + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((x) => new MinimalEntityBulkShareResult(x)))

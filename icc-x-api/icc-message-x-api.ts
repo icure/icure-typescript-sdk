@@ -13,9 +13,14 @@ import { ShareMetadataBehaviour } from './utils/ShareMetadataBehaviour'
 import { ShareResult } from './utils/ShareResult'
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
+import { XHR } from '../icc-api/api/XHR'
 
 export class IccMessageXApi extends IccMessageApi {
   dataOwnerApi: IccDataOwnerXApi
+
+  get headers(): Promise<Array<XHR.Header>> {
+    return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, 'Message'))
+  }
 
   constructor(
     host: string,

@@ -46,11 +46,9 @@ import { ExchangeKeysManager } from './crypto/ExchangeKeysManager'
 import { ShamirKeysManager } from './crypto/ShamirKeysManager'
 import { TransferKeysManager } from './crypto/TransferKeysManager'
 import { IccIcureMaintenanceXApi } from './icc-icure-maintenance-x-api'
-import { ExtendedApisUtils } from './crypto/ExtendedApisUtils'
 import { ConfidentialEntities } from './crypto/ConfidentialEntities'
 import { LegacyCryptoStrategies } from './crypto/LegacyCryptoStrategies'
 import { ensureDelegationForSelf } from './crypto/utils'
-import { SecurityMetadataDecryptorChain } from './crypto/SecurityMetadataDecryptor'
 import { SecureDelegationsSecurityMetadataDecryptor } from './crypto/SecureDelegationsSecurityMetadataDecryptor'
 import { initialiseExchangeDataManagerForCurrentDataOwner } from './crypto/ExchangeDataManager'
 import { BaseExchangeDataManager } from './crypto/BaseExchangeDataManager'
@@ -61,6 +59,7 @@ import { SecureDelegationsEncryption } from './crypto/SecureDelegationsEncryptio
 import { LegacyDelegationSecurityMetadataDecryptor } from './crypto/LegacyDelegationSecurityMetadataDecryptor'
 import { ExtendedApisUtilsImpl } from './crypto/ExtendedApisUtilsImpl'
 import { SecureDelegationsManager } from './crypto/SecureDelegationsManager'
+import { AccessControlKeysHeadersProvider } from './crypto/AccessControlKeysHeadersProvider'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -244,7 +243,8 @@ export const Api = async function (
     icureStorage,
     healthcarePartyApi,
     confidentialEntitites,
-    exchangeDataManager
+    exchangeDataManager,
+    new AccessControlKeysHeadersProvider(exchangeDataManager)
   )
   const accessLogApi = new IccAccesslogXApi(host, headers, cryptoApi, dataOwnerApi, authenticationProvider, fetchImpl)
   const agendaApi = new IccAgendaApi(host, headers, authenticationProvider, fetchImpl)

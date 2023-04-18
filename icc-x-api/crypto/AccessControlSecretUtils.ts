@@ -2,11 +2,20 @@ import { CryptoPrimitives } from './CryptoPrimitives'
 import { EntityWithDelegationTypeName, entityWithDelegationTypeNames } from '../utils/EntityWithDelegationTypeName'
 import { ua2hex, utf8_2ua } from '../utils'
 
+const ACCESS_CONTROL_KEY_LENGTH_BYTES = 16
+
 /**
  * @internal this class is intended for internal use only and may be changed without notice.
  */
 export class AccessControlSecretUtils {
   constructor(private readonly primitives: CryptoPrimitives) {}
+
+  /**
+   * Size of the access control keys returned by this class.
+   */
+  get accessControlKeyLengthBytes(): number {
+    return ACCESS_CONTROL_KEY_LENGTH_BYTES
+  }
 
   /**
    * Get the access control key to use for entities of the provided type and using the provided secret foreign key. The combination of secret foreign
@@ -22,7 +31,10 @@ export class AccessControlSecretUtils {
     entityTypeName: EntityWithDelegationTypeName,
     secretForeignKey: string | undefined
   ): Promise<ArrayBuffer> {
-    return (await this.primitives.sha256(utf8_2ua(accessControlSecret + entityTypeName + (secretForeignKey ?? '')))).slice(0, 16)
+    return (await this.primitives.sha256(utf8_2ua(accessControlSecret + entityTypeName + (secretForeignKey ?? '')))).slice(
+      0,
+      ACCESS_CONTROL_KEY_LENGTH_BYTES
+    )
   }
 
   /**
@@ -70,10 +82,12 @@ export class AccessControlSecretUtils {
     secretForeignKeys: string[],
     getKey: (accessControlSecret: string, entityTypeName: EntityWithDelegationTypeName, secretForeignKey: string | undefined) => Promise<T>
   ): Promise<T[]> {
-    if (!secretForeignKeys.length) {
-      return [await getKey(accessControlSecret, entityTypeName, undefined)]
-    } else {
-      return await Promise.all(secretForeignKeys.map((sfk) => getKey(accessControlSecret, entityTypeName, sfk)))
-    }
+    // Usage of sfks in secure delegation key should be configurable: it is not necessary for all users and it has some performance impact
+
+    // if (!secretForeignKeys.length) {
+    return [await getKey(accessControlSecret, entityTypeName, undefined)]
+    // } else {
+    //   return await Promise.all(secretForeignKeys.map((sfk) => getKey(accessControlSecret, entityTypeName, sfk)))
+    // }
   }
 }
