@@ -12,6 +12,8 @@ import { HealthElement } from '../../icc-api/model/HealthElement'
 import { Code } from '../../icc-api/model/Code'
 import { User } from '../../icc-api/model/User'
 import initKey = TestUtils.initKey
+import { FilterChainHealthElement } from '../../icc-api/model/FilterChainHealthElement'
+import { HealthElementByIdsFilter } from '../../icc-x-api/filters/HealthElementByIdsFilter'
 
 setLocalStorage(fetch)
 let env: TestVars | undefined
@@ -137,9 +139,63 @@ describe('icc-helement-x-api Tests', () => {
 
     // When
     const foundHealthElements = await hElementApiForHcp.findHealthElementsByHCPartyAndPatientWithUser(hcpUser, hcpUser.healthcarePartyId!, patient)
+    const foundHealthElementsUsingPost = await hElementApiForHcp.findHealthElementsByHCPartyAndPatientWithUser(
+      hcpUser,
+      hcpUser.healthcarePartyId!,
+      patient,
+      true
+    )
 
     // Then
-    assert(foundHealthElements.length == 1)
-    assert(foundHealthElements[0].id == createdHealthElement.id)
+    assert(foundHealthElements.length == 1, 'Found health elements should be 1')
+    assert(foundHealthElements[0].id == createdHealthElement.id, 'Found health element should be the same as the created one')
+
+    assert(foundHealthElementsUsingPost.length == 1, 'Found health elements using POST should be 1')
+    assert(foundHealthElementsUsingPost[0].id == createdHealthElement.id, 'Found health element using POST should be the same as the created one')
+  })
+
+  it('filter healthcare element result should return same output by id', async () => {
+    // Given
+    const {
+      userApi: userApiForHcp,
+      dataOwnerApi: dataOwnerApiForHcp,
+      patientApi: patientApiForHcp,
+      healthcareElementApi: hElementApiForHcp,
+      cryptoApi: cryptoApiForHcp,
+    } = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password, crypto)
+
+    const hcpUser = await userApiForHcp.getCurrentUser()
+    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, env!.dataOwnerDetails[hcp1Username].privateKey)
+
+    const patient = (await createPatient(patientApiForHcp, hcpUser)) as Patient
+    const createdHealthElement = await hElementApiForHcp.createHealthElementWithUser(
+      hcpUser,
+      await healthElementToCreate(hElementApiForHcp, hcpUser, patient)
+    )
+
+    // When
+    const healthElementById = await hElementApiForHcp.getHealthElementWithUser(hcpUser, createdHealthElement.id)
+    const healthElementByFilter = await hElementApiForHcp.filterByWithUser(
+      hcpUser,
+      undefined,
+      undefined,
+      new FilterChainHealthElement({
+        filter: new HealthElementByIdsFilter({
+          ids: [createdHealthElement.id!],
+          healthcarePartyId: hcpUser.healthcarePartyId!,
+        }),
+      })
+    )
+
+    // Then
+    assert(healthElementByFilter.rows?.length == 1, 'Found health elements should be 1')
+    assert(healthElementByFilter.rows[0].id == createdHealthElement.id, 'Found health element should be the same as the created one')
+
+    assert(!!healthElementById.note, 'Health element should have a note')
+
+    assert(
+      JSON.stringify(healthElementByFilter.rows[0]) === JSON.stringify(healthElementById),
+      'Found health elements by id should match the one found by filter'
+    )
   })
 })

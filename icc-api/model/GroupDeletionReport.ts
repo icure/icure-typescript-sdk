@@ -10,11 +10,12 @@
  * Do not edit the class manually.
  */
 
-import { b64_2ab } from './ModelHelper'
-export class Body1 {
+export class GroupDeletionReport {
   constructor(json: JSON | any) {
-    Object.assign(this as Body1, json, json.attachment ? { attachment: b64_2ab(json.attachment) } : {})
+    Object.assign(this as GroupDeletionReport, json)
   }
 
-  attachment?: ArrayBuffer
+  type?: string
+  id?: string
+  server?: string
 }

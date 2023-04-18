@@ -9,22 +9,11 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
-import { Group } from './Group'
 
-export class UserGroup {
+export class DataOwnerWithType {
   constructor(json: JSON | any) {
-    Object.assign(this as UserGroup, json)
+    Object.assign(this as DataOwnerWithType, json)
   }
 
-  groupId?: string
-  groupName?: string
-  groupsHierarchy?: Array<Group>
-  userId?: string
-  login?: string
-  name?: string
-  email?: string
-  phone?: string
-  patientId?: string
-  healthcarePartyId?: string
-  deviceId?: string
+  dataOwner?: any
 }
