@@ -14,12 +14,17 @@ import { ShareMetadataBehaviour } from './utils/ShareMetadataBehaviour'
 import { ShareResult } from './utils/ShareResult'
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
+import { XHR } from '../icc-api/api/XHR'
 
 export class IccHelementXApi extends IccHelementApi {
   crypto: IccCryptoXApi
   dataOwnerApi: IccDataOwnerXApi
 
   private readonly encryptedKeys: Array<string>
+
+  get headers(): Promise<Array<XHR.Header>> {
+    return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, 'HealthElement'))
+  }
 
   constructor(
     host: string,

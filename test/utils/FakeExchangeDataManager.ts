@@ -14,8 +14,8 @@ export class FakeDecryptionExchangeDataManager implements ExchangeDataManager {
     throw new Error('This method is not supported by fake exchange data manager and should not be used.')
   }
 
-  getAllAccessControlSecretsIfAllowed(): Promise<string[] | undefined> {
-    throw new Error('This method should not be used with this fake exchange data manager: only retrieval decryption data is supported')
+  getAccessControlKeysValue(entityType: EntityWithDelegationTypeName): Promise<string | undefined> {
+    throw new Error('This method is not supported by fake exchange data manager and should not be used.')
   }
 
   async getCachedDecryptionDataKeyByAccessControlHash(

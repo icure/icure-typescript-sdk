@@ -20,9 +20,13 @@ import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 
 export class IccAccesslogApi {
   host: string
-  headers: Array<XHR.Header>
+  _headers: Array<XHR.Header>
   authenticationProvider: AuthenticationProvider
   fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
+
+  get headers(): Promise<Array<XHR.Header>> {
+    return Promise.resolve(this._headers)
+  }
 
   constructor(
     host: string,
@@ -31,13 +35,13 @@ export class IccAccesslogApi {
     fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
   ) {
     this.host = iccRestApiPath(host)
-    this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
+    this._headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
     this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
     this.fetchImpl = fetchImpl
   }
 
   setHeaders(h: Array<XHR.Header>) {
-    this.headers = h
+    this._headers = h
   }
 
   handleError(e: XHR.XHRError): never {
@@ -49,12 +53,12 @@ export class IccAccesslogApi {
    * @summary Create an access log
    * @param body
    */
-  createAccessLog(body?: AccessLog): Promise<AccessLog> {
+  async createAccessLog(body?: AccessLog): Promise<AccessLog> {
     let _body = null
     _body = body
 
     const _url = this.host + `/accesslog` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new AccessLog(doc.body as JSON))
@@ -66,11 +70,11 @@ export class IccAccesslogApi {
    * @summary Delete access logs by batch
    * @param accessLogIds
    */
-  deleteAccessLog(accessLogIds: string): Promise<Array<DocIdentifier>> {
+  async deleteAccessLog(accessLogIds: string): Promise<Array<DocIdentifier>> {
     let _body = null
 
     const _url = this.host + `/accesslog/${encodeURIComponent(String(accessLogIds))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
       .catch((err) => this.handleError(err))
@@ -82,7 +86,7 @@ export class IccAccesslogApi {
    * @param hcPartyId
    * @param secretFKeys
    */
-  findAccessLogsByHCPartyPatientForeignKeys(hcPartyId: string, secretFKeys: string): Promise<Array<AccessLog>> {
+  async findAccessLogsByHCPartyPatientForeignKeys(hcPartyId: string, secretFKeys: string): Promise<Array<AccessLog>> {
     let _body = null
 
     const _url =
@@ -92,7 +96,7 @@ export class IccAccesslogApi {
       new Date().getTime() +
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
       (secretFKeys ? '&secretFKeys=' + encodeURIComponent(String(secretFKeys)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new AccessLog(it)))
       .catch((err) => this.handleError(err))
@@ -109,7 +113,7 @@ export class IccAccesslogApi {
    * @param limit Number of rows
    * @param descending Descending order
    */
-  findByUserAfterDate(
+  async findByUserAfterDate(
     userId: string,
     accessType?: string,
     startDate?: number,
@@ -132,7 +136,7 @@ export class IccAccesslogApi {
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '') +
       (descending ? '&descending=' + encodeURIComponent(String(descending)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListAccessLog(doc.body as JSON))
       .catch((err) => this.handleError(err))
@@ -143,11 +147,11 @@ export class IccAccesslogApi {
    * @summary Get an access log
    * @param accessLogId
    */
-  getAccessLog(accessLogId: string): Promise<AccessLog> {
+  async getAccessLog(accessLogId: string): Promise<AccessLog> {
     let _body = null
 
     const _url = this.host + `/accesslog/${encodeURIComponent(String(accessLogId))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new AccessLog(doc.body as JSON))
       .catch((err) => this.handleError(err))
@@ -163,7 +167,7 @@ export class IccAccesslogApi {
    * @param limit
    * @param descending
    */
-  listAccessLogs(
+  async listAccessLogs(
     fromEpoch?: number,
     toEpoch?: number,
     startKey?: number,
@@ -185,7 +189,7 @@ export class IccAccesslogApi {
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '') +
       (descending ? '&descending=' + encodeURIComponent(String(descending)) : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('GET', _url, await headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListAccessLog(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -195,12 +199,12 @@ export class IccAccesslogApi {
    * @summary Modifies an access log
    * @param body
    */
-  modifyAccessLog(body?: AccessLog): Promise<AccessLog> {
+  async modifyAccessLog(body?: AccessLog): Promise<AccessLog> {
     let _body = null
     _body = body
 
     const _url = this.host + `/accesslog` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new AccessLog(doc.body as JSON))
@@ -210,11 +214,11 @@ export class IccAccesslogApi {
   /**
    * @internal this method is for internal use only and may be changed without notice
    */
-  bulkShareAccessLogs(request: {
+  async bulkShareAccessLogs(request: {
     [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
   }): Promise<EntityBulkShareResult<AccessLog>[]> {
     const _url = this.host + '/accesslog/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((x) => new EntityBulkShareResult<AccessLog>(x, AccessLog)))

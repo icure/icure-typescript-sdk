@@ -10,9 +10,14 @@ import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
+import { XHR } from '../icc-api/api/XHR'
 
 export class IccReceiptXApi extends IccReceiptApi {
   dataOwnerApi: IccDataOwnerXApi
+
+  get headers(): Promise<Array<XHR.Header>> {
+    return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, 'Receipt'))
+  }
 
   constructor(
     host: string,

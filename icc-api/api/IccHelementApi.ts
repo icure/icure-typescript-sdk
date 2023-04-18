@@ -26,9 +26,13 @@ import { MinimalEntityBulkShareResult } from '../model/requests/MinimalEntityBul
 
 export class IccHelementApi {
   host: string
-  headers: Array<XHR.Header>
+  _headers: Array<XHR.Header>
   authenticationProvider: AuthenticationProvider
   fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
+
+  get headers(): Promise<Array<XHR.Header>> {
+    return Promise.resolve(this._headers)
+  }
 
   constructor(
     host: string,
@@ -37,13 +41,13 @@ export class IccHelementApi {
     fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
   ) {
     this.host = iccRestApiPath(host)
-    this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
+    this._headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
     this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
     this.fetchImpl = fetchImpl
   }
 
   setHeaders(h: Array<XHR.Header>) {
-    this.headers = h
+    this._headers = h
   }
 
   handleError(e: XHR.XHRError): never {
@@ -55,12 +59,12 @@ export class IccHelementApi {
    * @summary Create a healthcare element with the current user
    * @param body
    */
-  createHealthElement(body?: HealthElement): Promise<HealthElement> {
+  async createHealthElement(body?: HealthElement): Promise<HealthElement> {
     let _body = null
     _body = body
 
     const _url = this.host + `/helement` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new HealthElement(doc.body as JSON))
@@ -72,12 +76,12 @@ export class IccHelementApi {
    * @summary Create a batch of healthcare elements
    * @param body
    */
-  createHealthElements(body?: Array<HealthElement>): Promise<Array<HealthElement>> {
+  async createHealthElements(body?: Array<HealthElement>): Promise<Array<HealthElement>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/helement/batch` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new HealthElement(it)))
@@ -89,11 +93,11 @@ export class IccHelementApi {
    * @summary Delete healthcare elements.
    * @param healthElementIds
    */
-  deleteHealthElements(healthElementIds: string): Promise<Array<DocIdentifier>> {
+  async deleteHealthElements(healthElementIds: string): Promise<Array<DocIdentifier>> {
     let _body = null
 
     const _url = this.host + `/helement/${encodeURIComponent(String(healthElementIds))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
       .catch((err) => this.handleError(err))
@@ -106,7 +110,7 @@ export class IccHelementApi {
    * @param startDocumentId A HealthElement document ID
    * @param limit Number of rows
    */
-  filterHealthElementsBy(startDocumentId?: string, limit?: number, body?: FilterChainHealthElement): Promise<PaginatedListHealthElement> {
+  async filterHealthElementsBy(startDocumentId?: string, limit?: number, body?: FilterChainHealthElement): Promise<PaginatedListHealthElement> {
     let _body = null
     _body = body
 
@@ -117,7 +121,7 @@ export class IccHelementApi {
       new Date().getTime() +
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListHealthElement(doc.body as JSON))
@@ -130,7 +134,7 @@ export class IccHelementApi {
    * @param hcPartyId
    * @param secretFKeys
    */
-  findHealthElementsByHCPartyPatientForeignKeys(hcPartyId: string, secretFKeys: string): Promise<Array<HealthElement>> {
+  async findHealthElementsByHCPartyPatientForeignKeys(hcPartyId: string, secretFKeys: string): Promise<Array<HealthElement>> {
     let _body = null
 
     const _url =
@@ -140,7 +144,7 @@ export class IccHelementApi {
       new Date().getTime() +
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
       (secretFKeys ? '&secretFKeys=' + encodeURIComponent(String(secretFKeys)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new HealthElement(it)))
       .catch((err) => this.handleError(err))
@@ -152,7 +156,7 @@ export class IccHelementApi {
    * @param hcPartyId
    * @param secretFKeys
    */
-  findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(hcPartyId: string, secretFKeys: string): Promise<Array<IcureStub>> {
+  async findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(hcPartyId: string, secretFKeys: string): Promise<Array<IcureStub>> {
     let _body = null
 
     const _url =
@@ -162,7 +166,7 @@ export class IccHelementApi {
       new Date().getTime() +
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
       (secretFKeys ? '&secretFKeys=' + encodeURIComponent(String(secretFKeys)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
       .catch((err) => this.handleError(err))
@@ -173,11 +177,11 @@ export class IccHelementApi {
    * @summary Get a healthcare element
    * @param healthElementId
    */
-  getHealthElement(healthElementId: string): Promise<HealthElement> {
+  async getHealthElement(healthElementId: string): Promise<HealthElement> {
     let _body = null
 
     const _url = this.host + `/helement/${encodeURIComponent(String(healthElementId))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new HealthElement(doc.body as JSON))
       .catch((err) => this.handleError(err))
@@ -188,12 +192,12 @@ export class IccHelementApi {
    * @summary Get healthElements by batch
    * @param body
    */
-  getHealthElements(body?: ListOfIds): Promise<Array<HealthElement>> {
+  async getHealthElements(body?: ListOfIds): Promise<Array<HealthElement>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/helement/byIds` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new HealthElement(it)))
@@ -205,12 +209,12 @@ export class IccHelementApi {
    * @summary Get ids of health element matching the provided filter for the current user (HcParty)
    * @param body
    */
-  matchHealthElementsBy(body?: AbstractFilterHealthElement): Promise<Array<string>> {
+  async matchHealthElementsBy(body?: AbstractFilterHealthElement): Promise<Array<string>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/helement/match` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
@@ -222,12 +226,12 @@ export class IccHelementApi {
    * @summary Modify a healthcare element
    * @param body
    */
-  modifyHealthElement(body?: HealthElement): Promise<HealthElement> {
+  async modifyHealthElement(body?: HealthElement): Promise<HealthElement> {
     let _body = null
     _body = body
 
     const _url = this.host + `/helement` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new HealthElement(doc.body as JSON))
@@ -239,12 +243,12 @@ export class IccHelementApi {
    * @summary Modify a batch of healthcare elements
    * @param body
    */
-  modifyHealthElements(body?: Array<HealthElement>): Promise<Array<HealthElement>> {
+  async modifyHealthElements(body?: Array<HealthElement>): Promise<Array<HealthElement>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/helement/batch` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new HealthElement(it)))
@@ -257,12 +261,12 @@ export class IccHelementApi {
    * @param body
    * @param healthElementId
    */
-  newHealthElementDelegations(healthElementId: string, body?: Array<Delegation>): Promise<HealthElement> {
+  async newHealthElementDelegations(healthElementId: string, body?: Array<Delegation>): Promise<HealthElement> {
     let _body = null
     _body = body
 
     const _url = this.host + `/helement/${encodeURIComponent(String(healthElementId))}/delegate` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new HealthElement(doc.body as JSON))
@@ -274,12 +278,12 @@ export class IccHelementApi {
    * @summary Update delegations in healthElements.
    * @param body
    */
-  setHealthElementsDelegations(body?: Array<IcureStub>): Promise<Array<HealthElement>> {
+  async setHealthElementsDelegations(body?: Array<IcureStub>): Promise<Array<HealthElement>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/helement/delegations` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new HealthElement(it)))
@@ -289,11 +293,11 @@ export class IccHelementApi {
   /**
    * @internal this method is for internal use only and may be changed without notice
    */
-  bulkShareHealthElements(request: {
+  async bulkShareHealthElements(request: {
     [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
   }): Promise<EntityBulkShareResult<HealthElement>[]> {
     const _url = this.host + '/helement/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((x) => new EntityBulkShareResult<HealthElement>(x, HealthElement)))
@@ -303,11 +307,11 @@ export class IccHelementApi {
   /**
    * @internal this method is for internal use only and may be changed without notice
    */
-  bulkShareHealthElementsMinimal(request: {
+  async bulkShareHealthElementsMinimal(request: {
     [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
   }): Promise<MinimalEntityBulkShareResult[]> {
     const _url = this.host + '/helement/bulkSharedMetadataUpdateMinimal' + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((x) => new MinimalEntityBulkShareResult(x)))

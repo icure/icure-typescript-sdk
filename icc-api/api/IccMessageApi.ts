@@ -24,9 +24,13 @@ import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 
 export class IccMessageApi {
   host: string
-  headers: Array<XHR.Header>
+  _headers: Array<XHR.Header>
   authenticationProvider: AuthenticationProvider
   fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
+
+  get headers(): Promise<Array<XHR.Header>> {
+    return Promise.resolve(this._headers)
+  }
 
   constructor(
     host: string,
@@ -35,13 +39,13 @@ export class IccMessageApi {
     fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
   ) {
     this.host = iccRestApiPath(host)
-    this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
+    this._headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
     this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
     this.fetchImpl = fetchImpl
   }
 
   setHeaders(h: Array<XHR.Header>) {
-    this.headers = h
+    this._headers = h
   }
 
   handleError(e: XHR.XHRError): never {
@@ -53,12 +57,12 @@ export class IccMessageApi {
    * @summary Creates a message
    * @param body
    */
-  createMessage(body?: Message): Promise<Message> {
+  async createMessage(body?: Message): Promise<Message> {
     let _body = null
     _body = body
 
     const _url = this.host + `/message` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Message(doc.body as JSON))
@@ -71,7 +75,7 @@ export class IccMessageApi {
    * @param messageId
    * @param delegateId
    */
-  deleteDelegation(messageId: string, delegateId: string): Promise<Message> {
+  async deleteDelegation(messageId: string, delegateId: string): Promise<Message> {
     let _body = null
 
     const _url =
@@ -79,7 +83,7 @@ export class IccMessageApi {
       `/message/${encodeURIComponent(String(messageId))}/delegate/${encodeURIComponent(String(delegateId))}` +
       '?ts=' +
       new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Message(doc.body as JSON))
       .catch((err) => this.handleError(err))
@@ -90,11 +94,11 @@ export class IccMessageApi {
    * @summary Deletes multiple messages
    * @param messageIds
    */
-  deleteMessages(messageIds: string): Promise<Array<DocIdentifier>> {
+  async deleteMessages(messageIds: string): Promise<Array<DocIdentifier>> {
     let _body = null
 
     const _url = this.host + `/message/${encodeURIComponent(String(messageIds))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
       .catch((err) => this.handleError(err))
@@ -105,12 +109,12 @@ export class IccMessageApi {
    * @summary Deletes multiple messages
    * @param body
    */
-  deleteMessagesBatch(body?: ListOfIds): Promise<Array<DocIdentifier>> {
+  async deleteMessagesBatch(body?: ListOfIds): Promise<Array<DocIdentifier>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/message/delete/byIds` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
@@ -124,7 +128,7 @@ export class IccMessageApi {
    * @param startDocumentId
    * @param limit
    */
-  findMessages(startKey?: string, startDocumentId?: string, limit?: number): Promise<PaginatedListMessage> {
+  async findMessages(startKey?: string, startDocumentId?: string, limit?: number): Promise<PaginatedListMessage> {
     let _body = null
 
     const _url =
@@ -135,7 +139,7 @@ export class IccMessageApi {
       (startKey ? '&startKey=' + encodeURIComponent(String(startKey)) : '') +
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListMessage(doc.body as JSON))
       .catch((err) => this.handleError(err))
@@ -150,7 +154,7 @@ export class IccMessageApi {
    * @param limit
    * @param hcpId
    */
-  findMessagesByFromAddress(
+  async findMessagesByFromAddress(
     fromAddress?: string,
     startKey?: string,
     startDocumentId?: string,
@@ -169,7 +173,7 @@ export class IccMessageApi {
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '') +
       (hcpId ? '&hcpId=' + encodeURIComponent(String(hcpId)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListMessage(doc.body as JSON))
       .catch((err) => this.handleError(err))
@@ -180,7 +184,7 @@ export class IccMessageApi {
    * @summary List messages found By Healthcare Party and secret foreign keys.
    * @param secretFKeys
    */
-  findMessagesByHCPartyPatientForeignKeys(secretFKeys: string): Promise<Array<Message>> {
+  async findMessagesByHCPartyPatientForeignKeys(secretFKeys: string): Promise<Array<Message>> {
     let _body = null
 
     const _url =
@@ -189,7 +193,7 @@ export class IccMessageApi {
       '?ts=' +
       new Date().getTime() +
       (secretFKeys ? '&secretFKeys=' + encodeURIComponent(String(secretFKeys)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Message(it)))
       .catch((err) => this.handleError(err))
@@ -205,7 +209,7 @@ export class IccMessageApi {
    * @param reverse
    * @param hcpId
    */
-  findMessagesByToAddress(
+  async findMessagesByToAddress(
     toAddress?: string,
     startKey?: string,
     startDocumentId?: string,
@@ -226,7 +230,7 @@ export class IccMessageApi {
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '') +
       (reverse ? '&reverse=' + encodeURIComponent(String(reverse)) : '') +
       (hcpId ? '&hcpId=' + encodeURIComponent(String(hcpId)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListMessage(doc.body as JSON))
       .catch((err) => this.handleError(err))
@@ -242,7 +246,7 @@ export class IccMessageApi {
    * @param limit
    * @param hcpId
    */
-  findMessagesByTransportGuid(
+  async findMessagesByTransportGuid(
     transportGuid?: string,
     received?: boolean,
     startKey?: string,
@@ -263,7 +267,7 @@ export class IccMessageApi {
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '') +
       (hcpId ? '&hcpId=' + encodeURIComponent(String(hcpId)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListMessage(doc.body as JSON))
       .catch((err) => this.handleError(err))
@@ -280,7 +284,7 @@ export class IccMessageApi {
    * @param limit
    * @param hcpId
    */
-  findMessagesByTransportGuidSentDate(
+  async findMessagesByTransportGuidSentDate(
     transportGuid?: string,
     from?: number,
     to?: number,
@@ -303,7 +307,7 @@ export class IccMessageApi {
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '') +
       (hcpId ? '&hcpId=' + encodeURIComponent(String(hcpId)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListMessage(doc.body as JSON))
       .catch((err) => this.handleError(err))
@@ -314,11 +318,11 @@ export class IccMessageApi {
    * @summary Get children messages of provided message
    * @param messageId
    */
-  getChildrenMessages(messageId: string): Promise<Array<Message>> {
+  async getChildrenMessages(messageId: string): Promise<Array<Message>> {
     let _body = null
 
     const _url = this.host + `/message/${encodeURIComponent(String(messageId))}/children` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Message(it)))
       .catch((err) => this.handleError(err))
@@ -329,12 +333,12 @@ export class IccMessageApi {
    * @summary Get children messages of provided message
    * @param body
    */
-  getChildrenMessagesOfList(body?: ListOfIds): Promise<Array<Message>> {
+  async getChildrenMessagesOfList(body?: ListOfIds): Promise<Array<Message>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/message/children/batch` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Message(it)))
@@ -346,11 +350,11 @@ export class IccMessageApi {
    * @summary Gets a message
    * @param messageId
    */
-  getMessage(messageId: string): Promise<Message> {
+  async getMessage(messageId: string): Promise<Message> {
     let _body = null
 
     const _url = this.host + `/message/${encodeURIComponent(String(messageId))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Message(doc.body as JSON))
       .catch((err) => this.handleError(err))
@@ -361,12 +365,12 @@ export class IccMessageApi {
    * @summary Get children messages of provided message
    * @param body
    */
-  listMessagesByInvoiceIds(body?: ListOfIds): Promise<Array<Message>> {
+  async listMessagesByInvoiceIds(body?: ListOfIds): Promise<Array<Message>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/message/byInvoiceId` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Message(it)))
@@ -379,13 +383,13 @@ export class IccMessageApi {
    * @param body
    * @param hcpId
    */
-  listMessagesByTransportGuids(hcpId: string, body?: ListOfIds): Promise<Array<Message>> {
+  async listMessagesByTransportGuids(hcpId: string, body?: ListOfIds): Promise<Array<Message>> {
     let _body = null
     _body = body
 
     const _url =
       this.host + `/message/byTransportGuid/list` + '?ts=' + new Date().getTime() + (hcpId ? '&hcpId=' + encodeURIComponent(String(hcpId)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Message(it)))
@@ -397,12 +401,12 @@ export class IccMessageApi {
    * @summary Updates a message
    * @param body
    */
-  modifyMessage(body?: Message): Promise<Message> {
+  async modifyMessage(body?: Message): Promise<Message> {
     let _body = null
     _body = body
 
     const _url = this.host + `/message` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Message(doc.body as JSON))
@@ -415,12 +419,12 @@ export class IccMessageApi {
    * @param body
    * @param messageId
    */
-  newMessageDelegations(messageId: string, body?: Array<Delegation>): Promise<IcureStub> {
+  async newMessageDelegations(messageId: string, body?: Array<Delegation>): Promise<IcureStub> {
     let _body = null
     _body = body
 
     const _url = this.host + `/message/${encodeURIComponent(String(messageId))}/delegate` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new IcureStub(doc.body as JSON))
@@ -432,12 +436,12 @@ export class IccMessageApi {
    * @summary Set read status for given list of messages
    * @param body
    */
-  setMessagesReadStatus(body?: MessagesReadStatusUpdate): Promise<Array<Message>> {
+  async setMessagesReadStatus(body?: MessagesReadStatusUpdate): Promise<Array<Message>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/message/readstatus` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Message(it)))
@@ -450,12 +454,12 @@ export class IccMessageApi {
    * @param body
    * @param status
    */
-  setMessagesStatusBits(status: number, body?: ListOfIds): Promise<Array<Message>> {
+  async setMessagesStatusBits(status: number, body?: ListOfIds): Promise<Array<Message>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/message/status/${encodeURIComponent(String(status))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Message(it)))
@@ -465,11 +469,11 @@ export class IccMessageApi {
   /**
    * @internal this method is for internal use only and may be changed without notice
    */
-  bulkShareMessages(request: {
+  async bulkShareMessages(request: {
     [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
   }): Promise<EntityBulkShareResult<Message>[]> {
     const _url = this.host + '/classification/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((x) => new EntityBulkShareResult<Message>(x, Message)))

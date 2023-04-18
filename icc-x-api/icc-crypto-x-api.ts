@@ -20,6 +20,7 @@ import { StorageEntryKeysFactory } from './storage/StorageEntryKeysFactory'
 import { ConfidentialEntities } from './crypto/ConfidentialEntities'
 import { encryptedEntityClassOf, entityWithDelegationTypeNames } from './utils/EntityWithDelegationTypeName'
 import { ExchangeDataManager } from './crypto/ExchangeDataManager'
+import { AccessControlKeysHeadersProvider } from './crypto/AccessControlKeysHeadersProvider'
 
 interface DelegatorAndKeys {
   delegatorId: string
@@ -44,6 +45,7 @@ export class IccCryptoXApi {
   private readonly _storage: StorageFacade<string>
   private readonly _keyStorage: KeyStorageFacade
   private readonly exchangeDataManager: ExchangeDataManager
+  private readonly _accessControlKeysHeaders: AccessControlKeysHeadersProvider
 
   private readonly hcpartyBaseApi: IccHcpartyApi
 
@@ -115,6 +117,13 @@ export class IccCryptoXApi {
     return this.confidentialEntities
   }
 
+  /**
+   * @internal this is for internal use only and may be changed without notice.
+   */
+  get accessControlKeysHeaders(): AccessControlKeysHeadersProvider {
+    return this._accessControlKeysHeaders
+  }
+
   get userKeysManager(): UserEncryptionKeysManager {
     return this.keyManager
   }
@@ -138,7 +147,8 @@ export class IccCryptoXApi {
     icureStorageFacade: IcureStorageFacade,
     hcPartyBaseApi: IccHcpartyApi,
     confidentialEntities: ConfidentialEntities,
-    exchangeDataManager: ExchangeDataManager
+    exchangeDataManager: ExchangeDataManager,
+    accessControlKeysHeaders: AccessControlKeysHeadersProvider
   ) {
     this.exchangeKeysManager = exchangeKeysManager
     this.cryptoPrimitives = cryptoPrimitives
@@ -152,6 +162,7 @@ export class IccCryptoXApi {
     this.hcpartyBaseApi = hcPartyBaseApi
     this.confidentialEntities = confidentialEntities
     this.exchangeDataManager = exchangeDataManager
+    this._accessControlKeysHeaders = accessControlKeysHeaders
   }
 
   /**

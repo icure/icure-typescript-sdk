@@ -19,9 +19,13 @@ import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 
 export class IccTimeTableApi {
   host: string
-  headers: Array<XHR.Header>
+  _headers: Array<XHR.Header>
   authenticationProvider: AuthenticationProvider
   fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
+
+  get headers(): Promise<Array<XHR.Header>> {
+    return Promise.resolve(this._headers)
+  }
 
   constructor(
     host: string,
@@ -30,13 +34,13 @@ export class IccTimeTableApi {
     fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
   ) {
     this.host = iccRestApiPath(host)
-    this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
+    this._headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
     this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
     this.fetchImpl = fetchImpl
   }
 
   setHeaders(h: Array<XHR.Header>) {
-    this.headers = h
+    this._headers = h
   }
 
   handleError(e: XHR.XHRError): never {
@@ -48,12 +52,12 @@ export class IccTimeTableApi {
    * @summary Creates a timeTable
    * @param body
    */
-  createTimeTable(body?: TimeTable): Promise<TimeTable> {
+  async createTimeTable(body?: TimeTable): Promise<TimeTable> {
     let _body = null
     _body = body
 
     const _url = this.host + `/timeTable` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new TimeTable(doc.body as JSON))
@@ -65,11 +69,11 @@ export class IccTimeTableApi {
    * @summary Deletes an timeTable
    * @param timeTableIds
    */
-  deleteTimeTable(timeTableIds: string): Promise<Array<DocIdentifier>> {
+  async deleteTimeTable(timeTableIds: string): Promise<Array<DocIdentifier>> {
     let _body = null
 
     const _url = this.host + `/timeTable/${encodeURIComponent(String(timeTableIds))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
       .catch((err) => this.handleError(err))
@@ -80,11 +84,11 @@ export class IccTimeTableApi {
    * @summary Gets a timeTable
    * @param timeTableId
    */
-  getTimeTable(timeTableId: string): Promise<TimeTable> {
+  async getTimeTable(timeTableId: string): Promise<TimeTable> {
     let _body = null
 
     const _url = this.host + `/timeTable/${encodeURIComponent(String(timeTableId))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new TimeTable(doc.body as JSON))
       .catch((err) => this.handleError(err))
@@ -95,12 +99,12 @@ export class IccTimeTableApi {
    * @summary Get TimeTables by AgendaId
    * @param agendaId
    */
-  getTimeTablesByAgendaId(agendaId: string): Promise<Array<TimeTable>> {
+  async getTimeTablesByAgendaId(agendaId: string): Promise<Array<TimeTable>> {
     let _body = null
 
     const _url =
       this.host + `/timeTable/byAgendaId` + '?ts=' + new Date().getTime() + (agendaId ? '&agendaId=' + encodeURIComponent(String(agendaId)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new TimeTable(it)))
       .catch((err) => this.handleError(err))
@@ -113,7 +117,7 @@ export class IccTimeTableApi {
    * @param endDate
    * @param agendaId
    */
-  getTimeTablesByPeriodAndAgendaId(startDate: number, endDate: number, agendaId: string): Promise<Array<TimeTable>> {
+  async getTimeTablesByPeriodAndAgendaId(startDate: number, endDate: number, agendaId: string): Promise<Array<TimeTable>> {
     let _body = null
 
     const _url =
@@ -124,7 +128,7 @@ export class IccTimeTableApi {
       (startDate ? '&startDate=' + encodeURIComponent(String(startDate)) : '') +
       (endDate ? '&endDate=' + encodeURIComponent(String(endDate)) : '') +
       (agendaId ? '&agendaId=' + encodeURIComponent(String(agendaId)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new TimeTable(it)))
       .catch((err) => this.handleError(err))
@@ -135,12 +139,12 @@ export class IccTimeTableApi {
    * @summary Modifies an timeTable
    * @param body
    */
-  modifyTimeTable(body?: TimeTable): Promise<TimeTable> {
+  async modifyTimeTable(body?: TimeTable): Promise<TimeTable> {
     let _body = null
     _body = body
 
     const _url = this.host + `/timeTable` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new TimeTable(doc.body as JSON))
@@ -150,11 +154,11 @@ export class IccTimeTableApi {
   /**
    * @internal this method is for internal use only and may be changed without notice
    */
-  bulkShareTimeTable(request: {
+  async bulkShareTimeTable(request: {
     [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
   }): Promise<EntityBulkShareResult<TimeTable>[]> {
     const _url = this.host + '/timeTable/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((x) => new EntityBulkShareResult<TimeTable>(x, TimeTable)))

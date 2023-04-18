@@ -32,9 +32,13 @@ import { MinimalEntityBulkShareResult } from '../model/requests/MinimalEntityBul
 
 export class IccContactApi {
   host: string
-  headers: Array<XHR.Header>
+  _headers: Array<XHR.Header>
   authenticationProvider: AuthenticationProvider
   fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
+
+  get headers(): Promise<Array<XHR.Header>> {
+    return Promise.resolve(this._headers)
+  }
 
   constructor(
     host: string,
@@ -43,7 +47,7 @@ export class IccContactApi {
     fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
   ) {
     this.host = iccRestApiPath(host)
-    this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
+    this._headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
     this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
     this.fetchImpl = fetchImpl
   }
@@ -58,7 +62,7 @@ export class IccContactApi {
    * @param hcPartyId
    * @param secretFKeys
    */
-  closeForHCPartyPatientForeignKeys(hcPartyId: string, secretFKeys: string): Promise<Array<Contact>> {
+  async closeForHCPartyPatientForeignKeys(hcPartyId: string, secretFKeys: string): Promise<Array<Contact>> {
     let _body = null
 
     const _url =
@@ -68,7 +72,7 @@ export class IccContactApi {
       new Date().getTime() +
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
       (secretFKeys ? '&secretFKeys=' + encodeURIComponent(String(secretFKeys)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Contact(it)))
       .catch((err) => this.handleError(err))
@@ -79,12 +83,12 @@ export class IccContactApi {
    * @summary Create a contact with the current user
    * @param body
    */
-  createContact(body?: Contact): Promise<Contact> {
+  async createContact(body?: Contact): Promise<Contact> {
     let _body = null
     _body = body
 
     const _url = this.host + `/contact` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Contact(doc.body as JSON))
@@ -96,12 +100,12 @@ export class IccContactApi {
    * @summary Create a batch of contacts
    * @param body
    */
-  createContacts(body?: Array<Contact>): Promise<Array<Contact>> {
+  async createContacts(body?: Array<Contact>): Promise<Array<Contact>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/contact/batch` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Contact(it)))
@@ -113,11 +117,11 @@ export class IccContactApi {
    * @summary Delete contacts.
    * @param contactIds
    */
-  deleteContacts(contactIds: string): Promise<Array<DocIdentifier>> {
+  async deleteContacts(contactIds: string): Promise<Array<DocIdentifier>> {
     let _body = null
 
     const _url = this.host + `/contact/${encodeURIComponent(String(contactIds))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
       .catch((err) => this.handleError(err))
@@ -130,7 +134,7 @@ export class IccContactApi {
    * @param startDocumentId A Contact document ID
    * @param limit Number of rows
    */
-  filterContactsBy(startDocumentId?: string, limit?: number, body?: FilterChainContact): Promise<PaginatedListContact> {
+  async filterContactsBy(startDocumentId?: string, limit?: number, body?: FilterChainContact): Promise<PaginatedListContact> {
     let _body = null
     _body = body
 
@@ -141,7 +145,7 @@ export class IccContactApi {
       new Date().getTime() +
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListContact(doc.body as JSON))
@@ -155,7 +159,7 @@ export class IccContactApi {
    * @param startDocumentId A Contact document ID
    * @param limit Number of rows
    */
-  filterServicesBy(startDocumentId?: string, limit?: number, body?: FilterChainService): Promise<PaginatedListService> {
+  async filterServicesBy(startDocumentId?: string, limit?: number, body?: FilterChainService): Promise<PaginatedListService> {
     let _body = null
     _body = body
 
@@ -166,7 +170,7 @@ export class IccContactApi {
       new Date().getTime() +
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListService(doc.body as JSON))
@@ -179,7 +183,7 @@ export class IccContactApi {
    * @param hcPartyId
    * @param formId
    */
-  findByHCPartyFormId(hcPartyId: string, formId: string): Promise<Array<Contact>> {
+  async findByHCPartyFormId(hcPartyId: string, formId: string): Promise<Array<Contact>> {
     let _body = null
 
     const _url =
@@ -189,7 +193,7 @@ export class IccContactApi {
       new Date().getTime() +
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
       (formId ? '&formId=' + encodeURIComponent(String(formId)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Contact(it)))
       .catch((err) => this.handleError(err))
@@ -201,7 +205,7 @@ export class IccContactApi {
    * @param body
    * @param hcPartyId
    */
-  findByHCPartyFormIds(hcPartyId: string, body?: ListOfIds): Promise<Array<Contact>> {
+  async findByHCPartyFormIds(hcPartyId: string, body?: ListOfIds): Promise<Array<Contact>> {
     let _body = null
     _body = body
 
@@ -211,7 +215,7 @@ export class IccContactApi {
       '?ts=' +
       new Date().getTime() +
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Contact(it)))
@@ -226,7 +230,7 @@ export class IccContactApi {
    * @param planOfActionsIds
    * @param skipClosedContacts
    */
-  findByHCPartyPatientSecretFKeys(
+  async findByHCPartyPatientSecretFKeys(
     hcPartyId: string,
     secretFKeys: string,
     planOfActionsIds?: string,
@@ -243,7 +247,7 @@ export class IccContactApi {
       (secretFKeys ? '&secretFKeys=' + encodeURIComponent(String(secretFKeys)) : '') +
       (planOfActionsIds ? '&planOfActionsIds=' + encodeURIComponent(String(planOfActionsIds)) : '') +
       (skipClosedContacts ? '&skipClosedContacts=' + encodeURIComponent(String(skipClosedContacts)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Contact(it)))
       .catch((err) => this.handleError(err))
@@ -255,7 +259,7 @@ export class IccContactApi {
    * @param hcPartyId
    * @param serviceId
    */
-  findByHCPartyServiceId(hcPartyId: string, serviceId: string): Promise<Array<Contact>> {
+  async findByHCPartyServiceId(hcPartyId: string, serviceId: string): Promise<Array<Contact>> {
     let _body = null
 
     const _url =
@@ -265,7 +269,7 @@ export class IccContactApi {
       new Date().getTime() +
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
       (serviceId ? '&serviceId=' + encodeURIComponent(String(serviceId)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Contact(it)))
       .catch((err) => this.handleError(err))
@@ -276,7 +280,7 @@ export class IccContactApi {
    * @summary List contacts found By externalId.
    * @param externalId
    */
-  findContactsByExternalId(externalId: string): Promise<Array<Contact>> {
+  async findContactsByExternalId(externalId: string): Promise<Array<Contact>> {
     let _body = null
 
     const _url =
@@ -285,7 +289,7 @@ export class IccContactApi {
       '?ts=' +
       new Date().getTime() +
       (externalId ? '&externalId=' + encodeURIComponent(String(externalId)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Contact(it)))
       .catch((err) => this.handleError(err))
@@ -297,7 +301,7 @@ export class IccContactApi {
    * @param body
    * @param hcPartyId
    */
-  findContactsByHCPartyPatientForeignKeys(hcPartyId: string, body?: ListOfIds): Promise<Array<Contact>> {
+  async findContactsByHCPartyPatientForeignKeys(hcPartyId: string, body?: ListOfIds): Promise<Array<Contact>> {
     let _body = null
     _body = body
 
@@ -307,7 +311,7 @@ export class IccContactApi {
       '?ts=' +
       new Date().getTime() +
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Contact(it)))
@@ -320,7 +324,7 @@ export class IccContactApi {
    * @param hcPartyId
    * @param secretFKeys
    */
-  findContactsDelegationsStubsByHCPartyPatientForeignKeys(hcPartyId: string, secretFKeys: string): Promise<Array<IcureStub>> {
+  async findContactsDelegationsStubsByHCPartyPatientForeignKeys(hcPartyId: string, secretFKeys: string): Promise<Array<IcureStub>> {
     let _body = null
 
     const _url =
@@ -330,7 +334,7 @@ export class IccContactApi {
       new Date().getTime() +
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
       (secretFKeys ? '&secretFKeys=' + encodeURIComponent(String(secretFKeys)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
       .catch((err) => this.handleError(err))
@@ -341,11 +345,11 @@ export class IccContactApi {
    * @summary Get a contact
    * @param contactId
    */
-  getContact(contactId: string): Promise<Contact> {
+  async getContact(contactId: string): Promise<Contact> {
     let _body = null
 
     const _url = this.host + `/contact/${encodeURIComponent(String(contactId))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Contact(doc.body as JSON))
       .catch((err) => this.handleError(err))
@@ -356,12 +360,12 @@ export class IccContactApi {
    * @summary Get contacts by batch
    * @param body
    */
-  getContacts(body?: ListOfIds): Promise<Array<Contact>> {
+  async getContacts(body?: ListOfIds): Promise<Array<Contact>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/contact/byIds` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Contact(it)))
@@ -372,11 +376,11 @@ export class IccContactApi {
    *
    * @summary Get an empty content
    */
-  getEmptyContent(): Promise<Content> {
+  async getEmptyContent(): Promise<Content> {
     let _body = null
 
     const _url = this.host + `/contact/service/content/empty` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Content(doc.body as JSON))
       .catch((err) => this.handleError(err))
@@ -388,7 +392,7 @@ export class IccContactApi {
    * @param codeType
    * @param minOccurences
    */
-  getServiceCodesOccurences(codeType: string, minOccurences: number): Promise<Array<LabelledOccurence>> {
+  async getServiceCodesOccurences(codeType: string, minOccurences: number): Promise<Array<LabelledOccurence>> {
     let _body = null
 
     const _url =
@@ -396,7 +400,7 @@ export class IccContactApi {
       `/contact/service/codes/${encodeURIComponent(String(codeType))}/${encodeURIComponent(String(minOccurences))}` +
       '?ts=' +
       new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new LabelledOccurence(it)))
       .catch((err) => this.handleError(err))
@@ -411,7 +415,7 @@ export class IccContactApi {
    * @param startDocumentId A contact party document ID
    * @param limit Number of rows
    */
-  listContactsByOpeningDate(
+  async listContactsByOpeningDate(
     startKey: number,
     endKey: number,
     hcpartyid: string,
@@ -430,7 +434,7 @@ export class IccContactApi {
       (hcpartyid ? '&hcpartyid=' + encodeURIComponent(String(hcpartyid)) : '') +
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListContact(doc.body as JSON))
       .catch((err) => this.handleError(err))
@@ -441,12 +445,12 @@ export class IccContactApi {
    * @summary List services with provided ids
    * @param body
    */
-  listServices(body?: ListOfIds): Promise<Array<Service>> {
+  async listServices(body?: ListOfIds): Promise<Array<Service>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/contact/service/byIds` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Service(it)))
@@ -458,7 +462,7 @@ export class IccContactApi {
    * @summary List services by related association id
    * @param associationId
    */
-  listServicesByAssociationId(associationId: string): Promise<Array<Service>> {
+  async listServicesByAssociationId(associationId: string): Promise<Array<Service>> {
     let _body = null
 
     const _url =
@@ -467,7 +471,7 @@ export class IccContactApi {
       '?ts=' +
       new Date().getTime() +
       (associationId ? '&associationId=' + encodeURIComponent(String(associationId)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Service(it)))
       .catch((err) => this.handleError(err))
@@ -479,7 +483,7 @@ export class IccContactApi {
    * @param healthElementId
    * @param hcPartyId hcPartyId
    */
-  listServicesByHealthElementId(healthElementId: string, hcPartyId: string): Promise<Array<Service>> {
+  async listServicesByHealthElementId(healthElementId: string, hcPartyId: string): Promise<Array<Service>> {
     let _body = null
 
     const _url =
@@ -488,7 +492,7 @@ export class IccContactApi {
       '?ts=' +
       new Date().getTime() +
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Service(it)))
       .catch((err) => this.handleError(err))
@@ -500,13 +504,13 @@ export class IccContactApi {
    * @param body
    * @param linkType The type of the link
    */
-  listServicesLinkedTo(linkType?: string, body?: ListOfIds): Promise<Array<Service>> {
+  async listServicesLinkedTo(linkType?: string, body?: ListOfIds): Promise<Array<Service>> {
     let _body = null
     _body = body
 
     const _url =
       this.host + `/contact/service/linkedTo` + '?ts=' + new Date().getTime() + (linkType ? '&linkType=' + encodeURIComponent(String(linkType)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Service(it)))
@@ -518,12 +522,12 @@ export class IccContactApi {
    * @summary Get ids of contacts matching the provided filter for the current user (HcParty)
    * @param body
    */
-  matchContactsBy(body?: AbstractFilterContact): Promise<Array<string>> {
+  async matchContactsBy(body?: AbstractFilterContact): Promise<Array<string>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/contact/match` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
@@ -535,12 +539,12 @@ export class IccContactApi {
    * @summary Get ids of services matching the provided filter for the current user
    * @param body
    */
-  matchServicesBy(body?: AbstractFilterService): Promise<Array<string>> {
+  async matchServicesBy(body?: AbstractFilterService): Promise<Array<string>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/contact/service/match` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
@@ -552,12 +556,12 @@ export class IccContactApi {
    * @summary Modify a contact
    * @param body
    */
-  modifyContact(body?: Contact): Promise<Contact> {
+  async modifyContact(body?: Contact): Promise<Contact> {
     let _body = null
     _body = body
 
     const _url = this.host + `/contact` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Contact(doc.body as JSON))
@@ -569,12 +573,12 @@ export class IccContactApi {
    * @summary Modify a batch of contacts
    * @param body
    */
-  modifyContacts(body?: Array<Contact>): Promise<Array<Contact>> {
+  async modifyContacts(body?: Array<Contact>): Promise<Array<Contact>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/contact/batch` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Contact(it)))
@@ -587,12 +591,12 @@ export class IccContactApi {
    * @param body
    * @param contactId
    */
-  newContactDelegations(contactId: string, body?: Delegation): Promise<Contact> {
+  async newContactDelegations(contactId: string, body?: Delegation): Promise<Contact> {
     let _body = null
     _body = body
 
     const _url = this.host + `/contact/${encodeURIComponent(String(contactId))}/delegate` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Contact(doc.body as JSON))
@@ -604,12 +608,12 @@ export class IccContactApi {
    * @summary Update delegations in healthElements.
    * @param body
    */
-  setContactsDelegations(body?: Array<IcureStub>): Promise<Array<Contact>> {
+  async setContactsDelegations(body?: Array<IcureStub>): Promise<Array<Contact>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/contact/delegations` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Contact(it)))
@@ -619,11 +623,11 @@ export class IccContactApi {
   /**
    * @internal this method is for internal use only and may be changed without notice
    */
-  bulkShareContacts(request: {
+  async bulkShareContacts(request: {
     [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
   }): Promise<EntityBulkShareResult<Contact>[]> {
     const _url = this.host + '/contact/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((x) => new EntityBulkShareResult<Contact>(x, Contact)))
@@ -633,11 +637,11 @@ export class IccContactApi {
   /**
    * @internal this method is for internal use only and may be changed without notice
    */
-  bulkShareContactsMinimal(request: {
+  async bulkShareContactsMinimal(request: {
     [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
   }): Promise<MinimalEntityBulkShareResult[]> {
     const _url = this.host + '/contact/bulkSharedMetadataUpdateMinimal' + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((x) => new MinimalEntityBulkShareResult(x)))

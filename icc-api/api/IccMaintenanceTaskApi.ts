@@ -22,9 +22,13 @@ import { Classification } from '../model/Classification'
 
 export class IccMaintenanceTaskApi {
   host: string
-  headers: Array<XHR.Header>
+  _headers: Array<XHR.Header>
   authenticationProvider: AuthenticationProvider
   fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
+
+  get headers(): Promise<Array<XHR.Header>> {
+    return Promise.resolve(this._headers)
+  }
 
   constructor(
     host: string,
@@ -33,13 +37,13 @@ export class IccMaintenanceTaskApi {
     fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
   ) {
     this.host = iccRestApiPath(host)
-    this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
+    this._headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
     this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
     this.fetchImpl = fetchImpl
   }
 
   setHeaders(h: Array<XHR.Header>) {
-    this.headers = h
+    this._headers = h
   }
 
   handleError(e: XHR.XHRError): never {
@@ -51,12 +55,12 @@ export class IccMaintenanceTaskApi {
    * @summary Creates a maintenanceTask
    * @param body
    */
-  createMaintenanceTask(body?: MaintenanceTask): Promise<MaintenanceTask> {
+  async createMaintenanceTask(body?: MaintenanceTask): Promise<MaintenanceTask> {
     let _body = null
     _body = body
 
     const _url = this.host + `/maintenancetask` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new MaintenanceTask(doc.body as JSON))
@@ -68,11 +72,11 @@ export class IccMaintenanceTaskApi {
    * @summary Delete maintenanceTasks
    * @param maintenanceTaskIds
    */
-  deleteMaintenanceTask(maintenanceTaskIds: string): Promise<Array<DocIdentifier>> {
+  async deleteMaintenanceTask(maintenanceTaskIds: string): Promise<Array<DocIdentifier>> {
     let _body = null
 
     const _url = this.host + `/maintenancetask/${encodeURIComponent(String(maintenanceTaskIds))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
       .catch((err) => this.handleError(err))
@@ -85,7 +89,7 @@ export class IccMaintenanceTaskApi {
    * @param startDocumentId A maintenanceTask document ID
    * @param limit Number of rows
    */
-  filterMaintenanceTasksBy(startDocumentId?: string, limit?: number, body?: FilterChainMaintenanceTask): Promise<PaginatedListMaintenanceTask> {
+  async filterMaintenanceTasksBy(startDocumentId?: string, limit?: number, body?: FilterChainMaintenanceTask): Promise<PaginatedListMaintenanceTask> {
     let _body = null
     _body = body
 
@@ -96,7 +100,7 @@ export class IccMaintenanceTaskApi {
       new Date().getTime() +
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListMaintenanceTask(doc.body as JSON))
@@ -108,11 +112,11 @@ export class IccMaintenanceTaskApi {
    * @summary Gets a maintenanceTask
    * @param maintenanceTaskId
    */
-  getMaintenanceTask(maintenanceTaskId: string): Promise<MaintenanceTask> {
+  async getMaintenanceTask(maintenanceTaskId: string): Promise<MaintenanceTask> {
     let _body = null
 
     const _url = this.host + `/maintenancetask/${encodeURIComponent(String(maintenanceTaskId))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new MaintenanceTask(doc.body as JSON))
       .catch((err) => this.handleError(err))
@@ -123,12 +127,12 @@ export class IccMaintenanceTaskApi {
    * @summary Updates a maintenanceTask
    * @param body
    */
-  modifyMaintenanceTask(body?: MaintenanceTask): Promise<MaintenanceTask> {
+  async modifyMaintenanceTask(body?: MaintenanceTask): Promise<MaintenanceTask> {
     let _body = null
     _body = body
 
     const _url = this.host + `/maintenancetask` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new MaintenanceTask(doc.body as JSON))
@@ -138,11 +142,11 @@ export class IccMaintenanceTaskApi {
   /**
    * @internal this method is for internal use only and may be changed without notice
    */
-  bulkShareMaintenanceTask(request: {
+  async bulkShareMaintenanceTask(request: {
     [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
   }): Promise<EntityBulkShareResult<MaintenanceTask>[]> {
     const _url = this.host + '/maintenancetask/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((x) => new EntityBulkShareResult<MaintenanceTask>(x, MaintenanceTask)))
