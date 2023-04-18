@@ -401,7 +401,7 @@ export class IccHelementXApi extends IccHelementApi {
   }
 
   filterHealthElementsBy(startDocumentId?: string, limit?: number, body?: FilterChainHealthElement): never {
-    throw new Error('Cannot call a method that returns contacts without providing a user for de/encryption')
+    throw new Error('Cannot call a method that returns health elements without providing a user for de/encryption')
   }
 
   filterByWithUser(
