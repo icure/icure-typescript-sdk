@@ -31,7 +31,9 @@ export class AccessControlSecretUtils {
     entityTypeName: EntityWithDelegationTypeName,
     secretForeignKey: string | undefined
   ): Promise<ArrayBuffer> {
-    return (await this.primitives.sha256(utf8_2ua(accessControlSecret + entityTypeName + (secretForeignKey ?? '')))).slice(
+    // Usage of sfks in secure delegation key should be configurable: it is not necessary for all users and it has some performance impact
+    // Ignore secret foreign key for now
+    return (await this.primitives.sha256(utf8_2ua(accessControlSecret + entityTypeName /* + (secretForeignKey ?? '')*/))).slice(
       0,
       ACCESS_CONTROL_KEY_LENGTH_BYTES
     )

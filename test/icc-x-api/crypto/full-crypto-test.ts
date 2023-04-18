@@ -32,7 +32,7 @@ type TestedEntity = 'Patient' | 'Contact' | 'HealthElement' | 'CalendarItem'
 interface EntityFacade<T extends EncryptedEntity> {
   create: (api: Apis, record: Omit<T, 'rev'>) => Promise<T>
   get: (api: Apis, id: string) => Promise<T>
-  share: (api: Apis, parent: EncryptedParentEntity | null, record: T, dataOwnerId: string) => Promise<T>
+  share: (api: Apis, record: T, dataOwnerId: string) => Promise<T>
   isDecrypted: (entityToCheck: T) => Promise<boolean>
 }
 
@@ -56,7 +56,7 @@ const facades: EntityFacades = {
   Patient: {
     create: async (api, r) => api.patientApi.createPatientWithUser(await api.userApi.getCurrentUser(), r),
     get: async (api, id) => api.patientApi.getPatientWithUser(await api.userApi.getCurrentUser(), id),
-    share: async (api, p, r, doId) => {
+    share: async (api, r, doId) => {
       return (await api.patientApi.shareWith(doId, r, RequestedPermissionEnum.FULL_WRITE, await api.patientApi.getSecretIdsOf(r)))
         .updatedEntityOrThrow
     },
@@ -67,7 +67,7 @@ const facades: EntityFacades = {
   Contact: {
     create: async (api, r) => api.contactApi.createContactWithUser(await api.userApi.getCurrentUser(), r),
     get: async (api, id) => api.contactApi.getContactWithUser(await api.userApi.getCurrentUser(), id),
-    share: async (api, p, r, doId) => {
+    share: async (api, r, doId) => {
       return (await api.contactApi.shareWith(doId, r, RequestedPermissionEnum.FULL_WRITE)).updatedEntityOrThrow
     },
     isDecrypted: async (entityToCheck) => {
@@ -77,7 +77,7 @@ const facades: EntityFacades = {
   HealthElement: {
     create: async (api, r) => api.healthcareElementApi.createHealthElementWithUser(await api.userApi.getCurrentUser(), r),
     get: async (api, id) => api.healthcareElementApi.getHealthElementWithUser(await api.userApi.getCurrentUser(), id),
-    share: async (api, p, r, doId) => {
+    share: async (api, r, doId) => {
       return (await api.healthcareElementApi.shareWith(doId, r, RequestedPermissionEnum.FULL_WRITE)).updatedEntityOrThrow
     },
     isDecrypted: async (entityToCheck) => {
@@ -87,7 +87,7 @@ const facades: EntityFacades = {
   CalendarItem: {
     create: async (api, r) => api.calendarItemApi.createCalendarItemWithHcParty(await api.userApi.getCurrentUser(), r),
     get: async (api, id) => api.calendarItemApi.getCalendarItemWithUser(await api.userApi.getCurrentUser(), id),
-    share: async (api, p, r, doId) => {
+    share: async (api, r, doId) => {
       return (await api.calendarItemApi.shareWith(doId, r, RequestedPermissionEnum.FULL_WRITE)).updatedEntityOrThrow
     },
     isDecrypted: async (entityToCheck) => {
@@ -139,10 +139,7 @@ const entities: EntityCreators = {
   },
 }
 
-const userDefinitions: Record<
-  string,
-  (user: User, password: string, pair: KeyPair<CryptoKey>) => Promise<{ user: User; apis: Apis; didLoseKey: boolean }>
-> = {
+const userDefinitions: Record<string, (user: User, password: string, pair: KeyPair<CryptoKey>) => Promise<{ user: User; apis: Apis }>> = {
   'one available key and one lost key recoverable through transfer keys': async (user, password, originalKey) => {
     const newKey = await primitives.RSA.generateKeyPair()
     const apiWithOnlyNewKey = await Api(
@@ -167,7 +164,9 @@ const userDefinitions: Record<
       }),
     })
     expect(Object.keys(apis.cryptoApi.userKeysManager.getDecryptionKeys())).to.have.length(2)
-    return { user, apis, didLoseKey: false }
+    await apiWithOnlyNewKey.cryptoApi.forceReload()
+    expect(Object.keys(apiWithOnlyNewKey.cryptoApi.userKeysManager.getDecryptionKeys())).to.have.length(2)
+    return { user, apis: apiWithOnlyNewKey }
   },
   'two available keys': async (user, password, originalKey) => {
     const newKey = await primitives.RSA.generateKeyPair()
@@ -184,7 +183,7 @@ const userDefinitions: Record<
       {
         cryptoStrategies: new TestCryptoStrategies(newKey),
       }
-    )
+    ) // Initializes the new key for the data owner
     const keyStrings = await Promise.all(
       [originalKey, newKey].map(async (pair) => ({
         publicKey: ua2hex(await primitives.RSA.exportKey(pair.publicKey, 'spki')),
@@ -196,18 +195,17 @@ const userDefinitions: Record<
       entryKeysFactory: storage.keyFactory,
       cryptoStrategies: new TestCryptoStrategies(),
     })
-    return { user, apis, didLoseKey: false }
+    return { user, apis }
   },
   'a single available key in old format': async (user, password, originalKey) => ({
     user,
     apis: await TestApi(env.iCureUrl, user.login!, password, webcrypto as any, originalKey),
-    didLoseKey: false,
   }),
   'one lost key and one available key': async (user, password) => {
     const newKeyPair = await primitives.RSA.generateKeyPair()
     const apis = await TestApi(env.iCureUrl, user.login!, password, webcrypto as any, newKeyPair)
     await apis.icureMaintenanceTaskApi.createMaintenanceTasksForNewKeypair(user, newKeyPair)
-    return { user, apis, didLoseKey: true }
+    return { user, apis }
   },
   'one lost key and one upgraded available key thanks to delegate who gave access back to previous data': async (user, password) => {
     const newKeyPair = await primitives.RSA.generateKeyPair()
@@ -232,7 +230,7 @@ const userDefinitions: Record<
 
     await api.cryptoApi.forceReload()
 
-    return { user, apis: api, didLoseKey: true }
+    return { user, apis: api }
   },
 }
 
@@ -370,27 +368,6 @@ describe('Full crypto test - Creation scenarios', async function () {
       apis[patDetails.user.name!] = patDetails.apis
       users.push({ user: hcpDetails.user, password: newHcpUserPassword })
       apis[hcpDetails.user.name!] = hcpDetails.apis
-
-      // Give access back to own sfks of patient
-      if (patDetails.didLoseKey) {
-        const keyPairUpdateRequests = (
-          await api.maintenanceTaskApi.filterMaintenanceTasksByWithUser(
-            user,
-            undefined,
-            undefined,
-            new FilterChainMaintenanceTask({
-              filter: new MaintenanceTaskAfterDateFilter({
-                date: new Date().getTime() - 100000,
-              }),
-            })
-          )
-        ).rows!.map((x) => new KeyPairUpdateRequest(x))
-        const dataOwnerWithLostKey = newPatientUser.patientId!
-        const concernedRequest = keyPairUpdateRequests.find((x) => x.concernedDataOwnerId === dataOwnerWithLostKey)
-        if (!concernedRequest) throw new Error('Could not find maintenance task to regive access back to own sfks')
-        await api.icureMaintenanceTaskApi.applyKeyPairUpdate(concernedRequest)
-        await patDetails.apis.cryptoApi.forceReload()
-      }
     }, Promise.resolve())
 
     await users
@@ -403,7 +380,7 @@ describe('Full crypto test - Creation scenarios', async function () {
         await otherUsers.reduce(async (p, u) => {
           await p
           const patientToShare = await facades.Patient.get(api, it.patientId!)
-          const sharedPatient = await facades.Patient.share(api, null, patientToShare, u.patientId!)
+          const sharedPatient = await facades.Patient.share(api, patientToShare, u.patientId!)
           return Promise.resolve()
         }, Promise.resolve())
 
@@ -451,16 +428,6 @@ describe('Full crypto test - Creation scenarios', async function () {
           ])
           const entity = await facade.create(api, record)
           const retrieved = await facade.get(api, entity.id)
-          const hcp = await api.healthcarePartyApi.getCurrentHealthcareParty()
-
-          // TODO needs update
-          // const shareKeys = hcp.aesExchangeKeys![hcp.publicKey!][dataOwnerId]
-          // if (Object.keys(shareKeys).length > 2) {
-          //   delete shareKeys[dataOwner.publicKey!.slice(-32)]
-          // }
-          // hcp.aesExchangeKeys = { ...hcp.aesExchangeKeys, [hcp.publicKey!]: { ...hcp.aesExchangeKeys![hcp.publicKey!], [dataOwnerId]: shareKeys } }
-          // await api.healthcarePartyApi.modifyHealthcareParty(hcp)
-
           expect(entity.id).to.be.not.null
           expect(entity.rev).to.equal(retrieved.rev)
           expect(await facade.isDecrypted(entity)).to.equal(true)
@@ -482,11 +449,22 @@ describe('Full crypto test - Read/Share scenarios', async function () {
           const facade = f[1]
           const api = apis[`${uType}-${uId}`]
 
-          const entity = await facade.get(api, `partial-${user.id}-${f[0]}`)
-          expect(entity.id).to.equal(`partial-${user.id}-${f[0]}`)
-          expect(await facade.isDecrypted(entity)).to.equal(
-            !uId.includes('one lost key and one available key') /* data shared only with lost key... So false */
-          )
+          const retrievePromise = facade.get(api, `partial-${user.id}-${f[0]}`)
+          const lostInitialKey = uId.includes('one lost key and one available key')
+          if (uType === 'patient' && lostInitialKey) {
+            // Patient with lost key can't prove he has access to data: he will get an error
+            let gaveError = false
+            try {
+              await retrievePromise
+            } catch {
+              gaveError = true
+            }
+            expect(gaveError).to.equal(true, 'Patient with lost key should not be able to retrieve data')
+          } else {
+            const entity = await retrievePromise
+            expect(entity.id).to.equal(`partial-${user.id}-${f[0]}`)
+            expect(await facade.isDecrypted(entity)).to.equal(!lostInitialKey) // data is accessible only with initial key for this test.
+          }
         })
         it(`Read ${f[0]} as a ${uType} with ${uId}`, async function () {
           if (f[0] === 'Patient' && uType === 'patient') {
@@ -504,7 +482,7 @@ describe('Full crypto test - Read/Share scenarios', async function () {
           const { user } = users.find((it) => it.user.name === `${uType}-${uId}`)!
           const facade = f[1]
           const api = apis[`${uType}-${uId}`]
-
+          await api.cryptoApi.forceReload()
           const entity = await facade.get(api, `delegate-${user.id}-${f[0]}`)
           expect(entity.id).to.equal(`delegate-${user.id}-${f[0]}`)
           expect(await facade.isDecrypted(entity)).to.equal(true)
@@ -521,17 +499,12 @@ describe('Full crypto test - Read/Share scenarios', async function () {
               const facade = f[1]
               const api = apis[`${uType}-${uId}`]
               const delApi = apis[`${duType}-${duId}`]
-
-              const parent =
-                f[0] !== 'Patient'
-                  ? uType === 'patient'
-                    ? await api.patientApi.getPatientWithUser(user, user.patientId!)
-                    : await api.patientApi.getPatientWithUser(user, `${user.id}-Patient`)
-                  : undefined
-              const entity = await facade.share(api, parent, await facade.get(api, `${user.id}-${f[0]}`), delegateDoId)
+              // Data was created (in a previous test) after lost key -> fully accessible
+              const entity = await facade.share(api, await facade.get(api, `${user.id}-${f[0]}`), delegateDoId)
               const retrieved = await facade.get(api, entity.id)
               expect(entity.rev).to.equal(retrieved.rev)
 
+              await delApi.cryptoApi.forceReload()
               const obj = await facade.get(delApi, `${user.id}-${f[0]}`)
               expect(await delApi.cryptoApi.xapi.hasWriteAccess({ entity: obj, type: f[0] as any })).to.equal(true)
               expect(await facade.isDecrypted(obj)).to.equal(true)

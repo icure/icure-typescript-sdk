@@ -309,23 +309,20 @@ class FullyCachedExchangeDataManager extends AbstractExchangeDataManager {
     if (Object.keys(retrievedFromHashesCache).length) {
       return retrievedFromHashesCache
     } else {
-      return {}
-      // Usage of sfks in secure delegation key should be configurable: it is not necessary for all users and it has some performance impact
-
-      // this.caches = this.caches.then(async (caches) => {
-      //   for (const currData of Object.values(caches.dataById)) {
-      //     if (currData.decrypted) {
-      //       const currDataHashes = await this.accessControlSecret.secureDelegationKeysFor(
-      //         currData.decrypted.accessControlSecret,
-      //         entityType,
-      //         entitySecretForeignKeys
-      //       )
-      //       currDataHashes.forEach((hash) => caches.hashToId.set(hash, currData.exchangeData.id!))
-      //     }
-      //   }
-      //   return caches
-      // })
-      // return retrieveByHashesFromCaches(await this.caches)
+      this.caches = this.caches.then(async (caches) => {
+        for (const currData of Object.values(caches.dataById)) {
+          if (currData.decrypted) {
+            const currDataHashes = await this.accessControlSecret.secureDelegationKeysFor(
+              currData.decrypted.accessControlSecret,
+              entityType,
+              entitySecretForeignKeys
+            )
+            currDataHashes.forEach((hash) => caches.hashToId.set(hash, currData.exchangeData.id!))
+          }
+        }
+        return caches
+      })
+      return retrieveByHashesFromCaches(await this.caches)
     }
   }
 
