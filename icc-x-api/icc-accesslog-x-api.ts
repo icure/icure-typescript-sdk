@@ -97,20 +97,27 @@ export class IccAccesslogXApi extends IccAccesslogApi {
    * @param hcpartyId
    * @param patient (Promise)
    * @param keepObsoleteVersions
+   * @param usingPost
    */
 
-  findBy(hcpartyId: string, patient: models.Patient) {
+  findBy(hcpartyId: string, patient: models.Patient, usingPost: boolean = false) {
     return this.crypto
       .extractDelegationsSFKs(patient, hcpartyId)
       .then((secretForeignKeys) =>
         secretForeignKeys && secretForeignKeys.extractedKeys && secretForeignKeys.extractedKeys.length > 0
-          ? this.findByHCPartyPatientSecretFKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(','))
+          ? (usingPost ?
+            this.findByHCPartyPatientSecretFKeysArray(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys)) :
+            this.findByHCPartyPatientSecretFKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(',')))
           : Promise.resolve([])
       )
   }
 
   findByHCPartyPatientSecretFKeys(hcPartyId: string, secretFKeys: string): Promise<Array<AccessLog> | any> {
     return super.findAccessLogsByHCPartyPatientForeignKeys(hcPartyId, secretFKeys).then((accesslogs) => this.decrypt(hcPartyId, accesslogs))
+  }
+
+  findByHCPartyPatientSecretFKeysArray(hcPartyId: string, secretFKeys: string[]): Promise<Array<AccessLog> | any> {
+    return super.findAccessLogsByHCPartyPatientForeignKeysUsingPost(hcPartyId, secretFKeys).then((accesslogs) => this.decrypt(hcPartyId, accesslogs))
   }
 
   decrypt(hcpId: string, accessLogs: Array<models.AccessLog>): Promise<Array<models.AccessLog>> {

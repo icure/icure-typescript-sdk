@@ -1,21 +1,21 @@
 import 'isomorphic-fetch'
 import {getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStorage, TestUtils, TestVars} from '../utils/test_utils'
 import { before } from 'mocha'
-import {Api, IccAccesslogXApi, IccPatientXApi, IccUserXApi} from '../../icc-x-api'
+import {Api, IccCalendarItemXApi, IccPatientXApi, IccUserXApi} from '../../icc-x-api'
 import { BasicAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
-import { IccAccesslogApi } from '../../icc-api'
+import {IccCalendarItemApi} from '../../icc-api'
 import {Patient} from "../../icc-api/model/Patient"
 import {User} from "../../icc-api/model/User"
 import {randomUUID} from "crypto"
 import {crypto} from "../../node-compat"
 import initKey = TestUtils.initKey
-import {AccessLog} from "../../icc-api/model/AccessLog"
-import { assert } from 'chai'
+import {CalendarItem} from "../../icc-api/model/CalendarItem"
+import {assert} from "chai"
 
 setLocalStorage(fetch)
 let env: TestVars
 
-describe('icc-x-accesslog-api Tests', () => {
+describe('icc-calendar-item-x-api Tests', () => {
   before(async function () {
     this.timeout(600000)
     const initializer = await getEnvironmentInitializer()
@@ -45,11 +45,10 @@ describe('icc-x-accesslog-api Tests', () => {
     const authProvider = new BasicAuthenticationProvider(username, password)
 
     const userApi = new IccUserXApi(env.iCureUrl, {}, authProvider, fetch)
-    const accessLogApi = new IccAccesslogApi(env.iCureUrl, {}, authProvider, fetch)
+    const calenderItemApi = new IccCalendarItemApi(env.iCureUrl, {}, authProvider, fetch)
 
     const currentUser = await userApi.getCurrentUser()
-
-    await accessLogApi.findByUserAfterDate(currentUser.id!)
+    
   })
 
   it('Test findBy', async () => {
@@ -68,37 +67,31 @@ describe('icc-x-accesslog-api Tests', () => {
     const password = env.dataOwnerDetails[hcp1Username].password
 
     const authProvider = new BasicAuthenticationProvider(username, password)
-
-    const accessLogXApi = new IccAccesslogXApi(env.iCureUrl, {}, cryptoApiForHcp, dateOwnerApiForHcp, authProvider, fetch)
-
+    const calendarItemXApi = new IccCalendarItemXApi(env.iCureUrl, {}, cryptoApiForHcp, dateOwnerApiForHcp, undefined, authProvider, fetch)
     const patient = (await createPatient(patientApiForHcp, hcpUser)) as Patient
 
-    const accessLog = new AccessLog({
+    const calendarItem: CalendarItem = {
       id: randomUUID(),
-      _type: 'org.taktik.icure.entities.AccessLog',
       created: new Date().getTime(),
       modified: new Date().getTime(),
-      date: +new Date(),
+      startTime: 20230327131313,
+      endTime: 20230327141313,
       responsible: hcpUser.healthcarePartyId!,
       author: hcpUser.id,
       codes: [],
       tags: [],
-      user: hcpUser.id,
-      patient: patient.id,
-      accessType: 'USER_ACCESS',
-    })
+    }
+    await calendarItemXApi.initDelegationsAndEncryptionKeys(hcpUser, patient, calendarItem)
+    const calendarItemToCreate: CalendarItem = await calendarItemXApi.newInstancePatient(hcpUser, patient, calendarItem);
+    const createdCalendarItem = await calendarItemXApi.createCalendarItemWithHcParty(hcpUser, calendarItemToCreate);
 
-    const accessLogToCreate = await accessLogXApi.newInstance(hcpUser, patient, accessLog);
-    const createdAccessLog = await accessLogXApi.createAccessLogWithUser(hcpUser, accessLogToCreate);
-
-    const foundItems: AccessLog[] = await accessLogXApi.findBy(hcpUser.healthcarePartyId!, patient, false)
-    const foundItemsUsingPost: AccessLog[] = await accessLogXApi.findBy(hcpUser.healthcarePartyId!, patient, true)
+    const foundItems = await calendarItemXApi.findBy(hcpUser.healthcarePartyId!, patient, false)
+    const foundItemsUsingPost = await calendarItemXApi.findBy(hcpUser.healthcarePartyId!, patient, true)
 
     assert(foundItems.length == 1, 'Found items should be 1')
-    assert( foundItems[0].id == createdAccessLog.id, 'Found item should be the same as the created one')
+    assert( foundItems[0].id == createdCalendarItem.id, 'Found item should be the same as created item')
 
-    assert(foundItemsUsingPost.length == 1, 'Found items using post should be 1')
-    assert( foundItemsUsingPost[0].id == createdAccessLog.id, 'Found item using post should be the same as the created one')
-
+    assert(foundItemsUsingPost.length == 1,  'Found items using post should be 1')
+    assert( foundItemsUsingPost[0].id == createdCalendarItem.id, 'Found item using post should be the same as created item')
   })
 })

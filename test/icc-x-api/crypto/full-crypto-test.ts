@@ -11,7 +11,7 @@ import { webcrypto } from 'crypto'
 import 'isomorphic-fetch'
 
 import { expect } from 'chai'
-import { getEnvironmentInitializer, getEnvVariables, getTempEmail, hcp1Username, setLocalStorage, TestVars } from '../../utils/test_utils'
+import { getEnvironmentInitializer, getEnvVariables, getTempEmail, setLocalStorage, TestVars } from '../../utils/test_utils'
 
 setLocalStorage(fetch)
 
@@ -252,12 +252,7 @@ describe('Full battery of tests on crypto and keys', async function () {
     const initializer = await getEnvironmentInitializer()
     env = await initializer.execute(getEnvVariables())
 
-    const api = await Api(
-      env!.iCureUrl,
-      env!.masterHcp!.user,
-      env!.masterHcp!.password,
-      webcrypto as unknown as Crypto
-    )
+    const api = await Api(env!.iCureUrl, env!.masterHcp!.user, env!.masterHcp!.password, webcrypto as unknown as Crypto)
     const user = await api.userApi.getCurrentUser()
     const dataOwnerId = api.dataOwnerApi.getDataOwnerOf(user)
     const jwk = {

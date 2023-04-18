@@ -126,13 +126,16 @@ export class IccFormXApi extends IccFormApi {
    * After these painful steps, you have the contacts of the patient.
    *
    * @param hcpartyId
-   * @param patient (Promise)
+   * @param patient
+   * @param usingPost (Promise)
    */
-  findBy(hcpartyId: string, patient: models.Patient) {
+  findBy(hcpartyId: string, patient: models.Patient, usingPost: boolean = false) {
     return this.crypto
       .extractDelegationsSFKs(patient, hcpartyId)
       .then((secretForeignKeys) =>
-        this.findFormsByHCPartyPatientForeignKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(','))
+        usingPost ?
+          this.findFormsByHCPartyPatientForeignKeysUsingPost(secretForeignKeys.hcpartyId!, undefined, undefined, undefined, _.uniq(secretForeignKeys.extractedKeys)) :
+          this.findFormsByHCPartyPatientForeignKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(','))
       )
       .then((forms) => this.decrypt(hcpartyId, forms))
       .then(function (decryptedForms) {

@@ -176,12 +176,15 @@ export class IccInvoiceXApi extends IccInvoiceApi {
    *
    * @param hcpartyId
    * @param patient (Promise)
+   * @param usingPost
    */
-  findBy(hcpartyId: string, patient: models.Patient): Promise<Array<models.Invoice>> {
+  findBy(hcpartyId: string, patient: models.Patient, usingPost: boolean = false): Promise<Array<models.Invoice>> {
     return this.crypto
       .extractDelegationsSFKs(patient, hcpartyId)
       .then((secretForeignKeys) =>
-        this.findInvoicesByHCPartyPatientForeignKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(','))
+        usingPost ?
+          this.findInvoicesByHCPartyPatientForeignKeysUsingPost(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys)) :
+          this.findInvoicesByHCPartyPatientForeignKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(','))
       )
       .then((invoices) => this.decrypt(hcpartyId, invoices))
       .then(function (decryptedInvoices) {
