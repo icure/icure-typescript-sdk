@@ -969,19 +969,20 @@ export class IccContactXApi extends IccContactApi {
       sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
   ): Promise<ShareResult<models.Contact>> {
+    const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
     const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(contact, 'Contact')
-    const updatedEntity = entityWithEncryptionKey
-      ? await this.modifyContactAs(await this.dataOwnerApi.getCurrentDataOwnerId(), entityWithEncryptionKey)
-      : contact
-    return this.crypto.xapi.simpleShareOrUpdateEncryptedEntityMetadata(
-      { entity: updatedEntity, type: 'Contact' },
-      delegateId,
-      optionalParams?.shareEncryptionKey,
-      optionalParams?.sharePatientId,
-      undefined,
-      requestedPermissions,
-      (x) => this.bulkShareContacts(x)
-    )
+    const updatedEntity = entityWithEncryptionKey ? await this.modifyContactAs(self, entityWithEncryptionKey) : contact
+    return this.crypto.xapi
+      .simpleShareOrUpdateEncryptedEntityMetadata(
+        { entity: updatedEntity, type: 'Contact' },
+        delegateId,
+        optionalParams?.shareEncryptionKey,
+        optionalParams?.sharePatientId,
+        undefined,
+        requestedPermissions,
+        (x) => this.bulkShareContacts(x)
+      )
+      .then((r) => r.mapSuccessAsync((e) => this.decrypt(self, [e]).then((es) => es[0])))
   }
 }

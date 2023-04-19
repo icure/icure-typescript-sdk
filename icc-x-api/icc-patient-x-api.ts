@@ -1066,20 +1066,21 @@ export class IccPatientXApi extends IccPatientApi {
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
   ): Promise<ShareResult<models.Patient>> {
+    const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
     const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(patient, 'Patient')
-    const updatedEntity = entityWithEncryptionKey
-      ? await this.modifyPatientAs(await this.dataOwnerApi.getCurrentDataOwnerId(), entityWithEncryptionKey)
-      : patient
-    return this.crypto.xapi.simpleShareOrUpdateEncryptedEntityMetadata(
-      { entity: updatedEntity, type: 'Patient' },
-      delegateId,
-      optionalParams?.shareEncryptionKey,
-      ShareMetadataBehaviour.NEVER,
-      shareSecretIds,
-      requestedPermissions,
-      (x) => this.bulkSharePatients(x)
-    )
+    const updatedEntity = entityWithEncryptionKey ? await this.modifyPatientAs(self, entityWithEncryptionKey) : patient
+    return this.crypto.xapi
+      .simpleShareOrUpdateEncryptedEntityMetadata(
+        { entity: updatedEntity, type: 'Patient' },
+        delegateId,
+        optionalParams?.shareEncryptionKey,
+        ShareMetadataBehaviour.NEVER,
+        shareSecretIds,
+        requestedPermissions,
+        (x) => this.bulkSharePatients(x)
+      )
+      .then((r) => r.mapSuccessAsync((e) => this.decryptAs(self, [e]).then((es) => es[0])))
   }
 
   /**

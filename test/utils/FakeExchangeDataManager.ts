@@ -81,6 +81,10 @@ export class FakeDecryptionExchangeDataManager implements ExchangeDataManager {
     throw new Error('This method should not be used with this fake exchange data manager: only retrieval decryption data is supported')
   }
 
+  getAllDelegationKeys(entityType: EntityWithDelegationTypeName): Promise<string[] | undefined> {
+    throw new Error('This method should not be used with this fake exchange data manager: only retrieval decryption data is supported')
+  }
+
   get base(): BaseExchangeDataManager {
     throw new Error('This method should not be used with this fake exchange data manager: only retrieval decryption data is supported')
   }

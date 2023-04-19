@@ -215,17 +215,20 @@ export class IccInvoiceXApi extends IccInvoiceApi {
       sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
   ): Promise<ShareResult<models.Invoice>> {
+    const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
     const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(invoice, 'Invoice')
     const updatedEntity = entityWithEncryptionKey ? await this.modifyInvoice(entityWithEncryptionKey) : invoice
-    return this.crypto.xapi.simpleShareOrUpdateEncryptedEntityMetadata(
-      { entity: updatedEntity, type: 'Invoice' },
-      delegateId,
-      optionalParams?.shareEncryptionKey,
-      optionalParams?.sharePatientId,
-      undefined,
-      requestedPermissions,
-      (x) => this.bulkShareInvoices(x)
-    )
+    return this.crypto.xapi
+      .simpleShareOrUpdateEncryptedEntityMetadata(
+        { entity: updatedEntity, type: 'Invoice' },
+        delegateId,
+        optionalParams?.shareEncryptionKey,
+        optionalParams?.sharePatientId,
+        undefined,
+        requestedPermissions,
+        (x) => this.bulkShareInvoices(x)
+      )
+      .then((r) => r.mapSuccessAsync((e) => this.decrypt(self, [e]).then((es) => es[0])))
   }
 }

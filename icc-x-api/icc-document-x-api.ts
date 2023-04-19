@@ -837,17 +837,20 @@ export class IccDocumentXApi extends IccDocumentApi {
       shareMessageId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
   ): Promise<ShareResult<models.Document>> {
+    const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
     const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(document, 'Document')
     const updatedEntity = entityWithEncryptionKey ? await this.modifyDocument(entityWithEncryptionKey) : document
-    return this.crypto.xapi.simpleShareOrUpdateEncryptedEntityMetadata(
-      { entity: updatedEntity, type: 'Document' },
-      delegateId,
-      optionalParams?.shareEncryptionKey,
-      optionalParams?.shareMessageId,
-      undefined,
-      requestedPermissions,
-      (x) => this.bulkShareDocument(x)
-    )
+    return this.crypto.xapi
+      .simpleShareOrUpdateEncryptedEntityMetadata(
+        { entity: updatedEntity, type: 'Document' },
+        delegateId,
+        optionalParams?.shareEncryptionKey,
+        optionalParams?.shareMessageId,
+        undefined,
+        requestedPermissions,
+        (x) => this.bulkShareDocument(x)
+      )
+      .then((r) => r.mapSuccessAsync((e) => this.decrypt(self, [e]).then((es) => es[0])))
   }
 }

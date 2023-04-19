@@ -380,19 +380,20 @@ export class IccHelementXApi extends IccHelementApi {
       sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
   ): Promise<ShareResult<models.HealthElement>> {
+    const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
     const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(healthElement, 'HealthElement')
-    const updatedEntity = entityWithEncryptionKey
-      ? await this.modifyHealthElementAs(await this.dataOwnerApi.getCurrentDataOwnerId(), entityWithEncryptionKey)
-      : healthElement
-    return this.crypto.xapi.simpleShareOrUpdateEncryptedEntityMetadata(
-      { entity: updatedEntity, type: 'HealthElement' },
-      delegateId,
-      optionalParams?.shareEncryptionKey,
-      optionalParams?.sharePatientId,
-      undefined,
-      requestedPermissions,
-      (x) => this.bulkShareHealthElements(x)
-    )
+    const updatedEntity = entityWithEncryptionKey ? await this.modifyHealthElementAs(self, entityWithEncryptionKey) : healthElement
+    return this.crypto.xapi
+      .simpleShareOrUpdateEncryptedEntityMetadata(
+        { entity: updatedEntity, type: 'HealthElement' },
+        delegateId,
+        optionalParams?.shareEncryptionKey,
+        optionalParams?.sharePatientId,
+        undefined,
+        requestedPermissions,
+        (x) => this.bulkShareHealthElements(x)
+      )
+      .then((r) => r.mapSuccessAsync((e) => this.decrypt(self, [e]).then((es) => es[0])))
   }
 }

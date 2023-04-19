@@ -163,17 +163,20 @@ export class IccFormXApi extends IccFormApi {
       sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
   ): Promise<ShareResult<models.Form>> {
+    const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
     const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(form, 'Form')
     const updatedEntity = entityWithEncryptionKey ? await this.modifyForm(entityWithEncryptionKey) : form
-    return this.crypto.xapi.simpleShareOrUpdateEncryptedEntityMetadata(
-      { entity: updatedEntity, type: 'Form' },
-      delegateId,
-      optionalParams?.shareEncryptionKey,
-      optionalParams?.sharePatientId,
-      undefined,
-      requestedPermissions,
-      (x) => this.bulkShareForms(x)
-    )
+    return this.crypto.xapi
+      .simpleShareOrUpdateEncryptedEntityMetadata(
+        { entity: updatedEntity, type: 'Form' },
+        delegateId,
+        optionalParams?.shareEncryptionKey,
+        optionalParams?.sharePatientId,
+        undefined,
+        requestedPermissions,
+        (x) => this.bulkShareForms(x)
+      )
+      .then((r) => r.mapSuccessAsync((e) => this.decrypt(self, [e]).then((es) => es[0])))
   }
 }

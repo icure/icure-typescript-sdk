@@ -48,42 +48,47 @@ export class IccIcureMaintenanceXApi {
    * Creates the necessary maintenance tasks to request access to existing exchange keys with the new key pair for the current user.
    * @param user the user which owns the new key pair.
    * @param keypair a new key pair for the current user.
+   * @param requestToOwnerTypes specifies the types of data owner that have shared data with the current data owner or which were given access to data
+   * from the current data owner will receive a 'give access back' request. If not specified, the value be inferred from the current data owner type.
    */
-  async createMaintenanceTasksForNewKeypair(user: User, keypair: KeyPair<CryptoKey>): Promise<void> {
+  async createMaintenanceTasksForNewKeypair(user: User, keypair: KeyPair<CryptoKey>, requestToOwnerTypes?: DataOwnerTypeEnum[]): Promise<void> {
     const currentUserType = await this.dataOwnerApi.getCurrentDataOwnerType()
-    if (currentUserType === DataOwnerTypeEnum.Device) {
-      console.warn('Current data owner is a device and there is no need to create maintenance tasks for updated keypair.')
-    } else if (currentUserType === DataOwnerTypeEnum.Patient || currentUserType === DataOwnerTypeEnum.Hcp) {
-      const requestsToOwnerTypes =
-        currentUserType === DataOwnerTypeEnum.Patient ? [DataOwnerTypeEnum.Patient, DataOwnerTypeEnum.Hcp] : [DataOwnerTypeEnum.Hcp]
-      const hexNewPubKey = ua2hex(await this.crypto.primitives.RSA.exportKey(keypair.publicKey, 'spki'))
-      const hexNewPubKeyFp = hexNewPubKey.slice(-32)
-      const selfId = await this.dataOwnerApi.getCurrentDataOwnerId()
-      const requestDataOwnersForExchangeKeys = (await this.getExchangeKeysInfosOf(selfId, requestsToOwnerTypes))
-        .filter((info) => !info.fingerprints.has(hexNewPubKeyFp))
-        .flatMap((info) => [info.delegate, info.delegator])
-        .filter((dataOwner) => dataOwner !== selfId)
-      const requestDataOwnersForExchangeData = await this.exchangeDataApi.getExchangeDataParticipantCounterparts(
-        selfId,
-        [...new Set(requestsToOwnerTypes)].join(',')
-      )
-      const requestDataOwners = [...new Set([...requestDataOwnersForExchangeKeys, ...requestDataOwnersForExchangeData])]
-      if (requestDataOwners.length > 0) {
-        const tasksToCreate = requestDataOwners.map((dataOwner) => ({
-          delegate: dataOwner,
-          task: this.createMaintenanceTask(selfId, hexNewPubKey),
-        }))
-        for (const taskToCreate of tasksToCreate) {
-          const instance = await this.tasksApi.newInstance(user, taskToCreate.task, {
-            additionalDelegates: { [taskToCreate.delegate]: AccessLevelEnum.WRITE },
-          })
-          if (instance) {
-            // TODO create in bulk
-            await this.tasksApi.createMaintenanceTaskWithUser(user, instance)
-          }
+    if (!requestToOwnerTypes) {
+      if (currentUserType === DataOwnerTypeEnum.Device) {
+        console.warn('Current data owner is a device and there is no need to create maintenance tasks for updated keypair.')
+        return
+      } else {
+        requestToOwnerTypes =
+          currentUserType === DataOwnerTypeEnum.Patient ? [DataOwnerTypeEnum.Patient, DataOwnerTypeEnum.Hcp] : [DataOwnerTypeEnum.Hcp]
+      }
+    }
+    const hexNewPubKey = ua2hex(await this.crypto.primitives.RSA.exportKey(keypair.publicKey, 'spki'))
+    const hexNewPubKeyFp = hexNewPubKey.slice(-32)
+    const selfId = await this.dataOwnerApi.getCurrentDataOwnerId()
+    const requestDataOwnersForExchangeKeys = (await this.getExchangeKeysInfosOf(selfId, requestToOwnerTypes))
+      .filter((info) => !info.fingerprints.has(hexNewPubKeyFp))
+      .flatMap((info) => [info.delegate, info.delegator])
+      .filter((dataOwner) => dataOwner !== selfId)
+    const requestDataOwnersForExchangeData = await this.exchangeDataApi.getExchangeDataParticipantCounterparts(
+      selfId,
+      [...new Set(requestToOwnerTypes)].join(',')
+    )
+    const requestDataOwners = [...new Set([...requestDataOwnersForExchangeKeys, ...requestDataOwnersForExchangeData])]
+    if (requestDataOwners.length > 0) {
+      const tasksToCreate = requestDataOwners.map((dataOwner) => ({
+        delegate: dataOwner,
+        task: this.createMaintenanceTask(selfId, hexNewPubKey),
+      }))
+      for (const taskToCreate of tasksToCreate) {
+        const instance = await this.tasksApi.newInstance(user, taskToCreate.task, {
+          additionalDelegates: { [taskToCreate.delegate]: AccessLevelEnum.WRITE },
+        })
+        if (instance) {
+          // TODO create in bulk
+          await this.tasksApi.createMaintenanceTaskWithUser(user, instance)
         }
       }
-    } else throw new Error(`Unknown data owner type for current user ${currentUserType}`)
+    }
   }
 
   private async getExchangeKeysInfosOf(dataOwnerId: string, otherOwnerTypes: DataOwnerTypeEnum[]): Promise<ExchangeKeyInfo[]> {
