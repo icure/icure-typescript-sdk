@@ -286,19 +286,20 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
       sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
   ): Promise<ShareResult<models.CalendarItem>> {
+    const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
     const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(calendarItem, 'CalendarItem')
-    const updatedEntity = entityWithEncryptionKey
-      ? await this.modifyAs(await this.dataOwnerApi.getCurrentDataOwnerId(), entityWithEncryptionKey)
-      : calendarItem
-    return this.crypto.xapi.simpleShareOrUpdateEncryptedEntityMetadata(
-      { entity: updatedEntity, type: 'CalendarItem' },
-      delegateId,
-      optionalParams?.shareEncryptionKey,
-      optionalParams?.sharePatientId,
-      undefined,
-      requestedPermissions,
-      (x) => this.bulkShareCalendarItems(x)
-    )
+    const updatedEntity = entityWithEncryptionKey ? await this.modifyAs(self, entityWithEncryptionKey) : calendarItem
+    return this.crypto.xapi
+      .simpleShareOrUpdateEncryptedEntityMetadata(
+        { entity: updatedEntity, type: 'CalendarItem' },
+        delegateId,
+        optionalParams?.shareEncryptionKey,
+        optionalParams?.sharePatientId,
+        undefined,
+        requestedPermissions,
+        (x) => this.bulkShareCalendarItems(x)
+      )
+      .then((r) => r.mapSuccessAsync((e) => this.decrypt(self, [e]).then((es) => es[0])))
   }
 }

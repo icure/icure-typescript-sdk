@@ -204,19 +204,20 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
   ): Promise<ShareResult<models.MaintenanceTask>> {
+    const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
     const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(maintenanceTask, 'MaintenanceTask')
-    const updatedEntity = entityWithEncryptionKey
-      ? await this.modifyMaintenanceTaskAs(await this.dataOwnerApi.getCurrentDataOwnerId(), entityWithEncryptionKey)
-      : maintenanceTask
-    return this.crypto.xapi.simpleShareOrUpdateEncryptedEntityMetadata(
-      { entity: updatedEntity, type: 'MaintenanceTask' },
-      delegateId,
-      optionalParams?.shareEncryptionKey,
-      undefined,
-      undefined,
-      requestedPermissions,
-      (x) => this.bulkShareMaintenanceTask(x)
-    )
+    const updatedEntity = entityWithEncryptionKey ? await this.modifyMaintenanceTaskAs(self, entityWithEncryptionKey) : maintenanceTask
+    return this.crypto.xapi
+      .simpleShareOrUpdateEncryptedEntityMetadata(
+        { entity: updatedEntity, type: 'MaintenanceTask' },
+        delegateId,
+        optionalParams?.shareEncryptionKey,
+        undefined,
+        undefined,
+        requestedPermissions,
+        (x) => this.bulkShareMaintenanceTask(x)
+      )
+      .then((r) => r.mapSuccessAsync((e) => this.decryptAs(self, [e]).then((es) => es[0])))
   }
 }

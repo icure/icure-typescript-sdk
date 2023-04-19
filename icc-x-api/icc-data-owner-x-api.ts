@@ -11,10 +11,10 @@ import { XHR } from '../icc-api/api/XHR'
  * Represents a type of data owner.
  */
 export type DataOwnerTypeEnum = 'patient' | 'device' | 'hcp'
-export const DataOwnerTypeEnum: { [key: string]: DataOwnerTypeEnum } = {
-  Patient: 'patient',
-  Device: 'device',
-  Hcp: 'hcp',
+export const DataOwnerTypeEnum = {
+  Patient: 'patient' as DataOwnerTypeEnum,
+  Device: 'device' as DataOwnerTypeEnum,
+  Hcp: 'hcp' as DataOwnerTypeEnum,
 }
 
 /**

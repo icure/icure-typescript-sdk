@@ -144,6 +144,12 @@ export interface ExchangeDataManager {
    * control keys for the current data owner.
    */
   getAccessControlKeysValue(entityType: EntityWithDelegationTypeName): Promise<string | undefined>
+
+  /**
+   * If the current data owner requires anonymous delegations this returns the access control keys which may be used in secure delegations for the
+   * data owner, which can be used to search for data.
+   */
+  getAllDelegationKeys(entityType: EntityWithDelegationTypeName): Promise<string[] | undefined>
 }
 
 abstract class AbstractExchangeDataManager implements ExchangeDataManager {
@@ -266,6 +272,10 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
   }
 
   getAccessControlKeysValue(entityType: EntityWithDelegationTypeName): Promise<string | undefined> {
+    throw new Error('Implemented by concrete class')
+  }
+
+  getAllDelegationKeys(entityType: EntityWithDelegationTypeName): Promise<string[] | undefined> {
     throw new Error('Implemented by concrete class')
   }
 }
@@ -429,6 +439,17 @@ class FullyCachedExchangeDataManager extends AbstractExchangeDataManager {
     const fullData = ua2b64(fullBuffer)
     caches.entityTypeToAccessControlKeysValue[entityType] = fullData
     return fullData
+  }
+
+  async getAllDelegationKeys(entityType: EntityWithDelegationTypeName): Promise<string[] | undefined> {
+    const caches = await this.caches
+    const accessControlSecrets = Object.values(caches.dataById).flatMap((x) => (x.decrypted ? [x.decrypted.accessControlSecret] : []))
+    const res: string[] = []
+    for (const accessControlSecret of accessControlSecrets) {
+      // Usage of sfks in secure delegation key should be configurable: it is not necessary for all users and it has some performance impact
+      res.push(await this.accessControlSecret.secureDelegationKeyFor(accessControlSecret, entityType, undefined))
+    }
+    return res
   }
 }
 
@@ -640,6 +661,10 @@ class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
   }
 
   getAccessControlKeysValue(entityType: EntityWithDelegationTypeName): Promise<string | undefined> {
+    return Promise.resolve(undefined)
+  }
+
+  getAllDelegationKeys(entityType: EntityWithDelegationTypeName): Promise<string[] | undefined> {
     return Promise.resolve(undefined)
   }
 }
