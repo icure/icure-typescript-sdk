@@ -198,22 +198,6 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
     throw new Error('Cannot call a method that must encrypt a calendar item without providing a user for de/encryption')
   }
 
-  /**
-   * Remove the following delegation objects from the
-   * CalendarItem instance: cryptedForeignKeys, secretForeignKeys.
-   *
-   * The delegations & encryptionKeys objects are not removed because
-   * in the case the CalendarItem is saved in the DB & then encrypted,
-   * if later we remove the patient from it, it'd reset the delegations
-   * and encryptionKeys thus impossibilitating further access.
-   *
-   * @param calendarItem The Calendar Item object
-   * @deprecated This method is not supported anymore.
-   */
-  resetCalendarDelegationObjects(calendarItem: models.CalendarItem): models.CalendarItem {
-    throw new Error('This method is not supported anymore.')
-  }
-
   async modifyCalendarItemWithHcParty(user: models.User, body?: models.CalendarItem): Promise<models.CalendarItem | any> {
     return body ? this.modifyAs(this.dataOwnerApi.getDataOwnerIdOf(user)!, _.cloneDeep(body)) : null
   }
