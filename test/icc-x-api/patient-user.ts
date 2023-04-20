@@ -100,40 +100,27 @@ describe('Patient', () => {
     const ciDetails = 'Important and private information'
     const ci = await calendarItemApi.createCalendarItemWithHcParty(
       user,
-      await calendarItemApi.newInstancePatient(user, patient, { patientId: patient.id, title: ciTitle, details: ciDetails }, [])
+      await calendarItemApi.newInstancePatient(user, patient, { patientId: patient.id, title: ciTitle, details: ciDetails })
     )
 
-    const pat2 = await api.patientApi.getPatientWithUser(hcpUser, patient.id!)
-    const ci2 = await api.calendarItemApi.getCalendarItemWithUser(hcpUser, ci.id)
-    expect(pat2).to.not.be.null
-    expect(pat2.note).to.be.undefined
-    expect(ci2).to.not.be.null
-    expect(ci2.title).to.be.undefined
-    expect(ci2.details).to.be.undefined
+    let failed = false
+    try {
+      await api.patientApi.getPatientWithUser(hcpUser, patient.id!)
+    } catch {
+      failed = true
+    }
+    expect(failed).to.be.true
+    failed = false
+    try {
+      await api.calendarItemApi.getCalendarItemWithUser(hcpUser, ci.id)
+    } catch {
+      failed = true
+    }
+    expect(failed).to.be.true
 
-    await patientApi.modifyPatientWithUser(
-      user,
-      await cryptoApi.entities.entityWithExtendedEncryptedMetadata(
-        pat!,
-        hcpUser.healthcarePartyId!,
-        await cryptoApi.entities.secretIdsOf(pat!),
-        await cryptoApi.entities.encryptionKeysOf(pat!),
-        [],
-        []
-      )
-    )
-    await calendarItemApi.modifyCalendarItemWithHcParty(
-      user,
-      await cryptoApi.entities.entityWithExtendedEncryptedMetadata(
-        ci!,
-        hcpUser.healthcarePartyId!,
-        await cryptoApi.entities.secretIdsOf(ci),
-        await cryptoApi.entities.encryptionKeysOf(ci),
-        [],
-        []
-      )
-    )
-    await api.cryptoApi.forceReload(false)
+    await patientApi.shareWith(hcpUser.healthcarePartyId!, pat!, await patientApi.getSecretIdsOf(pat!))
+    await calendarItemApi.shareWith(hcpUser.healthcarePartyId!, ci!)
+    await api.cryptoApi.forceReload()
     const pat3 = await api.patientApi.getPatientWithUser(hcpUser, patient.id!)
     const ci3 = await api.calendarItemApi.getCalendarItemWithUser(hcpUser, ci.id)
     expect(pat3).to.not.be.null
