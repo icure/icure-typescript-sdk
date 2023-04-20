@@ -79,14 +79,12 @@ describe('Full battery of tests on crypto and keys', async function () {
       env!.iCureUrl,
       env!.dataOwnerDetails[patUsername].user,
       env!.dataOwnerDetails[patUsername].password,
+      new TestCryptoStrategies(newKey),
       webcrypto as unknown as Crypto,
       fetch,
-      false,
-      false,
-      new TestStorage(),
-      new TestKeyStorage(),
       {
-        cryptoStrategies: new TestCryptoStrategies(newKey),
+        storage: new TestStorage(),
+        keyStorage: new TestKeyStorage(),
       }
     )
     const user = await apiAfterNewKey.userApi.getCurrentUser()
@@ -134,14 +132,12 @@ describe('Full battery of tests on crypto and keys', async function () {
       env!.iCureUrl,
       env!.dataOwnerDetails[patUsername].user,
       env!.dataOwnerDetails[patUsername].password,
+      new TestCryptoStrategies(newKey),
       webcrypto as unknown as Crypto,
       fetch,
-      false,
-      false,
-      new TestStorage(),
-      new TestKeyStorage(),
       {
-        cryptoStrategies: new TestCryptoStrategies(newKey),
+        storage: new TestStorage(),
+        keyStorage: new TestKeyStorage(),
       }
     )
     await apiAfterSharedBack.cryptoApi.forceReload(true)

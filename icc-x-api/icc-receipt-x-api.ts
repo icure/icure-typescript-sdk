@@ -1,9 +1,10 @@
-import { IccReceiptApi } from '../icc-api'
-import { IccCryptoXApi } from './icc-crypto-x-api'
+import {IccReceiptApi} from '../icc-api'
+import {IccCryptoXApi} from './icc-crypto-x-api'
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import { IccDataOwnerXApi } from './icc-data-owner-x-api'
-import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import {IccDataOwnerXApi} from './icc-data-owner-x-api'
+import {AuthenticationProvider, NoAuthenticationProvider} from './auth/AuthenticationProvider'
+import {ShareMetadataBehaviour} from "./crypto/ShareMetadataBehaviour"
 
 export class IccReceiptXApi extends IccReceiptApi {
   dataOwnerApi: IccDataOwnerXApi
@@ -90,5 +91,34 @@ export class IccReceiptXApi extends IccReceiptApi {
     validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<ArrayBuffer> {
     return await this.crypto.entities.decryptDataOf(receipt, await this.getReceiptAttachment(receipt.id!, attachmentId, ''), (x) => validator(x))
+  }
+
+  /**
+   * Share an existing receipt with other data owners, allowing them to access the non-encrypted data of the receipt and optionally also
+   * the encrypted content.
+   * @param delegateId the id of the data owner which will be granted access to the receipt.
+   * @param receipt the receipt to share.
+   * @param optionalParams optional parameters to customize the sharing behaviour:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * receipt does not have encrypted content.
+   * @return a promise which will contain the updated receipt.
+   */
+  async shareWith(
+    delegateId: string,
+    receipt: models.Receipt,
+    optionalParams: {
+      shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+    } = {}
+  ): Promise<models.Receipt> {
+    return await this.modifyReceipt(
+      await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
+        receipt,
+        delegateId,
+        undefined,
+        optionalParams.shareEncryptionKey,
+        ShareMetadataBehaviour.IF_AVAILABLE
+      )
+    )
   }
 }

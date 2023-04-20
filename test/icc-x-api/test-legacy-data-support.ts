@@ -160,14 +160,12 @@ class ApiFactoryV7 implements ApiFactory {
       env.iCureUrl,
       env.masterHcp!.user,
       env.masterHcp!.password,
+      new TestCryptoStrategies(key),
       webcrypto as any,
       fetch,
-      false,
-      false,
-      new TestStorage(),
-      new TestKeyStorage(),
       {
-        cryptoStrategies: new TestCryptoStrategies(key),
+        storage: new TestStorage(),
+        keyStorage: new TestKeyStorage(),
       }
     )
     return <UniformizedMasterApi>{
@@ -208,15 +206,13 @@ class ApiFactoryV7 implements ApiFactory {
       env.iCureUrl,
       credentials.login,
       credentials.password,
+      new TestCryptoStrategies(credentials.key),
       webcrypto as any,
       fetch,
-      false,
-      false,
-      testStorage.storage,
-      testStorage.keyStorage,
       {
         entryKeysFactory: testStorage.keyFactory,
-        cryptoStrategies: new TestCryptoStrategies(credentials.key),
+        storage: testStorage.storage,
+        keyStorage: testStorage.keyStorage,
       }
     )
     const user = await apis.userApi.getCurrentUser()

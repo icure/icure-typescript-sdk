@@ -5,6 +5,7 @@ import { AccessLog, PaginatedListAccessLog } from '../icc-api/model/models'
 import * as _ from 'lodash'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import {ShareMetadataBehaviour} from "./crypto/ShareMetadataBehaviour"
 
 export interface AccessLogWithPatientId extends AccessLog {
   patientId: string
@@ -115,9 +116,12 @@ export class IccAccesslogXApi extends IccAccesslogApi {
   }
 
   encrypt(user: models.User, accessLogs: Array<models.AccessLog>): Promise<Array<models.AccessLog>> {
-    const owner = this.dataOwnerApi.getDataOwnerIdOf(user)
+    return this.encryptAs(this.dataOwnerApi.getDataOwnerIdOf(user)!, accessLogs)
+  }
+
+  private encryptAs(dataOwner: string, accessLogs: Array<models.AccessLog>): Promise<Array<models.AccessLog>> {
     return Promise.all(
-      accessLogs.map((x) => this.crypto.entities.tryEncryptEntity(x, owner, this.cryptedKeys, false, true, (json) => new AccessLog(json)))
+      accessLogs.map((x) => this.crypto.entities.tryEncryptEntity(x, dataOwner, this.cryptedKeys, false, true, (json) => new AccessLog(json)))
     )
   }
 
@@ -170,12 +174,14 @@ export class IccAccesslogXApi extends IccAccesslogApi {
   }
 
   async modifyAccessLogWithUser(user: models.User, body?: models.AccessLog): Promise<models.AccessLog | null> {
-    return body
-      ? this.encrypt(user, [_.cloneDeep(body)])
-          .then((als) => super.modifyAccessLog(als[0]))
-          .then((accessLog) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, [accessLog]))
-          .then((als) => als[0])
-      : null
+    return body ? this.modifyAs(this.dataOwnerApi.getDataOwnerIdOf(user)!, _.cloneDeep(body)) : null
+  }
+
+  private modifyAs(dataOwner: string, accessLog: models.AccessLog): Promise<models.AccessLog> {
+    return this.encryptAs(dataOwner, [_.cloneDeep(accessLog)])
+      .then((als) => super.modifyAccessLog(als[0]))
+      .then((accessLog) => this.decrypt(dataOwner, [accessLog]))
+      .then((als) => als[0])
   }
 
   findByUserAfterDate(
@@ -257,5 +263,48 @@ export class IccAccesslogXApi extends IccAccesslogApi {
     }
 
     return foundAccessLogs
+  }
+
+  /**
+   * @param accessLog an access log
+   * @return the id of the patient that the access log refers to, retrieved from the encrypted metadata (not from the decrypted entity body). Normally
+   * there should only be one element in the returned array, but in case of entity merges there could be multiple values.
+   */
+  async decryptPatientIdOf(accessLog: AccessLog): Promise<string[]> {
+    return this.crypto.entities.owningEntityIdsOf(accessLog, undefined)
+  }
+
+  /**
+   * Share an existing access log with other data owners, allowing them to access the non-encrypted data of the access log and optionally also the
+   * encrypted content.
+   * @param delegateId the id of the data owner which will be granted access to the access log.
+   * @param accessLog the access log to share.
+   * @param optionalParams optional parameters to customize the sharing behaviour:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * - sharePatientId: specifies if the id of the patient that this access log refers to should be shared with the delegate. Normally this would
+   * be the same as objectId, but it is encrypted separately from it allowing you to give access to the patient id without giving access to the other
+   * encrypted data of the access log (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * @return a promise which will contain the updated entity.
+   */
+  async shareWith(
+    delegateId: string,
+    accessLog: AccessLog,
+    optionalParams: {
+      shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+    } = {}
+  ): Promise<AccessLog> {
+    const self = await this.dataOwnerApi.getCurrentDataOwnerId()
+    return await this.modifyAs(
+      self,
+      await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
+        accessLog,
+        delegateId,
+        undefined,
+        optionalParams.shareEncryptionKey,
+        optionalParams.sharePatientId
+      )
+    )
   }
 }

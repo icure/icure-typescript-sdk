@@ -7,6 +7,7 @@ import { Patient, User } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import * as models from '../icc-api/model/models'
+import {ShareMetadataBehaviour} from "./crypto/ShareMetadataBehaviour"
 
 export class IccMessageXApi extends IccMessageApi {
   dataOwnerApi: IccDataOwnerXApi
@@ -77,5 +78,58 @@ export class IccMessageXApi extends IccMessageApi {
         .entityWithInitialisedEncryptedMetadata(message, patient?.id, sfk, true, extraDelegations, delegationTags)
         .then((x) => x.updatedEntity)
     )
+  }
+
+  /**
+   * @param message a message
+   * @return the id of the patient that the message refers to, retrieved from the encrypted metadata. Normally there should only be one element
+   * in the returned array, but in case of entity merges there could be multiple values.
+   */
+  async decryptPatientIdOf(message: models.Message): Promise<string[]> {
+    return this.crypto.entities.owningEntityIdsOf(message, undefined)
+  }
+
+  /**
+   * Share an existing message with other data owners, allowing them to access the non-encrypted data of the message and optionally also
+   * the encrypted content.
+   * @param delegateId the id of the data owner which will be granted access to the message.
+   * @param message the message to share.
+   * @param shareSecretIds the secret ids of the Message that the delegate will be given access to. Allows the delegate to search for data where the
+   * shared Message is the owning entity id.
+   * @param optionalParams optional parameters to customize the sharing behaviour:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * message does not have encrypted content.
+   * - sharePatientId: specifies if the id of the patient that this message refers to should be shared with the delegate (defaults to
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * @return a promise which will contain the updated message
+   */
+  async shareWith(
+    delegateId: string,
+    message: models.Message,
+    shareSecretIds: string[],
+    optionalParams: {
+      shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+    } = {}
+  ): Promise<models.Message> {
+    return await this.modifyMessage(
+      await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
+        message,
+        delegateId,
+        shareSecretIds,
+        optionalParams.shareEncryptionKey,
+        optionalParams.sharePatientId
+      )
+    )
+  }
+
+  /**
+   * @param message a message
+   * @return the secret ids of the message, retrieved from the encrypted metadata. The result may be used to find entities where the message is
+   * the 'owning entity', or in the {@link shareWith} method in order to share it with other data owners.
+   */
+  getSecretIdsOf(message: models.Message): Promise<string[]> {
+    return this.crypto.entities.secretIdsOf(message, undefined)
   }
 }

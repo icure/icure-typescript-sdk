@@ -1,11 +1,12 @@
-import { IccMaintenanceTaskApi } from '../icc-api/api/IccMaintenanceTaskApi'
-import { IccCryptoXApi } from './icc-crypto-x-api'
+import {IccMaintenanceTaskApi} from '../icc-api/api/IccMaintenanceTaskApi'
+import {IccCryptoXApi} from './icc-crypto-x-api'
 import * as models from '../icc-api/model/models'
+import {DocIdentifier, MaintenanceTask} from '../icc-api/model/models'
 import * as _ from 'lodash'
-import { IccHcpartyXApi } from './icc-hcparty-x-api'
-import { DocIdentifier, MaintenanceTask } from '../icc-api/model/models'
-import { IccDataOwnerXApi } from './icc-data-owner-x-api'
-import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import {IccHcpartyXApi} from './icc-hcparty-x-api'
+import {IccDataOwnerXApi} from './icc-data-owner-x-api'
+import {AuthenticationProvider, NoAuthenticationProvider} from './auth/AuthenticationProvider'
+import {ShareMetadataBehaviour} from "./crypto/ShareMetadataBehaviour"
 
 export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
   crypto: IccCryptoXApi
@@ -119,16 +120,22 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
 
   modifyMaintenanceTaskWithUser(user: models.User, body?: models.MaintenanceTask): Promise<models.MaintenanceTask | any> {
     return body
-      ? this.encrypt(user, [_.cloneDeep(body)])
-          .then((encTasks) => super.modifyMaintenanceTask(encTasks[0]))
-          .then((mt) => this.decrypt(user, [mt]))
-          .then((mts) => mts[0])
+      ? this.modifyAs(this.dataOwnerApi.getDataOwnerIdOf(user), body)
       : Promise.resolve(null)
   }
 
-  encrypt(user: models.User, maintenanceTasks: Array<models.MaintenanceTask>): Promise<Array<models.MaintenanceTask>> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
+  private modifyAs(dataOwner: string, body: models.MaintenanceTask): Promise<models.MaintenanceTask | any> {
+    return this.encryptAs(dataOwner, [_.cloneDeep(body)])
+      .then((encTasks) => super.modifyMaintenanceTask(encTasks[0]))
+      .then((mt) => this.decryptAs(dataOwner, [mt]))
+      .then((mts) => mts[0])
+  }
 
+  encrypt(user: models.User, maintenanceTasks: Array<models.MaintenanceTask>): Promise<Array<models.MaintenanceTask>> {
+    return this.encryptAs(this.dataOwnerApi.getDataOwnerIdOf(user), maintenanceTasks)
+  }
+  
+  private encryptAs(dataOwnerId: string, maintenanceTasks: Array<models.MaintenanceTask>): Promise<Array<models.MaintenanceTask>> {
     return Promise.all(
       maintenanceTasks.map((m) =>
         this.crypto.entities.tryEncryptEntity(m, dataOwnerId, this.encryptedKeys, true, true, (x) => new models.MaintenanceTask(x))
@@ -137,11 +144,43 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
   }
 
   decrypt(user: models.User, maintenanceTasks: Array<models.MaintenanceTask>): Promise<Array<models.MaintenanceTask>> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
-
+    return this.decryptAs(this.dataOwnerApi.getDataOwnerIdOf(user), maintenanceTasks)
+  }
+  private decryptAs(dataOwnerId: string, maintenanceTasks: Array<models.MaintenanceTask>): Promise<Array<models.MaintenanceTask>> {
     return Promise.all(
       maintenanceTasks.map(async (mT) =>
         this.crypto.entities.decryptEntity(mT, dataOwnerId, (x) => new MaintenanceTask(x)).then(({ entity }) => entity)
+      )
+    )
+  }
+
+  /**
+   * Share an existing maintenance task with other data owners, allowing them to access the non-encrypted data of the maintenance task and optionally also
+   * the encrypted content.
+   * @param delegateId the id of the data owner which will be granted access to the maintenance task.
+   * @param maintenanceTask the maintenance task to share.
+   * @param optionalParams optional parameters to customize the sharing behaviour:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * maintenance task does not have encrypted content.
+   * @return a promise which will contain the updated maintenance task
+   */
+  async shareWith(
+    delegateId: string,
+    maintenanceTask: models.MaintenanceTask,
+    optionalParams: {
+      shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+    } = {}
+  ): Promise<models.MaintenanceTask> {
+    const self = await this.dataOwnerApi.getCurrentDataOwnerId()
+    return await this.modifyAs(
+      self,
+      await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
+        maintenanceTask,
+        delegateId,
+        undefined,
+        optionalParams.shareEncryptionKey,
+        ShareMetadataBehaviour.IF_AVAILABLE
       )
     )
   }

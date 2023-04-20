@@ -121,15 +121,13 @@ describe('Shamir key recovery', async function () {
       env.iCureUrl,
       hierarchyApis.childCredentials.login,
       hierarchyApis.childCredentials.password,
+      new TestCryptoStrategies(newKey),
       webcrypto as any,
       fetch,
-      false,
-      false,
-      lostKeyStorage.storage,
-      lostKeyStorage.keyStorage,
       {
         entryKeysFactory: lostKeyStorage.keyFactory,
-        cryptoStrategies: new TestCryptoStrategies(newKey),
+        storage: lostKeyStorage.storage,
+        keyStorage: lostKeyStorage.keyStorage,
       }
     )
     const lostUser = await lostKeyApi.userApi.getCurrentUser()

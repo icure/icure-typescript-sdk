@@ -8,6 +8,7 @@ import * as models from '../icc-api/model/models'
 import { a2b, hex2ua, string2ua, ua2string } from './utils/binary-utils'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import {ShareMetadataBehaviour} from "./crypto/ShareMetadataBehaviour"
 
 // noinspection JSUnusedGlobalSymbols
 export class IccDocumentXApi extends IccDocumentApi {
@@ -782,6 +783,46 @@ export class IccDocumentXApi extends IccDocumentApi {
   ): Promise<ArrayBuffer> {
     return await this.crypto.entities.decryptDataOf(document, await this.getSecondaryAttachment(document.id!, secondaryAttachmentKey), (x) =>
       validator(x)
+    )
+  }
+
+  /**
+   * @param document a document
+   * @return the id of the message that the document refers to, retrieved from the encrypted metadata. Normally there should only be one element
+   * in the returned array, but in case of entity merges there could be multiple values.
+   */
+  async decryptMessageIdOf(document: models.Document): Promise<string[]> {
+    return this.crypto.entities.owningEntityIdsOf(document, undefined)
+  }
+
+  /**
+   * Share an existing document with other data owners, allowing them to access the non-encrypted data of the document and optionally also
+   * the encrypted content.
+   * @param delegateId the id of the data owner which will be granted access to the document.
+   * @param document the document to share.
+   * @param optionalParams optional parameters to customize the sharing behaviour:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * - shareMessageId: specifies if the id of the message that this document refers to should be shared with the delegate (defaults to
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * @return a promise which will contain the updated document.
+   */
+  async shareWith(
+    delegateId: string,
+    document: models.Document,
+    optionalParams: {
+      shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      shareMessageId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+    } = {}
+  ): Promise<models.Document> {
+    return await this.modifyDocument(
+      await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
+        document,
+        delegateId,
+        undefined,
+        optionalParams.shareEncryptionKey,
+        optionalParams.shareMessageId
+      )
     )
   }
 }
