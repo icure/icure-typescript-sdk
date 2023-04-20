@@ -187,7 +187,7 @@ const userDefinitions: Record<
       fetch,
       {
         storage: new TestStorage(),
-        keyStorage: new TestKeyStorage()
+        keyStorage: new TestKeyStorage(),
       }
     )
     const apis = await Api(
@@ -199,28 +199,20 @@ const userDefinitions: Record<
       }),
       webcrypto as any,
       fetch,
-  {
-        storage: new TestStorage(),
-        keyStorage: new TestKeyStorage()
-      }
-      )
-    expect(Object.keys(apis.cryptoApi.userKeysManager.getDecryptionKeys())).to.have.length(2)
-    return { user, apis, didLoseKey: false }
-  },
-  'two available keys': async (user, password, originalKey) => {
-    const newKey = await primitives.RSA.generateKeyPair()
-    const apiWithOnlyNewKey = await Api(
-      env!.iCureUrl,
-      user.login!,
-      password,
-      new TestCryptoStrategies(newKey),
-      webcrypto as any,
-      fetch,
       {
         storage: new TestStorage(),
         keyStorage: new TestKeyStorage(),
       }
     )
+    expect(Object.keys(apis.cryptoApi.userKeysManager.getDecryptionKeys())).to.have.length(2)
+    return { user, apis, didLoseKey: false }
+  },
+  'two available keys': async (user, password, originalKey) => {
+    const newKey = await primitives.RSA.generateKeyPair()
+    const apiWithOnlyNewKey = await Api(env!.iCureUrl, user.login!, password, new TestCryptoStrategies(newKey), webcrypto as any, fetch, {
+      storage: new TestStorage(),
+      keyStorage: new TestKeyStorage(),
+    })
     const keyStrings = await Promise.all(
       [originalKey, newKey].map(async (pair) => ({
         publicKey: ua2hex(await primitives.RSA.exportKey(pair.publicKey, 'spki')),
@@ -267,7 +259,7 @@ const userDefinitions: Record<
     if (!concernedRequest) throw new Error('Could not find maintenance task')
     await giveAccessBackApi.icureMaintenanceTaskApi.applyKeyPairUpdate(concernedRequest)
 
-    await api.cryptoApi.forceReload(true)
+    await api.cryptoApi.forceReload()
 
     return { user, apis: api, didLoseKey: true }
   },
@@ -430,7 +422,7 @@ describe('Full crypto test - Creation scenarios', async function () {
         const concernedRequest = keyPairUpdateRequests.find((x) => x.concernedDataOwnerId === dataOwnerWithLostKey)
         if (!concernedRequest) throw new Error('Could not find maintenance task to regive access back to own sfks')
         await api.icureMaintenanceTaskApi.applyKeyPairUpdate(concernedRequest)
-        await patDetails.apis.cryptoApi.forceReload(true)
+        await patDetails.apis.cryptoApi.forceReload()
       }
     }, Promise.resolve())
 

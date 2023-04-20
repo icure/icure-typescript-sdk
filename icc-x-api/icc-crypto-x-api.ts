@@ -83,26 +83,44 @@ export class IccCryptoXApi {
     return this.cryptoPrimitives.AES
   }
 
+  /**
+   * @internal this is for internal use only and may be changed without notice.
+   */
   get keyStorage(): KeyStorageFacade {
     return this._keyStorage
   }
 
+  /**
+   * @internal this is for internal use only and may be changed without notice.
+   */
   get storage(): StorageFacade<string> {
     return this._storage
   }
 
+  /**
+   * @internal this is for internal use only and may be changed without notice.
+   */
   get entities(): EntitiesEncryption {
     return this.entitiesEncrypiton
   }
 
+  /**
+   * @internal this is for internal use only and may be changed without notice.
+   */
   get confidential(): ConfidentialEntities {
     return this.confidentialEntities
   }
 
+  /**
+   * @internal this is for internal use only and may be changed without notice.
+   */
   get userKeysManager(): KeyManager {
     return this.keyManager
   }
 
+  /**
+   * @internal this is for internal use only and may be changed without notice.
+   */
   get shamirKeysManager(): ShamirKeysManager {
     return this.shamirManager
   }
@@ -138,11 +156,11 @@ export class IccCryptoXApi {
 
   /**
    * @deprecated depending on your use case you should delete the calls to this method or call {@link forceReload}:
-   * 1. Replace with `forceReload(true)` if one of the following parts of the current data owner may have been modified from a different api instance:
+   * 1. Replace with `forceReload()` if one of the following parts of the current data owner may have been modified from a different api instance:
    *   - Hcp hierarchy
    *   - Key recovery data (transfer keys or shamir)
    *   - Exchange keys (formerly hcp keys) where the current data owner IS THE DELEGATOR.
-   * 2. Replace with `forceReload(false)` if you just want to force the api to look for new exchange keys where the current data owner IS NOT THE
+   * 2. Replace with `forceReload()` if you just want to force the api to look for new exchange keys where the current data owner IS NOT THE
    *    DELEGATOR.
    * 3. Remove the call if the main goal was to force reload the data owner: data owner are not cached anymore.
    */
@@ -151,21 +169,14 @@ export class IccCryptoXApi {
   }
 
   /**
-   * Deletes values cached by the crypto api, to allow to detect changes in available exchange keys and private keys.
-   * The method always fully clears the cache of exchange keys from any data owner which is not the current data owner. Additionally, by setting the
-   * {@link reloadForExternalChangesToCurrentDataOwner} parameter to true the method will also clear the cache of private keys for the current data
-   * owner and exchange keys where the current data owner is the delegator. Normally this should not be necessary because any changes performed by
-   * this instance of the api are automatically cached, but if the data owner has logged in from another device as well the changes will be
-   * undetected.
-   * @param reloadForExternalChangesToCurrentDataOwner true if the cache should be cleared in a way that allows detecting also external changes to the
-   * current data owner.
+   * Deletes values cached by the crypto api, to allow to detect changes in stored key pairs, exchange keys and/or current data owner details.
+   * This method may be useful in cases where a user is logged in from multiple devices or in cases where other users have just shared some data with
+   * the current user for the first time.
    */
-  async forceReload(reloadForExternalChangesToCurrentDataOwner: boolean) {
-    this.exchangeKeysManager.clearCache(reloadForExternalChangesToCurrentDataOwner)
-    if (reloadForExternalChangesToCurrentDataOwner) {
-      this.dataOwnerApi.clearCurrentDataOwnerIdsCache()
-      await this.keyManager.reloadKeys()
-    }
+  async forceReload() {
+    this.exchangeKeysManager.clearCache(true)
+    this.dataOwnerApi.clearCurrentDataOwnerIdsCache()
+    await this.keyManager.reloadKeys()
   }
 
   /**
@@ -357,7 +368,7 @@ export class IccCryptoXApi {
    *   if it was created on this device (therefore safe for encryption), or
    * - add it to the {@link KeyStorageFacade} using a key from {@link StorageEntryKeysFactory.cachedRecoveredKeypairOfDataOwner}. The key in this case
    *   won't be considered safe for encryption, but it will be available for decryption.
-   * Note that if you want to do this when the API is already instantiated you need to call `this.forceReload(true)` ({@link forceReload}) to use the
+   * Note that if you want to do this when the API is already instantiated you need to call `this.forceReload()` ({@link forceReload}) to use the
    * new key.
    *
    * It is currently not allowed to create new key pairs if a verified key pair is already available on the device, as this would be wasteful. If you
@@ -378,7 +389,7 @@ export class IccCryptoXApi {
         )
       await this.icureStorage.saveKey(selfId, fingerprint, keyPairInJwk, true)
       // Force reload to check if more private keys can be recovered or more exchange keys become available.
-      await this.forceReload(true)
+      await this.forceReload()
     }
     return cryptoKeyPair
   }
