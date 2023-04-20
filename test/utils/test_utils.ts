@@ -185,15 +185,13 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
     env.iCureUrl,
     grandCredentials.login,
     grandCredentials.password,
+    new TestCryptoStrategies(),
     webcrypto as any,
     fetch,
-    false,
-    false,
-    grandStorage.storage,
-    grandStorage.keyStorage,
     {
+      storage: grandStorage.storage,
+      keyStorage: grandStorage.keyStorage,
       entryKeysFactory: grandStorage.keyFactory,
-      cryptoStrategies: new TestCryptoStrategies(),
     }
   )
   const parentStorage = await testStorageWithKeys([
@@ -204,15 +202,13 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
     env.iCureUrl,
     parentCredentials.login,
     parentCredentials.password,
+    new TestCryptoStrategies(),
     webcrypto as any,
     fetch,
-    false,
-    false,
-    parentStorage.storage,
-    parentStorage.keyStorage,
     {
-      entryKeysFactory: parentStorage.keyFactory,
-      cryptoStrategies: new TestCryptoStrategies(),
+      storage: parentStorage.storage,
+      keyStorage : parentStorage.keyStorage,
+      entryKeysFactory: parentStorage.keyFactory
     }
   )
   const parentUser = await parentApi.userApi.modifyUser({
@@ -228,15 +224,13 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
     env.iCureUrl,
     childCredentials.login,
     childCredentials.password,
+    new TestCryptoStrategies(),
     webcrypto as any,
     fetch,
-    false,
-    false,
-    childStorage.storage,
-    childStorage.keyStorage,
     {
+      storage: childStorage.storage,
+      keyStorage: childStorage.keyStorage,
       entryKeysFactory: childStorage.keyFactory,
-      cryptoStrategies: new TestCryptoStrategies(),
     }
   )
   const childUser = await childApi.userApi.modifyUser({
@@ -251,15 +245,13 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
     env.iCureUrl,
     child2Credentials.login,
     child2Credentials.password,
+    new TestCryptoStrategies(),
     webcrypto as any,
     fetch,
-    false,
-    false,
-    child2Storage.storage,
-    child2Storage.keyStorage,
     {
-      entryKeysFactory: child2Storage.keyFactory,
-      cryptoStrategies: new TestCryptoStrategies(),
+      storage: child2Storage.storage,
+      keyStorage: child2Storage.keyStorage,
+      entryKeysFactory: child2Storage.keyFactory
     }
   )
   const child2User = await child2Api.userApi.modifyUser({

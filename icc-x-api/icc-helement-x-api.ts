@@ -8,6 +8,7 @@ import * as moment from 'moment'
 import { HealthElement } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import {ShareMetadataBehaviour} from "./crypto/ShareMetadataBehaviour"
 
 export class IccHelementXApi extends IccHelementApi {
   crypto: IccCryptoXApi
@@ -195,12 +196,13 @@ export class IccHelementXApi extends IccHelementApi {
   }
 
   modifyHealthElementWithUser(user: models.User, body?: HealthElement): Promise<HealthElement | any> {
-    return body
-      ? this.encrypt(user, [_.cloneDeep(body)])
-          .then((hes) => super.modifyHealthElement(hes[0]))
-          .then((he) => this.decryptWithUser(user, [he]))
-          .then((hes) => hes[0])
-      : Promise.resolve(null)
+    return body ? this.modifyAs(this.dataOwnerApi.getDataOwnerIdOf(user), body) : Promise.resolve(null)
+  }
+  private modifyAs(dataOwner: string, body: HealthElement): Promise<HealthElement | any> {
+    return this.encryptAs(dataOwner, [_.cloneDeep(body)])
+      .then((hes) => super.modifyHealthElement(hes[0]))
+      .then((he) => this.decrypt(dataOwner, [he]))
+      .then((hes) => hes[0])
   }
 
   modifyHealthElements(body?: Array<HealthElement>): never {
@@ -280,7 +282,10 @@ export class IccHelementXApi extends IccHelementApi {
   }
 
   encrypt(user: models.User, healthElements: Array<models.HealthElement>): Promise<Array<models.HealthElement>> {
-    const owner = this.dataOwnerApi.getDataOwnerIdOf(user)
+    return this.encryptAs(this.dataOwnerApi.getDataOwnerIdOf(user), healthElements)
+  }
+
+  private encryptAs(owner: string, healthElements: Array<models.HealthElement>): Promise<Array<models.HealthElement>> {
     return Promise.all(
       healthElements.map((he) =>
         this.crypto.entities.tryEncryptEntity(he, owner, this.encryptedKeys, false, true, (x) => new models.HealthElement(x))
@@ -325,5 +330,48 @@ export class IccHelementXApi extends IccHelementApi {
       version: c[2],
       id: code,
     })
+  }
+
+  /**
+   * @param healthElement a health element
+   * @return the id of the patient that the health element refers to, retrieved from the encrypted metadata. Normally there should only be one element
+   * in the returned array, but in case of entity merges there could be multiple values.
+   */
+  async decryptPatientIdOf(healthElement: models.HealthElement): Promise<string[]> {
+    return this.crypto.entities.owningEntityIdsOf(healthElement, undefined)
+  }
+
+  /**
+   * Share an existing health element with other data owners, allowing them to access the non-encrypted data of the health element and optionally also
+   * the encrypted content, with read-only or read-write permissions.
+   * @param delegateId the id of the data owner which will be granted access to the health element.
+   * @param healthElement the health element to share.
+   * @param optionalParams optional parameters to customize the sharing behaviour:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * health element does not have encrypted content.
+   * - sharePatientId: specifies if the id of the patient that this health element refers to should be shared with the delegate (defaults to
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * @return a promise which will contain the updated health element.
+   */
+  async shareWith(
+    delegateId: string,
+    healthElement: models.HealthElement,
+    optionalParams: {
+      shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+    } = {}
+  ): Promise<models.HealthElement> {
+    const self = await this.dataOwnerApi.getCurrentDataOwnerId()
+    return await this.modifyAs(
+      self,
+      await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
+        healthElement,
+        delegateId,
+        undefined,
+        optionalParams.shareEncryptionKey,
+        optionalParams.sharePatientId
+      )
+    )
   }
 }

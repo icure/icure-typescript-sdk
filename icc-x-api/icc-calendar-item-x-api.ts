@@ -7,6 +7,7 @@ import { IccCryptoXApi } from './icc-crypto-x-api'
 import { IccCalendarItemApi } from '../icc-api'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import {ShareMetadataBehaviour} from "./crypto/ShareMetadataBehaviour"
 
 export class IccCalendarItemXApi extends IccCalendarItemApi {
   i18n: any = i18n
@@ -188,24 +189,72 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
   }
 
   async modifyCalendarItemWithHcParty(user: models.User, body?: models.CalendarItem): Promise<models.CalendarItem | any> {
-    return body
-      ? this.encrypt(user, [_.cloneDeep(body)])
-          .then((items) => super.modifyCalendarItem(items[0]))
-          .then((ci) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, [ci]))
-          .then((cis) => cis[0])
-      : null
+    return body ? this.modifyAs(this.dataOwnerApi.getDataOwnerIdOf(user)!, _.cloneDeep(body)) : null
+  }
+
+  private modifyAs(dataOwner: string, body: models.CalendarItem): Promise<models.CalendarItem> {
+    return this.encryptAs(dataOwner, [_.cloneDeep(body)])
+      .then((als) => super.modifyCalendarItem(als[0]))
+      .then((body) => this.decrypt(dataOwner, [body]))
+      .then((als) => als[0])
   }
 
   encrypt(user: models.User, calendarItems: Array<models.CalendarItem>): Promise<Array<models.CalendarItem>> {
-    const owner = this.dataOwnerApi.getDataOwnerIdOf(user)
+    return this.encryptAs(this.dataOwnerApi.getDataOwnerIdOf(user)!, calendarItems)
+  }
+
+  private encryptAs(dataOwnerId: string, calendarItems: Array<models.CalendarItem>): Promise<Array<models.CalendarItem>> {
     return Promise.all(
-      calendarItems.map((x) => this.crypto.entities.tryEncryptEntity(x, owner, this.encryptedKeys, false, true, (json) => new CalendarItem(json)))
+      calendarItems.map((x) => this.crypto.entities.tryEncryptEntity(x, dataOwnerId, this.encryptedKeys, false, true, (json) => new CalendarItem(json)))
     )
   }
 
   decrypt(hcpId: string, calendarItems: Array<models.CalendarItem>): Promise<Array<models.CalendarItem>> {
     return Promise.all(
       calendarItems.map((x) => this.crypto.entities.decryptEntity(x, hcpId, (json) => new CalendarItem(json)).then(({ entity }) => entity))
+    )
+  }
+
+  /**
+   * @param calendarItem a calendar item
+   * @return the id of the patient that the calendar item refers to, retrieved from the encrypted metadata. Normally there should only be one element
+   * in the returned array, but in case of entity merges there could be multiple values.
+   */
+  async decryptPatientIdOf(calendarItem: models.CalendarItem): Promise<string[]> {
+    return this.crypto.entities.owningEntityIdsOf(calendarItem, undefined)
+  }
+
+  /**
+   * Share an existing calendar item with other data owners, allowing them to access the non-encrypted data of the calendar item and optionally also
+   * the encrypted content.
+   * @param delegateId the id of the data owner which will be granted access to the calendar item.
+   * @param calendarItem item the calendar item to share.
+   * @param optionalParams optional parameters to customize the sharing behaviour:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * calendar item does not have encrypted content.
+   * - sharePatientId: specifies if the id of the patient that this calendar item refers to should be shared with the delegate (defaults to
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * @return a promise which will contain the updated entity.
+   */
+  async shareWith(
+    delegateId: string,
+    calendarItem: models.CalendarItem,
+    optionalParams: {
+      shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+    } = {}
+  ): Promise<models.CalendarItem> {
+    const self = await this.dataOwnerApi.getCurrentDataOwnerId()
+    return await this.modifyAs(
+      self,
+      await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
+        calendarItem,
+        delegateId,
+        undefined,
+        optionalParams.shareEncryptionKey,
+        optionalParams.sharePatientId
+      )
     )
   }
 }

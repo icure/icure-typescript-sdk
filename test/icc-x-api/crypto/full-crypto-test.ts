@@ -180,23 +180,30 @@ const userDefinitions: Record<
       env!.iCureUrl,
       user.login!,
       password,
+      new TestCryptoStrategies(newKey, {
+        [ua2hex(await primitives.RSA.exportKey(originalKey.publicKey, 'spki')).slice(-32)]: true,
+      }),
       webcrypto as any,
       fetch,
-      false,
-      false,
-      new TestStorage(),
-      new TestKeyStorage(),
       {
-        cryptoStrategies: new TestCryptoStrategies(newKey, {
-          [ua2hex(await primitives.RSA.exportKey(originalKey.publicKey, 'spki')).slice(-32)]: true,
-        }),
+        storage: new TestStorage(),
+        keyStorage: new TestKeyStorage()
       }
     )
-    const apis = await Api(env!.iCureUrl, user.login!, password, webcrypto as any, fetch, false, false, new TestStorage(), new TestKeyStorage(), {
-      cryptoStrategies: new TestCryptoStrategies(originalKey, {
+    const apis = await Api(
+      env!.iCureUrl,
+      user.login!,
+      password,
+      new TestCryptoStrategies(originalKey, {
         [ua2hex(await primitives.RSA.exportKey(newKey.publicKey, 'spki')).slice(-32)]: true,
       }),
-    })
+      webcrypto as any,
+      fetch,
+  {
+        storage: new TestStorage(),
+        keyStorage: new TestKeyStorage()
+      }
+      )
     expect(Object.keys(apis.cryptoApi.userKeysManager.getDecryptionKeys())).to.have.length(2)
     return { user, apis, didLoseKey: false }
   },
@@ -206,14 +213,12 @@ const userDefinitions: Record<
       env!.iCureUrl,
       user.login!,
       password,
+      new TestCryptoStrategies(newKey),
       webcrypto as any,
       fetch,
-      false,
-      false,
-      new TestStorage(),
-      new TestKeyStorage(),
       {
-        cryptoStrategies: new TestCryptoStrategies(newKey),
+        storage: new TestStorage(),
+        keyStorage: new TestKeyStorage(),
       }
     )
     const keyStrings = await Promise.all(
@@ -223,9 +228,10 @@ const userDefinitions: Record<
       }))
     )
     const storage = await testStorageWithKeys([{ dataOwnerId: user.healthcarePartyId ?? user.patientId!, pairs: keyStrings }])
-    const apis = await Api(env!.iCureUrl, user.login!, password, webcrypto as any, fetch, false, false, storage.storage, storage.keyStorage, {
+    const apis = await Api(env!.iCureUrl, user.login!, password, new TestCryptoStrategies(), webcrypto as any, fetch, {
+      storage: storage.storage,
+      keyStorage: storage.keyStorage,
       entryKeysFactory: storage.keyFactory,
-      cryptoStrategies: new TestCryptoStrategies(),
     })
     return { user, apis, didLoseKey: false }
   },

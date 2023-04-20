@@ -13,6 +13,7 @@ import { ServiceByIdsFilter } from './filters/ServiceByIdsFilter'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { before } from './utils'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import {ShareMetadataBehaviour} from "./crypto/ShareMetadataBehaviour"
 
 export class IccContactXApi extends IccContactApi {
   i18n: any = i18n
@@ -292,11 +293,15 @@ export class IccContactXApi extends IccContactApi {
 
   async modifyContactWithUser(user: models.User, body?: models.Contact): Promise<models.Contact | any> {
     return body
-      ? this.encrypt(user, [_.cloneDeep(body)])
-          .then((ctcs) => super.modifyContact(ctcs[0]))
-          .then((ctc) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, [ctc]))
-          .then((ctcs) => ctcs[0])
+      ? this.modifyAs(this.dataOwnerApi.getDataOwnerIdOf(user)!, body)
       : null
+  }
+
+  private modifyAs(dataOwner: string, contact: models.Contact): Promise<models.Contact> {
+    return this.encryptAs(dataOwner, [_.cloneDeep(contact)])
+      .then((ctcs) => super.modifyContact(ctcs[0]))
+      .then((ctc) => this.decrypt(dataOwner, [ctc]))
+      .then((ctcs) => ctcs[0])
   }
 
   async modifyContactsWithUser(user: models.User, bodies?: Array<models.Contact>): Promise<models.Contact[] | any> {
@@ -374,7 +379,10 @@ export class IccContactXApi extends IccContactApi {
   }
 
   encrypt(user: models.User, ctcs: Array<models.Contact>) {
-    const hcpartyId = this.dataOwnerApi.getDataOwnerIdOf(user)!
+    return this.encryptAs(this.dataOwnerApi.getDataOwnerIdOf(user)!, ctcs)
+  }
+
+  private encryptAs(hcpartyId: string, ctcs: Array<models.Contact>) {
     const bypassEncryption = false //Used for debug
 
     return Promise.all(
@@ -905,5 +913,48 @@ export class IccContactXApi extends IccContactApi {
       },
     }
     return myself
+  }
+
+  /**
+   * @param contact a contact
+   * @return the id of the patient that the contact refers to, retrieved from the encrypted metadata. Normally there should only be one element
+   * in the returned array, but in case of entity merges there could be multiple values.
+   */
+  async decryptPatientIdOf(contact: models.Contact): Promise<string[]> {
+    return this.crypto.entities.owningEntityIdsOf(contact, undefined)
+  }
+
+  /**
+   * Share an existing contact with other data owners, allowing them to access the non-encrypted data of the contact and optionally also
+   * the encrypted content.
+   * @param delegateId the id of the data owner which will be granted access to the contact.
+   * @param contact the contact to share.
+   * @param optionalParams optional parameters to customize the sharing behaviour:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * contact does not have encrypted content.
+   * - sharePatientId: specifies if the id of the patient that this contact refers to should be shared with the delegate (defaults to
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * @return a promise which will contain the updated contact.
+   */
+  async shareWith(
+    delegateId: string,
+    contact: models.Contact,
+    optionalParams: {
+      shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+    } = {}
+  ): Promise<models.Contact> {
+    const self = await this.dataOwnerApi.getCurrentDataOwnerId()
+    return await this.modifyAs(
+      self,
+      await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
+        contact,
+        delegateId,
+        undefined,
+        optionalParams.shareEncryptionKey,
+        optionalParams.sharePatientId
+      )
+    )
   }
 }

@@ -7,6 +7,7 @@ import * as _ from 'lodash'
 import * as moment from 'moment'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import {ShareMetadataBehaviour} from "./crypto/ShareMetadataBehaviour"
 
 export class IccClassificationXApi extends IccClassificationApi {
   crypto: IccCryptoXApi
@@ -83,5 +84,45 @@ export class IccClassificationXApi extends IccClassificationApi {
     return extractedKeys && extractedKeys.length > 0
       ? this.findClassificationsByHCPartyPatientForeignKeys(topmostParentId, _.uniq(extractedKeys).join(','))
       : Promise.resolve([])
+  }
+  /**
+   * @param classification a classification
+   * @return the id of the patient that the classification refers to, retrieved from the encrypted metadata. Normally there should only be one element
+   * in the returned array, but in case of entity merges there could be multiple values.
+   */
+  async decryptPatientIdOf(classification: models.Classification): Promise<string[]> {
+    return this.crypto.entities.owningEntityIdsOf(classification, undefined)
+  }
+
+  /**
+   * Share an existing classification with other data owners, allowing them to access the non-encrypted data of the classification and optionally also
+   * the encrypted content.
+   * @param delegateId the id of the data owner which will be granted access to the classification.
+   * @param classification the classification to share.
+   * @param optionalParams optional parameters to customize the sharing behaviour:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * classification does not have encrypted content.
+   * - sharePatientId: specifies if the id of the patient that this classification refers to should be shared with the delegate (defaults to
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * @return a promise which will contain the updated classification.
+   */
+  async shareWith(
+    delegateId: string,
+    classification: models.Classification,
+    optionalParams: {
+      shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+    } = {}
+  ): Promise<models.Classification> {
+    return await this.modifyClassification(
+      await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
+        classification,
+        delegateId,
+        undefined,
+        optionalParams.shareEncryptionKey,
+        optionalParams.sharePatientId
+      )
+    )
   }
 }

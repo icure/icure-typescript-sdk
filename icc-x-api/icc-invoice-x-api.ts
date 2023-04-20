@@ -6,6 +6,7 @@ import * as models from '../icc-api/model/models'
 import { Invoice } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import {ShareMetadataBehaviour} from "./crypto/ShareMetadataBehaviour"
 
 export class IccInvoiceXApi extends IccInvoiceApi {
   crypto: IccCryptoXApi
@@ -154,5 +155,46 @@ export class IccInvoiceXApi extends IccInvoiceApi {
 
   decrypt(hcpartyId: string, invoices: Array<models.Invoice>): Promise<Array<models.Invoice>> {
     return Promise.resolve(invoices)
+  }
+
+  /**
+   * @param invoice a invoice
+   * @return the id of the patient that the invoice refers to, retrieved from the encrypted metadata. Normally there should only be one element
+   * in the returned array, but in case of entity merges there could be multiple values.
+   */
+  async decryptPatientIdOf(invoice: models.Invoice): Promise<string[]> {
+    return this.crypto.entities.owningEntityIdsOf(invoice, undefined)
+  }
+
+  /**
+   * Share an existing invoice with other data owners, allowing them to access the non-encrypted data of the invoice and optionally also
+   * the encrypted content.
+   * @param delegateId the id of the data owner which will be granted access to the invoice.
+   * @param invoice the invoice to share.
+   * @param optionalParams optional parameters to customize the sharing behaviour:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * invoice does not have encrypted content.
+   * - sharePatientId: specifies if the id of the patient that this invoice refers to should be shared with the delegate (defaults to
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * @return a promise which will contain the updated invoice.
+   */
+  async shareWith(
+    delegateId: string,
+    invoice: models.Invoice,
+    optionalParams: {
+      shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+    } = {}
+  ): Promise<models.Invoice> {
+    return await this.modifyInvoice(
+      await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
+        invoice,
+        delegateId,
+        undefined,
+        optionalParams.shareEncryptionKey,
+        optionalParams.sharePatientId
+      )
+    )
   }
 }
