@@ -162,20 +162,10 @@ class ApiFactoryV7 implements ApiFactory {
       privateKey: await cryptoPrimitives.RSA.importKey('pkcs8', hex2ua(env.masterHcp!.privateKey), ['decrypt']),
       publicKey: await cryptoPrimitives.RSA.importKey('spki', hex2ua(env.masterHcp!.publicKey), ['encrypt']),
     }
-    const apis = await ApiV7(
-      env.iCureUrl,
-      env.masterHcp!.user,
-      env.masterHcp!.password,
-      webcrypto as any,
-      fetch,
-      false,
-      false,
-      new TestStorage(),
-      new TestKeyStorage(),
-      {
-        cryptoStrategies: new TestCryptoStrategies(key),
-      }
-    )
+    const apis = await ApiV7(env.iCureUrl, env.masterHcp!.user, env.masterHcp!.password, new TestCryptoStrategies(key), webcrypto as any, fetch, {
+      storage: new TestStorage(),
+      keyStorage: new TestKeyStorage(),
+    })
     return <UniformizedMasterApi>{
       createUser: async () => {
         const pair = await cryptoPrimitives.RSA.generateKeyPair()
@@ -214,15 +204,13 @@ class ApiFactoryV7 implements ApiFactory {
       env.iCureUrl,
       credentials.login,
       credentials.password,
+      new TestCryptoStrategies(credentials.key),
       webcrypto as any,
       fetch,
-      false,
-      false,
-      testStorage.storage,
-      testStorage.keyStorage,
       {
+        storage: testStorage.storage,
+        keyStorage: testStorage.keyStorage,
         entryKeysFactory: testStorage.keyFactory,
-        cryptoStrategies: new TestCryptoStrategies(credentials.key),
       }
     )
     const user = await apis.userApi.getCurrentUser()
@@ -254,7 +242,7 @@ class ApiFactoryV7 implements ApiFactory {
       },
       shareEncryptedData: async (dataId, delegateId) => {
         const healthElement = await apis.healthcareElementApi.getHealthElementWithUser(user, dataId)
-        await apis.healthcareElementApi.shareWith(delegateId, healthElement, RequestedPermissionEnum.MAX_WRITE)
+        await apis.healthcareElementApi.shareWith(delegateId, healthElement, { requestedPermissions: RequestedPermissionEnum.MAX_WRITE })
       },
     }
   }

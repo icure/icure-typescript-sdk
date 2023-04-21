@@ -27,6 +27,8 @@ import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 
 setLocalStorage(fetch)
 
+const FULL_WRITE = RequestedPermissionEnum.FULL_WRITE
+
 type TestedEntity = 'Patient' | 'Contact' | 'HealthElement' | 'CalendarItem'
 
 interface EntityFacade<T extends EncryptedEntity> {
@@ -57,7 +59,7 @@ const facades: EntityFacades = {
     create: async (api, r) => api.patientApi.createPatientWithUser(await api.userApi.getCurrentUser(), r),
     get: async (api, id) => api.patientApi.getPatientWithUser(await api.userApi.getCurrentUser(), id),
     share: async (api, r, doId) => {
-      return (await api.patientApi.shareWith(doId, r, RequestedPermissionEnum.FULL_WRITE, await api.patientApi.getSecretIdsOf(r)))
+      return (await api.patientApi.shareWith(doId, r, await api.patientApi.getSecretIdsOf(r), { requestedPermissions: FULL_WRITE }))
         .updatedEntityOrThrow
     },
     isDecrypted: async (entityToCheck) => {
@@ -68,7 +70,7 @@ const facades: EntityFacades = {
     create: async (api, r) => api.contactApi.createContactWithUser(await api.userApi.getCurrentUser(), r),
     get: async (api, id) => api.contactApi.getContactWithUser(await api.userApi.getCurrentUser(), id),
     share: async (api, r, doId) => {
-      return (await api.contactApi.shareWith(doId, r, RequestedPermissionEnum.FULL_WRITE)).updatedEntityOrThrow
+      return (await api.contactApi.shareWith(doId, r, { requestedPermissions: FULL_WRITE })).updatedEntityOrThrow
     },
     isDecrypted: async (entityToCheck) => {
       return entityToCheck.services?.[0].content != undefined && Object.entries(entityToCheck.services?.[0].content).length > 0
@@ -78,7 +80,7 @@ const facades: EntityFacades = {
     create: async (api, r) => api.healthcareElementApi.createHealthElementWithUser(await api.userApi.getCurrentUser(), r),
     get: async (api, id) => api.healthcareElementApi.getHealthElementWithUser(await api.userApi.getCurrentUser(), id),
     share: async (api, r, doId) => {
-      return (await api.healthcareElementApi.shareWith(doId, r, RequestedPermissionEnum.FULL_WRITE)).updatedEntityOrThrow
+      return (await api.healthcareElementApi.shareWith(doId, r, { requestedPermissions: FULL_WRITE })).updatedEntityOrThrow
     },
     isDecrypted: async (entityToCheck) => {
       return entityToCheck.descr != undefined
@@ -88,7 +90,7 @@ const facades: EntityFacades = {
     create: async (api, r) => api.calendarItemApi.createCalendarItemWithHcParty(await api.userApi.getCurrentUser(), r),
     get: async (api, id) => api.calendarItemApi.getCalendarItemWithUser(await api.userApi.getCurrentUser(), id),
     share: async (api, r, doId) => {
-      return (await api.calendarItemApi.shareWith(doId, r, RequestedPermissionEnum.FULL_WRITE)).updatedEntityOrThrow
+      return (await api.calendarItemApi.shareWith(doId, r, { requestedPermissions: FULL_WRITE })).updatedEntityOrThrow
     },
     isDecrypted: async (entityToCheck) => {
       return entityToCheck.title != undefined
@@ -146,23 +148,30 @@ const userDefinitions: Record<string, (user: User, password: string, pair: KeyPa
       env!.iCureUrl,
       user.login!,
       password,
+      new TestCryptoStrategies(newKey, {
+        [ua2hex(await primitives.RSA.exportKey(originalKey.publicKey, 'spki')).slice(-32)]: true,
+      }),
       webcrypto as any,
       fetch,
-      false,
-      false,
-      new TestStorage(),
-      new TestKeyStorage(),
       {
-        cryptoStrategies: new TestCryptoStrategies(newKey, {
-          [ua2hex(await primitives.RSA.exportKey(originalKey.publicKey, 'spki')).slice(-32)]: true,
-        }),
+        storage: new TestStorage(),
+        keyStorage: new TestKeyStorage(),
       }
     )
-    const apis = await Api(env!.iCureUrl, user.login!, password, webcrypto as any, fetch, false, false, new TestStorage(), new TestKeyStorage(), {
-      cryptoStrategies: new TestCryptoStrategies(originalKey, {
+    const apis = await Api(
+      env!.iCureUrl,
+      user.login!,
+      password,
+      new TestCryptoStrategies(originalKey, {
         [ua2hex(await primitives.RSA.exportKey(newKey.publicKey, 'spki')).slice(-32)]: true,
       }),
-    })
+      webcrypto as any,
+      fetch,
+      {
+        storage: new TestStorage(),
+        keyStorage: new TestKeyStorage(),
+      }
+    )
     expect(Object.keys(apis.cryptoApi.userKeysManager.getDecryptionKeys())).to.have.length(2)
     await apiWithOnlyNewKey.cryptoApi.forceReload()
     expect(Object.keys(apiWithOnlyNewKey.cryptoApi.userKeysManager.getDecryptionKeys())).to.have.length(2)
@@ -170,20 +179,10 @@ const userDefinitions: Record<string, (user: User, password: string, pair: KeyPa
   },
   'two available keys': async (user, password, originalKey) => {
     const newKey = await primitives.RSA.generateKeyPair()
-    const apiWithOnlyNewKey = await Api(
-      env!.iCureUrl,
-      user.login!,
-      password,
-      webcrypto as any,
-      fetch,
-      false,
-      false,
-      new TestStorage(),
-      new TestKeyStorage(),
-      {
-        cryptoStrategies: new TestCryptoStrategies(newKey),
-      }
-    ) // Initializes the new key for the data owner
+    const apiWithOnlyNewKey = await Api(env!.iCureUrl, user.login!, password, new TestCryptoStrategies(newKey), webcrypto as any, fetch, {
+      storage: new TestStorage(),
+      keyStorage: new TestKeyStorage(),
+    }) // Initializes the new key for the data owner
     const keyStrings = await Promise.all(
       [originalKey, newKey].map(async (pair) => ({
         publicKey: ua2hex(await primitives.RSA.exportKey(pair.publicKey, 'spki')),
@@ -191,9 +190,10 @@ const userDefinitions: Record<string, (user: User, password: string, pair: KeyPa
       }))
     )
     const storage = await testStorageWithKeys([{ dataOwnerId: user.healthcarePartyId ?? user.patientId!, pairs: keyStrings }])
-    const apis = await Api(env!.iCureUrl, user.login!, password, webcrypto as any, fetch, false, false, storage.storage, storage.keyStorage, {
+    const apis = await Api(env!.iCureUrl, user.login!, password, new TestCryptoStrategies(), webcrypto as any, fetch, {
       entryKeysFactory: storage.keyFactory,
-      cryptoStrategies: new TestCryptoStrategies(),
+      keyStorage: storage.keyStorage,
+      storage: storage.storage,
     })
     return { user, apis }
   },
@@ -264,12 +264,9 @@ async function createPartialsForPatient(
   const key = await primitives.RSA.generateKeyPair()
   const api1 = await TestApi(env!.iCureUrl, user.login!, password, webcrypto as any, key)
   const pat = await patientCreatorApis.patientApi.getPatientWithUser(patientCreatorUser, user.patientId!)
-  await patientCreatorApis.patientApi.shareWith(
-    user.patientId!,
-    pat,
-    RequestedPermissionEnum.FULL_WRITE,
-    await patientCreatorApis.patientApi.getSecretIdsOf(pat)
-  )
+  await patientCreatorApis.patientApi.shareWith(user.patientId!, pat, await patientCreatorApis.patientApi.getSecretIdsOf(pat), {
+    requestedPermissions: FULL_WRITE,
+  })
   await Object.entries(entityFacades)
     .filter((it) => it[0] !== 'Patient')
     .reduce(async (p, f) => {

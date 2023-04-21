@@ -49,6 +49,9 @@ export class IccCryptoXApi {
 
   private readonly hcpartyBaseApi: IccHcpartyApi
 
+  /**
+   * The instance of {@link CryptoPrimitives} used by this instance of the iCure SDK.
+   */
   get primitives(): CryptoPrimitives {
     return this.cryptoPrimitives
   }
@@ -88,10 +91,16 @@ export class IccCryptoXApi {
     return this.cryptoPrimitives.AES
   }
 
+  /**
+   * @internal this is for internal use only and may be changed without notice.
+   */
   get keyStorage(): KeyStorageFacade {
     return this._keyStorage
   }
 
+  /**
+   * @internal this is for internal use only and may be changed without notice.
+   */
   get storage(): StorageFacade<string> {
     return this._storage
   }
@@ -124,10 +133,16 @@ export class IccCryptoXApi {
     return this._accessControlKeysHeaders
   }
 
+  /**
+   * @internal this is for internal use only and may be changed without notice.
+   */
   get userKeysManager(): UserEncryptionKeysManager {
     return this.keyManager
   }
 
+  /**
+   * @internal this is for internal use only and may be changed without notice.
+   */
   get shamirKeysManager(): ShamirKeysManager {
     return this.shamirManager
   }

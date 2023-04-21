@@ -3,7 +3,7 @@ import { ExtendedApisUtils } from './ExtendedApisUtils'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { EncryptedEntityWithType, EntityWithDelegationTypeName } from '../utils/EntityWithDelegationTypeName'
-import { ShareMetadataBehaviour } from '../utils/ShareMetadataBehaviour'
+import { ShareMetadataBehaviour } from './ShareMetadataBehaviour'
 import { EntityShareRequest } from '../../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { EntityShareOrMetadataUpdateRequest } from '../../icc-api/model/requests/EntityShareOrMetadataUpdateRequest'

@@ -8,7 +8,7 @@ import { ExtendedApisUtils } from './ExtendedApisUtils'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { EncryptedEntityWithType } from '../utils/EntityWithDelegationTypeName'
 import { IccPatientApi } from '../../icc-api'
-import { ShareMetadataBehaviour } from '../utils/ShareMetadataBehaviour'
+import { ShareMetadataBehaviour } from './ShareMetadataBehaviour'
 import { EntityShareRequest } from '../../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 

@@ -10,7 +10,7 @@ import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
-import { ShareMetadataBehaviour } from './utils/ShareMetadataBehaviour'
+import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 import { ShareResult } from './utils/ShareResult'
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
@@ -576,7 +576,7 @@ export class IccDocumentXApi extends IccDocumentApi {
    * @param message the message this document refers to.
    * @param c initialised data for the document. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
    * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
-   * @param optionalParams optional parameters:
+   * @param options optional parameters:
    * - additionalDelegates: delegates which will have access to the entity in addition to the current data owner and delegates from the
    * auto-delegations. Must be an object which associates each data owner id with the access level to give to that data owner. May overlap with
    * auto-delegations, in such case the access level specified here will be used.
@@ -588,11 +588,12 @@ export class IccDocumentXApi extends IccDocumentApi {
     user: models.User,
     message?: models.Message,
     c: any = {},
-    optionalParams: {
+    options: {
       additionalDelegates?: { [dataOwnerId: string]: AccessLevelEnum }
       preferredSfk?: string
     } = {}
   ) {
+    if (!message && options.preferredSfk) throw new Error('You need to specify parent message in order to use secret foreign keys.')
     const document = _.extend(
       {
         id: this.crypto.primitives.randomUuid(),
@@ -610,14 +611,14 @@ export class IccDocumentXApi extends IccDocumentApi {
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
     const sfk = message
-      ? optionalParams.preferredSfk ?? (await this.crypto.confidential.getAnySecretIdSharedWithParents({ entity: message, type: 'Message' }))
+      ? options.preferredSfk ?? (await this.crypto.confidential.getAnySecretIdSharedWithParents({ entity: message, type: 'Message' }))
       : undefined
     if (message && !sfk) throw new Error(`Couldn't find any sfk of parent message ${message.id}`)
     const extraDelegations = {
       ...Object.fromEntries(
         [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])].map((d) => [d, AccessLevelEnum.WRITE])
       ),
-      ...(optionalParams?.additionalDelegates ?? {}),
+      ...(options?.additionalDelegates ?? {}),
     }
     return new models.Document(
       await this.crypto.xapi
@@ -819,20 +820,20 @@ export class IccDocumentXApi extends IccDocumentApi {
    * the encrypted content, with read-only or read-write permissions.
    * @param delegateId the id of the data owner which will be granted access to the document.
    * @param document the document to share.
-   * @param requestedPermissions the requested permissions for the delegate.
-   * @param optionalParams optional parameters to customize the sharing behaviour:
+   * @param options optional parameters to customize the sharing behaviour:
    * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
    * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}).
    * - shareMessageId: specifies if the id of the message that this document refers to should be shared with the delegate (defaults to
    * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
    * @return a promise which will contain the result of the operation: the updated entity if the operation was successful or details of the error if
    * the operation failed.
    */
   async shareWith(
     delegateId: string,
     document: models.Document,
-    requestedPermissions: RequestedPermissionEnum,
-    optionalParams: {
+    options: {
+      requestedPermissions?: RequestedPermissionEnum
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
       shareMessageId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
@@ -845,10 +846,10 @@ export class IccDocumentXApi extends IccDocumentApi {
       .simpleShareOrUpdateEncryptedEntityMetadata(
         { entity: updatedEntity, type: 'Document' },
         delegateId,
-        optionalParams?.shareEncryptionKey,
-        optionalParams?.shareMessageId,
+        options?.shareEncryptionKey,
+        options?.shareMessageId,
         undefined,
-        requestedPermissions,
+        options.requestedPermissions ?? RequestedPermissionEnum.MAX_WRITE,
         (x) => this.bulkShareDocument(x)
       )
       .then((r) => r.mapSuccessAsync((e) => this.decrypt(self, [e]).then((es) => es[0])))

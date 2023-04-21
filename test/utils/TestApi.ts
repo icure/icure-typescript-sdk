@@ -16,14 +16,12 @@ export const TestApi = async function (
     host,
     username,
     password,
+    new TestCryptoStrategies(initialisedKeys),
     crypto,
     typeof window !== 'undefined' ? window.fetch : typeof self !== 'undefined' ? self.fetch : fetch,
-    false,
-    false,
-    new TestStorage(),
-    new TestKeyStorage(),
     {
-      cryptoStrategies: new TestCryptoStrategies(initialisedKeys),
+      storage: new TestStorage(),
+      keyStorage: new TestKeyStorage(),
     }
   )
 }

@@ -23,6 +23,8 @@ let env: TestVars
 let api: Apis
 let hcpUser: User
 
+const FULL_WRITE = RequestedPermissionEnum.FULL_WRITE
+
 describe('Patient', () => {
   before(async function () {
     this.timeout(600000)
@@ -70,7 +72,7 @@ describe('Patient', () => {
     expect(mySecretIds).to.have.length(1)
     expect(await cryptoApi.xapi.encryptionKeysOf({ entity: me, type: 'Patient' }, undefined)).to.have.length(1)
 
-    me = (await patientApi.shareWith(hcpUser.healthcarePartyId!, me, RequestedPermissionEnum.FULL_WRITE, mySecretIds)).updatedEntityOrThrow
+    me = (await patientApi.shareWith(hcpUser.healthcarePartyId!, me, mySecretIds, { requestedPermissions: FULL_WRITE })).updatedEntityOrThrow
     const expectedNote = 'This will be encrypted'
     await patientApi.modifyPatientWithUser(user, new Patient({ ...me, note: expectedNote }))
 
@@ -107,8 +109,8 @@ describe('Patient', () => {
     await expect(api.patientApi.getPatientWithUser(hcpUser, patient.id!)).to.be.rejected
     await expect(api.calendarItemApi.getCalendarItemWithUser(hcpUser, ci.id)).to.be.rejected
 
-    await patientApi.shareWith(hcpUser.healthcarePartyId!, pat!, RequestedPermissionEnum.FULL_WRITE, await patientApi.getSecretIdsOf(pat!))
-    await calendarItemApi.shareWith(hcpUser.healthcarePartyId!, ci!, RequestedPermissionEnum.FULL_WRITE)
+    await patientApi.shareWith(hcpUser.healthcarePartyId!, pat!, await patientApi.getSecretIdsOf(pat!), { requestedPermissions: FULL_WRITE })
+    await calendarItemApi.shareWith(hcpUser.healthcarePartyId!, ci!, { requestedPermissions: FULL_WRITE })
     await api.cryptoApi.forceReload()
     const pat3 = await api.patientApi.getPatientWithUser(hcpUser, patient.id!)
     const ci3 = await api.calendarItemApi.getCalendarItemWithUser(hcpUser, ci.id)

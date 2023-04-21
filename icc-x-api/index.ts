@@ -47,7 +47,6 @@ import { ShamirKeysManager } from './crypto/ShamirKeysManager'
 import { TransferKeysManager } from './crypto/TransferKeysManager'
 import { IccIcureMaintenanceXApi } from './icc-icure-maintenance-x-api'
 import { ConfidentialEntities } from './crypto/ConfidentialEntities'
-import { LegacyCryptoStrategies } from './crypto/LegacyCryptoStrategies'
 import { ensureDelegationForSelf } from './crypto/utils'
 import { SecureDelegationsSecurityMetadataDecryptor } from './crypto/SecureDelegationsSecurityMetadataDecryptor'
 import { initialiseExchangeDataManagerForCurrentDataOwner } from './crypto/ExchangeDataManager'
@@ -116,43 +115,49 @@ export interface Apis {
   icureMaintenanceTaskApi: IccIcureMaintenanceXApi
 }
 
-export type NamedApiParameters = {
+export type ApiOptions = {
   readonly entryKeysFactory?: StorageEntryKeysFactory
-  readonly cryptoStrategies?: CryptoStrategies
   readonly createMaintenanceTasksOnNewKey?: boolean
+  readonly forceBasic?: boolean
+  readonly autoLogin?: boolean
+  readonly storage?: StorageFacade<string>
+  readonly keyStorage?: KeyStorageFacade
 }
 
-class NamedApiParametersWithDefault implements NamedApiParameters {
-  constructor(custom: NamedApiParameters) {
+class NamedApiParametersWithDefault implements ApiOptions {
+  constructor(custom: ApiOptions) {
     this.entryKeysFactory = custom.entryKeysFactory ?? new DefaultStorageEntryKeysFactory()
-    this.cryptoStrategies = custom.cryptoStrategies ?? new LegacyCryptoStrategies()
     this.createMaintenanceTasksOnNewKey = custom.createMaintenanceTasksOnNewKey ?? false
+    this.forceBasic = custom.forceBasic ?? false
+    this.autoLogin = custom.autoLogin ?? false
+    this.storage = custom.storage ?? new LocalStorageImpl()
+    this.keyStorage = custom.keyStorage ?? new KeyStorageImpl(this.storage)
   }
 
   readonly entryKeysFactory: StorageEntryKeysFactory
-  readonly cryptoStrategies: CryptoStrategies
   readonly createMaintenanceTasksOnNewKey: boolean
+  readonly forceBasic: boolean
+  readonly autoLogin: boolean
+  readonly storage: StorageFacade<string>
+  readonly keyStorage: KeyStorageFacade
 }
 
 export const Api = async function (
   host: string,
   username: string,
   password: string,
+  cryptoStrategies: CryptoStrategies,
   crypto: Crypto = typeof window !== 'undefined' ? window.crypto : typeof self !== 'undefined' ? self.crypto : ({} as Crypto),
   fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
     ? window.fetch
     : typeof self !== 'undefined'
     ? self.fetch
     : fetch,
-  forceBasic: boolean = false,
-  autoLogin: boolean = false,
-  storage: StorageFacade<string> = new LocalStorageImpl(),
-  keyStorage: KeyStorageFacade = new KeyStorageImpl(storage),
-  namedParameters: NamedApiParameters = {}
+  options: ApiOptions = {}
 ): Promise<Apis> {
-  const params = new NamedApiParametersWithDefault(namedParameters)
+  const params = new NamedApiParametersWithDefault(options)
   const headers = {}
-  const authenticationProvider = forceBasic
+  const authenticationProvider = params.forceBasic
     ? new BasicAuthenticationProvider(username, password)
     : new EnsembleAuthenticationProvider(new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl), username, password)
 
@@ -168,7 +173,7 @@ export const Api = async function (
   const dataOwnerApi = new IccDataOwnerXApi(userApi, healthcarePartyApi, basePatientApi, deviceApi)
   const exchangeDataApi = new IccExchangeDataApi(host, headers, authenticationProvider, fetchImpl)
   // Crypto initialisation
-  const icureStorage = new IcureStorageFacade(keyStorage, storage, params.entryKeysFactory)
+  const icureStorage = new IcureStorageFacade(params.keyStorage, params.storage, params.entryKeysFactory)
   const cryptoPrimitives = new CryptoPrimitives(crypto)
   const baseExchangeKeysManager = new BaseExchangeKeysManager(cryptoPrimitives, dataOwnerApi, healthcarePartyApi, basePatientApi, deviceApi)
   const keyRecovery = new KeyRecovery(cryptoPrimitives, baseExchangeKeysManager, dataOwnerApi)
@@ -178,7 +183,7 @@ export const Api = async function (
     icureStorage,
     keyRecovery,
     baseExchangeKeysManager,
-    params.cryptoStrategies
+    cryptoStrategies
   )
   const userSignatureKeysManager = new UserSignatureKeysManager(icureStorage, dataOwnerApi, cryptoPrimitives)
   const newKey = await userEncryptionKeysManager.initialiseKeys()
@@ -191,7 +196,7 @@ export const Api = async function (
     500,
     60000,
     600000,
-    params.cryptoStrategies,
+    cryptoStrategies,
     cryptoPrimitives,
     userEncryptionKeysManager,
     baseExchangeKeysManager,
@@ -199,13 +204,13 @@ export const Api = async function (
     icureStorage
   )
   const accessControlSecretUtils = new AccessControlSecretUtils(cryptoPrimitives)
-  const baseExchangeDataManager = new BaseExchangeDataManager(exchangeDataApi, dataOwnerApi, cryptoPrimitives, params.cryptoStrategies)
+  const baseExchangeDataManager = new BaseExchangeDataManager(exchangeDataApi, dataOwnerApi, cryptoPrimitives, cryptoStrategies)
   const exchangeDataManager = await initialiseExchangeDataManagerForCurrentDataOwner(
     baseExchangeDataManager,
     userEncryptionKeysManager,
     userSignatureKeysManager,
     accessControlSecretUtils,
-    params.cryptoStrategies,
+    cryptoStrategies,
     dataOwnerApi,
     cryptoPrimitives
   )
@@ -223,8 +228,8 @@ export const Api = async function (
       userEncryptionKeysManager,
       cryptoPrimitives,
       dataOwnerApi,
-      params.cryptoStrategies,
-      params.cryptoStrategies.dataOwnerRequiresAnonymousDelegation(await dataOwnerApi.getCurrentDataOwner())
+      cryptoStrategies,
+      cryptoStrategies.dataOwnerRequiresAnonymousDelegation(await dataOwnerApi.getCurrentDataOwner())
     ),
     userApi
   )
@@ -238,8 +243,8 @@ export const Api = async function (
     dataOwnerApi,
     xApiUtils,
     shamirManager,
-    storage,
-    keyStorage,
+    params.storage,
+    params.keyStorage,
     icureStorage,
     healthcarePartyApi,
     confidentialEntitites,
@@ -299,7 +304,7 @@ export const Api = async function (
   )
   const icureMaintenanceTaskApi = new IccIcureMaintenanceXApi(cryptoApi, maintenanceTaskApi, dataOwnerApi, exchangeDataApi)
 
-  if (autoLogin) {
+  if (params.autoLogin) {
     if (username != undefined && password != undefined) {
       try {
         await retry(() => authApi.login({ username, password }), 3, 1000, 1.5)

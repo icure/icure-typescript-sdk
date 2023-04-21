@@ -7,7 +7,7 @@ import { EntityShareOrMetadataUpdateRequest } from '../../icc-api/model/requests
 import { EntityShareRequest } from '../../icc-api/model/requests/EntityShareRequest'
 import { EntityBulkShareResult } from '../../icc-api/model/requests/EntityBulkShareResult'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
-import { ShareMetadataBehaviour } from '../utils/ShareMetadataBehaviour'
+import { ShareMetadataBehaviour } from './ShareMetadataBehaviour'
 import { ShareResult } from '../utils/ShareResult'
 import { MinimalEntityBulkShareResult } from '../../icc-api/model/requests/MinimalEntityBulkShareResult'
 
