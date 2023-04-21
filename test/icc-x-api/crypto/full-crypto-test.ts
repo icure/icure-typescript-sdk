@@ -59,7 +59,7 @@ const facades: EntityFacades = {
     create: async (api, r) => api.patientApi.createPatientWithUser(await api.userApi.getCurrentUser(), r),
     get: async (api, id) => api.patientApi.getPatientWithUser(await api.userApi.getCurrentUser(), id),
     share: async (api, r, doId) => {
-      return (await api.patientApi.shareWith(doId, r, await api.patientApi.getSecretIdsOf(r), { requestedPermissions: FULL_WRITE }))
+      return (await api.patientApi.shareWith(doId, r, await api.patientApi.decryptSecretIdsOf(r), { requestedPermissions: FULL_WRITE }))
         .updatedEntityOrThrow
     },
     isDecrypted: async (entityToCheck) => {
@@ -264,7 +264,7 @@ async function createPartialsForPatient(
   const key = await primitives.RSA.generateKeyPair()
   const api1 = await TestApi(env!.iCureUrl, user.login!, password, webcrypto as any, key)
   const pat = await patientCreatorApis.patientApi.getPatientWithUser(patientCreatorUser, user.patientId!)
-  await patientCreatorApis.patientApi.shareWith(user.patientId!, pat, await patientCreatorApis.patientApi.getSecretIdsOf(pat), {
+  await patientCreatorApis.patientApi.shareWith(user.patientId!, pat, await patientCreatorApis.patientApi.decryptSecretIdsOf(pat), {
     requestedPermissions: FULL_WRITE,
   })
   await Object.entries(entityFacades)

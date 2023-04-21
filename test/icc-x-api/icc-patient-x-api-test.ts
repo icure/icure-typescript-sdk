@@ -50,6 +50,6 @@ describe('icc-x-patient-api Tests', () => {
     assert(readPatient.firstName == patientToCreate.firstName)
     assert(readPatient.lastName == patientToCreate.lastName)
     expect(await cryptoApiForHcp.xapi.encryptionKeysOf({ entity: readPatient, type: 'Patient' }, undefined)).to.have.length(1)
-    expect(await patientApiForHcp.getSecretIdsOf(readPatient)).to.have.length(1)
+    expect(await patientApiForHcp.decryptSecretIdsOf(readPatient)).to.have.length(1)
   })
 })

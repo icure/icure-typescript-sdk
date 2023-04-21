@@ -127,7 +127,7 @@ describe('Anonymous delegations', () => {
       masterUser,
       await masterApi.patientApi.newInstance(masterUser, new Patient({ id: uuid(), firstName: 'test', lastName: 'test', note: 'Patient note' }))
     )
-    const secretIds = await masterApi.patientApi.getSecretIdsOf(patient)
+    const secretIds = await masterApi.patientApi.decryptSecretIdsOf(patient)
     const updatedPatient1 = (await masterApi.patientApi.shareWith(creatorInfo.dataOwnerId, patient, secretIds, { requestedPermissions: FULL_WRITE }))
       .updatedEntityOrThrow
     await creatorApis.cryptoApi.forceReload()
@@ -156,7 +156,7 @@ describe('Anonymous delegations', () => {
     const patient = await apis.patientApi.getPatientWithUser(user, expected.patient.id!)
     expect(patient.note).to.equal(expected.patient.note)
     const searchIds = await dataOwnerIdsForSearch(apis, apis.dataOwnerApi.getDataOwnerIdOf(user), 'HealthElement')
-    const patientKeys = await apis.patientApi.getSecretIdsOf(patient)
+    const patientKeys = await apis.patientApi.decryptSecretIdsOf(patient)
     expect(patientKeys).to.not.be.empty
     const sfks = _.uniq(patientKeys).join(',')
     const retrievedHealthElements = _.uniqBy(

@@ -68,7 +68,7 @@ describe('Patient', () => {
     expect((await patientApi.getPatientWithUser(user, user.patientId!)).rev).to.equal(me.rev)
     me = (await cryptoApi.exchangeKeys.getOrCreateEncryptionExchangeKeysTo(hcpUser.healthcarePartyId!)).updatedDelegator?.dataOwner ?? me
     expect((await patientApi.getPatientWithUser(user, user.patientId!)).rev).to.equal(me.rev)
-    const mySecretIds = await patientApi.getSecretIdsOf(me)
+    const mySecretIds = await patientApi.decryptSecretIdsOf(me)
     expect(mySecretIds).to.have.length(1)
     expect(await cryptoApi.xapi.encryptionKeysOf({ entity: me, type: 'Patient' }, undefined)).to.have.length(1)
 
@@ -109,7 +109,7 @@ describe('Patient', () => {
     await expect(api.patientApi.getPatientWithUser(hcpUser, patient.id!)).to.be.rejected
     await expect(api.calendarItemApi.getCalendarItemWithUser(hcpUser, ci.id)).to.be.rejected
 
-    await patientApi.shareWith(hcpUser.healthcarePartyId!, pat!, await patientApi.getSecretIdsOf(pat!), { requestedPermissions: FULL_WRITE })
+    await patientApi.shareWith(hcpUser.healthcarePartyId!, pat!, await patientApi.decryptSecretIdsOf(pat!), { requestedPermissions: FULL_WRITE })
     await calendarItemApi.shareWith(hcpUser.healthcarePartyId!, ci!, { requestedPermissions: FULL_WRITE })
     await api.cryptoApi.forceReload()
     const pat3 = await api.patientApi.getPatientWithUser(hcpUser, patient.id!)
