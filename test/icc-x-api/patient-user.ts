@@ -118,7 +118,7 @@ describe('Patient', () => {
     }
     expect(failed).to.be.true
 
-    await patientApi.shareWith(hcpUser.healthcarePartyId!, pat!, await patientApi.getSecretIdsOf(pat!))
+    await patientApi.shareWith(hcpUser.healthcarePartyId!, pat!, await patientApi.decryptSecretIdsOf(pat!))
     await calendarItemApi.shareWith(hcpUser.healthcarePartyId!, ci!)
     await api.cryptoApi.forceReload()
     const pat3 = await api.patientApi.getPatientWithUser(hcpUser, patient.id!)
