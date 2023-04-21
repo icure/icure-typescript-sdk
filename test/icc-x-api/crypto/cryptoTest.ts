@@ -95,31 +95,31 @@ describe('Init confidential delegation in patient', () => {
     )
 
     // All parents and siblings should have access to the decrypted data and to the initial secret id
-    expect(await childApi.patientApi.getSecretIdsOf(pat)).to.have.length(1)
+    expect(await childApi.patientApi.decryptSecretIdsOf(pat)).to.have.length(1)
     expect((await childApi.patientApi.getPatientWithUser(childUser, pat.id)).note).to.equal(note)
-    const originalSecretId = (await childApi.patientApi.getSecretIdsOf(pat))[0]
+    const originalSecretId = (await childApi.patientApi.decryptSecretIdsOf(pat))[0]
     for (const { api, user } of others) {
-      expect(await api.patientApi.getSecretIdsOf(pat)).to.have.length(1)
-      expect((await api.patientApi.getSecretIdsOf(pat))[0]).to.equal(originalSecretId)
+      expect(await api.patientApi.decryptSecretIdsOf(pat)).to.have.length(1)
+      expect((await api.patientApi.decryptSecretIdsOf(pat))[0]).to.equal(originalSecretId)
       expect((await api.patientApi.getPatientWithUser(user, pat.id)).note).to.equal(note)
     }
 
     // Initially there shouldn't be any secret confidential secret id
-    expect(await childApi.patientApi.getConfidentialSecretIdsOf(pat)).to.be.empty
+    expect(await childApi.patientApi.decryptConfidentialSecretIdsOf(pat)).to.be.empty
 
     // Now create a confidential delegation
     const patWithConfidential = await childApi.patientApi.initConfidentialSecretId(pat, childUser)
 
     // Confidential secret id should be different from the original secret id
-    const confidentialDelegationKeys = await childApi.patientApi.getConfidentialSecretIdsOf(patWithConfidential)
-    const nonConfidentialDelegationKeys = await childApi.patientApi.getNonConfidentialSecretIdsOf(patWithConfidential)
+    const confidentialDelegationKeys = await childApi.patientApi.decryptConfidentialSecretIdsOf(patWithConfidential)
+    const nonConfidentialDelegationKeys = await childApi.patientApi.decryptNonConfidentialSecretIdsOf(patWithConfidential)
     expect(confidentialDelegationKeys).to.have.length(1)
     expect(nonConfidentialDelegationKeys).to.have.length(1)
     expect(confidentialDelegationKeys[0]).to.not.equal(nonConfidentialDelegationKeys)
     expect(nonConfidentialDelegationKeys[0]).to.equal(originalSecretId)
 
     // Child has access to confidential and not confidential secret ids.
-    const childSecretIds = await childApi.patientApi.getSecretIdsOf(patWithConfidential)
+    const childSecretIds = await childApi.patientApi.decryptSecretIdsOf(patWithConfidential)
     expect(childSecretIds).to.have.length(2)
     expect(childSecretIds).to.have.contain(nonConfidentialDelegationKeys[0])
     expect(childSecretIds).to.have.contain(confidentialDelegationKeys[0])
@@ -132,7 +132,7 @@ describe('Init confidential delegation in patient', () => {
 
     // ...but not to the confidential secret id
     for (const { api } of others) {
-      const secretIds = await api.patientApi.getSecretIdsOf(patWithConfidential)
+      const secretIds = await api.patientApi.decryptSecretIdsOf(patWithConfidential)
       expect(secretIds).to.have.length(1)
       expect(secretIds).to.contain(nonConfidentialDelegationKeys[0])
     }
@@ -140,21 +140,21 @@ describe('Init confidential delegation in patient', () => {
     // If a secret delegation is already available there is no need to create a new one
     const patWithConfidentialAgain = await childApi.patientApi.initConfidentialSecretId(patWithConfidential, childUser)
     expect(patWithConfidentialAgain.rev).to.equal(patWithConfidentialAgain.rev)
-    expect(await childApi.patientApi.getSecretIdsOf(patWithConfidentialAgain)).to.have.length(2)
+    expect(await childApi.patientApi.decryptSecretIdsOf(patWithConfidentialAgain)).to.have.length(2)
 
     // Different users will have different confidential secret ids...
-    expect(await child2Api.patientApi.getConfidentialSecretIdsOf(patWithConfidential)).to.be.empty
+    expect(await child2Api.patientApi.decryptConfidentialSecretIdsOf(patWithConfidential)).to.be.empty
     const patWithMoreConfidentialIds = await child2Api.patientApi.initConfidentialSecretId(patWithConfidential, child2User)
 
     // ...child continues to know the same secret ids...
-    const childSecretIdsRepeat = await childApi.patientApi.getSecretIdsOf(patWithMoreConfidentialIds)
+    const childSecretIdsRepeat = await childApi.patientApi.decryptSecretIdsOf(patWithMoreConfidentialIds)
     expect(childSecretIdsRepeat).to.have.length(2)
     expect(childSecretIdsRepeat).to.have.contain(nonConfidentialDelegationKeys[0])
     expect(childSecretIdsRepeat).to.have.contain(confidentialDelegationKeys[0])
 
     // ...but child2 now also knows a different secret id...
-    const child2secretIds = await child2Api.patientApi.getSecretIdsOf(patWithMoreConfidentialIds)
-    const child2confidential = await child2Api.patientApi.getConfidentialSecretIdsOf(patWithMoreConfidentialIds)
+    const child2secretIds = await child2Api.patientApi.decryptSecretIdsOf(patWithMoreConfidentialIds)
+    const child2confidential = await child2Api.patientApi.decryptConfidentialSecretIdsOf(patWithMoreConfidentialIds)
     expect(child2confidential).to.have.length(1)
     expect(child2confidential[0]).to.not.equal(confidentialDelegationKeys[0])
     expect(child2confidential[0]).to.not.equal(nonConfidentialDelegationKeys[0])
@@ -163,10 +163,10 @@ describe('Init confidential delegation in patient', () => {
     expect(child2secretIds).to.contain(child2confidential[0])
 
     // ...and their parents still don't know them
-    expect(await grandApi.patientApi.getSecretIdsOf(patWithMoreConfidentialIds)).to.have.length(1)
-    expect(await grandApi.patientApi.getSecretIdsOf(patWithMoreConfidentialIds)).to.have.contain(nonConfidentialDelegationKeys[0])
-    expect(await parentApi.patientApi.getSecretIdsOf(patWithMoreConfidentialIds)).to.have.length(1)
-    expect(await parentApi.patientApi.getSecretIdsOf(patWithMoreConfidentialIds)).to.have.contain(nonConfidentialDelegationKeys[0])
+    expect(await grandApi.patientApi.decryptSecretIdsOf(patWithMoreConfidentialIds)).to.have.length(1)
+    expect(await grandApi.patientApi.decryptSecretIdsOf(patWithMoreConfidentialIds)).to.have.contain(nonConfidentialDelegationKeys[0])
+    expect(await parentApi.patientApi.decryptSecretIdsOf(patWithMoreConfidentialIds)).to.have.length(1)
+    expect(await parentApi.patientApi.decryptSecretIdsOf(patWithMoreConfidentialIds)).to.have.contain(nonConfidentialDelegationKeys[0])
   })
 })
 

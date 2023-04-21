@@ -388,9 +388,9 @@ export class IccCryptoXApi {
   /**
    * @deprecated Usually you should not need this method, since the preferred sfk is automatically chosen by the extended entity apis when creating a
    * new instance of the entity. If you still need this method you can replace it with the methods in the extended api, such as:
-   * - {@link IccPatientXApi.getSecretIdsOf} to get all (confidential and non-confidential) secret ids of a patient
-   * - {@link IccPatientXApi.getConfidentialSecretIdsOf} to get all confidential secret ids of a patient
-   * - {@link IccPatientXApi.getNonConfidentialSecretIdsOf} to get all non-confidential secret ids of a patient
+   * - {@link IccPatientXApi.decryptSecretIdsOf} to get all (confidential and non-confidential) secret ids of a patient
+   * - {@link IccPatientXApi.decryptConfidentialSecretIdsOf} to get all confidential secret ids of a patient
+   * - {@link IccPatientXApi.decryptNonConfidentialSecretIdsOf} to get all non-confidential secret ids of a patient
    */
   async extractPreferredSfk(parent: EncryptedParentEntity, hcpartyId: string, confidential: boolean) {
     const type = await encryptedEntityClassOf(parent, undefined)
@@ -478,8 +478,8 @@ export class IccCryptoXApi {
   /**
    * @deprecated Delegation sfks have been renamed to 'secretIds' in the parent entity (but they are still secret foreign keys in children entities)
    * You should replace this method with the corresponding methods in the extended api, such as:
-   * - {@link IccPatientXApi.getSecretIdsOf} to get all (confidential and non-confidential) secret ids of a patient
-   * - {@link IccMessageXApi.getSecretIdsOf} to get all (confidential and non-confidential) secret ids of a patient
+   * - {@link IccPatientXApi.decryptSecretIdsOf} to get all (confidential and non-confidential) secret ids of a patient
+   * - {@link IccMessageXApi.decryptSecretIdsOf} to get all (confidential and non-confidential) secret ids of a patient
    * Note that the secret ids are not initialised anymore for entities that can't be referenced to by secret foreign keys: only patient (which is
    * referenced for example by Contacts and HealthElements) and Message (which is referenced by Documents) will have secret ids.
    */
