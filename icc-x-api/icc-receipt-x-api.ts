@@ -1,10 +1,10 @@
-import {IccReceiptApi} from '../icc-api'
-import {IccCryptoXApi} from './icc-crypto-x-api'
+import { IccReceiptApi } from '../icc-api'
+import { IccCryptoXApi } from './icc-crypto-x-api'
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import {IccDataOwnerXApi} from './icc-data-owner-x-api'
-import {AuthenticationProvider, NoAuthenticationProvider} from './auth/AuthenticationProvider'
-import {ShareMetadataBehaviour} from "./crypto/ShareMetadataBehaviour"
+import { IccDataOwnerXApi } from './icc-data-owner-x-api'
+import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 
 export class IccReceiptXApi extends IccReceiptApi {
   dataOwnerApi: IccDataOwnerXApi
@@ -30,11 +30,20 @@ export class IccReceiptXApi extends IccReceiptApi {
    * @param user the current user.
    * @param r initialised data for the receipt. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
    * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
-   * @param delegates initial delegates which will have access to the receipt other than the current data owner.
-   * @param delegationTags tags for the initialised delegations.
+   * @param options optional parameters:
+   * - additionalDelegates: delegates which will have access to the entity in addition to the current data owner and delegates from the
+   * auto-delegations. Must be an object which associates each data owner id with the access level to give to that data owner. May overlap with
+   * auto-delegations, in such case the access level specified here will be used. Currently only WRITE access is supported, but in future also read
+   * access will be possible.
    * @return a new instance of receipt.
    */
-  async newInstance(user: models.User, r: any, delegates: string[] = [], delegationTags?: string[]): Promise<models.Receipt> {
+  async newInstance(
+    user: models.User,
+    r: any,
+    options: {
+      additionalDelegates?: { [dataOwnerId: string]: 'WRITE' }
+    } = {}
+  ): Promise<models.Receipt> {
     const receipt = new models.Receipt(
       _.extend(
         {
@@ -51,10 +60,14 @@ export class IccReceiptXApi extends IccReceiptApi {
       )
     )
 
-    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
+    const extraDelegations = [
+      ...Object.keys(options.additionalDelegates ?? {}),
+      ...(user.autoDelegations?.all ?? []),
+      ...(user.autoDelegations?.medicalInformation ?? []),
+    ]
     return new models.Receipt(
       await this.crypto.entities
-        .entityWithInitialisedEncryptedMetadata(receipt, undefined, undefined, true, extraDelegations, delegationTags)
+        .entityWithInitialisedEncryptedMetadata(receipt, undefined, undefined, true, extraDelegations)
         .then((x) => x.updatedEntity)
     )
   }
@@ -98,7 +111,7 @@ export class IccReceiptXApi extends IccReceiptApi {
    * the encrypted content.
    * @param delegateId the id of the data owner which will be granted access to the receipt.
    * @param receipt the receipt to share.
-   * @param optionalParams optional parameters to customize the sharing behaviour:
+   * @param options optional parameters to customize the sharing behaviour:
    * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
    * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
    * receipt does not have encrypted content.
@@ -107,7 +120,7 @@ export class IccReceiptXApi extends IccReceiptApi {
   async shareWith(
     delegateId: string,
     receipt: models.Receipt,
-    optionalParams: {
+    options: {
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
   ): Promise<models.Receipt> {
@@ -116,7 +129,7 @@ export class IccReceiptXApi extends IccReceiptApi {
         receipt,
         delegateId,
         undefined,
-        optionalParams.shareEncryptionKey,
+        options.shareEncryptionKey,
         ShareMetadataBehaviour.IF_AVAILABLE
       )
     )

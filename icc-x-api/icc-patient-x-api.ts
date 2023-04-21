@@ -1,23 +1,23 @@
-import {IccPatientApi} from '../icc-api'
-import {IccCryptoXApi} from './icc-crypto-x-api'
-import {IccContactXApi} from './icc-contact-x-api'
-import {IccFormXApi} from './icc-form-x-api'
-import {IccHcpartyXApi} from './icc-hcparty-x-api'
-import {IccInvoiceXApi} from './icc-invoice-x-api'
-import {IccDocumentXApi} from './icc-document-x-api'
-import {IccHelementXApi} from './icc-helement-x-api'
-import {IccClassificationXApi} from './icc-classification-x-api'
+import { IccPatientApi } from '../icc-api'
+import { IccCryptoXApi } from './icc-crypto-x-api'
+import { IccContactXApi } from './icc-contact-x-api'
+import { IccFormXApi } from './icc-form-x-api'
+import { IccHcpartyXApi } from './icc-hcparty-x-api'
+import { IccInvoiceXApi } from './icc-invoice-x-api'
+import { IccDocumentXApi } from './icc-document-x-api'
+import { IccHelementXApi } from './icc-helement-x-api'
+import { IccClassificationXApi } from './icc-classification-x-api'
 
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import {CalendarItem, Classification, Document, IcureStub, Invoice, ListOfIds, Patient} from '../icc-api/model/models'
-import {IccCalendarItemXApi} from './icc-calendar-item-x-api'
-import {b64_2ab} from '../icc-api/model/ModelHelper'
-import {findName, garnishPersonWithName, hasName} from './utils/person-util'
-import {retry} from './utils'
-import {IccDataOwnerXApi} from './icc-data-owner-x-api'
-import {AuthenticationProvider, NoAuthenticationProvider} from './auth/AuthenticationProvider'
-import {ShareMetadataBehaviour} from "./crypto/ShareMetadataBehaviour"
+import { CalendarItem, Classification, Document, IcureStub, Invoice, ListOfIds, Patient } from '../icc-api/model/models'
+import { IccCalendarItemXApi } from './icc-calendar-item-x-api'
+import { b64_2ab } from '../icc-api/model/ModelHelper'
+import { findName, garnishPersonWithName, hasName } from './utils/person-util'
+import { retry } from './utils'
+import { IccDataOwnerXApi } from './icc-data-owner-x-api'
+import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccPatientXApi extends IccPatientApi {
@@ -75,11 +75,20 @@ export class IccPatientXApi extends IccPatientApi {
    * @param user the current user.
    * @param p initialised data for the patient. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
    * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
-   * @param delegates initial delegates which will have access to the patient other than the current data owner.
-   * @param delegationTags tags for the initialised delegations.
+   * @param options optional parameters:
+   * - additionalDelegates: delegates which will have access to the entity in addition to the current data owner and delegates from the
+   * auto-delegations. Must be an object which associates each data owner id with the access level to give to that data owner. May overlap with
+   * auto-delegations, in such case the access level specified here will be used. Currently only WRITE access is supported, but in future also read
+   * access will be possible.
    * @return a new instance of patient.
    */
-  async newInstance(user: models.User, p: any = {}, delegates: string[] = [], delegationTags?: string[]) {
+  async newInstance(
+    user: models.User,
+    p: any = {},
+    options: {
+      additionalDelegates?: { [dataOwnerId: string]: 'WRITE' }
+    } = {}
+  ) {
     const patient = _.extend(
       {
         id: this.crypto.primitives.randomUuid(),
@@ -96,14 +105,17 @@ export class IccPatientXApi extends IccPatientApi {
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
-    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
+    const extraDelegations = [
+      ...Object.keys(options.additionalDelegates ?? {}),
+      ...(user.autoDelegations?.all ?? []),
+      ...(user.autoDelegations?.medicalInformation ?? []),
+    ]
     const initialisationInfo = await this.crypto.entities.entityWithInitialisedEncryptedMetadata(
       patient,
       undefined,
       undefined,
       true,
-      extraDelegations,
-      delegationTags
+      extraDelegations
     )
     return new models.Patient(initialisationInfo.updatedEntity)
   }
@@ -451,11 +463,9 @@ export class IccPatientXApi extends IccPatientApi {
   }
 
   modifyPatientWithUser(user: models.User, body?: models.Patient): Promise<models.Patient | null> {
-    return body
-      ? this.modifyAs(this.dataOwnerApi.getDataOwnerIdOf(user), body)
-      : Promise.resolve(null)
+    return body ? this.modifyAs(this.dataOwnerApi.getDataOwnerIdOf(user), body) : Promise.resolve(null)
   }
-  
+
   modifyAs(dataOwner: string, body: models.Patient): Promise<models.Patient> {
     return this.encryptAs(dataOwner, [_.cloneDeep(this.completeNames(body))])
       .then((pats) => super.modifyPatient(pats[0]))
@@ -483,7 +493,7 @@ export class IccPatientXApi extends IccPatientApi {
   encrypt(user: models.User, pats: Array<models.Patient>): Promise<Array<models.Patient>> {
     return this.encryptAs(this.dataOwnerApi.getDataOwnerIdOf(user), pats)
   }
-  
+
   private encryptAs(dataOwnerId: string, pats: Array<models.Patient>): Promise<Array<models.Patient>> {
     return Promise.all(
       pats.map((p) => this.crypto.entities.tryEncryptEntity(p, dataOwnerId, this.encryptedKeys, true, false, (x) => new models.Patient(x)))
@@ -1111,7 +1121,7 @@ export class IccPatientXApi extends IccPatientApi {
    * @param patient the patient to share.
    * @param shareSecretIds the secret ids of the Patient that the delegate will be given access to. Allows the delegate to search for data where the
    * shared Patient is the owning entity id.
-   * @param optionalParams optional parameters to customize the sharing behaviour:
+   * @param options optional parameters to customize the sharing behaviour:
    * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
    * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
    * patient does not have encrypted content.
@@ -1122,7 +1132,7 @@ export class IccPatientXApi extends IccPatientApi {
     delegateId: string,
     patient: models.Patient,
     shareSecretIds: string[],
-    optionalParams: {
+    options: {
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
   ): Promise<models.Patient> {
@@ -1133,7 +1143,7 @@ export class IccPatientXApi extends IccPatientApi {
         patient,
         delegateId,
         shareSecretIds,
-        optionalParams.shareEncryptionKey,
+        options.shareEncryptionKey,
         ShareMetadataBehaviour.IF_AVAILABLE
       )
     )

@@ -100,7 +100,7 @@ describe('Shamir key recovery', async function () {
     const descr = 'Confidential info'
     const confidentialData = await api.healthcareElementApi.createHealthElementWithUser(
       user,
-      await api.healthcareElementApi.newInstance(user, pat, { descr }, true)
+      await api.healthcareElementApi.newInstance(user, pat, { descr }, { confidential: true })
     )
     await api.cryptoApi.shamirKeysManager.updateSelfSplits(
       { [hierarchyApis.childCredentials.publicKey.slice(-32)]: { notariesIds, minShares: 3 } },

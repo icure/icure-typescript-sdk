@@ -105,7 +105,7 @@ export interface Apis {
   icureMaintenanceTaskApi: IccIcureMaintenanceXApi
 }
 
-export type NamedApiParameters = {
+export type ApiOptions = {
   readonly entryKeysFactory?: StorageEntryKeysFactory
   readonly createMaintenanceTasksOnNewKey?: boolean
   readonly forceBasic?: boolean
@@ -114,8 +114,8 @@ export type NamedApiParameters = {
   readonly keyStorage?: KeyStorageFacade
 }
 
-class NamedApiParametersWithDefault implements NamedApiParameters {
-  constructor(custom: NamedApiParameters) {
+class NamedApiParametersWithDefault implements ApiOptions {
+  constructor(custom: ApiOptions) {
     this.entryKeysFactory = custom.entryKeysFactory ?? new DefaultStorageEntryKeysFactory()
     this.createMaintenanceTasksOnNewKey = custom.createMaintenanceTasksOnNewKey ?? false
     this.forceBasic = custom.forceBasic ?? false
@@ -143,9 +143,9 @@ export const Api = async function (
     : typeof self !== 'undefined'
     ? self.fetch
     : fetch,
-  namedParameters: NamedApiParameters = {}
+  options: ApiOptions = {}
 ): Promise<Apis> {
-  const params = new NamedApiParametersWithDefault(namedParameters)
+  const params = new NamedApiParametersWithDefault(options)
   const headers = {}
   const authenticationProvider = params.forceBasic
     ? new BasicAuthenticationProvider(username, password)

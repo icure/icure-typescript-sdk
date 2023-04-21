@@ -61,9 +61,9 @@ describe('Full battery of tests on crypto and keys', async function () {
     const patient = await api.patientApi.getPatientWithUser(u, u.patientId!)
 
     // Create a Record to share with delegateHcp: this will trigger the creation of a new aes exchange key as well
-    const initialRecord = await api.calendarItemApi.newInstance(u, new CalendarItem({ id: `${u.id}-ci-initial`, title: 'CI-INITIAL' }), [
-      delegateHcp!.id!,
-    ])
+    const initialRecord = await api.calendarItemApi.newInstance(u, new CalendarItem({ id: `${u.id}-ci-initial`, title: 'CI-INITIAL' }), {
+      additionalDelegates: { [delegateHcp!.id!]: 'WRITE' },
+    })
     const savedInitialRecord = await api.calendarItemApi.createCalendarItemWithHcParty(u, initialRecord)
 
     // Decrypting this AES Key to compare it with AES key decrypted with new key in the next steps
@@ -99,7 +99,9 @@ describe('Full battery of tests on crypto and keys', async function () {
     const hcp = await apiAfterNewKey.healthcarePartyApi.getHealthcareParty(delegateUser!.healthcarePartyId!)
 
     // User can create new data, using its new keyPair
-    const newRecord = await apiAfterNewKey.calendarItemApi.newInstance(u, new CalendarItem({ id: `${u.id}-ci`, title: 'CI' }), [hcp!.id!])
+    const newRecord = await apiAfterNewKey.calendarItemApi.newInstance(u, new CalendarItem({ id: `${u.id}-ci`, title: 'CI' }), {
+      additionalDelegates: { [hcp!.id!]: 'WRITE' },
+    })
     const entity = await apiAfterNewKey.calendarItemApi.createCalendarItemWithHcParty(u, newRecord)
     expect(entity.id).to.be.not.null
     expect(entity.rev).to.be.not.null

@@ -39,7 +39,7 @@ function healthElementToCreate(hElementApiForHcp: IccHelementXApi, hcpUser: User
       codes: [new Code({ system: 'LOINC', code: '95209', version: '3' })],
       note: 'SARS-V2',
     }),
-    true
+    { confidential: true }
   )
 }
 

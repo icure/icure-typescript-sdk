@@ -151,22 +151,31 @@ let hcpGivingAccessBack: HealthcareParty | undefined = undefined
 
 const entities: EntityCreators = {
   Patient: ({ patientApi }, id, user, _, delegateIds) => {
-    return patientApi.newInstance(user, new Patient({ id, firstName: 'test', lastName: 'test', note: 'data', dateOfBirth: 20000101 }), delegateIds)
+    return patientApi.newInstance(user, new Patient({ id, firstName: 'test', lastName: 'test', note: 'data', dateOfBirth: 20000101 }), {
+      additionalDelegates: Object.fromEntries((delegateIds ?? []).map((id) => [id, 'WRITE'])),
+    })
   },
   Contact: ({ contactApi }, id, user, patient, delegateIds) => {
     return contactApi.newInstance(
       user,
       patient!,
       new Contact({ id, services: [new Service({ label: 'svc', content: { fr: { stringValue: 'data' } } })] }),
-      false,
-      delegateIds
+      {
+        confidential: false,
+        additionalDelegates: Object.fromEntries((delegateIds ?? []).map((id) => [id, 'WRITE'])),
+      }
     )
   },
   HealthElement: ({ healthcareElementApi }, id, user, patient, delegateIds) => {
-    return healthcareElementApi.newInstance(user, patient!, new HealthElement({ id, descr: 'HE' }), false, delegateIds)
+    return healthcareElementApi.newInstance(user, patient!, new HealthElement({ id, descr: 'HE' }), {
+      confidential: false,
+      additionalDelegates: Object.fromEntries((delegateIds ?? []).map((id) => [id, 'WRITE'])),
+    })
   },
   CalendarItem: ({ calendarItemApi }, id, user, patient, delegateIds) => {
-    return calendarItemApi.newInstancePatient(user, patient!, new CalendarItem({ id, title: 'CI' }), delegateIds)
+    return calendarItemApi.newInstancePatient(user, patient!, new CalendarItem({ id, title: 'CI' }), {
+      additionalDelegates: Object.fromEntries((delegateIds ?? []).map((id) => [id, 'WRITE'])),
+    })
   },
 }
 

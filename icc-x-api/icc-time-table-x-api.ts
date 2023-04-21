@@ -1,14 +1,14 @@
 import * as i18n from './rsrc/contact.i18n'
 
 import * as _ from 'lodash'
-import {IccTimeTableApi} from '../icc-api'
-import {User} from '../icc-api/model/User'
-import {TimeTable} from '../icc-api/model/TimeTable'
-import {IccCryptoXApi} from './icc-crypto-x-api'
-import {IccDataOwnerXApi} from './icc-data-owner-x-api'
+import { IccTimeTableApi } from '../icc-api'
+import { User } from '../icc-api/model/User'
+import { TimeTable } from '../icc-api/model/TimeTable'
+import { IccCryptoXApi } from './icc-crypto-x-api'
+import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import * as models from '../icc-api/model/models'
-import {AuthenticationProvider, NoAuthenticationProvider} from './auth/AuthenticationProvider'
-import {ShareMetadataBehaviour} from "./crypto/ShareMetadataBehaviour"
+import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 
 export class IccTimeTableXApi extends IccTimeTableApi {
   i18n: any = i18n
@@ -37,11 +37,20 @@ export class IccTimeTableXApi extends IccTimeTableApi {
    * @param user the current user.
    * @param tt initialised data for the timetable. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
    * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
-   * @param delegates initial delegates which will have access to the timetable other than the current data owner.
-   * @param delegationTags tags for the initialised delegations.
+   * @param options optional parameters:
+   * - additionalDelegates: delegates which will have access to the entity in addition to the current data owner and delegates from the
+   * auto-delegations. Must be an object which associates each data owner id with the access level to give to that data owner. May overlap with
+   * auto-delegations, in such case the access level specified here will be used. Currently only WRITE access is supported, but in future also read
+   * access will be possible.
    * @return a new instance of timetable.
    */
-  async newInstance(user: User, tt: TimeTable, delegates: string[] = [], delegationTags?: string[]) {
+  async newInstance(
+    user: User,
+    tt: TimeTable,
+    options: {
+      additionalDelegates?: { [dataOwnerId: string]: 'WRITE' }
+    } = {}
+  ) {
     const timeTable = _.extend(
       {
         id: this.crypto.primitives.randomUuid(),
@@ -56,10 +65,14 @@ export class IccTimeTableXApi extends IccTimeTableApi {
       tt || {}
     )
 
-    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.administrativeData ?? [])]
+    const extraDelegations = [
+      ...Object.keys(options.additionalDelegates ?? {}),
+      ...(user.autoDelegations?.all ?? []),
+      ...(user.autoDelegations?.administrativeData ?? []),
+    ]
     return new models.TimeTable(
       await this.crypto.entities
-        .entityWithInitialisedEncryptedMetadata(timeTable, undefined, undefined, true, extraDelegations, delegationTags)
+        .entityWithInitialisedEncryptedMetadata(timeTable, undefined, undefined, true, extraDelegations)
         .then((x) => x.updatedEntity)
     )
   }
@@ -69,7 +82,7 @@ export class IccTimeTableXApi extends IccTimeTableApi {
    * the encrypted content, with read-only or read-write permissions.
    * @param delegateId the id of the data owner which will be granted access to the time table.
    * @param timeTable the time table to share.
-   * @param optionalParams optional parameters to customize the sharing behaviour:
+   * @param options optional parameters to customize the sharing behaviour:
    * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
    * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
    * time table does not have encrypted content.
@@ -79,7 +92,7 @@ export class IccTimeTableXApi extends IccTimeTableApi {
   async shareWith(
     delegateId: string,
     timeTable: models.TimeTable,
-    optionalParams: {
+    options: {
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
   ): Promise<models.TimeTable> {
@@ -88,7 +101,7 @@ export class IccTimeTableXApi extends IccTimeTableApi {
         timeTable,
         delegateId,
         undefined,
-        optionalParams.shareEncryptionKey,
+        options.shareEncryptionKey,
         ShareMetadataBehaviour.IF_AVAILABLE
       )
     )
