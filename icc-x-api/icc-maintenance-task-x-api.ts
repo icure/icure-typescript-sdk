@@ -1,12 +1,12 @@
-import {IccMaintenanceTaskApi} from '../icc-api/api/IccMaintenanceTaskApi'
-import {IccCryptoXApi} from './icc-crypto-x-api'
+import { IccMaintenanceTaskApi } from '../icc-api/api/IccMaintenanceTaskApi'
+import { IccCryptoXApi } from './icc-crypto-x-api'
 import * as models from '../icc-api/model/models'
-import {DocIdentifier, MaintenanceTask} from '../icc-api/model/models'
+import { DocIdentifier, MaintenanceTask } from '../icc-api/model/models'
 import * as _ from 'lodash'
-import {IccHcpartyXApi} from './icc-hcparty-x-api'
-import {IccDataOwnerXApi} from './icc-data-owner-x-api'
-import {AuthenticationProvider, NoAuthenticationProvider} from './auth/AuthenticationProvider'
-import {ShareMetadataBehaviour} from "./crypto/ShareMetadataBehaviour"
+import { IccHcpartyXApi } from './icc-hcparty-x-api'
+import { IccDataOwnerXApi } from './icc-data-owner-x-api'
+import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 
 export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
   crypto: IccCryptoXApi
@@ -41,11 +41,20 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
    * @param user the current user.
    * @param m initialised data for the maintenance task. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
    * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
-   * @param delegates initial delegates which will have access to the maintenance task other than the current data owner.
-   * @param delegationTags tags for the initialised delegations.
+   * @param options optional parameters:
+   * - additionalDelegates: delegates which will have access to the entity in addition to the current data owner and delegates from the
+   * auto-delegations. Must be an object which associates each data owner id with the access level to give to that data owner. May overlap with
+   * auto-delegations, in such case the access level specified here will be used. Currently only WRITE access is supported, but in future also read
+   * access will be possible.
    * @return a new instance of maintenance task.
    */
-  async newInstance(user: models.User, m: any, delegates: string[] = [], delegationTags?: string[]) {
+  async newInstance(
+    user: models.User,
+    m: any,
+    options: {
+      additionalDelegates?: { [dataOwnerId: string]: 'WRITE' }
+    } = {}
+  ) {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     const maintenanceTask = _.assign(
       {
@@ -59,10 +68,10 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
       m || {}
     )
 
-    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? [])]
+    const extraDelegations = [...Object.keys(options.additionalDelegates ?? {}), ...(user.autoDelegations?.all ?? [])]
     return new models.MaintenanceTask(
       await this.crypto.entities
-        .entityWithInitialisedEncryptedMetadata(maintenanceTask, undefined, undefined, true, extraDelegations, delegationTags)
+        .entityWithInitialisedEncryptedMetadata(maintenanceTask, undefined, undefined, true, extraDelegations)
         .then((x) => x.updatedEntity)
     )
   }
@@ -119,9 +128,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
   }
 
   modifyMaintenanceTaskWithUser(user: models.User, body?: models.MaintenanceTask): Promise<models.MaintenanceTask | any> {
-    return body
-      ? this.modifyAs(this.dataOwnerApi.getDataOwnerIdOf(user), body)
-      : Promise.resolve(null)
+    return body ? this.modifyAs(this.dataOwnerApi.getDataOwnerIdOf(user), body) : Promise.resolve(null)
   }
 
   private modifyAs(dataOwner: string, body: models.MaintenanceTask): Promise<models.MaintenanceTask | any> {
@@ -134,7 +141,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
   encrypt(user: models.User, maintenanceTasks: Array<models.MaintenanceTask>): Promise<Array<models.MaintenanceTask>> {
     return this.encryptAs(this.dataOwnerApi.getDataOwnerIdOf(user), maintenanceTasks)
   }
-  
+
   private encryptAs(dataOwnerId: string, maintenanceTasks: Array<models.MaintenanceTask>): Promise<Array<models.MaintenanceTask>> {
     return Promise.all(
       maintenanceTasks.map((m) =>
@@ -159,7 +166,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
    * the encrypted content.
    * @param delegateId the id of the data owner which will be granted access to the maintenance task.
    * @param maintenanceTask the maintenance task to share.
-   * @param optionalParams optional parameters to customize the sharing behaviour:
+   * @param options optional parameters to customize the sharing behaviour:
    * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
    * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
    * maintenance task does not have encrypted content.
@@ -168,7 +175,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
   async shareWith(
     delegateId: string,
     maintenanceTask: models.MaintenanceTask,
-    optionalParams: {
+    options: {
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
   ): Promise<models.MaintenanceTask> {
@@ -179,7 +186,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
         maintenanceTask,
         delegateId,
         undefined,
-        optionalParams.shareEncryptionKey,
+        options.shareEncryptionKey,
         ShareMetadataBehaviour.IF_AVAILABLE
       )
     )

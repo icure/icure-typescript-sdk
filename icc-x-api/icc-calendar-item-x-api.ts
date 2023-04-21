@@ -7,7 +7,7 @@ import { IccCryptoXApi } from './icc-crypto-x-api'
 import { IccCalendarItemApi } from '../icc-api'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
-import {ShareMetadataBehaviour} from "./crypto/ShareMetadataBehaviour"
+import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 
 export class IccCalendarItemXApi extends IccCalendarItemApi {
   i18n: any = i18n
@@ -34,8 +34,8 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
     this.encryptedKeys = encryptedKeys
   }
 
-  newInstance(user: User, ci: CalendarItem, delegates: string[] = []) {
-    return this.newInstancePatient(user, null, ci, delegates)
+  newInstance(user: User, ci: CalendarItem, options: { additionalDelegates?: { [dataOwnerId: string]: 'WRITE' } } = {}) {
+    return this.newInstancePatient(user, null, ci, options)
   }
 
   /**
@@ -44,21 +44,25 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
    * @param patient the patient this calendar item refers to.
    * @param ci initialised data for the calendar item. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
    * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
-   * @param delegates initial delegates which will have access to the calendar item other than the current data owner.
-   * @param preferredSfk secret id of the patient to use as the secret foreign key to use for the calendar item. The default value will be a secret id
-   * of patient known by the topmost parent in the current data owner hierarchy.
-   * @param delegationTags tags for the initialised delegations.
+   * @param options optional parameters:
+   * - additionalDelegates: delegates which will have access to the entity in addition to the current data owner and delegates from the
+   * auto-delegations. Must be an object which associates each data owner id with the access level to give to that data owner. May overlap with
+   * auto-delegations, in such case the access level specified here will be used. Currently only WRITE access is supported, but in future also read
+   * access will be possible.
+   * - preferredSfk: secret id of the patient to use as the secret foreign key to use for the access log. The default value will be a
+   * secret id of patient known by the topmost parent in the current data owner hierarchy.
    * @return a new instance of calendar item.
    */
   async newInstancePatient(
     user: models.User,
     patient: models.Patient | null,
     ci: any,
-    delegates: string[] = [],
-    preferredSfk?: string,
-    delegationTags?: string[]
+    options: {
+      additionalDelegates?: { [dataOwnerId: string]: 'WRITE' }
+      preferredSfk?: string
+    } = {}
   ): Promise<models.CalendarItem> {
-    if (!patient && preferredSfk) throw new Error('You need to specify parent patient in order to use secret foreign keys.')
+    if (!patient && options.preferredSfk) throw new Error('You need to specify parent patient in order to use secret foreign keys.')
     const calendarItem = _.extend(
       {
         id: this.crypto.primitives.randomUuid(),
@@ -75,12 +79,16 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
-    const sfk = patient ? preferredSfk ?? (await this.crypto.confidential.getAnySecretIdSharedWithParents(patient)) : undefined
+    const sfk = patient ? options.preferredSfk ?? (await this.crypto.confidential.getAnySecretIdSharedWithParents(patient)) : undefined
     if (patient && !sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id}`)
-    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
+    const extraDelegations = [
+      ...Object.keys(options.additionalDelegates ?? {}),
+      ...(user.autoDelegations?.all ?? []),
+      ...(user.autoDelegations?.medicalInformation ?? []),
+    ]
     return new CalendarItem(
       await this.crypto.entities
-        .entityWithInitialisedEncryptedMetadata(calendarItem, patient?.id, sfk, true, extraDelegations, delegationTags)
+        .entityWithInitialisedEncryptedMetadata(calendarItem, patient?.id, sfk, true, extraDelegations)
         .then((x) => x.updatedEntity)
     )
   }
@@ -205,7 +213,9 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
 
   private encryptAs(dataOwnerId: string, calendarItems: Array<models.CalendarItem>): Promise<Array<models.CalendarItem>> {
     return Promise.all(
-      calendarItems.map((x) => this.crypto.entities.tryEncryptEntity(x, dataOwnerId, this.encryptedKeys, false, true, (json) => new CalendarItem(json)))
+      calendarItems.map((x) =>
+        this.crypto.entities.tryEncryptEntity(x, dataOwnerId, this.encryptedKeys, false, true, (json) => new CalendarItem(json))
+      )
     )
   }
 
@@ -229,7 +239,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
    * the encrypted content.
    * @param delegateId the id of the data owner which will be granted access to the calendar item.
    * @param calendarItem item the calendar item to share.
-   * @param optionalParams optional parameters to customize the sharing behaviour:
+   * @param options optional parameters to customize the sharing behaviour:
    * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
    * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
    * calendar item does not have encrypted content.
@@ -240,7 +250,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
   async shareWith(
     delegateId: string,
     calendarItem: models.CalendarItem,
-    optionalParams: {
+    options: {
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
       sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
@@ -252,8 +262,8 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
         calendarItem,
         delegateId,
         undefined,
-        optionalParams.shareEncryptionKey,
-        optionalParams.sharePatientId
+        options.shareEncryptionKey,
+        options.sharePatientId
       )
     )
   }

@@ -264,7 +264,7 @@ describe('test that confidential helement information cannot be retrieved at MH 
 
     const confidentialHe = await childApi.healthcareElementApi.createHealthElementWithUser(
       childUser,
-      await childApi.healthcareElementApi.newInstance(childUser, modifiedPatient, { descr: 'Confidential info' }, true)
+      await childApi.healthcareElementApi.newInstance(childUser, modifiedPatient, { descr: 'Confidential info' }, { confidential: true })
     )
 
     const retrievedHesAsUser = await childApi.healthcareElementApi.findBy(childUser.healthcarePartyId!, modifiedPatient)
@@ -280,8 +280,7 @@ describe('test that confidential helement information cannot be retrieved at MH 
         console.log(e)
         failedToRetrieve = true
       }
-      // TODO temporarily disabled until new access control logic is live
-      // expect(failedToRetrieve).to.equal(true, 'MH should fail to retrieve confidential data')
+      expect(failedToRetrieve).to.equal(true, 'MH should fail to retrieve confidential data')
       // Even if in some way I could get the contact I should not be able to decrypt it
       expect(await api.cryptoApi.entities.encryptionKeysOf(confidentialHe!)).to.have.length(0)
     }
@@ -313,7 +312,7 @@ describe('test that confidential contact information cannot be retrieved at MH l
         modifiedPatient,
 
         { descr: 'Confidential info', services: [], subContacts: [] },
-        true
+        { confidential: true }
       )
     )
 
@@ -322,9 +321,8 @@ describe('test that confidential contact information cannot be retrieved at MH l
       await childApi.healthcareElementApi.newInstance(
         childUser,
         modifiedPatient,
-
         { descr: 'Non confidential info', services: [], subContacts: [] },
-        false
+        { confidential: false }
       )
     )
 
@@ -342,8 +340,7 @@ describe('test that confidential contact information cannot be retrieved at MH l
         console.log(e)
         failedToRetrieve = true
       }
-      // TODO temporarily disabled until new access control logic is live
-      // expect(failedToRetrieve).to.equal(true, 'MH should fail to retrieve confidential data')
+      expect(failedToRetrieve).to.equal(true, 'MH should fail to retrieve confidential data')
       // Even if in some way I could get the contact I should not be able to decrypt it
       expect(await api.cryptoApi.entities.encryptionKeysOf(confidentialCtc!)).to.have.length(0)
     }
