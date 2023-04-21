@@ -1154,7 +1154,7 @@ export class IccPatientXApi extends IccPatientApi {
    * @return all the decryptable secret ids of the patient, retrieved from the encrypted metadata. The result may be used to find entities where the
    * patient is the 'owning entity', or in the {@link shareWith} method in order to share it with other data owners.
    */
-  getSecretIdsOf(patient: models.Patient): Promise<string[]> {
+  decryptSecretIdsOf(patient: models.Patient): Promise<string[]> {
     return this.crypto.entities.secretIdsOf(patient, undefined)
   }
 
@@ -1163,7 +1163,7 @@ export class IccPatientXApi extends IccPatientApi {
    * @return the confidential secret ids of the patient, retrieved from the encrypted metadata. The result may be used to find entities where the
    * patient is the 'owning entity', or in the {@link shareWith} method in order to share it with other data owners.
    */
-  getConfidentialSecretIdsOf(patient: models.Patient): Promise<string[]> {
+  decryptConfidentialSecretIdsOf(patient: models.Patient): Promise<string[]> {
     return this.crypto.confidential.getConfidentialSecretIds(patient, undefined)
   }
 
@@ -1172,7 +1172,7 @@ export class IccPatientXApi extends IccPatientApi {
    * @return the non-confidential secret ids of the patient, retrieved from the encrypted metadata. The result may be used to find entities where the
    * patient is the 'owning entity', or in the {@link shareWith} method in order to share it with other data owners.
    */
-  getNonConfidentialSecretIdsOf(patient: models.Patient): Promise<string[]> {
+  decryptNonConfidentialSecretIdsOf(patient: models.Patient): Promise<string[]> {
     return this.crypto.confidential.getSecretIdsSharedWithParents(patient)
   }
 }
