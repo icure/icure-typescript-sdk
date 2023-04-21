@@ -64,14 +64,13 @@ describe('Full battery of tests on crypto and keys', async function () {
       env!.iCureUrl,
       newPatientUser.login!,
       'LetMeInForReal',
+      new TestCryptoStrategies(await api.cryptoApi.primitives.RSA.generateKeyPair()),
       webcrypto as unknown as Crypto,
       fetch,
-      true,
-      false,
-      new TestStorage(),
-      new TestKeyStorage(),
       {
-        cryptoStrategies: new TestCryptoStrategies(await api.cryptoApi.primitives.RSA.generateKeyPair()),
+        forceBasic: true,
+        storage: new TestStorage(),
+        keyStorage: new TestKeyStorage(),
       }
     )
 

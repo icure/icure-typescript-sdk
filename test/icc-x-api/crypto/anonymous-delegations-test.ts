@@ -22,6 +22,8 @@ import { EntityWithDelegationTypeName } from '../../../icc-x-api/utils/EntityWit
 import { MaintenanceTask } from '../../../icc-api/model/MaintenanceTask'
 import * as _ from 'lodash'
 
+const FULL_WRITE = RequestedPermissionEnum.FULL_WRITE
+
 setLocalStorage(fetch)
 
 type DataOwnerType = 'explicit' | 'anonymous'
@@ -126,11 +128,11 @@ describe('Anonymous delegations', () => {
       await masterApi.patientApi.newInstance(masterUser, new Patient({ id: uuid(), firstName: 'test', lastName: 'test', note: 'Patient note' }))
     )
     const secretIds = await masterApi.patientApi.getSecretIdsOf(patient)
-    const updatedPatient1 = (await masterApi.patientApi.shareWith(creatorInfo.dataOwnerId, patient, RequestedPermissionEnum.FULL_WRITE, secretIds))
+    const updatedPatient1 = (await masterApi.patientApi.shareWith(creatorInfo.dataOwnerId, patient, secretIds, { requestedPermissions: FULL_WRITE }))
       .updatedEntityOrThrow
     await creatorApis.cryptoApi.forceReload()
     const updatedPatient2 = (
-      await creatorApis.patientApi.shareWith(delegateInfo.dataOwnerId, updatedPatient1, RequestedPermissionEnum.FULL_WRITE, secretIds)
+      await creatorApis.patientApi.shareWith(delegateInfo.dataOwnerId, updatedPatient1, secretIds, { requestedPermissions: FULL_WRITE })
     ).updatedEntityOrThrow
     const healthElements: HealthElement[] = []
     for (let i = 0; i < 5; i++) {
@@ -138,7 +140,7 @@ describe('Anonymous delegations', () => {
         creatorInfo.user,
         await creatorApis.healthcareElementApi.newInstance(creatorInfo.user, updatedPatient2, { note: `Health element note - ${i}` })
       )
-      const sharedHe = (await creatorApis.healthcareElementApi.shareWith(delegateInfo.dataOwnerId, he, RequestedPermissionEnum.FULL_WRITE))
+      const sharedHe = (await creatorApis.healthcareElementApi.shareWith(delegateInfo.dataOwnerId, he, { requestedPermissions: FULL_WRITE }))
         .updatedEntityOrThrow
       healthElements.push(sharedHe)
     }

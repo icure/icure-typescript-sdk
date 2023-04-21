@@ -22,7 +22,7 @@ import { SecureDelegation } from '../icc-api/model/SecureDelegation'
 import { EntityShareOrMetadataUpdateRequest } from '../icc-api/model/requests/EntityShareOrMetadataUpdateRequest'
 import { MinimalEntityBulkShareResult } from '../icc-api/model/requests/MinimalEntityBulkShareResult'
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
-import { ShareMetadataBehaviour } from './utils/ShareMetadataBehaviour'
+import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 import { ShareResult } from './utils/ShareResult'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
@@ -88,7 +88,7 @@ export class IccPatientXApi extends IccPatientApi {
    * @param user the current user.
    * @param p initialised data for the patient. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
    * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
-   * @param optionalParams optional parameters:
+   * @param options optional parameters:
    * - additionalDelegates: delegates which will have access to the entity in addition to the current data owner and delegates from the
    * auto-delegations. Must be an object which associates each data owner id with the access level to give to that data owner. May overlap with
    * auto-delegations, in such case the access level specified here will be used.
@@ -97,7 +97,7 @@ export class IccPatientXApi extends IccPatientApi {
   async newInstance(
     user: models.User,
     p: any = {},
-    optionalParams: {
+    options: {
       additionalDelegates?: { [dataOwnerId: string]: AccessLevelEnum }
     } = {}
   ) {
@@ -121,7 +121,7 @@ export class IccPatientXApi extends IccPatientApi {
       ...Object.fromEntries(
         [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])].map((d) => [d, AccessLevelEnum.WRITE])
       ),
-      ...(optionalParams?.additionalDelegates ?? {}),
+      ...(options?.additionalDelegates ?? {}),
     }
     const initialisationInfo = await this.crypto.xapi.entityWithInitialisedEncryptedMetadata(
       patient,
@@ -1046,23 +1046,23 @@ export class IccPatientXApi extends IccPatientApi {
    * the encrypted content, with read-only or read-write permissions.
    * @param delegateId the id of the data owner which will be granted access to the patient.
    * @param patient the patient to share.
-   * @param requestedPermissions the requested permissions for the delegate.
    * @param shareSecretIds the secret ids of the Patient that the delegate will be given access to. Allows the delegate to search for data where the
    * shared Patient is the owning entity id.
-   * @param optionalParams optional parameters to customize the sharing behaviour:
+   * @param options optional parameters to customize the sharing behaviour:
    * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
    * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
    * patient does not have encrypted content.
    * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
    * @return a promise which will contain the result of the operation: the updated entity if the operation was successful or details of the error if
    * the operation failed.
    */
   async shareWith(
     delegateId: string,
     patient: models.Patient,
-    requestedPermissions: RequestedPermissionEnum,
     shareSecretIds: string[],
-    optionalParams: {
+    options: {
+      requestedPermissions?: RequestedPermissionEnum
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
   ): Promise<ShareResult<models.Patient>> {
@@ -1074,10 +1074,10 @@ export class IccPatientXApi extends IccPatientApi {
       .simpleShareOrUpdateEncryptedEntityMetadata(
         { entity: updatedEntity, type: 'Patient' },
         delegateId,
-        optionalParams?.shareEncryptionKey,
+        options?.shareEncryptionKey,
         ShareMetadataBehaviour.NEVER,
         shareSecretIds,
-        requestedPermissions,
+        options.requestedPermissions ?? RequestedPermissionEnum.MAX_WRITE,
         (x) => this.bulkSharePatients(x)
       )
       .then((r) => r.mapSuccessAsync((e) => this.decryptAs(self, [e]).then((es) => es[0])))

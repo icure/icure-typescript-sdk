@@ -19,7 +19,7 @@ import { LegacyDelegationSecurityMetadataDecryptor } from './LegacyDelegationSec
 import { SecureDelegationsSecurityMetadataDecryptor } from './SecureDelegationsSecurityMetadataDecryptor'
 import RequestedPermissionInternal = EntityShareRequest.RequestedPermissionInternal
 import { ShareResult, ShareResultFailure, ShareResultSuccess } from '../utils/ShareResult'
-import { ShareMetadataBehaviour } from '../utils/ShareMetadataBehaviour'
+import { ShareMetadataBehaviour } from './ShareMetadataBehaviour'
 import { IccUserXApi } from '../icc-user-x-api'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import { MinimalEntityBulkShareResult } from '../../icc-api/model/requests/MinimalEntityBulkShareResult'
