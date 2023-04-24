@@ -312,20 +312,19 @@ export class BaseExchangeDataManager {
     exchangeKey: { [k: string]: string }
     accessControlSecret: { [k: string]: string }
   }): Promise<ArrayBuffer> {
-    function sortObject(obj: { [k: string]: string }): { [k: string]: string } {
+    function sortObject(obj: { [k: string]: string }): [string, string][] {
       return Object.keys(obj)
         .sort()
         .reduce((sorted, key) => {
-          sorted[key] = obj[key]
-          return sorted
-        }, {} as { [k: string]: string })
+          return [...sorted, [key, obj[key]]]
+        }, [] as [string, string][])
     }
-    const signObject = {
-      delegator: exchangeData.delegator,
-      delegate: exchangeData.delegate,
-      exchangeKey: sortObject(exchangeData.exchangeKey),
-      accessControlSecret: sortObject(exchangeData.accessControlSecret),
-    }
+    const signObject = [
+      ['delegator', exchangeData.delegator],
+      ['delegate', exchangeData.delegate],
+      ['exchangeKey', sortObject(exchangeData.exchangeKey)],
+      ['accessControlSecret', sortObject(exchangeData.accessControlSecret)],
+    ]
     const signJson = JSON.stringify(signObject)
     return this.primitives.sha256(utf8_2ua(signJson))
   }
