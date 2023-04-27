@@ -41,7 +41,7 @@ describe('Exchange data manager', async function () {
     allowFullExchangeDataLoad: boolean,
     optionalParameters: ExchangeDataManagerOptionalParameters & { verifiedDelegateKeys?: Set<string> } = {}
   ) {
-    const dataOwnerType = allowFullExchangeDataLoad ? DataOwnerTypeEnum.Patient : DataOwnerTypeEnum.Hcp
+    const dataOwnerType = allowFullExchangeDataLoad ? 'patient' : 'hcp'
     selfId = primitives.randomUuid()
     selfKeypair = await primitives.RSA.generateKeyPair()
     selfKeyFp = ua2hex(await primitives.RSA.exportKey(selfKeypair.publicKey, 'spki')).slice(-32)

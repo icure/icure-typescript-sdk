@@ -88,10 +88,7 @@ describe('Anonymous delegations', () => {
   async function loseKeyAndGiveAccessBack(userThatLosesKey: UserInfo, apiToGiveAccessBack: Apis, userGivingAccessBack: UserInfo): Promise<Apis> {
     const newKeyPair = await primitives.RSA.generateKeyPair()
     const newApi = await TestApi(env.iCureUrl, userThatLosesKey.user.login!, userThatLosesKey.pw, webcrypto as any, newKeyPair)
-    await newApi.icureMaintenanceTaskApi.createMaintenanceTasksForNewKeypair(userThatLosesKey.user, newKeyPair, [
-      DataOwnerTypeEnum.Patient,
-      DataOwnerTypeEnum.Hcp,
-    ])
+    await newApi.icureMaintenanceTaskApi.createMaintenanceTasksForNewKeypair(userThatLosesKey.user, newKeyPair, ['patient', 'hcp'])
     await apiToGiveAccessBack.cryptoApi.forceReload()
     const searchIds = await dataOwnerIdsForSearch(apiToGiveAccessBack, userGivingAccessBack.dataOwnerId, 'MaintenanceTask')
     const keyPairUpdateRequests = await searchIds

@@ -8,24 +8,22 @@ import { IccHcpartyXApi } from './icc-hcparty-x-api'
 import { XHR } from '../icc-api/api/XHR'
 
 /**
+ * Represents any data owner enriched with type information.
+ */
+export type DataOwnerWithType =
+  | { type: 'patient'; dataOwner: Patient }
+  | { type: 'hcp'; dataOwner: HealthcareParty }
+  | { type: 'device'; dataOwner: Device }
+
+/**
  * Represents a type of data owner.
  */
-export type DataOwnerTypeEnum = 'patient' | 'device' | 'hcp'
-export const DataOwnerTypeEnum = {
-  Patient: 'patient' as DataOwnerTypeEnum,
-  Device: 'device' as DataOwnerTypeEnum,
-  Hcp: 'hcp' as DataOwnerTypeEnum,
-}
+export type DataOwnerTypeEnum = DataOwnerWithType['type']
 
 /**
  * Represents any data owner.
  */
-export type DataOwner = Patient | Device | HealthcareParty
-
-/**
- * Represents any data owner enriched with type information.
- */
-export type DataOwnerWithType = { type: DataOwnerTypeEnum; dataOwner: DataOwner }
+export type DataOwner = DataOwnerWithType['dataOwner']
 
 export class IccDataOwnerXApi {
   private readonly userBaseApi: IccUserApi
@@ -207,13 +205,13 @@ export class IccDataOwnerXApi {
   /**
    * @internal This method is for internal use only and may be changed without notice
    */
-  static instantiateDataOwnerWithType(dataOwner: any, type: DataOwnerTypeEnum): DataOwnerWithType {
-    if (type === DataOwnerTypeEnum.Patient) {
-      return { type: DataOwnerTypeEnum.Patient, dataOwner: new Patient(dataOwner) } as DataOwnerWithType
-    } else if (type === DataOwnerTypeEnum.Device) {
-      return { type: DataOwnerTypeEnum.Device, dataOwner: new Device(dataOwner) } as DataOwnerWithType
-    } else if (type === DataOwnerTypeEnum.Hcp) {
-      return { type: DataOwnerTypeEnum.Hcp, dataOwner: new HealthcareParty(dataOwner) } as DataOwnerWithType
+  static instantiateDataOwnerWithType(dataOwner: DataOwner, type: DataOwnerTypeEnum): DataOwnerWithType {
+    if (type === 'patient') {
+      return { type: 'patient', dataOwner: new Patient(dataOwner) }
+    } else if (type === 'device') {
+      return { type: 'device', dataOwner: new Device(dataOwner) }
+    } else if (type === 'hcp') {
+      return { type: 'hcp', dataOwner: new HealthcareParty(dataOwner) }
     } else {
       throw new Error(`Invalid data owner type ${type}`)
     }

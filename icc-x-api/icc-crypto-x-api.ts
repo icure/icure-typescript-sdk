@@ -11,7 +11,7 @@ import { KeyStorageFacade } from './storage/KeyStorageFacade'
 import { ExchangeKeysManager } from './crypto/ExchangeKeysManager'
 import { CryptoPrimitives } from './crypto/CryptoPrimitives'
 import { UserEncryptionKeysManager } from './crypto/UserEncryptionKeysManager'
-import { DataOwner, DataOwnerWithType, IccDataOwnerXApi } from './icc-data-owner-x-api'
+import { DataOwner, DataOwnerTypeEnum, DataOwnerWithType, IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { ExtendedApisUtils } from './crypto/ExtendedApisUtils'
 import { IcureStorageFacade } from './storage/IcureStorageFacade'
 import { ShamirKeysManager } from './crypto/ShamirKeysManager'
@@ -252,12 +252,15 @@ export class IccCryptoXApi {
   async encryptShamirRSAKey(hcp: HealthcareParty, notaries: Array<HealthcareParty>, threshold?: number): Promise<HealthcareParty> {
     const legacyKeyFp = hcp.publicKey?.slice(-32)
     if (!legacyKeyFp) throw new Error(`No legacy/default key for hcp ${hcp.id}`)
-    return (
-      await this.shamirKeysManager.updateSelfSplits(
-        { [legacyKeyFp]: { notariesIds: notaries.map((x) => x.id!), minShares: threshold ?? notaries.length } },
-        []
-      )
-    ).dataOwner
+    const updated = await this.shamirKeysManager.updateSelfSplits(
+      { [legacyKeyFp]: { notariesIds: notaries.map((x) => x.id!), minShares: threshold ?? notaries.length } },
+      []
+    )
+    if (updated.type != 'hcp') {
+      throw new Error('Unexpected DataOwner')
+    }
+
+    return updated.dataOwner
   }
 
   /**
