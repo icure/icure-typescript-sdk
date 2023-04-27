@@ -10,6 +10,7 @@
  * Do not edit the class manually.
  */
 import { Telecom } from './Telecom'
+import { Annotation } from './Annotation'
 
 /**
  * This entity represents an Address
@@ -57,8 +58,13 @@ export class Address {
   country?: string
   /**
    * Additional notes
+   * @deprecated replaced by notes
    */
   note?: string
+  /**
+   * Additional notes
+   */
+  notes?: Annotation[]
   /**
    * List of other contact details available through telecom services, ex: email, phone number, fax, etc.
    */
