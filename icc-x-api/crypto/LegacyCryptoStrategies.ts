@@ -1,5 +1,5 @@
 import { CryptoStrategies } from './CryptoStrategies'
-import { DataOwner, DataOwnerTypeEnum, DataOwnerWithType } from '../icc-data-owner-x-api'
+import { DataOwner, DataOwnerWithType } from '../icc-data-owner-x-api'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { KeyPair } from './RSA'
 

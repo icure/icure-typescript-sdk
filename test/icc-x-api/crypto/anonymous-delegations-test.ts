@@ -17,7 +17,6 @@ import { MaintenanceTaskAfterDateFilter } from '../../../icc-x-api/filters/Maint
 import { KeyPairUpdateRequest } from '../../../icc-x-api/maintenance/KeyPairUpdateRequest'
 import { EntityShareRequest } from '../../../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
-import { DataOwnerTypeEnum } from '../../../icc-x-api/icc-data-owner-x-api'
 import { EntityWithDelegationTypeName } from '../../../icc-x-api/utils/EntityWithDelegationTypeName'
 import { MaintenanceTask } from '../../../icc-api/model/MaintenanceTask'
 import * as _ from 'lodash'
