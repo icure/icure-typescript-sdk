@@ -10,7 +10,7 @@
  * Do not edit the class manually.
  */
 
-import { ISO6391 } from './ISO6391'
+import { ISO639_1 } from './ISO639_1'
 import { CodeStub } from './CodeStub'
 
 /**
@@ -43,7 +43,7 @@ export class Annotation {
   /**
    * Text contained in the note, written as markdown.
    */
-  markdown?: { [lang in ISO6391]: string }
+  markdown?: { [lang in ISO639_1]?: string }
 
   /**
    * If true, the note is confidential and should be encrypted.
