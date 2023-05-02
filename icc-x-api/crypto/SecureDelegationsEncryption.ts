@@ -1,8 +1,7 @@
 import { SecureDelegation } from '../../icc-api/model/SecureDelegation'
-import { b64_2ua, ua2b64, ua2hex, ua2utf8, utf8_2ua } from '../utils'
+import { b64_2ua, hex2ua, ua2b64, ua2hex, ua2utf8, utf8_2ua } from '../utils'
 import { UserEncryptionKeysManager } from './UserEncryptionKeysManager'
 import { CryptoPrimitives } from './CryptoPrimitives'
-import { hex2ua } from '@icure/apiV6'
 
 /**
  * @internal this class is for internal use only and may be changed without notice.
