@@ -64,7 +64,7 @@ describe('Exchange data manager', async function () {
     )
     const cryptoStrategies = new TestCryptoStrategies(undefined, undefined, optionalParameters.verifiedDelegateKeys)
     exchangeDataApi = new FakeExchangeDataApi()
-    baseExchangeData = new BaseExchangeDataManager(exchangeDataApi, dataOwnerApi, primitives, cryptoStrategies)
+    baseExchangeData = new BaseExchangeDataManager(exchangeDataApi, dataOwnerApi, primitives, allowFullExchangeDataLoad)
     encryptionKeysManager = await FakeEncryptionKeysManager.create(primitives, [selfKeypair])
     signatureKeysManager = new FakeSignatureKeysManager(primitives)
     exchangeData = await initialiseExchangeDataManagerForCurrentDataOwner(

@@ -34,7 +34,6 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
   constructor(
     private readonly primitives: CryptoPrimitives,
     private readonly dataOwnerApi: IccDataOwnerXApi,
-    private readonly exchangeKeysManager: ExchangeKeysManager,
     private readonly legacyDelMetadataDecryptor: LegacyDelegationSecurityMetadataDecryptor,
     private readonly secDelMetadataDecryptor: SecureDelegationsSecurityMetadataDecryptor,
     private readonly secureDelegationsManager: SecureDelegationsManager,

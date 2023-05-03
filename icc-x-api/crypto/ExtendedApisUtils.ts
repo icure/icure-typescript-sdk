@@ -1,7 +1,6 @@
 import { EncryptedEntity, EncryptedEntityStub } from '../../icc-api/model/models'
 import { EncryptedEntityWithType, EntityWithDelegationTypeName } from '../utils/EntityWithDelegationTypeName'
 import { SecureDelegation } from '../../icc-api/model/SecureDelegation'
-import AccessLevel = SecureDelegation.AccessLevelEnum
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import { EntityShareOrMetadataUpdateRequest } from '../../icc-api/model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityShareRequest } from '../../icc-api/model/requests/EntityShareRequest'

@@ -27,7 +27,6 @@ describe('Calendar', () => {
       publicKey: spkiToJwk(hex2ua(env!.dataOwnerDetails[patUsername].publicKey)),
       privateKey: pkcs8ToJwk(hex2ua(env!.dataOwnerDetails[patUsername].privateKey)),
     }
-    await api.cryptoApi.cacheKeyPair(jwk)
     await api.cryptoApi.keyStorage.storeKeyPair(`${currentUser.healthcarePartyId!}.${env!.dataOwnerDetails[patUsername].publicKey.slice(-32)}`, jwk)
 
     const calendarItem = await api.calendarItemApi.createCalendarItemWithHcParty(
