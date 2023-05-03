@@ -51,13 +51,13 @@ describe('Secure delegations manager', async function () {
     dataOwnerApi = new FakeDataOwnerApi(
       {
         id: selfId,
-        type: explicitSelf ? DataOwnerTypeEnum.Hcp : DataOwnerTypeEnum.Patient,
+        type: explicitSelf ? 'hcp' : 'patient',
         publicKey: ua2hex(await primitives.RSA.exportKey(selfKeypair.publicKey, 'spki')),
       },
       [
         {
           id: delegateId,
-          type: explicitDelegate ? DataOwnerTypeEnum.Hcp : DataOwnerTypeEnum.Patient,
+          type: explicitDelegate ? 'hcp' : 'patient',
           publicKey: ua2hex(await primitives.RSA.exportKey(delegateKeypair.publicKey, 'spki')),
         },
       ]
