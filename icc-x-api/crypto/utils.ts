@@ -84,7 +84,7 @@ export async function ensureDelegationForSelf(
   cryptoPrimitives: CryptoPrimitives
 ): Promise<DataOwnerWithType> {
   const self = await dataOwnerApi.getCurrentDataOwner()
-  if (self.type === DataOwnerTypeEnum.Patient) {
+  if (self.type === 'patient') {
     const patient = new Patient(self.dataOwner)
     const patientWithType: EncryptedEntityWithType = { entity: patient, type: 'Patient' }
     const availableSecretIds = await xapi.secretIdsOf(patientWithType, undefined)
@@ -94,9 +94,7 @@ export async function ensureDelegationForSelf(
       if (xapi.hasEmptyEncryptionMetadata(patient)) {
         // This should not really happen, usually some user will have already initialised the patient and its encryption metadata.
         const updatedPatient = await xapi.entityWithInitialisedEncryptedMetadata(patient, 'Patient', undefined, undefined, true, true, {})
-        return await dataOwnerApi.updateDataOwner(
-          IccDataOwnerXApi.instantiateDataOwnerWithType(updatedPatient.updatedEntity, DataOwnerTypeEnum.Patient)
-        )
+        return await dataOwnerApi.updateDataOwner(IccDataOwnerXApi.instantiateDataOwnerWithType(updatedPatient.updatedEntity, 'patient'))
       } else {
         const updatedPatient = await xapi.simpleShareOrUpdateEncryptedEntityMetadata(
           { entity: patient, type: 'Patient' },
@@ -107,7 +105,7 @@ export async function ensureDelegationForSelf(
           RequestedPermissionEnum.FULL_WRITE,
           (x) => patientApi.bulkSharePatients(x)
         )
-        return { dataOwner: updatedPatient.updatedEntityOrThrow, type: DataOwnerTypeEnum.Patient }
+        return { dataOwner: updatedPatient.updatedEntityOrThrow, type: 'patient' }
       }
     }
   } else {

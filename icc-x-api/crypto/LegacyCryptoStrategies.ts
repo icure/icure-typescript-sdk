@@ -1,5 +1,5 @@
 import { CryptoStrategies } from './CryptoStrategies'
-import { DataOwner, DataOwnerTypeEnum, DataOwnerWithType } from '../icc-data-owner-x-api'
+import { DataOwner, DataOwnerWithType } from '../icc-data-owner-x-api'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { KeyPair } from './RSA'
 
@@ -30,6 +30,6 @@ export class LegacyCryptoStrategies implements CryptoStrategies {
   }
 
   dataOwnerRequiresAnonymousDelegation(dataOwner: DataOwnerWithType): boolean {
-    return dataOwner.type !== DataOwnerTypeEnum.Hcp
+    return dataOwner.type !== 'hcp'
   }
 }

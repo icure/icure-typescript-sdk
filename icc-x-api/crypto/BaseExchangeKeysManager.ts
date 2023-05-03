@@ -151,13 +151,11 @@ export class BaseExchangeKeysManager {
   }> {
     if (otherOwnerTypes.length === 0) throw new Error('otherOwnerTypes must not be empty!')
     const keysToOwner = await Promise.all([
-      otherOwnerTypes.find((x) => x === DataOwnerTypeEnum.Hcp)
-        ? this.hcpartyBaseApi.getAesExchangeKeysForDelegate(dataOwnerId).catch(() => {})
-        : Promise.resolve({}),
-      otherOwnerTypes.find((x) => x === DataOwnerTypeEnum.Patient)
+      otherOwnerTypes.find((x) => x === 'hcp') ? this.hcpartyBaseApi.getAesExchangeKeysForDelegate(dataOwnerId).catch(() => {}) : Promise.resolve({}),
+      otherOwnerTypes.find((x) => x === 'patient')
         ? this.patientBaseApi.getPatientAesExchangeKeysForDelegate(dataOwnerId).catch(() => {})
         : Promise.resolve({}),
-      otherOwnerTypes.find((x) => x === DataOwnerTypeEnum.Device)
+      otherOwnerTypes.find((x) => x === 'device')
         ? this.deviceBaseApi.getDeviceAesExchangeKeysForDelegate(dataOwnerId).catch(() => {})
         : Promise.resolve({}),
     ]).then(([a, b, c]) => ({ ...a, ...b, ...c } as { [delegatorId: string]: { [delegatorFp: string]: { [entryFp: string]: string } } }))

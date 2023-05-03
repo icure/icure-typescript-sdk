@@ -23,7 +23,7 @@ let delegateHcp: HealthcareParty | undefined = undefined
 async function makeKeyPair(cryptoApi: IccCryptoXApi, login: string) {
   const { publicKey, privateKey } = await cryptoApi.primitives.RSA.generateKeyPair()
   const publicKeyHex = ua2hex(await cryptoApi.primitives.RSA.exportKey(publicKey!, 'spki'))
-  privateKeys[login] = { [publicKeyHex]: ua2hex((await cryptoApi.primitives.zsRSA.exportKey(privateKey!, 'pkcs8')) as ArrayBuffer) }
+  privateKeys[login] = { [publicKeyHex]: ua2hex((await cryptoApi.primitives.RSA.exportKey(privateKey!, 'pkcs8')) as ArrayBuffer) }
   return publicKeyHex
 }
 

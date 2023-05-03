@@ -17,7 +17,6 @@ import { MaintenanceTaskAfterDateFilter } from '../../../icc-x-api/filters/Maint
 import { KeyPairUpdateRequest } from '../../../icc-x-api/maintenance/KeyPairUpdateRequest'
 import { EntityShareRequest } from '../../../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
-import { DataOwnerTypeEnum } from '../../../icc-x-api/icc-data-owner-x-api'
 import { EntityWithDelegationTypeName } from '../../../icc-x-api/utils/EntityWithDelegationTypeName'
 import { MaintenanceTask } from '../../../icc-api/model/MaintenanceTask'
 import * as _ from 'lodash'
@@ -88,10 +87,7 @@ describe('Anonymous delegations', () => {
   async function loseKeyAndGiveAccessBack(userThatLosesKey: UserInfo, apiToGiveAccessBack: Apis, userGivingAccessBack: UserInfo): Promise<Apis> {
     const newKeyPair = await primitives.RSA.generateKeyPair()
     const newApi = await TestApi(env.iCureUrl, userThatLosesKey.user.login!, userThatLosesKey.pw, webcrypto as any, newKeyPair)
-    await newApi.icureMaintenanceTaskApi.createMaintenanceTasksForNewKeypair(userThatLosesKey.user, newKeyPair, [
-      DataOwnerTypeEnum.Patient,
-      DataOwnerTypeEnum.Hcp,
-    ])
+    await newApi.icureMaintenanceTaskApi.createMaintenanceTasksForNewKeypair(userThatLosesKey.user, newKeyPair, ['patient', 'hcp'])
     await apiToGiveAccessBack.cryptoApi.forceReload()
     const searchIds = await dataOwnerIdsForSearch(apiToGiveAccessBack, userGivingAccessBack.dataOwnerId, 'MaintenanceTask')
     const keyPairUpdateRequests = await searchIds
