@@ -1,4 +1,4 @@
-import { Api, hex2ua, IccCryptoXApi, pkcs8ToJwk, retry, spkiToJwk, ua2hex } from '../../../icc-x-api'
+import { Api, IccCryptoXApi, ua2hex } from '../../../icc-x-api'
 import { v4 as uuid } from 'uuid'
 import { HealthcareParty, User } from '../../../icc-api/model/models'
 import { before, describe, it } from 'mocha'
@@ -21,9 +21,9 @@ let hcpUser: User | undefined = undefined
 let delegateHcp: HealthcareParty | undefined = undefined
 
 async function makeKeyPair(cryptoApi: IccCryptoXApi, login: string) {
-  const { publicKey, privateKey } = await cryptoApi.RSA.generateKeyPair()
-  const publicKeyHex = ua2hex(await cryptoApi.RSA.exportKey(publicKey!, 'spki'))
-  privateKeys[login] = { [publicKeyHex]: ua2hex((await cryptoApi.RSA.exportKey(privateKey!, 'pkcs8')) as ArrayBuffer) }
+  const { publicKey, privateKey } = await cryptoApi.primitives.RSA.generateKeyPair()
+  const publicKeyHex = ua2hex(await cryptoApi.primitives.RSA.exportKey(publicKey!, 'spki'))
+  privateKeys[login] = { [publicKeyHex]: ua2hex((await cryptoApi.primitives.zsRSA.exportKey(privateKey!, 'pkcs8')) as ArrayBuffer) }
   return publicKeyHex
 }
 

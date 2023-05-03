@@ -19,7 +19,7 @@ export class BaseExchangeDataManager {
     readonly api: IccExchangeDataApi,
     private readonly dataOwnerApi: IccDataOwnerXApi,
     private readonly primitives: CryptoPrimitives,
-    private readonly cryptoStrategies: CryptoStrategies
+    private readonly selfRequiresAnonymousDelegations: boolean
   ) {}
 
   /**
@@ -30,9 +30,8 @@ export class BaseExchangeDataManager {
    * data owner.
    */
   async getAllExchangeDataForCurrentDataOwnerIfAllowed(): Promise<ExchangeData[] | undefined> {
-    const currentDataOwner = await this.dataOwnerApi.getCurrentDataOwner()
-    if (!this.cryptoStrategies.dataOwnerRequiresAnonymousDelegation(currentDataOwner)) return undefined
-    const dataOwnerId = currentDataOwner.dataOwner.id!
+    if (!this.selfRequiresAnonymousDelegations) return undefined
+    const dataOwnerId = await this.dataOwnerApi.getCurrentDataOwnerId()
     let latestResult = await this.api.getExchangeDataByParticipant(dataOwnerId, undefined, 1000)
     const allRetrieved = latestResult.rows ?? []
     while (latestResult.nextKeyPair?.startKeyDocId) {

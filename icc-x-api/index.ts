@@ -187,15 +187,16 @@ export const Api = async function (
   )
   const userSignatureKeysManager = new UserSignatureKeysManager(icureStorage, dataOwnerApi, cryptoPrimitives)
   const newKey = await userEncryptionKeysManager.initialiseKeys()
+  const self = await dataOwnerApi.getCurrentDataOwner()
   await new TransferKeysManager(cryptoPrimitives, baseExchangeKeysManager, dataOwnerApi, userEncryptionKeysManager, icureStorage).updateTransferKeys(
-    await dataOwnerApi.getCurrentDataOwner()
+    self
   )
   // TODO customise cache size?
   const exchangeKeysManager = new ExchangeKeysManager(
     100,
     500,
-    60000,
     600000,
+    60000,
     cryptoStrategies,
     cryptoPrimitives,
     userEncryptionKeysManager,
@@ -204,7 +205,12 @@ export const Api = async function (
     icureStorage
   )
   const accessControlSecretUtils = new AccessControlSecretUtils(cryptoPrimitives)
-  const baseExchangeDataManager = new BaseExchangeDataManager(exchangeDataApi, dataOwnerApi, cryptoPrimitives, cryptoStrategies)
+  const baseExchangeDataManager = new BaseExchangeDataManager(
+    exchangeDataApi,
+    dataOwnerApi,
+    cryptoPrimitives,
+    cryptoStrategies.dataOwnerRequiresAnonymousDelegation(self)
+  )
   const exchangeDataManager = await initialiseExchangeDataManagerForCurrentDataOwner(
     baseExchangeDataManager,
     userEncryptionKeysManager,
@@ -218,7 +224,6 @@ export const Api = async function (
   const xApiUtils = new ExtendedApisUtilsImpl(
     cryptoPrimitives,
     dataOwnerApi,
-    exchangeKeysManager,
     new LegacyDelegationSecurityMetadataDecryptor(exchangeKeysManager, cryptoPrimitives),
     new SecureDelegationsSecurityMetadataDecryptor(exchangeDataManager, secureDelegationsEncryption),
     new SecureDelegationsManager(
