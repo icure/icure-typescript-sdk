@@ -4,6 +4,7 @@ import { JwtAuthService } from './JwtAuthService'
 import { NoAuthService } from './NoAuthService'
 import { BasicAuthService } from './BasicAuthService'
 import Header = XHR.Header
+import XHRError = XHR.XHRError
 
 export class EnsembleAuthService implements AuthService {
   private currentState: string | null
@@ -32,9 +33,13 @@ export class EnsembleAuthService implements AuthService {
       // And delegate the responsibility of handling the error to the next call
       return !!this.stateMap[this.currentState].state
         ? this.stateMap[this.currentState].state!.getAuthHeaders().catch((e) => {
+            if (e instanceof XHRError && e.statusCode === 417) {
+              throw e
+            }
             // If I get an error, it is also responsibility of the next call, but I give a warning
             console.warn(e.message)
             this.error = e
+
             return []
           })
         : Promise.resolve([])
