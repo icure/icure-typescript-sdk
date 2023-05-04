@@ -1,13 +1,14 @@
 import 'isomorphic-fetch'
 import { before } from 'mocha'
 import { getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStorage, TestVars } from '../../utils/test_utils'
-import { Api, IccUserXApi } from '../../../icc-x-api'
+import { TestApi } from '../../utils/TestApi'
+import { IccUserXApi } from '../../../icc-x-api'
 import { webcrypto } from 'crypto'
 import { expect } from 'chai'
 import { XHR } from '../../../icc-api/api/XHR'
 import XHRError = XHR.XHRError
 import { IccAuthApi } from '../../../icc-api'
-import { BasicAuthenticationProvider, JwtAuthenticationProvider, NoAuthenticationProvider } from '../../../icc-x-api/auth/AuthenticationProvider'
+import { BasicAuthenticationProvider, JwtAuthenticationProvider } from '../../../icc-x-api/auth/AuthenticationProvider'
 
 setLocalStorage(fetch)
 let env: TestVars
@@ -24,14 +25,11 @@ describe('Jwt authentication concurrency test', () => {
   })
 
   it('Can login simultaneously with the same user', async () => {
-    const api = await Api(
+    const api = await TestApi(
       env.iCureUrl,
       env.dataOwnerDetails[hcp1Username].user,
       env.dataOwnerDetails[hcp1Username].password,
-      webcrypto as unknown as Crypto,
-      fetch,
-      false,
-      false
+      webcrypto as unknown as Crypto
     )
     const users = await Promise.all(
       [...Array<number>(5)].map(async () => {
@@ -44,14 +42,11 @@ describe('Jwt authentication concurrency test', () => {
   })
 
   it('After logging in, can make requests asynchronously', async () => {
-    const api = await Api(
+    const api = await TestApi(
       env.iCureUrl,
       env.dataOwnerDetails[hcp1Username].user,
       env.dataOwnerDetails[hcp1Username].password,
-      webcrypto as unknown as Crypto,
-      fetch,
-      false,
-      false
+      webcrypto as unknown as Crypto
     )
 
     await api.userApi.getCurrentUser()
@@ -66,15 +61,15 @@ describe('Jwt authentication concurrency test', () => {
     })
   })
 
-  it('It can refresh the token asynchronously', async () => {
-    const api = await Api(
+  it('It can refresh the token asynchronously', async function () {
+    if (!process.env.TEST_ENVIRONMENT || process.env.TEST_ENVIRONMENT === 'acceptance') {
+      this.skip()
+    }
+    const api = await TestApi(
       env.iCureUrl,
       env.dataOwnerDetails[hcp1Username].user,
       env.dataOwnerDetails[hcp1Username].password,
-      webcrypto as unknown as Crypto,
-      fetch,
-      false,
-      false
+      webcrypto as unknown as Crypto
     )
     await api.userApi.getCurrentUser()
 

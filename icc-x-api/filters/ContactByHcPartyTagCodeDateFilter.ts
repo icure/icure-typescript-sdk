@@ -9,8 +9,6 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
-import { Filter } from './filters'
-import { Contact } from '../../icc-api/model/Contact'
 import { AbstractFilterContact } from '../../icc-api/model/AbstractFilterContact'
 
 export class ContactByHcPartyTagCodeDateFilter extends AbstractFilterContact {

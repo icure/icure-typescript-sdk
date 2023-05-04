@@ -35,12 +35,12 @@ export class IccDoctemplateXApi extends IccDoctemplateApi {
     return new Promise<DocumentTemplate>((resolve, reject) => {
       const documentTemplate: DocumentTemplate = extend(
         {
-          id: this.crypto.randomUuid(),
+          id: this.crypto.primitives.randomUuid(),
           _type: 'org.taktik.icure.entities.DocumentTemplate',
           owner: user.id,
           created: new Date().getTime(),
           modified: new Date().getTime(),
-          guid: this.crypto.randomUuid(),
+          guid: this.crypto.primitives.randomUuid(),
           group: null,
           specialty: null,
           attachment: string2ua(template),
@@ -49,7 +49,7 @@ export class IccDoctemplateXApi extends IccDoctemplateApi {
         c || {}
       )
       if (documentTemplate.group && documentTemplate.group.guid == null) {
-        documentTemplate.group.guid = this.crypto.randomUuid()
+        documentTemplate.group.guid = this.crypto.primitives.randomUuid()
       }
 
       //sauver l doctemplate vide

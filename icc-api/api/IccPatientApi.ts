@@ -390,7 +390,7 @@ export class IccPatientApi {
    */
   getPatientAesExchangeKeysForDelegate(
     patientId: string
-  ): Promise<{ [delegateId: string]: { [delegatorPubKeyFingerprint: string]: { [delegatePubKeyFingerprint: string]: string } } }> {
+  ): Promise<{ [delegatorId: string]: { [delegatorPubKeyFingerprint: string]: { [delegatePubKeyFingerprint: string]: string } } }> {
     let _body = null
 
     const _url = this.host + `/patient/${encodeURIComponent(String(patientId))}/aesExchangeKeys` + '?ts=' + new Date().getTime()

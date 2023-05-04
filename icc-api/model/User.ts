@@ -93,7 +93,7 @@ export class User {
   /**
    * Delegations that are automatically generated client side when a new database object is created by this user
    */
-  autoDelegations?: { [key: string]: Array<string> }
+  autoDelegations?: { [key in User.AutoDelegationTagEnum]?: Array<string> }
   /**
    * the timestamp (unix epoch in ms) of creation of the user, will be filled automatically if missing. Not enforced by the application server.
    */
@@ -128,5 +128,46 @@ export namespace User {
     ACTIVE: 'ACTIVE' as StatusEnum,
     DISABLED: 'DISABLED' as StatusEnum,
     REGISTERING: 'REGISTERING' as StatusEnum,
+  }
+  export type AutoDelegationTagEnum =
+    | 'all'
+    | 'administrativeData'
+    | 'generalInformation'
+    | 'financialInformation'
+    | 'medicalInformation'
+    | 'sensitiveInformation'
+    | 'confidentialInformation'
+    | 'cdItemRisk'
+    | 'cdItemFamilyRisk'
+    | 'cdItemHealthcareelement'
+    | 'cdItemHealthcareapproach'
+    | 'cdItemAllergy'
+    | 'cdItemDiagnosis'
+    | 'cdItemLab'
+    | 'cdItemResult'
+    | 'cdItemParameter'
+    | 'cdItemMedication'
+    | 'cdItemTreatment'
+    | 'cdItemVaccine'
+  export const AutoDelegationTagEnum = {
+    all: 'all' as AutoDelegationTagEnum,
+    administrativeData: 'administrativeData' as AutoDelegationTagEnum,
+    generalInformation: 'generalInformation' as AutoDelegationTagEnum,
+    financialInformation: 'financialInformation' as AutoDelegationTagEnum,
+    medicalInformation: 'medicalInformation' as AutoDelegationTagEnum,
+    sensitiveInformation: 'sensitiveInformation' as AutoDelegationTagEnum,
+    confidentialInformation: 'confidentialInformation' as AutoDelegationTagEnum,
+    cdItemRisk: 'cdItemRisk' as AutoDelegationTagEnum,
+    cdItemFamilyRisk: 'cdItemFamilyRisk' as AutoDelegationTagEnum,
+    cdItemHealthcareelement: 'cdItemHealthcareelement' as AutoDelegationTagEnum,
+    cdItemHealthcareapproach: 'cdItemHealthcareapproach' as AutoDelegationTagEnum,
+    cdItemAllergy: 'cdItemAllergy' as AutoDelegationTagEnum,
+    cdItemDiagnosis: 'cdItemDiagnosis' as AutoDelegationTagEnum,
+    cdItemLab: 'cdItemLab' as AutoDelegationTagEnum,
+    cdItemResult: 'cdItemResult' as AutoDelegationTagEnum,
+    cdItemParameter: 'cdItemParameter' as AutoDelegationTagEnum,
+    cdItemMedication: 'cdItemMedication' as AutoDelegationTagEnum,
+    cdItemTreatment: 'cdItemTreatment' as AutoDelegationTagEnum,
+    cdItemVaccine: 'cdItemVaccine' as AutoDelegationTagEnum,
   }
 }

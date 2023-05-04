@@ -9,8 +9,6 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
-import { Filter } from './filters'
-import { HealthElement } from '../../icc-api/model/HealthElement'
 import { AbstractFilterHealthElement } from '../../icc-api/model/AbstractFilterHealthElement'
 
 export class HealthElementByHcPartySecretForeignKeysFilter extends AbstractFilterHealthElement {

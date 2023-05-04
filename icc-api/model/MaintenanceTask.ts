@@ -58,7 +58,7 @@ export class MaintenanceTask {
    * hard delete (unix epoch in ms) timestamp of the object. Filled automatically when deletePatient is called.
    */
   deletionDate?: number
-  taskType?: string
+  taskType?: MaintenanceTask.TaskTypeEnum
   properties?: Array<PropertyStub>
   status?: MaintenanceTask.StatusEnum
   /**
@@ -84,10 +84,16 @@ export class MaintenanceTask {
 }
 export namespace MaintenanceTask {
   export type StatusEnum = 'pending' | 'ongoing' | 'cancelled' | 'completed'
-  export const StatusEnum = {
-    Pending: 'pending' as StatusEnum,
-    Ongoing: 'ongoing' as StatusEnum,
-    Cancelled: 'cancelled' as StatusEnum,
-    Completed: 'completed' as StatusEnum,
+  export const StatusEnum: { [key: string]: MaintenanceTask.StatusEnum } = {
+    Pending: 'pending',
+    Ongoing: 'ongoing',
+    Cancelled: 'cancelled',
+    Completed: 'completed',
+  }
+  export type TaskTypeEnum = 'KEY_PAIR_UPDATE' | 'NEW_USER_OWN_DATA_ACCESS' | 'OTHER'
+  export const TaskTypeEnum: { [key: string]: MaintenanceTask.TaskTypeEnum } = {
+    KeyPairUpdate: 'KEY_PAIR_UPDATE',
+    NewUserOwnDataAccess: 'NEW_USER_OWN_DATA_ACCESS',
+    Other: 'OTHER',
   }
 }

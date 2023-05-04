@@ -1,6 +1,6 @@
+import { notConcurrent } from '../../../icc-x-api'
 import { expect } from 'chai'
 import 'mocha'
-import {notConcurrent} from "../../../icc-x-api"
 
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms))
 

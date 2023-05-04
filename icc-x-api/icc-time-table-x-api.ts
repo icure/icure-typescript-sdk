@@ -6,6 +6,7 @@ import { User } from '../icc-api/model/User'
 import { TimeTable } from '../icc-api/model/TimeTable'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
+import * as models from '../icc-api/model/models'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 
 export class IccTimeTableXApi extends IccTimeTableApi {
@@ -30,14 +31,23 @@ export class IccTimeTableXApi extends IccTimeTableApi {
     this.dataOwnerApi = dataOwnerApi
   }
 
-  newInstance(user: User, tt: TimeTable) {
+  /**
+   * Creates a new instance of timetable with initialised encryption metadata (not in the database).
+   * @param user the current user.
+   * @param tt initialised data for the timetable. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
+   * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
+   * @param delegates initial delegates which will have access to the timetable other than the current data owner.
+   * @param delegationTags tags for the initialised delegations.
+   * @return a new instance of timetable.
+   */
+  async newInstance(user: User, tt: TimeTable, delegates: string[] = [], delegationTags?: string[]) {
     const timeTable = _.extend(
       {
-        id: this.crypto.randomUuid(),
+        id: this.crypto.primitives.randomUuid(),
         _type: 'org.taktik.icure.entities.TimeTable',
         created: new Date().getTime(),
         modified: new Date().getTime(),
-        responsible: this.dataOwnerApi.getDataOwnerOf(user),
+        responsible: this.dataOwnerApi.getDataOwnerIdOf(user),
         author: user.id,
         codes: [],
         tags: [],
@@ -45,25 +55,11 @@ export class IccTimeTableXApi extends IccTimeTableApi {
       tt || {}
     )
 
-    return this.crypto.initObjectDelegations(timeTable, null, this.dataOwnerApi.getDataOwnerOf(user), null).then((initData) => {
-      _.extend(timeTable, { delegations: initData.delegations })
-
-      let promise = Promise.resolve(timeTable)
-      ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
-        (delegateId) =>
-          (promise = promise
-            .then((patient) =>
-              this.crypto.extendedDelegationsAndCryptedForeignKeys(
-                patient,
-                null,
-                this.dataOwnerApi.getDataOwnerOf(user),
-                delegateId,
-                initData.secretId
-              )
-            )
-            .then((extraData) => _.extend(timeTable, { delegations: extraData.delegations })))
-      )
-      return promise
-    })
+    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.administrativeData ?? [])]
+    return new models.TimeTable(
+      await this.crypto.entities
+        .entityWithInitialisedEncryptedMetadata(timeTable, undefined, undefined, true, extraDelegations, delegationTags)
+        .then((x) => x.updatedEntity)
+    )
   }
 }

@@ -2,13 +2,11 @@ import { before } from 'mocha'
 
 import 'isomorphic-fetch'
 
-import { Api } from '../../icc-x-api'
-import { crypto } from '../../node-compat'
 import { Patient } from '../../icc-api/model/Patient'
 import { assert } from 'chai'
 import { randomUUID } from 'crypto'
 import { getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStorage, TestUtils, TestVars } from '../utils/test_utils'
-import initKey = TestUtils.initKey
+import initApi = TestUtils.initApi
 
 setLocalStorage(fetch)
 let env: TestVars
@@ -27,10 +25,9 @@ describe('icc-x-patient-api Tests', () => {
       dataOwnerApi: dataOwnerApiForHcp,
       patientApi: patientApiForHcp,
       cryptoApi: cryptoApiForHcp,
-    } = await Api(env.iCureUrl, env.dataOwnerDetails[hcp1Username].user, env.dataOwnerDetails[hcp1Username].password, crypto)
+    } = await initApi(env, hcp1Username)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
-    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, env.dataOwnerDetails[hcp1Username].privateKey)
 
     const patientToCreate = await patientApiForHcp.newInstance(
       hcpUser,
@@ -52,7 +49,7 @@ describe('icc-x-patient-api Tests', () => {
     assert(readPatient.note == patientToCreate.note)
     assert(readPatient.firstName == patientToCreate.firstName)
     assert(readPatient.lastName == patientToCreate.lastName)
-    assert(readPatient.delegations[hcpUser.healthcarePartyId!].length > 0)
-    assert(readPatient.encryptionKeys[hcpUser.healthcarePartyId!].length > 0)
+    assert(readPatient.delegations![hcpUser.healthcarePartyId!].length > 0)
+    assert(readPatient.encryptionKeys![hcpUser.healthcarePartyId!].length > 0)
   })
 })

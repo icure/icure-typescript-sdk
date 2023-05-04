@@ -2,10 +2,8 @@ import { IccMaintenanceTaskApi } from '../icc-api/api/IccMaintenanceTaskApi'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 import * as models from '../icc-api/model/models'
 import * as _ from 'lodash'
-import { a2b, b2a, string2ua } from '../icc-api/model/ModelHelper'
-import { hex2ua, ua2utf8, utf8_2ua, crypt } from './utils'
 import { IccHcpartyXApi } from './icc-hcparty-x-api'
-import { DocIdentifier } from '../icc-api/model/models'
+import { DocIdentifier, MaintenanceTask } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 
@@ -37,11 +35,20 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
     this.encryptedKeys = encryptedKeys
   }
 
-  newInstance(user: models.User, m: any, delegates: string[] = []) {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
+  /**
+   * Creates a new instance of maintenance task with initialised encryption metadata (not in the database).
+   * @param user the current user.
+   * @param m initialised data for the maintenance task. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
+   * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
+   * @param delegates initial delegates which will have access to the maintenance task other than the current data owner.
+   * @param delegationTags tags for the initialised delegations.
+   * @return a new instance of maintenance task.
+   */
+  async newInstance(user: models.User, m: any, delegates: string[] = [], delegationTags?: string[]) {
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     const maintenanceTask = _.assign(
       {
-        id: this.crypto.randomUuid(),
+        id: this.crypto.primitives.randomUuid(),
         _type: 'org.taktik.icure.entities.MaintenanceTask',
         created: new Date().getTime(),
         modified: new Date().getTime(),
@@ -51,62 +58,19 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
       m || {}
     )
 
-    return this.initDelegations(user, maintenanceTask, delegates).then((task) => this.initEncryptionKeys(user, task, delegates))
-  }
-
-  initDelegations(user: models.User, maintenanceTask: models.MaintenanceTask, delegates: string[] = []): Promise<models.MaintenanceTask> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-    return this.crypto.initObjectDelegations(maintenanceTask, null, dataOwnerId!, null).then((initData) => {
-      _.extend(maintenanceTask, { delegations: initData.delegations })
-
-      let promise = Promise.resolve(maintenanceTask)
-      _.uniq(delegates.concat(user.autoDelegations ? user.autoDelegations.all || [] : [])).forEach(
-        (delegateId) =>
-          (promise = promise
-            .then((patient) => this.crypto.extendedDelegationsAndCryptedForeignKeys(patient, null, dataOwnerId!, delegateId, initData.secretId))
-            .then((extraData) => _.extend(maintenanceTask, { delegations: extraData.delegations }))
-            .catch((e) => {
-              console.log(e)
-              return maintenanceTask
-            }))
-      )
-      return promise
-    })
-  }
-
-  initEncryptionKeys(user: models.User, maintenanceTask: models.MaintenanceTask, delegates: string[] = []): Promise<models.MaintenanceTask> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-    return this.crypto.initEncryptionKeys(maintenanceTask, dataOwnerId!).then((eks) => {
-      let promise = Promise.resolve(
-        _.extend(maintenanceTask, {
-          encryptionKeys: eks.encryptionKeys,
-        })
-      )
-      _.uniq(delegates.concat(user.autoDelegations ? user.autoDelegations.all || [] : [])).forEach(
-        (delegateId) =>
-          (promise = promise.then((patient) =>
-            this.crypto
-              .appendEncryptionKeys(patient, dataOwnerId!, delegateId, eks.secretId)
-              .then((extraEks) => {
-                return _.extend(extraEks.modifiedObject, {
-                  encryptionKeys: extraEks.encryptionKeys,
-                })
-              })
-              .catch((e) => {
-                console.log(e.message)
-                return patient
-              })
-          ))
-      )
-      return promise
-    })
+    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? [])]
+    return new models.MaintenanceTask(
+      await this.crypto.entities
+        .entityWithInitialisedEncryptedMetadata(maintenanceTask, undefined, undefined, true, extraDelegations, delegationTags)
+        .then((x) => x.updatedEntity)
+    )
   }
 
   createMaintenanceTask(body?: models.MaintenanceTask): never {
     throw new Error('Cannot call a method that returns maintenance tasks without providing a user for de/encryption')
   }
 
-  createMaintenanceTaskWithUser(user: models.User, body?: models.MaintenanceTask): Promise<models.MaintenanceTask | any> {
+  createMaintenanceTaskWithUser(user: models.User, body?: models.MaintenanceTask): Promise<models.MaintenanceTask | null> {
     return body
       ? this.encrypt(user, [_.cloneDeep(body)])
           .then((tasks) => super.createMaintenanceTask(tasks[0]))
@@ -124,12 +88,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
   }
 
   deleteMaintenanceTaskWithUser(user: models.User, maintenanceTaskId: string): Promise<Array<DocIdentifier>> | never {
-    return super.getMaintenanceTask(maintenanceTaskId).then((mt) => {
-      return this.dataOwnerApi.hasAccessTo(user, mt.delegations ?? {}).then((hasAccess) => {
-        if (hasAccess) return super.deleteMaintenanceTask(maintenanceTaskId)
-        else throw new Error('User does not have a delegation for this maintenanceTask')
-      })
-    })
+    return super.deleteMaintenanceTask(maintenanceTaskId)
   }
 
   filterMaintenanceTasksByWithUser(
@@ -137,7 +96,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
     startDocumentId?: string,
     limit?: number,
     body?: models.FilterChainMaintenanceTask
-  ): Promise<models.PaginatedListMaintenanceTask | any> {
+  ): Promise<models.PaginatedListMaintenanceTask> {
     return super
       .filterMaintenanceTasksBy(startDocumentId, limit, body)
       .then((pl) => this.decrypt(user, pl.rows!).then((dr) => Object.assign(pl, { rows: dr })))
@@ -168,75 +127,21 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
   }
 
   encrypt(user: models.User, maintenanceTasks: Array<models.MaintenanceTask>): Promise<Array<models.MaintenanceTask>> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
 
     return Promise.all(
       maintenanceTasks.map((m) =>
-        (m.encryptionKeys && Object.keys(m.encryptionKeys).some((k) => !!m.encryptionKeys![k].length)
-          ? Promise.resolve(m)
-          : this.initEncryptionKeys(user, m)
-        )
-          .then((m: models.MaintenanceTask) => this.crypto.extractKeysFromDelegationsForHcpHierarchy(dataOwnerId!, m.id!, m.encryptionKeys!))
-          .then((sfks: { extractedKeys: Array<string>; hcpartyId: string }) =>
-            this.crypto.AES.importKey('raw', hex2ua(sfks.extractedKeys[0].replace(/-/g, '')))
-          )
-          .then((key: CryptoKey) =>
-            crypt(
-              m,
-              (obj: { [key: string]: string }) =>
-                this.crypto.AES.encrypt(
-                  key,
-                  utf8_2ua(
-                    JSON.stringify(obj, (k, v) => {
-                      return v instanceof ArrayBuffer || v instanceof Uint8Array
-                        ? b2a(new Uint8Array(v).reduce((d, b) => d + String.fromCharCode(b), ''))
-                        : v
-                    })
-                  )
-                ),
-              this.encryptedKeys
-            )
-          )
+        this.crypto.entities.tryEncryptEntity(m, dataOwnerId, this.encryptedKeys, true, true, (x) => new models.MaintenanceTask(x))
       )
     )
   }
 
   decrypt(user: models.User, maintenanceTasks: Array<models.MaintenanceTask>): Promise<Array<models.MaintenanceTask>> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
 
     return Promise.all(
-      maintenanceTasks.map((mT) =>
-        this.crypto.extractKeysFromDelegationsForHcpHierarchy(dataOwnerId, mT.id!, mT.encryptionKeys ?? {}).then(({ extractedKeys: sfks }) => {
-          if (!sfks || !sfks.length) {
-            console.log('Cannot decrypt maintenanceTask', mT.id)
-            return Promise.resolve(mT)
-          }
-          if (mT.encryptedSelf) {
-            return this.crypto.AES.importKey('raw', hex2ua(sfks[0].replace(/-/g, ''))).then(
-              (key) =>
-                new Promise((resolve: (value: any) => any) =>
-                  this.crypto.AES.decrypt(key, string2ua(a2b(mT.encryptedSelf!))).then(
-                    (dec) => {
-                      let jsonContent
-                      try {
-                        jsonContent = dec && ua2utf8(dec)
-                        jsonContent && _.assign(mT, JSON.parse(jsonContent))
-                      } catch (e) {
-                        console.log('Cannot parse mTask', mT.id, jsonContent || '<- Invalid encoding')
-                      }
-                      resolve(mT)
-                    },
-                    () => {
-                      console.log('Cannot decrypt mTask', mT.id)
-                      resolve(mT)
-                    }
-                  )
-                )
-            )
-          } else {
-            return Promise.resolve(mT)
-          }
-        })
+      maintenanceTasks.map(async (mT) =>
+        this.crypto.entities.decryptEntity(mT, dataOwnerId, (x) => new MaintenanceTask(x)).then(({ entity }) => entity)
       )
     )
   }

@@ -1,4 +1,4 @@
-import { Api, b64Url2ua } from '../../../icc-x-api'
+import { b64Url2ua } from '../../../icc-x-api'
 import { expect } from 'chai'
 
 import 'mocha'
@@ -7,6 +7,7 @@ import { crypto } from '../../../node-compat'
 import { RSAUtils } from '../../../icc-x-api/crypto/RSA'
 import { parseAsn1 } from '../../../icc-x-api/utils/asn1-parser'
 import { getEnvironmentInitializer, getEnvVariables, hcp1Username, TestVars } from '../../utils/test_utils'
+import { TestApi } from '../../utils/TestApi'
 
 let env: TestVars | undefined
 
@@ -42,7 +43,7 @@ describe('ArrayBuffer methods', () => {
 
   describe('convertKeysFormat', () => {
     it('should manage jwk conversions for private keys gracefully', async () => {
-      const { healthcarePartyApi } = await Api(
+      const { healthcarePartyApi } = await TestApi(
         env!.iCureUrl,
         env!.dataOwnerDetails[hcp1Username].user,
         env!.dataOwnerDetails[hcp1Username].password,
@@ -57,7 +58,7 @@ describe('ArrayBuffer methods', () => {
 
       expect(jwk1.n).to.equal(jwk2.n)
 
-      const pubKey = await healthcarePartyApi.getCurrentHealthcareParty().then((hcp) => hcp.publicKey)
+      const pubKey = await healthcarePartyApi.getCurrentHealthcareParty().then((hcp) => hcp.publicKey!)
       const jwk3 = spkiToJwk(hex2ua(pubKey))
       const spki = jwk2spki(jwk3)
       const jwk4 = spkiToJwk(hex2ua(spki))
@@ -66,13 +67,13 @@ describe('ArrayBuffer methods', () => {
     })
 
     it('should convert spki to jwk in a coherent way', async () => {
-      const { healthcarePartyApi } = await Api(
+      const { healthcarePartyApi } = await TestApi(
         env!.iCureUrl,
         env!.dataOwnerDetails[hcp1Username].user,
         env!.dataOwnerDetails[hcp1Username].password,
         crypto
       )
-      const pubKey = await healthcarePartyApi.getCurrentHealthcareParty().then((hcp) => hcp.publicKey)
+      const pubKey = await healthcarePartyApi.getCurrentHealthcareParty().then((hcp) => hcp.publicKey!)
       const jwk1 = spkiToJwk(hex2ua(pubKey))
 
       const rsaKey1 = await rsa.importKey('jwk', jwk1, ['encrypt'])

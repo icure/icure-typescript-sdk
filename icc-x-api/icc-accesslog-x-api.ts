@@ -1,11 +1,8 @@
 import { IccAccesslogApi } from '../icc-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
-
 import * as models from '../icc-api/model/models'
 import { AccessLog, PaginatedListAccessLog } from '../icc-api/model/models'
-
 import * as _ from 'lodash'
-import { crypt, decrypt, hex2ua, ua2utf8, utf8_2ua } from './utils'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 
@@ -35,12 +32,24 @@ export class IccAccesslogXApi extends IccAccesslogApi {
     this.dataOwnerApi = dataOwnerApi
   }
 
-  newInstance(user: models.User, patient: models.Patient, h: any) {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
+  /**
+   * Creates a new instance of access log with initialised encryption metadata (not in the database).
+   * @param user the current user.
+   * @param patient the patient this access log refers to.
+   * @param h initialised data for the access log. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
+   * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
+   * @param delegates initial delegates which will have access to the access log other than the current data owner.
+   * @param preferredSfk secret id of the patient to use as the secret foreign key to use for the access log. The default value will be a secret id of
+   * patient known by the topmost parent in the current data owner hierarchy.
+   * @param delegationTags tags for the initialised delegations.
+   * @return a new instance of access log.
+   */
+  async newInstance(user: models.User, patient: models.Patient, h: any, delegates: string[] = [], preferredSfk?: string, delegationTags?: string[]) {
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
 
-    const accessslog = _.assign(
+    const accessLog = _.assign(
       {
-        id: this.crypto.randomUuid(),
+        id: this.crypto.primitives.randomUuid(),
         _type: 'org.taktik.icure.entities.AccessLog',
         created: new Date().getTime(),
         modified: new Date().getTime(),
@@ -56,29 +65,16 @@ export class IccAccesslogXApi extends IccAccesslogApi {
       h || {}
     )
 
-    return this.crypto.extractDelegationsSFKs(patient, dataOwnerId).then(async (secretForeignKeys) => {
-      const dels = await this.crypto.initObjectDelegations(accessslog, patient, dataOwnerId!, secretForeignKeys.extractedKeys[0])
-      const eks = await this.crypto.initEncryptionKeys(accessslog, dataOwnerId!)
-
-      _.extend(accessslog, {
-        delegations: dels.delegations,
-        cryptedForeignKeys: dels.cryptedForeignKeys,
-        secretForeignKeys: dels.secretForeignKeys,
-        encryptionKeys: eks.encryptionKeys,
-      })
-
-      let promise = Promise.resolve(accessslog)
-      ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
-        (delegateId) =>
-          (promise = promise.then(() =>
-            this.crypto.addDelegationsAndEncryptionKeys(patient, accessslog, dataOwnerId!, delegateId, dels.secretId, eks.secretId).catch((e) => {
-              console.log(e)
-              return accessslog
-            })
-          ))
-      )
-      return promise
-    })
+    const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
+    if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
+    const sfk = preferredSfk ?? (await this.crypto.confidential.getAnySecretIdSharedWithParents(patient))
+    if (!sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id}`)
+    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.administrativeData ?? [])]
+    return new AccessLog(
+      await this.crypto.entities
+        .entityWithInitialisedEncryptedMetadata(accessLog, patient.id, sfk, true, extraDelegations, delegationTags)
+        .then((x) => x.updatedEntity)
+    )
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -100,20 +96,19 @@ export class IccAccesslogXApi extends IccAccesslogApi {
    * @param usingPost
    */
 
-  findBy(hcpartyId: string, patient: models.Patient, usingPost: boolean = false) {
-    return this.crypto
-      .extractDelegationsSFKs(patient, hcpartyId)
-      .then((secretForeignKeys) =>
-        secretForeignKeys && secretForeignKeys.extractedKeys && secretForeignKeys.extractedKeys.length > 0
-          ? (usingPost ?
-            this.findByHCPartyPatientSecretFKeysArray(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys)) :
-            this.findByHCPartyPatientSecretFKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(',')))
-          : Promise.resolve([])
-      )
+  async findBy(hcpartyId: string, patient: models.Patient, usingPost: boolean = false): Promise<models.AccessLog[]> {
+    const extractedKeys = await this.crypto.entities.secretIdsOf(patient, hcpartyId)
+    const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
+    return extractedKeys && extractedKeys.length > 0
+      ? usingPost
+        ? this.findByHCPartyPatientSecretFKeysArray(topmostParentId!, _.uniq(extractedKeys))
+        : this.findByHCPartyPatientSecretFKeys(topmostParentId!, _.uniq(extractedKeys).join(','))
+      : Promise.resolve([])
   }
 
-  findByHCPartyPatientSecretFKeys(hcPartyId: string, secretFKeys: string): Promise<Array<AccessLog> | any> {
-    return super.findAccessLogsByHCPartyPatientForeignKeys(hcPartyId, secretFKeys).then((accesslogs) => this.decrypt(hcPartyId, accesslogs))
+  async findByHCPartyPatientSecretFKeys(hcPartyId: string, secretFKeys: string): Promise<AccessLog[]> {
+    const accessLogs = await super.findAccessLogsByHCPartyPatientForeignKeys(hcPartyId, secretFKeys)
+    return await this.decrypt(hcPartyId, accessLogs)
   }
 
   findByHCPartyPatientSecretFKeysArray(hcPartyId: string, secretFKeys: string[]): Promise<Array<AccessLog> | any> {
@@ -121,84 +116,15 @@ export class IccAccesslogXApi extends IccAccesslogApi {
   }
 
   decrypt(hcpId: string, accessLogs: Array<models.AccessLog>): Promise<Array<models.AccessLog>> {
-    //First check that we have no dangling delegation
-
     return Promise.all(
-      accessLogs.map((accessLog) => {
-        return accessLog.encryptedSelf
-          ? this.crypto
-              .extractKeysFromDelegationsForHcpHierarchy(
-                hcpId!,
-                accessLog.id!,
-                _.size(accessLog.encryptionKeys) ? accessLog.encryptionKeys! : accessLog.delegations!
-              )
-              .then(({ extractedKeys: sfks }) => {
-                if (!sfks || !sfks.length) {
-                  //console.log("Cannot decrypt contact", ctc.id)
-                  return Promise.resolve(accessLog)
-                }
-                return this.crypto.AES.importKey('raw', hex2ua(sfks[0].replace(/-/g, ''))).then((key) =>
-                  decrypt(accessLog, (ec) =>
-                    this.crypto.AES.decrypt(key, ec).then((dec) => {
-                      const jsonContent = dec && ua2utf8(dec)
-                      try {
-                        return JSON.parse(jsonContent)
-                      } catch (e) {
-                        console.log('Cannot parse access log', accessLog.id, jsonContent || 'Invalid content')
-                        return {}
-                      }
-                    })
-                  )
-                )
-              })
-          : Promise.resolve(accessLog)
-      })
+      accessLogs.map((x) => this.crypto.entities.decryptEntity(x, hcpId, (json) => new AccessLog(json)).then(({ entity }) => entity))
     )
   }
 
-  initEncryptionKeys(user: models.User, accessLog: models.AccessLog): Promise<models.AccessLog> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-
-    return this.crypto.initEncryptionKeys(accessLog, dataOwnerId!).then((eks) => {
-      let promise = Promise.resolve(
-        _.extend(accessLog, {
-          encryptionKeys: eks.encryptionKeys,
-        })
-      )
-      ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
-        (delegateId) =>
-          (promise = promise.then((accessLog) =>
-            this.crypto.appendEncryptionKeys(accessLog, dataOwnerId!, delegateId, eks.secretId).then((extraEks) => {
-              return _.extend(extraEks.modifiedObject, {
-                encryptionKeys: extraEks.encryptionKeys,
-              })
-            })
-          ))
-      )
-      return promise
-    })
-  }
-
   encrypt(user: models.User, accessLogs: Array<models.AccessLog>): Promise<Array<models.AccessLog>> {
+    const owner = this.dataOwnerApi.getDataOwnerIdOf(user)
     return Promise.all(
-      accessLogs.map((accessLog) =>
-        (accessLog.encryptionKeys && Object.keys(accessLog.encryptionKeys).length
-          ? Promise.resolve(accessLog)
-          : this.initEncryptionKeys(user, accessLog)
-        )
-          .then((accessLog: AccessLog) =>
-            this.crypto.extractKeysFromDelegationsForHcpHierarchy(this.dataOwnerApi.getDataOwnerOf(user)!, accessLog.id!, accessLog.encryptionKeys!)
-          )
-          .then(async (eks: { extractedKeys: Array<string>; hcpartyId: string }) => {
-            const rawKey = eks.extractedKeys[0].replace(/-/g, '')
-            const key = await this.crypto.AES.importKey('raw', hex2ua(rawKey))
-            return crypt(
-              accessLog,
-              (obj: { [key: string]: string }) => this.crypto.AES.encrypt(key, utf8_2ua(JSON.stringify(obj)), rawKey),
-              this.cryptedKeys
-            )
-          })
-      )
+      accessLogs.map((x) => this.crypto.entities.tryEncryptEntity(x, owner, this.cryptedKeys, false, true, (json) => new AccessLog(json)))
     )
   }
 
@@ -210,7 +136,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
     return body
       ? this.encrypt(user, [_.cloneDeep(body)])
           .then((als) => super.createAccessLog(als[0]))
-          .then((accessLog) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, [accessLog]))
+          .then((accessLog) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, [accessLog]))
           .then((als) => als[0])
       : Promise.resolve()
   }
@@ -222,7 +148,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
   getAccessLogWithUser(user: models.User, accessLogId: string): Promise<models.AccessLog | any> {
     return super
       .getAccessLog(accessLogId)
-      .then((accessLog) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, [accessLog]))
+      .then((accessLog) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, [accessLog]))
       .then((als) => als[0])
   }
 
@@ -242,7 +168,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
     return super
       .listAccessLogs(fromEpoch, toEpoch, startKey, startDocumentId, limit, descending)
       .then((accessLog) =>
-        this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, accessLog.rows!).then((dr) => Object.assign(accessLog, { rows: dr }))
+        this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, accessLog.rows!).then((dr) => Object.assign(accessLog, { rows: dr }))
       )
   }
 
@@ -254,7 +180,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
     return body
       ? this.encrypt(user, [_.cloneDeep(body)])
           .then((als) => super.modifyAccessLog(als[0]))
-          .then((accessLog) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, [accessLog]))
+          .then((accessLog) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, [accessLog]))
           .then((als) => als[0])
       : null
   }
@@ -284,7 +210,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
     return super
       .findByUserAfterDate(userId, accessType, startDate, startKey, startDocumentId, limit, descending)
       .then((accessLog) =>
-        this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, accessLog.rows!).then((dr) => Object.assign(accessLog, { rows: dr }))
+        this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, accessLog.rows!).then((dr) => Object.assign(accessLog, { rows: dr }))
       )
   }
 
@@ -305,15 +231,15 @@ export class IccAccesslogXApi extends IccAccesslogApi {
         numberRequestedAccessLogs,
         true
       )) as models.PaginatedListAccessLog
-      const logsWithPatientId: AccessLogWithPatientId[] = await this.decrypt(this.dataOwnerApi.getDataOwnerOf(user)!, logs as AccessLog[]).then(
+      const logsWithPatientId: AccessLogWithPatientId[] = await this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, logs as AccessLog[]).then(
         (decryptedLogs) =>
           Promise.all(
             _.map(decryptedLogs, (decryptedLog) => {
-              return this.crypto.extractCryptedFKs(decryptedLog, user.healthcarePartyId as string).then(
+              return this.crypto.entities.owningEntityIdsOf(decryptedLog, user.healthcarePartyId as string).then(
                 (keys) =>
                   ({
                     ...decryptedLog,
-                    patientId: _.head(keys.extractedKeys),
+                    patientId: _.head(keys),
                   } as AccessLogWithPatientId)
               )
             })

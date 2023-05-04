@@ -5,10 +5,8 @@ import * as models from '../icc-api/model/models'
 
 import * as _ from 'lodash'
 import * as moment from 'moment'
-import { a2b, b2a, hex2ua, string2ua, ua2utf8, utf8_2ua } from './utils/binary-utils'
 import { FilterChainHealthElement, HealthElement, PaginatedListHealthElement } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
-import { crypt } from './utils'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 
 export class IccHelementXApi extends IccHelementApi {
@@ -36,11 +34,50 @@ export class IccHelementXApi extends IccHelementApi {
     this.encryptedKeys = encryptedKeys
   }
 
-  newInstance(user: models.User, patient: models.Patient, h: any, confidential = false, delegates: string[] = []) {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
+  /**
+   * Temporary version of new instance without the `confidential` parameter, to simplify the transition to the updated api. In a future version
+   * the confidential parameter from new instance will be removed and this will be deprecated.
+   */
+  async newInstanceNoConfidential(
+    user: models.User,
+    patient: models.Patient,
+    h: any,
+    delegates: string[] = [],
+    preferredSfk?: string,
+    delegationTags?: string[]
+  ) {
+    return this.newInstance(user, patient, h, false, delegates, preferredSfk, delegationTags)
+  }
+
+  /**
+   * Creates a new instance of health element with initialised encryption metadata (not in the database).
+   * @param user the current user.
+   * @param patient the patient this health element refers to.
+   * @param h initialised data for the health element. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
+   * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
+   * @param confidential if false the new health element will automatically be shared with all auto-delegations for the current user, and the default
+   * sfk will be a secret id of patient known by the topmost parent in the current data owner hierarchy. If true the new health element won't be
+   * shared with any of the auto delegations and the default sfk will be a confidential secret id of patient for the current data owner.
+   * @param delegates initial delegates which will have access to the health element other than the current data owner. Note that if you are using the
+   * default confidential secret foreign keys the delegates may not be able to find the health element.
+   * @param preferredSfk secret id of the patient to use as the secret foreign key to use for the health element. If provided overrides the default
+   * value, regardless of the value of {@link confidential}
+   * @param delegationTags tags for the initialised delegations.
+   * @return a new instance of health element.
+   */
+  async newInstance(
+    user: models.User,
+    patient: models.Patient,
+    h: any,
+    confidential = false,
+    delegates: string[] = [],
+    preferredSfk?: string,
+    delegationTags?: string[]
+  ) {
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     const helement = _.assign(
       {
-        id: this.crypto.randomUuid(),
+        id: this.crypto.primitives.randomUuid(),
         _type: 'org.taktik.icure.entities.HealthElement',
         created: new Date().getTime(),
         modified: new Date().getTime(),
@@ -48,60 +85,30 @@ export class IccHelementXApi extends IccHelementApi {
         author: user.id,
         codes: [],
         tags: [],
-        healthElementId: this.crypto.randomUuid(),
+        healthElementId: this.crypto.primitives.randomUuid(),
         openingDate: parseInt(moment().format('YYYYMMDDHHmmss')),
       },
       h || {}
     )
 
-    return this.initDelegationsAndEncryptionKeys(helement, patient, user, confidential, delegates)
-  }
-
-  initDelegationsAndEncryptionKeys(
-    healthElement: models.HealthElement,
-    patient: models.Patient,
-    user: models.User,
-    confidential: boolean,
-    delegates: string[] = []
-  ): Promise<models.HealthElement> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-
-    return this.crypto.extractPreferredSfk(patient, dataOwnerId!, confidential).then(async (key) => {
-      if (!key) {
-        console.error(`SFK cannot be found for Health element ${key}. The healthElement will not be reachable from the patient side`)
-      }
-      const dels = await this.crypto.initObjectDelegations(healthElement, patient, dataOwnerId!, key ?? null)
-      const eks = await this.crypto.initEncryptionKeys(healthElement, dataOwnerId!)
-      _.extend(healthElement, {
-        delegations: dels.delegations,
-        cryptedForeignKeys: dels.cryptedForeignKeys,
-        secretForeignKeys: dels.secretForeignKeys,
-        encryptionKeys: eks.encryptionKeys,
-      })
-
-      let promise = Promise.resolve(healthElement)
-      _.uniq(
-        delegates.concat(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : [])
-      ).forEach(
-        (delegateId) =>
-          (promise = promise.then((healthElement) =>
-            this.crypto.addDelegationsAndEncryptionKeys(patient, healthElement, dataOwnerId!, delegateId, dels.secretId, eks.secretId).catch((e) => {
-              console.log(e)
-              return healthElement
-            })
-          ))
-      )
-      ;(user.autoDelegations && user.autoDelegations.anonymousMedicalInformation ? user.autoDelegations.anonymousMedicalInformation : []).forEach(
-        (delegateId) =>
-          (promise = promise.then((healthElement) =>
-            this.crypto.addDelegationsAndEncryptionKeys(patient, healthElement, dataOwnerId!, delegateId, null, eks.secretId).catch((e) => {
-              console.log(e)
-              return healthElement
-            })
-          ))
-      )
-      return promise
-    })
+    const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
+    if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
+    const sfk =
+      preferredSfk ??
+      (confidential
+        ? await this.crypto.confidential.getConfidentialSecretId(patient)
+        : await this.crypto.confidential.getAnySecretIdSharedWithParents(patient))
+    if (!sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id} for confidential=${confidential}`)
+    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
+    const initialisationInfo = await this.crypto.entities.entityWithInitialisedEncryptedMetadata(
+      helement,
+      patient.id,
+      sfk,
+      true,
+      confidential ? [] : extraDelegations,
+      delegationTags
+    )
+    return new models.HealthElement(initialisationInfo.updatedEntity)
   }
 
   createHealthElement(body?: models.HealthElement): never {
@@ -128,7 +135,7 @@ export class IccHelementXApi extends IccHelementApi {
           bodies.map((c) => _.cloneDeep(c))
         )
           .then((hes) => super.createHealthElements(hes))
-          .then((hes) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user), hes))
+          .then((hes) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user), hes))
       : Promise.resolve(null)
   }
 
@@ -148,7 +155,7 @@ export class IccHelementXApi extends IccHelementApi {
   }
 
   getHealthElementsWithUser(user: models.User, body?: models.ListOfIds): Promise<models.HealthElement[]> {
-    return super.getHealthElements(body).then((hes) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user), hes))
+    return super.getHealthElements(body).then((hes) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user), hes))
   }
 
   newHealthElementDelegations(healthElementId: string, body?: Array<models.Delegation>): never {
@@ -174,23 +181,20 @@ export class IccHelementXApi extends IccHelementApi {
     return super.findHealthElementsByHCPartyPatientForeignKeysUsingPost(hcPartyId, secretFKeys).then((hes) => this.decryptWithUser(user, hes))
   }
 
-  findHealthElementsByHCPartyAndPatientWithUser(
+  async findHealthElementsByHCPartyAndPatientWithUser(
     user: models.User,
     hcPartyId: string,
     patient: models.Patient,
     usingPost: boolean = false
   ): Promise<models.HealthElement[]> {
-    return this.crypto.extractSFKsHierarchyFromDelegations(patient, hcPartyId).then((keysAndHcPartyId) => {
-      const keys = keysAndHcPartyId.find((secretForeignKeys) => secretForeignKeys.hcpartyId == hcPartyId)?.extractedKeys
-
-      if (keys == undefined) {
-        throw Error('No delegation for user')
-      }
-
-      return usingPost
-        ? this.findHealthElementsByHCPartyPatientForeignKeysArrayWithUser(user, hcPartyId, keys)
-        : this.findHealthElementsByHCPartyPatientForeignKeysWithUser(user, hcPartyId, keys.join(','))
-    })
+    let keysAndHcPartyId = await this.crypto.entities.secretIdsForHcpHierarchyOf(patient)
+    const keys = keysAndHcPartyId.find((secretForeignKeys) => secretForeignKeys.ownerId == hcPartyId)?.extracted
+    if (keys == undefined) {
+      throw Error('No delegation for user')
+    }
+    return usingPost
+      ? this.findHealthElementsByHCPartyPatientForeignKeysArrayWithUser(user, hcPartyId, keys)
+      : this.findHealthElementsByHCPartyPatientForeignKeysWithUser(user, hcPartyId, keys.join(','))
   }
 
   modifyHealthElement(body?: HealthElement): never {
@@ -217,7 +221,7 @@ export class IccHelementXApi extends IccHelementApi {
           bodies.map((c) => _.cloneDeep(c))
         )
           .then((hes) => super.modifyHealthElements(hes))
-          .then((hes) => this.decrypt(this.dataOwnerApi.getDataOwnerOf(user), hes))
+          .then((hes) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user), hes))
       : Promise.resolve(null)
   }
 
@@ -241,8 +245,8 @@ export class IccHelementXApi extends IccHelementApi {
    */
 
   findBy(hcpartyId: string, patient: models.Patient, keepObsoleteVersions = false, usingPost = false) {
-    return this.crypto
-      .extractSFKsHierarchyFromDelegations(patient, hcpartyId)
+    return this.crypto.entities
+      .secretIdsForHcpHierarchyOf(patient)
       .then((secretForeignKeys) =>
         secretForeignKeys && secretForeignKeys.length > 0
           ? Promise.all(
@@ -250,8 +254,8 @@ export class IccHelementXApi extends IccHelementApi {
                 .reduce((acc, level) => {
                   return acc.concat([
                     {
-                      hcpartyId: level.hcpartyId,
-                      extractedKeys: level.extractedKeys.filter((key) => !acc.some((previousLevel) => previousLevel.extractedKeys.includes(key))),
+                      hcpartyId: level.ownerId,
+                      extractedKeys: level.extracted.filter((key) => !acc.some((previousLevel) => previousLevel.extractedKeys.includes(key))),
                     },
                   ])
                 }, [] as Array<{ hcpartyId: string; extractedKeys: Array<string> }>)
@@ -294,109 +298,21 @@ export class IccHelementXApi extends IccHelementApi {
   }
 
   encrypt(user: models.User, healthElements: Array<models.HealthElement>): Promise<Array<models.HealthElement>> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
+    const owner = this.dataOwnerApi.getDataOwnerIdOf(user)
     return Promise.all(
       healthElements.map((he) =>
-        (he.encryptionKeys && Object.keys(he.encryptionKeys).some((k) => !!he.encryptionKeys![k].length)
-          ? Promise.resolve(he)
-          : this.initEncryptionKeys(user, he)
-        )
-          .then((healthElement: HealthElement) =>
-            this.crypto.extractKeysFromDelegationsForHcpHierarchy(dataOwnerId, healthElement.id!, healthElement.encryptionKeys!)
-          )
-          .then((sfks: { extractedKeys: Array<string>; hcpartyId: string }) =>
-            this.crypto.AES.importKey('raw', hex2ua(sfks.extractedKeys[0].replace(/-/g, '')))
-          )
-          .then((key: CryptoKey) =>
-            crypt(
-              he,
-              (obj: { [key: string]: string }) =>
-                this.crypto.AES.encrypt(
-                  key,
-                  utf8_2ua(
-                    JSON.stringify(obj, (k, v) => {
-                      return v instanceof ArrayBuffer || v instanceof Uint8Array
-                        ? b2a(new Uint8Array(v).reduce((d, b) => d + String.fromCharCode(b), ''))
-                        : v
-                    })
-                  )
-                ),
-              this.encryptedKeys
-            )
-          )
+        this.crypto.entities.tryEncryptEntity(he, owner, this.encryptedKeys, false, true, (x) => new models.HealthElement(x))
       )
     )
   }
 
-  initEncryptionKeys(user: models.User, he: models.HealthElement): Promise<models.HealthElement> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-    return this.crypto.initEncryptionKeys(he, dataOwnerId!).then((eks) => {
-      let promise = Promise.resolve(
-        _.extend(he, {
-          encryptionKeys: eks.encryptionKeys,
-        })
-      )
-      ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
-        (delegateId) =>
-          (promise = promise.then((healthElement) =>
-            this.crypto
-              .appendEncryptionKeys(healthElement, dataOwnerId!, delegateId, eks.secretId)
-              .then((extraEks) => {
-                return _.extend(extraEks.modifiedObject, {
-                  encryptionKeys: extraEks.encryptionKeys,
-                })
-              })
-              .catch((e) => {
-                console.log(e.message)
-                return healthElement
-              })
-          ))
-      )
-      return promise
-    })
-  }
-
   decryptWithUser(user: models.User, hes: Array<models.HealthElement>): Promise<Array<models.HealthElement>> {
-    return this.decrypt(this.dataOwnerApi.getDataOwnerOf(user), hes)
+    return this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user), hes)
   }
 
   decrypt(dataOwnerId: string, hes: Array<models.HealthElement>): Promise<Array<models.HealthElement>> {
     return Promise.all(
-      hes.map((he) =>
-        this.crypto
-          .extractKeysFromDelegationsForHcpHierarchy(dataOwnerId, he.id!, _.size(he.encryptionKeys) ? he.encryptionKeys! : he.delegations!)
-          .then(({ extractedKeys: sfks }) => {
-            if (!sfks || !sfks.length) {
-              console.log('Cannot decrypt helement', he.id)
-              return Promise.resolve(he)
-            }
-            if (he.encryptedSelf) {
-              return this.crypto.AES.importKey('raw', hex2ua(sfks[0].replace(/-/g, ''))).then(
-                (key) =>
-                  new Promise((resolve: (value: any) => any) =>
-                    this.crypto.AES.decrypt(key, string2ua(a2b(he.encryptedSelf!))).then(
-                      (dec) => {
-                        let jsonContent
-                        try {
-                          jsonContent = dec && ua2utf8(dec)
-                          jsonContent && _.assign(he, JSON.parse(jsonContent))
-                        } catch (e) {
-                          console.log('Cannot parse he', he.id, jsonContent || '<- Invalid encoding')
-                        }
-                        resolve(he)
-                      },
-                      () => {
-                        console.log('Cannot decrypt health element', he.id)
-                        resolve(he)
-                      }
-                    )
-                  )
-              )
-            } else {
-              return Promise.resolve(he)
-            }
-          })
-      )
+      hes.map((he) => this.crypto.entities.decryptEntity(he, dataOwnerId, (x) => new models.HealthElement(x)).then(({ entity }) => entity))
     )
   }
 

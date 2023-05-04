@@ -241,7 +241,7 @@ export class IccHcpartyApi {
    */
   getAesExchangeKeysForDelegate(
     healthcarePartyId: string
-  ): Promise<{ [delegateId: string]: { [delegatorPubKeyFingerprint: string]: { [delegatePubKeyFingerprint: string]: string } } }> {
+  ): Promise<{ [delegatorId: string]: { [delegatorPubKeyFingerprint: string]: { [delegatePubKeyFingerprint: string]: string } } }> {
     let _body = null
 
     const _url = this.host + `/hcparty/${encodeURIComponent(String(healthcarePartyId))}/aesExchangeKeys` + '?ts=' + new Date().getTime()

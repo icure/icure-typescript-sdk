@@ -1,20 +1,23 @@
 import * as mm from 'moment'
 import { Moment } from 'moment'
 import * as _ from 'lodash'
-import { a2b, b2a, b64Url2ua, string2ua, ua2b64Url, ua2hex, ua2string } from '../utils/binary-utils'
+import { a2b, b2a, b64Url2ua, hex2ua, string2ua, ua2b64Url, ua2hex, ua2string } from '../utils/binary-utils'
 import { pack } from './asn1-packer'
 import { parseAsn1 } from './asn1-parser'
+import { KeyPair } from '../crypto/RSA'
 
-export function notConcurrent<T>(concurrencyMap: { [key: string]: PromiseLike<T> }, key: string, proc: () => PromiseLike<T>): PromiseLike<T> {
+export function notConcurrent<T>(concurrencyMap: { [key: string]: PromiseLike<any> }, key: string, proc: () => PromiseLike<T>): PromiseLike<T> {
   const inFlight = concurrencyMap[key]
   if (!inFlight) {
-    return (concurrencyMap[key] = (async () => {
+    const newJob = (async () => {
       try {
         return await proc()
       } finally {
         delete concurrencyMap[key]
       }
-    })())
+    })()
+    concurrencyMap[key] = newJob
+    return newJob
   } else {
     return concurrencyMap[key].then(() => notConcurrent(concurrencyMap, key, proc))
   }
@@ -232,4 +235,17 @@ export async function decrypt(obj: any, decryptor: (obj: Uint8Array) => Promise<
     Object.assign(obj, await decryptor(string2ua(a2b(obj.encryptedSelf))))
   }
   return obj
+}
+
+/**
+ * Extracts the full jwk key pair from the jwk representation of the private key.
+ * @param privateKeyJwk private key in jwk representation
+ * @throws if the key is missing the public modulus or public exponent.
+ */
+export function keyPairFromPrivateKeyJwk(privateKeyJwk: JsonWebKey): KeyPair<JsonWebKey> {
+  if (!privateKeyJwk.n || !privateKeyJwk.e) throw new Error('Incomplete private JsonWebKey: missing public modulus and/or exponent')
+  return {
+    privateKey: privateKeyJwk,
+    publicKey: spkiToJwk(hex2ua(jwk2spki(privateKeyJwk))),
+  }
 }
