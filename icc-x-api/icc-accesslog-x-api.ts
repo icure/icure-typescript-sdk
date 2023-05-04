@@ -5,6 +5,7 @@ import { AccessLog, PaginatedListAccessLog } from '../icc-api/model/models'
 import * as _ from 'lodash'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 
 export interface AccessLogWithPatientId extends AccessLog {
   patientId: string
@@ -38,13 +39,24 @@ export class IccAccesslogXApi extends IccAccesslogApi {
    * @param patient the patient this access log refers to.
    * @param h initialised data for the access log. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
    * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
-   * @param delegates initial delegates which will have access to the access log other than the current data owner.
-   * @param preferredSfk secret id of the patient to use as the secret foreign key to use for the access log. The default value will be a secret id of
-   * patient known by the topmost parent in the current data owner hierarchy.
-   * @param delegationTags tags for the initialised delegations.
+   * @param options optional parameters:
+   * - additionalDelegates: delegates which will have access to the entity in addition to the current data owner and delegates from the
+   * auto-delegations. Must be an object which associates each data owner id with the access level to give to that data owner. May overlap with
+   * auto-delegations, in such case the access level specified here will be used. Currently only WRITE access is supported, but in future also read
+   * access will be possible.
+   * - preferredSfk: secret id of the patient to use as the secret foreign key to use for the access log. The default value will be a
+   * secret id of patient known by the topmost parent in the current data owner hierarchy.
    * @return a new instance of access log.
    */
-  async newInstance(user: models.User, patient: models.Patient, h: any, delegates: string[] = [], preferredSfk?: string, delegationTags?: string[]) {
+  async newInstance(
+    user: models.User,
+    patient: models.Patient,
+    h: any,
+    options: {
+      additionalDelegates?: { [dataOwnerId: string]: 'WRITE' }
+      preferredSfk?: string
+    } = {}
+  ) {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
 
     const accessLog = _.assign(
@@ -67,12 +79,16 @@ export class IccAccesslogXApi extends IccAccesslogApi {
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
-    const sfk = preferredSfk ?? (await this.crypto.confidential.getAnySecretIdSharedWithParents(patient))
+    const sfk = options.preferredSfk ?? (await this.crypto.confidential.getAnySecretIdSharedWithParents(patient))
     if (!sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id}`)
-    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.administrativeData ?? [])]
+    const extraDelegations = [
+      ...Object.keys(options.additionalDelegates ?? {}),
+      ...(user.autoDelegations?.all ?? []),
+      ...(user.autoDelegations?.administrativeData ?? []),
+    ]
     return new AccessLog(
       await this.crypto.entities
-        .entityWithInitialisedEncryptedMetadata(accessLog, patient.id, sfk, true, extraDelegations, delegationTags)
+        .entityWithInitialisedEncryptedMetadata(accessLog, patient.id, sfk, true, extraDelegations)
         .then((x) => x.updatedEntity)
     )
   }
@@ -122,9 +138,12 @@ export class IccAccesslogXApi extends IccAccesslogApi {
   }
 
   encrypt(user: models.User, accessLogs: Array<models.AccessLog>): Promise<Array<models.AccessLog>> {
-    const owner = this.dataOwnerApi.getDataOwnerIdOf(user)
+    return this.encryptAs(this.dataOwnerApi.getDataOwnerIdOf(user)!, accessLogs)
+  }
+
+  private encryptAs(dataOwner: string, accessLogs: Array<models.AccessLog>): Promise<Array<models.AccessLog>> {
     return Promise.all(
-      accessLogs.map((x) => this.crypto.entities.tryEncryptEntity(x, owner, this.cryptedKeys, false, true, (json) => new AccessLog(json)))
+      accessLogs.map((x) => this.crypto.entities.tryEncryptEntity(x, dataOwner, this.cryptedKeys, false, true, (json) => new AccessLog(json)))
     )
   }
 
@@ -177,12 +196,14 @@ export class IccAccesslogXApi extends IccAccesslogApi {
   }
 
   async modifyAccessLogWithUser(user: models.User, body?: models.AccessLog): Promise<models.AccessLog | null> {
-    return body
-      ? this.encrypt(user, [_.cloneDeep(body)])
-          .then((als) => super.modifyAccessLog(als[0]))
-          .then((accessLog) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, [accessLog]))
-          .then((als) => als[0])
-      : null
+    return body ? this.modifyAs(this.dataOwnerApi.getDataOwnerIdOf(user)!, _.cloneDeep(body)) : null
+  }
+
+  private modifyAs(dataOwner: string, accessLog: models.AccessLog): Promise<models.AccessLog> {
+    return this.encryptAs(dataOwner, [_.cloneDeep(accessLog)])
+      .then((als) => super.modifyAccessLog(als[0]))
+      .then((accessLog) => this.decrypt(dataOwner, [accessLog]))
+      .then((als) => als[0])
   }
 
   findByUserAfterDate(
@@ -264,5 +285,48 @@ export class IccAccesslogXApi extends IccAccesslogApi {
     }
 
     return foundAccessLogs
+  }
+
+  /**
+   * @param accessLog an access log
+   * @return the id of the patient that the access log refers to, retrieved from the encrypted metadata (not from the decrypted entity body). Normally
+   * there should only be one element in the returned array, but in case of entity merges there could be multiple values.
+   */
+  async decryptPatientIdOf(accessLog: AccessLog): Promise<string[]> {
+    return this.crypto.entities.owningEntityIdsOf(accessLog, undefined)
+  }
+
+  /**
+   * Share an existing access log with other data owners, allowing them to access the non-encrypted data of the access log and optionally also the
+   * encrypted content.
+   * @param delegateId the id of the data owner which will be granted access to the access log.
+   * @param accessLog the access log to share.
+   * @param options optional parameters to customize the sharing behaviour:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * - sharePatientId: specifies if the id of the patient that this access log refers to should be shared with the delegate. Normally this would
+   * be the same as objectId, but it is encrypted separately from it allowing you to give access to the patient id without giving access to the other
+   * encrypted data of the access log (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * @return a promise which will contain the updated entity.
+   */
+  async shareWith(
+    delegateId: string,
+    accessLog: AccessLog,
+    options: {
+      shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+    } = {}
+  ): Promise<AccessLog> {
+    const self = await this.dataOwnerApi.getCurrentDataOwnerId()
+    return await this.modifyAs(
+      self,
+      await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
+        accessLog,
+        delegateId,
+        undefined,
+        options.shareEncryptionKey,
+        options.sharePatientId
+      )
+    )
   }
 }

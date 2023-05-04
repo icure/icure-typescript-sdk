@@ -65,14 +65,13 @@ describe('Full battery of tests on crypto and keys', async function () {
       env!.iCureUrl,
       newPatientUser.login!,
       'LetMeInForReal',
+      new TestCryptoStrategies(await api.cryptoApi.primitives.RSA.generateKeyPair()),
       webcrypto as unknown as Crypto,
       fetch,
-      true,
-      false,
-      new TestStorage(),
-      new TestKeyStorage(),
       {
-        cryptoStrategies: new TestCryptoStrategies(await api.cryptoApi.primitives.RSA.generateKeyPair()),
+        forceBasic: true,
+        storage: new TestStorage(),
+        keyStorage: new TestKeyStorage(),
       }
     )
 
@@ -83,7 +82,7 @@ describe('Full battery of tests on crypto and keys', async function () {
     expect(pat.note ?? undefined).to.be.undefined
 
     await api.patientApi.share(u, patient.id, u.healthcarePartyId!, [patient.id], { [patient.id]: ['all'] })
-    await apiAsPatient.cryptoApi.forceReload(true)
+    await apiAsPatient.cryptoApi.forceReload()
     const patUser = await apiAsPatient.userApi.getCurrentUser()
     const entity = await apiAsPatient.patientApi.getPatientWithUser(patUser, patient.id)
     const retrievedHe = await apiAsPatient.healthcareElementApi.getHealthElementWithUser(patUser, he.id!)

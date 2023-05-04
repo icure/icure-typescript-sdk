@@ -69,7 +69,7 @@ export class IccIcureMaintenanceXApi {
           task: this.createMaintenanceTask(selfId, hexNewPubKey),
         }))
         for (const taskToCreate of tasksToCreate) {
-          const instance = await this.tasksApi.newInstance(user, taskToCreate.task, [taskToCreate.delegate])
+          const instance = await this.tasksApi.newInstance(user, taskToCreate.task, { additionalDelegates: { [taskToCreate.delegate]: 'WRITE' } })
           if (instance) {
             // TODO create in bulk
             await this.tasksApi.createMaintenanceTaskWithUser(user, instance)

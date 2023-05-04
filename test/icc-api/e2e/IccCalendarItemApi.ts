@@ -30,7 +30,13 @@ describe('Calendar', () => {
 
     const calendarItem = await api.calendarItemApi.createCalendarItemWithHcParty(
       currentUser,
-      await api.calendarItemApi.newInstance(currentUser, { id: randomUUID(), details: 'Hello' }, [hcp.healthcarePartyId!])
+      await api.calendarItemApi.newInstance(
+        currentUser,
+        { id: randomUUID(), details: 'Hello' },
+        {
+          additionalDelegates: { [hcp.healthcarePartyId!]: 'WRITE' },
+        }
+      )
     )
     expect(calendarItem.id).to.be.not.null
   })

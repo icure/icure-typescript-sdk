@@ -61,13 +61,13 @@ describe('Full battery of tests on crypto and keys', async function () {
     const patient = await api.patientApi.getPatientWithUser(u, u.patientId!)
 
     // Create a Record to share with delegateHcp: this will trigger the creation of a new aes exchange key as well
-    const initialRecord = await api.calendarItemApi.newInstance(u, new CalendarItem({ id: `${u.id}-ci-initial`, title: 'CI-INITIAL' }), [
-      delegateHcp!.id!,
-    ])
+    const initialRecord = await api.calendarItemApi.newInstance(u, new CalendarItem({ id: `${u.id}-ci-initial`, title: 'CI-INITIAL' }), {
+      additionalDelegates: { [delegateHcp!.id!]: 'WRITE' },
+    })
     const savedInitialRecord = await api.calendarItemApi.createCalendarItemWithHcParty(u, initialRecord)
 
     // Decrypting this AES Key to compare it with AES key decrypted with new key in the next steps
-    await api.cryptoApi.forceReload(true)
+    await api.cryptoApi.forceReload()
     const decryptedAesWithPreviousKey = await api.cryptoApi.exchangeKeys.getDecryptionExchangeKeysFor(patient.id!, delegateHcp.id!)
     expect(decryptedAesWithPreviousKey).to.have.length(1)
     const oldExchangeKeyRaw = ua2hex(await api.cryptoApi.primitives.AES.exportKey(decryptedAesWithPreviousKey[0], 'raw'))
@@ -79,20 +79,18 @@ describe('Full battery of tests on crypto and keys', async function () {
       env!.iCureUrl,
       env!.dataOwnerDetails[patUsername].user,
       env!.dataOwnerDetails[patUsername].password,
+      new TestCryptoStrategies(newKey),
       webcrypto as unknown as Crypto,
       fetch,
-      false,
-      false,
-      new TestStorage(),
-      new TestKeyStorage(),
       {
-        cryptoStrategies: new TestCryptoStrategies(newKey),
+        storage: new TestStorage(),
+        keyStorage: new TestKeyStorage(),
       }
     )
     const user = await apiAfterNewKey.userApi.getCurrentUser()
     await apiAfterNewKey.icureMaintenanceTaskApi.createMaintenanceTasksForNewKeypair(user, newKey)
     // Api with new key should not be able to decrypt past exchange key with delegateHcp
-    await apiAfterNewKey.cryptoApi.forceReload(true)
+    await apiAfterNewKey.cryptoApi.forceReload()
     const decryptedAesAfterShareBackRequest = await apiAfterNewKey.cryptoApi.exchangeKeys.getDecryptionExchangeKeysFor(patient.id!, delegateHcp.id!)
     expect(decryptedAesAfterShareBackRequest).to.have.length(1)
     const newExchangeKeyRaw = ua2hex(await api.cryptoApi.primitives.AES.exportKey(decryptedAesAfterShareBackRequest[0], 'raw'))
@@ -101,7 +99,9 @@ describe('Full battery of tests on crypto and keys', async function () {
     const hcp = await apiAfterNewKey.healthcarePartyApi.getHealthcareParty(delegateUser!.healthcarePartyId!)
 
     // User can create new data, using its new keyPair
-    const newRecord = await apiAfterNewKey.calendarItemApi.newInstance(u, new CalendarItem({ id: `${u.id}-ci`, title: 'CI' }), [hcp!.id!])
+    const newRecord = await apiAfterNewKey.calendarItemApi.newInstance(u, new CalendarItem({ id: `${u.id}-ci`, title: 'CI' }), {
+      additionalDelegates: { [hcp!.id!]: 'WRITE' },
+    })
     const entity = await apiAfterNewKey.calendarItemApi.createCalendarItemWithHcParty(u, newRecord)
     expect(entity.id).to.be.not.null
     expect(entity.rev).to.be.not.null
@@ -115,7 +115,7 @@ describe('Full battery of tests on crypto and keys', async function () {
     // Delegate user will therefore give user access back to data he previously created
 
     // Hcp gets his maintenance tasks
-    await delegateApi.cryptoApi.forceReload(false)
+    await delegateApi.cryptoApi.forceReload()
     const maintenanceTask = new KeyPairUpdateRequest(await _getHcpKeyUpdateMaintenanceTask(delegateApi))
 
     expect(maintenanceTask.concernedDataOwnerId).equals(patient.id)
@@ -134,17 +134,15 @@ describe('Full battery of tests on crypto and keys', async function () {
       env!.iCureUrl,
       env!.dataOwnerDetails[patUsername].user,
       env!.dataOwnerDetails[patUsername].password,
+      new TestCryptoStrategies(newKey),
       webcrypto as unknown as Crypto,
       fetch,
-      false,
-      false,
-      new TestStorage(),
-      new TestKeyStorage(),
       {
-        cryptoStrategies: new TestCryptoStrategies(newKey),
+        storage: new TestStorage(),
+        keyStorage: new TestKeyStorage(),
       }
     )
-    await apiAfterSharedBack.cryptoApi.forceReload(true)
+    await apiAfterSharedBack.cryptoApi.forceReload()
     const decryptedAesWithShareBack = await apiAfterSharedBack.cryptoApi.exchangeKeys.getDecryptionExchangeKeysFor(patient.id!, delegateHcp.id!)
     expect(decryptedAesWithShareBack).to.have.length(2)
     const shareBackKeysRaw = await Promise.all(
@@ -158,7 +156,7 @@ describe('Full battery of tests on crypto and keys', async function () {
     expect(shareBackKeysRaw).to.contain(newExchangeKeyRaw)
 
     // User can access his previous data again
-    await apiAfterSharedBack.cryptoApi.forceReload(true)
+    await apiAfterSharedBack.cryptoApi.forceReload()
 
     const initialRecordAfterSharedBack = await apiAfterSharedBack.calendarItemApi.getCalendarItemWithUser(u, initialRecord.id!)
     expect(initialRecordAfterSharedBack.id).to.be.equal(savedInitialRecord.id)

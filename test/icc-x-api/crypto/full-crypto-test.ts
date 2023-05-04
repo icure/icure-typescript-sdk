@@ -150,22 +150,31 @@ let hcpGivingAccessBack: HealthcareParty | undefined = undefined
 
 const entities: EntityCreators = {
   Patient: ({ patientApi }, id, user, _, delegateIds) => {
-    return patientApi.newInstance(user, new Patient({ id, firstName: 'test', lastName: 'test', note: 'data', dateOfBirth: 20000101 }), delegateIds)
+    return patientApi.newInstance(user, new Patient({ id, firstName: 'test', lastName: 'test', note: 'data', dateOfBirth: 20000101 }), {
+      additionalDelegates: Object.fromEntries((delegateIds ?? []).map((id) => [id, 'WRITE'])),
+    })
   },
   Contact: ({ contactApi }, id, user, patient, delegateIds) => {
     return contactApi.newInstance(
       user,
       patient!,
       new Contact({ id, services: [new Service({ label: 'svc', content: { fr: { stringValue: 'data' } } })] }),
-      false,
-      delegateIds
+      {
+        confidential: false,
+        additionalDelegates: Object.fromEntries((delegateIds ?? []).map((id) => [id, 'WRITE'])),
+      }
     )
   },
   HealthElement: ({ healthcareElementApi }, id, user, patient, delegateIds) => {
-    return healthcareElementApi.newInstance(user, patient!, new HealthElement({ id, descr: 'HE' }), false, delegateIds)
+    return healthcareElementApi.newInstance(user, patient!, new HealthElement({ id, descr: 'HE' }), {
+      confidential: false,
+      additionalDelegates: Object.fromEntries((delegateIds ?? []).map((id) => [id, 'WRITE'])),
+    })
   },
   CalendarItem: ({ calendarItemApi }, id, user, patient, delegateIds) => {
-    return calendarItemApi.newInstancePatient(user, patient!, new CalendarItem({ id, title: 'CI' }), delegateIds)
+    return calendarItemApi.newInstancePatient(user, patient!, new CalendarItem({ id, title: 'CI' }), {
+      additionalDelegates: Object.fromEntries((delegateIds ?? []).map((id) => [id, 'WRITE'])),
+    })
   },
 }
 
@@ -179,42 +188,39 @@ const userDefinitions: Record<
       env!.iCureUrl,
       user.login!,
       password,
+      new TestCryptoStrategies(newKey, {
+        [ua2hex(await primitives.RSA.exportKey(originalKey.publicKey, 'spki')).slice(-32)]: true,
+      }),
       webcrypto as any,
       fetch,
-      false,
-      false,
-      new TestStorage(),
-      new TestKeyStorage(),
       {
-        cryptoStrategies: new TestCryptoStrategies(newKey, {
-          [ua2hex(await primitives.RSA.exportKey(originalKey.publicKey, 'spki')).slice(-32)]: true,
-        }),
+        storage: new TestStorage(),
+        keyStorage: new TestKeyStorage(),
       }
     )
-    const apis = await Api(env!.iCureUrl, user.login!, password, webcrypto as any, fetch, false, false, new TestStorage(), new TestKeyStorage(), {
-      cryptoStrategies: new TestCryptoStrategies(originalKey, {
+    const apis = await Api(
+      env!.iCureUrl,
+      user.login!,
+      password,
+      new TestCryptoStrategies(originalKey, {
         [ua2hex(await primitives.RSA.exportKey(newKey.publicKey, 'spki')).slice(-32)]: true,
       }),
-    })
+      webcrypto as any,
+      fetch,
+      {
+        storage: new TestStorage(),
+        keyStorage: new TestKeyStorage(),
+      }
+    )
     expect(Object.keys(apis.cryptoApi.userKeysManager.getDecryptionKeys())).to.have.length(2)
     return { user, apis, didLoseKey: false }
   },
   'two available keys': async (user, password, originalKey) => {
     const newKey = await primitives.RSA.generateKeyPair()
-    const apiWithOnlyNewKey = await Api(
-      env!.iCureUrl,
-      user.login!,
-      password,
-      webcrypto as any,
-      fetch,
-      false,
-      false,
-      new TestStorage(),
-      new TestKeyStorage(),
-      {
-        cryptoStrategies: new TestCryptoStrategies(newKey),
-      }
-    )
+    const apiWithOnlyNewKey = await Api(env!.iCureUrl, user.login!, password, new TestCryptoStrategies(newKey), webcrypto as any, fetch, {
+      storage: new TestStorage(),
+      keyStorage: new TestKeyStorage(),
+    })
     const keyStrings = await Promise.all(
       [originalKey, newKey].map(async (pair) => ({
         publicKey: ua2hex(await primitives.RSA.exportKey(pair.publicKey, 'spki')),
@@ -222,9 +228,10 @@ const userDefinitions: Record<
       }))
     )
     const storage = await testStorageWithKeys([{ dataOwnerId: user.healthcarePartyId ?? user.patientId!, pairs: keyStrings }])
-    const apis = await Api(env!.iCureUrl, user.login!, password, webcrypto as any, fetch, false, false, storage.storage, storage.keyStorage, {
+    const apis = await Api(env!.iCureUrl, user.login!, password, new TestCryptoStrategies(), webcrypto as any, fetch, {
+      storage: storage.storage,
+      keyStorage: storage.keyStorage,
       entryKeysFactory: storage.keyFactory,
-      cryptoStrategies: new TestCryptoStrategies(),
     })
     return { user, apis, didLoseKey: false }
   },
@@ -260,7 +267,7 @@ const userDefinitions: Record<
     if (!concernedRequest) throw new Error('Could not find maintenance task')
     await giveAccessBackApi.icureMaintenanceTaskApi.applyKeyPairUpdate(concernedRequest)
 
-    await api.cryptoApi.forceReload(true)
+    await api.cryptoApi.forceReload()
 
     return { user, apis: api, didLoseKey: true }
   },
@@ -423,7 +430,7 @@ describe('Full crypto test - Creation scenarios', async function () {
         const concernedRequest = keyPairUpdateRequests.find((x) => x.concernedDataOwnerId === dataOwnerWithLostKey)
         if (!concernedRequest) throw new Error('Could not find maintenance task to regive access back to own sfks')
         await api.icureMaintenanceTaskApi.applyKeyPairUpdate(concernedRequest)
-        await patDetails.apis.cryptoApi.forceReload(true)
+        await patDetails.apis.cryptoApi.forceReload()
       }
     }, Promise.resolve())
 

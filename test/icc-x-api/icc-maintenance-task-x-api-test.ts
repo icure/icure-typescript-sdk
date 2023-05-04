@@ -50,7 +50,7 @@ function maintenanceTaskToCreate(mTaskApiForHcp: IccMaintenanceTaskXApi, hcpUser
         }),
       ],
     }),
-    [delegatedTo.id!]
+    { additionalDelegates: { [delegatedTo.id!]: 'WRITE' } }
   )
 }
 

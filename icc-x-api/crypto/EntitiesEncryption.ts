@@ -1,12 +1,14 @@
 import { Delegation, EncryptedEntity, EncryptedEntityStub } from '../../icc-api/model/models'
 import { DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { ExchangeKeysManager } from './ExchangeKeysManager'
-import { b2a, crypt, decrypt, string2ua, truncateTrailingNulls, ua2hex, ua2string, ua2utf8, utf8_2ua, hex2ua } from '../utils'
+import { b2a, crypt, decrypt, hex2ua, string2ua, truncateTrailingNulls, ua2hex, ua2string, ua2utf8, utf8_2ua } from '../utils'
 import * as _ from 'lodash'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { arrayEquals } from '../utils/collection-utils'
+import { ShareMetadataBehaviour } from './ShareMetadataBehaviour'
 
 /**
+ * @internal this class is for internal use only and may be changed without notice
  * Give access to functions for retrieving encryption metadata of entities.
  */
 export class EntitiesEncryption {
@@ -206,6 +208,40 @@ export class EntitiesEncryption {
       updatedEntity.secretForeignKeys = [owningEntitySecretId]
     }
     return { updatedEntity, secretId, rawEncryptionKey }
+  }
+
+  async entityWithAutoExtendedEncryptedMetadata<T extends EncryptedEntity>(
+    entity: T,
+    delegateId: string,
+    shareSecretIds: string[] | undefined,
+    shareEncryptionKeys: ShareMetadataBehaviour | undefined,
+    shareOwningEntityIds: ShareMetadataBehaviour | undefined
+  ): Promise<T> {
+    if (shareSecretIds === undefined) {
+      const availableSecretIds = await this.secretIdsOf(entity)
+      if (availableSecretIds.length) {
+        shareSecretIds = availableSecretIds
+      } else {
+        shareSecretIds = [this.primitives.randomUuid()]
+      }
+    }
+    let actualShareEncryptionKeys: string[] = []
+    if (shareEncryptionKeys !== ShareMetadataBehaviour.NEVER) {
+      const availableEncryptionKeys = await this.encryptionKeysOf(entity)
+      if (!availableEncryptionKeys.length && shareEncryptionKeys === ShareMetadataBehaviour.REQUIRED) {
+        throw new Error(`Entity ${JSON.stringify(entity)} has no encryption keys or the current data owner can't access any encryption keys.`)
+      }
+      actualShareEncryptionKeys = availableEncryptionKeys
+    }
+    let actualShareOwningEntityIds: string[] = []
+    if (shareOwningEntityIds !== ShareMetadataBehaviour.NEVER) {
+      const availableOwningEntityIds = await this.owningEntityIdsOf(entity)
+      if (!availableOwningEntityIds.length && shareOwningEntityIds === ShareMetadataBehaviour.REQUIRED) {
+        throw new Error(`Entity ${JSON.stringify(entity)} has no owning entity ids or the current data owner can't access any owning entity ids.`)
+      }
+      actualShareOwningEntityIds = availableOwningEntityIds
+    }
+    return this.entityWithExtendedEncryptedMetadata(entity, delegateId, shareSecretIds, actualShareEncryptionKeys, actualShareOwningEntityIds)
   }
 
   /**

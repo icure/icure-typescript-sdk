@@ -12,7 +12,6 @@ import { v4 as uuid } from 'uuid'
 import { HealthcareParty } from '../../icc-api/model/HealthcareParty'
 import { TestKeyStorage, TestStorage, testStorageWithKeys } from '../utils/TestStorage'
 import { TestCryptoStrategies } from '../utils/TestCryptoStrategies'
-import { DefaultStorageEntryKeysFactory } from '../../icc-x-api/storage/DefaultStorageEntryKeysFactory'
 
 type UserCredentials = {
   login: string
@@ -156,20 +155,10 @@ class ApiFactoryV7 implements ApiFactory {
       privateKey: await cryptoPrimitives.RSA.importKey('pkcs8', hex2ua(env.masterHcp!.privateKey), ['decrypt']),
       publicKey: await cryptoPrimitives.RSA.importKey('spki', hex2ua(env.masterHcp!.publicKey), ['encrypt']),
     }
-    const apis = await ApiV7(
-      env.iCureUrl,
-      env.masterHcp!.user,
-      env.masterHcp!.password,
-      webcrypto as any,
-      fetch,
-      false,
-      false,
-      new TestStorage(),
-      new TestKeyStorage(),
-      {
-        cryptoStrategies: new TestCryptoStrategies(key),
-      }
-    )
+    const apis = await ApiV7(env.iCureUrl, env.masterHcp!.user, env.masterHcp!.password, new TestCryptoStrategies(key), webcrypto as any, fetch, {
+      storage: new TestStorage(),
+      keyStorage: new TestKeyStorage(),
+    })
     return <UniformizedMasterApi>{
       createUser: async () => {
         const pair = await cryptoPrimitives.RSA.generateKeyPair()
@@ -208,15 +197,13 @@ class ApiFactoryV7 implements ApiFactory {
       env.iCureUrl,
       credentials.login,
       credentials.password,
+      new TestCryptoStrategies(credentials.key),
       webcrypto as any,
       fetch,
-      false,
-      false,
-      testStorage.storage,
-      testStorage.keyStorage,
       {
         entryKeysFactory: testStorage.keyFactory,
-        cryptoStrategies: new TestCryptoStrategies(credentials.key),
+        storage: testStorage.storage,
+        keyStorage: testStorage.keyStorage,
       }
     )
     const user = await apis.userApi.getCurrentUser()
@@ -230,7 +217,7 @@ class ApiFactoryV7 implements ApiFactory {
         const patient = await apis.patientApi.createPatientWithUser(user, await apis.patientApi.newInstance(user))
         const healthdata = await apis.healthcareElementApi.createHealthElementWithUser(
           user,
-          await apis.healthcareElementApi.newInstance(user, patient, { note }, false, [], secretId)
+          await apis.healthcareElementApi.newInstance(user, patient, { note }, { preferredSfk: secretId })
         )
         return {
           id: healthdata.id,
