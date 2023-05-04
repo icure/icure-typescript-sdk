@@ -1,6 +1,6 @@
-import { Api, IccCryptoXApi, ua2hex } from '../../../icc-x-api'
+import { Api } from '../../../icc-x-api'
 import { v4 as uuid } from 'uuid'
-import { HealthcareParty, User } from '../../../icc-api/model/models'
+import { User } from '../../../icc-api/model/User'
 import { before, describe, it } from 'mocha'
 
 import { webcrypto } from 'crypto'
@@ -10,24 +10,14 @@ import { IccPatientApi } from '../../../icc-api'
 import { expect } from 'chai'
 
 import { BasicAuthenticationProvider } from '../../../icc-x-api/auth/AuthenticationProvider'
-import { createHcpHierarchyApis, getEnvironmentInitializer, getEnvVariables, setLocalStorage, TestVars } from '../../utils/test_utils'
+import { createHcpHierarchyApis, getEnvironmentInitializer, setLocalStorage } from '../../utils/test_utils'
 import { TestKeyStorage, TestStorage } from '../../utils/TestStorage'
 import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
+import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
 setLocalStorage(fetch)
 
-const privateKeys = {} as Record<string, Record<string, string>>
-let hcpUser: User | undefined = undefined
-let delegateHcp: HealthcareParty | undefined = undefined
-
-async function makeKeyPair(cryptoApi: IccCryptoXApi, login: string) {
-  const { publicKey, privateKey } = await cryptoApi.primitives.RSA.generateKeyPair()
-  const publicKeyHex = ua2hex(await cryptoApi.primitives.RSA.exportKey(publicKey!, 'spki'))
-  privateKeys[login] = { [publicKeyHex]: ua2hex((await cryptoApi.primitives.RSA.exportKey(privateKey!, 'pkcs8')) as ArrayBuffer) }
-  return publicKeyHex
-}
-
-let env: TestVars | undefined
+let env: TestVars
 
 describe('Full battery of tests on crypto and keys', async function () {
   this.timeout(600000)

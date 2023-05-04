@@ -1,7 +1,7 @@
 import { describe } from 'mocha'
 import { expect } from 'chai'
 import { SecurityMetadataDecryptor, SecurityMetadataDecryptorChain } from '../../../icc-x-api/crypto/SecurityMetadataDecryptor'
-import { EncryptedEntity, EncryptedEntityStub } from '../../../icc-api/model/models'
+import { EncryptedEntityStub } from '../../../icc-api/model/models'
 import { toString } from 'lodash'
 import { EncryptedEntityWithType } from '../../../icc-x-api/utils/EntityWithDelegationTypeName'
 import { SecureDelegation } from '../../../icc-api/model/SecureDelegation'

@@ -1,6 +1,6 @@
 import { expect } from 'chai'
 import { before } from 'mocha'
-import { getEnvironmentInitializer, getEnvVariables, getTempEmail, setLocalStorage, TestUtils, TestVars } from '../../utils/test_utils'
+import { getEnvironmentInitializer, getTempEmail, setLocalStorage, TestUtils } from '../../utils/test_utils'
 import { webcrypto } from 'crypto'
 import 'isomorphic-fetch'
 import { Apis } from '../../../icc-x-api'
@@ -20,6 +20,7 @@ import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { EntityWithDelegationTypeName } from '../../../icc-x-api/utils/EntityWithDelegationTypeName'
 import { MaintenanceTask } from '../../../icc-api/model/MaintenanceTask'
 import * as _ from 'lodash'
+import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
 const FULL_WRITE = RequestedPermissionEnum.FULL_WRITE
 
