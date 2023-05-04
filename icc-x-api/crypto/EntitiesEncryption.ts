@@ -373,25 +373,23 @@ export class EntitiesEncryption {
    * @throws if the provided data owner can't access any encryption keys for the entity, or if no key could be found which provided valid decrypted
    * content according to the validator.
    */
-  async decryptDataOf(
+  async tryDecryptDataOf(
     entity: EncryptedEntity | EncryptedEntityStub,
     content: ArrayBuffer | Uint8Array,
     validator: (decryptedData: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true),
     dataOwnerId?: string,
     tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
-  ): Promise<ArrayBuffer> {
+  ): Promise<{ data: ArrayBuffer; wasDecrypted: boolean }> {
     const keys = await this.encryptionKeysOf(entity, dataOwnerId, tagsFilter)
     for (const key of keys) {
       try {
         const decrypted = await this.primitives.AES.decryptWithRawKey(key, content)
-        if (await validator(decrypted)) return decrypted
+        if (await validator(decrypted)) return { data: decrypted, wasDecrypted: true }
       } catch (e) {
         /* ignore */
       }
     }
-    throw new Error(
-      `No valid key found to decrypt data of ${entity} for data owner ${dataOwnerId ?? (await this.dataOwnerApi.getCurrentDataOwnerId())}.`
-    )
+    return { data: content, wasDecrypted: false }
   }
 
   /**
