@@ -91,7 +91,18 @@ export class IccReceiptXApi extends IccReceiptApi {
   }
 
   /**
-   * Gets the attachment of a receipt and tries to decrypt it using the encryption keys of the receipt.
+   * Adds an unencrypted attachment to a receipt.
+   * @param receipt a receipt.
+   * @param blobType the type of the attachment.
+   * @param attachment a attachment for the receipt.
+   * @return the updated receipt.
+   */
+  async setClearReceiptAttachment(receipt: models.Receipt, blobType: string, attachment: ArrayBuffer | Uint8Array): Promise<models.Receipt> {
+    return await this.setReceiptAttachment(receipt.id!, blobType, undefined, attachment)
+  }
+
+  /**
+   * Gets the attachment of a receipt and tries to decrypt it using the encryption keys of the receipt, throwing an error if the operation fails.
    * @param receipt a receipt.
    * @param attachmentId id of the attachment of this receipt to retrieve.
    * @param validator optionally a validator function which checks if the decryption was successful. In cases where the receipt has many encryption
@@ -103,7 +114,31 @@ export class IccReceiptXApi extends IccReceiptApi {
     attachmentId: string,
     validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<ArrayBuffer> {
-    return await this.crypto.entities.decryptDataOf(receipt, await this.getReceiptAttachment(receipt.id!, attachmentId, ''), (x) => validator(x))
+    const { data, wasDecrypted } = await this.crypto.entities.tryDecryptDataOf(
+      receipt,
+      await this.getReceiptAttachment(receipt.id!, attachmentId, ''),
+      (x) => validator(x)
+    )
+    if (!wasDecrypted) throw new Error(`No valid key found to decrypt data of receipt ${receipt.id}.`)
+    return data
+  }
+
+  /**
+   * Gets the attachment of a receipt and tries to decrypt it using the encryption keys of the receipt.
+   * @param receipt a receipt.
+   * @param attachmentId id of the attachment of this receipt to retrieve.
+   * @param validator optionally a validator function which checks if the decryption was successful. In cases where the receipt has many encryption
+   * keys and it is unclear which one should be used this function can help to detect bad decryptions.
+   * @return an object containing:
+   * - data: the decrypted attachment, if it could be decrypted, else the encrypted attachment.
+   * - wasDecrypted: if the data was successfully decrypted or not
+   */
+  async getAndTryDecryptReceiptAttachment(
+    receipt: models.Receipt,
+    attachmentId: string,
+    validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
+  ): Promise<{ data: ArrayBuffer; wasDecrypted: boolean }> {
+    return await this.crypto.entities.tryDecryptDataOf(receipt, await this.getReceiptAttachment(receipt.id!, attachmentId, ''), (x) => validator(x))
   }
 
   /**
