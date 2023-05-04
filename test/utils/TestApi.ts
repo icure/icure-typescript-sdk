@@ -14,8 +14,7 @@ export const TestApi = async function (
   const initialisedKeys = keyPair ?? (await new RSAUtils(crypto).generateKeyPair())
   return Api(
     host,
-    username,
-    password,
+    { username, password },
     new TestCryptoStrategies(initialisedKeys),
     crypto,
     typeof window !== 'undefined' ? window.fetch : typeof self !== 'undefined' ? self.fetch : fetch,

@@ -28,12 +28,16 @@ import { IccDeviceApi } from '../icc-api/api/IccDeviceApi'
 import { IccCodeXApi } from './icc-code-x-api'
 import { IccMaintenanceTaskXApi } from './icc-maintenance-task-x-api'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
-import { retry } from './utils'
 import { StorageFacade } from './storage/StorageFacade'
 import { KeyStorageFacade } from './storage/KeyStorageFacade'
 import { LocalStorageImpl } from './storage/LocalStorageImpl'
 import { KeyStorageImpl } from './storage/KeyStorageImpl'
-import { BasicAuthenticationProvider, EnsembleAuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import {
+  AuthenticationProvider,
+  BasicAuthenticationProvider,
+  EnsembleAuthenticationProvider,
+  NoAuthenticationProvider,
+} from './auth/AuthenticationProvider'
 import { CryptoPrimitives } from './crypto/CryptoPrimitives'
 import { KeyManager } from './crypto/KeyManager'
 import { IcureStorageFacade } from './storage/IcureStorageFacade'
@@ -108,34 +112,36 @@ export interface Apis {
 export type ApiOptions = {
   readonly entryKeysFactory?: StorageEntryKeysFactory
   readonly createMaintenanceTasksOnNewKey?: boolean
-  readonly forceBasic?: boolean
-  readonly autoLogin?: boolean
   readonly storage?: StorageFacade<string>
   readonly keyStorage?: KeyStorageFacade
+  readonly headers?: { [headerName: string]: string }
 }
 
 class NamedApiParametersWithDefault implements ApiOptions {
   constructor(custom: ApiOptions) {
     this.entryKeysFactory = custom.entryKeysFactory ?? new DefaultStorageEntryKeysFactory()
     this.createMaintenanceTasksOnNewKey = custom.createMaintenanceTasksOnNewKey ?? false
-    this.forceBasic = custom.forceBasic ?? false
-    this.autoLogin = custom.autoLogin ?? false
     this.storage = custom.storage ?? new LocalStorageImpl()
     this.keyStorage = custom.keyStorage ?? new KeyStorageImpl(this.storage)
+    this.headers = custom.headers ?? {}
   }
 
   readonly entryKeysFactory: StorageEntryKeysFactory
   readonly createMaintenanceTasksOnNewKey: boolean
-  readonly forceBasic: boolean
-  readonly autoLogin: boolean
   readonly storage: StorageFacade<string>
   readonly keyStorage: KeyStorageFacade
+  readonly headers: { [headerName: string]: string }
+}
+
+export type AuthenticationDetails = {
+  username: string
+  password: string
+  forceBasic?: boolean // default false
 }
 
 export const Api = async function (
   host: string,
-  username: string,
-  password: string,
+  authenticationOptions: AuthenticationDetails | AuthenticationProvider,
   cryptoStrategies: CryptoStrategies,
   crypto: Crypto = typeof window !== 'undefined' ? window.crypto : typeof self !== 'undefined' ? self.crypto : ({} as Crypto),
   fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
@@ -146,20 +152,28 @@ export const Api = async function (
   options: ApiOptions = {}
 ): Promise<Apis> {
   const params = new NamedApiParametersWithDefault(options)
-  const headers = {}
-  const authenticationProvider = params.forceBasic
-    ? new BasicAuthenticationProvider(username, password)
-    : new EnsembleAuthenticationProvider(new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl), username, password)
+  let authenticationProvider: AuthenticationProvider
+  if ('username' in authenticationOptions && 'password' in authenticationOptions) {
+    authenticationProvider = authenticationOptions.forceBasic
+      ? new BasicAuthenticationProvider(authenticationOptions.username, authenticationOptions.password)
+      : new EnsembleAuthenticationProvider(
+          new IccAuthApi(host, params.headers, new NoAuthenticationProvider(), fetchImpl),
+          authenticationOptions.username,
+          authenticationOptions.password
+        )
+  } else {
+    authenticationProvider = authenticationOptions
+  }
 
   // Here I instantiate a separate instance of the AuthApi that can call also login-protected methods (logout)
-  const authApi = new IccAuthApi(host, headers, authenticationProvider, fetchImpl)
-  const codeApi = new IccCodeXApi(host, headers, authenticationProvider, fetchImpl)
-  const entityReferenceApi = new IccEntityrefApi(host, headers, authenticationProvider, fetchImpl)
-  const userApi = new IccUserXApi(host, headers, authenticationProvider, fetchImpl)
-  const permissionApi = new IccPermissionApi(host, headers, authenticationProvider, fetchImpl)
-  const healthcarePartyApi = new IccHcpartyXApi(host, headers, authenticationProvider, fetchImpl)
-  const deviceApi = new IccDeviceApi(host, headers, authenticationProvider, fetchImpl)
-  const basePatientApi = new IccPatientApi(host, headers, authenticationProvider, fetchImpl)
+  const authApi = new IccAuthApi(host, params.headers, authenticationProvider, fetchImpl)
+  const codeApi = new IccCodeXApi(host, params.headers, authenticationProvider, fetchImpl)
+  const entityReferenceApi = new IccEntityrefApi(host, params.headers, authenticationProvider, fetchImpl)
+  const userApi = new IccUserXApi(host, params.headers, authenticationProvider, fetchImpl)
+  const permissionApi = new IccPermissionApi(host, params.headers, authenticationProvider, fetchImpl)
+  const healthcarePartyApi = new IccHcpartyXApi(host, params.headers, authenticationProvider, fetchImpl)
+  const deviceApi = new IccDeviceApi(host, params.headers, authenticationProvider, fetchImpl)
+  const basePatientApi = new IccPatientApi(host, params.headers, authenticationProvider, fetchImpl)
   const dataOwnerApi = new IccDataOwnerXApi(userApi, healthcarePartyApi, basePatientApi, deviceApi)
   // Crypto initialisation
   const icureStorage = new IcureStorageFacade(params.keyStorage, params.storage, params.entryKeysFactory)
@@ -201,32 +215,40 @@ export const Api = async function (
     healthcarePartyApi,
     confidentialEntitites
   )
-  const accessLogApi = new IccAccesslogXApi(host, headers, cryptoApi, dataOwnerApi, authenticationProvider, fetchImpl)
-  const agendaApi = new IccAgendaApi(host, headers, authenticationProvider, fetchImpl)
-  const contactApi = new IccContactXApi(host, headers, cryptoApi, dataOwnerApi, authenticationProvider, fetchImpl)
-  const formApi = new IccFormXApi(host, headers, cryptoApi, dataOwnerApi, authenticationProvider, fetchImpl)
-  const groupApi = new IccGroupApi(host, headers, authenticationProvider)
-  const medicalLocationApi = new IccMedicallocationApi(host, headers, authenticationProvider)
-  const calendarItemTypeApi = new IccCalendarItemTypeApi(host, headers, authenticationProvider)
-  const invoiceApi = new IccInvoiceXApi(host, headers, cryptoApi, entityReferenceApi, dataOwnerApi, authenticationProvider, fetchImpl)
-  const insuranceApi = new IccInsuranceApi(host, headers, authenticationProvider, fetchImpl)
-  const documentApi = new IccDocumentXApi(host, headers, cryptoApi, authApi, dataOwnerApi, authenticationProvider, fetchImpl)
-  const healthcareElementApi = new IccHelementXApi(host, headers, cryptoApi, dataOwnerApi, ['descr', 'note'], authenticationProvider, fetchImpl)
-  const classificationApi = new IccClassificationXApi(host, headers, cryptoApi, dataOwnerApi, authenticationProvider, fetchImpl)
+  const accessLogApi = new IccAccesslogXApi(host, params.headers, cryptoApi, dataOwnerApi, authenticationProvider, fetchImpl)
+  const agendaApi = new IccAgendaApi(host, params.headers, authenticationProvider, fetchImpl)
+  const contactApi = new IccContactXApi(host, params.headers, cryptoApi, dataOwnerApi, authenticationProvider, fetchImpl)
+  const formApi = new IccFormXApi(host, params.headers, cryptoApi, dataOwnerApi, authenticationProvider, fetchImpl)
+  const groupApi = new IccGroupApi(host, params.headers, authenticationProvider)
+  const medicalLocationApi = new IccMedicallocationApi(host, params.headers, authenticationProvider)
+  const calendarItemTypeApi = new IccCalendarItemTypeApi(host, params.headers, authenticationProvider)
+  const invoiceApi = new IccInvoiceXApi(host, params.headers, cryptoApi, entityReferenceApi, dataOwnerApi, authenticationProvider, fetchImpl)
+  const insuranceApi = new IccInsuranceApi(host, params.headers, authenticationProvider, fetchImpl)
+  const documentApi = new IccDocumentXApi(host, params.headers, cryptoApi, authApi, dataOwnerApi, authenticationProvider, fetchImpl)
+  const healthcareElementApi = new IccHelementXApi(
+    host,
+    params.headers,
+    cryptoApi,
+    dataOwnerApi,
+    ['descr', 'note'],
+    authenticationProvider,
+    fetchImpl
+  )
+  const classificationApi = new IccClassificationXApi(host, params.headers, cryptoApi, dataOwnerApi, authenticationProvider, fetchImpl)
   const calendarItemApi = new IccCalendarItemXApi(
     host,
-    headers,
+    params.headers,
     cryptoApi,
     dataOwnerApi,
     ['details', 'title', 'patientId'],
     authenticationProvider,
     fetchImpl
   )
-  const receiptApi = new IccReceiptXApi(host, headers, cryptoApi, dataOwnerApi, authenticationProvider, fetchImpl)
-  const timetableApi = new IccTimeTableXApi(host, headers, cryptoApi, dataOwnerApi, authenticationProvider, fetchImpl)
+  const receiptApi = new IccReceiptXApi(host, params.headers, cryptoApi, dataOwnerApi, authenticationProvider, fetchImpl)
+  const timetableApi = new IccTimeTableXApi(host, params.headers, cryptoApi, dataOwnerApi, authenticationProvider, fetchImpl)
   const patientApi = new IccPatientXApi(
     host,
-    headers,
+    params.headers,
     cryptoApi,
     contactApi,
     formApi,
@@ -241,10 +263,10 @@ export const Api = async function (
     authenticationProvider,
     fetchImpl
   )
-  const messageApi = new IccMessageXApi(host, headers, cryptoApi, dataOwnerApi, authenticationProvider, fetchImpl)
+  const messageApi = new IccMessageXApi(host, params.headers, cryptoApi, dataOwnerApi, authenticationProvider, fetchImpl)
   const maintenanceTaskApi = new IccMaintenanceTaskXApi(
     host,
-    headers,
+    params.headers,
     cryptoApi,
     healthcarePartyApi,
     dataOwnerApi,
@@ -254,17 +276,6 @@ export const Api = async function (
   )
   const icureMaintenanceTaskApi = new IccIcureMaintenanceXApi(cryptoApi, maintenanceTaskApi, dataOwnerApi)
 
-  if (params.autoLogin) {
-    if (username != undefined && password != undefined) {
-      try {
-        await retry(() => authApi.login({ username, password }), 3, 1000, 1.5)
-      } catch (e) {
-        console.error('Incorrect user and password used to instantiate Api, or network problem', e)
-      }
-    }
-  } else {
-    console.info('Auto login skipped')
-  }
   if (newKey && params.createMaintenanceTasksOnNewKey) {
     await icureMaintenanceTaskApi.createMaintenanceTasksForNewKeypair(await userApi.getCurrentUser(), newKey.newKeyPair)
   }
@@ -310,8 +321,7 @@ export const BasicApis = async function (
     : typeof self !== 'undefined'
     ? self.fetch
     : fetch,
-  forceBasic: boolean = false,
-  autoLogin: boolean = false
+  forceBasic: boolean = false
 ) {
   const headers = {}
   const authenticationProvider = forceBasic
@@ -326,18 +336,6 @@ export const BasicApis = async function (
   const agendaApi = new IccAgendaApi(host, headers, authenticationProvider, fetchImpl)
   const groupApi = new IccGroupApi(host, headers, authenticationProvider)
   const insuranceApi = new IccInsuranceApi(host, headers, authenticationProvider, fetchImpl)
-
-  if (autoLogin) {
-    if (username != undefined && password != undefined) {
-      try {
-        await retry(() => authApi.login({ username, password }), 3, 1000, 1.5)
-      } catch (e) {
-        console.error('Incorrect user and password used to instantiate Api, or network problem', e)
-      }
-    }
-  } else {
-    console.info('Auto login skipped')
-  }
 
   return {
     authApi,

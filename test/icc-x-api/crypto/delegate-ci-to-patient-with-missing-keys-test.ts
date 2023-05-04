@@ -77,8 +77,7 @@ describe('Full battery of tests on crypto and keys', async function () {
     const publicKey = ua2hex(await api.cryptoApi.primitives.RSA.exportKey(newKey.publicKey, 'spki'))
     const apiAfterNewKey = await Api(
       env!.iCureUrl,
-      env!.dataOwnerDetails[patUsername].user,
-      env!.dataOwnerDetails[patUsername].password,
+      { username: env!.dataOwnerDetails[patUsername].user, password: env!.dataOwnerDetails[patUsername].password },
       new TestCryptoStrategies(newKey),
       webcrypto as unknown as Crypto,
       fetch,
@@ -132,8 +131,10 @@ describe('Full battery of tests on crypto and keys', async function () {
 
     const apiAfterSharedBack = await Api(
       env!.iCureUrl,
-      env!.dataOwnerDetails[patUsername].user,
-      env!.dataOwnerDetails[patUsername].password,
+      {
+        username: env!.dataOwnerDetails[patUsername].user,
+        password: env!.dataOwnerDetails[patUsername].password,
+      },
       new TestCryptoStrategies(newKey),
       webcrypto as unknown as Crypto,
       fetch,
