@@ -21,7 +21,7 @@ import { DocIdentifier } from '../../icc-api/model/DocIdentifier'
 import initApi = TestUtils.initApi
 import { MaintenanceTaskAfterDateFilter } from '../../icc-x-api/filters/MaintenanceTaskAfterDateFilter'
 import { SecureDelegation } from '../../dist/icc-api/model/SecureDelegation'
-import AccessLevel = SecureDelegation.AccessLevel
+import AccessLevel = SecureDelegation.AccessLevelEnum
 
 setLocalStorage(fetch)
 let env: TestVars
