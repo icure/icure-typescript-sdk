@@ -1,16 +1,14 @@
 import { expect } from 'chai'
-import { LocalStorageImpl } from '../../../icc-x-api/storage/LocalStorageImpl'
+import { LocalStorageImpl } from '../../../icc-x-api'
 import { tmpdir } from 'os'
 import 'isomorphic-fetch'
 import { TextDecoder, TextEncoder } from 'util'
-import { KeyStorageImpl } from '../../../icc-x-api'
 ;(global as any).localStorage = new (require('node-localstorage').LocalStorage)(tmpdir(), 5 * 1024 * 1024 * 1024)
 ;(global as any).fetch = fetch
 ;(global as any).Storage = ''
 ;(global as any).TextDecoder = TextDecoder
 ;(global as any).TextEncoder = TextEncoder
 const testStorage = new LocalStorageImpl()
-const testKeyStorage = new KeyStorageImpl(testStorage)
 
 describe('Test LocalStorageFacade abstraction', () => {
   it('should store and retrieve a keypair', async () => {

@@ -1,6 +1,6 @@
 import { describe } from 'mocha'
 import { CryptoPrimitives } from '../../../icc-x-api/crypto/CryptoPrimitives'
-import { randomUUID, webcrypto } from 'crypto'
+import { webcrypto } from 'crypto'
 import { FakeEncryptionKeysManager } from '../../utils/FakeEncryptionKeysManager'
 import { SecureDelegationsSecurityMetadataDecryptor } from '../../../icc-x-api/crypto/SecureDelegationsSecurityMetadataDecryptor'
 import { SecureDelegationsEncryption } from '../../../icc-x-api/crypto/SecureDelegationsEncryption'

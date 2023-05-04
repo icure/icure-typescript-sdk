@@ -6,14 +6,15 @@ import { IccHelementXApi, IccPatientXApi } from '../../icc-x-api'
 import { Patient } from '../../icc-api/model/Patient'
 import { assert, expect } from 'chai'
 import { randomUUID } from 'crypto'
-import { getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStorage, TestUtils, TestVars } from '../utils/test_utils'
+import { getEnvironmentInitializer, hcp1Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { HealthElement } from '../../icc-api/model/HealthElement'
 import { Code } from '../../icc-api/model/Code'
 import { User } from '../../icc-api/model/User'
 import initApi = TestUtils.initApi
+import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
 setLocalStorage(fetch)
-let env: TestVars | undefined
+let env: TestVars
 
 async function createPatient(patientApiForHcp: IccPatientXApi, hcpUser: User) {
   return patientApiForHcp.createPatientWithUser(
@@ -58,7 +59,7 @@ describe('icc-helement-x-api Tests', () => {
       patientApi: patientApiForHcp,
       healthcareElementApi: hElementApiForHcp,
       cryptoApi: cryptoApiForHcp,
-    } = await initApi(env!, hcp1Username)
+    } = await initApi(env, hcp1Username)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
 
