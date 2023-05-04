@@ -21,7 +21,7 @@ import { MaintenanceTaskAfterDateFilter } from '../../../icc-x-api/filters/Maint
 import { KeyPairUpdateRequest } from '../../../icc-x-api/maintenance/KeyPairUpdateRequest'
 import initMasterApi = TestUtils.initMasterApi
 import { SecureDelegation } from '../../../dist/icc-api/model/SecureDelegation'
-import AccessLevel = SecureDelegation.AccessLevel
+import AccessLevel = SecureDelegation.AccessLevelEnum
 import { EntityShareRequest } from '../../../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 
