@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto'
 import { getEnvironmentInitializer, getEnvVariables, hcp1Username, patUsername, TestUtils, TestVars } from '../../utils/test_utils'
 import initApi = TestUtils.initApi
 import { SecureDelegation } from '../../../dist/icc-api/model/SecureDelegation'
-import AccessLevel = SecureDelegation.AccessLevel
+import AccessLevel = SecureDelegation.AccessLevelEnum
 
 let env: TestVars | undefined
 

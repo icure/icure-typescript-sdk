@@ -21,7 +21,7 @@ import { TestKeyStorage, TestStorage } from '../../utils/TestStorage'
 import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
 import { KeyPairUpdateRequest } from '../../../icc-x-api/maintenance/KeyPairUpdateRequest'
 import { SecureDelegation } from '../../../dist/icc-api/model/SecureDelegation'
-import AccessLevel = SecureDelegation.AccessLevel
+import AccessLevel = SecureDelegation.AccessLevelEnum
 
 async function _getHcpKeyUpdateMaintenanceTask(delegateApi: Apis): Promise<MaintenanceTask> {
   const delegateUser = await delegateApi.userApi.getCurrentUser()
