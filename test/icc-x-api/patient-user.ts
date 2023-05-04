@@ -8,7 +8,7 @@ import { crypto } from '../../node-compat'
 import { ua2hex } from '../../icc-x-api'
 import { Patient } from '../../icc-api/model/Patient'
 import { before } from 'mocha'
-import { getEnvironmentInitializer, getEnvVariables, hcp1Username, patUsername, setLocalStorage, TestUtils, TestVars } from '../utils/test_utils'
+import { getEnvironmentInitializer, hcp1Username, patUsername, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { BasicAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import initApi = TestUtils.initApi
 import { TestApi } from '../utils/TestApi'
@@ -16,6 +16,7 @@ import { RSAUtils } from '../../icc-x-api/crypto/RSA'
 import * as chaiAsPromised from 'chai-as-promised'
 import { EntityShareRequest } from '../../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
+import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 chaiUse(chaiAsPromised)
 
 setLocalStorage(fetch)

@@ -5,20 +5,12 @@ import { expect } from 'chai'
 import 'mocha'
 
 import { Patient } from '../../../icc-api/model/Patient'
-import {
-  createHcpHierarchyApis,
-  getEnvironmentInitializer,
-  getEnvVariables,
-  hcp1Username,
-  hcp2Username,
-  setLocalStorage,
-  TestUtils,
-  TestVars,
-} from '../../utils/test_utils'
+import { createHcpHierarchyApis, getEnvironmentInitializer, hcp1Username, setLocalStorage, TestUtils } from '../../utils/test_utils'
 import { BasicAuthenticationProvider } from '../../../icc-x-api/auth/AuthenticationProvider'
 import initApi = TestUtils.initApi
+import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
-let env: TestVars | undefined
+let env: TestVars
 
 setLocalStorage(fetch)
 
@@ -30,7 +22,7 @@ describe('Create a patient from scratch', () => {
   })
 
   it('should create a patient in the database', async () => {
-    const api = await initApi(env!, hcp1Username)
+    const api = await initApi(env, hcp1Username)
     const user = await api.userApi.getCurrentUser()
 
     const note = 'A secured note that is encrypted'
@@ -59,9 +51,9 @@ describe('Create a patient from scratch', () => {
     expect(fetched.note).to.equal(note)
 
     const fetchedWithoutDecryption = await new IccPatientApi(
-      env!.iCureUrl,
+      env.iCureUrl,
       {},
-      new BasicAuthenticationProvider(env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password),
+      new BasicAuthenticationProvider(env.dataOwnerDetails[hcp1Username].user, env.dataOwnerDetails[hcp1Username].password),
       fetch as any
     ).getPatient(patient.id)
 

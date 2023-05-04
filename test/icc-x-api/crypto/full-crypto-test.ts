@@ -4,14 +4,14 @@ import { Patient } from '../../../icc-api/model/Patient'
 import { Contact } from '../../../icc-api/model/Contact'
 import { HealthElement } from '../../../icc-api/model/HealthElement'
 import { CalendarItem } from '../../../icc-api/model/CalendarItem'
-import { EncryptedEntity, EncryptedParentEntity, FilterChainMaintenanceTask, HealthcareParty, Service, User } from '../../../icc-api/model/models'
+import { EncryptedEntity, FilterChainMaintenanceTask, HealthcareParty, Service, User } from '../../../icc-api/model/models'
 import { before, describe, it } from 'mocha'
 
 import { webcrypto } from 'crypto'
 import 'isomorphic-fetch'
 
 import { expect } from 'chai'
-import { getEnvironmentInitializer, getEnvVariables, getTempEmail, setLocalStorage, TestUtils, TestVars } from '../../utils/test_utils'
+import { getEnvironmentInitializer, getTempEmail, setLocalStorage, TestUtils } from '../../utils/test_utils'
 import { TestApi } from '../../utils/TestApi'
 import { KeyPair } from '../../../icc-x-api/crypto/RSA'
 import { CryptoPrimitives } from '../../../icc-x-api/crypto/CryptoPrimitives'
@@ -24,6 +24,7 @@ import { SecureDelegation } from '../../../dist/icc-api/model/SecureDelegation'
 import AccessLevel = SecureDelegation.AccessLevelEnum
 import { EntityShareRequest } from '../../../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
+import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
 setLocalStorage(fetch)
 

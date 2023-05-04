@@ -1,11 +1,12 @@
 import 'isomorphic-fetch'
-import { getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStorage, TestUtils, TestVars } from '../utils/test_utils'
+import { getEnvironmentInitializer, hcp1Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { before } from 'mocha'
 import * as models from '../../icc-api/model/models'
 import { User } from '../../icc-api/model/User'
 import { Apis, ua2utf8, utf8_2ua } from '../../icc-x-api'
 import initApi = TestUtils.initApi
 import { expect } from 'chai'
+import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
 setLocalStorage(fetch)
 let env: TestVars

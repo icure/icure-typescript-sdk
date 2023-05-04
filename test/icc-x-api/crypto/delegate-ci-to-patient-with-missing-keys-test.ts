@@ -8,20 +8,13 @@ import 'isomorphic-fetch'
 
 import { expect } from 'chai'
 import { MaintenanceTaskAfterDateFilter } from '../../../icc-x-api/filters/MaintenanceTaskAfterDateFilter'
-import {
-  createNewHcpApi,
-  getApiAndAddPrivateKeysForUser,
-  getEnvironmentInitializer,
-  getEnvVariables,
-  patUsername,
-  setLocalStorage,
-  TestVars,
-} from '../../utils/test_utils'
+import { createNewHcpApi, getApiAndAddPrivateKeysForUser, getEnvironmentInitializer, patUsername, setLocalStorage } from '../../utils/test_utils'
 import { TestKeyStorage, TestStorage } from '../../utils/TestStorage'
 import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
 import { KeyPairUpdateRequest } from '../../../icc-x-api/maintenance/KeyPairUpdateRequest'
 import { SecureDelegation } from '../../../dist/icc-api/model/SecureDelegation'
 import AccessLevel = SecureDelegation.AccessLevelEnum
+import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
 async function _getHcpKeyUpdateMaintenanceTask(delegateApi: Apis): Promise<MaintenanceTask> {
   const delegateUser = await delegateApi.userApi.getCurrentUser()
@@ -41,7 +34,7 @@ async function _getHcpKeyUpdateMaintenanceTask(delegateApi: Apis): Promise<Maint
 
 setLocalStorage(fetch)
 
-let env: TestVars | undefined
+let env: TestVars
 
 describe('Full battery of tests on crypto and keys', async function () {
   before(async function () {

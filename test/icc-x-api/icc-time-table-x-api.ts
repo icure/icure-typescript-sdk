@@ -1,7 +1,7 @@
 import 'isomorphic-fetch'
 
 import { before } from 'mocha'
-import { getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStorage, TestUtils, TestVars } from '../utils/test_utils'
+import { getEnvironmentInitializer, hcp1Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { IccTimeTableXApi } from '../../icc-x-api'
 import initApi = TestUtils.initApi
 import { User } from '../../icc-api/model/User'
@@ -11,6 +11,7 @@ import { Code } from '../../icc-api/model/Code'
 import { TimeTableItem } from '../../icc-api/model/TimeTableItem'
 import { TimeTableHour } from '../../icc-api/model/TimeTableHour'
 import { expect } from 'chai'
+import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
 setLocalStorage(fetch)
 let env: TestVars

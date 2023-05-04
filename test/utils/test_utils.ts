@@ -1,31 +1,19 @@
-import { Api, Apis, hex2ua } from '../../icc-x-api'
+import { Api, Apis, hex2ua, ua2hex } from '../../icc-x-api'
 import { tmpdir } from 'os'
 import { TextDecoder, TextEncoder } from 'util'
 import { v4 as uuid } from 'uuid'
-import {
-  CreateHcpComponent,
-  CreatePatientComponent,
-  DescribeInitializer,
-  DockerComposeInitializer,
-  EnvInitializer,
-  GroupInitializer,
-  KrakenInitializer,
-  MasterUserInGroupInitializer,
-  MasterUserInitializer,
-  OssInitializer,
-  SafeguardInitializer,
-  UserInitializerComposite,
-} from './test-utils-decorators'
 import { webcrypto } from 'crypto'
-import { checkIfDockerIsOnline } from '@icure/test-setup'
 import { RSAUtils } from '../../icc-x-api/crypto/RSA'
 import { TestApi } from './TestApi'
-import { Api as TestSetupApi } from '@icure/apiV6'
-import { createHealthcarePartyUser, UserCredentials } from '@icure/test-setup/creation'
+import { Api as TestSetupApi, Apis as TestSetupApis } from '@icure/apiV6'
 import { CryptoPrimitives } from '../../icc-x-api/crypto/CryptoPrimitives'
 import { testStorageWithKeys } from './TestStorage'
 import { TestCryptoStrategies } from './TestCryptoStrategies'
 import { User } from '../../icc-api/model/User'
+import { TestEnvironmentBuilder } from '@icure/test-setup/builder'
+import { getEnvVariables, TestVars, UserDetails } from '@icure/test-setup/types'
+import { EnvInitializer } from '@icure/test-setup/decorators'
+import { HealthcareParty } from '../../icc-api/model/HealthcareParty'
 
 export function getTempEmail(): string {
   return `${uuid().substring(0, 8)}@icure.com`
@@ -40,62 +28,6 @@ export function setLocalStorage(fetch: (input: RequestInfo, init?: RequestInit) 
   ;(global as any).headers = Headers
 }
 
-export type UserDetails = {
-  user: string
-  password: string
-  publicKey: string
-  privateKey: string
-}
-
-export type TestVars = {
-  iCureUrl: string
-  msgGtwUrl: string
-  couchDbUrl: string
-  composeFileUrl: string
-  patAuthProcessId: string
-  hcpAuthProcessId: string
-  specId: string
-  testEnvironment: string
-  testGroupId: string
-  backendType: string
-  adminLogin: string
-  adminPassword: string
-  masterHcp: UserDetails | undefined
-  dataOwnerDetails: { [key: string]: UserDetails }
-}
-
-export function getEnvVariables(): TestVars {
-  const masterHcpDetails =
-    !!process.env.ICURE_TEST_MASTER_LOGIN &&
-    !!process.env.ICURE_TEST_MASTER_PWD &&
-    !!process.env.ICURE_TEST_MASTER_PRIV &&
-    !!process.env.ICURE_TEST_MASTER_PUB
-      ? {
-          user: process.env.ICURE_TEST_MASTER_LOGIN!,
-          password: process.env.ICURE_TEST_MASTER_PWD!,
-          privateKey: process.env.ICURE_TEST_MASTER_PRIV!,
-          publicKey: process.env.ICURE_TEST_MASTER_PUB!,
-        }
-      : undefined
-  const testGroupId = process.env.ICURE_TEST_GROUP_ID ?? 'test-group'
-  return {
-    iCureUrl: process.env.ICURE_TS_TEST_URL ?? 'http://127.0.0.1:16044',
-    msgGtwUrl: process.env.ICURE_TS_TEST_MSG_GTW_URL ?? 'http://127.0.0.1:8081/msggtw',
-    couchDbUrl: process.env.ICURE_COUCHDB_URL ?? 'http://127.0.0.1:15984',
-    composeFileUrl: process.env.COMPOSE_FILE_URL ?? 'https://raw.githubusercontent.com/icure/icure-e2e-test-setup/master/docker-compose-cloud.yaml',
-    patAuthProcessId: process.env.ICURE_TS_TEST_PAT_AUTH_PROCESS_ID ?? `patient${testGroupId}`,
-    hcpAuthProcessId: process.env.ICURE_TS_TEST_HCP_AUTH_PROCESS_ID ?? `hcp${testGroupId}`,
-    specId: process.env.ICURE_TS_TEST_MSG_GTW_SPEC_ID ?? 'ic',
-    testEnvironment: process.env.TEST_ENVIRONMENT ?? 'docker',
-    testGroupId: testGroupId,
-    backendType: process.env.BACKEND_TYPE ?? 'kraken',
-    adminLogin: process.env.ICURE_TEST_ADMIN_LOGIN ?? 'john',
-    adminPassword: process.env.ICURE_TEST_ADMIN_PWD ?? 'LetMeIn',
-    masterHcp: masterHcpDetails,
-    dataOwnerDetails: {},
-  }
-}
-
 export const hcp1Username = process.env.ICURE_TS_TEST_HCP_USER ?? getTempEmail()
 export const hcp2Username = process.env.ICURE_TS_TEST_HCP_2_USER ?? getTempEmail()
 export const hcp3Username = process.env.ICURE_TS_TEST_HCP_3_USER ?? getTempEmail()
@@ -107,22 +39,18 @@ export async function getEnvironmentInitializer(): Promise<EnvInitializer> {
   if (!cachedInitializer) {
     const env = getEnvVariables()
     const scratchDir = 'test/scratch'
-    const isDockerOnline = await checkIfDockerIsOnline(scratchDir, env.composeFileUrl)
-    let bootstrapStep = null
-    if (env.testEnvironment === 'docker' && !isDockerOnline) {
-      const setupStep = new DockerComposeInitializer(scratchDir, ['mock'])
-      bootstrapStep = env.backendType === 'oss' ? new OssInitializer(setupStep) : new KrakenInitializer(setupStep)
-    }
-    const groupStep = env.backendType === 'oss' ? bootstrapStep : new GroupInitializer(bootstrapStep, fetch)
-    const masterInitializerClass = env.backendType === 'kraken' ? MasterUserInGroupInitializer : MasterUserInitializer
-    const masterStep = !!env.masterHcp ? groupStep : new masterInitializerClass(groupStep, fetch)
-    const creationStep = new UserInitializerComposite(masterStep, fetch)
-    creationStep.add(new CreateHcpComponent(hcp1Username))
-    creationStep.add(new CreateHcpComponent(hcp2Username))
-    creationStep.add(new CreateHcpComponent(hcp3Username))
-    creationStep.add(new CreatePatientComponent(patUsername))
-    const explanationStep = new DescribeInitializer(creationStep)
-    cachedInitializer = new SafeguardInitializer(explanationStep)
+    const baseEnvironment =
+      env.testEnvironment === 'docker' ? new TestEnvironmentBuilder().setUpDockerEnvironment(scratchDir, ['mock']) : new TestEnvironmentBuilder()
+    cachedInitializer = await baseEnvironment
+      .withGroup(fetch)
+      .withMasterUser(fetch)
+      .addHcp({ login: hcp1Username })
+      .addHcp({ login: hcp2Username })
+      .addHcp({ login: hcp3Username })
+      .addPatient({ login: patUsername })
+      .withSafeguard()
+      .withEnvironmentSummary()
+      .build()
   }
   return cachedInitializer
 }
@@ -146,9 +74,48 @@ export async function getApiAndAddPrivateKeysForUser(iCureUrl: string, details: 
   return await TestApi(iCureUrl, details.user, details.password, webcrypto as any, keys)
 }
 
+async function createHealthcarePartyUser(
+  api: TestSetupApis,
+  userLogin: string,
+  userToken: string,
+  publicKey?: string,
+  privateKey?: string
+): Promise<UserDetails> {
+  const { publicKey: newPublicKey, privateKey: newPrivateKey } = await api.cryptoApi.RSA.generateKeyPair()
+
+  const publicKeyHex = !!publicKey && !!privateKey ? publicKey : ua2hex(await api.cryptoApi.RSA.exportKey(newPublicKey, 'spki'))
+  const privateKeyHex = !!publicKey && !!privateKey ? privateKey : ua2hex(await api.cryptoApi.RSA.exportKey(newPrivateKey, 'pkcs8'))
+
+  const hcp = await api.healthcarePartyApi.createHealthcareParty(
+    new HealthcareParty({
+      id: uuid(),
+      firstName: uuid().substring(0, 6),
+      lastName: uuid().substring(0, 6),
+      publicKey: publicKeyHex,
+    })
+  )
+  const hcpUser = await api.userApi.createUser(
+    new User({
+      id: uuid(),
+      name: userLogin,
+      login: userLogin,
+      email: userLogin,
+      healthcarePartyId: hcp.id,
+    })
+  )
+  const token = await api.userApi.getToken(hcpUser.id!, uuid(), 24 * 60 * 60, userToken)
+  return {
+    user: hcpUser.login!,
+    dataOwnerId: hcp.id!,
+    password: token,
+    publicKey: publicKeyHex,
+    privateKey: privateKeyHex,
+  }
+}
+
 export async function createNewHcpApi(env: TestVars): Promise<{
   api: Apis
-  credentials: UserCredentials
+  credentials: UserDetails
   user: User
 }> {
   const initialisationApi = await TestSetupApi(
@@ -165,7 +132,7 @@ export async function createNewHcpApi(env: TestVars): Promise<{
   const storage = await testStorageWithKeys([
     { dataOwnerId: credentials.dataOwnerId, pairs: [{ privateKey: credentials.privateKey, publicKey: credentials.publicKey }] },
   ])
-  const api = await Api(env.iCureUrl, credentials.login, credentials.password, new TestCryptoStrategies(), webcrypto as any, fetch, {
+  const api = await Api(env.iCureUrl, credentials.user, credentials.password, new TestCryptoStrategies(), webcrypto as any, fetch, {
     storage: storage.storage,
     keyStorage: storage.keyStorage,
     entryKeysFactory: storage.keyFactory,
@@ -176,16 +143,16 @@ export async function createNewHcpApi(env: TestVars): Promise<{
 export async function createHcpHierarchyApis(env: TestVars): Promise<{
   grandApi: Apis
   grandUser: User
-  grandCredentials: UserCredentials
+  grandCredentials: UserDetails
   parentApi: Apis
   parentUser: User
-  parentCredentials: UserCredentials
+  parentCredentials: UserDetails
   childApi: Apis
   childUser: User
-  childCredentials: UserCredentials
+  childCredentials: UserDetails
   child2Api: Apis
   child2User: User
-  child2Credentials: UserCredentials
+  child2Credentials: UserDetails
 }> {
   const initialisationApi = await TestSetupApi(
     env.iCureUrl + '/rest/v1',
@@ -216,7 +183,7 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
   const grandStorage = await testStorageWithKeys([
     { dataOwnerId: grandCredentials.dataOwnerId, pairs: [{ privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }] },
   ])
-  const grandApi = await Api(env.iCureUrl, grandCredentials.login, grandCredentials.password, new TestCryptoStrategies(), webcrypto as any, fetch, {
+  const grandApi = await Api(env.iCureUrl, grandCredentials.user, grandCredentials.password, new TestCryptoStrategies(), webcrypto as any, fetch, {
     storage: grandStorage.storage,
     keyStorage: grandStorage.keyStorage,
     entryKeysFactory: grandStorage.keyFactory,
@@ -225,19 +192,11 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
     { dataOwnerId: grandCredentials.dataOwnerId, pairs: [{ privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }] },
     { dataOwnerId: parentCredentials.dataOwnerId, pairs: [{ privateKey: parentCredentials.privateKey, publicKey: parentCredentials.publicKey }] },
   ])
-  const parentApi = await Api(
-    env.iCureUrl,
-    parentCredentials.login,
-    parentCredentials.password,
-    new TestCryptoStrategies(),
-    webcrypto as any,
-    fetch,
-    {
-      storage: parentStorage.storage,
-      keyStorage: parentStorage.keyStorage,
-      entryKeysFactory: parentStorage.keyFactory,
-    }
-  )
+  const parentApi = await Api(env.iCureUrl, parentCredentials.user, parentCredentials.password, new TestCryptoStrategies(), webcrypto as any, fetch, {
+    storage: parentStorage.storage,
+    keyStorage: parentStorage.keyStorage,
+    entryKeysFactory: parentStorage.keyFactory,
+  })
   const parentUser = await parentApi.userApi.modifyUser({
     ...(await parentApi.userApi.getCurrentUser()),
     autoDelegations: { all: [grandCredentials.dataOwnerId] },
@@ -247,7 +206,7 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
     { dataOwnerId: parentCredentials.dataOwnerId, pairs: [{ privateKey: parentCredentials.privateKey, publicKey: parentCredentials.publicKey }] },
     { dataOwnerId: childCredentials.dataOwnerId, pairs: [{ privateKey: childCredentials.privateKey, publicKey: childCredentials.publicKey }] },
   ])
-  const childApi = await Api(env.iCureUrl, childCredentials.login, childCredentials.password, new TestCryptoStrategies(), webcrypto as any, fetch, {
+  const childApi = await Api(env.iCureUrl, childCredentials.user, childCredentials.password, new TestCryptoStrategies(), webcrypto as any, fetch, {
     storage: childStorage.storage,
     keyStorage: childStorage.keyStorage,
     entryKeysFactory: childStorage.keyFactory,
@@ -260,19 +219,11 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
     { dataOwnerId: grandCredentials.dataOwnerId, pairs: [{ privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }] },
     { dataOwnerId: child2Credentials.dataOwnerId, pairs: [{ privateKey: child2Credentials.privateKey, publicKey: child2Credentials.publicKey }] },
   ])
-  const child2Api = await Api(
-    env.iCureUrl,
-    child2Credentials.login,
-    child2Credentials.password,
-    new TestCryptoStrategies(),
-    webcrypto as any,
-    fetch,
-    {
-      storage: child2Storage.storage,
-      keyStorage: child2Storage.keyStorage,
-      entryKeysFactory: child2Storage.keyFactory,
-    }
-  )
+  const child2Api = await Api(env.iCureUrl, child2Credentials.user, child2Credentials.password, new TestCryptoStrategies(), webcrypto as any, fetch, {
+    storage: child2Storage.storage,
+    keyStorage: child2Storage.keyStorage,
+    entryKeysFactory: child2Storage.keyFactory,
+  })
   const child2User = await child2Api.userApi.modifyUser({
     ...(await child2Api.userApi.getCurrentUser()),
     autoDelegations: { all: [grandCredentials.dataOwnerId] },
