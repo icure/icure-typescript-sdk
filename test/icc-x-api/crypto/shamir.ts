@@ -100,7 +100,7 @@ describe('Shamir key recovery', async function () {
     const descr = 'Confidential info'
     const confidentialData = await api.healthcareElementApi.createHealthElementWithUser(
       user,
-      await api.healthcareElementApi.newInstance(user, pat, { descr }, true)
+      await api.healthcareElementApi.newInstance(user, pat, { descr }, { confidential: true })
     )
     await api.cryptoApi.shamirKeysManager.updateSelfSplits(
       { [hierarchyApis.childCredentials.publicKey.slice(-32)]: { notariesIds, minShares: 3 } },
@@ -121,15 +121,13 @@ describe('Shamir key recovery', async function () {
       env.iCureUrl,
       hierarchyApis.childCredentials.login,
       hierarchyApis.childCredentials.password,
+      new TestCryptoStrategies(newKey),
       webcrypto as any,
       fetch,
-      false,
-      false,
-      lostKeyStorage.storage,
-      lostKeyStorage.keyStorage,
       {
         entryKeysFactory: lostKeyStorage.keyFactory,
-        cryptoStrategies: new TestCryptoStrategies(newKey),
+        storage: lostKeyStorage.storage,
+        keyStorage: lostKeyStorage.keyStorage,
       }
     )
     const lostUser = await lostKeyApi.userApi.getCurrentUser()
@@ -137,14 +135,14 @@ describe('Shamir key recovery', async function () {
     await lostKeyApi.icureMaintenanceTaskApi.createMaintenanceTasksForNewKeypair(lostUser, newKey)
 
     async function checkNotRecovered() {
-      await lostKeyApi.cryptoApi.forceReload(true)
+      await lostKeyApi.cryptoApi.forceReload()
       expect(Object.keys(lostKeyApi.cryptoApi.userKeysManager.getDecryptionKeys())).to.have.length(3)
       expect(await lostKeyApi.healthcareElementApi.findBy(lostUser.healthcarePartyId!, lostPatient)).to.be.empty
     }
 
     async function giveBackAccess(notaryId: number) {
       const notaryApi = notariesApis[notaryId]
-      await notaryApi.cryptoApi.forceReload(false)
+      await notaryApi.cryptoApi.forceReload()
       const delegateUser = await notaryApi.userApi.getCurrentUser()
       const notifications = (
         await notaryApi.maintenanceTaskApi.filterMaintenanceTasksByWithUser(
@@ -170,7 +168,7 @@ describe('Shamir key recovery', async function () {
     await checkNotRecovered()
     await giveBackAccess(2)
     await giveBackAccess(3)
-    await lostKeyApi.cryptoApi.forceReload(true)
+    await lostKeyApi.cryptoApi.forceReload()
     expect(Object.keys(lostKeyApi.cryptoApi.userKeysManager.getDecryptionKeys())).to.have.length(4)
     const retrievedAfterRecovery = await lostKeyApi.healthcareElementApi.findBy(lostUser.healthcarePartyId!, lostPatient)
     expect(retrievedAfterRecovery).to.have.length(1)

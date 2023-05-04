@@ -61,7 +61,7 @@ async function createHealthElement(healthElementApi: IccHelementXApi, hcpUser: U
           }),
         ],
       }),
-      true
+      { confidential: true }
     )
   )
 }
@@ -92,7 +92,7 @@ function createBasicContact(contactApiForHcp: IccContactXApi, hcpUser: User, pat
       ],
       descr: 'Weight value',
     }),
-    true
+    { confidential: true }
   )
 }
 

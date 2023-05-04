@@ -83,26 +83,44 @@ export class IccCryptoXApi {
     return this.cryptoPrimitives.AES
   }
 
+  /**
+   * @internal this is for internal use only and may be changed without notice.
+   */
   get keyStorage(): KeyStorageFacade {
     return this._keyStorage
   }
 
+  /**
+   * @internal this is for internal use only and may be changed without notice.
+   */
   get storage(): StorageFacade<string> {
     return this._storage
   }
 
+  /**
+   * @internal this is for internal use only and may be changed without notice.
+   */
   get entities(): EntitiesEncryption {
     return this.entitiesEncrypiton
   }
 
+  /**
+   * @internal this is for internal use only and may be changed without notice.
+   */
   get confidential(): ConfidentialEntities {
     return this.confidentialEntities
   }
 
+  /**
+   * @internal this is for internal use only and may be changed without notice.
+   */
   get userKeysManager(): KeyManager {
     return this.keyManager
   }
 
+  /**
+   * @internal this is for internal use only and may be changed without notice.
+   */
   get shamirKeysManager(): ShamirKeysManager {
     return this.shamirManager
   }
@@ -137,45 +155,66 @@ export class IccCryptoXApi {
   }
 
   /**
+   * Deletes values cached by the crypto api, to allow to detect changes in stored key pairs, exchange keys and/or current data owner details.
+   * This method may be useful in cases where a user is logged in from multiple devices or in cases where other users have just shared some data with
+   * the current user for the first time.
+   */
+  async forceReload() {
+    this.exchangeKeysManager.clearCache(true)
+    this.dataOwnerApi.clearCurrentDataOwnerIdsCache()
+    await this.keyManager.reloadKeys()
+  }
+
+  /**
+   * Get a key pair with the provided fingerprint if present.
+   * @param fingerprint a key-pair/public-key fingerprint
+   * @return the pair associated to the fingerprint and a boolean indicating if the pair is verified, if present, else undefined
+   */
+  getKeyPairForFingerprint(fingerprint: string): { pair: KeyPair<CryptoKey>; verified: boolean } | undefined {
+    return this.keyManager.getKeyPairForFingerprint(fingerprint)
+  }
+
+  /**
+   * Get the public keys of available key pairs for the current user and his parents in hex-encoded spki representation (uses cached keys: no request
+   * is done to the server).
+   * Note that this will also include unverified keys.
+   * @return the spki representation of public keys of available keypairs for the current user.
+   */
+  async getCurrentUserHierarchyAvailablePublicKeysHex(): Promise<string[]> {
+    return this.keyManager.getCurrentUserHierarchyAvailablePublicKeysHex()
+  }
+
+  /**
+   * Get the public keys of available key pairs for the current user in hex-encoded spki representation (uses cached keys: no request is done to the
+   * server).
+   * By setting {@link verifiedOnly} to true only the public keys for verified key pairs will be returned: these will include only key pairs created
+   * on this device or which have been verified using {@link CryptoStrategies} on this device.
+   * @param verifiedOnly if true only the verified public keys will be returned.
+   * @return the spki representation of public keys of available keypairs for the current user.
+   */
+  async getCurrentUserAvailablePublicKeysHex(verifiedOnly: boolean): Promise<string[]> {
+    return this.keyManager.getCurrentUserAvailablePublicKeysHex(verifiedOnly)
+  }
+
+  /**
    * @deprecated depending on your use case you should delete the calls to this method or call {@link forceReload}:
-   * 1. Replace with `forceReload(true)` if one of the following parts of the current data owner may have been modified from a different api instance:
+   * - Replace with `forceReload()` if one of the following parts of the current data owner may have been modified from a different api instance:
    *   - Hcp hierarchy
    *   - Key recovery data (transfer keys or shamir)
-   *   - Exchange keys (formerly hcp keys) where the current data owner IS THE DELEGATOR.
-   * 2. Replace with `forceReload(false)` if you just want to force the api to look for new exchange keys where the current data owner IS NOT THE
-   *    DELEGATOR.
-   * 3. Remove the call if the main goal was to force reload the data owner: data owner are not cached anymore.
+   *   - Exchange keys (formerly hcp keys)
+   * - Remove the call if the main goal was to force reload the data owner: data owner are not cached anymore.
    */
   emptyHcpCache(hcpartyId: string) {
     this.exchangeKeysManager.clearCache(false)
   }
 
   /**
-   * Deletes values cached by the crypto api, to allow to detect changes in available exchange keys and private keys.
-   * The method always fully clears the cache of exchange keys from any data owner which is not the current data owner. Additionally, by setting the
-   * {@link reloadForExternalChangesToCurrentDataOwner} parameter to true the method will also clear the cache of private keys for the current data
-   * owner and exchange keys where the current data owner is the delegator. Normally this should not be necessary because any changes performed by
-   * this instance of the api are automatically cached, but if the data owner has logged in from another device as well the changes will be
-   * undetected.
-   * @param reloadForExternalChangesToCurrentDataOwner true if the cache should be cleared in a way that allows detecting also external changes to the
-   * current data owner.
-   */
-  async forceReload(reloadForExternalChangesToCurrentDataOwner: boolean) {
-    this.exchangeKeysManager.clearCache(reloadForExternalChangesToCurrentDataOwner)
-    if (reloadForExternalChangesToCurrentDataOwner) {
-      this.dataOwnerApi.clearCurrentDataOwnerIdsCache()
-      await this.keyManager.reloadKeys()
-    }
-  }
-
-  /**
    * @deprecated you should not need this method anymore to deal with the encryption of iCure entities because everything related to entities
-   * encryption should be done either through the entity-specific extended api or through the {@link EntitiesEncryption} object available at
-   * {@link entities}.
+   * encryption should be done either through the entity-specific extended api or through the extended apis.
    * Note that keys returned by the current implementation of this method may not be safe for encryption/sharing.
    * If instead you are using this method to retrieve key pairs for other purposes, for example because you want to reuse the user keys in iCure for
    * other services consider the following alternatives:
-   * - If you want to use all iCure facilities including key recovery and key verification you can use {@link KeyManager.getKeyPairForFingerprint}.
+   * - If you want to use all iCure facilities including key recovery and key verification you can use {@link getKeyPairForFingerprint}.
    *   Note that this solution can only give access to keys for the data owner of the instantiated api and his parents.
    * - Alternatively you can use directly your choice of {@link KeyStorageFacade} and {@link StorageEntryKeysFactory}: if these are the same you use
    *   for the iCure API client the keys will be shared with it. Note however that the iCure api client uses
@@ -194,12 +233,13 @@ export class IccCryptoXApi {
   }
 
   /**
-   * @deprecated You have different options to replace this method, depending on what you actually need. All options return the hex-encoded spki
-   * representation of the public keys.
+   * @deprecated You do not need this method to encrypt/decrypt data of iCure, but if you want to reuse the iCure keys for the user for other purposes
+   * you have different options to replace this method, depending on what you actually need. All options return the hex-encoded spki representation of
+   * the public keys.
    * - If you want only the public keys for which we have a private key available
-   *   - you can replicate the current behaviour using {@link KeyManager.getCurrentUserHierarchyAvailablePublicKeysHex} (the key manager is available
-   *     at {@link userKeysManager}). This includes keys for the current user and his parents.
-   *   - use {@link KeyManager.getCurrentUserAvailablePublicKeysHex} to get public keys only for the current data owner, ignoring any keys of the
+   *   - you can replicate the current behaviour using {@link getCurrentUserHierarchyAvailablePublicKeysHex}. This includes keys for the current user
+   *   and his parents.
+   *   - use {@link getCurrentUserAvailablePublicKeysHex} to get public keys only for the current data owner, ignoring any keys of the
    *     parent hierarchy. In this case you can also apply a filter to only get verified keys (safe for encryption).
    * - If you need all public keys for the data owner, including those for which there is no corresponding private key available on the device use
    *   {@link IccDataOwnerXApi.getHexPublicKeysOf} with the current data owner. If you don't have it available you may get it from
@@ -308,8 +348,7 @@ export class IccCryptoXApi {
 
   /**
    * @deprecated you should not need this method anymore because everything related to entities encryption should be done either through the
-   * entity-specific extended api or through the {@link EntitiesEncryption} object available at {@link entities}. Please contact us if you have a
-   * scenario where you really need to get the exchange keys for the user.
+   * entity-specific extended api.
    * Note that currently this method does not cache results anymore (but the updated methods do).
    */
   async decryptHcPartyKey(
@@ -352,17 +391,8 @@ export class IccCryptoXApi {
    *
    * If you were using this method to allow the user to recover an existing key that is not available in the storage facade nor recoverable through
    * transfer keys or shamir split (for example by scanning a qr code, or by loading a file from the computer to the web browser's local storage)
-   * you will have to:
-   * - add it to the {@link KeyStorageFacade} using a key from {@link StorageEntryKeysFactory.deviceKeypairOfDataOwner} to make the key available as
-   *   if it was created on this device (therefore safe for encryption), or
-   * - add it to the {@link KeyStorageFacade} using a key from {@link StorageEntryKeysFactory.cachedRecoveredKeypairOfDataOwner}. The key in this case
-   *   won't be considered safe for encryption, but it will be available for decryption.
-   * Note that if you want to do this when the API is already instantiated you need to call `this.forceReload(true)` ({@link forceReload}) to use the
-   * new key.
-   *
-   * It is currently not allowed to create new key pairs if a verified key pair is already available on the device, as this would be wasteful. If you
-   * think you have a use case where this is necessary please contact us.
-   *
+   * you will have to move that logic in your implementation of CryptoStrategies.
+   * It is currently not allowed to create new key pairs if a verified key pair is already available on the device, as this would be wasteful.
    * If you want to convert a `JsonWebKey` pair to a `CryptoKey` pair you should use directly the method in `primitives.RSA`.
    */
   async cacheKeyPair(keyPairInJwk: KeyPair<JsonWebKey>): Promise<KeyPair<CryptoKey>> {
@@ -378,16 +408,14 @@ export class IccCryptoXApi {
         )
       await this.icureStorage.saveKey(selfId, fingerprint, keyPairInJwk, true)
       // Force reload to check if more private keys can be recovered or more exchange keys become available.
-      await this.forceReload(true)
+      await this.forceReload()
     }
     return cryptoKeyPair
   }
 
   /**
    * @deprecated Usually you should not need this method, since the preferred sfk is automatically chosen by the extended entity apis when creating a
-   * new instance of the entity. If you still need this method you can replace it with the methods available at {@link confidential}:
-   * - {@link ConfidentialEntities.getConfidentialSecretId} if you were calling this method with `confidential = true`
-   * - {@link ConfidentialEntities.getAnySecretIdSharedWithParents} if you were calling this method with `confidential = false`
+   * new instance of the entity.
    */
   async extractPreferredSfk(parent: EncryptedParentEntity, hcpartyId: string, confidential: boolean) {
     return confidential ? this.confidential.getConfidentialSecretId(parent, hcpartyId) : this.confidential.getAnySecretIdSharedWithParents(parent)
@@ -395,8 +423,7 @@ export class IccCryptoXApi {
 
   /**
    * @deprecated you should not need this method anymore because everything related to entities encryption should be done either through the
-   * entity-specific extended api or through the {@link EntitiesEncryption} object available at {@link entities}. Please contact us if you have a
-   * scenario where you really need to get the exchange keys for the user.
+   * entity-specific extended api.
    */
   async decryptAndImportAesHcPartyKeysForDelegators(
     delegatorsHcPartyIdsSet: Array<string>,
@@ -424,8 +451,7 @@ export class IccCryptoXApi {
 
   /**
    * @deprecated you should not need this method anymore because everything related to entities encryption should be done either through the
-   * entity-specific extended api or through the {@link EntitiesEncryption} object available at {@link entities}. Please contact us if you have a
-   * scenario where you really need to get the exchange keys for the user.
+   * entity-specific extended api.
    * Note that currently this method does not cache results anymore (but the updated methods do).
    */
   async getEncryptedAesExchangeKeys(
@@ -490,8 +516,8 @@ export class IccCryptoXApi {
   }
 
   /**
-   * @deprecated (light) You should use:
-   * - {@link EntitiesEncryption.secretIdsOf} in {@link entities} to get the secret foreign keys (now secret ids)
+   * @deprecated You should use:
+   * - {@link IccPatientXApi.decryptSecretIdsOf} or {@link IccMessageXApi.decryptSecretIdsOf} to get the delegation sfks (now caleld secret ids).
    * - {@link IccDataOwnerXApi.getCurrentDataOwnerHierarchyIds} to get the full hierarchy for the current data owner (cached). The first element is
    *   the id of the topmost parent, while the last is the current data owner.
    * Note that the behaviour of this method has some subtle changes compared to the past:
@@ -516,7 +542,7 @@ export class IccCryptoXApi {
 
   /**
    * @deprecated (light) You should use:
-   * - {@link EntitiesEncryption.owningEntityIdsOf} in {@link entities} to get the crypted foreign keys (now parent ids)
+   * - {@link IccHelementXApi.decryptPatientIdOf}, {@link IccDocumentXApi.decryptMessageIdOf}, ... to get the crypted foreign keys.
    * - {@link IccDataOwnerXApi.getCurrentDataOwnerHierarchyIds} to get the full hierarchy for the current data owner (cached). The first element is
    *   the id of the topmost parent, while the last is the current data owner.
    * Note that the behaviour of this method has some subtle changes compared to the past:
@@ -540,11 +566,7 @@ export class IccCryptoXApi {
   }
 
   /**
-   * @deprecated If you were using this method to encrypt/decrypt directly the `encryptedEntities` you should instead rely on the extended apis
-   * methods. If instead you were using this method to get keys for encryption/decryption of attachments you should replace it with:
-   * - {@link EntitiesEncryption.encryptionKeysOf} in {@link entities} to get the encryption keys.
-   * - {@link IccDataOwnerXApi.getCurrentDataOwnerHierarchyIds} to get the full hierarchy for the current data owner (cached). The first element is
-   *   the id of the topmost parent, while the last is the current data owner.
+   * @deprecated You should use the extended apis methods to encrypt/decrypt entities or their attachments
    * Note that the behaviour of this method has some subtle changes compared to the past:
    * - throws an error if the provided hcpartyId is not part of the current data owner hierarchy.
    * - does not provide any guarantees on the ordering of the extracted keys
@@ -565,11 +587,9 @@ export class IccCryptoXApi {
   }
 
   /**
-   * @deprecated You should not use this method anymore, and instead replace it with the appropriate methods from {@link entities} depending on where
-   * the delegations come from:
-   * - {@link EntitiesEncryption.secretIdsOf} for {@link EncryptedEntity.delegations} (see {@link extractDelegationsSFKs} for more info)
-   * - {@link EntitiesEncryption.encryptionKeysOf} for {@link EncryptedEntity.encryptionKeys} (see {@link extractEncryptionsSKs} for more info
-   * - {@link EntitiesEncryption.owningEntityIdsOf} for {@link EncryptedEntity.cryptedForeignKeys} (see {@link extractCryptedFKs} for more info)
+   * @deprecated You should not use this method anymore, depending on what you were passing as {@link delegations} you should replace this method as
+   * explained in {@link extractEncryptionsSKs} (if you were passing encryptionKeys), {@link extractCryptedFKs} (cryptedForeignKeys), or
+   * {@link extractDelegationsSFKs} (delegations).
    */
   async extractKeysFromDelegationsForHcpHierarchy(
     dataOwnerId: string,
@@ -590,7 +610,7 @@ export class IccCryptoXApi {
   /**
    * @deprecated you should not need this method anymore: the new API will automatically load on startup all keys available through the key storage
    * facade and/or recoverable through transfer keys or shamir split. If you were using this method to load a key recovered through other means you
-   * need to add the key pair to the {@link KeyStorageFacade} (see {@link cacheKeyPair} for more information).
+   * will have to do so in your implementation of CryptoStrategies.
    * You can convert the private key pkcs8 array to a jwk key using {@link pkcs8ToJwk} then you can extract the full key pair using
    * {@link keyPairFromPrivateKeyJwk}.
    */
@@ -601,7 +621,7 @@ export class IccCryptoXApi {
   /**
    * @deprecated you should not need this method anymore: the new API will automatically load on startup all keys available through the key storage
    * facade and/or recoverable through transfer keys or shamir split. If you were using this method to load a key recovered through other means you
-   * need to add the key pair to the {@link KeyStorageFacade} (see {@link cacheKeyPair} for more information).
+   * will have to do so in your implementation of CryptoStrategies.
    * You can extract the full key pair using {@link keyPairFromPrivateKeyJwk}.
    */
   async loadKeyPairsAsJwkInBrowserLocalStorage(healthcarePartyId: string, privateKey: JsonWebKey) {
@@ -611,7 +631,7 @@ export class IccCryptoXApi {
   /**
    * @deprecated you should not need this method anymore: the new API will automatically load on startup all keys available through the key storage
    * facade and/or recoverable through transfer keys or shamir split. If you were using this method to load a key recovered through other means you
-   * need to add the key pair to the {@link KeyStorageFacade} (see {@link cacheKeyPair} for more information).
+   * will have to do so in your implementation of CryptoStrategies.
    */
   loadKeyPairsInBrowserLocalStorage(healthcarePartyId: string, file: Blob): Promise<void> {
     const fr = new FileReader()
@@ -662,6 +682,7 @@ export class IccCryptoXApi {
 
   /**
    * @deprecated keychains are not part of iCure's api: this method will be removed.
+   *
    * Populate the HCP.options dict with an encrypted eHealth certificate and unencryped expiry date.
    * Any potentially unencrypted certificates will be pruned from the HCP.
    * @param hcpId Id of the hcp to modify
@@ -758,6 +779,7 @@ export class IccCryptoXApi {
 
   /**
    * @deprecated e-health certificates and keychains are not part of iCure's api: this method will be removed.
+   *
    * Synchronizes the eHealth certificate from the database into the LocalStorage, returning information on the presence
    * of certificate data in either place.
    *
@@ -804,9 +826,8 @@ export class IccCryptoXApi {
 
   /**
    * @deprecated you should not need this method anymore to deal with the encryption of iCure entities because everything related to entities
-   * encryption should be done either through the entity-specific extended api or through the {@link EntitiesEncryption} object available at
-   * {@link entities}. If instead you were using the method for other reasons check {@link getCachedRsaKeyPairForFingerprint} to get an idea of
-   * possible replacements.
+   * encryption should be done through the entity-specific extended api.
+   * If instead you were using the method for other reasons check {@link getCachedRsaKeyPairForFingerprint} to get an idea of possible replacements.
    */
   async loadKeyPairNotImported(id: string, publicKeyFingerPrint?: string): Promise<{ publicKey: JsonWebKey; privateKey: JsonWebKey } | undefined> {
     if (publicKeyFingerPrint) {
@@ -874,24 +895,14 @@ export class IccCryptoXApi {
   }
 
   /**
-   * @deprecated (See {@link extractEncryptionsSKs} for a detailed explanation) Use only for attachment encryption keys and replace with:
-   * - {@link EntitiesEncryption.encryptionKeysOf} in {@link entities} to get the encryption keys.
-   * - {@link IccDataOwnerXApi.getCurrentDataOwnerHierarchyIds} to get the full hierarchy for the current data owner (cached). The first element is
-   *   the id of the topmost parent, while the last is the current data owner.
+   * @deprecated (See {@link extractEncryptionsSKs} for a detailed explanation).
    */
   async getEncryptionDecryptionKeys(dataOwnerId: string, document: EncryptedEntity): Promise<Array<string> | undefined> {
     return this.entities.encryptionKeysOf(document, dataOwnerId)
   }
 
   /**
-   * @deprecated For the encryption/decryption of iCure entities you should rely solely on the extended apis methods. For encryption/decryption of
-   * attachments you should use the following methods instead:
-   * - {@link EntitiesEncryption.encryptDataOf} to encrypt entity-specific data using a key which is retrieved automatically from the entity.
-   * - {@link AES.encryptWithRawKey} to encrypt data with a specific key
-   * - {@link EntitiesEncryption.decryptDataOf} to decrypt entity-specific data using a key which is retrieved automatically from the entity. This
-   *   method also allows to specify a validator to verify the data matches the predicted pattern (e.g. is a plain text file utf-8), which allows to
-   *   better identify decryptions with bad keys and allows to try other keys instead of returning invalid data.
-   * - {@link AES.decryptWithRawKey} to decrypt data with a specific key
+   * @deprecated For the encryption/decryption of iCure entities and attachments you should rely solely on the extended apis methods.
    */
   async encryptDecrypt(
     method: 'encrypt' | 'decrypt',
@@ -921,7 +932,7 @@ export class IccCryptoXApi {
   }
 
   /**
-   * @deprecated use storage.setItem instead
+   * @deprecated you should not need to interact directly with the storage instance used by the iCure sdk.
    */
   storeKeyPair(id: string, keyPair: { publicKey: any; privateKey: any }) {
     this._storage.setItem(this.rsaLocalStoreIdPrefix + id, JSON.stringify(keyPair))

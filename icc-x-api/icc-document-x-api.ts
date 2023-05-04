@@ -8,6 +8,7 @@ import * as models from '../icc-api/model/models'
 import { a2b, hex2ua, string2ua, ua2string } from './utils/binary-utils'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccDocumentXApi extends IccDocumentApi {
@@ -570,20 +571,25 @@ export class IccDocumentXApi extends IccDocumentApi {
    * @param message the message this document refers to.
    * @param c initialised data for the document. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
    * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
-   * @param delegates initial delegates which will have access to the document other than the current data owner.
-   * @param preferredSfk secret id of the message to use as the secret foreign key to use for the document. The default value will be a secret
-   * id of message known by the topmost parent in the current data owner hierarchy.
-   * @param delegationTags tags for the initialised delegations.
+   * @param options optional parameters:
+   * - additionalDelegates: delegates which will have access to the entity in addition to the current data owner and delegates from the
+   * auto-delegations. Must be an object which associates each data owner id with the access level to give to that data owner. May overlap with
+   * auto-delegations, in such case the access level specified here will be used. Currently only WRITE access is supported, but in future also read
+   * access will be possible.
+   * - preferredSfk: secret id of the patient to use as the secret foreign key to use for the classification. The default value will be a
+   * secret id of patient known by the topmost parent in the current data owner hierarchy.
    * @return a new instance of document.
    */
   async newInstance(
     user: models.User,
     message?: models.Message,
     c: any = {},
-    delegates?: string[],
-    preferredSfk?: string,
-    delegationTags?: string[]
+    options: {
+      additionalDelegates?: { [dataOwnerId: string]: 'WRITE' }
+      preferredSfk?: string
+    } = {}
   ) {
+    if (!message && options.preferredSfk) throw new Error('You need to specify parent message in order to use secret foreign keys.')
     const document = _.extend(
       {
         id: this.crypto.primitives.randomUuid(),
@@ -600,12 +606,16 @@ export class IccDocumentXApi extends IccDocumentApi {
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
-    const sfk = message ? preferredSfk ?? (await this.crypto.confidential.getAnySecretIdSharedWithParents(message)) : undefined
+    const sfk = message ? options.preferredSfk ?? (await this.crypto.confidential.getAnySecretIdSharedWithParents(message)) : undefined
     if (message && !sfk) throw new Error(`Couldn't find any sfk of parent message ${message.id}`)
-    const extraDelegations = [...(delegates ?? []), ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
+    const extraDelegations = [
+      ...Object.keys(options.additionalDelegates ?? {}),
+      ...(user.autoDelegations?.all ?? []),
+      ...(user.autoDelegations?.medicalInformation ?? []),
+    ]
     return new models.Document(
       await this.crypto.entities
-        .entityWithInitialisedEncryptedMetadata(document, message?.id, sfk, true, extraDelegations, delegationTags)
+        .entityWithInitialisedEncryptedMetadata(document, message?.id, sfk, true, extraDelegations)
         .then((x) => x.updatedEntity)
     )
   }
@@ -782,6 +792,46 @@ export class IccDocumentXApi extends IccDocumentApi {
   ): Promise<ArrayBuffer> {
     return await this.crypto.entities.decryptDataOf(document, await this.getSecondaryAttachment(document.id!, secondaryAttachmentKey), (x) =>
       validator(x)
+    )
+  }
+
+  /**
+   * @param document a document
+   * @return the id of the message that the document refers to, retrieved from the encrypted metadata. Normally there should only be one element
+   * in the returned array, but in case of entity merges there could be multiple values.
+   */
+  async decryptMessageIdOf(document: models.Document): Promise<string[]> {
+    return this.crypto.entities.owningEntityIdsOf(document, undefined)
+  }
+
+  /**
+   * Share an existing document with other data owners, allowing them to access the non-encrypted data of the document and optionally also
+   * the encrypted content.
+   * @param delegateId the id of the data owner which will be granted access to the document.
+   * @param document the document to share.
+   * @param options optional parameters to customize the sharing behaviour:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * - shareMessageId: specifies if the id of the message that this document refers to should be shared with the delegate (defaults to
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * @return a promise which will contain the updated document.
+   */
+  async shareWith(
+    delegateId: string,
+    document: models.Document,
+    options: {
+      shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      shareMessageId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+    } = {}
+  ): Promise<models.Document> {
+    return await this.modifyDocument(
+      await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
+        document,
+        delegateId,
+        undefined,
+        options.shareEncryptionKey,
+        options.shareMessageId
+      )
     )
   }
 }

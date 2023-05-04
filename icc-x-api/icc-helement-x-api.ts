@@ -8,6 +8,7 @@ import * as moment from 'moment'
 import { FilterChainHealthElement, HealthElement, PaginatedListHealthElement } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 
 export class IccHelementXApi extends IccHelementApi {
   crypto: IccCryptoXApi
@@ -35,44 +36,31 @@ export class IccHelementXApi extends IccHelementApi {
   }
 
   /**
-   * Temporary version of new instance without the `confidential` parameter, to simplify the transition to the updated api. In a future version
-   * the confidential parameter from new instance will be removed and this will be deprecated.
-   */
-  async newInstanceNoConfidential(
-    user: models.User,
-    patient: models.Patient,
-    h: any,
-    delegates: string[] = [],
-    preferredSfk?: string,
-    delegationTags?: string[]
-  ) {
-    return this.newInstance(user, patient, h, false, delegates, preferredSfk, delegationTags)
-  }
-
-  /**
    * Creates a new instance of health element with initialised encryption metadata (not in the database).
    * @param user the current user.
    * @param patient the patient this health element refers to.
    * @param h initialised data for the health element. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
    * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
-   * @param confidential if false the new health element will automatically be shared with all auto-delegations for the current user, and the default
-   * sfk will be a secret id of patient known by the topmost parent in the current data owner hierarchy. If true the new health element won't be
-   * shared with any of the auto delegations and the default sfk will be a confidential secret id of patient for the current data owner.
-   * @param delegates initial delegates which will have access to the health element other than the current data owner. Note that if you are using the
-   * default confidential secret foreign keys the delegates may not be able to find the health element.
-   * @param preferredSfk secret id of the patient to use as the secret foreign key to use for the health element. If provided overrides the default
-   * value, regardless of the value of {@link confidential}
-   * @param delegationTags tags for the initialised delegations.
+   * @param options optional parameters:
+   * - additionalDelegates: delegates which will have access to the entity in addition to the current data owner and delegates from the
+   * auto-delegations. Must be an object which associates each data owner id with the access level to give to that data owner. May overlap with
+   * auto-delegations, in such case the access level specified here will be used. Currently only WRITE access is supported, but in future also read
+   * access will be possible.
+   * - preferredSfk: secret id of the patient to use as the secret foreign key to use for the classification. The default value will be a
+   * secret id of patient known by the topmost parent in the current data owner hierarchy.
+   * - confidential: if true, the entity will be created as confidential. Confidential entities are not shared with auto-delegations, and the default
+   * foreign key used is any key that is not shared with any of the data owner parents. By default entities are created as non-confidential.
    * @return a new instance of health element.
    */
   async newInstance(
     user: models.User,
     patient: models.Patient,
     h: any,
-    confidential = false,
-    delegates: string[] = [],
-    preferredSfk?: string,
-    delegationTags?: string[]
+    options: {
+      additionalDelegates?: { [dataOwnerId: string]: 'WRITE' }
+      preferredSfk?: string
+      confidential?: boolean
+    } = {}
   ) {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     const helement = _.assign(
@@ -94,20 +82,16 @@ export class IccHelementXApi extends IccHelementApi {
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
     const sfk =
-      preferredSfk ??
-      (confidential
+      options.preferredSfk ??
+      (!!options.confidential
         ? await this.crypto.confidential.getConfidentialSecretId(patient)
         : await this.crypto.confidential.getAnySecretIdSharedWithParents(patient))
-    if (!sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id} for confidential=${confidential}`)
-    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
-    const initialisationInfo = await this.crypto.entities.entityWithInitialisedEncryptedMetadata(
-      helement,
-      patient.id,
-      sfk,
-      true,
-      confidential ? [] : extraDelegations,
-      delegationTags
-    )
+    if (!sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id} for confidential=${!!options.confidential}`)
+    const extraDelegations = [
+      ...Object.keys(options.additionalDelegates ?? {}),
+      ...(options.confidential ? [] : [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]),
+    ]
+    const initialisationInfo = await this.crypto.entities.entityWithInitialisedEncryptedMetadata(helement, patient.id, sfk, true, extraDelegations)
     return new models.HealthElement(initialisationInfo.updatedEntity)
   }
 
@@ -202,12 +186,13 @@ export class IccHelementXApi extends IccHelementApi {
   }
 
   modifyHealthElementWithUser(user: models.User, body?: HealthElement): Promise<HealthElement | any> {
-    return body
-      ? this.encrypt(user, [_.cloneDeep(body)])
-          .then((hes) => super.modifyHealthElement(hes[0]))
-          .then((he) => this.decryptWithUser(user, [he]))
-          .then((hes) => hes[0])
-      : Promise.resolve(null)
+    return body ? this.modifyAs(this.dataOwnerApi.getDataOwnerIdOf(user), body) : Promise.resolve(null)
+  }
+  private modifyAs(dataOwner: string, body: HealthElement): Promise<HealthElement | any> {
+    return this.encryptAs(dataOwner, [_.cloneDeep(body)])
+      .then((hes) => super.modifyHealthElement(hes[0]))
+      .then((he) => this.decrypt(dataOwner, [he]))
+      .then((hes) => hes[0])
   }
 
   modifyHealthElements(body?: Array<HealthElement>): never {
@@ -298,7 +283,10 @@ export class IccHelementXApi extends IccHelementApi {
   }
 
   encrypt(user: models.User, healthElements: Array<models.HealthElement>): Promise<Array<models.HealthElement>> {
-    const owner = this.dataOwnerApi.getDataOwnerIdOf(user)
+    return this.encryptAs(this.dataOwnerApi.getDataOwnerIdOf(user), healthElements)
+  }
+
+  private encryptAs(owner: string, healthElements: Array<models.HealthElement>): Promise<Array<models.HealthElement>> {
     return Promise.all(
       healthElements.map((he) =>
         this.crypto.entities.tryEncryptEntity(he, owner, this.encryptedKeys, false, true, (x) => new models.HealthElement(x))
@@ -358,5 +346,48 @@ export class IccHelementXApi extends IccHelementApi {
       version: c[2],
       id: code,
     })
+  }
+
+  /**
+   * @param healthElement a health element
+   * @return the id of the patient that the health element refers to, retrieved from the encrypted metadata. Normally there should only be one element
+   * in the returned array, but in case of entity merges there could be multiple values.
+   */
+  async decryptPatientIdOf(healthElement: models.HealthElement): Promise<string[]> {
+    return this.crypto.entities.owningEntityIdsOf(healthElement, undefined)
+  }
+
+  /**
+   * Share an existing health element with other data owners, allowing them to access the non-encrypted data of the health element and optionally also
+   * the encrypted content, with read-only or read-write permissions.
+   * @param delegateId the id of the data owner which will be granted access to the health element.
+   * @param healthElement the health element to share.
+   * @param options optional parameters to customize the sharing behaviour:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * health element does not have encrypted content.
+   * - sharePatientId: specifies if the id of the patient that this health element refers to should be shared with the delegate (defaults to
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * @return a promise which will contain the updated health element.
+   */
+  async shareWith(
+    delegateId: string,
+    healthElement: models.HealthElement,
+    options: {
+      shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+    } = {}
+  ): Promise<models.HealthElement> {
+    const self = await this.dataOwnerApi.getCurrentDataOwnerId()
+    return await this.modifyAs(
+      self,
+      await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
+        healthElement,
+        delegateId,
+        undefined,
+        options.shareEncryptionKey,
+        options.sharePatientId
+      )
+    )
   }
 }

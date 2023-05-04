@@ -17,6 +17,7 @@ import { findName, garnishPersonWithName, hasName } from './utils/person-util'
 import { retry } from './utils'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccPatientXApi extends IccPatientApi {
@@ -74,11 +75,20 @@ export class IccPatientXApi extends IccPatientApi {
    * @param user the current user.
    * @param p initialised data for the patient. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
    * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
-   * @param delegates initial delegates which will have access to the patient other than the current data owner.
-   * @param delegationTags tags for the initialised delegations.
+   * @param options optional parameters:
+   * - additionalDelegates: delegates which will have access to the entity in addition to the current data owner and delegates from the
+   * auto-delegations. Must be an object which associates each data owner id with the access level to give to that data owner. May overlap with
+   * auto-delegations, in such case the access level specified here will be used. Currently only WRITE access is supported, but in future also read
+   * access will be possible.
    * @return a new instance of patient.
    */
-  async newInstance(user: models.User, p: any = {}, delegates: string[] = [], delegationTags?: string[]) {
+  async newInstance(
+    user: models.User,
+    p: any = {},
+    options: {
+      additionalDelegates?: { [dataOwnerId: string]: 'WRITE' }
+    } = {}
+  ) {
     const patient = _.extend(
       {
         id: this.crypto.primitives.randomUuid(),
@@ -95,14 +105,17 @@ export class IccPatientXApi extends IccPatientApi {
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
-    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
+    const extraDelegations = [
+      ...Object.keys(options.additionalDelegates ?? {}),
+      ...(user.autoDelegations?.all ?? []),
+      ...(user.autoDelegations?.medicalInformation ?? []),
+    ]
     const initialisationInfo = await this.crypto.entities.entityWithInitialisedEncryptedMetadata(
       patient,
       undefined,
       undefined,
       true,
-      extraDelegations,
-      delegationTags
+      extraDelegations
     )
     return new models.Patient(initialisationInfo.updatedEntity)
   }
@@ -294,14 +307,14 @@ export class IccPatientXApi extends IccPatientApi {
   getPatientWithUser(user: models.User, patientId: string): Promise<models.Patient | any> {
     return super
       .getPatient(patientId)
-      .then((p) => this.tryDecryptOrReturnOriginal(user, [p], false))
+      .then((p) => this.tryDecryptOrReturnOriginal(this.dataOwnerApi.getDataOwnerIdOf(user), [p], false))
       .then((pats) => pats[0].entity)
   }
 
   getPotentiallyEncryptedPatientWithUser(user: models.User, patientId: string): Promise<{ patient: models.Patient; decrypted: boolean }> {
     return super
       .getPatient(patientId)
-      .then((p) => this.tryDecryptOrReturnOriginal(user, [p], false))
+      .then((p) => this.tryDecryptOrReturnOriginal(this.dataOwnerApi.getDataOwnerIdOf(user), [p], false))
       .then((pats) => ({ patient: pats[0].entity, decrypted: pats[0].decrypted }))
   }
 
@@ -450,12 +463,14 @@ export class IccPatientXApi extends IccPatientApi {
   }
 
   modifyPatientWithUser(user: models.User, body?: models.Patient): Promise<models.Patient | null> {
-    return body
-      ? this.encrypt(user, [_.cloneDeep(this.completeNames(body))])
-          .then((pats) => super.modifyPatient(pats[0]))
-          .then((p) => this.decrypt(user, [p]))
-          .then((pats) => pats[0])
-      : Promise.resolve(null)
+    return body ? this.modifyAs(this.dataOwnerApi.getDataOwnerIdOf(user), body) : Promise.resolve(null)
+  }
+
+  modifyAs(dataOwner: string, body: models.Patient): Promise<models.Patient> {
+    return this.encryptAs(dataOwner, [_.cloneDeep(this.completeNames(body))])
+      .then((pats) => super.modifyPatient(pats[0]))
+      .then((p) => this.tryDecryptOrReturnOriginal(dataOwner, [p]))
+      .then((pats) => pats[0].entity)
   }
 
   modifyPatientReferral(patientId: string, referralId: string, start?: number, end?: number): never {
@@ -476,8 +491,10 @@ export class IccPatientXApi extends IccPatientApi {
   }
 
   encrypt(user: models.User, pats: Array<models.Patient>): Promise<Array<models.Patient>> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
+    return this.encryptAs(this.dataOwnerApi.getDataOwnerIdOf(user), pats)
+  }
 
+  private encryptAs(dataOwnerId: string, pats: Array<models.Patient>): Promise<Array<models.Patient>> {
     return Promise.all(
       pats.map((p) => this.crypto.entities.tryEncryptEntity(p, dataOwnerId, this.encryptedKeys, true, false, (x) => new models.Patient(x)))
     )
@@ -485,16 +502,14 @@ export class IccPatientXApi extends IccPatientApi {
 
   // If patient can't be decrypted returns patient with encrypted data.
   decrypt(user: models.User, patients: Array<models.Patient>, fillDelegations = true): Promise<Array<models.Patient>> {
-    return this.tryDecryptOrReturnOriginal(user, patients, fillDelegations).then((ps) => ps.map((p) => p.entity))
+    return this.tryDecryptOrReturnOriginal(this.dataOwnerApi.getDataOwnerIdOf(user), patients, fillDelegations).then((ps) => ps.map((p) => p.entity))
   }
 
   private tryDecryptOrReturnOriginal(
-    user: models.User,
+    dataOwnerId: string,
     patients: Array<models.Patient>,
     fillDelegations = true
   ): Promise<{ entity: models.Patient; decrypted: boolean }[]> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
-
     return Promise.all(
       patients.map(
         async (p) =>
@@ -1134,5 +1149,67 @@ export class IccPatientXApi extends IccPatientApi {
     }
 
     return patient.id!
+  }
+
+  /**
+   * Share an existing patient with other data owners, allowing them to access the non-encrypted data of the patient and optionally also
+   * the encrypted content.
+   * @param delegateId the id of the data owner which will be granted access to the patient.
+   * @param patient the patient to share.
+   * @param shareSecretIds the secret ids of the Patient that the delegate will be given access to. Allows the delegate to search for data where the
+   * shared Patient is the owning entity id.
+   * @param options optional parameters to customize the sharing behaviour:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * patient does not have encrypted content.
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * @return a promise which will contain the updated patient.
+   */
+  async shareWith(
+    delegateId: string,
+    patient: models.Patient,
+    shareSecretIds: string[],
+    options: {
+      shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+    } = {}
+  ): Promise<models.Patient> {
+    const self = await this.dataOwnerApi.getCurrentDataOwnerId()
+    return await this.modifyAs(
+      self,
+      await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
+        patient,
+        delegateId,
+        shareSecretIds,
+        options.shareEncryptionKey,
+        ShareMetadataBehaviour.IF_AVAILABLE
+      )
+    )
+  }
+
+  /**
+   * @param patient a patient
+   * @return all the decryptable secret ids of the patient, retrieved from the encrypted metadata. The result may be used to find entities where the
+   * patient is the 'owning entity', or in the {@link shareWith} method in order to share it with other data owners.
+   */
+  decryptSecretIdsOf(patient: models.Patient): Promise<string[]> {
+    return this.crypto.entities.secretIdsOf(patient, undefined)
+  }
+
+  /**
+   * @param patient a patient
+   * @return the confidential secret ids of the patient, retrieved from the encrypted metadata. The result may be used to find entities where the
+   * patient is the 'owning entity', or in the {@link shareWith} method in order to share it with other data owners.
+   */
+  decryptConfidentialSecretIdsOf(patient: models.Patient): Promise<string[]> {
+    return this.crypto.confidential.getConfidentialSecretIds(patient, undefined)
+  }
+
+  /**
+   * @param patient a patient
+   * @return the non-confidential secret ids of the patient, retrieved from the encrypted metadata. The result may be used to find entities where the
+   * patient is the 'owning entity', or in the {@link shareWith} method in order to share it with other data owners.
+   */
+  decryptNonConfidentialSecretIdsOf(patient: models.Patient): Promise<string[]> {
+    return this.crypto.confidential.getSecretIdsSharedWithParents(patient)
   }
 }
