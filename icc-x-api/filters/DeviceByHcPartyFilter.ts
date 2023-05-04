@@ -9,8 +9,6 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
-import { Filter } from './filters'
-import { Device } from '../../icc-api/model/Device'
 import { AbstractFilterDevice } from '../../icc-api/model/AbstractFilterDevice'
 
 export class DeviceByHcPartyFilter extends AbstractFilterDevice {

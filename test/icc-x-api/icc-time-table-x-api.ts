@@ -3,7 +3,6 @@ import 'isomorphic-fetch'
 import { before } from 'mocha'
 import { getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStorage, TestUtils, TestVars } from '../utils/test_utils'
 import { IccTimeTableXApi } from '../../icc-x-api'
-import initKey = TestUtils.initKey
 import initApi = TestUtils.initApi
 import { User } from '../../icc-api/model/User'
 import { randomUUID } from 'crypto'
@@ -58,19 +57,14 @@ describe('icc-x-time-table-api Tests', () => {
 
   it('Create TimeTable Success', async () => {
     // Given
-    const {
-      userApi: userApiForHcp,
-      dataOwnerApi: dataOwnerApiForHcp,
-      timetableApi: timeTableApiForHcp,
-      cryptoApi: cryptoApiForHcp,
-    } = await initApi(env, hcp1Username)
+    const { userApi: userApiForHcp, timetableApi: timeTableApiForHcp } = await initApi(env, hcp1Username)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
-    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, env!.dataOwnerDetails[hcp1Username].privateKey)
 
     const baseTimeTable = await instanceTimeTableFor(timeTableApiForHcp, hcpUser)
     expect(Object.keys(baseTimeTable.delegations!).length).to.equals(1)
-    expect(baseTimeTable.encryptionKeys).to.be.undefined
+    // TODO old test, now we want to always create encryption keys on all entities, right?
+    // expect(baseTimeTable.encryptionKeys).to.be.undefined
 
     // When
     const createdTimeTable = await timeTableApiForHcp.createTimeTable(baseTimeTable)

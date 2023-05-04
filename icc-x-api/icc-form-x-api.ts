@@ -4,7 +4,6 @@ import { IccCryptoXApi } from './icc-crypto-x-api'
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
 
-import { a2b, hex2ua, string2ua, ua2string } from './utils/binary-utils'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 
@@ -30,15 +29,33 @@ export class IccFormXApi extends IccFormApi {
     this.dataOwnerApi = dataOwnerApi
   }
 
-  // noinspection JSUnusedGlobalSymbols
-  newInstance(user: models.User, patient: models.Patient, c: any = {}, delegates: string[] = []) {
+  /**
+   * Creates a new instance of form with initialised encryption metadata (not in the database).
+   * @param user the current user.
+   * @param patient the patient this form refers to.
+   * @param c initialised data for the form. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
+   * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
+   * @param delegates initial delegates which will have access to the form other than the current data owner.
+   * @param preferredSfk secret id of the patient to use as the secret foreign key to use for the form. The default value will be a secret
+   * id of patient known by the topmost parent in the current data owner hierarchy.
+   * @param delegationTags tags for the initialised delegations.
+   * @return a new instance of form.
+   */
+  async newInstance(
+    user: models.User,
+    patient: models.Patient,
+    c: any = {},
+    delegates: string[] = [],
+    preferredSfk?: string,
+    delegationTags?: string[]
+  ) {
     const form = _.extend(
       {
         id: this.crypto.randomUuid(),
         _type: 'org.taktik.icure.entities.Form',
         created: new Date().getTime(),
         modified: new Date().getTime(),
-        responsible: this.dataOwnerApi.getDataOwnerOf(user),
+        responsible: this.dataOwnerApi.getDataOwnerIdOf(user),
         author: user.id,
         codes: [],
         tags: [],
@@ -46,70 +63,16 @@ export class IccFormXApi extends IccFormApi {
       c || {}
     )
 
-    return this.initDelegationsAndEncryptionKeys(user, patient, form, delegates)
-  }
-
-  initEncryptionKeys(user: models.User, form: models.Form) {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-    return this.crypto.initEncryptionKeys(form, dataOwnerId!).then((eks) => {
-      let promise = Promise.resolve(
-        _.extend(form, {
-          encryptionKeys: eks.encryptionKeys,
-        })
-      )
-      ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
-        (delegateId) =>
-          (promise = promise.then((contact) =>
-            this.crypto.appendEncryptionKeys(contact, dataOwnerId!, delegateId, eks.secretId).then((extraEks) => {
-              return _.extend(extraEks.modifiedObject, {
-                encryptionKeys: extraEks.encryptionKeys,
-              })
-            })
-          ))
-      )
-      return promise
-    })
-  }
-
-  private initDelegationsAndEncryptionKeys(
-    user: models.User,
-    patient: models.Patient,
-    form: models.Form,
-    delegates: string[] = []
-  ): Promise<models.Form> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-    return this.crypto
-      .extractDelegationsSFKs(patient, dataOwnerId!)
-      .then((secretForeignKeys) =>
-        Promise.all([
-          this.crypto.initObjectDelegations(form, patient, dataOwnerId!, secretForeignKeys.extractedKeys[0]),
-          this.crypto.initEncryptionKeys(form, dataOwnerId!),
-        ])
-      )
-      .then((initData) => {
-        const dels = initData[0]
-        const eks = initData[1]
-        _.extend(form, {
-          delegations: dels.delegations,
-          cryptedForeignKeys: dels.cryptedForeignKeys,
-          secretForeignKeys: dels.secretForeignKeys,
-          encryptionKeys: eks.encryptionKeys,
-        })
-
-        let promise = Promise.resolve(form)
-        _.uniq(
-          delegates.concat(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : [])
-        ).forEach(
-          (delegateId) =>
-            (promise = promise.then((form) =>
-              this.crypto.addDelegationsAndEncryptionKeys(patient, form, dataOwnerId!, delegateId, dels.secretId, eks.secretId).catch((e) => {
-                console.log(e)
-                return form
-              })
-            ))
-        )
-        return promise
-      })
+    const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
+    if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
+    const sfk = preferredSfk ?? (await this.crypto.confidential.getAnySecretIdSharedWithParents(patient))
+    if (!sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id}`)
+    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
+    return new models.Form(
+      await this.crypto.entities
+        .entityWithInitialisedEncryptedMetadata(form, patient.id, sfk, true, extraDelegations, delegationTags)
+        .then((x) => x.updatedEntity)
+    )
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -129,53 +92,18 @@ export class IccFormXApi extends IccFormApi {
    * @param patient
    * @param usingPost (Promise)
    */
-  findBy(hcpartyId: string, patient: models.Patient, usingPost: boolean = false) {
-    return this.crypto
-      .extractDelegationsSFKs(patient, hcpartyId)
-      .then((secretForeignKeys) =>
-        usingPost ?
-          this.findFormsByHCPartyPatientForeignKeysUsingPost(secretForeignKeys.hcpartyId!, undefined, undefined, undefined, _.uniq(secretForeignKeys.extractedKeys)) :
-          this.findFormsByHCPartyPatientForeignKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(','))
-      )
-      .then((forms) => this.decrypt(hcpartyId, forms))
-      .then(function (decryptedForms) {
-        return decryptedForms
-      })
+  async findBy(hcpartyId: string, patient: models.Patient, usingPost: boolean = false) {
+    const extractedKeys = await this.crypto.entities.secretIdsOf(patient, hcpartyId)
+    const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
+    let forms: Array<models.Form> = usingPost
+      ? await this.findFormsByHCPartyPatientForeignKeysUsingPost(topmostParentId, undefined, undefined, undefined, _.uniq(extractedKeys))
+      : await this.findFormsByHCPartyPatientForeignKeys(topmostParentId, _.uniq(extractedKeys).join(','))
+    return await this.decrypt(hcpartyId, forms)
   }
 
   decrypt(hcpartyId: string, forms: Array<models.Form>) {
     return Promise.all(
-      forms.map((form) =>
-        this.crypto
-          .extractKeysFromDelegationsForHcpHierarchy(hcpartyId, form.id!, _.size(form.encryptionKeys) ? form.encryptionKeys! : form.delegations!)
-          .then(({ extractedKeys: sfks }) => {
-            if (form.encryptedSelf) {
-              return this.crypto.AES.importKey('raw', hex2ua(sfks[0].replace(/-/g, '')))
-                .then(
-                  (key) =>
-                    new Promise((resolve: (value: any) => any) => {
-                      this.crypto.AES.decrypt(key, string2ua(a2b(form.encryptedSelf!))).then(resolve, () => {
-                        console.log('Cannot decrypt form', form.id)
-                        resolve(null)
-                      })
-                    })
-                )
-                .then((decrypted: ArrayBuffer) => {
-                  if (decrypted) {
-                    form = _.extend(form, JSON.parse(ua2string(decrypted)))
-                  }
-                  return form
-                })
-            } else {
-              return Promise.resolve(form)
-            }
-          })
-          .catch(function (e) {
-            console.log(e)
-          })
-      )
-    ).catch(function (e) {
-      console.log(e)
-    })
+      forms.map((form) => this.crypto.entities.decryptEntity(form, hcpartyId, (x) => new models.Form(x)).then(({ entity }) => entity))
+    )
   }
 }

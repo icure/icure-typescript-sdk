@@ -1,16 +1,16 @@
 import 'isomorphic-fetch'
-import {getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStorage, TestUtils, TestVars} from '../utils/test_utils'
+import { getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStorage, TestUtils, TestVars } from '../utils/test_utils'
 import { before } from 'mocha'
-import {Api, IccFormXApi, IccPatientXApi, IccUserXApi} from '../../icc-x-api'
+import { Api, IccFormXApi, IccPatientXApi, IccUserXApi } from '../../icc-x-api'
 import { BasicAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
-import {IccFormApi} from '../../icc-api'
-import {Patient} from "../../icc-api/model/Patient"
-import {User} from "../../icc-api/model/User"
-import {randomUUID} from "crypto"
-import {crypto} from "../../node-compat"
-import initKey = TestUtils.initKey
-import {Form} from "../../icc-api/model/Form"
-import {assert} from "chai"
+import { IccFormApi } from '../../icc-api'
+import { Patient } from '../../icc-api/model/Patient'
+import { User } from '../../icc-api/model/User'
+import { randomUUID } from 'crypto'
+import { crypto } from '../../node-compat'
+import { Form } from '../../icc-api/model/Form'
+import { assert } from 'chai'
+import initApi = TestUtils.initApi
 
 setLocalStorage(fetch)
 let env: TestVars
@@ -48,7 +48,6 @@ describe('icc-calendar-item-x-api Tests', () => {
     const formApi = new IccFormApi(env.iCureUrl, {}, authProvider, fetch)
 
     const currentUser = await userApi.getCurrentUser()
-
   })
 
   it('Test findBy', async () => {
@@ -59,9 +58,8 @@ describe('icc-calendar-item-x-api Tests', () => {
       patientApi: patientApiForHcp,
       cryptoApi: cryptoApiForHcp,
       dataOwnerApi: dateOwnerApiForHcp,
-    } = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password, crypto)
+    } = await initApi(env!, hcp1Username)
     const hcpUser = await userApiForHcp.getCurrentUser()
-    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, env!.dataOwnerDetails[hcp1Username].privateKey)
 
     const username = env.dataOwnerDetails[hcp1Username].user
     const password = env.dataOwnerDetails[hcp1Username].password
@@ -81,17 +79,16 @@ describe('icc-calendar-item-x-api Tests', () => {
       user: hcpUser.id,
       patient: patient.id,
     })
-    await formXApi.initEncryptionKeys(hcpUser, form);
     const formToCreate = await formXApi.newInstance(hcpUser, patient, form)
     const createdForm = await formXApi.createForm(formToCreate)
 
-    const foundItems: Form[] = await formXApi.findBy(hcpUser.healthcarePartyId!, patient, false) as Form[]
-    const foundItemsUsingPost: Form[] = await formXApi.findBy(hcpUser.healthcarePartyId!, patient, true) as Form[]
+    const foundItems: Form[] = (await formXApi.findBy(hcpUser.healthcarePartyId!, patient, false)) as Form[]
+    const foundItemsUsingPost: Form[] = (await formXApi.findBy(hcpUser.healthcarePartyId!, patient, true)) as Form[]
 
-    assert(foundItems.length == 1, "Found items should be 1")
-    assert( foundItems[0].id == createdForm.id, "Found item should be the created one")
+    assert(foundItems.length == 1, 'Found items should be 1')
+    assert(foundItems[0].id == createdForm.id, 'Found item should be the created one')
 
-    assert(foundItemsUsingPost.length == 1, "Found items using post should be 1")
-    assert( foundItemsUsingPost[0].id == createdForm.id, "Found item using post should be the created one")
+    assert(foundItemsUsingPost.length == 1, 'Found items using post should be 1')
+    assert(foundItemsUsingPost[0].id == createdForm.id, 'Found item using post should be the created one')
   })
 })

@@ -2,11 +2,10 @@ import { before } from 'mocha'
 
 import 'isomorphic-fetch'
 
-import { Api, Apis, hex2ua, pkcs8ToJwk, spkiToJwk } from '../../icc-x-api'
-import { crypto } from '../../node-compat'
+import { Apis } from '../../icc-x-api'
 import { assert } from 'chai'
 import { randomUUID } from 'crypto'
-import { getEnvironmentInitializer, getEnvVariables, hcp1Username, hcp2Username, hcp3Username, setLocalStorage, TestVars } from '../utils/test_utils'
+import { getEnvironmentInitializer, getEnvVariables, hcp1Username, hcp2Username, setLocalStorage, TestUtils, TestVars } from '../utils/test_utils'
 import { User } from '../../icc-api/model/User'
 import { IccMaintenanceTaskXApi } from '../../icc-x-api/icc-maintenance-task-x-api'
 import { MaintenanceTask } from '../../icc-api/model/MaintenanceTask'
@@ -19,6 +18,7 @@ import { FilterChainMaintenanceTask } from '../../icc-api/model/FilterChainMaint
 import { MaintenanceTaskByIdsFilter } from '../../icc-x-api/filters/MaintenanceTaskByIdsFilter'
 import { MaintenanceTaskByHcPartyAndTypeFilter } from '../../icc-x-api/filters/MaintenanceTaskByHcPartyAndTypeFilter'
 import { DocIdentifier } from '../../icc-api/model/DocIdentifier'
+import initApi = TestUtils.initApi
 import { MaintenanceTaskAfterDateFilter } from '../../icc-x-api/filters/MaintenanceTaskAfterDateFilter'
 
 setLocalStorage(fetch)
@@ -68,25 +68,13 @@ describe('icc-x-maintenance-task-api Tests', () => {
     const initializer = await getEnvironmentInitializer()
     env = await initializer.execute(getEnvVariables())
 
-    apiForHcp1 = await Api(env.iCureUrl, env.dataOwnerDetails[hcp1Username].user, env.dataOwnerDetails[hcp1Username].password, crypto)
+    apiForHcp1 = await initApi(env, hcp1Username)
     hcp1User = await apiForHcp1.userApi.getCurrentUser()
     hcp1 = await apiForHcp1.healthcarePartyApi.getCurrentHealthcareParty()
-    const jwk = {
-      publicKey: spkiToJwk(hex2ua(env.dataOwnerDetails[hcp1Username].publicKey)),
-      privateKey: pkcs8ToJwk(hex2ua(env.dataOwnerDetails[hcp1Username].privateKey)),
-    }
-    await apiForHcp1.cryptoApi.cacheKeyPair(jwk)
-    await apiForHcp1.cryptoApi.keyStorage.storeKeyPair(`${hcp1.id}.${env.dataOwnerDetails[hcp1Username].publicKey.slice(-32)}`, jwk)
 
-    apiForHcp2 = await Api(env.iCureUrl, env.dataOwnerDetails[hcp2Username].user, env.dataOwnerDetails[hcp2Username].password, crypto)
+    apiForHcp2 = await initApi(env, hcp2Username)
     hcp2User = await apiForHcp2.userApi.getCurrentUser()
     hcp2 = await apiForHcp2.healthcarePartyApi.getCurrentHealthcareParty()
-    const jwk2 = {
-      publicKey: spkiToJwk(hex2ua(env.dataOwnerDetails[hcp2Username].publicKey)),
-      privateKey: pkcs8ToJwk(hex2ua(env.dataOwnerDetails[hcp2Username].privateKey)),
-    }
-    await apiForHcp2.cryptoApi.cacheKeyPair(jwk2)
-    await apiForHcp2.cryptoApi.keyStorage.storeKeyPair(`${hcp2.id}.${env.dataOwnerDetails[hcp2Username].publicKey.slice(-32)}`, jwk)
   })
 
   it('CreateMaintenanceTaskWithUser Success for HCP', async () => {
@@ -99,12 +87,12 @@ describe('icc-x-maintenance-task-api Tests', () => {
     // Then
     assert(createdTask != null)
     assert(createdTask.id == taskToCreate.id)
-    assert(createdTask.delegations[hcp1User.healthcarePartyId!] != undefined)
-    assert(createdTask.delegations[hcp2User.healthcarePartyId!] != undefined)
-    assert(createdTask.encryptionKeys[hcp1User.healthcarePartyId!] != undefined)
-    assert(createdTask.encryptionKeys[hcp2User.healthcarePartyId!] != undefined)
+    assert(createdTask.delegations![hcp1User.healthcarePartyId!] != undefined)
+    assert(createdTask.delegations![hcp2User.healthcarePartyId!] != undefined)
+    assert(createdTask.encryptionKeys![hcp1User.healthcarePartyId!] != undefined)
+    assert(createdTask.encryptionKeys![hcp2User.healthcarePartyId!] != undefined)
 
-    const foundTask: MaintenanceTask = await apiForHcp2.maintenanceTaskApi.getMaintenanceTaskWithUser(hcp2User, createdTask.id)
+    const foundTask: MaintenanceTask = await apiForHcp2.maintenanceTaskApi.getMaintenanceTaskWithUser(hcp2User, createdTask.id!)
 
     assert(foundTask.id == createdTask.id)
     assert(foundTask.properties?.find((prop: PropertyStub) => prop.typedValue?.stringValue == hcp2.id) != undefined)
@@ -113,10 +101,10 @@ describe('icc-x-maintenance-task-api Tests', () => {
 
   it('ModifyMaintenanceTaskWithUser Success for HCP', async () => {
     // Given
-    const createdTask: MaintenanceTask = await apiForHcp1.maintenanceTaskApi.createMaintenanceTaskWithUser(
+    const createdTask: MaintenanceTask = (await apiForHcp1.maintenanceTaskApi.createMaintenanceTaskWithUser(
       hcp1User,
       await maintenanceTaskToCreate(apiForHcp1.maintenanceTaskApi, hcp1User, hcp1)
-    )
+    ))!
     const identifierToAdd = new Identifier({ id: 'SYSTEM-TEST|VALUE-TEST', system: 'SYSTEM-TEST', value: 'VALUE-TEST' })
 
     // When
@@ -135,10 +123,10 @@ describe('icc-x-maintenance-task-api Tests', () => {
 
   it('DeleteMaintenanceTaskWithUser Success for delegated HCP', async () => {
     // Given
-    const createdTask: MaintenanceTask = await apiForHcp1.maintenanceTaskApi.createMaintenanceTaskWithUser(
+    const createdTask: MaintenanceTask = (await apiForHcp1.maintenanceTaskApi.createMaintenanceTaskWithUser(
       hcp1User,
       await maintenanceTaskToCreate(apiForHcp1.maintenanceTaskApi, hcp1User, hcp1)
-    )
+    ))!
     assert(!!createdTask.id)
 
     // When
@@ -152,10 +140,10 @@ describe('icc-x-maintenance-task-api Tests', () => {
 
   it('DeleteMaintenanceTaskWithUser Success for HCP that which parent has delegation', async () => {
     // Given
-    const createdTask: MaintenanceTask = await apiForHcp1.maintenanceTaskApi.createMaintenanceTaskWithUser(
+    const createdTask: MaintenanceTask = (await apiForHcp1.maintenanceTaskApi.createMaintenanceTaskWithUser(
       hcp1User,
       await maintenanceTaskToCreate(apiForHcp1.maintenanceTaskApi, hcp1User, hcp1)
-    )
+    ))!
     assert(!!createdTask.id)
 
     // When
@@ -168,14 +156,14 @@ describe('icc-x-maintenance-task-api Tests', () => {
   })
 
   it('DeleteMaintenanceTaskWithUser Fails for non-delegated HCP', async () => {
-    const apiForHcp3 = await Api(env.iCureUrl, env.dataOwnerDetails[hcp3Username].user, env.dataOwnerDetails[hcp3Username].password, crypto)
+    const apiForHcp3 = await initApi(env, hcp2Username)
     const hcp3User = await apiForHcp3.userApi.getCurrentUser()
 
     // Given
-    const createdTask: MaintenanceTask = await apiForHcp1.maintenanceTaskApi.createMaintenanceTaskWithUser(
+    const createdTask: MaintenanceTask = (await apiForHcp1.maintenanceTaskApi.createMaintenanceTaskWithUser(
       hcp1User,
       await maintenanceTaskToCreate(apiForHcp1.maintenanceTaskApi, hcp1User, hcp1)
-    )
+    ))!
     assert(!!createdTask.id)
 
     // When
@@ -196,10 +184,10 @@ describe('icc-x-maintenance-task-api Tests', () => {
 
   it('FilterMaintenanceTaskByWithUser By Ids Success for HCP', async () => {
     // Given
-    const createdTask: MaintenanceTask = await apiForHcp1.maintenanceTaskApi.createMaintenanceTaskWithUser(
+    const createdTask: MaintenanceTask = (await apiForHcp1.maintenanceTaskApi.createMaintenanceTaskWithUser(
       hcp1User,
       await maintenanceTaskToCreate(apiForHcp1.maintenanceTaskApi, hcp1User, hcp1)
-    )
+    ))!
 
     // When
     const foundTask = (
@@ -213,7 +201,7 @@ describe('icc-x-maintenance-task-api Tests', () => {
           }),
         })
       )
-    ).rows[0] as MaintenanceTask
+    ).rows![0] as MaintenanceTask
 
     // Then
     assert(foundTask.id == createdTask.id)
@@ -221,10 +209,10 @@ describe('icc-x-maintenance-task-api Tests', () => {
 
   it('FilterMaintenanceTaskByWithUser By Type Success for HCP', async () => {
     // Given
-    const createdTask: MaintenanceTask = await apiForHcp1.maintenanceTaskApi.createMaintenanceTaskWithUser(
+    const createdTask: MaintenanceTask = (await apiForHcp1.maintenanceTaskApi.createMaintenanceTaskWithUser(
       hcp1User,
       await maintenanceTaskToCreate(apiForHcp1.maintenanceTaskApi, hcp1User, hcp1)
-    )
+    ))!
 
     // When
     const foundTask = (
@@ -239,7 +227,7 @@ describe('icc-x-maintenance-task-api Tests', () => {
           }),
         })
       )
-    ).rows[0]
+    ).rows![0]
 
     // Then
     assert(foundTask.id == createdTask.id)
@@ -250,7 +238,7 @@ describe('icc-x-maintenance-task-api Tests', () => {
     const startTimestamp = new Date().getTime() + 1000
     const taskToCreate = { ...(await maintenanceTaskToCreate(apiForHcp1.maintenanceTaskApi, hcp1User, hcp1)), created: startTimestamp }
 
-    const createdTask: MaintenanceTask = await apiForHcp1.maintenanceTaskApi.createMaintenanceTaskWithUser(hcp1User, taskToCreate)
+    const createdTask: MaintenanceTask = (await apiForHcp1.maintenanceTaskApi.createMaintenanceTaskWithUser(hcp1User, taskToCreate))!
 
     // When
     const foundTask = (
@@ -265,7 +253,7 @@ describe('icc-x-maintenance-task-api Tests', () => {
           }),
         })
       )
-    ).rows[0]
+    ).rows![0]
 
     // Then
     assert(foundTask.id == createdTask.id)

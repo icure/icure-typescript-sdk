@@ -2,8 +2,7 @@ import { before } from 'mocha'
 
 import 'isomorphic-fetch'
 
-import { Api, IccContactXApi, IccHelementXApi, IccPatientXApi } from '../../icc-x-api'
-import { crypto } from '../../node-compat'
+import { IccContactXApi, IccHelementXApi, IccPatientXApi } from '../../icc-x-api'
 import { Patient } from '../../icc-api/model/Patient'
 import { assert, expect } from 'chai'
 import { randomUUID } from 'crypto'
@@ -18,7 +17,7 @@ import { SubContact } from '../../icc-api/model/SubContact'
 import { ServiceLink } from '../../icc-api/model/ServiceLink'
 import { FilterChainService } from '../../icc-api/model/FilterChainService'
 import { ServiceByHcPartyHealthElementIdsFilter } from '../../icc-x-api/filters/ServiceByHcPartyHealthElementIdsFilter'
-import initKey = TestUtils.initKey
+import initApi = TestUtils.initApi
 
 setLocalStorage(fetch)
 let env: TestVars | undefined
@@ -100,16 +99,9 @@ function createBasicContact(contactApiForHcp: IccContactXApi, hcpUser: User, pat
 describe('icc-x-contact-api Tests', () => {
   it('CreateContactWithUser Success for HCP', async () => {
     // Given
-    const {
-      userApi: userApiForHcp,
-      dataOwnerApi: dataOwnerApiForHcp,
-      patientApi: patientApiForHcp,
-      contactApi: contactApiForHcp,
-      cryptoApi: cryptoApiForHcp,
-    } = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password, crypto)
+    const { userApi: userApiForHcp, patientApi: patientApiForHcp, contactApi: contactApiForHcp } = await initApi(env!, hcp1Username)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
-    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, env!.dataOwnerDetails[hcp1Username].privateKey)
 
     const patient = await createPatient(patientApiForHcp, hcpUser)
     const contactToCreate = await createBasicContact(contactApiForHcp, hcpUser, patient)
@@ -128,31 +120,28 @@ describe('icc-x-contact-api Tests', () => {
     expect(readContact.responsible).to.be.equal(hcpUser.healthcarePartyId)
     expect(readContact.id).to.be.equal(contactToCreate.id)
     expect(readContact.descr).to.be.equal(contactToCreate.descr)
-    expect(readContact.delegations[hcpUser.healthcarePartyId!].length).to.equals(1)
-    expect(readContact.delegations[hcpUser.healthcarePartyId!][0].key).to.not.be.undefined
-    expect(readContact.encryptionKeys[hcpUser.healthcarePartyId!].length).to.equals(1)
-    expect(readContact.encryptionKeys[hcpUser.healthcarePartyId!][0].key).to.not.be.undefined
-    expect(readContact.cryptedForeignKeys[hcpUser.healthcarePartyId!].length).to.equals(1)
-    expect(readContact.cryptedForeignKeys[hcpUser.healthcarePartyId!][0].key).to.not.be.undefined
-    expect(readContact.services[0].responsible).to.be.equal(hcpUser.healthcarePartyId)
-    expect(readContact.services[0].id).to.be.equal(contactToCreate.services![0].id)
-    expect(readContact.services[0].valueDate).to.be.equal(contactToCreate.services![0].valueDate)
-    expect(readContact.services[0].tags[0].id).to.be.equal(contactToCreate.services![0].tags![0].id!)
+    expect(readContact.delegations![hcpUser.healthcarePartyId!].length).to.equals(1)
+    expect(readContact.delegations![hcpUser.healthcarePartyId!][0].key).to.not.be.undefined
+    expect(readContact.encryptionKeys![hcpUser.healthcarePartyId!].length).to.equals(1)
+    expect(readContact.encryptionKeys![hcpUser.healthcarePartyId!][0].key).to.not.be.undefined
+    expect(readContact.cryptedForeignKeys![hcpUser.healthcarePartyId!].length).to.equals(1)
+    expect(readContact.cryptedForeignKeys![hcpUser.healthcarePartyId!][0].key).to.not.be.undefined
+    expect(readContact.services![0].responsible).to.be.equal(hcpUser.healthcarePartyId)
+    expect(readContact.services![0].id).to.be.equal(contactToCreate.services![0].id)
+    expect(readContact.services![0].valueDate).to.be.equal(contactToCreate.services![0].valueDate)
+    expect(readContact.services![0].tags![0].id).to.be.equal(contactToCreate.services![0].tags![0].id!)
   })
 
   it('Filter Services By HealthElementId - Success', async () => {
     // Given
     const {
       userApi: userApiForHcp,
-      dataOwnerApi: dataOwnerApiForHcp,
       patientApi: patientApiForHcp,
       contactApi: contactApiForHcp,
       healthcareElementApi: hElementApiForHcp,
-      cryptoApi: cryptoApiForHcp,
-    } = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password, crypto)
+    } = await initApi(env!, hcp1Username)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
-    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, env!.dataOwnerDetails[hcp1Username].privateKey)
 
     const patient = await createPatient(patientApiForHcp, hcpUser)
     const healthElement = await createHealthElement(hElementApiForHcp, hcpUser, patient)
@@ -199,10 +188,9 @@ describe('icc-x-contact-api Tests', () => {
       contactApi: contactApiForHcp,
       healthcareElementApi: hElementApiForHcp,
       cryptoApi: cryptoApiForHcp,
-    } = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password, crypto)
+    } = await initApi(env!, hcp1Username)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
-    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, env!.dataOwnerDetails[hcp1Username].privateKey)
 
     const patient = (await createPatient(patientApiForHcp, hcpUser)) as Patient
     const healthElement = await createHealthElement(hElementApiForHcp, hcpUser, patient)
@@ -222,8 +210,8 @@ describe('icc-x-contact-api Tests', () => {
     const createdContact = (await contactApiForHcp.createContactWithUser(hcpUser, contactToCreate)) as Contact
 
     // When
-    const foundContats = await contactApiForHcp.findBy(hcpUser.healthcarePartyId!, patient, false);
-    const foundContatsUsingPost = await contactApiForHcp.findBy(hcpUser.healthcarePartyId!, patient, true);
+    const foundContats = await contactApiForHcp.findBy(hcpUser.healthcarePartyId!, patient, false)
+    const foundContatsUsingPost = await contactApiForHcp.findBy(hcpUser.healthcarePartyId!, patient, true)
 
     // Then
     assert(foundContats.length == 1, 'Found items should be 1')

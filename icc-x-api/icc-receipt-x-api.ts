@@ -24,7 +24,16 @@ export class IccReceiptXApi extends IccReceiptApi {
     this.dataOwnerApi = dataOwnerApi
   }
 
-  newInstance(user: models.User, r: any): Promise<models.Receipt> {
+  /**
+   * Creates a new instance of receipt with initialised encryption metadata (not in the database).
+   * @param user the current user.
+   * @param r initialised data for the receipt. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
+   * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
+   * @param delegates initial delegates which will have access to the receipt other than the current data owner.
+   * @param delegationTags tags for the initialised delegations.
+   * @return a new instance of receipt.
+   */
+  async newInstance(user: models.User, r: any, delegates: string[] = [], delegationTags?: string[]): Promise<models.Receipt> {
     const receipt = new models.Receipt(
       _.extend(
         {
@@ -32,7 +41,7 @@ export class IccReceiptXApi extends IccReceiptApi {
           _type: 'org.taktik.icure.entities.Receipt',
           created: new Date().getTime(),
           modified: new Date().getTime(),
-          responsible: this.dataOwnerApi.getDataOwnerOf(user),
+          responsible: this.dataOwnerApi.getDataOwnerIdOf(user),
           author: user.id,
           codes: [],
           tags: [],
@@ -41,65 +50,45 @@ export class IccReceiptXApi extends IccReceiptApi {
       )
     )
 
-    return this.initDelegationsAndEncryptionKeys(user, receipt)
-  }
-
-  initEncryptionKeys(user: models.User, rcpt: models.Receipt) {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-
-    return this.crypto.initEncryptionKeys(rcpt, dataOwnerId).then((eks) => {
-      let promise = Promise.resolve(
-        _.extend(rcpt, {
-          encryptionKeys: eks.encryptionKeys,
-        })
-      )
-      ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
-        (delegateId) =>
-          (promise = promise.then((receipt) =>
-            this.crypto.appendEncryptionKeys(receipt, dataOwnerId, delegateId, eks.secretId).then((extraEks) => {
-              return _.extend(extraEks.modifiedObject, {
-                encryptionKeys: extraEks.encryptionKeys,
-              })
-            })
-          ))
-      )
-      return promise
-    })
-  }
-
-  private initDelegationsAndEncryptionKeys(user: models.User, receipt: models.Receipt): Promise<models.Receipt> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-
-    return Promise.all([
-      this.crypto.initObjectDelegations(receipt, null, dataOwnerId, null),
-      this.crypto.initEncryptionKeys(receipt, dataOwnerId),
-    ]).then((initData) => {
-      const dels = initData[0]
-      const eks = initData[1]
-      _.extend(receipt, {
-        delegations: dels.delegations,
-        cryptedForeignKeys: dels.cryptedForeignKeys,
-        secretForeignKeys: dels.secretForeignKeys,
-        encryptionKeys: eks.encryptionKeys,
-      })
-
-      let promise = Promise.resolve(receipt)
-      ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
-        (delegateId) =>
-          (promise = promise.then((receipt) =>
-            this.crypto.addDelegationsAndEncryptionKeys(null, receipt, dataOwnerId, delegateId, dels.secretId, eks.secretId).catch((e) => {
-              console.log(e)
-              return receipt
-            })
-          ))
-      )
-      return promise
-    })
+    const extraDelegations = [...delegates, ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
+    return new models.Receipt(
+      await this.crypto.entities
+        .entityWithInitialisedEncryptedMetadata(receipt, undefined, undefined, true, extraDelegations, delegationTags)
+        .then((x) => x.updatedEntity)
+    )
   }
 
   logReceipt(user: models.User, docId: string, refs: Array<string>, blobType: string, blob: ArrayBuffer) {
     return this.newInstance(user, { documentId: docId, references: refs })
       .then((rcpt) => this.createReceipt(rcpt))
       .then((rcpt) => (blob.byteLength != 0 ? this.setReceiptAttachment(rcpt.id!, blobType, '', <any>blob) : Promise.resolve(rcpt)))
+  }
+
+  /**
+   * Adds an attachment to a receipt, encrypting it on client side using the encryption keys of the provided receipt.
+   * @param receipt a receipt.
+   * @param blobType the type of the attachment.
+   * @param attachment a attachment for the receipt.
+   * @return the updated receipt.
+   */
+  async encryptAndSetReceiptAttachment(receipt: models.Receipt, blobType: string, attachment: ArrayBuffer | Uint8Array): Promise<models.Receipt> {
+    const encryptedData = await this.crypto.entities.encryptDataOf(receipt, attachment)
+    return await this.setReceiptAttachment(receipt.id!, blobType, undefined, encryptedData)
+  }
+
+  /**
+   * Gets the attachment of a receipt and tries to decrypt it using the encryption keys of the receipt.
+   * @param receipt a receipt.
+   * @param attachmentId id of the attachment of this receipt to retrieve.
+   * @param validator optionally a validator function which checks if the decryption was successful. In cases where the receipt has many encryption
+   * keys and it is unclear which one should be used this function can help to detect bad decryptions.
+   * @return the decrypted attachment, if it could be decrypted, else the encrypted attachment.
+   */
+  async getAndDecryptReceiptAttachment(
+    receipt: models.Receipt,
+    attachmentId: string,
+    validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
+  ): Promise<ArrayBuffer> {
+    return await this.crypto.entities.decryptDataOf(receipt, await this.getReceiptAttachment(receipt.id!, attachmentId, ''), (x) => validator(x))
   }
 }

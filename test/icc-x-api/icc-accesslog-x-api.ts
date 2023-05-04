@@ -1,16 +1,16 @@
 import 'isomorphic-fetch'
-import {getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStorage, TestUtils, TestVars} from '../utils/test_utils'
+import { getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStorage, TestUtils, TestVars } from '../utils/test_utils'
 import { before } from 'mocha'
-import {Api, IccAccesslogXApi, IccPatientXApi, IccUserXApi} from '../../icc-x-api'
+import { Api, IccAccesslogXApi, IccPatientXApi, IccUserXApi } from '../../icc-x-api'
 import { BasicAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { IccAccesslogApi } from '../../icc-api'
-import {Patient} from "../../icc-api/model/Patient"
-import {User} from "../../icc-api/model/User"
-import {randomUUID} from "crypto"
-import {crypto} from "../../node-compat"
-import initKey = TestUtils.initKey
-import {AccessLog} from "../../icc-api/model/AccessLog"
+import { Patient } from '../../icc-api/model/Patient'
+import { User } from '../../icc-api/model/User'
+import { randomUUID } from 'crypto'
+import { crypto } from '../../node-compat'
+import { AccessLog } from '../../icc-api/model/AccessLog'
 import { assert } from 'chai'
+import initApi = TestUtils.initApi
 
 setLocalStorage(fetch)
 let env: TestVars
@@ -60,9 +60,8 @@ describe('icc-x-accesslog-api Tests', () => {
       patientApi: patientApiForHcp,
       cryptoApi: cryptoApiForHcp,
       dataOwnerApi: dateOwnerApiForHcp,
-    } = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password, crypto)
+    } = await initApi(env!, hcp1Username)
     const hcpUser = await userApiForHcp.getCurrentUser()
-    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, env!.dataOwnerDetails[hcp1Username].privateKey)
 
     const username = env.dataOwnerDetails[hcp1Username].user
     const password = env.dataOwnerDetails[hcp1Username].password
@@ -88,17 +87,16 @@ describe('icc-x-accesslog-api Tests', () => {
       accessType: 'USER_ACCESS',
     })
 
-    const accessLogToCreate = await accessLogXApi.newInstance(hcpUser, patient, accessLog);
-    const createdAccessLog = await accessLogXApi.createAccessLogWithUser(hcpUser, accessLogToCreate);
+    const accessLogToCreate = await accessLogXApi.newInstance(hcpUser, patient, accessLog)
+    const createdAccessLog = await accessLogXApi.createAccessLogWithUser(hcpUser, accessLogToCreate)
 
     const foundItems: AccessLog[] = await accessLogXApi.findBy(hcpUser.healthcarePartyId!, patient, false)
     const foundItemsUsingPost: AccessLog[] = await accessLogXApi.findBy(hcpUser.healthcarePartyId!, patient, true)
 
     assert(foundItems.length == 1, 'Found items should be 1')
-    assert( foundItems[0].id == createdAccessLog.id, 'Found item should be the same as the created one')
+    assert(foundItems[0].id == createdAccessLog.id, 'Found item should be the same as the created one')
 
     assert(foundItemsUsingPost.length == 1, 'Found items using post should be 1')
-    assert( foundItemsUsingPost[0].id == createdAccessLog.id, 'Found item using post should be the same as the created one')
-
+    assert(foundItemsUsingPost[0].id == createdAccessLog.id, 'Found item using post should be the same as the created one')
   })
 })

@@ -2,18 +2,17 @@ import { before } from 'mocha'
 
 import 'isomorphic-fetch'
 
-import { Api, IccHelementXApi, IccPatientXApi } from '../../icc-x-api'
-import { crypto } from '../../node-compat'
+import { IccHelementXApi, IccPatientXApi } from '../../icc-x-api'
 import { Patient } from '../../icc-api/model/Patient'
-import { assert } from 'chai'
+import { assert, expect } from 'chai'
 import { randomUUID } from 'crypto'
 import { getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStorage, TestUtils, TestVars } from '../utils/test_utils'
 import { HealthElement } from '../../icc-api/model/HealthElement'
 import { Code } from '../../icc-api/model/Code'
 import { User } from '../../icc-api/model/User'
-import initKey = TestUtils.initKey
 import { FilterChainHealthElement } from '../../icc-api/model/FilterChainHealthElement'
 import { HealthElementByIdsFilter } from '../../icc-x-api/filters/HealthElementByIdsFilter'
+import initApi = TestUtils.initApi
 
 setLocalStorage(fetch)
 let env: TestVars | undefined
@@ -61,10 +60,9 @@ describe('icc-helement-x-api Tests', () => {
       patientApi: patientApiForHcp,
       healthcareElementApi: hElementApiForHcp,
       cryptoApi: cryptoApiForHcp,
-    } = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password, crypto)
+    } = await initApi(env!, hcp1Username)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
-    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, env!.dataOwnerDetails[hcp1Username].privateKey)
 
     const patient = await createPatient(patientApiForHcp, hcpUser)
     const hElementToCreate = await healthElementToCreate(hElementApiForHcp, hcpUser, patient)
@@ -90,10 +88,10 @@ describe('icc-helement-x-api Tests', () => {
       patientApi: patientApiForHcp,
       healthcareElementApi: hElementApiForHcp,
       cryptoApi: cryptoApiForHcp,
-    } = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password, crypto)
+    } = await initApi(env!, hcp1Username)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
-    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, env!.dataOwnerDetails[hcp1Username].privateKey)
+    await initApi(env!, hcp1Username)
 
     const patient = await createPatient(patientApiForHcp, hcpUser)
     const createdHealthElement = await hElementApiForHcp.createHealthElementWithUser(
@@ -126,10 +124,9 @@ describe('icc-helement-x-api Tests', () => {
       patientApi: patientApiForHcp,
       healthcareElementApi: hElementApiForHcp,
       cryptoApi: cryptoApiForHcp,
-    } = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password, crypto)
+    } = await initApi(env!, hcp1Username)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
-    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, env!.dataOwnerDetails[hcp1Username].privateKey)
 
     const patient = (await createPatient(patientApiForHcp, hcpUser)) as Patient
     const createdHealthElement = await hElementApiForHcp.createHealthElementWithUser(
@@ -162,10 +159,9 @@ describe('icc-helement-x-api Tests', () => {
       patientApi: patientApiForHcp,
       healthcareElementApi: hElementApiForHcp,
       cryptoApi: cryptoApiForHcp,
-    } = await Api(env!.iCureUrl, env!.dataOwnerDetails[hcp1Username].user, env!.dataOwnerDetails[hcp1Username].password, crypto)
+    } = await initApi(env!, hcp1Username)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
-    await initKey(dataOwnerApiForHcp, cryptoApiForHcp, hcpUser, env!.dataOwnerDetails[hcp1Username].privateKey)
 
     const patient = (await createPatient(patientApiForHcp, hcpUser)) as Patient
     const createdHealthElement = await hElementApiForHcp.createHealthElementWithUser(

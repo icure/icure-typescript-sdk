@@ -1,10 +1,10 @@
 import 'isomorphic-fetch'
 import { getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStorage, TestVars } from '../utils/test_utils'
 import { before } from 'mocha'
-import { BasicAuthenticationProvider, EnsembleAuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
-import { Api } from '../../icc-x-api'
+import { EnsembleAuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { IccAuthApi } from '../../icc-api'
 import { crypto } from '../../node-compat'
+import { TestApi } from '../utils/TestApi'
 
 setLocalStorage(fetch)
 let env: TestVars
@@ -21,7 +21,7 @@ describe('icc-auth-api Tests', () => {
     const username = env.dataOwnerDetails[hcp1Username].user
     const password = env.dataOwnerDetails[hcp1Username].password
 
-    const { authApi } = await Api(env!.iCureUrl, username, password, crypto)
+    const { authApi } = await TestApi(env!.iCureUrl, username, password, crypto)
 
     await authApi.logout()
   })

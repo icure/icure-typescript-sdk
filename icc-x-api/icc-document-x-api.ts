@@ -564,15 +564,33 @@ export class IccDocumentXApi extends IccDocumentApi {
     this.dataOwnerApi = dataOwnerApi
   }
 
-  // noinspection JSUnusedGlobalSymbols
-  newInstance(user: models.User, message?: models.Message, c: any = {}) {
+  /**
+   * Creates a new instance of document with initialised encryption metadata (not in the database).
+   * @param user the current user.
+   * @param message the message this document refers to.
+   * @param c initialised data for the document. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
+   * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
+   * @param delegates initial delegates which will have access to the document other than the current data owner.
+   * @param preferredSfk secret id of the message to use as the secret foreign key to use for the document. The default value will be a secret
+   * id of message known by the topmost parent in the current data owner hierarchy.
+   * @param delegationTags tags for the initialised delegations.
+   * @return a new instance of document.
+   */
+  async newInstance(
+    user: models.User,
+    message?: models.Message,
+    c: any = {},
+    delegates?: string[],
+    preferredSfk?: string,
+    delegationTags?: string[]
+  ) {
     const document = _.extend(
       {
-        id: this.crypto.randomUuid(),
+        id: this.crypto.primitives.randomUuid(),
         _type: 'org.taktik.icure.entities.Document',
         created: new Date().getTime(),
         modified: new Date().getTime(),
-        responsible: this.dataOwnerApi.getDataOwnerOf(user),
+        responsible: this.dataOwnerApi.getDataOwnerIdOf(user),
         author: user.id,
         codes: [],
         tags: [],
@@ -580,84 +598,27 @@ export class IccDocumentXApi extends IccDocumentApi {
       c
     )
 
-    return this.initDelegationsAndEncryptionKeys(user, message, document)
-  }
-
-  initEncryptionKeys(user: models.User, document: models.Document) {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-    return this.crypto.initEncryptionKeys(document, dataOwnerId!).then((eks) => {
-      let promise = Promise.resolve(
-        _.extend(document, {
-          encryptionKeys: eks.encryptionKeys,
-        })
-      )
-      ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
-        (delegateId) =>
-          (promise = promise.then((document) =>
-            this.crypto.appendEncryptionKeys(document, dataOwnerId!, delegateId, eks.secretId).then((extraEks) => {
-              return _.extend(extraEks.modifiedObject, {
-                encryptionKeys: extraEks.encryptionKeys,
-              })
-            })
-          ))
-      )
-      return promise
-    })
-  }
-
-  private initDelegationsAndEncryptionKeys(
-    user: models.User,
-    message: models.Message | undefined = undefined,
-    document: models.Document
-  ): Promise<models.Document> {
-    const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-    return this.crypto
-      .extractDelegationsSFKs(message || null, dataOwnerId)
-      .then((secretForeignKeys) =>
-        Promise.all([
-          this.crypto.initObjectDelegations(document, message, dataOwnerId!, secretForeignKeys.extractedKeys[0]),
-          this.crypto.initEncryptionKeys(document, dataOwnerId!),
-        ])
-      )
-      .then((initData) => {
-        const dels = initData[0]
-        const eks = initData[1]
-        _.extend(document, {
-          delegations: dels.delegations,
-          cryptedForeignKeys: dels.cryptedForeignKeys,
-          secretForeignKeys: dels.secretForeignKeys,
-          encryptionKeys: eks.encryptionKeys,
-        })
-
-        let promise = Promise.resolve(document)
-        ;(user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []).forEach(
-          (delegateId) =>
-            (promise = promise.then((document) =>
-              this.crypto
-                .addDelegationsAndEncryptionKeys(message || null, document, dataOwnerId!, delegateId, dels.secretId, eks.secretId)
-                .catch((e) => {
-                  console.log(e)
-                  return document
-                })
-            ))
-        )
-        return promise
-      })
+    const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
+    if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
+    const sfk = message ? preferredSfk ?? (await this.crypto.confidential.getAnySecretIdSharedWithParents(message)) : undefined
+    if (message && !sfk) throw new Error(`Couldn't find any sfk of parent message ${message.id}`)
+    const extraDelegations = [...(delegates ?? []), ...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])]
+    return new models.Document(
+      await this.crypto.entities
+        .entityWithInitialisedEncryptedMetadata(document, message?.id, sfk, true, extraDelegations, delegationTags)
+        .then((x) => x.updatedEntity)
+    )
   }
 
   // noinspection JSUnusedGlobalSymbols
-  findByMessage(hcpartyId: string, message: models.Message) {
-    return this.crypto
-      .extractDelegationsSFKs(message, hcpartyId)
-      .then((secretForeignKeys) =>
-        this.findDocumentsByHCPartyPatientForeignKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(','))
-      )
-      .then((documents) => this.decrypt(hcpartyId, documents))
-      .then(function (decryptedForms) {
-        return decryptedForms
-      })
+  async findByMessage(hcpartyId: string, message: models.Message) {
+    const extractedKeys = await this.crypto.entities.secretIdsOf(message, hcpartyId)
+    const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
+    let documents: Array<models.Document> = await this.findDocumentsByHCPartyPatientForeignKeys(topmostParentId, _.uniq(extractedKeys).join(','))
+    return await this.decrypt(hcpartyId, documents)
   }
 
+  // Note: this is only for dealing with legacy documents: new document are not encrypted, only their attachments are
   decrypt(hcpartyId: string, documents: Array<models.Document>): Promise<Array<models.Document>> {
     return Promise.all(
       documents.map((document) =>
@@ -763,5 +724,64 @@ export class IccDocumentXApi extends IccDocumentApi {
   // noinspection JSUnusedGlobalSymbols
   mimeType(uti: string) {
     return this.utiRevDefs[uti]
+  }
+
+  /**
+   * Adds an attachment to a document, encrypting it on client side using the encryption keys of the provided document.
+   * @param document a document.
+   * @param attachment a new main attachment for the document.
+   * @return the updated document.
+   */
+  async encryptAndSetDocumentAttachment(document: models.Document, attachment: ArrayBuffer | Uint8Array): Promise<models.Document> {
+    const encryptedData = await this.crypto.entities.encryptDataOf(document, attachment)
+    return await this.setDocumentAttachment(document.id!, undefined, encryptedData)
+  }
+
+  /**
+   * Adds a secondary attachment to a document, encrypting it on client side using the encryption keys of the provided document.
+   * @param document a document.
+   * @param secondaryAttachmentKey key for the secondary attachment.
+   * @param attachment a new secondary attachment for the document.
+   * @return the updated document.
+   */
+  async encryptAndSetSecondaryDocumentAttachment(
+    document: models.Document,
+    secondaryAttachmentKey: string,
+    attachment: ArrayBuffer | Uint8Array
+  ): Promise<models.Document> {
+    const encryptedData = await this.crypto.entities.encryptDataOf(document, attachment)
+    return await this.setSecondaryAttachment(document.id!, secondaryAttachmentKey, document.rev!, encryptedData)
+  }
+
+  /**
+   * Gets the main attachment of a document and tries to decrypt it using the encryption keys of the document.
+   * @param document a document.
+   * @param validator optionally a validator function which checks if the decryption was successful. In cases where the document has many encryption
+   * keys and it is unclear which one should be used this function can help to detect bad decryptions.
+   * @return the decrypted attachment, if it could be decrypted, else the encrypted attachment.
+   */
+  async getAndDecryptDocumentAttachment(
+    document: models.Document,
+    validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
+  ): Promise<ArrayBuffer> {
+    return await this.crypto.entities.decryptDataOf(document, await this.getDocumentAttachment(document.id!, 'ignored'), (x) => validator(x))
+  }
+
+  /**
+   * Gets the secondary attachment of a document and tries to decrypt it using the encryption keys of the document.
+   * @param document a document.
+   * @param secondaryAttachmentKey key of the secondary attachment.
+   * @param validator optionally a validator function which checks if the decryption was successful. In cases where the document has many encryption
+   * keys and it is unclear which one should be used this function can help to detect bad decryptions.
+   * @return the decrypted attachment, if it could be decrypted, else the encrypted attachment.
+   */
+  async getAndDecryptSecondaryDocumentAttachment(
+    document: models.Document,
+    secondaryAttachmentKey: string,
+    validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
+  ): Promise<ArrayBuffer> {
+    return await this.crypto.entities.decryptDataOf(document, await this.getSecondaryAttachment(document.id!, secondaryAttachmentKey), (x) =>
+      validator(x)
+    )
   }
 }

@@ -10,7 +10,6 @@
  * Do not edit the class manually.
  */
 import { XHR } from './XHR'
-import { ByteArray } from '../model/ByteArray'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { DocumentTemplate } from '../model/DocumentTemplate'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
