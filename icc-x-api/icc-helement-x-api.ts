@@ -378,15 +378,44 @@ export class IccHelementXApi extends IccHelementApi {
       sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
   ): Promise<models.HealthElement> {
+    return this.shareWithMany(healthElement, { [delegateId]: options })
+  }
+  /**
+   * Share an existing health element with other data owners, allowing them to access the non-encrypted data of the health element and optionally also
+   * the encrypted content, with read-only or read-write permissions.
+   * @param healthElement the health element to share.
+   * @param delegates sharing options for each delegate.
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * health element does not have encrypted content.
+   * - sharePatientId: specifies if the id of the patient that this health element refers to should be shared with the delegate (defaults to
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * @return a promise which will contain the updated health element.
+   */
+  async shareWithMany(
+    healthElement: models.HealthElement,
+    delegates: {
+      [delegateId: string]: {
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+        sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
+  ): Promise<models.HealthElement> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     return await this.modifyAs(
       self,
       await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
         healthElement,
-        delegateId,
-        undefined,
-        options.shareEncryptionKey,
-        options.sharePatientId
+        true,
+        Object.fromEntries(
+          Object.entries(delegates).map(([delegateId, options]) => [
+            delegateId,
+            {
+              shareEncryptionKey: options.shareEncryptionKey,
+              shareOwningEntityIds: options.sharePatientId,
+            },
+          ])
+        )
       )
     )
   }

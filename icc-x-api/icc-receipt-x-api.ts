@@ -159,14 +159,27 @@ export class IccReceiptXApi extends IccReceiptApi {
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
   ): Promise<models.Receipt> {
-    return await this.modifyReceipt(
-      await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
-        receipt,
-        delegateId,
-        undefined,
-        options.shareEncryptionKey,
-        ShareMetadataBehaviour.IF_AVAILABLE
-      )
-    )
+    return this.shareWithMany(receipt, { [delegateId]: options })
+  }
+
+  /**
+   * Share an existing receipt with other data owners, allowing them to access the non-encrypted data of the receipt and optionally also
+   * the encrypted content.
+   * @param receipt the receipt to share.
+   * @param delegates sharing options for each delegate which will gain access to the entity:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * receipt does not have encrypted content.
+   * @return a promise which will contain the updated receipt.
+   */
+  async shareWithMany(
+    receipt: models.Receipt,
+    delegates: {
+      [delegateId: string]: {
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
+  ): Promise<models.Receipt> {
+    return await this.modifyReceipt(await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(receipt, true, delegates))
   }
 }

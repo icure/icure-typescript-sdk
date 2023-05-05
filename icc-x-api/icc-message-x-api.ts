@@ -122,13 +122,47 @@ export class IccMessageXApi extends IccMessageApi {
       sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
   ): Promise<models.Message> {
+    return this.shareWithMany(message, { [delegateId]: { shareSecretIds, ...options } })
+  }
+
+  /**
+   * Share an existing message with other data owners, allowing them to access the non-encrypted data of the message and optionally also
+   * the encrypted content.
+   * @param message the message to share.
+   * @param delegates sharing options for each delegate.
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * message does not have encrypted content.
+   * - sharePatientId: specifies if the id of the patient that this message refers to should be shared with the delegate (defaults to
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * - shareSecretIds the secret ids of the Message that the delegate will be given access to. Allows the delegate to search for data where the
+   * shared Message is the owning entity id.
+   * @return a promise which will contain the updated message
+   */
+  async shareWithMany(
+    message: models.Message,
+    delegates: {
+      [delegateId: string]: {
+        shareSecretIds: string[]
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+        sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    } = {}
+  ): Promise<models.Message> {
     return await this.modifyMessage(
       await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
         message,
-        delegateId,
-        shareSecretIds,
-        options.shareEncryptionKey,
-        options.sharePatientId
+        false,
+        Object.fromEntries(
+          Object.entries(delegates).map(([delegateId, options]) => [
+            delegateId,
+            {
+              shareSecretIds: options.shareSecretIds,
+              shareEncryptionKey: options.shareEncryptionKey,
+              shareOwningEntityIds: options.sharePatientId,
+            },
+          ])
+        )
       )
     )
   }

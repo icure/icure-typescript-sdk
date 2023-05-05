@@ -942,15 +942,45 @@ export class IccContactXApi extends IccContactApi {
       sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
   ): Promise<models.Contact> {
+    return this.shareWithMany(contact, {})
+  }
+
+  /**
+   * Share an existing contact with other data owners, allowing them to access the non-encrypted data of the contact and optionally also
+   * the encrypted content.
+   * @param contact the contact to share.
+   * @param delegates share options for each delegate.
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * contact does not have encrypted content.
+   * - sharePatientId: specifies if the id of the patient that this contact refers to should be shared with the delegate (defaults to
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * @return a promise which will contain the updated contact.
+   */
+  async shareWithMany(
+    contact: models.Contact,
+    delegates: {
+      [delegateId: string]: {
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+        sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
+  ): Promise<models.Contact> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     return await this.modifyAs(
       self,
       await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
         contact,
-        delegateId,
-        undefined,
-        options.shareEncryptionKey,
-        options.sharePatientId
+        true,
+        Object.fromEntries(
+          Object.entries(delegates).map(([delegateId, options]) => [
+            delegateId,
+            {
+              shareEncryptionKey: options.shareEncryptionKey,
+              shareOwningEntityIds: options.sharePatientId,
+            },
+          ])
+        )
       )
     )
   }

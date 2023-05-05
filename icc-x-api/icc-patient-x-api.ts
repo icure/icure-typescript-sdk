@@ -1173,17 +1173,33 @@ export class IccPatientXApi extends IccPatientApi {
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
   ): Promise<models.Patient> {
+    return this.shareWithMany(patient, { [delegateId]: { shareSecretIds, ...options } })
+  }
+
+  /**
+   * Share an existing patient with other data owners, allowing them to access the non-encrypted data of the patient and optionally also
+   * the encrypted content.
+   * @param patient the patient to share.
+   * @param delegates sharing options for each delegate.
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * patient does not have encrypted content.
+   * - shareSecretIds the secret ids of the Patient that the delegate will be given access to. Allows the delegate to search for data where the
+   * shared Patient is the owning entity id.
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * @return a promise which will contain the updated patient.
+   */
+  async shareWithMany(
+    patient: models.Patient,
+    delegates: {
+      [delegateId: string]: {
+        shareSecretIds: string[]
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
+  ): Promise<models.Patient> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
-    return await this.modifyAs(
-      self,
-      await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
-        patient,
-        delegateId,
-        shareSecretIds,
-        options.shareEncryptionKey,
-        ShareMetadataBehaviour.IF_AVAILABLE
-      )
-    )
+    return await this.modifyAs(self, await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(patient, false, delegates))
   }
 
   /**
