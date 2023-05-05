@@ -161,3 +161,10 @@ export function hex2string(hexStr: string): string {
 export function string2hex(text: string): string {
   return ua2hex(string2ua(text))
 }
+
+export function concat_uas(ua1: Uint8Array, ua2: Uint8Array): Uint8Array {
+  const newBuffer = new Uint8Array(ua1.length + ua2.length)
+  newBuffer.set(ua1, 0)
+  newBuffer.set(ua2, ua1.length)
+  return newBuffer
+}
