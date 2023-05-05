@@ -1,11 +1,11 @@
-import { DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
+import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { KeyPair } from './RSA'
 import { ExchangeData } from '../../icc-api/model/ExchangeData'
 import { IccExchangeDataApi } from '../../icc-api/api/IccExchangeDataApi'
 import { XHR } from '../../icc-api/api/XHR'
 import XHRError = XHR.XHRError
 import { CryptoPrimitives } from './CryptoPrimitives'
-import { b64_2ua, ua2b64, ua2hex, utf8_2ua } from '../utils'
+import { b64_2ua, hex2ua, ua2b64, ua2hex, ua2utf8, utf8_2ua } from '../utils'
 import * as _ from 'lodash'
 import { CryptoStrategies } from './CryptoStrategies'
 
@@ -129,7 +129,7 @@ export class BaseExchangeDataManager {
       exchangeData,
       decryptionKeys,
       (ed) => ed.accessControlSecret,
-      (d) => this.importAccessControlSecret(d)
+      (d) => this.importAccessControlSecret(new Uint8Array(d))
     )
   }
 
@@ -152,7 +152,7 @@ export class BaseExchangeDataManager {
       exchangeData,
       decryptionKeys,
       (ed) => ed.exchangeKey,
-      (d) => this.importExchangeKey(d)
+      (d) => this.importExchangeKey(new Uint8Array(d))
     )
   }
 
@@ -189,7 +189,7 @@ export class BaseExchangeDataManager {
     for (const [fp, encrypted] of Object.entries(encryptedData)) {
       try {
         const key = decryptionKeys[fp]?.privateKey
-        if (key) return await this.primitives.RSA.decrypt(key, b64_2ua(encrypted))
+        if (key) return hex2ua(ua2utf8(await this.primitives.RSA.decrypt(key, b64_2ua(encrypted))))
       } catch (e) {
         // Try with another key
       }
@@ -275,8 +275,8 @@ export class BaseExchangeDataManager {
     const rawExchangeKey = await this.tryDecrypt(exchangeData.exchangeKey, decryptionKeys)
     const rawAccessControlSecret = await this.tryDecrypt(exchangeData.accessControlSecret, decryptionKeys)
     if (!rawExchangeKey || !rawAccessControlSecret) return undefined
-    const exchangeKey = await this.importExchangeKey(rawExchangeKey)
-    const accessControlSecret = await this.importAccessControlSecret(rawAccessControlSecret)
+    const exchangeKey = await this.importExchangeKey(new Uint8Array(rawExchangeKey))
+    const accessControlSecret = await this.importAccessControlSecret(new Uint8Array(rawAccessControlSecret))
     const existingExchangeKeyEntries = new Set(Object.keys(exchangeData.exchangeKey))
     const existingAcsEntries = new Set(Object.keys(exchangeData.accessControlSecret))
     const missingEntries = Object.keys(newEncryptionKeys).filter((fp) => !existingAcsEntries.has(fp) || !existingExchangeKeyEntries.has(fp))
@@ -366,7 +366,7 @@ export class BaseExchangeDataManager {
   ): Promise<{ [keyPairFingerprint: string]: string }> {
     const res: { [keyPairFingerprint: string]: string } = {}
     for (const [fp, key] of Object.entries(keys)) {
-      res[fp] = ua2b64(await this.primitives.RSA.encrypt(key, new Uint8Array(rawData)))
+      res[fp] = ua2b64(await this.primitives.RSA.encrypt(key, utf8_2ua(ua2hex(rawData))))
     }
     return res
   }
