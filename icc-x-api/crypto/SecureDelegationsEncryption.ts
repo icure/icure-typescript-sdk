@@ -10,6 +10,13 @@ export class SecureDelegationsEncryption {
   constructor(private readonly userKeys: UserEncryptionKeysManager, private readonly primitives: CryptoPrimitives) {}
 
   /**
+   * WARNING: this value should be ALWAYS be the string 'Cure'. If changed, it would not be possible to decrypt old secretIds and owningEntityIds
+   * anymore.
+   * @private
+   */
+  private readonly icureIV: string = 'Cure'
+
+  /**
    * If the secure delegation has an encrypted exchange data id attempts to decrypt it with the available keys for the current user.
    * @param secureDelegation a secure delegation.
    * @return the id of the exchange data used for the encryption of the provided secure delegation if it was encrypted and could be decrypted,
@@ -61,7 +68,7 @@ export class SecureDelegationsEncryption {
   }
 
   async encryptSecretId(secretId: string, key: CryptoKey): Promise<string> {
-    return ua2b64(await this.primitives.AES.encrypt(key, utf8_2ua(secretId)))
+    return ua2b64(await this.primitives.AES.encrypt(key, utf8_2ua(this.icureIV + secretId)))
   }
 
   async encryptSecretIds(secretIds: string[], key: CryptoKey): Promise<string[]> {
@@ -73,7 +80,11 @@ export class SecureDelegationsEncryption {
   }
 
   async decryptSecretId(encrypted: string, key: CryptoKey): Promise<string> {
-    return ua2utf8(await this.primitives.AES.decrypt(key, b64_2ua(encrypted)))
+    const probableSecretId = ua2utf8(await this.primitives.AES.decrypt(key, b64_2ua(encrypted)))
+    if (probableSecretId.substring(0, this.icureIV.length) !== this.icureIV) {
+      throw new Error('Invalid secretID')
+    }
+    return probableSecretId.substring(this.icureIV.length)
   }
 
   async decryptSecretIds(delegation: SecureDelegation, key: CryptoKey): Promise<string[]> {
@@ -85,7 +96,7 @@ export class SecureDelegationsEncryption {
   }
 
   async encryptOwningEntityId(owningEntityId: string, key: CryptoKey): Promise<string> {
-    return ua2b64(await this.primitives.AES.encrypt(key, utf8_2ua(owningEntityId)))
+    return ua2b64(await this.primitives.AES.encrypt(key, utf8_2ua(this.icureIV + owningEntityId)))
   }
 
   async encryptOwningEntityIds(owningEntityIds: string[], key: CryptoKey): Promise<string[]> {
@@ -97,7 +108,11 @@ export class SecureDelegationsEncryption {
   }
 
   async decryptOwningEntityId(encrypted: string, key: CryptoKey): Promise<string> {
-    return ua2utf8(await this.primitives.AES.decrypt(key, b64_2ua(encrypted)))
+    const probableOwningEntityId = ua2utf8(await this.primitives.AES.decrypt(key, b64_2ua(encrypted)))
+    if (probableOwningEntityId.substring(0, this.icureIV.length) !== this.icureIV) {
+      throw new Error('Invalid Owning Entity id')
+    }
+    return probableOwningEntityId.substring(this.icureIV.length)
   }
 
   async decryptOwningEntityIds(delegation: SecureDelegation, key: CryptoKey): Promise<string[]> {
