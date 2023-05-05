@@ -14,11 +14,22 @@ export class SecureDelegationsEncryption {
    * anymore.
    * @private
    */
-  private readonly icureIV: string = 'Cure'
-  private readonly icureIVBytes: Uint8Array = utf8_2ua(this.icureIV)
+  private readonly decryptionValidatorPrefix: string = 'Cure'
+  private readonly decryptionValidatorBytes: Uint8Array = utf8_2ua(this.decryptionValidatorPrefix)
 
-  private ivBytesVerification(bytes: ArrayBuffer): boolean {
-    return ua2utf8(bytes) === this.icureIV
+  /**
+   * Check if a Uint8Array or an Array buffer contains the decryption validator prefix.
+   * @param bytes an ArrayBuffer or Uint8Array to verify.
+   * @return true if the buffer contains the prefix, false otherwise.
+   */
+  private prefixVerification(bytes: ArrayBuffer | Uint8Array): boolean {
+    const arrayToVerify = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
+    if (arrayToVerify.length < this.decryptionValidatorBytes.length) return false
+    let result = true
+    for (let i = 0; i < this.decryptionValidatorBytes.length; i++) {
+      result = result && this.decryptionValidatorBytes[i] === arrayToVerify[i]
+    }
+    return result
   }
 
   /**
@@ -49,7 +60,7 @@ export class SecureDelegationsEncryption {
   }
 
   async encryptEncryptionKey(hexKey: string, key: CryptoKey): Promise<string> {
-    return ua2b64(await this.primitives.AES.encrypt(key, concat_uas(this.icureIVBytes, hex2ua(hexKey))))
+    return ua2b64(await this.primitives.AES.encrypt(key, concat_uas(this.decryptionValidatorBytes, hex2ua(hexKey))))
   }
 
   async encryptEncryptionKeys(hexKeys: string[], key: CryptoKey): Promise<string[]> {
@@ -62,10 +73,10 @@ export class SecureDelegationsEncryption {
 
   async decryptEncryptionKey(encrypted: string, key: CryptoKey): Promise<string> {
     const probableKey = await this.primitives.AES.decrypt(key, b64_2ua(encrypted))
-    if (!this.ivBytesVerification(probableKey.slice(0, this.icureIVBytes.length))) {
+    if (!this.prefixVerification(probableKey)) {
       throw new Error('Invalid encryption key')
     }
-    return ua2hex(probableKey.slice(this.icureIVBytes.length))
+    return ua2hex(probableKey.slice(this.decryptionValidatorBytes.length))
   }
 
   async decryptEncryptionKeys(delegation: SecureDelegation, key: CryptoKey): Promise<string[]> {
@@ -77,7 +88,7 @@ export class SecureDelegationsEncryption {
   }
 
   async encryptSecretId(secretId: string, key: CryptoKey): Promise<string> {
-    return ua2b64(await this.primitives.AES.encrypt(key, utf8_2ua(this.icureIV + secretId)))
+    return ua2b64(await this.primitives.AES.encrypt(key, utf8_2ua(this.decryptionValidatorPrefix + secretId)))
   }
 
   async encryptSecretIds(secretIds: string[], key: CryptoKey): Promise<string[]> {
@@ -90,10 +101,10 @@ export class SecureDelegationsEncryption {
 
   async decryptSecretId(encrypted: string, key: CryptoKey): Promise<string> {
     const probableSecretId = ua2utf8(await this.primitives.AES.decrypt(key, b64_2ua(encrypted)))
-    if (probableSecretId.substring(0, this.icureIV.length) !== this.icureIV) {
+    if (probableSecretId.substring(0, this.decryptionValidatorPrefix.length) !== this.decryptionValidatorPrefix) {
       throw new Error('Invalid secretID')
     }
-    return probableSecretId.substring(this.icureIV.length)
+    return probableSecretId.substring(this.decryptionValidatorPrefix.length)
   }
 
   async decryptSecretIds(delegation: SecureDelegation, key: CryptoKey): Promise<string[]> {
@@ -105,7 +116,7 @@ export class SecureDelegationsEncryption {
   }
 
   async encryptOwningEntityId(owningEntityId: string, key: CryptoKey): Promise<string> {
-    return ua2b64(await this.primitives.AES.encrypt(key, utf8_2ua(this.icureIV + owningEntityId)))
+    return ua2b64(await this.primitives.AES.encrypt(key, utf8_2ua(this.decryptionValidatorPrefix + owningEntityId)))
   }
 
   async encryptOwningEntityIds(owningEntityIds: string[], key: CryptoKey): Promise<string[]> {
@@ -118,10 +129,10 @@ export class SecureDelegationsEncryption {
 
   async decryptOwningEntityId(encrypted: string, key: CryptoKey): Promise<string> {
     const probableOwningEntityId = ua2utf8(await this.primitives.AES.decrypt(key, b64_2ua(encrypted)))
-    if (probableOwningEntityId.substring(0, this.icureIV.length) !== this.icureIV) {
+    if (probableOwningEntityId.substring(0, this.decryptionValidatorPrefix.length) !== this.decryptionValidatorPrefix) {
       throw new Error('Invalid Owning Entity id')
     }
-    return probableOwningEntityId.substring(this.icureIV.length)
+    return probableOwningEntityId.substring(this.decryptionValidatorPrefix.length)
   }
 
   async decryptOwningEntityIds(delegation: SecureDelegation, key: CryptoKey): Promise<string[]> {
