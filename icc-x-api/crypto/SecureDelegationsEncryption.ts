@@ -1,5 +1,5 @@
 import { SecureDelegation } from '../../icc-api/model/SecureDelegation'
-import { b64_2ua, hex2ua, ua2b64, ua2hex, ua2utf8, utf8_2ua } from '../utils'
+import { b64_2ua, concat_uas, hex2ua, ua2b64, ua2hex, ua2utf8, utf8_2ua } from '../utils'
 import { UserEncryptionKeysManager } from './UserEncryptionKeysManager'
 import { CryptoPrimitives } from './CryptoPrimitives'
 
@@ -10,11 +10,16 @@ export class SecureDelegationsEncryption {
   constructor(private readonly userKeys: UserEncryptionKeysManager, private readonly primitives: CryptoPrimitives) {}
 
   /**
-   * WARNING: this value should be ALWAYS be the string 'Cure'. If changed, it would not be possible to decrypt old secretIds and owningEntityIds
+   * WARNING: this values should be ALWAYS be the string 'Cure' and its utf-8 bytes. If changed, it would not be possible to decrypt old secretIds and owningEntityIds
    * anymore.
    * @private
    */
   private readonly icureIV: string = 'Cure'
+  private readonly icureIVBytes: Uint8Array = utf8_2ua(this.icureIV)
+
+  private ivBytesVerification(bytes: ArrayBuffer): boolean {
+    return ua2utf8(bytes) === this.icureIV
+  }
 
   /**
    * If the secure delegation has an encrypted exchange data id attempts to decrypt it with the available keys for the current user.
@@ -44,7 +49,7 @@ export class SecureDelegationsEncryption {
   }
 
   async encryptEncryptionKey(hexKey: string, key: CryptoKey): Promise<string> {
-    return ua2b64(await this.primitives.AES.encrypt(key, hex2ua(hexKey)))
+    return ua2b64(await this.primitives.AES.encrypt(key, concat_uas(this.icureIVBytes, hex2ua(hexKey))))
   }
 
   async encryptEncryptionKeys(hexKeys: string[], key: CryptoKey): Promise<string[]> {
@@ -56,7 +61,11 @@ export class SecureDelegationsEncryption {
   }
 
   async decryptEncryptionKey(encrypted: string, key: CryptoKey): Promise<string> {
-    return ua2hex(await this.primitives.AES.decrypt(key, b64_2ua(encrypted)))
+    const probableKey = await this.primitives.AES.decrypt(key, b64_2ua(encrypted))
+    if (!this.ivBytesVerification(probableKey.slice(0, this.icureIVBytes.length))) {
+      throw new Error('Invalid encryption key')
+    }
+    return ua2hex(probableKey.slice(this.icureIVBytes.length))
   }
 
   async decryptEncryptionKeys(delegation: SecureDelegation, key: CryptoKey): Promise<string[]> {
