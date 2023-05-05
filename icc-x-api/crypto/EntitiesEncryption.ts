@@ -212,36 +212,55 @@ export class EntitiesEncryption {
 
   async entityWithAutoExtendedEncryptedMetadata<T extends EncryptedEntity>(
     entity: T,
-    delegateId: string,
-    shareSecretIds: string[] | undefined,
-    shareEncryptionKeys: ShareMetadataBehaviour | undefined,
-    shareOwningEntityIds: ShareMetadataBehaviour | undefined
+    autoShareSecretIds: boolean,
+    delegatesShareInfo: {
+      [delegateId: string]: {
+        shareSecretIds?: string[]
+        shareEncryptionKey?: ShareMetadataBehaviour
+        shareOwningEntityIds?: ShareMetadataBehaviour
+      }
+    }
   ): Promise<T> {
-    if (shareSecretIds === undefined) {
+    if (!Object.keys(delegatesShareInfo).length) {
+      throw new Error('Must specify at least a delegate')
+    }
+    let defaultSecretIds: string[] | undefined
+    if (autoShareSecretIds) {
       const availableSecretIds = await this.secretIdsOf(entity)
       if (availableSecretIds.length) {
-        shareSecretIds = availableSecretIds
+        defaultSecretIds = availableSecretIds
       } else {
-        shareSecretIds = [this.primitives.randomUuid()]
+        defaultSecretIds = [this.primitives.randomUuid()]
       }
     }
-    let actualShareEncryptionKeys: string[] = []
-    if (shareEncryptionKeys !== ShareMetadataBehaviour.NEVER) {
-      const availableEncryptionKeys = await this.encryptionKeysOf(entity)
-      if (!availableEncryptionKeys.length && shareEncryptionKeys === ShareMetadataBehaviour.REQUIRED) {
-        throw new Error(`Entity ${JSON.stringify(entity)} has no encryption keys or the current data owner can't access any encryption keys.`)
+    const availableEncryptionKeys = await this.encryptionKeysOf(entity)
+    const availableOwningEntityIds = await this.owningEntityIdsOf(entity)
+    let updatedEntity = entity
+    for (const [delegateId, requests] of Object.entries(delegatesShareInfo)) {
+      let shareSecretIds: string[] = autoShareSecretIds ? defaultSecretIds! : requests.shareSecretIds ?? []
+      let actualShareEncryptionKeys: string[] = []
+      if (requests.shareEncryptionKey !== ShareMetadataBehaviour.NEVER) {
+        if (!availableEncryptionKeys.length && requests.shareEncryptionKey === ShareMetadataBehaviour.REQUIRED) {
+          throw new Error(`Entity ${JSON.stringify(entity)} has no encryption keys or the current data owner can't access any encryption keys.`)
+        }
+        actualShareEncryptionKeys = availableEncryptionKeys
       }
-      actualShareEncryptionKeys = availableEncryptionKeys
-    }
-    let actualShareOwningEntityIds: string[] = []
-    if (shareOwningEntityIds !== ShareMetadataBehaviour.NEVER) {
-      const availableOwningEntityIds = await this.owningEntityIdsOf(entity)
-      if (!availableOwningEntityIds.length && shareOwningEntityIds === ShareMetadataBehaviour.REQUIRED) {
-        throw new Error(`Entity ${JSON.stringify(entity)} has no owning entity ids or the current data owner can't access any owning entity ids.`)
+      let actualShareOwningEntityIds: string[] = []
+      if (requests.shareOwningEntityIds !== ShareMetadataBehaviour.NEVER) {
+        if (!availableOwningEntityIds.length && requests.shareOwningEntityIds === ShareMetadataBehaviour.REQUIRED) {
+          throw new Error(`Entity ${JSON.stringify(entity)} has no owning entity ids or the current data owner can't access any owning entity ids.`)
+        }
+        actualShareOwningEntityIds = availableOwningEntityIds
       }
-      actualShareOwningEntityIds = availableOwningEntityIds
+      updatedEntity = await this.entityWithExtendedEncryptedMetadata(
+        updatedEntity,
+        delegateId,
+        shareSecretIds,
+        actualShareEncryptionKeys,
+        actualShareOwningEntityIds
+      )
     }
-    return this.entityWithExtendedEncryptedMetadata(entity, delegateId, shareSecretIds, actualShareEncryptionKeys, actualShareOwningEntityIds)
+    return updatedEntity
   }
 
   /**

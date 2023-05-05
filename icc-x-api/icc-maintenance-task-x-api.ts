@@ -179,16 +179,28 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
   ): Promise<models.MaintenanceTask> {
+    return this.shareWithMany(maintenanceTask, { [delegateId]: options })
+  }
+
+  /**
+   * Share an existing maintenance task with other data owners, allowing them to access the non-encrypted data of the maintenance task and optionally also
+   * the encrypted content.
+   * @param maintenanceTask the maintenance task to share.
+   * @param delegates sharing options for each delegate.
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * maintenance task does not have encrypted content.
+   * @return a promise which will contain the updated maintenance task
+   */
+  async shareWithMany(
+    maintenanceTask: models.MaintenanceTask,
+    delegates: {
+      [delegateId: string]: {
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
+  ): Promise<models.MaintenanceTask> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
-    return await this.modifyAs(
-      self,
-      await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
-        maintenanceTask,
-        delegateId,
-        undefined,
-        options.shareEncryptionKey,
-        ShareMetadataBehaviour.IF_AVAILABLE
-      )
-    )
+    return await this.modifyAs(self, await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(maintenanceTask, true, delegates))
   }
 }

@@ -96,14 +96,28 @@ export class IccTimeTableXApi extends IccTimeTableApi {
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
   ): Promise<models.TimeTable> {
-    return await this.modifyTimeTable(
-      await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
-        timeTable,
-        delegateId,
-        undefined,
-        options.shareEncryptionKey,
-        ShareMetadataBehaviour.IF_AVAILABLE
-      )
-    )
+    return this.shareWithMany(timeTable, { [delegateId]: options })
+  }
+
+  /**
+   * Share an existing time table with other data owners, allowing them to access the non-encrypted data of the time table and optionally also
+   * the encrypted content, with read-only or read-write permissions.
+   * @param timeTable the time table to share.
+   * @param delegates sharing options for each delegate.
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * time table does not have encrypted content.
+   * @return a promise which will contain the result of the operation: the updated entity if the operation was successful or details of the error if
+   * the operation failed.
+   */
+  async shareWithMany(
+    timeTable: models.TimeTable,
+    delegates: {
+      [delegateId: string]: {
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
+  ): Promise<models.TimeTable> {
+    return await this.modifyTimeTable(await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(timeTable, true, delegates))
   }
 }

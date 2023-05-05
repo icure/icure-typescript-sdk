@@ -196,13 +196,42 @@ export class IccInvoiceXApi extends IccInvoiceApi {
       sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
   ): Promise<models.Invoice> {
+    return this.shareWithMany(invoice, { [delegateId]: options })
+  }
+  /**
+   * Share an existing invoice with other data owners, allowing them to access the non-encrypted data of the invoice and optionally also
+   * the encrypted content.
+   * @param invoice the invoice to share.
+   * @param delegates sharing options for each delegate.
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * invoice does not have encrypted content.
+   * - sharePatientId: specifies if the id of the patient that this invoice refers to should be shared with the delegate (defaults to
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * @return a promise which will contain the updated invoice.
+   */
+  async shareWithMany(
+    invoice: models.Invoice,
+    delegates: {
+      [delegateId: string]: {
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+        sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
+  ): Promise<models.Invoice> {
     return await this.modifyInvoice(
       await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
         invoice,
-        delegateId,
-        undefined,
-        options.shareEncryptionKey,
-        options.sharePatientId
+        true,
+        Object.fromEntries(
+          Object.entries(delegates).map(([delegateId, options]) => [
+            delegateId,
+            {
+              shareEncryptionKey: options.shareEncryptionKey,
+              shareOwningEntityIds: options.sharePatientId,
+            },
+          ])
+        )
       )
     )
   }

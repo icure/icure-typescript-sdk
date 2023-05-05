@@ -317,15 +317,45 @@ export class IccAccesslogXApi extends IccAccesslogApi {
       sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
   ): Promise<AccessLog> {
+    return this.shareWithMany(accessLog, { [delegateId]: options })
+  }
+
+  /**
+   * Share an existing access log with other data owners, allowing them to access the non-encrypted data of the access log and optionally also the
+   * encrypted content.
+   * @param accessLog the access log to share.
+   * @param delegates sharing options for each delegate.
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * - sharePatientId: specifies if the id of the patient that this access log refers to should be shared with the delegate. Normally this would
+   * be the same as objectId, but it is encrypted separately from it allowing you to give access to the patient id without giving access to the other
+   * encrypted data of the access log (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * @return a promise which will contain the updated entity.
+   */
+  async shareWithMany(
+    accessLog: AccessLog,
+    delegates: {
+      [delegateId: string]: {
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+        sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
+  ): Promise<AccessLog> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     return await this.modifyAs(
       self,
       await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
         accessLog,
-        delegateId,
-        undefined,
-        options.shareEncryptionKey,
-        options.sharePatientId
+        true,
+        Object.fromEntries(
+          Object.entries(delegates).map(([delegateId, options]) => [
+            delegateId,
+            {
+              shareEncryptionKey: options.shareEncryptionKey,
+              shareOwningEntityIds: options.sharePatientId,
+            },
+          ])
+        )
       )
     )
   }

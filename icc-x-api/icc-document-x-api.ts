@@ -895,13 +895,42 @@ export class IccDocumentXApi extends IccDocumentApi {
       shareMessageId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
   ): Promise<models.Document> {
+    return this.shareWithMany(document, { [delegateId]: options })
+  }
+
+  /**
+   * Share an existing document with other data owners, allowing them to access the non-encrypted data of the document and optionally also
+   * the encrypted content.
+   * @param document the document to share.
+   * @param delegates sharing options for each delegate.
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * - shareMessageId: specifies if the id of the message that this document refers to should be shared with the delegate (defaults to
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * @return a promise which will contain the updated document.
+   */
+  async shareWithMany(
+    document: models.Document,
+    delegates: {
+      [delegateId: string]: {
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+        shareMessageId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
+  ): Promise<models.Document> {
     return await this.modifyDocument(
       await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
         document,
-        delegateId,
-        undefined,
-        options.shareEncryptionKey,
-        options.shareMessageId
+        true,
+        Object.fromEntries(
+          Object.entries(delegates).map(([delegateId, options]) => [
+            delegateId,
+            {
+              shareEncryptionKey: options.shareEncryptionKey,
+              shareOwningEntityIds: options.shareMessageId,
+            },
+          ])
+        )
       )
     )
   }
