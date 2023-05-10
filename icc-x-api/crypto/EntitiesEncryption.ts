@@ -431,7 +431,7 @@ export class EntitiesEncryption {
    */
   async decryptEntity<T extends EncryptedEntity>(
     entity: T,
-    ownerId: string,
+    ownerId: string | undefined,
     constructor: (json: any) => T
   ): Promise<{ entity: T; decrypted: boolean }> {
     if (!entity.encryptedSelf) return { entity, decrypted: true }
@@ -476,7 +476,7 @@ export class EntitiesEncryption {
    */
   async tryEncryptEntity<T extends EncryptedEntity>(
     entity: T,
-    dataOwnerId: string,
+    dataOwnerId: string | undefined,
     cryptedKeys: string[],
     encodeBinaryData: boolean,
     requireEncryption: boolean,
