@@ -1,5 +1,5 @@
 import 'isomorphic-fetch'
-import { getEnvironmentInitializer, hcp1Username, setLocalStorage, TestUtils } from '../utils/test_utils'
+import { getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { before } from 'mocha'
 import { Api, IccCalendarItemXApi, IccPatientXApi, IccUserXApi } from '../../icc-x-api'
 import { BasicAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
@@ -9,7 +9,7 @@ import { User } from '../../icc-api/model/User'
 import { randomUUID } from 'crypto'
 import { crypto } from '../../node-compat'
 import { CalendarItem } from '../../icc-api/model/CalendarItem'
-import { assert } from 'chai'
+import { assert, expect } from 'chai'
 import initApi = TestUtils.initApi
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
@@ -91,5 +91,46 @@ describe('icc-calendar-item-x-api Tests', () => {
 
     assert(foundItemsUsingPost.length == 1, 'Found items using post should be 1')
     assert(foundItemsUsingPost[0].id == createdCalendarItem.id, 'Found item using post should be the same as created item')
+  })
+
+  it('Should be able to link a calendar item with an existing patient', async () => {
+    const api1 = await initApi(env!, hcp1Username)
+    const user1 = await api1.userApi.getCurrentUser()
+    const api2 = await initApi(env!, hcp2Username)
+    const user2 = await api2.userApi.getCurrentUser()
+    const patient = await api1.patientApi.createPatientWithUser(
+      user1,
+      await api1.patientApi.newInstance(
+        user1,
+        {
+          firstName: 'Gigio',
+          lastName: 'Bagigio',
+        },
+        { additionalDelegates: { [user2.healthcarePartyId!]: 'WRITE' } }
+      )
+    )
+    const patientSecretIds = await api2.patientApi.decryptNonConfidentialSecretIdsOf(patient)
+    expect(patientSecretIds).to.have.length(1)
+    const itemTitle = 'An interesting title'
+    const calendarItem = await api2.calendarItemApi.createCalendarItemWithHcParty(
+      user2,
+      await api2.calendarItemApi.newInstance(user2, { title: itemTitle }, { additionalDelegates: { [user1.healthcarePartyId!]: 'WRITE' } })
+    )
+    expect(calendarItem.title).to.equal(itemTitle)
+    expect((await api1.calendarItemApi.getCalendarItemWithUser(user1, calendarItem.id)).title).to.equal(itemTitle)
+    expect(await api1.calendarItemApi.decryptPatientIdOf(calendarItem)).to.have.length(0)
+    expect(calendarItem.secretForeignKeys ?? []).to.have.length(0)
+    const linked = await api1.calendarItemApi.linkToPatient(calendarItem, patient, [user2.healthcarePartyId!])
+    expect(linked.title).to.equal(itemTitle)
+    expect(linked.secretForeignKeys ?? []).to.have.length(1)
+    expect(linked.secretForeignKeys![0]).to.equal(patientSecretIds[0])
+    const decryptedPatientIdBy1 = await api1.calendarItemApi.decryptPatientIdOf(linked)
+    expect(decryptedPatientIdBy1).to.have.length(1)
+    expect(decryptedPatientIdBy1[0]).to.equal(patient.id)
+    const retrievedBy2AfterLink = await api2.calendarItemApi.getCalendarItemWithUser(user2, calendarItem.id)
+    expect(retrievedBy2AfterLink.title).to.equal(itemTitle)
+    const decryptedPatientIdBy2 = await api2.calendarItemApi.decryptPatientIdOf(retrievedBy2AfterLink)
+    expect(decryptedPatientIdBy2).to.have.length(1)
+    expect(decryptedPatientIdBy2[0]).to.equal(patient.id)
   })
 })

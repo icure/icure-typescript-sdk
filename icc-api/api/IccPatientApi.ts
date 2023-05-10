@@ -826,8 +826,13 @@ export class IccPatientApi {
   baseMergePatients(fromId: string, expectedFromRev: string, updatedInto: Patient) {
     let _body = updatedInto
 
-    const _url = this.host + `patient/mergeInto/${encodeURIComponent(String(updatedInto.id))}/from/${encodeURIComponent(String(fromId))}`
-    '?ts=' + new Date().getTime() + '&expectedFromRev=' + encodeURIComponent(String(expectedFromRev))
+    const _url =
+      this.host +
+      `/patient/mergeInto/${encodeURIComponent(String(updatedInto.id))}/from/${encodeURIComponent(String(fromId))}` +
+      '?ts=' +
+      new Date().getTime() +
+      '&expectedFromRev=' +
+      encodeURIComponent(String(expectedFromRev))
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
