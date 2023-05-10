@@ -6,13 +6,11 @@ import { Api, ua2hex } from '../../../icc-x-api'
 import {
   createHcpHierarchyApis,
   getEnvironmentInitializer,
-  getEnvVariables,
   hcp1Username,
   hcp2Username,
   hcp3Username,
   setLocalStorage,
   TestUtils,
-  TestVars,
 } from '../../utils/test_utils'
 import initApi = TestUtils.initApi
 import { before } from 'mocha'
@@ -23,6 +21,7 @@ import { FilterChainMaintenanceTask } from '../../../icc-api/model/FilterChainMa
 import { MaintenanceTaskAfterDateFilter } from '../../../icc-x-api/filters/MaintenanceTaskAfterDateFilter'
 import { KeyPairUpdateRequest } from '../../../icc-x-api/maintenance/KeyPairUpdateRequest'
 import { RSAUtils } from '../../../icc-x-api/crypto/RSA'
+import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
 // Data was randomly generated, not based on any real key
 const data =
@@ -120,7 +119,7 @@ describe('Shamir key recovery', async function () {
     const lostKeyApi = await Api(
       env.iCureUrl,
       {
-        username: hierarchyApis.childCredentials.login,
+        username: hierarchyApis.childCredentials.user,
         password: hierarchyApis.childCredentials.password,
       },
       new TestCryptoStrategies(newKey),

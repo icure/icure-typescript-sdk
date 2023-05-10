@@ -11,7 +11,7 @@ import { webcrypto } from 'crypto'
 import 'isomorphic-fetch'
 
 import { expect } from 'chai'
-import { getEnvironmentInitializer, getEnvVariables, getTempEmail, setLocalStorage, TestUtils, TestVars } from '../../utils/test_utils'
+import { getEnvironmentInitializer, getTempEmail, setLocalStorage, TestUtils } from '../../utils/test_utils'
 import { TestApi } from '../../utils/TestApi'
 import { KeyPair } from '../../../icc-x-api/crypto/RSA'
 import { CryptoPrimitives } from '../../../icc-x-api/crypto/CryptoPrimitives'
@@ -20,6 +20,7 @@ import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
 import { MaintenanceTaskAfterDateFilter } from '../../../icc-x-api/filters/MaintenanceTaskAfterDateFilter'
 import { KeyPairUpdateRequest } from '../../../icc-x-api/maintenance/KeyPairUpdateRequest'
 import initMasterApi = TestUtils.initMasterApi
+import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
 setLocalStorage(fetch)
 

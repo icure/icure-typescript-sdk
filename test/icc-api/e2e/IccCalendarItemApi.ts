@@ -1,8 +1,9 @@
 import { hex2ua, pkcs8ToJwk, spkiToJwk } from '../../../icc-x-api'
 import { expect } from 'chai'
 import { randomUUID } from 'crypto'
-import { getEnvironmentInitializer, getEnvVariables, hcp1Username, patUsername, TestUtils, TestVars } from '../../utils/test_utils'
+import { getEnvironmentInitializer, hcp1Username, patUsername, TestUtils } from '../../utils/test_utils'
 import initApi = TestUtils.initApi
+import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
 let env: TestVars | undefined
 

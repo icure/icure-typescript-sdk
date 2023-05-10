@@ -1,5 +1,5 @@
 import 'isomorphic-fetch'
-import { getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStorage, TestUtils, TestVars } from '../utils/test_utils'
+import { getEnvironmentInitializer, hcp1Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { before } from 'mocha'
 import { Api, IccInvoiceXApi, IccPatientXApi, IccUserXApi } from '../../icc-x-api'
 import { BasicAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
@@ -11,6 +11,7 @@ import { crypto } from '../../node-compat'
 import { Invoice } from '../../icc-api/model/Invoice'
 import { assert } from 'chai'
 import initApi = TestUtils.initApi
+import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
 setLocalStorage(fetch)
 let env: TestVars

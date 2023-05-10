@@ -5,8 +5,9 @@ import 'isomorphic-fetch'
 import { Patient } from '../../icc-api/model/Patient'
 import { assert } from 'chai'
 import { randomUUID } from 'crypto'
-import { getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStorage, TestUtils, TestVars } from '../utils/test_utils'
+import { getEnvironmentInitializer, hcp1Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import initApi = TestUtils.initApi
+import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
 setLocalStorage(fetch)
 let env: TestVars

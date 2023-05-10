@@ -6,13 +6,14 @@ import { IccHelementXApi, IccPatientXApi } from '../../icc-x-api'
 import { Patient } from '../../icc-api/model/Patient'
 import { assert, expect } from 'chai'
 import { randomUUID } from 'crypto'
-import { getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStorage, TestUtils, TestVars } from '../utils/test_utils'
+import { getEnvironmentInitializer, hcp1Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { HealthElement } from '../../icc-api/model/HealthElement'
 import { Code } from '../../icc-api/model/Code'
 import { User } from '../../icc-api/model/User'
 import { FilterChainHealthElement } from '../../icc-api/model/FilterChainHealthElement'
 import { HealthElementByIdsFilter } from '../../icc-x-api/filters/HealthElementByIdsFilter'
 import initApi = TestUtils.initApi
+import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
 setLocalStorage(fetch)
 let env: TestVars | undefined

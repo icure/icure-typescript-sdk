@@ -2,9 +2,10 @@ import { IccDocumentXApi } from '../../../icc-x-api'
 import { Document } from '../../../icc-api/model/Document'
 import { assert, expect } from 'chai'
 import { randomBytes, randomUUID } from 'crypto'
-import { getEnvironmentInitializer, getEnvVariables, hcp1Username, TestUtils, TestVars } from '../../utils/test_utils'
+import { getEnvironmentInitializer, hcp1Username, TestUtils } from '../../utils/test_utils'
 import initApi = TestUtils.initApi
 import { Delegation } from '../../../icc-api/model/Delegation'
+import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
 const sampleKey = 'thumbnail'
 const sampleKey2 = 'thumbnail2'

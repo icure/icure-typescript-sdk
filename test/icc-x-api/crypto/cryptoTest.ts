@@ -5,18 +5,10 @@ import { expect } from 'chai'
 import 'mocha'
 
 import { Patient } from '../../../icc-api/model/Patient'
-import {
-  createHcpHierarchyApis,
-  getEnvironmentInitializer,
-  getEnvVariables,
-  hcp1Username,
-  hcp2Username,
-  setLocalStorage,
-  TestUtils,
-  TestVars,
-} from '../../utils/test_utils'
+import { createHcpHierarchyApis, getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils } from '../../utils/test_utils'
 import { BasicAuthenticationProvider } from '../../../icc-x-api/auth/AuthenticationProvider'
 import initApi = TestUtils.initApi
+import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
 let env: TestVars | undefined
 

@@ -6,7 +6,7 @@ import { IccContactXApi, IccHelementXApi, IccPatientXApi } from '../../icc-x-api
 import { Patient } from '../../icc-api/model/Patient'
 import { assert, expect } from 'chai'
 import { randomUUID } from 'crypto'
-import { getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStorage, TestUtils, TestVars } from '../utils/test_utils'
+import { getEnvironmentInitializer, hcp1Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { Code } from '../../icc-api/model/Code'
 import { Contact } from '../../icc-api/model/Contact'
 import { Service } from '../../icc-api/model/Service'
@@ -18,6 +18,7 @@ import { ServiceLink } from '../../icc-api/model/ServiceLink'
 import { FilterChainService } from '../../icc-api/model/FilterChainService'
 import { ServiceByHcPartyHealthElementIdsFilter } from '../../icc-x-api/filters/ServiceByHcPartyHealthElementIdsFilter'
 import initApi = TestUtils.initApi
+import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
 setLocalStorage(fetch)
 let env: TestVars | undefined
