@@ -18,9 +18,10 @@ import { retry } from './utils'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
+import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
 // noinspection JSUnusedGlobalSymbols
-export class IccPatientXApi extends IccPatientApi {
+export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi<models.Patient> {
   crypto: IccCryptoXApi
   contactApi: IccContactXApi
   formApi: IccFormXApi
@@ -1227,5 +1228,15 @@ export class IccPatientXApi extends IccPatientApi {
    */
   decryptNonConfidentialSecretIdsOf(patient: models.Patient): Promise<string[]> {
     return this.crypto.confidential.getSecretIdsSharedWithParents(patient)
+  }
+
+  async getDataOwnersWithAccessTo(
+    entity: models.Patient
+  ): Promise<{ permissionsByDataOwnerId: { [p: string]: 'WRITE' }; hasUnknownAnonymousDataOwners: boolean }> {
+    return await this.crypto.entities.getDataOwnersWithAccessTo(entity)
+  }
+
+  async getEncryptionKeysOf(entity: models.Patient): Promise<string[]> {
+    return await this.crypto.entities.encryptionKeysOf(entity)
   }
 }

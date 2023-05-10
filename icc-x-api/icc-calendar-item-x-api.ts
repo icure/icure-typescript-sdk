@@ -8,8 +8,9 @@ import { IccCalendarItemApi } from '../icc-api'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
+import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
-export class IccCalendarItemXApi extends IccCalendarItemApi {
+export class IccCalendarItemXApi extends IccCalendarItemApi implements EncryptedEntityXApi<models.CalendarItem> {
   i18n: any = i18n
   crypto: IccCryptoXApi
   dataOwnerApi: IccDataOwnerXApi
@@ -303,5 +304,15 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
         )
       )
     )
+  }
+
+  async getDataOwnersWithAccessTo(
+    entity: CalendarItem
+  ): Promise<{ permissionsByDataOwnerId: { [p: string]: 'WRITE' }; hasUnknownAnonymousDataOwners: boolean }> {
+    return await this.crypto.entities.getDataOwnersWithAccessTo(entity)
+  }
+
+  async getEncryptionKeysOf(entity: CalendarItem): Promise<string[]> {
+    return await this.crypto.entities.encryptionKeysOf(entity)
   }
 }

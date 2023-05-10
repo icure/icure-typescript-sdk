@@ -6,12 +6,13 @@ import * as _ from 'lodash'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
+import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
 export interface AccessLogWithPatientId extends AccessLog {
   patientId: string
 }
 
-export class IccAccesslogXApi extends IccAccesslogApi {
+export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntityXApi<models.AccessLog> {
   crypto: IccCryptoXApi
   cryptedKeys = ['detail', 'objectId']
   dataOwnerApi: IccDataOwnerXApi
@@ -358,5 +359,16 @@ export class IccAccesslogXApi extends IccAccesslogApi {
         )
       )
     )
+  }
+
+  async getDataOwnersWithAccessTo(entity: models.AccessLog): Promise<{
+    permissionsByDataOwnerId: { [dataOwnerId: string]: 'WRITE' }
+    hasUnknownAnonymousDataOwners: boolean
+  }> {
+    return await this.crypto.entities.getDataOwnersWithAccessTo(entity)
+  }
+
+  async getEncryptionKeysOf(entity: models.AccessLog): Promise<string[]> {
+    return await this.crypto.entities.encryptionKeysOf(entity)
   }
 }

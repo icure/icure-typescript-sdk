@@ -7,9 +7,10 @@ import * as models from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
+import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
 // noinspection JSUnusedGlobalSymbols
-export class IccFormXApi extends IccFormApi {
+export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<models.Form> {
   crypto: IccCryptoXApi
   dataOwnerApi: IccDataOwnerXApi
 
@@ -182,5 +183,15 @@ export class IccFormXApi extends IccFormApi {
         )
       )
     )
+  }
+
+  async getDataOwnersWithAccessTo(
+    entity: models.Form
+  ): Promise<{ permissionsByDataOwnerId: { [p: string]: 'WRITE' }; hasUnknownAnonymousDataOwners: boolean }> {
+    return await this.crypto.entities.getDataOwnersWithAccessTo(entity)
+  }
+
+  async getEncryptionKeysOf(entity: models.Form): Promise<string[]> {
+    return await this.crypto.entities.encryptionKeysOf(entity)
   }
 }

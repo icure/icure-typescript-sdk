@@ -9,8 +9,9 @@ import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import * as models from '../icc-api/model/models'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
+import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
-export class IccTimeTableXApi extends IccTimeTableApi {
+export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntityXApi<TimeTable> {
   i18n: any = i18n
   crypto: IccCryptoXApi
   dataOwnerApi: IccDataOwnerXApi
@@ -119,5 +120,15 @@ export class IccTimeTableXApi extends IccTimeTableApi {
     }
   ): Promise<models.TimeTable> {
     return await this.modifyTimeTable(await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(timeTable, true, delegates))
+  }
+
+  async getDataOwnersWithAccessTo(
+    entity: models.TimeTable
+  ): Promise<{ permissionsByDataOwnerId: { [p: string]: 'WRITE' }; hasUnknownAnonymousDataOwners: boolean }> {
+    return await this.crypto.entities.getDataOwnersWithAccessTo(entity)
+  }
+
+  async getEncryptionKeysOf(entity: models.TimeTable): Promise<string[]> {
+    return await this.crypto.entities.encryptionKeysOf(entity)
   }
 }

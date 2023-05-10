@@ -9,8 +9,9 @@ import { FilterChainHealthElement, HealthElement, PaginatedListHealthElement } f
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
+import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
-export class IccHelementXApi extends IccHelementApi {
+export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXApi<models.HealthElement> {
   crypto: IccCryptoXApi
   dataOwnerApi: IccDataOwnerXApi
 
@@ -418,5 +419,15 @@ export class IccHelementXApi extends IccHelementApi {
         )
       )
     )
+  }
+
+  async getDataOwnersWithAccessTo(
+    entity: HealthElement
+  ): Promise<{ permissionsByDataOwnerId: { [p: string]: 'WRITE' }; hasUnknownAnonymousDataOwners: boolean }> {
+    return await this.crypto.entities.getDataOwnersWithAccessTo(entity)
+  }
+
+  async getEncryptionKeysOf(entity: HealthElement): Promise<string[]> {
+    return await this.crypto.entities.encryptionKeysOf(entity)
   }
 }
