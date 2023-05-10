@@ -7,8 +7,9 @@ import { Invoice } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
+import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
-export class IccInvoiceXApi extends IccInvoiceApi {
+export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi<models.Invoice> {
   crypto: IccCryptoXApi
   entityrefApi: IccEntityrefApi
   dataOwnerApi: IccDataOwnerXApi
@@ -234,5 +235,15 @@ export class IccInvoiceXApi extends IccInvoiceApi {
         )
       )
     )
+  }
+
+  async getDataOwnersWithAccessTo(
+    entity: Invoice
+  ): Promise<{ permissionsByDataOwnerId: { [p: string]: 'WRITE' }; hasUnknownAnonymousDataOwners: boolean }> {
+    return await this.crypto.entities.getDataOwnersWithAccessTo(entity)
+  }
+
+  async getEncryptionKeysOf(entity: Invoice): Promise<string[]> {
+    return await this.crypto.entities.encryptionKeysOf(entity)
   }
 }

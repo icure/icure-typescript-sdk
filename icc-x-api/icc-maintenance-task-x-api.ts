@@ -7,8 +7,9 @@ import { IccHcpartyXApi } from './icc-hcparty-x-api'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
+import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
-export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
+export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements EncryptedEntityXApi<models.MaintenanceTask> {
   crypto: IccCryptoXApi
   hcPartyApi: IccHcpartyXApi
   dataOwnerApi: IccDataOwnerXApi
@@ -153,6 +154,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
   decrypt(user: models.User, maintenanceTasks: Array<models.MaintenanceTask>): Promise<Array<models.MaintenanceTask>> {
     return this.decryptAs(this.dataOwnerApi.getDataOwnerIdOf(user), maintenanceTasks)
   }
+
   private decryptAs(dataOwnerId: string, maintenanceTasks: Array<models.MaintenanceTask>): Promise<Array<models.MaintenanceTask>> {
     return Promise.all(
       maintenanceTasks.map(async (mT) =>
@@ -202,5 +204,15 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
   ): Promise<models.MaintenanceTask> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     return await this.modifyAs(self, await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(maintenanceTask, true, delegates))
+  }
+
+  async getDataOwnersWithAccessTo(
+    entity: MaintenanceTask
+  ): Promise<{ permissionsByDataOwnerId: { [p: string]: 'WRITE' }; hasUnknownAnonymousDataOwners: boolean }> {
+    return await this.crypto.entities.getDataOwnersWithAccessTo(entity)
+  }
+
+  async getEncryptionKeysOf(entity: MaintenanceTask): Promise<string[]> {
+    return await this.crypto.entities.encryptionKeysOf(entity)
   }
 }

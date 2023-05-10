@@ -23,6 +23,20 @@ export class EntitiesEncryption {
   }
 
   /**
+   * Get the data owners which can access the entity
+   * @param entity an entity.
+   */
+  async getDataOwnersWithAccessTo(entity: EncryptedEntity): Promise<{
+    permissionsByDataOwnerId: { [dataOwnerId: string]: 'WRITE' }
+    hasUnknownAnonymousDataOwners: boolean
+  }> {
+    return {
+      permissionsByDataOwnerId: Object.fromEntries(Object.keys(entity.delegations ?? {}).map((x) => [x, 'WRITE'])),
+      hasUnknownAnonymousDataOwners: false,
+    }
+  }
+
+  /**
    * Get the encryption keys of an entity that the provided data owner can access, potentially using the keys for his parent.
    * There should only be one encryption key for each entity, but the method supports more to allow to deal with conflicts and merged duplicate data.
    * @param entity an encrypted entity.

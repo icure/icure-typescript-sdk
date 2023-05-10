@@ -8,8 +8,9 @@ import * as moment from 'moment'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
+import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
-export class IccClassificationXApi extends IccClassificationApi {
+export class IccClassificationXApi extends IccClassificationApi implements EncryptedEntityXApi<models.Classification> {
   crypto: IccCryptoXApi
   dataOwnerApi: IccDataOwnerXApi
 
@@ -161,5 +162,15 @@ export class IccClassificationXApi extends IccClassificationApi {
         )
       )
     )
+  }
+
+  async getDataOwnersWithAccessTo(
+    entity: models.Classification
+  ): Promise<{ permissionsByDataOwnerId: { [p: string]: 'WRITE' }; hasUnknownAnonymousDataOwners: boolean }> {
+    return Promise.resolve({ hasUnknownAnonymousDataOwners: false, permissionsByDataOwnerId: {} })
+  }
+
+  async getEncryptionKeysOf(entity: models.Classification): Promise<string[]> {
+    return await this.crypto.entities.encryptionKeysOf(entity)
   }
 }

@@ -9,9 +9,10 @@ import { a2b, hex2ua, string2ua, ua2string } from './utils/binary-utils'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
+import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
 // noinspection JSUnusedGlobalSymbols
-export class IccDocumentXApi extends IccDocumentApi {
+export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXApi<models.Document> {
   fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response>
 
   /** maps invalid UTI values to corresponding MIME type for backward-compatibility (pre-v1.0.117) */
@@ -933,5 +934,15 @@ export class IccDocumentXApi extends IccDocumentApi {
         )
       )
     )
+  }
+
+  async getDataOwnersWithAccessTo(
+    entity: models.Document
+  ): Promise<{ permissionsByDataOwnerId: { [p: string]: 'WRITE' }; hasUnknownAnonymousDataOwners: boolean }> {
+    return await this.crypto.entities.getDataOwnersWithAccessTo(entity)
+  }
+
+  async getEncryptionKeysOf(entity: models.Document): Promise<string[]> {
+    return await this.crypto.entities.encryptionKeysOf(entity)
   }
 }
