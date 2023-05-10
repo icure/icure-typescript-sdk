@@ -1,6 +1,6 @@
 import 'isomorphic-fetch'
 import { before } from 'mocha'
-import { getEnvironmentInitializer, getEnvVariables, hcp1Username, setLocalStorage, TestVars } from '../../utils/test_utils'
+import { getEnvironmentInitializer, hcp1Username, setLocalStorage } from '../../utils/test_utils'
 import { TestApi } from '../../utils/TestApi'
 import { IccUserXApi } from '../../../icc-x-api'
 import { webcrypto } from 'crypto'
@@ -9,6 +9,7 @@ import { XHR } from '../../../icc-api/api/XHR'
 import XHRError = XHR.XHRError
 import { IccAuthApi } from '../../../icc-api'
 import { BasicAuthenticationProvider, JwtAuthenticationProvider } from '../../../icc-x-api/auth/AuthenticationProvider'
+import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
 setLocalStorage(fetch)
 let env: TestVars

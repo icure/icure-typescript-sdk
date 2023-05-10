@@ -6,8 +6,9 @@ import { hex2ua, jwk2pkcs8, jwk2spki, pkcs8ToJwk, spkiToJwk, truncateTrailingNul
 import { crypto } from '../../../node-compat'
 import { RSAUtils } from '../../../icc-x-api/crypto/RSA'
 import { parseAsn1 } from '../../../icc-x-api/utils/asn1-parser'
-import { getEnvironmentInitializer, getEnvVariables, hcp1Username, TestVars } from '../../utils/test_utils'
+import { getEnvironmentInitializer, hcp1Username } from '../../utils/test_utils'
 import { TestApi } from '../../utils/TestApi'
+import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
 let env: TestVars | undefined
 

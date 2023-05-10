@@ -5,7 +5,7 @@ import 'isomorphic-fetch'
 import { Apis } from '../../icc-x-api'
 import { assert } from 'chai'
 import { randomUUID } from 'crypto'
-import { getEnvironmentInitializer, getEnvVariables, hcp1Username, hcp2Username, setLocalStorage, TestUtils, TestVars } from '../utils/test_utils'
+import { getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { User } from '../../icc-api/model/User'
 import { IccMaintenanceTaskXApi } from '../../icc-x-api/icc-maintenance-task-x-api'
 import { MaintenanceTask } from '../../icc-api/model/MaintenanceTask'
@@ -20,6 +20,7 @@ import { MaintenanceTaskByHcPartyAndTypeFilter } from '../../icc-x-api/filters/M
 import { DocIdentifier } from '../../icc-api/model/DocIdentifier'
 import initApi = TestUtils.initApi
 import { MaintenanceTaskAfterDateFilter } from '../../icc-x-api/filters/MaintenanceTaskAfterDateFilter'
+import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
 setLocalStorage(fetch)
 let env: TestVars

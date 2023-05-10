@@ -8,19 +8,11 @@ import 'isomorphic-fetch'
 
 import { expect } from 'chai'
 import { MaintenanceTaskAfterDateFilter } from '../../../icc-x-api/filters/MaintenanceTaskAfterDateFilter'
-import {
-  getApiAndAddPrivateKeysForUser,
-  getEnvironmentInitializer,
-  getEnvVariables,
-  hcp1Username,
-  patUsername,
-  setLocalStorage,
-  TestVars,
-} from '../../utils/test_utils'
+import { getApiAndAddPrivateKeysForUser, getEnvironmentInitializer, hcp1Username, patUsername, setLocalStorage } from '../../utils/test_utils'
 import { TestKeyStorage, TestStorage } from '../../utils/TestStorage'
 import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
-import { DefaultStorageEntryKeysFactory } from '../../../icc-x-api/storage/DefaultStorageEntryKeysFactory'
 import { KeyPairUpdateRequest } from '../../../icc-x-api/maintenance/KeyPairUpdateRequest'
+import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
 async function _getHcpKeyUpdateMaintenanceTask(delegateApi: Apis): Promise<MaintenanceTask> {
   const delegateUser = await delegateApi.userApi.getCurrentUser()
