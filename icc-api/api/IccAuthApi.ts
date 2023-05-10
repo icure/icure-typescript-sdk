@@ -92,7 +92,7 @@ export class IccAuthApi {
    * @param thirdParty The third party OAuth service used to authenticate the user
    * @param token The token returned by the third party OAuth service
    */
-  loginWithThirdPartyToken(thirdParty: OAuthThirdParty, token: string): Promise<AuthenticationResponse> {
+  loginWithThirdPartyToken(thirdParty: string, token: string): Promise<AuthenticationResponse> {
     let _body = null
     _body = token
 

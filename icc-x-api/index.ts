@@ -92,7 +92,7 @@ export const Api = async function (
   storage?: StorageFacade<string>,
   keyStorage?: KeyStorageFacade,
   headers = {},
-  thirdPartyTokens: { [thirdParty: OAuthThirdParty]: string } = {}
+  thirdPartyTokens: { [thirdParty: string]: string } = {}
 ): Promise<Apis> {
   const _storage = storage || new LocalStorageImpl()
   const _keyStorage = keyStorage || new KeyStorageImpl(_storage)
@@ -104,6 +104,7 @@ export const Api = async function (
         new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl),
         username,
         password,
+        3600,
         thirdPartyTokens
       )
 
