@@ -19,7 +19,7 @@ export class EnsembleAuthenticationProvider implements AuthenticationProvider {
     private username: string,
     private password: string,
     private jwtTimeout: number = 3600,
-    thirdPartyTokens: { [thirdParty: OAuthThirdParty]: string } = {}
+    thirdPartyTokens: { [thirdParty: string]: string } = {}
   ) {
     this.jwtAuth = new JwtAuthService(this.authApi, this.username, this.password, thirdPartyTokens)
     this.basicAuth = new BasicAuthService(this.username, this.password)

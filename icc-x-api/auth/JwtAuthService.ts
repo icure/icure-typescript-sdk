@@ -15,7 +15,7 @@ export class JwtAuthService implements AuthService {
     private authApi: IccAuthApi,
     private username: string,
     private password: string,
-    private thirdPartyTokens: { [thirdParty: OAuthThirdParty]: string } = {}
+    private thirdPartyTokens: { [thirdParty: string]: string } = {}
   ) {}
 
   async getAuthHeaders(): Promise<Array<Header>> {
@@ -58,8 +58,8 @@ export class JwtAuthService implements AuthService {
   }
 
   private async _loginAndGetTokens(): Promise<{ authJwt?: string; refreshJwt?: string }> {
-    let authResponse
-    let firstError
+    let authResponse: AuthenticationResponse | undefined
+    let firstError: XHRError | undefined
     if (this.username && this.password) {
       try {
         authResponse = await this.authApi.login(
@@ -69,20 +69,20 @@ export class JwtAuthService implements AuthService {
           })
         )
       } catch (e) {
-        firstError = e
+        firstError = e as XHRError
       }
     }
     if (!authResponse) {
       authResponse = await (Object.entries(this.thirdPartyTokens) as [OAuthThirdParty, string][]).reduce(async (acc, [thirdParty, token]) => {
         const prev = await acc
         return (
-          prev ||
+          prev ??
           (token
             ? this.authApi.loginWithThirdPartyToken(thirdParty, token).catch((e) => {
                 if (!firstError) {
-                  firstError = e
+                  firstError = e as XHRError
                 }
-                return Promise.resolve()
+                return Promise.resolve() as Promise<undefined>
               })
             : undefined)
         )
