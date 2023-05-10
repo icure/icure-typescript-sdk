@@ -104,7 +104,7 @@ export const Api = async function (
   autoLogin = false,
   storage?: StorageFacade<string>,
   keyStorage?: KeyStorageFacade,
-  thirdPartyTokens: { [thirdParty: OAuthThirdParty]: string } = {}
+  thirdPartyTokens: { [thirdParty: string]: string } = {}
 ): Promise<Apis> {
   const _storage = storage || new LocalStorageImpl()
   const _keyStorage = keyStorage || new KeyStorageImpl(_storage)
