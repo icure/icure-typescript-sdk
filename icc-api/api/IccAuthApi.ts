@@ -14,6 +14,14 @@ import { AuthenticationResponse } from '../model/AuthenticationResponse'
 import { LoginCredentials } from '../model/LoginCredentials'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 
+export enum OAuthThirdParty {
+  GOOGLE = 'google',
+  MICROSOFT = 'microsoft',
+  APPLE = 'apple',
+  LINKEDIN = 'linkedin',
+  GITHUB = 'github',
+}
+
 export class IccAuthApi {
   host: string
   headers: Array<XHR.Header>
@@ -74,6 +82,27 @@ export class IccAuthApi {
       .filter((h) => h.header !== 'Content-Type' && h.header?.toLowerCase() !== 'authorization')
       .concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined)
+      .then((doc) => new AuthenticationResponse(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Login using third party OAuth provider token
+   * @summary login
+   * @param thirdParty The third party OAuth service used to authenticate the user
+   * @param token The token returned by the third party OAuth service
+   */
+  loginWithThirdPartyToken(thirdParty: OAuthThirdParty, token: string): Promise<AuthenticationResponse> {
+    let _body = null
+    _body = token
+
+    const _url = this.host + `/auth/login/${thirdParty}` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers
+      .filter((h) => h.header !== 'Content-Type' && h.header?.toLowerCase() !== 'authorization')
+      .concat(new XHR.Header('Content-Type', 'application/json'))
+      .concat(new XHR.Header('token', token))
+    return XHR.sendCommand('POST', _url, headers, null, this.fetchImpl, undefined)
       .then((doc) => new AuthenticationResponse(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }

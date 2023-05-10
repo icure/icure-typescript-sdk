@@ -1,5 +1,5 @@
 import { AuthService } from './AuthService'
-import { IccAuthApi } from '../../icc-api'
+import { IccAuthApi, OAuthThirdParty } from '../../icc-api'
 import { EnsembleAuthService } from './EnsembleAuthService'
 import { JwtAuthService } from './JwtAuthService'
 import { NoAuthService } from './NoAuthService'
@@ -14,8 +14,14 @@ export class EnsembleAuthenticationProvider implements AuthenticationProvider {
   private jwtAuth: JwtAuthService
   private suspensionEnd: Date | undefined
 
-  constructor(private authApi: IccAuthApi, private username: string, private password: string, private jwtTimeout: number = 3600) {
-    this.jwtAuth = new JwtAuthService(this.authApi, this.username, this.password)
+  constructor(
+    private authApi: IccAuthApi,
+    private username: string,
+    private password: string,
+    private jwtTimeout: number = 3600,
+    thirdPartyTokens: { [thirdParty: OAuthThirdParty]: string } = {}
+  ) {
+    this.jwtAuth = new JwtAuthService(this.authApi, this.username, this.password, thirdPartyTokens)
     this.basicAuth = new BasicAuthService(this.username, this.password)
   }
 
