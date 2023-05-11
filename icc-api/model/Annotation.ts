@@ -59,4 +59,6 @@ export class Annotation {
    * Defines to which part of the corresponding information the note is related to.
    */
   location?: string
+
+  encryptedSelf?: string
 }
