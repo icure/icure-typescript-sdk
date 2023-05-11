@@ -1,5 +1,5 @@
 import 'isomorphic-fetch'
-import { getEnvironmentInitializer, hcp1Username, setLocalStorage, TestUtils } from '../utils/test_utils'
+import { getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { before } from 'mocha'
 import { IccAccesslogXApi, IccPatientXApi, IccUserXApi } from '../../icc-x-api'
 import { BasicAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
@@ -8,7 +8,7 @@ import { Patient } from '../../icc-api/model/Patient'
 import { User } from '../../icc-api/model/User'
 import { randomUUID } from 'crypto'
 import { AccessLog } from '../../icc-api/model/AccessLog'
-import { assert } from 'chai'
+import { assert, expect } from 'chai'
 import initApi = TestUtils.initApi
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
@@ -98,5 +98,34 @@ describe('icc-x-accesslog-api Tests', () => {
 
     assert(foundItemsUsingPost.length == 1, 'Found items using post should be 1')
     assert(foundItemsUsingPost[0].id == createdAccessLog.id, 'Found item using post should be the same as the created one')
+  })
+
+  it('Share with should work as expected', async () => {
+    const api1 = await initApi(env!, hcp1Username)
+    const user1 = await api1.userApi.getCurrentUser()
+    const api2 = await initApi(env!, hcp2Username)
+    const user2 = await api2.userApi.getCurrentUser()
+    const samplePatient = await api1.patientApi.createPatientWithUser(
+      user1,
+      await api1.patientApi.newInstance(user1, { firstName: 'Gigio', lastName: 'Bagigio' })
+    )
+    const encryptedField = 'Something encrypted'
+    const entity = await api1.accessLogApi.createAccessLogWithUser(
+      user1,
+      await api1.accessLogApi.newInstance(user1, samplePatient, { detail: encryptedField })
+    )
+    expect(entity.detail).to.be.equal(encryptedField)
+    await api2.accessLogApi
+      .getAccessLogWithUser(user2, entity.id)
+      .then(() => {
+        throw new Error('Should not be able to get the entity')
+      })
+      .catch(() => {
+        /* expected */
+      })
+    await api1.accessLogApi.shareWith(user2.healthcarePartyId!, entity)
+    const retrieved = await api2.accessLogApi.getAccessLogWithUser(user2, entity.id)
+    expect(retrieved.detail).to.be.equal(encryptedField)
+    expect((await api2.accessLogApi.decryptPatientIdOf(retrieved))[0]).to.equal(samplePatient.id)
   })
 })

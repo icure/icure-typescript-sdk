@@ -6,7 +6,7 @@ import { IccContactXApi, IccHelementXApi, IccPatientXApi } from '../../icc-x-api
 import { Patient } from '../../icc-api/model/Patient'
 import { assert, expect } from 'chai'
 import { randomUUID } from 'crypto'
-import { getEnvironmentInitializer, hcp1Username, setLocalStorage, TestUtils } from '../utils/test_utils'
+import { getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { Code } from '../../icc-api/model/Code'
 import { Contact } from '../../icc-api/model/Contact'
 import { Service } from '../../icc-api/model/Service'
@@ -220,5 +220,30 @@ describe('icc-x-contact-api Tests', () => {
 
     assert(foundContatsUsingPost.length == 1, 'Found items using post should be 1')
     assert(foundContatsUsingPost[0].id == createdContact.id, 'Found item using post should be the same as the created one')
+  })
+
+  it('Share with should work as expected', async () => {
+    const api1 = await initApi(env!, hcp1Username)
+    const user1 = await api1.userApi.getCurrentUser()
+    const api2 = await initApi(env!, hcp2Username)
+    const user2 = await api2.userApi.getCurrentUser()
+    const samplePatient = await api1.patientApi.createPatientWithUser(
+      user1,
+      await api1.patientApi.newInstance(user1, { firstName: 'Gigio', lastName: 'Bagigio' })
+    )
+    const entity = (await api1.contactApi.createContactWithUser(user1, await createBasicContact(api1.contactApi, user1, samplePatient)))!
+    expect(entity.services![0].encryptedSelf).to.not.be.undefined
+    await api2.contactApi
+      .getContactWithUser(user2, entity.id!)
+      .then(() => {
+        throw new Error('Should not be able to get the entity')
+      })
+      .catch(() => {
+        /* expected */
+      })
+    await api1.contactApi.shareWith(user2.healthcarePartyId!, entity)
+    const retrieved = await api2.contactApi.getContactWithUser(user2, entity.id!)
+    expect(retrieved.services![0].content).deep.equals(entity.services![0].content)
+    expect((await api2.contactApi.decryptPatientIdOf(retrieved))[0]).to.equal(samplePatient.id)
   })
 })

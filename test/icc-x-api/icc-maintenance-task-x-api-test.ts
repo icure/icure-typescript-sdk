@@ -3,7 +3,7 @@ import { before } from 'mocha'
 import 'isomorphic-fetch'
 
 import { Apis } from '../../icc-x-api'
-import { assert } from 'chai'
+import { assert, expect } from 'chai'
 import { randomUUID } from 'crypto'
 import { getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { User } from '../../icc-api/model/User'
@@ -258,5 +258,44 @@ describe('icc-x-maintenance-task-api Tests', () => {
 
     // Then
     assert(foundTask.id == createdTask.id)
+  })
+
+  it('Share with should work as expected', async () => {
+    const api1 = await initApi(env!, hcp1Username)
+    const user1 = await api1.userApi.getCurrentUser()
+    const api2 = await initApi(env!, hcp2Username)
+    const user2 = await api2.userApi.getCurrentUser()
+    const samplePatient = await api1.patientApi.createPatientWithUser(
+      user1,
+      await api1.patientApi.newInstance(user1, { firstName: 'Gigio', lastName: 'Bagigio' })
+    )
+    const encryptedField = 'Something encrypted'
+    const entity = (await api1.maintenanceTaskApi.createMaintenanceTaskWithUser(
+      user1,
+      await api1.maintenanceTaskApi.newInstance(user1, {
+        properties: [
+          new PropertyStub({
+            id: 'someProp',
+            type: new PropertyTypeStub({ type: PropertyTypeStub.TypeEnum.STRING }),
+            typedValue: new TypedValueObject({
+              type: TypedValueObject.TypeEnum.STRING,
+              stringValue: encryptedField,
+            }),
+          }),
+        ],
+      })
+    ))!
+    expect(entity.properties![0].typedValue!.stringValue).to.be.equal(encryptedField)
+    await api2.maintenanceTaskApi
+      .getMaintenanceTaskWithUser(user2, entity.id!)
+      .then(() => {
+        throw new Error('Should not be able to get the entity')
+      })
+      .catch(() => {
+        /* expected */
+      })
+    await api1.maintenanceTaskApi.shareWith(user2.healthcarePartyId!, entity)
+    const retrieved = await api2.maintenanceTaskApi.getMaintenanceTaskWithUser(user2, entity.id!)
+    expect(retrieved.properties![0].typedValue!.stringValue).to.be.equal(encryptedField)
   })
 })

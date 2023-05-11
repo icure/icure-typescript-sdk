@@ -1,5 +1,5 @@
 import 'isomorphic-fetch'
-import { getEnvironmentInitializer, hcp1Username, setLocalStorage, TestUtils } from '../utils/test_utils'
+import { getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { before } from 'mocha'
 import { Api, IccFormXApi, IccPatientXApi, IccUserXApi } from '../../icc-x-api'
 import { BasicAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
@@ -9,7 +9,7 @@ import { User } from '../../icc-api/model/User'
 import { randomUUID } from 'crypto'
 import { crypto } from '../../node-compat'
 import { Form } from '../../icc-api/model/Form'
-import { assert } from 'chai'
+import { assert, expect } from 'chai'
 import initApi = TestUtils.initApi
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
@@ -91,5 +91,28 @@ describe('icc-calendar-item-x-api Tests', () => {
 
     assert(foundItemsUsingPost.length == 1, 'Found items using post should be 1')
     assert(foundItemsUsingPost[0].id == createdForm.id, 'Found item using post should be the created one')
+  })
+
+  it('Share with should work as expected', async () => {
+    const api1 = await initApi(env!, hcp1Username)
+    const user1 = await api1.userApi.getCurrentUser()
+    const api2 = await initApi(env!, hcp2Username)
+    const user2 = await api2.userApi.getCurrentUser()
+    const samplePatient = await api1.patientApi.createPatientWithUser(
+      user1,
+      await api1.patientApi.newInstance(user1, { firstName: 'Gigio', lastName: 'Bagigio' })
+    )
+    const entity = await api1.formApi.createForm(await api1.formApi.newInstance(user1, samplePatient))
+    await api2.formApi
+      .getForm(entity.id!)
+      .then(() => {
+        throw new Error('Should not be able to get the entity')
+      })
+      .catch(() => {
+        /* expected */
+      })
+    await api1.formApi.shareWith(user2.healthcarePartyId!, entity)
+    const retrieved = await api2.formApi.getForm(entity.id!)
+    expect((await api2.formApi.decryptPatientIdOf(retrieved))[0]).to.equal(samplePatient.id)
   })
 })

@@ -133,4 +133,33 @@ describe('icc-calendar-item-x-api Tests', () => {
     expect(decryptedPatientIdBy2).to.have.length(1)
     expect(decryptedPatientIdBy2[0]).to.equal(patient.id)
   })
+
+  it('Share with should work as expected', async () => {
+    const api1 = await initApi(env!, hcp1Username)
+    const user1 = await api1.userApi.getCurrentUser()
+    const api2 = await initApi(env!, hcp2Username)
+    const user2 = await api2.userApi.getCurrentUser()
+    const samplePatient = await api1.patientApi.createPatientWithUser(
+      user1,
+      await api1.patientApi.newInstance(user1, { firstName: 'Gigio', lastName: 'Bagigio' })
+    )
+    const encryptedField = 'Something encrypted'
+    const entity = await api1.calendarItemApi.createCalendarItemWithHcParty(
+      user1,
+      await api1.calendarItemApi.newInstancePatient(user1, samplePatient, { details: encryptedField })
+    )
+    expect(entity.details).to.be.equal(encryptedField)
+    await api2.calendarItemApi
+      .getCalendarItemWithUser(user2, entity.id)
+      .then(() => {
+        throw new Error('Should not be able to get the entity')
+      })
+      .catch(() => {
+        /* expected */
+      })
+    await api1.calendarItemApi.shareWith(user2.healthcarePartyId!, entity)
+    const retrieved = await api2.calendarItemApi.getCalendarItemWithUser(user2, entity.id)
+    expect(retrieved.details).to.be.equal(encryptedField)
+    expect((await api2.calendarItemApi.decryptPatientIdOf(retrieved))[0]).to.equal(samplePatient.id)
+  })
 })

@@ -943,7 +943,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
   ): Promise<models.Contact> {
-    return this.shareWithMany(contact, {})
+    return this.shareWithMany(contact, { [delegateId]: options })
   }
 
   /**
