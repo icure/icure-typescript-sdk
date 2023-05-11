@@ -368,8 +368,7 @@ export class IccHelementXApi extends IccHelementApi {
    * - sharePatientId: specifies if the id of the patient that this health element refers to should be shared with the delegate (defaults to
    * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
    * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
-   * @return a promise which will contain the result of the operation: the updated entity if the operation was successful or details of the error if
-   * the operation failed.
+   * @return the updated entity
    */
   async shareWith(
     delegateId: string,
@@ -379,6 +378,58 @@ export class IccHelementXApi extends IccHelementApi {
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
       sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
+  ): Promise<models.HealthElement> {
+    return this.shareWithMany(healthElement, { [delegateId]: options })
+  }
+  /**
+   * Share an existing health element with other data owners, allowing them to access the non-encrypted data of the health element and optionally also
+   * the encrypted content, with read-only or read-write permissions.
+   * @param delegateId the id of the data owner which will be granted access to the health element.
+   * @param healthElement the health element to share.
+   * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * health element does not have encrypted content.
+   * - sharePatientId: specifies if the id of the patient that this health element refers to should be shared with the delegate (defaults to
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
+   * @return the updated entity
+   */
+  async shareWithMany(
+    healthElement: models.HealthElement,
+    delegates: {
+      [delegateId: string]: {
+        requestedPermissions?: RequestedPermissionEnum
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+        sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
+  ): Promise<models.HealthElement> {
+    return (await this.tryShareWithMany(healthElement, delegates)).updatedEntityOrThrow
+  }
+  /**
+   * Share an existing health element with other data owners, allowing them to access the non-encrypted data of the health element and optionally also
+   * the encrypted content, with read-only or read-write permissions.
+   * @param healthElement the health element to share.
+   * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * health element does not have encrypted content.
+   * - sharePatientId: specifies if the id of the patient that this health element refers to should be shared with the delegate (defaults to
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
+   * @return a promise which will contain the result of the operation: the updated entity if the operation was successful or details of the error if
+   * the operation failed.
+   */
+  async tryShareWithMany(
+    healthElement: models.HealthElement,
+    delegates: {
+      [delegateId: string]: {
+        requestedPermissions?: RequestedPermissionEnum
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+        sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
   ): Promise<ShareResult<models.HealthElement>> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
@@ -387,11 +438,18 @@ export class IccHelementXApi extends IccHelementApi {
     return this.crypto.xapi
       .simpleShareOrUpdateEncryptedEntityMetadata(
         { entity: updatedEntity, type: 'HealthElement' },
-        delegateId,
-        options?.shareEncryptionKey,
-        options?.sharePatientId,
-        undefined,
-        options.requestedPermissions ?? RequestedPermissionEnum.MAX_WRITE,
+        true,
+        Object.fromEntries(
+          Object.entries(delegates).map(([delegateId, options]) => [
+            delegateId,
+            {
+              requestedPermissions: options.requestedPermissions,
+              shareEncryptionKeys: options.shareEncryptionKey,
+              shareOwningEntityIds: options.sharePatientId,
+              shareSecretIds: undefined,
+            },
+          ])
+        ),
         (x) => this.bulkShareHealthElements(x)
       )
       .then((r) => r.mapSuccessAsync((e) => this.decrypt(self, [e]).then((es) => es[0])))

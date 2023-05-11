@@ -269,6 +269,58 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
       sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
+  ): Promise<models.CalendarItem> {
+    return this.shareWithMany(calendarItem, { [delegateId]: options })
+  }
+
+  /**
+   * Share an existing calendar item with other data owners, allowing them to access the non-encrypted data of the calendar item and optionally also
+   * the encrypted content, with read-only or read-write permissions.
+   * @param calendarItem item the calendar item to share.
+   * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * calendar item does not have encrypted content.
+   * - sharePatientId: specifies if the id of the patient that this calendar item refers to should be shared with the delegate (defaults to
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
+   * @return the updated entity
+   */
+  async shareWithMany(
+    calendarItem: models.CalendarItem,
+    delegates: {
+      [delegateId: string]: {
+        requestedPermissions?: RequestedPermissionEnum
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+        sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
+  ): Promise<models.CalendarItem> {
+    return (await this.tryShareWithMany(calendarItem, delegates)).updatedEntityOrThrow
+  }
+
+  /**
+   * Share an existing calendar item with other data owners, allowing them to access the non-encrypted data of the calendar item and optionally also
+   * the encrypted content, with read-only or read-write permissions.
+   * @param calendarItem item the calendar item to share.
+   * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * calendar item does not have encrypted content.
+   * - sharePatientId: specifies if the id of the patient that this calendar item refers to should be shared with the delegate (defaults to
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
+   * @return the updated entity
+   */
+  async tryShareWithMany(
+    calendarItem: models.CalendarItem,
+    delegates: {
+      [delegateId: string]: {
+        requestedPermissions?: RequestedPermissionEnum
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+        sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
   ): Promise<ShareResult<models.CalendarItem>> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
@@ -277,11 +329,18 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
     return this.crypto.xapi
       .simpleShareOrUpdateEncryptedEntityMetadata(
         { entity: updatedEntity, type: 'CalendarItem' },
-        delegateId,
-        options?.shareEncryptionKey,
-        options?.sharePatientId,
-        undefined,
-        options.requestedPermissions ?? RequestedPermissionEnum.MAX_WRITE,
+        true,
+        Object.fromEntries(
+          Object.entries(delegates).map(([delegateId, options]) => [
+            delegateId,
+            {
+              requestedPermissions: options.requestedPermissions,
+              shareEncryptionKeys: options.shareEncryptionKey,
+              shareOwningEntityIds: options.sharePatientId,
+              shareSecretIds: undefined,
+            },
+          ])
+        ),
         (x) => this.bulkShareCalendarItems(x)
       )
       .then((r) => r.mapSuccessAsync((e) => this.decrypt(self, [e]).then((es) => es[0])))

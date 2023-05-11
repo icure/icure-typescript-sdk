@@ -6,7 +6,7 @@ import { IccContactXApi, IccHelementXApi, IccPatientXApi } from '../../icc-x-api
 import { Patient } from '../../icc-api/model/Patient'
 import { assert, expect } from 'chai'
 import { randomUUID } from 'crypto'
-import { getEnvironmentInitializer, hcp1Username, setLocalStorage, TestUtils } from '../utils/test_utils'
+import { getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { Code } from '../../icc-api/model/Code'
 import { Contact } from '../../icc-api/model/Contact'
 import { Service } from '../../icc-api/model/Service'
@@ -176,5 +176,34 @@ describe('icc-x-contact-api Tests', () => {
     assert(foundServices.rows!.length == 1)
     assert(foundServices.rows![0].id == createdContact.services![0].id)
     assert(foundServices.rows![0].healthElementsIds!.find((heId) => heId == healthElement!.id!) != undefined)
+  })
+
+  it('Share with should work as expected', async () => {
+    const api1 = await initApi(env!, hcp1Username)
+    const user1 = await api1.userApi.getCurrentUser()
+    const api2 = await initApi(env!, hcp2Username)
+    const user2 = await api2.userApi.getCurrentUser()
+    const samplePatient = await api1.patientApi.createPatientWithUser(
+      user1,
+      await api1.patientApi.newInstance(user1, { firstName: 'Gigio', lastName: 'Bagigio' })
+    )
+    const encryptedField = 'Something encrypted'
+    const entity = await api1.calendarItemApi.createCalendarItemWithHcParty(
+      user1,
+      await api1.calendarItemApi.newInstancePatient(user1, samplePatient, { details: encryptedField })
+    )
+    expect(entity.details).to.be.equal(encryptedField)
+    await api2.calendarItemApi
+      .getCalendarItemWithUser(user2, entity.id)
+      .then(() => {
+        throw new Error('Should not be able to get the entity')
+      })
+      .catch(() => {
+        /* expected */
+      })
+    await api1.calendarItemApi.shareWith(user2.healthcarePartyId!, entity)
+    const retrieved = await api2.calendarItemApi.getCalendarItemWithUser(user2, entity.id)
+    expect(retrieved.details).to.be.equal(encryptedField)
+    expect((await api2.calendarItemApi.decryptPatientIdOf(retrieved))[0]).to.equal(samplePatient.id)
   })
 })

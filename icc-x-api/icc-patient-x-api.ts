@@ -1054,8 +1054,7 @@ export class IccPatientXApi extends IccPatientApi {
    * patient does not have encrypted content.
    * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
    * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
-   * @return a promise which will contain the result of the operation: the updated entity if the operation was successful or details of the error if
-   * the operation failed.
+   * @return the updated entity
    */
   async shareWith(
     delegateId: string,
@@ -1065,6 +1064,61 @@ export class IccPatientXApi extends IccPatientApi {
       requestedPermissions?: RequestedPermissionEnum
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
+  ): Promise<models.Patient> {
+    return this.shareWithMany(patient, { [delegateId]: { ...options, shareSecretIds: shareSecretIds } })
+  }
+
+  /**
+   * Share an existing patient with other data owners, allowing them to access the non-encrypted data of the patient and optionally also
+   * the encrypted content, with read-only or read-write permissions.
+   * @param patient the patient to share.
+   * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareSecretIds the secret ids of the Patient that the delegate will be given access to. Allows the delegate to search for data where the
+   * shared Patient is the owning entity id.
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * patient does not have encrypted content.
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
+   * @return the updated entity
+   */
+  async shareWithMany(
+    patient: models.Patient,
+    delegates: {
+      [delegateIds: string]: {
+        shareSecretIds: string[]
+        requestedPermissions?: RequestedPermissionEnum
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
+  ): Promise<models.Patient> {
+    return (await this.tryShareWithMany(patient, delegates)).updatedEntityOrThrow
+  }
+
+  /**
+   * Share an existing patient with other data owners, allowing them to access the non-encrypted data of the patient and optionally also
+   * the encrypted content, with read-only or read-write permissions.
+   * @param patient the patient to share.
+   * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareSecretIds the secret ids of the Patient that the delegate will be given access to. Allows the delegate to search for data where the
+   * shared Patient is the owning entity id.
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * patient does not have encrypted content.
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
+   * @return a promise which will contain the result of the operation: the updated entity if the operation was successful or details of the error if
+   * the operation failed.
+   */
+  async tryShareWithMany(
+    patient: models.Patient,
+    delegates: {
+      [delegateIds: string]: {
+        shareSecretIds: string[]
+        requestedPermissions?: RequestedPermissionEnum
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
   ): Promise<ShareResult<models.Patient>> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
@@ -1073,11 +1127,18 @@ export class IccPatientXApi extends IccPatientApi {
     return this.crypto.xapi
       .simpleShareOrUpdateEncryptedEntityMetadata(
         { entity: updatedEntity, type: 'Patient' },
-        delegateId,
-        options?.shareEncryptionKey,
-        ShareMetadataBehaviour.NEVER,
-        shareSecretIds,
-        options.requestedPermissions ?? RequestedPermissionEnum.MAX_WRITE,
+        false,
+        Object.fromEntries(
+          Object.entries(delegates).map(([delegateId, options]) => [
+            delegateId,
+            {
+              requestedPermissions: options.requestedPermissions,
+              shareEncryptionKeys: options.shareEncryptionKey,
+              shareOwningEntityIds: ShareMetadataBehaviour.NEVER,
+              shareSecretIds: options.shareSecretIds,
+            },
+          ])
+        ),
         (x) => this.bulkSharePatients(x)
       )
       .then((r) => r.mapSuccessAsync((e) => this.decryptAs(self, [e]).then((es) => es[0])))

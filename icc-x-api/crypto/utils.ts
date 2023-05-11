@@ -98,11 +98,15 @@ export async function ensureDelegationForSelf(
       } else {
         const updatedPatient = await xapi.simpleShareOrUpdateEncryptedEntityMetadata(
           { entity: patient, type: 'Patient' },
-          patient.id!,
-          ShareMetadataBehaviour.IF_AVAILABLE,
-          ShareMetadataBehaviour.NEVER,
-          [cryptoPrimitives.randomUuid()],
-          RequestedPermissionEnum.FULL_WRITE,
+          false,
+          {
+            [patient.id!]: {
+              shareEncryptionKeys: ShareMetadataBehaviour.IF_AVAILABLE,
+              shareOwningEntityIds: ShareMetadataBehaviour.NEVER,
+              shareSecretIds: [cryptoPrimitives.randomUuid()],
+              requestedPermissions: RequestedPermissionEnum.FULL_WRITE,
+            },
+          },
           (x) => patientApi.bulkSharePatients(x)
         )
         return { dataOwner: updatedPatient.updatedEntityOrThrow, type: 'patient' }

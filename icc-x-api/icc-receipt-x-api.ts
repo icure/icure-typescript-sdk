@@ -137,8 +137,7 @@ export class IccReceiptXApi extends IccReceiptApi {
    * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
    * receipt does not have encrypted content.
    * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
-   * @return a promise which will contain the result of the operation: the updated entity if the operation was successful or details of the error if
-   * the operation failed.
+   * @return the updated entity
    */
   async shareWith(
     delegateId: string,
@@ -147,17 +146,71 @@ export class IccReceiptXApi extends IccReceiptApi {
       requestedPermissions?: RequestedPermissionEnum
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
+  ): Promise<models.Receipt> {
+    return this.shareWithMany(receipt, { [delegateId]: options })
+  }
+
+  /**
+   * Share an existing receipt with other data owners, allowing them to access the non-encrypted data of the receipt and optionally also
+   * the encrypted content, with read-only or read-write permissions.
+   * @param receipt the receipt to share.
+   * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * receipt does not have encrypted content.
+   * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
+   * @return the updated entity
+   */
+  async shareWithMany(
+    receipt: models.Receipt,
+    delegates: {
+      [delegateId: string]: {
+        requestedPermissions?: RequestedPermissionEnum
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
+  ): Promise<models.Receipt> {
+    return (await this.tryShareWithMany(receipt, delegates)).updatedEntityOrThrow
+  }
+
+  /**
+   * Share an existing receipt with other data owners, allowing them to access the non-encrypted data of the receipt and optionally also
+   * the encrypted content, with read-only or read-write permissions.
+   * @param receipt the receipt to share.
+   * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * receipt does not have encrypted content.
+   * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
+   * @return a promise which will contain the result of the operation: the updated entity if the operation was successful or details of the error if
+   * the operation failed.
+   */
+  async tryShareWithMany(
+    receipt: models.Receipt,
+    delegates: {
+      [delegateId: string]: {
+        requestedPermissions?: RequestedPermissionEnum
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
   ): Promise<ShareResult<models.Receipt>> {
     // All entities should have an encryption key.
     const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(receipt, 'Receipt')
     const updatedEntity = entityWithEncryptionKey ? await this.modifyReceipt(entityWithEncryptionKey) : receipt
     return this.crypto.xapi.simpleShareOrUpdateEncryptedEntityMetadata(
       { entity: updatedEntity, type: 'Receipt' },
-      delegateId,
-      options?.shareEncryptionKey,
-      undefined,
-      undefined,
-      options.requestedPermissions ?? RequestedPermissionEnum.MAX_WRITE,
+      true,
+      Object.fromEntries(
+        Object.entries(delegates).map(([delegateId, options]) => [
+          delegateId,
+          {
+            requestedPermissions: options.requestedPermissions,
+            shareEncryptionKeys: options.shareEncryptionKey,
+            shareOwningEntityIds: ShareMetadataBehaviour.NEVER,
+            shareSecretIds: undefined,
+          },
+        ])
+      ),
       (x) => this.bulkShareReceipt(x)
     )
   }

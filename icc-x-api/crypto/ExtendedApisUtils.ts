@@ -222,13 +222,16 @@ export interface ExtendedApisUtils {
    * and owning entity ids if requested. NOTE: this method can only be used with entities which already exist in the cloud (the entity must have
    * been saved).
    * @param entity an entity.
-   * @param delegateId id of the delegate to share the entity with.
-   * @param shareEncryptionKeys specifies if the encryption keys of the entity should be shared. Defaults to
+   * @param unusedSecretIds specifies if the entity should not actually use secret ids but may have some if it was created using older iCure sdk
+   * versions. If true the method expects `shareSecretIds` options to always be undefined and will always share any available secret ids. If false
+   * it expects `shareSecretIds` options to always be defined and will only share the secret ids specified in the options.
+   * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareEncryptionKeys specifies if the encryption keys of the entity should be shared. Defaults to
    * {@link ShareMetadataBehaviour.IF_AVAILABLE}.
-   * @param shareOwningEntityIds specifies if the owning entity ids of the entity should be shared. Defaults to
+   * - shareOwningEntityIds specifies if the owning entity ids of the entity should be shared. Defaults to
    * {@link ShareMetadataBehaviour.IF_AVAILABLE}.
-   * @param shareSecretIds specifies which secret ids of the entity should be shared.
-   * @param requestedPermissions requested permissions for the delegate.
+   * - shareSecretIds specifies which secret ids of the entity should be shared. Should be defined only if {@link unusedSecretIds} is false.
+   * - requestedPermissions requested permissions for the delegate. Defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
    * @param doRequestBulkShareOrUpdate perform the request to share or update an entity encrypted metadata on the cloud API (and save to DB).
    * @return a promise which will be completed with the result of the operation
    * @throws if shareEncryptionKeys or shareOwningEntityIds is {@link ShareMetadataBehaviour.REQUIRED} and the current data owner can't access any
@@ -236,11 +239,15 @@ export interface ExtendedApisUtils {
    */
   simpleShareOrUpdateEncryptedEntityMetadata<T extends EncryptedEntityStub>(
     entity: { entity: T; type: EntityWithDelegationTypeName },
-    delegateId: string,
-    shareEncryptionKeys: ShareMetadataBehaviour | undefined,
-    shareOwningEntityIds: ShareMetadataBehaviour | undefined,
-    shareSecretIds: string[] | undefined,
-    requestedPermissions: RequestedPermissionEnum,
+    unusedSecretIds: boolean,
+    delegates: {
+      [delegateId: string]: {
+        shareSecretIds: string[] | undefined
+        shareEncryptionKeys: ShareMetadataBehaviour | undefined
+        shareOwningEntityIds: ShareMetadataBehaviour | undefined
+        requestedPermissions: RequestedPermissionEnum | undefined
+      }
+    },
     doRequestBulkShareOrUpdate: (request: {
       [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
     }) => Promise<EntityBulkShareResult<T>[]>

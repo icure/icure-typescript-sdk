@@ -73,7 +73,7 @@ describe('Patient', () => {
     expect(mySecretIds).to.have.length(1)
     expect(await cryptoApi.xapi.encryptionKeysOf({ entity: me, type: 'Patient' }, undefined)).to.have.length(1)
 
-    me = (await patientApi.shareWith(hcpUser.healthcarePartyId!, me, mySecretIds, { requestedPermissions: FULL_WRITE })).updatedEntityOrThrow
+    me = await patientApi.shareWith(hcpUser.healthcarePartyId!, me, mySecretIds, { requestedPermissions: FULL_WRITE })
     const expectedNote = 'This will be encrypted'
     await patientApi.modifyPatientWithUser(user, new Patient({ ...me, note: expectedNote }))
 

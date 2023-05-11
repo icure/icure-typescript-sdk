@@ -6,7 +6,7 @@ import { IccHelementXApi, IccPatientXApi } from '../../icc-x-api'
 import { Patient } from '../../icc-api/model/Patient'
 import { assert, expect } from 'chai'
 import { randomUUID } from 'crypto'
-import { getEnvironmentInitializer, hcp1Username, setLocalStorage, TestUtils } from '../utils/test_utils'
+import { getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { HealthElement } from '../../icc-api/model/HealthElement'
 import { Code } from '../../icc-api/model/Code'
 import { User } from '../../icc-api/model/User'
@@ -143,5 +143,34 @@ describe('icc-helement-x-api Tests', () => {
     // Then
     expect(foundHealthElements).to.have.length(1)
     expect(foundHealthElements[0].id).to.equal(createdHealthElement.id)
+  })
+
+  it('Share with should work as expected', async () => {
+    const api1 = await initApi(env!, hcp1Username)
+    const user1 = await api1.userApi.getCurrentUser()
+    const api2 = await initApi(env!, hcp2Username)
+    const user2 = await api2.userApi.getCurrentUser()
+    const samplePatient = await api1.patientApi.createPatientWithUser(
+      user1,
+      await api1.patientApi.newInstance(user1, { firstName: 'Gigio', lastName: 'Bagigio' })
+    )
+    const encryptedField = 'Something encrypted'
+    const entity = await api1.healthcareElementApi.createHealthElementWithUser(
+      user1,
+      await api1.healthcareElementApi.newInstance(user1, samplePatient, { note: encryptedField })
+    )
+    expect(entity.note).to.be.equal(encryptedField)
+    await api2.healthcareElementApi
+      .getHealthElementWithUser(user2, entity.id)
+      .then(() => {
+        throw new Error('Should not be able to get the entity')
+      })
+      .catch(() => {
+        /* expected */
+      })
+    await api1.healthcareElementApi.shareWith(user2.healthcarePartyId!, entity)
+    const retrieved = await api2.healthcareElementApi.getHealthElementWithUser(user2, entity.id)
+    expect(retrieved.note).to.be.equal(encryptedField)
+    expect((await api2.healthcareElementApi.decryptPatientIdOf(retrieved))[0]).to.equal(samplePatient.id)
   })
 })

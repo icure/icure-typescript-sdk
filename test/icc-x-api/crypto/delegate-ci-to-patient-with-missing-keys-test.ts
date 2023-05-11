@@ -12,7 +12,7 @@ import { createNewHcpApi, getApiAndAddPrivateKeysForUser, getEnvironmentInitiali
 import { TestKeyStorage, TestStorage } from '../../utils/TestStorage'
 import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
 import { KeyPairUpdateRequest } from '../../../icc-x-api/maintenance/KeyPairUpdateRequest'
-import { SecureDelegation } from '../../../dist/icc-api/model/SecureDelegation'
+import { SecureDelegation } from '../../../icc-api/model/SecureDelegation'
 import AccessLevel = SecureDelegation.AccessLevelEnum
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
