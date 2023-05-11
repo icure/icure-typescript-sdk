@@ -119,19 +119,26 @@ export class IccAccesslogXApi extends IccAccesslogApi {
    * @param hcpartyId
    * @param patient (Promise)
    * @param keepObsoleteVersions
+   * @param usingPost
    */
 
-  async findBy(hcpartyId: string, patient: models.Patient): Promise<models.AccessLog[]> {
+  async findBy(hcpartyId: string, patient: models.Patient, usingPost: boolean = false): Promise<models.AccessLog[]> {
     const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: 'Patient' }, hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     return extractedKeys && extractedKeys.length > 0
-      ? this.findByHCPartyPatientSecretFKeys(topmostParentId, _.uniq(extractedKeys).join(','))
+      ? usingPost
+        ? this.findByHCPartyPatientSecretFKeysArray(hcpartyId!, _.uniq(extractedKeys))
+        : this.findByHCPartyPatientSecretFKeys(hcpartyId!, _.uniq(extractedKeys).join(','))
       : Promise.resolve([])
   }
 
   async findByHCPartyPatientSecretFKeys(hcPartyId: string, secretFKeys: string): Promise<AccessLog[]> {
     const accessLogs = await super.findAccessLogsByHCPartyPatientForeignKeys(hcPartyId, secretFKeys)
     return await this.decrypt(hcPartyId, accessLogs)
+  }
+
+  findByHCPartyPatientSecretFKeysArray(hcPartyId: string, secretFKeys: string[]): Promise<Array<AccessLog> | any> {
+    return super.findAccessLogsByHCPartyPatientForeignKeysUsingPost(hcPartyId, secretFKeys).then((accesslogs) => this.decrypt(hcPartyId, accesslogs))
   }
 
   decrypt(hcpId: string, accessLogs: Array<models.AccessLog>): Promise<Array<models.AccessLog>> {

@@ -317,7 +317,7 @@ export class IccUserApi {
       '?ts=' +
       new Date().getTime() +
       (tokenValidity ? '&tokenValidity=' + encodeURIComponent(String(tokenValidity)) : '')
-    let headers = this.headers.concat(new XHR.Header('Accept', '*'), new XHR.Header('Content-type', 'application/json'))
+    let headers = this.headers
     token && (headers = headers.concat(new XHR.Header('token', token)))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => JSON.parse(JSON.stringify(doc.body)))
@@ -422,7 +422,7 @@ export class IccUserApi {
       (startKey ? '&startKey=' + encodeURIComponent(String(startKey)) : '') +
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '') +
-      (skipPatients ? '&skipPatients=' + encodeURIComponent(String(skipPatients)) : '')
+      (skipPatients !== undefined ? '&skipPatients=' + encodeURIComponent(String(skipPatients)) : '')
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListUser(doc.body as JSON))

@@ -1,23 +1,22 @@
 import 'isomorphic-fetch'
 import { getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { before } from 'mocha'
-import { Api, IccAccesslogXApi, IccPatientXApi, IccUserXApi } from '../../icc-x-api'
+import { Api, IccCalendarItemXApi, IccPatientXApi, IccUserXApi } from '../../icc-x-api'
 import { BasicAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
-import { IccAccesslogApi } from '../../icc-api'
-import { getEnvVariables, TestVars } from '@icure/test-setup/types'
-import { expect } from 'chai'
-import initApi = TestUtils.initApi
+import { IccCalendarItemApi } from '../../icc-api'
 import { Patient } from '../../icc-api/model/Patient'
 import { User } from '../../icc-api/model/User'
 import { randomUUID } from 'crypto'
 import { crypto } from '../../node-compat'
-import { AccessLog } from '../../icc-api/model/AccessLog'
-import { assert } from 'chai'
+import { CalendarItem } from '../../icc-api/model/CalendarItem'
+import { assert, expect } from 'chai'
+import initApi = TestUtils.initApi
+import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
 setLocalStorage(fetch)
 let env: TestVars
 
-describe('icc-x-accesslog-api Tests', () => {
+describe('icc-calendar-item-x-api Tests', () => {
   before(async function () {
     this.timeout(600000)
     const initializer = await getEnvironmentInitializer()
@@ -47,46 +46,46 @@ describe('icc-x-accesslog-api Tests', () => {
     const authProvider = new BasicAuthenticationProvider(username, password)
 
     const userApi = new IccUserXApi(env.iCureUrl, {}, authProvider, fetch)
-    const accessLogApi = new IccAccesslogApi(env.iCureUrl, {}, authProvider, fetch)
+    const calenderItemApi = new IccCalendarItemApi(env.iCureUrl, {}, authProvider, fetch)
 
     const currentUser = await userApi.getCurrentUser()
-
-    await accessLogApi.findByUserAfterDate(currentUser.id!)
   })
 
   it('Test findBy', async () => {
     // Given
-    const apis = await initApi(env, hcp1Username)
-    const hcpUser = await apis.userApi.getCurrentUser()
+    const {
+      userApi: userApiForHcp,
+      dataOwnerApi: dataOwnerApiForHcp,
+      patientApi: patientApiForHcp,
+      cryptoApi: cryptoApiForHcp,
+      dataOwnerApi: dateOwnerApiForHcp,
+      calendarItemApi: calendarItemXApi,
+    } = await initApi(env, hcp1Username)
+    const hcpUser = await userApiForHcp.getCurrentUser()
+    const patient = (await createPatient(patientApiForHcp, hcpUser)) as Patient
 
-    const patient = (await createPatient(apis.patientApi, hcpUser)) as Patient
-
-    const accessLog = new AccessLog({
+    const calendarItem: CalendarItem = {
       id: randomUUID(),
-      _type: 'org.taktik.icure.entities.AccessLog',
       created: new Date().getTime(),
       modified: new Date().getTime(),
-      date: +new Date(),
+      startTime: 20230327131313,
+      endTime: 20230327141313,
       responsible: hcpUser.healthcarePartyId!,
       author: hcpUser.id,
       codes: [],
       tags: [],
-      user: hcpUser.id,
-      patient: patient.id,
-      accessType: 'USER_ACCESS',
-    })
+    }
+    const calendarItemToCreate: CalendarItem = await calendarItemXApi.newInstancePatient(hcpUser, patient, calendarItem)
+    const createdCalendarItem = await calendarItemXApi.createCalendarItemWithHcParty(hcpUser, calendarItemToCreate)
 
-    const accessLogToCreate = await apis.accessLogApi.newInstance(hcpUser, patient, accessLog)
-    const createdAccessLog = await apis.accessLogApi.createAccessLogWithUser(hcpUser, accessLogToCreate)
-
-    const foundItems: AccessLog[] = await apis.accessLogApi.findBy(hcpUser.healthcarePartyId!, patient, false)
-    const foundItemsUsingPost: AccessLog[] = await apis.accessLogApi.findBy(hcpUser.healthcarePartyId!, patient, true)
+    const foundItems = await calendarItemXApi.findBy(hcpUser.healthcarePartyId!, patient, false)
+    const foundItemsUsingPost = await calendarItemXApi.findBy(hcpUser.healthcarePartyId!, patient, true)
 
     assert(foundItems.length == 1, 'Found items should be 1')
-    assert(foundItems[0].id == createdAccessLog.id, 'Found item should be the same as the created one')
+    assert(foundItems[0].id == createdCalendarItem.id, 'Found item should be the same as created item')
 
     assert(foundItemsUsingPost.length == 1, 'Found items using post should be 1')
-    assert(foundItemsUsingPost[0].id == createdAccessLog.id, 'Found item using post should be the same as the created one')
+    assert(foundItemsUsingPost[0].id == createdCalendarItem.id, 'Found item using post should be the same as created item')
   })
 
   it('Share with should work as expected', async () => {
@@ -99,22 +98,22 @@ describe('icc-x-accesslog-api Tests', () => {
       await api1.patientApi.newInstance(user1, { firstName: 'Gigio', lastName: 'Bagigio' })
     )
     const encryptedField = 'Something encrypted'
-    const entity = await api1.accessLogApi.createAccessLogWithUser(
+    const entity = await api1.calendarItemApi.createCalendarItemWithHcParty(
       user1,
-      await api1.accessLogApi.newInstance(user1, samplePatient, { detail: encryptedField })
+      await api1.calendarItemApi.newInstancePatient(user1, samplePatient, { details: encryptedField })
     )
-    expect(entity.detail).to.be.equal(encryptedField)
-    await api2.accessLogApi
-      .getAccessLogWithUser(user2, entity.id)
+    expect(entity.details).to.be.equal(encryptedField)
+    await api2.calendarItemApi
+      .getCalendarItemWithUser(user2, entity.id)
       .then(() => {
         throw new Error('Should not be able to get the entity')
       })
       .catch(() => {
         /* expected */
       })
-    await api1.accessLogApi.shareWith(user2.healthcarePartyId!, entity)
-    const retrieved = await api2.accessLogApi.getAccessLogWithUser(user2, entity.id)
-    expect(retrieved.detail).to.be.equal(encryptedField)
-    expect((await api2.accessLogApi.decryptPatientIdOf(retrieved))[0]).to.equal(samplePatient.id)
+    await api1.calendarItemApi.shareWith(user2.healthcarePartyId!, entity)
+    const retrieved = await api2.calendarItemApi.getCalendarItemWithUser(user2, entity.id)
+    expect(retrieved.details).to.be.equal(encryptedField)
+    expect((await api2.calendarItemApi.decryptPatientIdOf(retrieved))[0]).to.equal(samplePatient.id)
   })
 })

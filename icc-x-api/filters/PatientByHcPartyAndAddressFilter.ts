@@ -9,22 +9,19 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
-import { Group } from './Group'
+import { AbstractFilterPatient } from '../../icc-api/model/AbstractFilterPatient'
 
-export class UserGroup {
+export class PatientByHcPartyAndAddressFilter extends AbstractFilterPatient {
+  $type: string = 'PatientByHcPartyAndAddressFilter'
   constructor(json: JSON | any) {
-    Object.assign(this as UserGroup, json)
+    super(json)
+
+    Object.assign(this as PatientByHcPartyAndAddressFilter, json)
   }
 
-  groupId?: string
-  groupName?: string
-  groupsHierarchy?: Array<Group>
-  userId?: string
-  login?: string
-  name?: string
-  email?: string
-  phone?: string
-  patientId?: string
+  desc?: string
+  searchString?: string
   healthcarePartyId?: string
-  deviceId?: string
+  postalCode?: string
+  houseNumber?: string
 }

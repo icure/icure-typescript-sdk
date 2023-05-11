@@ -49,4 +49,6 @@ export class IncapacityExportInfo {
   recoveryAddress?: Address
   foreignStayBegin?: number
   foreignStayEnd?: number
+  softwareName?: string
+  softwareVersion?: string
 }

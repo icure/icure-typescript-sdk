@@ -178,6 +178,47 @@ describe('icc-x-contact-api Tests', () => {
     assert(foundServices.rows![0].healthElementsIds!.find((heId) => heId == healthElement!.id!) != undefined)
   })
 
+  it('contacts findBy for HCP GET and POSt', async () => {
+    // Given
+    const {
+      userApi: userApiForHcp,
+      dataOwnerApi: dataOwnerApiForHcp,
+      patientApi: patientApiForHcp,
+      contactApi: contactApiForHcp,
+      healthcareElementApi: hElementApiForHcp,
+      cryptoApi: cryptoApiForHcp,
+    } = await initApi(env, hcp1Username)
+    const hcpUser = await userApiForHcp.getCurrentUser()
+
+    const patient = (await createPatient(patientApiForHcp, hcpUser)) as Patient
+    const healthElement = await createHealthElement(hElementApiForHcp, hcpUser, patient)
+    const contactToCreate = await createBasicContact(contactApiForHcp, hcpUser, patient).then((contact) => {
+      return {
+        ...contact,
+        subContacts: [
+          new SubContact({
+            id: randomUUID(),
+            healthElementId: healthElement!.id!,
+            services: [new ServiceLink({ serviceId: contact.services![0].id })],
+          }),
+        ],
+      }
+    })
+
+    const createdContact = (await contactApiForHcp.createContactWithUser(hcpUser, contactToCreate)) as Contact
+
+    // When
+    const foundContats = await contactApiForHcp.findBy(hcpUser.healthcarePartyId!, patient, false)
+    const foundContatsUsingPost = await contactApiForHcp.findBy(hcpUser.healthcarePartyId!, patient, true)
+
+    // Then
+    assert(foundContats.length == 1, 'Found items should be 1')
+    assert(foundContats[0].id == contactToCreate.id, 'Found item should be the same as the created one')
+
+    assert(foundContatsUsingPost.length == 1, 'Found items using post should be 1')
+    assert(foundContatsUsingPost[0].id == createdContact.id, 'Found item using post should be the same as the created one')
+  })
+
   it('Share with should work as expected', async () => {
     const api1 = await initApi(env!, hcp1Username)
     const user1 = await api1.userApi.getCurrentUser()

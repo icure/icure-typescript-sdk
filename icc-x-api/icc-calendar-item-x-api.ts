@@ -111,17 +111,25 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
     )
   }
 
-  async findBy(hcpartyId: string, patient: models.Patient) {
+  async findBy(hcpartyId: string, patient: models.Patient, usingPost: boolean = false) {
     const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: 'Patient' }, hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     return extractedKeys && extractedKeys.length > 0
-      ? this.findByHCPartyPatientSecretFKeys(topmostParentId, _.uniq(extractedKeys).join(','))
+      ? usingPost
+        ? this.findByHCPartyPatientSecretFKeysArray(hcpartyId!, _.uniq(extractedKeys))
+        : this.findByHCPartyPatientSecretFKeys(hcpartyId!, _.uniq(extractedKeys).join(','))
       : Promise.resolve([])
   }
 
   async findByHCPartyPatientSecretFKeys(hcPartyId: string, secretFKeys: string): Promise<Array<models.CalendarItem>> {
     const calendarItems = await super.findCalendarItemsByHCPartyPatientForeignKeys(hcPartyId, secretFKeys)
     return await this.decrypt(hcPartyId, calendarItems)
+  }
+
+  findByHCPartyPatientSecretFKeysArray(hcPartyId: string, secretFKeys: string[]): Promise<Array<models.CalendarItem> | any> {
+    return super
+      .findCalendarItemsByHCPartyPatientForeignKeysUsingPost(hcPartyId, secretFKeys)
+      .then((calendarItems) => this.decrypt(hcPartyId, calendarItems))
   }
 
   createCalendarItem(body?: CalendarItem): never {

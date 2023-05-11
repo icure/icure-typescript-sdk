@@ -159,11 +159,14 @@ export class IccInvoiceXApi extends IccInvoiceApi {
    *
    * @param hcpartyId
    * @param patient (Promise)
+   * @param usingPost
    */
-  async findBy(hcpartyId: string, patient: models.Patient): Promise<Array<models.Invoice>> {
+  async findBy(hcpartyId: string, patient: models.Patient, usingPost: boolean = false): Promise<Array<models.Invoice>> {
     const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: 'Patient' }, hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
-    let invoices: Array<Invoice> = await this.findInvoicesByHCPartyPatientForeignKeys(topmostParentId, _.uniq(extractedKeys).join(','))
+    let invoices: Array<Invoice> = usingPost
+      ? await this.findInvoicesByHCPartyPatientForeignKeysUsingPost(hcpartyId!, _.uniq(extractedKeys))
+      : await this.findInvoicesByHCPartyPatientForeignKeys(hcpartyId!, _.uniq(extractedKeys).join(','))
     return await this.decrypt(hcpartyId, invoices)
   }
 

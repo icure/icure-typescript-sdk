@@ -108,12 +108,15 @@ export class IccFormXApi extends IccFormApi {
    * After these painful steps, you have the contacts of the patient.
    *
    * @param hcpartyId
-   * @param patient (Promise)
+   * @param patient
+   * @param usingPost (Promise)
    */
-  async findBy(hcpartyId: string, patient: models.Patient) {
+  async findBy(hcpartyId: string, patient: models.Patient, usingPost: boolean = false) {
     const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: 'Patient' }, hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
-    let forms: Array<models.Form> = await this.findFormsByHCPartyPatientForeignKeys(topmostParentId, _.uniq(extractedKeys).join(','))
+    let forms: Array<models.Form> = await (usingPost
+      ? this.findFormsByHCPartyPatientForeignKeysUsingPost(hcpartyId!, undefined, undefined, undefined, _.uniq(extractedKeys))
+      : this.findFormsByHCPartyPatientForeignKeys(hcpartyId!, _.uniq(extractedKeys).join(',')))
     return await this.decrypt(hcpartyId, forms)
   }
 
