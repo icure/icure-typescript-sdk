@@ -281,11 +281,11 @@ export interface ExtendedApisUtils {
    * @throws if the provided data owner can't access any encryption keys for the entity, or if no key could be found which provided valid decrypted
    * content according to the validator.
    */
-  decryptDataOf(
+  tryDecryptDataOf(
     entity: EncryptedEntityWithType,
     content: ArrayBuffer | Uint8Array,
     validator: (decryptedData: ArrayBuffer) => Promise<boolean> | undefined
-  ): Promise<ArrayBuffer>
+  ): Promise<{ data: ArrayBuffer; wasDecrypted: boolean }>
 
   /**
    * TODO work on this
