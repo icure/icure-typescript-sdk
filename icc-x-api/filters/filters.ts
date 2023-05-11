@@ -9,6 +9,7 @@ import { IntersectionFilter } from './IntersectionFilter'
 import { UnionFilter } from './UnionFilter'
 import { ComplementFilter } from './ComplementFilter'
 import { PatientByHcPartyAndActiveFilter } from './PatientByHcPartyAndActiveFilter'
+import { PatientByHcPartyAndAddressFilter } from './PatientByHcPartyAndAddressFilter'
 import { PatientByHcPartyAndExternalIdFilter } from './PatientByHcPartyAndExternalIdFilter'
 import { PatientByHcPartyAndSsinsFilter } from './PatientByHcPartyAndSsinsFilter'
 import { PatientByHcPartyDateOfBirthBetweenFilter } from './PatientByHcPartyDateOfBirthBetweenFilter'
@@ -48,6 +49,7 @@ export * from './HealthcarePartyByTagCodeFilter'
 export * from './IntersectionFilter'
 export * from './InvoiceByHcPartyCodeDateFilter'
 export * from './PatientByHcPartyAndActiveFilter'
+export * from './PatientByHcPartyAndAddressFilter'
 export * from './PatientByHcPartyAndExternalIdFilter'
 export * from './PatientByHcPartyAndIdentifiersFilter'
 export * from './PatientByHcPartyAndSsinFilter'
@@ -244,6 +246,22 @@ class PatientFilterBuilder extends FilterBuilder<Patient> {
     return this.composer(
       this,
       new PatientFilterBuilder(() => new PatientByHcPartyAndActiveFilter({ healthcarePartyId: this.hcpId, active: false }), this.hcpId)
+    ) as PatientFilterBuilder
+  }
+
+  byAddress(searchString?: string, postalCode?: string, houseNumber?: string): PatientFilterBuilder {
+    return this.composer(
+      this,
+      new PatientFilterBuilder(
+        () =>
+          new PatientByHcPartyAndAddressFilter({
+            healthcarePartyId: this.hcpId,
+            searchString,
+            postalCode,
+            houseNumber,
+          }),
+        this.hcpId
+      )
     ) as PatientFilterBuilder
   }
 

@@ -180,6 +180,23 @@ export class IccMessageApi {
   }
 
   /**
+   *
+   * @summary List messages found By Healthcare Party and secret foreign keys.
+   * @param body
+   */
+  async findMessagesByHCPartyPatientForeignKeysUsingPost(body?: Array<string>): Promise<Array<Message>> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/message/byHcPartySecretForeignKeys` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Message(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    * Keys must be delimited by coma
    * @summary List messages found By Healthcare Party and secret foreign keys.
    * @param secretFKeys

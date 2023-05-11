@@ -226,6 +226,38 @@ export class IccContactApi {
    * Keys must be delimited by coma
    * @summary Get a list of contacts found by Healthcare Party and secret foreign keys.
    * @param hcPartyId
+   * @param planOfActionsIds
+   * @param skipClosedContacts
+    @param body
+   */
+  async findByHCPartyPatientSecretFKeysUsingPost(
+    hcPartyId: string,
+    planOfActionsIds?: string,
+    skipClosedContacts?: boolean,
+    body?: Array<string>
+  ): Promise<Array<Contact>> {
+    let _body = null
+    _body = body
+
+    const _url =
+      this.host +
+      `/contact/byHcPartySecretForeignKeys` +
+      '?ts=' +
+      new Date().getTime() +
+      (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
+      (planOfActionsIds ? '&planOfActionsIds=' + encodeURIComponent(String(planOfActionsIds)) : '') +
+      (skipClosedContacts ? '&skipClosedContacts=' + encodeURIComponent(String(skipClosedContacts)) : '')
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Contact(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Keys must be delimited by coma
+   * @summary Get a list of contacts found by Healthcare Party and secret foreign keys.
+   * @param hcPartyId
    * @param secretFKeys
    * @param planOfActionsIds
    * @param skipClosedContacts
@@ -320,6 +352,29 @@ export class IccContactApi {
 
   /**
    * Keys must be delimited by coma
+   * @summary List contacts found By Healthcare Party and secret foreign keys.
+   * @param body
+   * @param hcPartyId
+   */
+  async findContactsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(hcPartyId: string, body?: Array<string>): Promise<Array<IcureStub>> {
+    let _body = null
+    _body = body
+
+    const _url =
+      this.host +
+      `/contact/byHcPartySecretForeignKeys/delegations` +
+      '?ts=' +
+      new Date().getTime() +
+      (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '')
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
    * @summary List contacts found By Healthcare Party and secret foreign keys.
    * @param hcPartyId
    * @param secretFKeys

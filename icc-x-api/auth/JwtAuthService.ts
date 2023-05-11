@@ -30,7 +30,6 @@ export class JwtAuthService implements AuthService {
         } else if (!!this._error) {
           throw this._error
         }
-
         return this._currentPromise
       })
       .then(({ authJwt }) => {
