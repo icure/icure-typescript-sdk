@@ -146,8 +146,10 @@ const userDefinitions: Record<string, (user: User, password: string, pair: KeyPa
     const newKey = await primitives.RSA.generateKeyPair()
     const apiWithOnlyNewKey = await Api(
       env!.iCureUrl,
-      user.login!,
-      password,
+      {
+        username: user.login!,
+        password,
+      },
       new TestCryptoStrategies(newKey, {
         [ua2hex(await primitives.RSA.exportKey(originalKey.publicKey, 'spki')).slice(-32)]: true,
       }),
@@ -160,8 +162,10 @@ const userDefinitions: Record<string, (user: User, password: string, pair: KeyPa
     )
     const apis = await Api(
       env!.iCureUrl,
-      user.login!,
-      password,
+      {
+        username: user.login!,
+        password,
+      },
       new TestCryptoStrategies(originalKey, {
         [ua2hex(await primitives.RSA.exportKey(newKey.publicKey, 'spki')).slice(-32)]: true,
       }),
@@ -179,10 +183,17 @@ const userDefinitions: Record<string, (user: User, password: string, pair: KeyPa
   },
   'two available keys': async (user, password, originalKey) => {
     const newKey = await primitives.RSA.generateKeyPair()
-    const apiWithOnlyNewKey = await Api(env!.iCureUrl, user.login!, password, new TestCryptoStrategies(newKey), webcrypto as any, fetch, {
-      storage: new TestStorage(),
-      keyStorage: new TestKeyStorage(),
-    }) // Initializes the new key for the data owner
+    const apiWithOnlyNewKey = await Api(
+      env!.iCureUrl,
+      { username: user.login!, password },
+      new TestCryptoStrategies(newKey),
+      webcrypto as any,
+      fetch,
+      {
+        storage: new TestStorage(),
+        keyStorage: new TestKeyStorage(),
+      }
+    ) // Initializes the new key for the data owner
     const keyStrings = await Promise.all(
       [originalKey, newKey].map(async (pair) => ({
         publicKey: ua2hex(await primitives.RSA.exportKey(pair.publicKey, 'spki')),
@@ -190,7 +201,7 @@ const userDefinitions: Record<string, (user: User, password: string, pair: KeyPa
       }))
     )
     const storage = await testStorageWithKeys([{ dataOwnerId: user.healthcarePartyId ?? user.patientId!, pairs: keyStrings }])
-    const apis = await Api(env!.iCureUrl, user.login!, password, new TestCryptoStrategies(), webcrypto as any, fetch, {
+    const apis = await Api(env!.iCureUrl, { username: user.login!, password }, new TestCryptoStrategies(), webcrypto as any, fetch, {
       entryKeysFactory: storage.keyFactory,
       keyStorage: storage.keyStorage,
       storage: storage.storage,

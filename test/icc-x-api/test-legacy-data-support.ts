@@ -162,10 +162,17 @@ class ApiFactoryV7 implements ApiFactory {
       privateKey: await cryptoPrimitives.RSA.importKey('pkcs8', hex2ua(env.masterHcp!.privateKey), ['decrypt']),
       publicKey: await cryptoPrimitives.RSA.importKey('spki', hex2ua(env.masterHcp!.publicKey), ['encrypt']),
     }
-    const apis = await ApiV7(env.iCureUrl, env.masterHcp!.user, env.masterHcp!.password, new TestCryptoStrategies(key), webcrypto as any, fetch, {
-      storage: new TestStorage(),
-      keyStorage: new TestKeyStorage(),
-    })
+    const apis = await ApiV7(
+      env.iCureUrl,
+      { username: env.masterHcp!.user, password: env.masterHcp!.password },
+      new TestCryptoStrategies(key),
+      webcrypto as any,
+      fetch,
+      {
+        storage: new TestStorage(),
+        keyStorage: new TestKeyStorage(),
+      }
+    )
     return <UniformizedMasterApi>{
       createUser: async () => {
         const pair = await cryptoPrimitives.RSA.generateKeyPair()
@@ -202,8 +209,10 @@ class ApiFactoryV7 implements ApiFactory {
     ])
     const apis = await ApiV7(
       env.iCureUrl,
-      credentials.login,
-      credentials.password,
+      {
+        username: credentials.login,
+        password: credentials.password,
+      },
       new TestCryptoStrategies(credentials.key),
       webcrypto as any,
       fetch,

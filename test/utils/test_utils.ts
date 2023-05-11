@@ -132,11 +132,18 @@ export async function createNewHcpApi(env: TestVars): Promise<{
   const storage = await testStorageWithKeys([
     { dataOwnerId: credentials.dataOwnerId, pairs: [{ privateKey: credentials.privateKey, publicKey: credentials.publicKey }] },
   ])
-  const api = await Api(env.iCureUrl, credentials.user, credentials.password, new TestCryptoStrategies(), webcrypto as any, fetch, {
-    storage: storage.storage,
-    keyStorage: storage.keyStorage,
-    entryKeysFactory: storage.keyFactory,
-  })
+  const api = await Api(
+    env.iCureUrl,
+    { username: credentials.user, password: credentials.password },
+    new TestCryptoStrategies(),
+    webcrypto as any,
+    fetch,
+    {
+      storage: storage.storage,
+      keyStorage: storage.keyStorage,
+      entryKeysFactory: storage.keyFactory,
+    }
+  )
   return { api, credentials, user: await api.userApi.getCurrentUser() }
 }
 
@@ -183,20 +190,34 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
   const grandStorage = await testStorageWithKeys([
     { dataOwnerId: grandCredentials.dataOwnerId, pairs: [{ privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }] },
   ])
-  const grandApi = await Api(env.iCureUrl, grandCredentials.user, grandCredentials.password, new TestCryptoStrategies(), webcrypto as any, fetch, {
-    storage: grandStorage.storage,
-    keyStorage: grandStorage.keyStorage,
-    entryKeysFactory: grandStorage.keyFactory,
-  })
+  const grandApi = await Api(
+    env.iCureUrl,
+    { username: grandCredentials.user, password: grandCredentials.password },
+    new TestCryptoStrategies(),
+    webcrypto as any,
+    fetch,
+    {
+      storage: grandStorage.storage,
+      keyStorage: grandStorage.keyStorage,
+      entryKeysFactory: grandStorage.keyFactory,
+    }
+  )
   const parentStorage = await testStorageWithKeys([
     { dataOwnerId: grandCredentials.dataOwnerId, pairs: [{ privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }] },
     { dataOwnerId: parentCredentials.dataOwnerId, pairs: [{ privateKey: parentCredentials.privateKey, publicKey: parentCredentials.publicKey }] },
   ])
-  const parentApi = await Api(env.iCureUrl, parentCredentials.user, parentCredentials.password, new TestCryptoStrategies(), webcrypto as any, fetch, {
-    storage: parentStorage.storage,
-    keyStorage: parentStorage.keyStorage,
-    entryKeysFactory: parentStorage.keyFactory,
-  })
+  const parentApi = await Api(
+    env.iCureUrl,
+    { username: parentCredentials.user, password: parentCredentials.password },
+    new TestCryptoStrategies(),
+    webcrypto as any,
+    fetch,
+    {
+      storage: parentStorage.storage,
+      keyStorage: parentStorage.keyStorage,
+      entryKeysFactory: parentStorage.keyFactory,
+    }
+  )
   const parentUser = await parentApi.userApi.modifyUser({
     ...(await parentApi.userApi.getCurrentUser()),
     autoDelegations: { all: [grandCredentials.dataOwnerId] },
@@ -206,11 +227,18 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
     { dataOwnerId: parentCredentials.dataOwnerId, pairs: [{ privateKey: parentCredentials.privateKey, publicKey: parentCredentials.publicKey }] },
     { dataOwnerId: childCredentials.dataOwnerId, pairs: [{ privateKey: childCredentials.privateKey, publicKey: childCredentials.publicKey }] },
   ])
-  const childApi = await Api(env.iCureUrl, childCredentials.user, childCredentials.password, new TestCryptoStrategies(), webcrypto as any, fetch, {
-    storage: childStorage.storage,
-    keyStorage: childStorage.keyStorage,
-    entryKeysFactory: childStorage.keyFactory,
-  })
+  const childApi = await Api(
+    env.iCureUrl,
+    { username: childCredentials.user, password: childCredentials.password },
+    new TestCryptoStrategies(),
+    webcrypto as any,
+    fetch,
+    {
+      storage: childStorage.storage,
+      keyStorage: childStorage.keyStorage,
+      entryKeysFactory: childStorage.keyFactory,
+    }
+  )
   const childUser = await childApi.userApi.modifyUser({
     ...(await childApi.userApi.getCurrentUser()),
     autoDelegations: { all: [grandCredentials.dataOwnerId, parentCredentials.dataOwnerId] },
@@ -219,11 +247,18 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
     { dataOwnerId: grandCredentials.dataOwnerId, pairs: [{ privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }] },
     { dataOwnerId: child2Credentials.dataOwnerId, pairs: [{ privateKey: child2Credentials.privateKey, publicKey: child2Credentials.publicKey }] },
   ])
-  const child2Api = await Api(env.iCureUrl, child2Credentials.user, child2Credentials.password, new TestCryptoStrategies(), webcrypto as any, fetch, {
-    storage: child2Storage.storage,
-    keyStorage: child2Storage.keyStorage,
-    entryKeysFactory: child2Storage.keyFactory,
-  })
+  const child2Api = await Api(
+    env.iCureUrl,
+    { username: child2Credentials.user, password: child2Credentials.password },
+    new TestCryptoStrategies(),
+    webcrypto as any,
+    fetch,
+    {
+      storage: child2Storage.storage,
+      keyStorage: child2Storage.keyStorage,
+      entryKeysFactory: child2Storage.keyFactory,
+    }
+  )
   const child2User = await child2Api.userApi.modifyUser({
     ...(await child2Api.userApi.getCurrentUser()),
     autoDelegations: { all: [grandCredentials.dataOwnerId] },

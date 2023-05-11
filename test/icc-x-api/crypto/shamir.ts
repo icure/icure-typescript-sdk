@@ -118,8 +118,10 @@ describe('Shamir key recovery', async function () {
     const newKey = await api.cryptoApi.primitives.RSA.generateKeyPair()
     const lostKeyApi = await Api(
       env.iCureUrl,
-      hierarchyApis.childCredentials.user,
-      hierarchyApis.childCredentials.password,
+      {
+        username: hierarchyApis.childCredentials.user,
+        password: hierarchyApis.childCredentials.password,
+      },
       new TestCryptoStrategies(newKey),
       webcrypto as any,
       fetch,
