@@ -742,9 +742,19 @@ export class IccDocumentXApi extends IccDocumentApi {
    */
   async encryptAndSetDocumentAttachment(document: models.Document, attachment: ArrayBuffer | Uint8Array): Promise<models.Document> {
     const encryptedData = await this.crypto.xapi.encryptDataOf({ entity: document, type: 'Document' }, attachment)
-    const rev = document.rev
-    if (!rev) throw new Error('Cannot set attachment on document without rev')
-    return await this.setMainDocumentAttachment(document.id!, rev, encryptedData)
+    if (!document.rev) throw new Error('Cannot set attachment on document without rev')
+    return await this.setMainDocumentAttachment(document.id!, document.rev, encryptedData)
+  }
+
+  /**
+   * Adds an unencrypted attachment to a document.
+   * @param document a document.
+   * @param attachment a new main attachment for the document.
+   * @return the updated document.
+   */
+  async setClearDocumentAttachment(document: models.Document, attachment: ArrayBuffer | Uint8Array): Promise<models.Document> {
+    if (!document.rev) throw new Error('Cannot set attachment on document without rev')
+    return await this.setMainDocumentAttachment(document.id!, document.rev, attachment)
   }
 
   /**
@@ -764,7 +774,22 @@ export class IccDocumentXApi extends IccDocumentApi {
   }
 
   /**
-   * Gets the main attachment of a document and tries to decrypt it using the encryption keys of the document.
+   * Adds an unencrypted secondary attachment to a document.
+   * @param document a document.
+   * @param secondaryAttachmentKey key for the secondary attachment.
+   * @param attachment a new secondary attachment for the document.
+   * @return the updated document.
+   */
+  async setClearSecondaryDocumentAttachment(
+    document: models.Document,
+    secondaryAttachmentKey: string,
+    attachment: ArrayBuffer | Uint8Array
+  ): Promise<models.Document> {
+    return await this.setSecondaryAttachment(document.id!, secondaryAttachmentKey, document.rev!, attachment)
+  }
+
+  /**
+   * Gets the main attachment of a document and tries to decrypt it using the encryption keys of the document, throwing an error if the operation fails.
    * @param document a document.
    * @param validator optionally a validator function which checks if the decryption was successful. In cases where the document has many encryption
    * keys and it is unclear which one should be used this function can help to detect bad decryptions.
@@ -774,9 +799,45 @@ export class IccDocumentXApi extends IccDocumentApi {
     document: models.Document,
     validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<ArrayBuffer> {
-    return await this.crypto.xapi.decryptDataOf({ entity: document, type: 'Document' }, await this.getMainDocumentAttachment(document.id!), (x) =>
+    const retrieved = await this.getAndTryDecryptDocumentAttachment(document, (x) => validator(x))
+    if (!retrieved.wasDecrypted) throw new Error(`No valid key found to decrypt data of document ${document.id}.`)
+    return retrieved.data
+  }
+
+  /**
+   * Gets the main attachment of a document and tries to decrypt it using the encryption keys of the document.
+   * @param document a document.
+   * @param validator optionally a validator function which checks if the decryption was successful. In cases where the document has many encryption
+   * keys and it is unclear which one should be used this function can help to detect bad decryptions.
+   * @return an object containing:
+   * - data: the decrypted attachment, if it could be decrypted, else the encrypted attachment.
+   * - wasDecrypted: if the data was successfully decrypted or not
+   */
+  async getAndTryDecryptDocumentAttachment(
+    document: models.Document,
+    validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
+  ): Promise<{ data: ArrayBuffer; wasDecrypted: boolean }> {
+    return await this.crypto.xapi.tryDecryptDataOf({ entity: document, type: 'Document' }, await this.getMainDocumentAttachment(document.id!), (x) =>
       validator(x)
     )
+  }
+
+  /**
+   * Gets the secondary attachment of a document and tries to decrypt it using the encryption keys of the document, throwing an error if the operation fails.
+   * @param document a document.
+   * @param secondaryAttachmentKey key of the secondary attachment.
+   * @param validator optionally a validator function which checks if the decryption was successful. In cases where the document has many encryption
+   * keys and it is unclear which one should be used this function can help to detect bad decryptions.
+   * @return the decrypted attachment.
+   */
+  async getAndDecryptSecondaryDocumentAttachment(
+    document: models.Document,
+    secondaryAttachmentKey: string,
+    validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
+  ): Promise<ArrayBuffer> {
+    const { data, wasDecrypted } = await this.getAndTryDecryptSecondaryDocumentAttachment(document, secondaryAttachmentKey, (x) => validator(x))
+    if (!wasDecrypted) throw new Error(`No valid key found to decrypt data of document ${document.id}.`)
+    return data
   }
 
   /**
@@ -785,14 +846,16 @@ export class IccDocumentXApi extends IccDocumentApi {
    * @param secondaryAttachmentKey key of the secondary attachment.
    * @param validator optionally a validator function which checks if the decryption was successful. In cases where the document has many encryption
    * keys and it is unclear which one should be used this function can help to detect bad decryptions.
-   * @return the decrypted attachment, if it could be decrypted, else the encrypted attachment.
+   * @return an object containing:
+   * - data: the decrypted attachment, if it could be decrypted, else the encrypted attachment.
+   * - wasDecrypted: if the data was successfully decrypted or not
    */
-  async getAndDecryptSecondaryDocumentAttachment(
+  async getAndTryDecryptSecondaryDocumentAttachment(
     document: models.Document,
     secondaryAttachmentKey: string,
     validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
-  ): Promise<ArrayBuffer> {
-    return await this.crypto.xapi.decryptDataOf(
+  ): Promise<{ data: ArrayBuffer; wasDecrypted: boolean }> {
+    return await this.crypto.xapi.tryDecryptDataOf(
       { entity: document, type: 'Document' },
       await this.getSecondaryAttachment(document.id!, secondaryAttachmentKey),
       (x) => validator(x)

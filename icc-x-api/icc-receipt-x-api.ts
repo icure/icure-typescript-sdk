@@ -101,6 +101,17 @@ export class IccReceiptXApi extends IccReceiptApi {
   }
 
   /**
+   * Adds an unencrypted attachment to a receipt.
+   * @param receipt a receipt.
+   * @param blobType the type of the attachment.
+   * @param attachment a attachment for the receipt.
+   * @return the updated receipt.
+   */
+  async setClearReceiptAttachment(receipt: models.Receipt, blobType: string, attachment: ArrayBuffer | Uint8Array): Promise<models.Receipt> {
+    return await this.setReceiptAttachmentForBlobType(receipt.id!, receipt.rev!, blobType, attachment)
+  }
+
+  /**
    * Gets the attachment of a receipt and tries to decrypt it using the encryption keys of the receipt.
    * @param receipt a receipt.
    * @param attachmentId id of the attachment of this receipt to retrieve.
@@ -113,7 +124,27 @@ export class IccReceiptXApi extends IccReceiptApi {
     attachmentId: string,
     validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<ArrayBuffer> {
-    return await this.crypto.xapi.decryptDataOf(
+    const retrieved = await this.getAndTryDecryptReceiptAttachment(receipt, attachmentId, (x) => validator(x))
+    if (!retrieved.wasDecrypted) throw new Error(`No valid key found to decrypt data of receipt ${receipt.id}.`)
+    return retrieved.data
+  }
+
+  /**
+   * Gets the attachment of a receipt and tries to decrypt it using the encryption keys of the receipt.
+   * @param receipt a receipt.
+   * @param attachmentId id of the attachment of this receipt to retrieve.
+   * @param validator optionally a validator function which checks if the decryption was successful. In cases where the receipt has many encryption
+   * keys and it is unclear which one should be used this function can help to detect bad decryptions.
+   * @return an object containing:
+   * - data: the decrypted attachment, if it could be decrypted, else the encrypted attachment.
+   * - wasDecrypted: if the data was successfully decrypted or not
+   */
+  async getAndTryDecryptReceiptAttachment(
+    receipt: models.Receipt,
+    attachmentId: string,
+    validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
+  ): Promise<{ data: ArrayBuffer; wasDecrypted: boolean }> {
+    return await this.crypto.xapi.tryDecryptDataOf(
       { entity: receipt, type: 'Receipt' },
       await this.getReceiptAttachment(receipt.id!, attachmentId),
       (x) => validator(x)

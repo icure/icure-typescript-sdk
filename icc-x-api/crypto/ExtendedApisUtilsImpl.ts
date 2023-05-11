@@ -539,11 +539,11 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     } else return undefined
   }
 
-  async decryptDataOf(
+  async tryDecryptDataOf(
     entity: EncryptedEntityWithType,
     content: ArrayBuffer | Uint8Array,
     validator: (decryptedData: ArrayBuffer) => Promise<boolean> | undefined
-  ): Promise<ArrayBuffer> {
+  ): Promise<{ data: ArrayBuffer; wasDecrypted: boolean }> {
     const decryptedKeys = this.allSecurityMetadataDecryptor.decryptEncryptionKeysOf(entity, [await this.dataOwnerApi.getCurrentDataOwnerId()])
     const triedKeys: Set<string> = new Set()
     let latest = await decryptedKeys.next()
@@ -552,14 +552,14 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
         triedKeys.add(latest.value.decrypted)
         try {
           const decrypted = await this.primitives.AES.decryptWithRawKey(latest.value.decrypted, content)
-          if (!validator || (await validator(decrypted))) return decrypted
+          if (!validator || (await validator(decrypted))) return { data: decrypted, wasDecrypted: true }
         } catch (e) {
-          console.warn(`Error while encrypting with raw key ${latest.value}: ${e}`)
+          console.warn(`Error while decrypting with raw key ${latest.value}: ${e}`)
         }
       }
       latest = await decryptedKeys.next()
     }
-    throw new Error(`Could not extract any valid encryption keys for entity ${JSON.stringify(entity)}.`)
+    return { data: content, wasDecrypted: false }
   }
 
   async encryptDataOf(entity: EncryptedEntityWithType, content: ArrayBuffer | Uint8Array): Promise<ArrayBuffer> {
