@@ -273,6 +273,8 @@ export * from './VmpStub'
 export * from './Vtm'
 export * from './Wada'
 export * from './Weekday'
+export * from './SecurityMetadata'
+export * from './SecureDelegation'
 
 export type EncryptedEntity =
   | AccessLog
