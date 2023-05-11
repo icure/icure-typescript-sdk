@@ -459,7 +459,8 @@ export class EntitiesEncryption {
     for (const key of potentialKeys) {
       try {
         const decrypted = (await this.primitives.AES.decrypt(key.key, encrypted, key.raw)) ?? encrypted
-        return JSON.parse(ua2utf8(truncateTrailingDecryptedNulls ? truncateTrailingNulls(new Uint8Array(decrypted)) : decrypted))
+        const text = ua2utf8(truncateTrailingDecryptedNulls ? truncateTrailingNulls(new Uint8Array(decrypted)) : decrypted)
+        return JSON.parse(text)
       } catch (e) {}
     }
     return undefined

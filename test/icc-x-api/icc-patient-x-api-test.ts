@@ -120,4 +120,30 @@ describe('icc-x-patient-api Tests', () => {
     expect(retrievedByDelegateWithAccessToFrom.note).to.be.undefined // No access to new encryption key yet
     expect(await api2.patientApi.decryptSecretIdsOf(retrievedByDelegateWithAccessToFrom)).to.have.members(patientFromSecretIds)
   })
+
+  it('Share with should work as expected', async () => {
+    const api1 = await initApi(env!, hcp1Username)
+    const user1 = await api1.userApi.getCurrentUser()
+    const api2 = await initApi(env!, hcp2Username)
+    const user2 = await api2.userApi.getCurrentUser()
+    const encryptedField = 'Something encrypted'
+    const entity = await api1.patientApi.createPatientWithUser(
+      user1,
+      await api1.patientApi.newInstance(user1, { firstName: 'Gigio', lastName: 'Bagigio', note: encryptedField })
+    )
+    expect(entity.note).to.be.equal(encryptedField)
+    const secretIds = await api1.patientApi.decryptSecretIdsOf(entity)
+    await api2.patientApi
+      .getPatientWithUser(user2, entity.id)
+      .then(() => {
+        throw new Error('Should not be able to get the entity')
+      })
+      .catch(() => {
+        /* expected */
+      })
+    await api1.patientApi.shareWith(user2.healthcarePartyId!, entity, secretIds)
+    const retrieved = await api2.patientApi.getPatientWithUser(user2, entity.id)
+    expect(retrieved.note).to.be.equal(encryptedField)
+    expect(await api2.patientApi.decryptSecretIdsOf(retrieved)).to.have.members(secretIds)
+  })
 })
