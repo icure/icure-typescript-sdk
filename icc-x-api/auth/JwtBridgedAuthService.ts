@@ -7,7 +7,7 @@ import { a2b } from '../utils'
 import { AuthenticationResponse } from '../../icc-api/model/AuthenticationResponse'
 import XHRError = XHR.XHRError
 
-export class JwtBridgedAuthService implements AuthService {
+export class JwtAuthService implements AuthService {
   private _error: Error | null = null
   private _currentPromise: Promise<{ authJwt?: string; refreshJwt?: string }> = Promise.resolve({})
 
