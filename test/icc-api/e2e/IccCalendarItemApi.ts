@@ -3,7 +3,7 @@ import { expect } from 'chai'
 import { randomUUID } from 'crypto'
 import { getEnvironmentInitializer, hcp1Username, patUsername, TestUtils } from '../../utils/test_utils'
 import initApi = TestUtils.initApi
-import { SecureDelegation } from '../../../dist/icc-api/model/SecureDelegation'
+import { SecureDelegation } from '../../../icc-api/model/SecureDelegation'
 import AccessLevel = SecureDelegation.AccessLevelEnum
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 

@@ -1,28 +1,27 @@
 import { EncryptedEntity, EncryptedEntityStub } from '../../icc-api/model/models'
 import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
-import { ExchangeKeysManager } from './ExchangeKeysManager'
-import { b2a, crypt, decrypt, truncateTrailingNulls, ua2utf8, utf8_2ua, hex2ua } from '../utils'
+import { b2a, crypt, decrypt, hex2ua, truncateTrailingNulls, ua2utf8, utf8_2ua } from '../utils'
 import * as _ from 'lodash'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { asyncGeneratorToArray } from '../utils/collection-utils'
 import { SecurityMetadataDecryptor, SecurityMetadataDecryptorChain } from './SecurityMetadataDecryptor'
 import { EncryptedEntityWithType, EntityWithDelegationTypeName } from '../utils/EntityWithDelegationTypeName'
 import { SecureDelegation } from '../../icc-api/model/SecureDelegation'
-import AccessLevel = SecureDelegation.AccessLevelEnum
 import { ExtendedApisUtils } from './ExtendedApisUtils'
 import { EntityShareOrMetadataUpdateRequest } from '../../icc-api/model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../../icc-api/model/requests/EntityBulkShareResult'
 import { EntityShareRequest } from '../../icc-api/model/requests/EntityShareRequest'
-import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { SecureDelegationsManager } from './SecureDelegationsManager'
 import { LegacyDelegationSecurityMetadataDecryptor } from './LegacyDelegationSecurityMetadataDecryptor'
 import { SecureDelegationsSecurityMetadataDecryptor } from './SecureDelegationsSecurityMetadataDecryptor'
-import RequestedPermissionInternal = EntityShareRequest.RequestedPermissionInternal
 import { ShareResult, ShareResultFailure, ShareResultSuccess } from '../utils/ShareResult'
 import { ShareMetadataBehaviour } from './ShareMetadataBehaviour'
 import { IccUserXApi } from '../icc-user-x-api'
-import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import { MinimalEntityBulkShareResult } from '../../icc-api/model/requests/MinimalEntityBulkShareResult'
+import AccessLevel = SecureDelegation.AccessLevelEnum
+import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
+import RequestedPermissionInternal = EntityShareRequest.RequestedPermissionInternal
+import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 
 /**
  * @internal this class is for internal use only and may be changed without notice.
@@ -369,43 +368,56 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
 
   async simpleShareOrUpdateEncryptedEntityMetadata<T extends EncryptedEntityStub>(
     entity: { entity: T; type: EntityWithDelegationTypeName },
-    delegateId: string,
-    shareEncryptionKeys: ShareMetadataBehaviour | undefined,
-    shareOwningEntityIds: ShareMetadataBehaviour | undefined,
-    shareSecretIds: string[] | undefined,
-    requestedPermissions: RequestedPermissionEnum,
+    unusedSecretIds: boolean,
+    delegates: {
+      [delegateId: string]: {
+        shareSecretIds: string[] | undefined
+        shareEncryptionKeys: ShareMetadataBehaviour | undefined
+        shareOwningEntityIds: ShareMetadataBehaviour | undefined
+        requestedPermissions: RequestedPermissionEnum | undefined
+      }
+    },
     doRequestBulkShareOrUpdate: (request: { [p: string]: { [p: string]: EntityShareOrMetadataUpdateRequest } }) => Promise<EntityBulkShareResult<T>[]>
   ): Promise<ShareResult<T>> {
-    let encryptionKeysToShare: string[] | undefined = undefined
-    if (shareEncryptionKeys !== ShareMetadataBehaviour.NEVER) {
-      encryptionKeysToShare = await this.encryptionKeysOf(entity)
-      if (encryptionKeysToShare.length === 0 && shareEncryptionKeys === ShareMetadataBehaviour.REQUIRED) {
+    const availableEncryptionKeys = await this.encryptionKeysOf(entity)
+    const availableOwningEntityIds = await this.owningEntityIdsOf(entity)
+    let availableSecretIds: string[] | undefined
+    if (unusedSecretIds) {
+      availableSecretIds = await this.secretIdsOf(entity)
+    }
+    const dataForDelegates: {
+      [delegateId: string]: {
+        shareSecretIds: string[]
+        shareEncryptionKeys: string[]
+        shareOwningEntityIds: string[]
+        requestedPermissions: RequestedPermissionEnum
+      }
+    } = {}
+    for (const [delegateId, delegateRequests] of Object.entries(delegates)) {
+      if (!availableEncryptionKeys.length && delegateRequests.shareEncryptionKeys === ShareMetadataBehaviour.REQUIRED) {
         throw new Error(`Entity ${JSON.stringify(entity)} has no encryption keys or the current data owner can't access any encryption keys.`)
       }
-    }
-    let owningEntityIdsToShare: string[] | undefined = undefined
-    if (shareOwningEntityIds !== ShareMetadataBehaviour.NEVER) {
-      owningEntityIdsToShare = await this.owningEntityIdsOf(entity)
-      if (owningEntityIdsToShare.length === 0 && shareOwningEntityIds === ShareMetadataBehaviour.REQUIRED) {
-        throw new Error(`Entity ${JSON.stringify(entity)} has no owning entity ids or the current data owner can't access any owning entity ids.`)
+      if (!availableOwningEntityIds.length && delegateRequests.shareEncryptionKeys === ShareMetadataBehaviour.REQUIRED) {
+        throw new Error(`Entity ${JSON.stringify(entity)} has no encryption keys or the current data owner can't access any encryption keys.`)
       }
-    }
-    if (!shareSecretIds) {
-      shareSecretIds = await this.secretIdsOf(entity, undefined)
+      if (!delegateRequests.shareSecretIds && !unusedSecretIds) {
+        throw new Error(`Share secret ids parameter is mandatory for entities of type ${entity.type}.`)
+      } else if (delegateRequests.shareSecretIds && unusedSecretIds) {
+        throw new Error(`Share secret ids parameter must not be unused with entities of type ${entity.type}.`)
+      }
+      dataForDelegates[delegateId] = {
+        shareSecretIds: delegateRequests.shareSecretIds ?? availableSecretIds!,
+        shareEncryptionKeys: delegateRequests.shareEncryptionKeys === ShareMetadataBehaviour.NEVER ? [] : availableEncryptionKeys,
+        shareOwningEntityIds: delegateRequests.shareOwningEntityIds === ShareMetadataBehaviour.NEVER ? [] : availableOwningEntityIds,
+        requestedPermissions: delegateRequests.requestedPermissions ?? RequestedPermissionEnum.MAX_WRITE,
+      }
     }
     const shareResult = await this.bulkShareOrUpdateEncryptedEntityMetadata(
       entity.type,
       [
         {
           entity: entity.entity,
-          dataForDelegates: {
-            [delegateId]: {
-              shareSecretIds,
-              shareEncryptionKeys: encryptionKeysToShare,
-              shareOwningEntityIds: owningEntityIdsToShare,
-              requestedPermissions,
-            },
-          },
+          dataForDelegates,
         },
       ],
       (x) => doRequestBulkShareOrUpdate(x)
@@ -416,16 +428,15 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     if (!shareResult.updateErrors.length && shareResult.updatedEntities.length === 1) {
       return new ShareResultSuccess(shareResult.updatedEntities[0])
     }
-    if (!shareResult.updateErrors.find((x) => x.delegateId === delegateId) && shareResult.updatedEntities.length === 1) {
+    const requestedDelegates = new Set(Object.keys(delegates))
+    const errorsOfRequestedDelegates = shareResult.updateErrors.filter((x) => requestedDelegates.has(x.delegateId))
+    if (errorsOfRequestedDelegates.length === 0 && shareResult.updatedEntities.length === 1) {
       console.warn(`Errors with migration of encrypted metadata ${JSON.stringify(shareResult.updateErrors)}.`)
       return new ShareResultSuccess(shareResult.updatedEntities[0])
     }
     return new ShareResultFailure(
       shareResult.updateErrors,
-      shareResult.updateErrors.length > 1
-        ? `There was an internal error sharing entity with id ${entity.entity.id}. Check the logs for more details.`
-        : shareResult.updateErrors[0].reason ??
-          `There was an unexpected error sharing entity with id ${entity.entity.id}. Check the logs for more details.`
+      `There was an error sharing entity with id ${entity.entity.id}. Check the logs for more details.`
     )
   }
 

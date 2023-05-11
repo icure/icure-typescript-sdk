@@ -47,11 +47,15 @@ export class ConfidentialEntities {
     return (
       await this.entitiesEncryption.simpleShareOrUpdateEncryptedEntityMetadata(
         { entity, type: entityType },
-        await this.dataOwnerApi.getCurrentDataOwnerId(),
-        ShareMetadataBehaviour.NEVER,
-        ShareMetadataBehaviour.NEVER,
-        [confidentialSecretId],
-        RequestedPermissionEnum.MAX_WRITE,
+        false,
+        {
+          [await this.dataOwnerApi.getCurrentDataOwnerId()]: {
+            shareEncryptionKeys: ShareMetadataBehaviour.NEVER,
+            shareOwningEntityIds: ShareMetadataBehaviour.NEVER,
+            shareSecretIds: [confidentialSecretId],
+            requestedPermissions: RequestedPermissionEnum.MAX_WRITE,
+          },
+        },
         (request) => doRequestBulkShareOrUpdate(request)
       )
     ).updatedEntityOrThrow

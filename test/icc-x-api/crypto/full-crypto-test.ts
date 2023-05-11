@@ -20,7 +20,7 @@ import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
 import { MaintenanceTaskAfterDateFilter } from '../../../icc-x-api/filters/MaintenanceTaskAfterDateFilter'
 import { KeyPairUpdateRequest } from '../../../icc-x-api/maintenance/KeyPairUpdateRequest'
 import initMasterApi = TestUtils.initMasterApi
-import { SecureDelegation } from '../../../dist/icc-api/model/SecureDelegation'
+import { SecureDelegation } from '../../../icc-api/model/SecureDelegation'
 import AccessLevel = SecureDelegation.AccessLevelEnum
 import { EntityShareRequest } from '../../../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
@@ -60,8 +60,7 @@ const facades: EntityFacades = {
     create: async (api, r) => api.patientApi.createPatientWithUser(await api.userApi.getCurrentUser(), r),
     get: async (api, id) => api.patientApi.getPatientWithUser(await api.userApi.getCurrentUser(), id),
     share: async (api, r, doId) => {
-      return (await api.patientApi.shareWith(doId, r, await api.patientApi.decryptSecretIdsOf(r), { requestedPermissions: FULL_WRITE }))
-        .updatedEntityOrThrow
+      return await api.patientApi.shareWith(doId, r, await api.patientApi.decryptSecretIdsOf(r), { requestedPermissions: FULL_WRITE })
     },
     isDecrypted: async (entityToCheck) => {
       return entityToCheck.note != undefined
@@ -71,7 +70,7 @@ const facades: EntityFacades = {
     create: async (api, r) => api.contactApi.createContactWithUser(await api.userApi.getCurrentUser(), r),
     get: async (api, id) => api.contactApi.getContactWithUser(await api.userApi.getCurrentUser(), id),
     share: async (api, r, doId) => {
-      return (await api.contactApi.shareWith(doId, r, { requestedPermissions: FULL_WRITE })).updatedEntityOrThrow
+      return await api.contactApi.shareWith(doId, r, { requestedPermissions: FULL_WRITE })
     },
     isDecrypted: async (entityToCheck) => {
       return entityToCheck.services?.[0].content != undefined && Object.entries(entityToCheck.services?.[0].content).length > 0
@@ -81,7 +80,7 @@ const facades: EntityFacades = {
     create: async (api, r) => api.healthcareElementApi.createHealthElementWithUser(await api.userApi.getCurrentUser(), r),
     get: async (api, id) => api.healthcareElementApi.getHealthElementWithUser(await api.userApi.getCurrentUser(), id),
     share: async (api, r, doId) => {
-      return (await api.healthcareElementApi.shareWith(doId, r, { requestedPermissions: FULL_WRITE })).updatedEntityOrThrow
+      return await api.healthcareElementApi.shareWith(doId, r, { requestedPermissions: FULL_WRITE })
     },
     isDecrypted: async (entityToCheck) => {
       return entityToCheck.descr != undefined
@@ -91,7 +90,7 @@ const facades: EntityFacades = {
     create: async (api, r) => api.calendarItemApi.createCalendarItemWithHcParty(await api.userApi.getCurrentUser(), r),
     get: async (api, id) => api.calendarItemApi.getCalendarItemWithUser(await api.userApi.getCurrentUser(), id),
     share: async (api, r, doId) => {
-      return (await api.calendarItemApi.shareWith(doId, r, { requestedPermissions: FULL_WRITE })).updatedEntityOrThrow
+      return await api.calendarItemApi.shareWith(doId, r, { requestedPermissions: FULL_WRITE })
     },
     isDecrypted: async (entityToCheck) => {
       return entityToCheck.title != undefined

@@ -321,8 +321,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
    * be the same as objectId, but it is encrypted separately from it allowing you to give access to the patient id without giving access to the other
    * encrypted data of the access log (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}).
    * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
-   * @return a promise which will contain the result of the operation: the updated entity if the operation was successful or details of the error if
-   * the operation failed.
+   * @return the updated entity
    */
   async shareWith(
     delegateId: string,
@@ -332,6 +331,59 @@ export class IccAccesslogXApi extends IccAccesslogApi {
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
       sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
+  ): Promise<AccessLog> {
+    return this.shareWithMany(accessLog, { [delegateId]: options })
+  }
+
+  /**
+   * Share an existing access log with other data owners, allowing them to access the non-encrypted data of the access log and optionally also the
+   * encrypted content, with read-only or read-write permissions.
+   * @param accessLog the access log to share.
+   * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * - sharePatientId: specifies if the id of the patient that this access log refers to should be shared with the delegate. Normally this would
+   * be the same as objectId, but it is encrypted separately from it allowing you to give access to the patient id without giving access to the other
+   * encrypted data of the access log (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
+   * @return the updated entity
+   */
+  async shareWithMany(
+    accessLog: AccessLog,
+    delegates: {
+      [delegateId: string]: {
+        requestedPermissions?: RequestedPermissionEnum
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+        sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
+  ): Promise<AccessLog> {
+    return (await this.tryShareWithMany(accessLog, delegates)).updatedEntityOrThrow
+  }
+
+  /**
+   * Share an existing access log with other data owners, allowing them to access the non-encrypted data of the access log and optionally also the
+   * encrypted content, with read-only or read-write permissions.
+   * @param accessLog the access log to share.
+   * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * - sharePatientId: specifies if the id of the patient that this access log refers to should be shared with the delegate. Normally this would
+   * be the same as objectId, but it is encrypted separately from it allowing you to give access to the patient id without giving access to the other
+   * encrypted data of the access log (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
+   * @return a promise which will contain the result of the operation: the updated entity if the operation was successful or details of the error if
+   * the operation failed.
+   */
+  async tryShareWithMany(
+    accessLog: AccessLog,
+    delegates: {
+      [delegateId: string]: {
+        requestedPermissions?: RequestedPermissionEnum
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+        sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
   ): Promise<ShareResult<AccessLog>> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
@@ -340,11 +392,18 @@ export class IccAccesslogXApi extends IccAccesslogApi {
     return this.crypto.xapi
       .simpleShareOrUpdateEncryptedEntityMetadata(
         { entity: updatedEntity, type: 'AccessLog' },
-        delegateId,
-        options?.shareEncryptionKey,
-        options?.sharePatientId,
-        undefined,
-        options.requestedPermissions ?? RequestedPermissionEnum.MAX_WRITE,
+        true,
+        Object.fromEntries(
+          Object.entries(delegates).map(([delegateId, options]) => [
+            delegateId,
+            {
+              requestedPermissions: options.requestedPermissions,
+              shareEncryptionKeys: options.shareEncryptionKey,
+              shareOwningEntityIds: options.sharePatientId,
+              shareSecretIds: undefined,
+            },
+          ])
+        ),
         (x) => this.bulkShareAccessLogs(x)
       )
       .then((r) => r.mapSuccessAsync((e) => this.decrypt(self, [e]).then((es) => es[0])))
