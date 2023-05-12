@@ -28,7 +28,7 @@ describe('Secure delegations security metadata decryptor', async function () {
     encryptionKeysManager = await FakeEncryptionKeysManager.create(primitives, [], [await primitives.RSA.generateKeyPair()])
     exchangeData = new FakeDecryptionExchangeDataManager(expectedType, expectedSfks)
     secureDelegationsEncryption = new SecureDelegationsEncryption(encryptionKeysManager, primitives)
-    decryptor = new SecureDelegationsSecurityMetadataDecryptor(exchangeData, secureDelegationsEncryption)
+    decryptor = new SecureDelegationsSecurityMetadataDecryptor(exchangeData, secureDelegationsEncryption, undefined as any) // data owner api not used in these tests
   }
 
   async function randomHash(): Promise<string> {

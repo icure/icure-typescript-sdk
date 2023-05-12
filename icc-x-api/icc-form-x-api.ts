@@ -13,9 +13,10 @@ import { ShareResult } from './utils/ShareResult'
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
+import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
 // noinspection JSUnusedGlobalSymbols
-export class IccFormXApi extends IccFormApi {
+export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<models.Form> {
   crypto: IccCryptoXApi
   dataOwnerApi: IccDataOwnerXApi
 
@@ -240,5 +241,15 @@ export class IccFormXApi extends IccFormApi {
         (x) => this.bulkShareForms(x)
       )
       .then((r) => r.mapSuccessAsync((e) => this.decrypt(self, [e]).then((es) => es[0])))
+  }
+
+  getDataOwnersWithAccessTo(
+    entity: models.Form
+  ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
+    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Form' })
+  }
+
+  getEncryptionKeysOf(entity: models.Form): Promise<string[]> {
+    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'Form' }, undefined)
   }
 }

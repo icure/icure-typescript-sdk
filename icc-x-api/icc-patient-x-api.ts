@@ -27,9 +27,10 @@ import { ShareResult } from './utils/ShareResult'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
+import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
 // noinspection JSUnusedGlobalSymbols
-export class IccPatientXApi extends IccPatientApi {
+export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi<models.Patient> {
   crypto: IccCryptoXApi
   contactApi: IccContactXApi
   formApi: IccFormXApi
@@ -1191,5 +1192,15 @@ export class IccPatientXApi extends IccPatientApi {
    */
   decryptNonConfidentialSecretIdsOf(patient: models.Patient): Promise<string[]> {
     return this.crypto.confidential.getSecretIdsSharedWithParents({ entity: patient, type: 'Patient' })
+  }
+
+  getDataOwnersWithAccessTo(
+    entity: models.Patient
+  ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
+    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Patient' })
+  }
+
+  getEncryptionKeysOf(entity: models.Patient): Promise<string[]> {
+    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'Patient' }, undefined)
   }
 }

@@ -121,8 +121,9 @@ export interface ExchangeDataManager {
    * @param entitySecretForeignKeys the secret foreign keys of the entity containing the metadata for which you are retrieving the encryption key.
    * @param retrieveIfNotCached if false and there is no cached exchange data with the provided id the method returns undefined, else the method will
    * attempt to load the exchange data from the server.
-   * @return the exchange data with the provided id and its key if it could be decrypted, or undefined if the exchange data was not cached and
-   * {@link retrieveIfNotCached} is false.
+   * @return undefined if the exchange data is not cached and {@link retrieveIfNotCached} is false. Else an object containing:
+   * - exchangeData: the exchange data with the provided id
+   * - exchangeKey: the exchange key corresponding to the provided exchange data if it could be decrypted, else undefined
    * @throws if no exchange data with the given id is cached and {@link retrieveIfNotCached} is true and the data could not be found in the server
    * either.
    */

@@ -14,8 +14,9 @@ import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import { XHR } from '../icc-api/api/XHR'
+import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
-export class IccCalendarItemXApi extends IccCalendarItemApi {
+export class IccCalendarItemXApi extends IccCalendarItemApi implements EncryptedEntityXApi<models.CalendarItem> {
   i18n: any = i18n
   crypto: IccCryptoXApi
   dataOwnerApi: IccDataOwnerXApi
@@ -352,5 +353,15 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
         (x) => this.bulkShareCalendarItems(x)
       )
       .then((r) => r.mapSuccessAsync((e) => this.decrypt(self, [e]).then((es) => es[0])))
+  }
+
+  getDataOwnersWithAccessTo(
+    entity: CalendarItem
+  ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
+    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'CalendarItem' })
+  }
+
+  getEncryptionKeysOf(entity: CalendarItem): Promise<string[]> {
+    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'CalendarItem' }, undefined)
   }
 }

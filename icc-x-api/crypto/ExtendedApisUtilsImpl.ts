@@ -811,4 +811,10 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     }
     return true
   }
+
+  getDataOwnersWithAccessTo(
+    entity: EncryptedEntityWithType
+  ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
+    return this.allSecurityMetadataDecryptor.getDataOwnersWithAccessTo(entity)
+  }
 }

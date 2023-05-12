@@ -11,8 +11,9 @@ import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import { XHR } from '../icc-api/api/XHR'
+import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
-export class IccReceiptXApi extends IccReceiptApi {
+export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi<models.Receipt> {
   dataOwnerApi: IccDataOwnerXApi
 
   get headers(): Promise<Array<XHR.Header>> {
@@ -244,5 +245,15 @@ export class IccReceiptXApi extends IccReceiptApi {
       ),
       (x) => this.bulkShareReceipt(x)
     )
+  }
+
+  getDataOwnersWithAccessTo(
+    entity: models.Receipt
+  ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
+    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Receipt' })
+  }
+
+  getEncryptionKeysOf(entity: models.Receipt): Promise<string[]> {
+    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'Receipt' }, undefined)
   }
 }

@@ -21,8 +21,12 @@ import { EntityWithDelegationTypeName } from '../../../icc-x-api/utils/EntityWit
 import { MaintenanceTask } from '../../../icc-api/model/MaintenanceTask'
 import * as _ from 'lodash'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
+import { SecureDelegation } from '../../../icc-api/model/SecureDelegation'
+import AccessLevelEnum = SecureDelegation.AccessLevelEnum
+import { CalendarItem } from '../../../icc-api/model/CalendarItem'
 
 const FULL_WRITE = RequestedPermissionEnum.FULL_WRITE
+const FULL_READ = RequestedPermissionEnum.FULL_READ
 
 setLocalStorage(fetch)
 
@@ -169,6 +173,185 @@ describe('Anonymous delegations', () => {
       expect(retrievedHe!.note).to.equal(expectedHe.note)
     }
   }
+
+  it('should be properly identified by participants', async () => {
+    const apiA = await createUserAndApi('explicit')
+    const apiB = await createUserAndApi('explicit')
+    const apiP1 = await createUserAndApi('anonymous')
+    const apiP2 = await createUserAndApi('anonymous')
+    let entity: CalendarItem = await apiA.api.calendarItemApi.createCalendarItemWithHcParty(
+      apiA.userInfo.user,
+      await apiA.api.calendarItemApi.newInstance(apiA.userInfo.user, { note: 'Calendar item note' })
+    )
+    async function checkAccessInfo(
+      api: Apis,
+      expectedDataOwnersWithAccess: { [dataOwnerId: string]: AccessLevelEnum },
+      expectedHasUnknownAnonymousDataOwners: boolean
+    ) {
+      const accessInfo = await api.calendarItemApi.getDataOwnersWithAccessTo(entity)
+      expect(Object.keys(accessInfo.permissionsByDataOwnerId)).to.have.members(Object.keys(expectedDataOwnersWithAccess))
+      expect(accessInfo.hasUnknownAnonymousDataOwners).to.equal(expectedHasUnknownAnonymousDataOwners)
+      for (const [dataOwnerId, expectedLevel] of Object.entries(expectedDataOwnersWithAccess)) {
+        expect(accessInfo.permissionsByDataOwnerId[dataOwnerId]).to.equal(expectedLevel)
+      }
+    }
+    await checkAccessInfo(apiA.api, { [apiA.userInfo.dataOwnerId]: AccessLevelEnum.WRITE }, false)
+    entity = await apiA.api.calendarItemApi.shareWith(apiB.userInfo.dataOwnerId, entity, { requestedPermissions: FULL_WRITE })
+    await checkAccessInfo(
+      apiA.api,
+      {
+        [apiA.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiB.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+      },
+      false
+    )
+    await checkAccessInfo(
+      apiB.api,
+      {
+        [apiA.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiB.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+      },
+      false
+    )
+    entity = await apiA.api.calendarItemApi.shareWith(apiP1.userInfo.dataOwnerId, entity, { requestedPermissions: FULL_WRITE })
+    await apiP1.api.cryptoApi.forceReload()
+    await checkAccessInfo(
+      apiA.api,
+      {
+        [apiA.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiB.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiP1.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+      },
+      false
+    )
+    await checkAccessInfo(
+      apiB.api,
+      {
+        [apiA.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiB.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+      },
+      true
+    )
+    await checkAccessInfo(
+      apiP1.api,
+      {
+        [apiA.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiB.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiP1.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+      },
+      false
+    )
+    entity = await apiB.api.calendarItemApi.shareWith(apiP1.userInfo.dataOwnerId, entity, { requestedPermissions: FULL_READ })
+    await apiP1.api.cryptoApi.forceReload()
+    await checkAccessInfo(
+      apiA.api,
+      {
+        [apiA.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiB.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiP1.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+      },
+      true
+    )
+    await checkAccessInfo(
+      apiB.api,
+      {
+        [apiA.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiB.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiP1.userInfo.dataOwnerId]: AccessLevelEnum.READ,
+      },
+      true
+    )
+    await checkAccessInfo(
+      apiP1.api,
+      {
+        [apiA.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiB.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiP1.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+      },
+      false
+    )
+    entity = await apiP1.api.calendarItemApi.shareWith(apiP2.userInfo.dataOwnerId, entity, { requestedPermissions: FULL_READ })
+    await apiP2.api.cryptoApi.forceReload()
+    await checkAccessInfo(
+      apiA.api,
+      {
+        [apiA.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiB.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiP1.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+      },
+      true
+    )
+    await checkAccessInfo(
+      apiB.api,
+      {
+        [apiA.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiB.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiP1.userInfo.dataOwnerId]: AccessLevelEnum.READ,
+      },
+      true
+    )
+    await checkAccessInfo(
+      apiP1.api,
+      {
+        [apiA.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiB.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiP1.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiP2.userInfo.dataOwnerId]: AccessLevelEnum.READ,
+      },
+      false
+    )
+    await checkAccessInfo(
+      apiP2.api,
+      {
+        [apiA.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiB.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiP1.userInfo.dataOwnerId]: AccessLevelEnum.READ, // P2 is only aware of the P1->P2 delegation
+        [apiP2.userInfo.dataOwnerId]: AccessLevelEnum.READ,
+      },
+      true
+    )
+    entity = await apiA.api.calendarItemApi.shareWith(apiP2.userInfo.dataOwnerId, entity, { requestedPermissions: FULL_WRITE })
+    await apiP2.api.cryptoApi.forceReload()
+    await checkAccessInfo(
+      apiA.api,
+      {
+        [apiA.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiB.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiP1.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiP2.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+      },
+      true
+    )
+    await checkAccessInfo(
+      apiB.api,
+      {
+        [apiA.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiB.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiP1.userInfo.dataOwnerId]: AccessLevelEnum.READ,
+      },
+      true
+    )
+    await checkAccessInfo(
+      apiP1.api,
+      {
+        [apiA.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiB.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiP1.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiP2.userInfo.dataOwnerId]: AccessLevelEnum.READ,
+      },
+      true
+    )
+    await checkAccessInfo(
+      apiP2.api,
+      {
+        [apiA.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiB.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+        [apiP1.userInfo.dataOwnerId]: AccessLevelEnum.READ, // P2 is only aware of the P1->P2 delegation
+        [apiP2.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
+      },
+      true
+    )
+  })
 
   typeCombinations.forEach(([delegatorType, delegateType]) => {
     it(`should allow delegate to find and decrypt an entity shared with him (${delegatorType}->${delegateType})`, async () => {

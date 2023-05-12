@@ -14,9 +14,10 @@ import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 import { ShareResult } from './utils/ShareResult'
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
+import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
 // noinspection JSUnusedGlobalSymbols
-export class IccDocumentXApi extends IccDocumentApi {
+export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXApi<models.Document> {
   fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response>
 
   /** maps invalid UTI values to corresponding MIME type for backward-compatibility (pre-v1.0.117) */
@@ -971,5 +972,15 @@ export class IccDocumentXApi extends IccDocumentApi {
         (x) => this.bulkShareDocument(x)
       )
       .then((r) => r.mapSuccessAsync((e) => this.decrypt(self, [e]).then((es) => es[0])))
+  }
+
+  getDataOwnersWithAccessTo(
+    entity: models.Document
+  ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
+    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Document' })
+  }
+
+  getEncryptionKeysOf(entity: models.Document): Promise<string[]> {
+    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'Document' }, undefined)
   }
 }

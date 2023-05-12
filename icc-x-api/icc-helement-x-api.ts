@@ -16,8 +16,9 @@ import { ShareResult } from './utils/ShareResult'
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
+import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
-export class IccHelementXApi extends IccHelementApi {
+export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXApi<models.HealthElement> {
   crypto: IccCryptoXApi
   dataOwnerApi: IccDataOwnerXApi
 
@@ -487,5 +488,15 @@ export class IccHelementXApi extends IccHelementApi {
         (x) => this.bulkShareHealthElements(x)
       )
       .then((r) => r.mapSuccessAsync((e) => this.decrypt(self, [e]).then((es) => es[0])))
+  }
+
+  getDataOwnersWithAccessTo(
+    entity: models.HealthElement
+  ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
+    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'HealthElement' })
+  }
+
+  getEncryptionKeysOf(entity: models.HealthElement): Promise<string[]> {
+    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'HealthElement' }, undefined)
   }
 }
