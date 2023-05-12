@@ -1203,4 +1203,47 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
   getEncryptionKeysOf(entity: models.Patient): Promise<string[]> {
     return this.crypto.xapi.encryptionKeysOf({ entity, type: 'Patient' }, undefined)
   }
+
+  /**
+   * Merge two patients into one. This method performs the following operations:
+   * - The `from` patient will be soft-deleted, and it will point to the `into` patient. Only the `deletionDate` and `mergeToPatientId` fields of the
+   *   patient will be changed (automatically by this method). Note that the value of {@link from} is only used to verify that the client is aware of
+   *   the last version of the `from` patient: any changes to its content and/or metadata compared to what is actually stored in the database will be
+   *   ignored.
+   * - The metadata of the `into` patient will be automatically updated to contain also the metadata of the `from` patient and to keep track of the
+   *   merge:
+   *   - the `mergedIds` will be updated to contain the `from` patient id
+   *   - all secret ids of the `from` patient will be added to the `into` patient
+   *   - all data owners (including anonymous data owners) with access to the `from` patient will have the same access to the merged `into` patient
+   *     (unless they already had greater access to the `into` patient, in which case they keep the greater access)
+   * - The content of the `into` patient will be updated to match the content (name, address, note, ...) of the provided {@link mergedInto} parameter.
+   *   Note that since the metadata is automatically updated by this method you must not change the metadata of the `mergedInto` patient
+   *   (`delegations`, mergedInto`, ...): if there is any change between the metadata of the provided `mergedInto` patient and the stored patient this
+   *   method will fail with an error.
+   *
+   * In case the revisions of {@link from} and/or {@link mergedInto} does not match the latest revisions for these patients in the database this
+   * method will fail without soft-deleting the `from` patient and without updating the `into` patient with the merged content and metadata. You will
+   * have to retrieve the updated versions of both patients before retrying the merge.
+   *
+   * Finally, note that this method only merges existing data, and does not perform any automatic sharing of the data. The secret ids and encryption
+   * keys will not be shared with users that had access only to one of the entity, you will have to use the {@link shareWith} method after the merge
+   * if you want to do so.
+   * For example consider hcps A, B with access to P' and hcps A, C with access to P'', and we merge P'' into P'. After the merge:
+   * - A has access to all secret ids of the merged patient and to the encryption key of the merged patient
+   * - B has access to the encryption key of the merged patient (since it is the same as in P'), but only to the secret id which was originally from
+   *   the unmerged P'
+   * - C has no access to the encryption key of the merged patient, and has access only to the secret id which was originally from the unmerged P''
+   *
+   * @param from the original, unmodified `from` patient. Its content will be unchanged and its metadata will be automatically updated by this method
+   * to reflect the merge.
+   * @param mergedInto the `into` patient with updated content result of the merge with the `from` patient, as specified by your application logic.
+   * The metadata of the `mergedInto` patient must not differ from the metadata of the stored version of the patient, since it will be automatically
+   * updated by the method.
+   * @return the updated `into` patient.
+   */
+  async mergePatients(from: Patient, mergedInto: Patient): Promise<Patient> {
+    const encryptedMerged = (await this.encryptAs(await this.dataOwnerApi.getCurrentDataOwnerId(), [mergedInto]))[0]
+    const merged = await super.baseMergePatients(from.id!, from.rev!, encryptedMerged)
+    return (await this.tryDecryptOrReturnOriginal(await this.dataOwnerApi.getCurrentDataOwnerId(), [merged]))[0].entity
+  }
 }
