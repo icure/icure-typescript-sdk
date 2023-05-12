@@ -31,7 +31,6 @@ export class UserEncryptionKeysManager {
   private readonly dataOwnerApi: IccDataOwnerXApi
   private readonly keyRecovery: KeyRecovery
   private readonly icureStorage: IcureStorageFacade
-  private readonly baseExchangeKeyManager: BaseExchangeKeysManager
   private readonly strategies: CryptoStrategies
 
   private selfId: string | undefined
@@ -43,14 +42,12 @@ export class UserEncryptionKeysManager {
     dataOwnerApi: IccDataOwnerXApi,
     icureStorage: IcureStorageFacade,
     keyRecovery: KeyRecovery,
-    baseExchangeKeyManager: BaseExchangeKeysManager,
     strategies: CryptoStrategies
   ) {
     this.primitives = primitives
     this.icureStorage = icureStorage
     this.dataOwnerApi = dataOwnerApi
     this.keyRecovery = keyRecovery
-    this.baseExchangeKeyManager = baseExchangeKeyManager
     this.strategies = strategies
   }
 
@@ -298,16 +295,21 @@ export class UserEncryptionKeysManager {
       await this.primitives.RSA.exportKeys(keyPair, 'jwk', 'jwk'),
       true
     )
-    const verifiedPublicKeysMap = await this.icureStorage.saveSelfVerifiedKeys(selfDataOwner.dataOwner.id!, { [publicKeyFingerprint]: true })
-    const { updatedDelegator } = await this.baseExchangeKeyManager.createOrUpdateEncryptedExchangeKeyTo(
-      selfDataOwner.dataOwner.id!,
-      keyPair,
-      await loadPublicKeys(
-        this.primitives.RSA,
-        Array.from(this.dataOwnerApi.getHexPublicKeysOf(selfDataOwner.dataOwner)).filter((x) => verifiedPublicKeysMap[x.slice(-32)])
-      )
-    )
-    return { publicKeyFingerprint, keyPair: keyPair, updatedSelf: updatedDelegator }
+    await this.icureStorage.saveSelfVerifiedKeys(selfDataOwner.dataOwner.id!, { [publicKeyFingerprint]: true })
+    const updatedSelf = await this.dataOwnerApi.updateDataOwner({
+      dataOwner: {
+        ...selfDataOwner.dataOwner,
+        publicKey: selfDataOwner.dataOwner.publicKey ?? publicKeyHex,
+        aesExchangeKeys: selfDataOwner.dataOwner.publicKey
+          ? {
+              ...selfDataOwner.dataOwner.aesExchangeKeys,
+              [publicKeyHex]: {},
+            }
+          : selfDataOwner.dataOwner.aesExchangeKeys,
+      },
+      type: selfDataOwner.type,
+    })
+    return { publicKeyFingerprint, keyPair: keyPair, updatedSelf }
   }
 
   private async loadStoredKeys(

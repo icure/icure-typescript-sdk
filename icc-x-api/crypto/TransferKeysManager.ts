@@ -7,31 +7,22 @@ import { reachSetsAcyclic, StronglyConnectedGraph } from '../utils/graph-utils'
 import { fingerprintToPublicKeysMapOf, loadPublicKeys, transferKeysFpGraphOf } from './utils'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { IcureStorageFacade } from '../storage/IcureStorageFacade'
+import { BaseExchangeDataManager } from './BaseExchangeDataManager'
+import { UserSignatureKeysManager } from './UserSignatureKeysManager'
 
 /**
  * @internal this class is intended only for internal use and may be changed without notice.
  * Allows to create new transfer keys.
  */
 export class TransferKeysManager {
-  private readonly primitives: CryptoPrimitives
-  private readonly baseExchangeKeysManager: BaseExchangeKeysManager
-  private readonly dataOwnerApi: IccDataOwnerXApi
-  private readonly keyManager: UserEncryptionKeysManager
-  private readonly icureStorage: IcureStorageFacade
-
   constructor(
-    primitives: CryptoPrimitives,
-    baseExchangeKeysManager: BaseExchangeKeysManager,
-    dataOwnerApi: IccDataOwnerXApi,
-    keyManager: UserEncryptionKeysManager,
-    icureStorage: IcureStorageFacade
-  ) {
-    this.primitives = primitives
-    this.baseExchangeKeysManager = baseExchangeKeysManager
-    this.dataOwnerApi = dataOwnerApi
-    this.keyManager = keyManager
-    this.icureStorage = icureStorage
-  }
+    private readonly primitives: CryptoPrimitives,
+    private readonly baseExchangeDataManager: BaseExchangeDataManager,
+    private readonly dataOwnerApi: IccDataOwnerXApi,
+    private readonly encryptionKeysManager: UserEncryptionKeysManager,
+    private readonly userSignatureKeysManager: UserSignatureKeysManager,
+    private readonly icureStorage: IcureStorageFacade
+  ) {}
 
   /**
    * Analyses the transfer keys graph and creates new transfer keys which allow to improve data accessibility from other devices.
@@ -46,13 +37,16 @@ export class TransferKeysManager {
     const selfId = await this.dataOwnerApi.getCurrentDataOwnerId()
     const fpToPublicKey = fingerprintToPublicKeysMapOf(self.dataOwner)
     const newExchangeKeyPublicKeys = newEdges.sources.map((fp) => fpToPublicKey[fp])
-    const { key: exchangeKey, updatedDelegator: updatedSelf } = await this.baseExchangeKeysManager.createOrUpdateEncryptedExchangeKeyTo(
+    const signatureKeyPair = await this.userSignatureKeysManager.getOrCreateSignatureKeyPair()
+    const createdExchangeData = await this.baseExchangeDataManager.createExchangeData(
       selfId,
-      newEdges.target,
-      await loadPublicKeys(this.primitives.RSA, newExchangeKeyPublicKeys)
+      { [signatureKeyPair.fingerprint]: signatureKeyPair.keyPair.privateKey },
+      {
+        ...(await loadPublicKeys(this.primitives.RSA, newExchangeKeyPublicKeys)),
+        [newEdges.targetFp]: newEdges.target.publicKey,
+      }
     )
-    // note: createEncryptedExchangeKeyFor may update self
-    const encryptedTransferKey = await this.encryptTransferKey(newEdges.target, exchangeKey)
+    const encryptedTransferKey = await this.encryptTransferKey(newEdges.target, createdExchangeData.exchangeKey)
     const newTransferKeys = newEdges.sources.reduce(
       (acc, candidateFp) => {
         const existingKeys = { ...(acc[candidateFp] ?? {}) }
@@ -60,15 +54,15 @@ export class TransferKeysManager {
         acc[candidateFp] = existingKeys
         return acc
       },
-      { ...(updatedSelf.dataOwner.transferKeys ?? {}) }
+      { ...(self.dataOwner.transferKeys ?? {}) }
     )
     await this.dataOwnerApi.updateDataOwner(
       IccDataOwnerXApi.instantiateDataOwnerWithType(
         {
-          ...updatedSelf.dataOwner,
+          ...self.dataOwner,
           transferKeys: newTransferKeys,
         },
-        updatedSelf.type
+        self.type
       )
     )
   }
@@ -100,14 +94,14 @@ export class TransferKeysManager {
         targetFp: string
       }
   > {
-    const verifiedKeysFpSet = new Set(this.keyManager.getSelfVerifiedKeys().map((x) => x.fingerprint))
+    const verifiedKeysFpSet = new Set(this.encryptionKeysManager.getSelfVerifiedKeys().map((x) => x.fingerprint))
     Object.entries(await this.icureStorage.loadSelfVerifiedKeys(self.dataOwner.id!)).forEach(([key, verified]) => {
       if (verified) verifiedKeysFpSet.add(key.slice(-32))
     })
     if (verifiedKeysFpSet.size == 0) return undefined
     const graph = transferKeysFpGraphOf(self.dataOwner)
     // 1. Choose a key available in this device which should be reachable from all other verified keys
-    const { fingerprint: targetKeyFp, pair: targetKey } = await this.transferTargetVerifiedKey(this.keyManager)
+    const { fingerprint: targetKeyFp, pair: targetKey } = await this.transferTargetVerifiedKey(this.encryptionKeysManager)
     // 2. Find groups which can't reach the existing target keys
     const candidatesFp = this.transferKeysCandidatesFp(targetKeyFp, graph)
     // 3. Keep only groups which contain at least a verified candidate

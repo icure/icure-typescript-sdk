@@ -191,21 +191,24 @@ export const Api = async function (
   const icureStorage = new IcureStorageFacade(params.keyStorage, params.storage, params.entryKeysFactory)
   const cryptoPrimitives = new CryptoPrimitives(crypto)
   const baseExchangeKeysManager = new BaseExchangeKeysManager(cryptoPrimitives, dataOwnerApi, healthcarePartyApi, basePatientApi, deviceApi)
-  const keyRecovery = new KeyRecovery(cryptoPrimitives, baseExchangeKeysManager, dataOwnerApi)
-  const userEncryptionKeysManager = new UserEncryptionKeysManager(
-    cryptoPrimitives,
+  const baseExchangeDataManager = new BaseExchangeDataManager(
+    exchangeDataApi,
     dataOwnerApi,
-    icureStorage,
-    keyRecovery,
-    baseExchangeKeysManager,
-    cryptoStrategies
+    cryptoPrimitives,
+    cryptoStrategies.dataOwnerRequiresAnonymousDelegation(await dataOwnerApi.getCurrentDataOwner())
   )
+  const keyRecovery = new KeyRecovery(cryptoPrimitives, dataOwnerApi, baseExchangeKeysManager, baseExchangeDataManager)
+  const userEncryptionKeysManager = new UserEncryptionKeysManager(cryptoPrimitives, dataOwnerApi, icureStorage, keyRecovery, cryptoStrategies)
   const userSignatureKeysManager = new UserSignatureKeysManager(icureStorage, dataOwnerApi, cryptoPrimitives)
   const newKey = await userEncryptionKeysManager.initialiseKeys()
-  const self = await dataOwnerApi.getCurrentDataOwner()
-  await new TransferKeysManager(cryptoPrimitives, baseExchangeKeysManager, dataOwnerApi, userEncryptionKeysManager, icureStorage).updateTransferKeys(
-    self
-  )
+  await new TransferKeysManager(
+    cryptoPrimitives,
+    baseExchangeDataManager,
+    dataOwnerApi,
+    userEncryptionKeysManager,
+    userSignatureKeysManager,
+    icureStorage
+  ).updateTransferKeys(await dataOwnerApi.getCurrentDataOwner())
   // TODO customise cache size?
   const exchangeKeysManager = new ExchangeKeysManager(
     100,
@@ -220,12 +223,6 @@ export const Api = async function (
     icureStorage
   )
   const accessControlSecretUtils = new AccessControlSecretUtils(cryptoPrimitives)
-  const baseExchangeDataManager = new BaseExchangeDataManager(
-    exchangeDataApi,
-    dataOwnerApi,
-    cryptoPrimitives,
-    cryptoStrategies.dataOwnerRequiresAnonymousDelegation(self)
-  )
   const exchangeDataManager = await initialiseExchangeDataManagerForCurrentDataOwner(
     baseExchangeDataManager,
     userEncryptionKeysManager,
@@ -253,7 +250,7 @@ export const Api = async function (
     ),
     userApi
   )
-  const shamirManager = new ShamirKeysManager(cryptoPrimitives, dataOwnerApi, userEncryptionKeysManager, exchangeKeysManager)
+  const shamirManager = new ShamirKeysManager(cryptoPrimitives, dataOwnerApi, userEncryptionKeysManager, exchangeDataManager)
   const confidentialEntitites = new ConfidentialEntities(xApiUtils, cryptoPrimitives, dataOwnerApi)
   await ensureDelegationForSelf(dataOwnerApi, xApiUtils, basePatientApi, cryptoPrimitives)
   const cryptoApi = new IccCryptoXApi(
