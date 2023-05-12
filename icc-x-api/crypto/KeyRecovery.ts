@@ -4,21 +4,19 @@ import { CryptoPrimitives } from './CryptoPrimitives'
 import { BaseExchangeKeysManager } from './BaseExchangeKeysManager'
 import { hex2ua, ua2hex } from '../utils'
 import { fingerprintToPublicKeysMapOf } from './utils'
+import { BaseExchangeDataManager } from './BaseExchangeDataManager'
 
 /**
  * @internal this class is intended only for internal use and may be changed without notice.
  *
  */
 export class KeyRecovery {
-  private readonly primitives: CryptoPrimitives
-  private readonly baseExchangeKeysManager: BaseExchangeKeysManager
-  private readonly dataOwnerApi: IccDataOwnerXApi
-
-  constructor(primitives: CryptoPrimitives, baseExchangeKeysManager: BaseExchangeKeysManager, dataOwnerApi: IccDataOwnerXApi) {
-    this.primitives = primitives
-    this.baseExchangeKeysManager = baseExchangeKeysManager
-    this.dataOwnerApi = dataOwnerApi
-  }
+  constructor(
+    private readonly primitives: CryptoPrimitives,
+    private readonly dataOwnerApi: IccDataOwnerXApi,
+    private readonly baseExchangeKeysManager: BaseExchangeKeysManager,
+    private readonly baseExchangeDataManager: BaseExchangeDataManager
+  ) {}
 
   /*TODO
    * Currently there is no support for the recovery of signature keys. When implementing a recovery solution we should consider:
@@ -99,8 +97,7 @@ export class KeyRecovery {
       )
       const exchangeKeys: { [delegateId: string]: CryptoKey[] } = {}
       for (const delegate of delegatesOfSplits) {
-        const currExchangeKeys = await this.baseExchangeKeysManager.getEncryptedExchangeKeysFor(selfId, delegate)
-        exchangeKeys[delegate] = (await this.baseExchangeKeysManager.tryDecryptExchangeKeys(currExchangeKeys, allKeys)).successfulDecryptions
+        exchangeKeys[delegate] = await this.getExchangeKeys(selfId, delegate, allKeys)
       }
       return await this.recoverWithSplits(dataOwner, shamirSplits, exchangeKeys)
     } else return {}
@@ -223,10 +220,7 @@ export class KeyRecovery {
       })
     })
 
-    const { successfulDecryptions: availableExchangeKeys } = await this.baseExchangeKeysManager.tryDecryptExchangeKeys(
-      await this.baseExchangeKeysManager.getEncryptedExchangeKeysFor(dataOwner.dataOwner.id!, dataOwner.dataOwner.id!),
-      allKeys
-    )
+    const availableExchangeKeys = await this.getExchangeKeys(dataOwner.dataOwner.id!, dataOwner.dataOwner.id!, allKeys)
 
     return Object.entries(missingKeysTransferData).reduce(async (acc, [recoverableKeyPubFp, transferData]) => {
       const awaitedAcc = await acc
@@ -268,5 +262,22 @@ export class KeyRecovery {
       }
     }
     return undefined
+  }
+
+  // Get exchange keys from aes exchange keys / hc party keys and exchange data
+  private async getExchangeKeys(
+    from: string,
+    to: string,
+    availableDecryptionKeys: { [pubKeyFingerprint: string]: KeyPair<CryptoKey> }
+  ): Promise<CryptoKey[]> {
+    const aesExchangeKeys = await this.baseExchangeKeysManager.tryDecryptExchangeKeys(
+      await this.baseExchangeKeysManager.getEncryptedExchangeKeysFor(from, to),
+      availableDecryptionKeys
+    )
+    const decryptedExchangeDataKeys = await this.baseExchangeDataManager.tryDecryptExchangeKeys(
+      await this.baseExchangeDataManager.getExchangeDataByDelegatorDelegatePair(from, to),
+      availableDecryptionKeys
+    )
+    return [...aesExchangeKeys.successfulDecryptions, ...decryptedExchangeDataKeys.successfulDecryptions]
   }
 }

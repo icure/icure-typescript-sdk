@@ -4,27 +4,18 @@ import { ExchangeKeysManager } from './ExchangeKeysManager'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { KeyPair } from './RSA'
 import { hex2ua, ua2hex } from '../utils'
+import { ExchangeDataManager } from './ExchangeDataManager'
 
 /**
  * Allows to create or update shamir split keys.
  */
 export class ShamirKeysManager {
-  private readonly primitives: CryptoPrimitives
-  private readonly dataOwnerApi: IccDataOwnerXApi
-  private readonly keyManager: UserEncryptionKeysManager
-  private readonly exchangeKeysManager: ExchangeKeysManager
-
   constructor(
-    primitives: CryptoPrimitives,
-    dataOwnerApi: IccDataOwnerXApi,
-    keyManager: UserEncryptionKeysManager,
-    exchangeKeysManager: ExchangeKeysManager
-  ) {
-    this.primitives = primitives
-    this.dataOwnerApi = dataOwnerApi
-    this.keyManager = keyManager
-    this.exchangeKeysManager = exchangeKeysManager
-  }
+    private readonly primitives: CryptoPrimitives,
+    private readonly dataOwnerApi: IccDataOwnerXApi,
+    private readonly encryptionKeysManager: UserEncryptionKeysManager,
+    private readonly exchangeDataManager: ExchangeDataManager
+  ) {}
 
   /**
    * Get information on existing private keys splits for the provided data owner. For each private key of the provided data owner which has been
@@ -61,7 +52,7 @@ export class ShamirKeysManager {
     const toDeleteSet = new Set(keySplitsToDelete.slice(-32))
     const intersection = Array.from(toDeleteSet).filter((x) => toUpdateSet.has(x))
     const existingSplits = new Set(Object.keys(this.getExistingSplitsInfo(self.dataOwner)))
-    const allKeys = this.keyManager.getDecryptionKeys()
+    const allKeys = this.encryptionKeysManager.getDecryptionKeys()
     if (toDeleteSet.size !== keySplitsToDelete.length || toUpdateSet.size !== Object.keys(keySplitsToUpdate).length || intersection.length > 0)
       throw new Error(`Duplicate keys in input:\nkeySplitsToUpdate: ${keySplitsToUpdate}\nkeySplitsToDelete: ${keySplitsToDelete}`)
     Object.entries(keySplitsToUpdate).forEach(([key, params]) => this.validateShamirParams(key, params))
@@ -74,11 +65,8 @@ export class ShamirKeysManager {
     const delegatesKeys: { [delegateId: string]: CryptoKey } = {}
     let updatedSelf = self
     for (const delegateId of new Set(Object.values(keySplitsToUpdate).flatMap((x) => x.notariesIds))) {
-      const res = await this.exchangeKeysManager.getOrCreateEncryptionExchangeKeysTo(delegateId)
-      delegatesKeys[delegateId] = res.keys[0]
-      if (res.updatedDelegator) {
-        updatedSelf = res.updatedDelegator
-      }
+      const res = await this.exchangeDataManager.getOrCreateEncryptionDataTo(delegateId, undefined, undefined)
+      delegatesKeys[delegateId] = res.exchangeKey
     }
     for (const [key, params] of Object.entries(keySplitsToUpdate)) {
       updatedSelf = await this.updateKeySplit(updatedSelf, key.slice(-32), params.notariesIds, params.minShares, delegatesKeys, allKeys)

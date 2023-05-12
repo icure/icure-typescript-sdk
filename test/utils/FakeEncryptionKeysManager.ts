@@ -7,7 +7,7 @@ import * as _ from 'lodash'
 
 export class FakeEncryptionKeysManager extends UserEncryptionKeysManager {
   constructor(private readonly keys: { [fingerprint: string]: { pair: KeyPair<CryptoKey>; verified: boolean } }) {
-    super(null as any, null as any, null as any, null as any, null as any, null as any)
+    super(null as any, null as any, null as any, null as any, null as any)
   }
 
   static async create(

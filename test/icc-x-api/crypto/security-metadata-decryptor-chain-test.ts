@@ -183,8 +183,10 @@ describe('Security metadata decryptor chain', async function () {
     function newAccessLevelDecryptor(accessLevel: AccessLevel | undefined): SecurityMetadataDecryptor {
       return {
         ...baseDecryptor,
-        decryptOwningEntityIdsOf: () => {
-          throw new Error('This should not be called')
+        getEntityAccessLevel: (typedEntity, dataOwnersHierarchySubset) => {
+          expect(typedEntity).to.equal(expectedEntity)
+          expect(dataOwnersHierarchySubset).to.equal(expectedDataOwnerHierarchySubset)
+          return Promise.resolve(accessLevel)
         },
       }
     }

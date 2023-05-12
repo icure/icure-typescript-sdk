@@ -35,8 +35,8 @@ export class FakeDecryptionExchangeDataManager implements ExchangeDataManager {
 
   async getDecryptionDataKeyById(
     id: string,
-    entityType: EntityWithDelegationTypeName,
-    entitySecretForeignKeys: string[],
+    entityType: EntityWithDelegationTypeName | undefined,
+    entitySecretForeignKeys: string[] | undefined,
     retrieveIfNotCached: boolean
   ): Promise<{ exchangeKey: CryptoKey | undefined; exchangeData: ExchangeData } | undefined> {
     expect(entityType).to.equal(this.expectedEntityType)
@@ -53,8 +53,8 @@ export class FakeDecryptionExchangeDataManager implements ExchangeDataManager {
 
   getOrCreateEncryptionDataTo(
     delegateId: string,
-    entityType: EntityWithDelegationTypeName,
-    entitySecretForeignKeys: string[]
+    entityType: EntityWithDelegationTypeName | undefined,
+    entitySecretForeignKeys: string[] | undefined
   ): Promise<{ exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey }> {
     throw new Error('This method should not be used with this fake exchange data manager: only retrieval decryption data is supported')
   }
