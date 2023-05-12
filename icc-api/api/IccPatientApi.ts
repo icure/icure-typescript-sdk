@@ -846,4 +846,24 @@ export class IccPatientApi {
       .then((doc) => (doc.body as Array<JSON>).map((x) => new EntityBulkShareResult<Patient>(x, Patient)))
       .catch((err) => this.handleError(err))
   }
+
+  /**
+   * @internal use mergePatients from the extended api instead
+   */
+  async baseMergePatients(fromId: string, expectedFromRev: string, updatedInto: Patient) {
+    let _body = updatedInto
+
+    const _url =
+      this.host +
+      `/patient/mergeInto/${encodeURIComponent(String(updatedInto.id))}/from/${encodeURIComponent(String(fromId))}` +
+      '?ts=' +
+      new Date().getTime() +
+      '&expectedFromRev=' +
+      encodeURIComponent(String(expectedFromRev))
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new Patient(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
 }
