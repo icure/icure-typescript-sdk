@@ -14,8 +14,9 @@ import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
+import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
-export class IccClassificationXApi extends IccClassificationApi {
+export class IccClassificationXApi extends IccClassificationApi implements EncryptedEntityXApi<models.Classification> {
   crypto: IccCryptoXApi
   dataOwnerApi: IccDataOwnerXApi
 
@@ -215,5 +216,15 @@ export class IccClassificationXApi extends IccClassificationApi {
       ),
       (x) => this.bulkShareClassifications(x)
     )
+  }
+
+  getDataOwnersWithAccessTo(
+    entity: models.Classification
+  ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
+    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Classification' })
+  }
+
+  getEncryptionKeysOf(entity: models.Classification): Promise<string[]> {
+    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'Classification' }, undefined)
   }
 }

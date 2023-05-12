@@ -93,6 +93,15 @@ export interface ExtendedApisUtils {
    * @return if the entity has no encryption metadata and can be safely initialised using .
    */
   hasEmptyEncryptionMetadata(entity: EncryptedEntity): boolean
+
+  /**
+   * Get the data owners which can access the entity. See {@link EncryptedEntityXApi.getDataOwnersWithAccessTo} for more details.
+   * @param entity an entity.
+   */
+  getDataOwnersWithAccessTo(entity: EncryptedEntityWithType): Promise<{
+    permissionsByDataOwnerId: { [dataOwnerId: string]: AccessLevelEnum }
+    hasUnknownAnonymousDataOwners: boolean
+  }>
   // endregion
 
   // region metadata initialisation and share

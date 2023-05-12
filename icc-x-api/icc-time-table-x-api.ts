@@ -15,8 +15,9 @@ import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import { XHR } from '../icc-api/api/XHR'
+import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
-export class IccTimeTableXApi extends IccTimeTableApi {
+export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntityXApi<models.TimeTable> {
   i18n: any = i18n
   crypto: IccCryptoXApi
   dataOwnerApi: IccDataOwnerXApi
@@ -180,5 +181,15 @@ export class IccTimeTableXApi extends IccTimeTableApi {
       ),
       (x) => this.bulkShareTimeTable(x)
     )
+  }
+
+  getDataOwnersWithAccessTo(
+    entity: models.TimeTable
+  ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
+    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'TimeTable' })
+  }
+
+  getEncryptionKeysOf(entity: models.TimeTable): Promise<string[]> {
+    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'TimeTable' }, undefined)
   }
 }

@@ -6,6 +6,7 @@ import { ExchangeData } from '../../icc-api/model/ExchangeData'
 import { SecureDelegationsEncryption } from './SecureDelegationsEncryption'
 import AccessLevel = SecureDelegation.AccessLevelEnum
 import { EncryptedEntity, EncryptedEntityStub } from '../../icc-api/model/models'
+import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
 
 type DelegationDecryptionDetails = {
   delegation: SecureDelegation
@@ -14,7 +15,11 @@ type DelegationDecryptionDetails = {
 }
 
 export class SecureDelegationsSecurityMetadataDecryptor implements SecurityMetadataDecryptor {
-  constructor(private readonly exchangeData: ExchangeDataManager, private readonly secureDelegationsEncryption: SecureDelegationsEncryption) {}
+  constructor(
+    private readonly exchangeData: ExchangeDataManager,
+    private readonly secureDelegationsEncryption: SecureDelegationsEncryption,
+    private readonly dataOwnerApi: IccDataOwnerXApi
+  ) {}
 
   decryptEncryptionKeysOf(
     typedEntity: EncryptedEntityWithType,
@@ -52,13 +57,86 @@ export class SecureDelegationsSecurityMetadataDecryptor implements SecurityMetad
     )
   }
 
+  async getDataOwnersWithAccessTo(typedEntity: EncryptedEntityWithType): Promise<{
+    permissionsByDataOwnerId: { [delegateId: string]: SecureDelegation.AccessLevelEnum }
+    hasUnknownAnonymousDataOwners: boolean
+  }> {
+    const accumulatedPermissions: { [delegateId: string]: SecureDelegation.AccessLevelEnum } = {}
+    let hasUnknownAnonymousDataOwners = false
+    function addPermission(delegateId: string, level: SecureDelegation.AccessLevelEnum): void {
+      if (accumulatedPermissions[delegateId] !== AccessLevel.WRITE) {
+        accumulatedPermissions[delegateId] = level
+      }
+    }
+    // 1. Add all explicit data owners, keep only delegations with at least an anonymous data owner to check later
+    let remainingDelegations = Object.entries(typedEntity.entity.securityMetadata?.secureDelegations ?? {})
+    let updatedRemainingDelegations: [string, SecureDelegation][] = []
+    for (const delegationEntry of remainingDelegations) {
+      const delegation = delegationEntry[1]
+      if (delegation.delegator) {
+        addPermission(delegation.delegator, delegation.permissions)
+      }
+      if (delegation.delegate) {
+        addPermission(delegation.delegate, delegation.permissions)
+      }
+      if (!delegation.delegator || !delegation.delegate) {
+        updatedRemainingDelegations.push(delegationEntry)
+      }
+    }
+    remainingDelegations = updatedRemainingDelegations
+    if (!remainingDelegations.length) return { permissionsByDataOwnerId: accumulatedPermissions, hasUnknownAnonymousDataOwners }
+    updatedRemainingDelegations = []
+    // 2. Attempt to identify the anonymous data owner of remaining delegations by checking if we have the exchange data cached by hash
+    // Note: we can find exchange data by hash only if we could successfully decrypt it
+    const cachedExchangeData = await this.exchangeData.getCachedDecryptionDataKeyByAccessControlHash(
+      remainingDelegations.map((d) => d[0]),
+      typedEntity.type,
+      typedEntity.entity.secretForeignKeys ?? []
+    )
+    for (const delegationEntry of remainingDelegations) {
+      const exchangeDataOfDelegation = cachedExchangeData[delegationEntry[0]]
+      if (exchangeDataOfDelegation) {
+        addPermission(exchangeDataOfDelegation.exchangeData.delegator, delegationEntry[1].permissions)
+        addPermission(exchangeDataOfDelegation.exchangeData.delegate, delegationEntry[1].permissions)
+      } else {
+        updatedRemainingDelegations.push(delegationEntry)
+      }
+    }
+    remainingDelegations = updatedRemainingDelegations
+    if (!remainingDelegations.length) return { permissionsByDataOwnerId: accumulatedPermissions, hasUnknownAnonymousDataOwners }
+    // 3. Attempt to identify the anonymous data owner of remaining delegations between us (or one of our parents) and an anonymous data owner
+    const hierarchy = await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
+    for (const delegationEntry of remainingDelegations) {
+      const delegation = delegationEntry[1]
+      if (hierarchy.some((x) => x === delegation.delegate || x === delegation.delegator)) {
+        const dataId = await this.secureDelegationsEncryption.decryptExchangeDataId(delegation)
+        const exchangeDataInfo = dataId
+          ? await this.exchangeData.getDecryptionDataKeyById(dataId, typedEntity.type, typedEntity.entity.secretForeignKeys ?? [], true)
+          : undefined
+        if (exchangeDataInfo) {
+          addPermission(exchangeDataInfo.exchangeData.delegator, delegation.permissions)
+          addPermission(exchangeDataInfo.exchangeData.delegate, delegation.permissions)
+        } else {
+          hasUnknownAnonymousDataOwners = true
+        }
+      } else {
+        hasUnknownAnonymousDataOwners = true
+      }
+    }
+    return {
+      permissionsByDataOwnerId: accumulatedPermissions,
+      hasUnknownAnonymousDataOwners,
+    }
+  }
+
   hasAnyEncryptionKeys(entity: EncryptedEntity | EncryptedEntityStub): boolean {
     return Object.values(entity.securityMetadata?.secureDelegations ?? {}).some((d) => d.encryptionKeys?.length)
   }
 
   async getEntityAccessLevel(typedEntity: EncryptedEntityWithType, dataOwnersHierarchySubset: string[]): Promise<AccessLevel | undefined> {
     if (!dataOwnersHierarchySubset.length) throw new Error("`dataOwnersHierarchySubset` can't be empty")
-    // All delegations are either accessible directly or through a hash/access control key. There is no "mixed scenario" possible
+    // If the data owner is explicit all delegations he can access has his id. If the delegator is anonymous all delegations he can access are
+    // accessible by hash. No mixed scenario possible.
     let accessibleDelegations: SecureDelegation[] = Object.values(typedEntity.entity.securityMetadata?.secureDelegations ?? {}).filter(
       (secureDelegation) =>
         dataOwnersHierarchySubset.some((dataOwner) => dataOwner === secureDelegation.delegator || dataOwner === secureDelegation.delegate)

@@ -240,7 +240,7 @@ export const Api = async function (
     cryptoPrimitives,
     dataOwnerApi,
     new LegacyDelegationSecurityMetadataDecryptor(exchangeKeysManager, cryptoPrimitives),
-    new SecureDelegationsSecurityMetadataDecryptor(exchangeDataManager, secureDelegationsEncryption),
+    new SecureDelegationsSecurityMetadataDecryptor(exchangeDataManager, secureDelegationsEncryption, dataOwnerApi),
     new SecureDelegationsManager(
       exchangeDataManager,
       secureDelegationsEncryption,

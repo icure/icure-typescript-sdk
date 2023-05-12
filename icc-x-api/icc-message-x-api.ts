@@ -14,8 +14,9 @@ import { ShareResult } from './utils/ShareResult'
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
+import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
-export class IccMessageXApi extends IccMessageApi {
+export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi<models.Message> {
   dataOwnerApi: IccDataOwnerXApi
 
   get headers(): Promise<Array<XHR.Header>> {
@@ -230,5 +231,15 @@ export class IccMessageXApi extends IccMessageApi {
    */
   decryptSecretIdsOf(message: models.Message): Promise<string[]> {
     return this.crypto.xapi.secretIdsOf({ entity: message, type: 'Message' }, undefined)
+  }
+
+  getDataOwnersWithAccessTo(
+    entity: models.Message
+  ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
+    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Message' })
+  }
+
+  getEncryptionKeysOf(entity: models.Message): Promise<string[]> {
+    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'Message' }, undefined)
   }
 }

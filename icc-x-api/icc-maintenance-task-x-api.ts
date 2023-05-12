@@ -13,8 +13,9 @@ import { ShareResult } from './utils/ShareResult'
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
+import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
-export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
+export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements EncryptedEntityXApi<models.MaintenanceTask> {
   crypto: IccCryptoXApi
   hcPartyApi: IccHcpartyXApi
   dataOwnerApi: IccDataOwnerXApi
@@ -272,5 +273,15 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
         (x) => this.bulkShareMaintenanceTask(x)
       )
       .then((r) => r.mapSuccessAsync((e) => this.decryptAs(self, [e]).then((es) => es[0])))
+  }
+
+  getDataOwnersWithAccessTo(
+    entity: models.MaintenanceTask
+  ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
+    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'MaintenanceTask' })
+  }
+
+  getEncryptionKeysOf(entity: models.MaintenanceTask): Promise<string[]> {
+    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'MaintenanceTask' }, undefined)
   }
 }

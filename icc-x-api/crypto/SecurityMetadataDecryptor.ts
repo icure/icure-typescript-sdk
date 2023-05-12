@@ -2,6 +2,7 @@ import { EncryptedEntity, EncryptedEntityStub } from '../../icc-api/model/models
 import { EncryptedEntityWithType, EntityWithDelegationTypeName } from '../utils/EntityWithDelegationTypeName'
 import { SecureDelegation } from '../../icc-api/model/SecureDelegation'
 import AccessLevel = SecureDelegation.AccessLevelEnum
+import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 
 /**
  * @internal this class is for internal use only and may be changed without notice.
@@ -72,6 +73,15 @@ export interface SecurityMetadataDecryptor {
   getEntityAccessLevel(typedEntity: EncryptedEntityWithType, dataOwnersHierarchySubset: string[]): Promise<AccessLevel | undefined>
 
   /**
+   * Get the access level of each data owner with access to the entity according to the metadata supported by this decryptor.
+   * See {@link EncryptedEntityXApi.getDataOwnersWithAccessTo} for details on the expected behaviour.
+   */
+  getDataOwnersWithAccessTo(typedEntity: EncryptedEntityWithType): Promise<{
+    permissionsByDataOwnerId: { [dataOwnerId: string]: AccessLevelEnum }
+    hasUnknownAnonymousDataOwners: boolean
+  }>
+
+  /**
    * Verifies if there is at least one (encrypted) encryption key in the metadata supported by this decryptor, even if it can't be decrypted by the
    * current data owner.
    */
@@ -125,6 +135,27 @@ export class SecurityMetadataDecryptorChain implements SecurityMetadataDecryptor
 
   hasAnyEncryptionKeys(entity: EncryptedEntity | EncryptedEntityStub): boolean {
     return this.decryptors.some((d) => d.hasAnyEncryptionKeys(entity))
+  }
+
+  async getDataOwnersWithAccessTo(typedEntity: EncryptedEntityWithType): Promise<{
+    permissionsByDataOwnerId: { [dataOwnerId: string]: AccessLevelEnum }
+    hasUnknownAnonymousDataOwners: boolean
+  }> {
+    const accumulatedPermissions: { [dataOwnerId: string]: AccessLevelEnum } = {}
+    let hasUnknownAnonymousDataOwners = false
+    for (const d of this.decryptors) {
+      const currAccess = await d.getDataOwnersWithAccessTo(typedEntity)
+      hasUnknownAnonymousDataOwners = hasUnknownAnonymousDataOwners || currAccess.hasUnknownAnonymousDataOwners
+      for (const [dataOwnerId, level] of Object.entries(currAccess.permissionsByDataOwnerId)) {
+        if (accumulatedPermissions[dataOwnerId] !== AccessLevel.WRITE) {
+          accumulatedPermissions[dataOwnerId] = level
+        }
+      }
+    }
+    return {
+      permissionsByDataOwnerId: accumulatedPermissions,
+      hasUnknownAnonymousDataOwners,
+    }
   }
 
   private concatenate<T>(getGenerator: (d: SecurityMetadataDecryptor) => AsyncGenerator<T, void, never>): AsyncGenerator<T, void, never> {
