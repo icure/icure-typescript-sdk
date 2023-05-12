@@ -2,7 +2,7 @@ import * as i18n from './rsrc/contact.i18n'
 
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import { CalendarItem, User } from '../icc-api/model/models'
+import { CalendarItem, EncryptedEntityStub, User } from '../icc-api/model/models'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 import { IccCalendarItemApi } from '../icc-api'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
@@ -363,5 +363,51 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
 
   getEncryptionKeysOf(entity: CalendarItem): Promise<string[]> {
     return this.crypto.xapi.encryptionKeysOf({ entity, type: 'CalendarItem' }, undefined)
+  }
+
+  /**
+   * Links a calendar item with a patient. Note that this operation is not reversible: it is not possible to change the patient linked to a calendar
+   * item.
+   * @param calendarItem a calendar item
+   * @param patient the patient which will be linked to the calendar item.
+   * @param shareLinkWithDelegates data owners other than the current data owner which will also be able to decrypt the id of the newly linked
+   * patient. If any of these data owners do not already have access to the calendar item, they will be granted read access (no write).
+   * @return the updated calendar item
+   */
+  async linkToPatient(calendarItem: models.CalendarItem, patient: models.Patient, shareLinkWithDelegates: string[]): Promise<models.CalendarItem> {
+    if (!!calendarItem.secretForeignKeys?.length) throw new Error(`Calendar item ${calendarItem.id} is already linked to a patient`)
+    const delegates = [...new Set([await this.dataOwnerApi.getCurrentDataOwnerId(), ...shareLinkWithDelegates])]
+    const sfk = await this.crypto.confidential.getAnySecretIdSharedWithParents({ entity: patient, type: 'Patient' })
+    if (!sfk) {
+      throw new Error(`Could not find any secret id for patient ${patient.id} which is shared with the topmost ancestor of the current data owner`)
+    }
+    const individualShareData = {
+      shareSecretIds: [] as string[],
+      shareEncryptionKeys: [] as string[],
+      shareOwningEntityIds: [patient.id!],
+      requestedPermissions: RequestedPermissionEnum.FULL_READ,
+    }
+    const shared = await this.crypto.xapi.bulkShareOrUpdateEncryptedEntityMetadata(
+      'CalendarItem',
+      [
+        {
+          entity: calendarItem,
+          dataForDelegates: Object.fromEntries(delegates.map((d) => [d, individualShareData])),
+        },
+      ],
+      (x) => this.bulkShareCalendarItems(x)
+    )
+    if (!shared.updatedEntities.length || shared.updatedEntities[0].id !== calendarItem.id) {
+      const errorsForEntity = shared.updateErrors.filter((e) => e.entityId === calendarItem.id)
+      if (!errorsForEntity.length || !errorsForEntity.find((x) => x.code === 409)) {
+        throw new Error(`Unexpected error while linking calendar item ${calendarItem.id}`)
+      } else {
+        throw new Error(`Outdated calendar item revision ${calendarItem.id}-${calendarItem.rev}`)
+      }
+    }
+    const self = await this.dataOwnerApi.getCurrentDataOwnerId()
+    const sharedDecrypted = (await this.decrypt(self, [shared.updatedEntities[0]]))[0]
+    const withSfk = await this.modifyAs(self, { ...sharedDecrypted, secretForeignKeys: [sfk] })
+    return (await this.decrypt(self, [withSfk]))[0]
   }
 }
