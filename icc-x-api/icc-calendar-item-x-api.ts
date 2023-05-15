@@ -325,6 +325,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
    * @return the updated calendar item
    */
   async linkToPatient(calendarItem: models.CalendarItem, patient: models.Patient, shareLinkWithDelegates: string[]): Promise<models.CalendarItem> {
+    if (!!calendarItem.secretForeignKeys?.length) throw new Error(`Calendar item ${calendarItem.id} is already linked to a patient`)
     const delegates = [...new Set([await this.dataOwnerApi.getCurrentDataOwnerId(), ...shareLinkWithDelegates])]
     const sfk = await this.crypto.confidential.getAnySecretIdSharedWithParents(patient)
     if (!sfk) {
