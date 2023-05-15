@@ -3,7 +3,7 @@ import { KeyPair } from './RSA'
 import { ua2hex } from '../utils'
 import { IcureStorageFacade } from '../storage/IcureStorageFacade'
 import { BaseExchangeKeysManager } from './BaseExchangeKeysManager'
-import { fingerprintToPublicKeysMapOf, loadPublicKeys } from './utils'
+import { fingerprintToPublicKeysMapOf, fingerprintV1, loadPublicKeys } from './utils'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { KeyRecovery } from './KeyRecovery'
 import { CryptoStrategies } from './CryptoStrategies'
@@ -133,7 +133,7 @@ export class UserEncryptionKeysManager {
             }
           )
         ),
-      (x) => {
+      (_) => {
         throw new Error("Can't create new keys at reload time: it should have already been created on initialisation")
       }
     )
@@ -291,7 +291,7 @@ export class UserEncryptionKeysManager {
   ): Promise<{ publicKeyFingerprint: string; keyPair: KeyPair<CryptoKey>; updatedSelf: DataOwnerWithType }> {
     const keyPair = importedKeyPair ?? (await this.primitives.RSA.generateKeyPair())
     const publicKeyHex = ua2hex(await this.primitives.RSA.exportKey(keyPair.publicKey, 'spki'))
-    const publicKeyFingerprint = publicKeyHex.slice(-32)
+    const publicKeyFingerprint = fingerprintV1(publicKeyHex)
     await this.icureStorage.saveKey(
       selfDataOwner.dataOwner.id!,
       publicKeyFingerprint,
@@ -369,7 +369,7 @@ export class UserEncryptionKeysManager {
 
   private async loadAndRecoverKeysFor(dataOwner: DataOwnerWithType): Promise<{ [keyFp: string]: { pair: KeyPair<CryptoKey>; isDevice: boolean } }> {
     const selfPublicKeys = this.dataOwnerApi.getHexPublicKeysOf(dataOwner.dataOwner)
-    const pubKeysFingerprints = Array.from(selfPublicKeys).map((x) => x.slice(-32))
+    const pubKeysFingerprints = Array.from(selfPublicKeys).map((x) => fingerprintV1(x))
     const loadedKeys = pubKeysFingerprints.length > 0 ? await this.loadStoredKeys(dataOwner, pubKeysFingerprints) : {}
     const loadedKeysFingerprints = Object.keys(loadedKeys)
     if (loadedKeysFingerprints.length !== pubKeysFingerprints.length && loadedKeysFingerprints.length > 0) {
@@ -382,7 +382,7 @@ export class UserEncryptionKeysManager {
   }
 
   private ensureFingerprintKeys<T>(obj: { [shouldBeFingerprint: string]: T }): { [definitelyFingerprint: string]: T } {
-    return Object.fromEntries(Object.entries(obj).map(([k, v]) => [k.slice(-32), v]))
+    return Object.fromEntries(Object.entries(obj).map(([k, v]) => [fingerprintV1(k), v]))
   }
 
   private hasVerifiedKey(keysData: { [fp: string]: KeyPairData }) {

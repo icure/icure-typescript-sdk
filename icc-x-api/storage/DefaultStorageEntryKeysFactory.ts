@@ -1,16 +1,19 @@
 import { StorageEntryKeysFactory } from './StorageEntryKeysFactory'
+import { isFingerprintV1, isFingerprintV2 } from '../crypto/utils'
 
 /**
  * Default implementation for {@link StorageEntryKeysFactory}, compatible with legacy local storage keys.
  */
 export class DefaultStorageEntryKeysFactory implements StorageEntryKeysFactory {
   cachedRecoveredKeypairOfDataOwner(dataOwnerId: string, publicKeyFingerprint: string): string {
-    if (publicKeyFingerprint.length != 32) throw new Error(`Invalid key fingerprint: ${publicKeyFingerprint}`)
+    if (!isFingerprintV2(publicKeyFingerprint) && !isFingerprintV1(publicKeyFingerprint))
+      throw new Error(`Invalid key fingerprint: ${publicKeyFingerprint}`)
     return `org.taktik.icure.rsa.recovered.${dataOwnerId}.${publicKeyFingerprint}`
   }
 
   deviceKeypairOfDataOwner(dataOwnerId: string, publicKeyFingerprint: string): string {
-    if (publicKeyFingerprint.length != 32) throw new Error(`Invalid key fingerprint: ${publicKeyFingerprint}`)
+    if (!isFingerprintV2(publicKeyFingerprint) && !isFingerprintV1(publicKeyFingerprint))
+      throw new Error(`Invalid key fingerprint: ${publicKeyFingerprint}`)
     return `org.taktik.icure.rsa.device.${dataOwnerId}.${publicKeyFingerprint}`
   }
 

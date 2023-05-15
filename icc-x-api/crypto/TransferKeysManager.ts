@@ -4,7 +4,7 @@ import { DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { ua2hex } from '../utils'
 import { UserEncryptionKeysManager } from './UserEncryptionKeysManager'
 import { reachSetsAcyclic, StronglyConnectedGraph } from '../utils/graph-utils'
-import { fingerprintToPublicKeysMapOf, loadPublicKeys, transferKeysFpGraphOf } from './utils'
+import { fingerprintToPublicKeysMapOf, fingerprintV1, loadPublicKeys, transferKeysFpGraphOf, isFingerprintV1, fingerprintV1toV2 } from './utils'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { IcureStorageFacade } from '../storage/IcureStorageFacade'
 
@@ -102,7 +102,7 @@ export class TransferKeysManager {
   > {
     const verifiedKeysFpSet = new Set(this.keyManager.getSelfVerifiedKeys().map((x) => x.fingerprint))
     Object.entries(await this.icureStorage.loadSelfVerifiedKeys(self.dataOwner.id!)).forEach(([key, verified]) => {
-      if (verified) verifiedKeysFpSet.add(key.slice(-32))
+      if (verified) verifiedKeysFpSet.add(fingerprintV1(key))
     })
     if (verifiedKeysFpSet.size == 0) return undefined
     const graph = transferKeysFpGraphOf(self.dataOwner)

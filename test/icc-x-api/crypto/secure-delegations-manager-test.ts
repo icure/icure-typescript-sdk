@@ -25,6 +25,7 @@ import { asyncGeneratorToArray } from '../../../icc-x-api/utils/collection-utils
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionInternal
 import { EntitySharedMetadataUpdateRequest } from '../../../icc-api/model/requests/EntitySharedMetadataUpdateRequest'
 import EntryUpdateTypeEnum = EntitySharedMetadataUpdateRequest.EntryUpdateTypeEnum
+import { fingerprintV2 } from '../../../icc-x-api/crypto/utils'
 
 describe('Secure delegations manager', async function () {
   const primitives = new CryptoPrimitives(webcrypto as any)
@@ -47,7 +48,7 @@ describe('Secure delegations manager', async function () {
     selfKeyFp = ua2hex(await primitives.RSA.exportKey(selfKeypair.publicKey, 'spki')).slice(-32)
     delegateId = primitives.randomUuid()
     delegateKeypair = await primitives.RSA.generateKeyPair()
-    delegateKeyFp = ua2hex(await primitives.RSA.exportKey(delegateKeypair.publicKey, 'spki')).slice(-32)
+    delegateKeyFp = fingerprintV2(ua2hex(await primitives.RSA.exportKey(delegateKeypair.publicKey, 'spki')))
     dataOwnerApi = new FakeDataOwnerApi(
       {
         id: selfId,

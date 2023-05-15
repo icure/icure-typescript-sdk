@@ -9,7 +9,6 @@ import { webcrypto } from 'crypto'
 import { BaseExchangeDataManager } from '../../../icc-x-api/crypto/BaseExchangeDataManager'
 import { FakeExchangeDataApi } from '../../utils/FakeExchangeDataApi'
 import { FakeDataOwnerApi } from '../../utils/FakeDataOwnerApi'
-import { DataOwnerTypeEnum } from '../../../icc-x-api/icc-data-owner-x-api'
 import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
 import { ua2b64, ua2hex } from '../../../icc-x-api'
 import { FakeEncryptionKeysManager } from '../../utils/FakeEncryptionKeysManager'
@@ -20,6 +19,7 @@ import { expect } from 'chai'
 import { setEquals } from '../../../icc-x-api/utils/collection-utils'
 import { KeyPair } from '../../../icc-x-api/crypto/RSA'
 import * as _ from 'lodash'
+import { fingerprintV1, fingerprintV2 } from '../../../icc-x-api/crypto/utils'
 
 describe('Exchange data manager', async function () {
   const primitives = new CryptoPrimitives(webcrypto as any)
@@ -44,7 +44,7 @@ describe('Exchange data manager', async function () {
     const dataOwnerType = allowFullExchangeDataLoad ? 'patient' : 'hcp'
     selfId = primitives.randomUuid()
     selfKeypair = await primitives.RSA.generateKeyPair()
-    selfKeyFp = ua2hex(await primitives.RSA.exportKey(selfKeypair.publicKey, 'spki')).slice(-32)
+    selfKeyFp = fingerprintV2(ua2hex(await primitives.RSA.exportKey(selfKeypair.publicKey, 'spki')))
     delegateId = primitives.randomUuid()
     delegateKeypair = await primitives.RSA.generateKeyPair()
     delegateKeyFp = ua2hex(await primitives.RSA.exportKey(delegateKeypair.publicKey, 'spki')).slice(-32)
@@ -128,7 +128,7 @@ describe('Exchange data manager', async function () {
         .map(async () => {
           const pair = await primitives.RSA.generateKeyPair()
           const hexPub = ua2hex(await primitives.RSA.exportKey(pair.publicKey, 'spki'))
-          const fingerprint = hexPub.slice(-32)
+          const fingerprint = fingerprintV2(hexPub)
           return { pair, fingerprint, hexPub }
         })
     )

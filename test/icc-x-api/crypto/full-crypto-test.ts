@@ -25,6 +25,7 @@ import AccessLevel = SecureDelegation.AccessLevelEnum
 import { EntityShareRequest } from '../../../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
+import { fingerprintV1, fingerprintV2 } from '../../../icc-x-api/crypto/utils'
 
 setLocalStorage(fetch)
 
@@ -150,7 +151,7 @@ const userDefinitions: Record<string, (user: User, password: string, pair: KeyPa
       user.login!,
       password,
       new TestCryptoStrategies(newKey, {
-        [ua2hex(await primitives.RSA.exportKey(originalKey.publicKey, 'spki')).slice(-32)]: true,
+        [fingerprintV1(ua2hex(await primitives.RSA.exportKey(originalKey.publicKey, 'spki')))]: true,
       }),
       webcrypto as any,
       fetch,
@@ -164,7 +165,7 @@ const userDefinitions: Record<string, (user: User, password: string, pair: KeyPa
       user.login!,
       password,
       new TestCryptoStrategies(originalKey, {
-        [ua2hex(await primitives.RSA.exportKey(newKey.publicKey, 'spki')).slice(-32)]: true,
+        [fingerprintV1(ua2hex(await primitives.RSA.exportKey(newKey.publicKey, 'spki')))]: true,
       }),
       webcrypto as any,
       fetch,

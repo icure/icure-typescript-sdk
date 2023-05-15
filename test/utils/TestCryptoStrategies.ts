@@ -1,6 +1,6 @@
 import { CryptoStrategies } from '../../icc-x-api/crypto/CryptoStrategies'
 import { KeyPair, RSAUtils } from '../../icc-x-api/crypto/RSA'
-import { DataOwner, DataOwnerTypeEnum, DataOwnerWithType } from '../../icc-x-api/icc-data-owner-x-api'
+import { DataOwner, DataOwnerWithType } from '../../icc-x-api/icc-data-owner-x-api'
 import { hexPublicKeysOf } from '../../icc-x-api/crypto/utils'
 import { webcrypto } from 'crypto'
 import { ua2hex } from '../../icc-x-api'
