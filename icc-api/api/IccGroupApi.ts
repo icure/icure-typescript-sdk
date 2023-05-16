@@ -166,13 +166,13 @@ export class IccGroupApi {
    * @summary Get a parent group name by id of the child
    * @param id The id of the child group
    */
-  getNameOfParentGroup(id: string): Promise<String> {
+  getNameOfParentGroup(id: string): Promise<string> {
     let _body = null
 
     const _url = this.host + `/group/${encodeURIComponent(String(id))}/parent/name` + '?ts=' + new Date().getTime()
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => doc.body as String)
+      .then((doc) => doc.body as string)
       .catch((err) => this.handleError(err))
   }
 
