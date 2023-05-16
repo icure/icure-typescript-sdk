@@ -1,6 +1,6 @@
 import { AuthService } from './AuthService'
 import { XHR } from '../../icc-api/api/XHR'
-import { JwtAuthService } from './JwtAuthService'
+import { JwtBridgedAuthService } from './JwtBridgedAuthService'
 import { NoAuthService } from './NoAuthService'
 import { BasicAuthService } from './BasicAuthService'
 import Header = XHR.Header
@@ -12,7 +12,7 @@ export class EnsembleAuthService implements AuthService {
   private stateMap: { [key: string]: { state: AuthService | null; next: string | null } }
 
   constructor(
-    private readonly jwtAuth: JwtAuthService | null,
+    private readonly jwtAuth: JwtBridgedAuthService | null,
     private readonly sessionAuth: NoAuthService,
     private readonly basicAuth: BasicAuthService
   ) {
@@ -23,6 +23,10 @@ export class EnsembleAuthService implements AuthService {
       basic: { state: this.basicAuth, next: null },
     }
     this.currentState = 'start'
+  }
+
+  getIcureTokens(): Promise<{ token: string; refreshToken: string } | undefined> {
+    return this.jwtAuth?.getIcureTokens() ?? (Promise.resolve() as Promise<undefined>)
   }
 
   async getAuthHeaders(): Promise<Array<Header>> {

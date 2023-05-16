@@ -7,7 +7,7 @@ import { a2b } from '../utils'
 import { AuthenticationResponse } from '../../icc-api/model/AuthenticationResponse'
 import XHRError = XHR.XHRError
 
-export class JwtAuthService implements AuthService {
+export class JwtBridgedAuthService implements AuthService {
   private _error: Error | null = null
   private _currentPromise: Promise<{ authJwt?: string; refreshJwt?: string }> = Promise.resolve({})
 
@@ -17,6 +17,10 @@ export class JwtAuthService implements AuthService {
     private password: string,
     private thirdPartyTokens: { [thirdParty: string]: string } = {}
   ) {}
+
+  getIcureTokens(): Promise<{ token: string; refreshToken: string } | undefined> {
+    return this.getAuthHeaders().then(() => this._currentPromise.then(({ authJwt, refreshJwt }) => ({ token: authJwt!, refreshToken: refreshJwt! })))
+  }
 
   async getAuthHeaders(): Promise<Array<Header>> {
     return this._currentPromise
