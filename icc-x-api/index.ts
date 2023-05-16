@@ -37,6 +37,7 @@ import {
   AuthenticationProvider,
   BasicAuthenticationProvider,
   EnsembleAuthenticationProvider,
+  JwtAuthenticationProvider,
   NoAuthenticationProvider,
 } from './auth/AuthenticationProvider'
 import { CryptoPrimitives } from './crypto/CryptoPrimitives'
@@ -139,6 +140,8 @@ export type AuthenticationDetails = {
   username: string
   password: string
   forceBasic?: boolean // default false
+  icureTokens?: { token: string; refreshToken: string }
+  thirdPartyTokens: { [thirdParty: string]: string }
 }
 
 export const Api = async function (
@@ -161,8 +164,17 @@ export const Api = async function (
       : new EnsembleAuthenticationProvider(
           new IccAuthApi(host, params.headers, new NoAuthenticationProvider(), fetchImpl),
           authenticationOptions.username,
-          authenticationOptions.password
+          authenticationOptions.password,
+          3600,
+          authenticationOptions.thirdPartyTokens
         )
+  } else if ('icureTokens' in authenticationOptions) {
+    new JwtAuthenticationProvider(
+      new IccAuthApi(host, {}, new NoAuthenticationProvider(), fetchImpl),
+      undefined,
+      undefined,
+      authenticationOptions.icureTokens
+    )
   } else {
     authenticationProvider = authenticationOptions as AuthenticationProvider
   }

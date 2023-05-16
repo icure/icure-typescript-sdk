@@ -188,6 +188,32 @@ export class IccAuthApi {
   }
 
   /**
+   * Switch groups using the refresh JWT
+   * @summary switch groups
+   */
+  switchGroupUsingRefreshJWT(groupId: string): Promise<AuthenticationResponse> {
+    return this.authenticationProvider.getIcureTokens().then((tokens) => {
+      let _body = null
+      const _url = this.host + `/auth/switch/${encodeURIComponent(String(groupId))}` + '?ts=' + new Date().getTime()
+
+      const refreshToken = tokens?.refreshToken
+      if (!refreshToken) {
+        throw new Error('No refresh token found')
+      }
+      let headers = [...this.headers, new XHR.Header('Refresh-Token', refreshToken)]
+      return XHR.sendCommand(
+        'POST',
+        _url,
+        headers.filter((h) => h.header?.toLowerCase() !== 'authorization'),
+        _body,
+        this.fetchImpl
+      )
+        .then((doc) => new AuthenticationResponse(doc.body as JSON))
+        .catch((err) => this.handleError(err))
+    })
+  }
+
+  /**
    * Invalidates a refresh JWT
    * @summary invalidate
    */
