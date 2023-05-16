@@ -34,7 +34,12 @@ import { StorageFacade } from './storage/StorageFacade'
 import { KeyStorageFacade } from './storage/KeyStorageFacade'
 import { LocalStorageImpl } from './storage/LocalStorageImpl'
 import { KeyStorageImpl } from './storage/KeyStorageImpl'
-import { BasicAuthenticationProvider, EnsembleAuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import {
+  BasicAuthenticationProvider,
+  EnsembleAuthenticationProvider,
+  JwtAuthenticationProvider,
+  NoAuthenticationProvider,
+} from './auth/AuthenticationProvider'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -104,6 +109,7 @@ export const Api = async function (
   autoLogin = false,
   storage?: StorageFacade<string>,
   keyStorage?: KeyStorageFacade,
+  icureTokens?: { token: string; refreshToken: string },
   thirdPartyTokens: { [thirdParty: string]: string } = {}
 ): Promise<Apis> {
   const _storage = storage || new LocalStorageImpl()
@@ -113,6 +119,8 @@ export const Api = async function (
   const headers = {}
   const authenticationProvider = forceBasic
     ? new BasicAuthenticationProvider(username, password)
+    : icureTokens
+    ? new JwtAuthenticationProvider(new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl), undefined, undefined, icureTokens)
     : new EnsembleAuthenticationProvider(
         new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl),
         username,
