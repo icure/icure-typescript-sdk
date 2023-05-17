@@ -9,6 +9,9 @@ export class AESUtils {
     name: 'AES-CBC',
     length: 256,
   }
+
+  private aesImportParams: AlgorithmIdentifier = { name: this.aesAlgorithmEncryptName }
+
   private crypto: Crypto
   private _debug: boolean = false
 
@@ -165,7 +168,7 @@ export class AESUtils {
     return new Promise((resolve: (value: CryptoKey) => any, reject: (reason: any) => any) => {
       const extractable = true
       const keyUsages: KeyUsage[] = ['decrypt', 'encrypt']
-      return this.crypto.subtle.importKey(format as any, aesKey as any, this.aesKeyGenParams, extractable, keyUsages).then(resolve, reject)
+      return this.crypto.subtle.importKey(format as any, aesKey as any, this.aesImportParams, extractable, keyUsages).then(resolve, reject)
     })
   }
 }
