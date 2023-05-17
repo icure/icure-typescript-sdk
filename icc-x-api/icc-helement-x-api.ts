@@ -304,9 +304,11 @@ export class IccHelementXApi extends IccHelementApi {
           .then((healthElement: HealthElement) =>
             this.crypto.extractKeysFromDelegationsForHcpHierarchy(dataOwnerId, healthElement.id!, healthElement.encryptionKeys!)
           )
-          .then((sfks: { extractedKeys: Array<string>; hcpartyId: string }) =>
-            this.crypto.AES.importKey('raw', hex2ua(sfks.extractedKeys[0].replace(/-/g, '')))
-          )
+          .then((sfks: { extractedKeys: Array<string>; hcpartyId: string }) => {
+            const keys = this.crypto.filterAndFixValidEntityEncryptionKeyStrings(sfks.extractedKeys)
+            if (!keys.length) throw new Error('No valid keys found for calendar item encryption')
+            return this.crypto.AES.importKey('raw', hex2ua(keys[0]))
+          })
           .then((key: CryptoKey) =>
             crypt(
               he,
@@ -366,12 +368,13 @@ export class IccHelementXApi extends IccHelementApi {
         this.crypto
           .extractKeysFromDelegationsForHcpHierarchy(dataOwnerId, he.id!, _.size(he.encryptionKeys) ? he.encryptionKeys! : he.delegations!)
           .then(({ extractedKeys: sfks }) => {
+            sfks = this.crypto.filterAndFixValidEntityEncryptionKeyStrings(sfks)
             if (!sfks || !sfks.length) {
               console.log('Cannot decrypt helement', he.id)
               return Promise.resolve(he)
             }
             if (he.encryptedSelf) {
-              return this.crypto.AES.importKey('raw', hex2ua(sfks[0].replace(/-/g, ''))).then(
+              return this.crypto.AES.importKey('raw', hex2ua(sfks[0])).then(
                 (key) =>
                   new Promise((resolve: (value: any) => any) =>
                     this.crypto.AES.decrypt(key, string2ua(a2b(he.encryptedSelf!))).then(
