@@ -628,20 +628,20 @@ export class IccCryptoXApi {
               delegatedTo: ownerId,
               key: ua2hex(encryptedDelegation!),
             },
-          ]
+          ],
         },
         cryptedForeignKeys:
           (encryptedSecretForeignKey
             ? {
-              ...(createdObject.cryptedForeignKeys ?? {}),
-              [ownerId]: [
-                {
-                  owner: ownerId,
-                  delegatedTo: ownerId,
-                  key: ua2hex(encryptedSecretForeignKey!),
-                },
-              ]
-            }
+                ...(createdObject.cryptedForeignKeys ?? {}),
+                [ownerId]: [
+                  {
+                    owner: ownerId,
+                    delegatedTo: ownerId,
+                    key: ua2hex(encryptedSecretForeignKey!),
+                  },
+                ],
+              }
             : {}) || {},
         secretForeignKeys: secretForeignKeyOfParent ? [secretForeignKeyOfParent] : [],
         secretId: secretId,
@@ -923,7 +923,7 @@ export class IccCryptoXApi {
     ownerId: string
   ): Promise<{
     encryptionKeys: any
-    secretId: string,
+    secretId: string
     modifiedOwner: Patient | Device | HealthcareParty
   }> {
     this.throwDetailedExceptionForInvalidParameter('createdObject.id', createdObject.id, 'initEncryptionKeys', arguments)
@@ -953,7 +953,7 @@ export class IccCryptoXApi {
           ],
         ]),
         secretId: secretId,
-        modifiedOwner
+        modifiedOwner,
       }
     })
   }
@@ -2269,24 +2269,35 @@ export class IccCryptoXApi {
     this._storage.setItem(this.rsaLocalStoreIdPrefix + id, JSON.stringify(keyPair))
   }
 
-  fixAesExchangeKeyEntriesToFingerprints(
-    aesExchangeKeys: { [delegatorPubKey: string]: { [delegateId: string]: { [pubKeyFp: string]: string } } }
-  ): { [delegatorPubKey: string]: { [delegateId: string]: { [pubKeyFp: string]: string } } } {
+  fixAesExchangeKeyEntriesToFingerprints(aesExchangeKeys: { [delegatorPubKey: string]: { [delegateId: string]: { [pubKeyFp: string]: string } } }): {
+    [delegatorPubKey: string]: { [delegateId: string]: { [pubKeyFp: string]: string } }
+  } {
     return Object.fromEntries(
       Object.entries(aesExchangeKeys).map(([delegatorPubKey, allDelegates]) => [
         delegatorPubKey,
         Object.fromEntries(
           Object.entries(allDelegates).map(([delegateId, keyEntries]) => [
             delegateId,
-            Object.fromEntries(
-              Object.entries(keyEntries).map(([publicKey, encryptedValue]) => [
-                publicKey.slice(-32),
-                encryptedValue
-              ])
-            )
+            Object.fromEntries(Object.entries(keyEntries).map(([publicKey, encryptedValue]) => [publicKey.slice(-32), encryptedValue])),
           ])
-        )
+        ),
       ])
     )
+  }
+
+  /**
+   * @internal
+   * Keep only strings which match the format of a valid entity encryption key: hex string potentially with dashes.
+   * Additionally, this method automatically removes the dashes from the key (from uuid-formatted to standard).
+   */
+  filterAndFixValidEntityEncryptionKeyStrings(aesKeys: string[]): string[] {
+    return aesKeys.flatMap((x) => {
+      const undashed = x.length === 36 ? x.replace(/-/g, '') : x
+      if ((undashed.length === 32 || undashed.length === 64) && undashed.match(/^[0-9a-fA-F]+$/)) {
+        return [undashed]
+      } else {
+        return []
+      }
+    })
   }
 }

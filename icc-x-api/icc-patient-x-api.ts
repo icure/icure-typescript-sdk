@@ -20,7 +20,7 @@ import {
   IcureStub,
   Invoice,
   ListOfIds,
-  Patient
+  Patient,
 } from '../icc-api/model/models'
 import { IccCalendarItemXApi } from './icc-calendar-item-x-api'
 import { b64_2ab } from '../icc-api/model/ModelHelper'
@@ -152,7 +152,7 @@ export class IccPatientXApi extends IccPatientApi {
           rev: dataOwner.rev,
           publicKey: dataOwner.publicKey,
           aesExchangeKeys: dataOwner.aesExchangeKeys,
-          hcPartyKeys: dataOwner.hcPartyKeys
+          hcPartyKeys: dataOwner.hcPartyKeys,
         })
       }
     }
@@ -340,7 +340,7 @@ export class IccPatientXApi extends IccPatientApi {
       .then((pats) => pats[0].patient)
   }
 
-  getPotentiallyEncryptedPatientWithUser(user: models.User, patientId: string): Promise<{ patient: models.Patient, decrypted: boolean }> {
+  getPotentiallyEncryptedPatientWithUser(user: models.User, patientId: string): Promise<{ patient: models.Patient; decrypted: boolean }> {
     return super
       .getPatient(patientId)
       .then((p) => this.tryDecryptOrReturnOriginal(user, [p], false))
@@ -494,12 +494,12 @@ export class IccPatientXApi extends IccPatientApi {
   modifyPatientWithUser(user: models.User, body?: models.Patient): Promise<models.Patient | null> {
     return body
       ? this.tryEncrypt(user, [_.cloneDeep(this.completeNames(body))], false)
-        .then((pats) => super.modifyPatient(pats[0]))
-        .then((p) => this.decrypt(user, [p]))
-        .then((pats) => {
-          pats[0]?.id && this.crypto.emptyHcpCache(pats[0].id!)
-          return pats[0]
-        })
+          .then((pats) => super.modifyPatient(pats[0]))
+          .then((p) => this.decrypt(user, [p]))
+          .then((pats) => {
+            pats[0]?.id && this.crypto.emptyHcpCache(pats[0].id!)
+            return pats[0]
+          })
       : Promise.resolve(null)
   }
 
@@ -531,17 +531,17 @@ export class IccPatientXApi extends IccPatientApi {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
     return Promise.all(
       pats.map(async (p) => {
-        const patientWithInitialisedEks = (p.encryptionKeys && Object.values(p.encryptionKeys).some((v) => !!v.length)
-            ? p
-            : await this.initEncryptionKeys(user, p)
-        )
-        const seks = await this.crypto.extractKeysFromDelegationsForHcpHierarchy(
-          dataOwnerId!,
-          patientWithInitialisedEks.id!,
-          patientWithInitialisedEks.encryptionKeys!
-        ).catch((e) => { console.error(e); throw e })
-        if (seks.extractedKeys.length) {
-          const key = await this.crypto.AES.importKey('raw', hex2ua(seks.extractedKeys[0].replace(/-/g, '')))
+        const patientWithInitialisedEks =
+          p.encryptionKeys && Object.values(p.encryptionKeys).some((v) => !!v.length) ? p : await this.initEncryptionKeys(user, p)
+        const decryptedKeys = await this.crypto
+          .extractKeysFromDelegationsForHcpHierarchy(dataOwnerId!, patientWithInitialisedEks.id!, patientWithInitialisedEks.encryptionKeys!)
+          .catch((e) => {
+            console.error(e)
+            throw e
+          })
+        const fixedKeys = this.crypto.filterAndFixValidEntityEncryptionKeyStrings(decryptedKeys.extractedKeys)
+        if (fixedKeys.length) {
+          const key = await this.crypto.AES.importKey('raw', hex2ua(fixedKeys[0]))
           return crypt(
             patientWithInitialisedEks,
             (obj: { [key: string]: string }) =>
@@ -565,10 +565,12 @@ export class IccPatientXApi extends IccPatientApi {
             async (obj: { [key: string]: string }) => Promise.resolve(new ArrayBuffer(1)),
             this.encryptedKeys
           )
-          if (!_.isEqual(
-            _.omitBy({ ...cryptedCopyWithRandomKey, encryptedSelf: undefined }, _.isNil),
-            _.omitBy({ ...patientWithInitialisedEks, encryptedSelf: undefined }, _.isNil)
-          )) {
+          if (
+            !_.isEqual(
+              _.omitBy({ ...cryptedCopyWithRandomKey, encryptedSelf: undefined }, _.isNil),
+              _.omitBy({ ...patientWithInitialisedEks, encryptedSelf: undefined }, _.isNil)
+            )
+          ) {
             throw Error("You can't modify encrypted data of a patient if you don't have access to his encryption key.")
           }
           return patientWithInitialisedEks
@@ -582,9 +584,15 @@ export class IccPatientXApi extends IccPatientApi {
     return this.tryDecryptOrReturnOriginal(user, patients, fillDelegations).then((ps) => ps.map((p) => p.patient))
   }
 
-  private async tryDecryptOrReturnOriginal(user: models.User, patients: Array<models.Patient>, fillDelegations = true): Promise<{ patient: models.Patient, decrypted: boolean }[]> {
+  private async tryDecryptOrReturnOriginal(
+    user: models.User,
+    patients: Array<models.Patient>,
+    fillDelegations = true
+  ): Promise<{ patient: models.Patient; decrypted: boolean }[]> {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
-    const ids = await (user.healthcarePartyId ? this.hcpartyApi.getHealthcarePartyHierarchyIds(user.healthcarePartyId) : Promise.resolve([dataOwnerId]))
+    const ids = await (user.healthcarePartyId
+      ? this.hcpartyApi.getHealthcarePartyHierarchyIds(user.healthcarePartyId)
+      : Promise.resolve([dataOwnerId]))
 
     //First check that we have no dangling delegation
     const patsWithMissingDelegations = patients.filter(
@@ -596,29 +604,29 @@ export class IccPatientXApi extends IccPatientApi {
 
     const acc: { [key: string]: models.Patient } = fillDelegations
       ? await patsWithMissingDelegations.reduce(async (acc, p) => {
-        const pats = await acc
-        const pat = await this.initDelegationsAndEncryptionKeys(p, user)
-        const mp = await this.modifyPatientWithUser(user, pat)
-        return { ...pats, [pat.id!]: mp || pat }
-      }, Promise.resolve({} as { [key: string]: models.Patient }))
+          const pats = await acc
+          const pat = await this.initDelegationsAndEncryptionKeys(p, user)
+          const mp = await this.modifyPatientWithUser(user, pat)
+          return { ...pats, [pat.id!]: mp || pat }
+        }, Promise.resolve({} as { [key: string]: models.Patient }))
       : {}
 
     return Promise.all(
       patients
         .map((p) => acc[p.id!] || p)
         .map(async (p) => {
-          const decryptedPatient = await ids.reduce(
-            async (decP, hcpId) => {
-              return (
-                (await decP) ??
-                (p.encryptedSelf
-                  ? await this.crypto
+          const decryptedPatient = await ids.reduce(async (decP, hcpId) => {
+            return (
+              (await decP) ??
+              (p.encryptedSelf
+                ? await this.crypto
                     .extractKeysFromDelegationsForHcpHierarchy(hcpId!, p.id!, _.size(p.encryptionKeys) ? p.encryptionKeys! : p.delegations!)
                     .then(({ extractedKeys: sfks }) => {
+                      sfks = this.crypto.filterAndFixValidEntityEncryptionKeyStrings(sfks)
                       if (!sfks || !sfks.length) {
                         return Promise.resolve(undefined)
                       }
-                      return this.crypto.AES.importKey('raw', hex2ua(sfks[0].replace(/-/g, ''))).then((key) =>
+                      return this.crypto.AES.importKey('raw', hex2ua(sfks[0])).then((key) =>
                         decrypt(p, (ec) =>
                           this.crypto.AES.decrypt(key, ec)
                             .then((dec) => {
@@ -642,11 +650,9 @@ export class IccPatientXApi extends IccPatientApi {
                         })
                       )
                     })
-                  : p)
-              )
-            },
-            Promise.resolve(undefined as Patient | undefined)
-          )
+                : p)
+            )
+          }, Promise.resolve(undefined as Patient | undefined))
           return decryptedPatient ? { patient: decryptedPatient, decrypted: true } : { patient: p, decrypted: false }
         })
     )
@@ -659,7 +665,7 @@ export class IccPatientXApi extends IccPatientApi {
     const userAutoDelegations = user.autoDelegations ? (user.autoDelegations.all || []).concat(user.autoDelegations.medicalInformation || []) : []
     return this.crypto.initEncryptionKeys(pat, dataOwnerId!).then((eks) => {
       let promise = Promise.resolve(
-        _.extend(pat.id === eks.modifiedOwner.id ? eks.modifiedOwner as Patient : pat, {
+        _.extend(pat.id === eks.modifiedOwner.id ? (eks.modifiedOwner as Patient) : pat, {
           encryptionKeys: eks.encryptionKeys,
         })
       )
@@ -791,55 +797,55 @@ export class IccPatientXApi extends IccPatientApi {
             return delSfks.length
               ? Promise.all([
                   retry(() =>
-                      (usingPost ? this.helementApi
-                        .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(ownerId, _.uniq(delSfks)) : this.helementApi
-                      .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(',')))
-                      .then((hes) =>
-                        parentId
-                          ? (usingPost ? this.helementApi
-                              .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(parentId, _.uniq(delSfks)) : this.helementApi
-                              .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
+                    (usingPost
+                      ? this.helementApi.findHealthElementsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(ownerId, _.uniq(delSfks))
+                      : this.helementApi.findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
+                    ).then((hes) =>
+                      parentId
+                        ? (usingPost
+                            ? this.helementApi.findHealthElementsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(parentId, _.uniq(delSfks))
+                            : this.helementApi.findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
                           ).then((moreHes) => _.uniqBy(hes.concat(moreHes), 'id'))
-                          : hes
-                      )
+                        : hes
+                    )
                   ) as Promise<Array<models.IcureStub>>,
                   retry(() =>
-                      (usingPost ? this.formApi
-                          .findFormsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(ownerId, _.uniq(delSfks)) : this.formApi
-                          .findFormsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                      ).then((frms) =>
-                        parentId
-                          ? (usingPost ? this.formApi
-                              .findFormsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(parentId, _.uniq(delSfks)) : this.formApi
-                              .findFormsDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
+                    (usingPost
+                      ? this.formApi.findFormsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(ownerId, _.uniq(delSfks))
+                      : this.formApi.findFormsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
+                    ).then((frms) =>
+                      parentId
+                        ? (usingPost
+                            ? this.formApi.findFormsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(parentId, _.uniq(delSfks))
+                            : this.formApi.findFormsDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
                           ).then((moreFrms) => _.uniqBy(frms.concat(moreFrms), 'id'))
-                          : frms
-                      )
+                        : frms
+                    )
                   ) as Promise<Array<models.Form>>,
                   retry(() =>
-                      (usingPost ? this.contactApi
-                          .findByHCPartyPatientSecretFKeysUsingPost(ownerId, undefined, undefined, _.uniq(delSfks)) : this.contactApi
-                      .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
-                      ).then((ctcs) =>
-                        parentId
-                          ? (usingPost ? this.contactApi
-                              .findByHCPartyPatientSecretFKeysUsingPost(parentId, undefined, undefined, _.uniq(delSfks)) : this.contactApi
-                              .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
+                    (usingPost
+                      ? this.contactApi.findByHCPartyPatientSecretFKeysUsingPost(ownerId, undefined, undefined, _.uniq(delSfks))
+                      : this.contactApi.findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
+                    ).then((ctcs) =>
+                      parentId
+                        ? (usingPost
+                            ? this.contactApi.findByHCPartyPatientSecretFKeysUsingPost(parentId, undefined, undefined, _.uniq(delSfks))
+                            : this.contactApi.findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
                           ).then((moreCtcs) => _.uniqBy(ctcs.concat(moreCtcs), 'id'))
-                          : ctcs
-                      )
+                        : ctcs
+                    )
                   ) as Promise<Array<models.Contact>>,
                   retry(() =>
-                      (usingPost ? this.invoiceApi
-                          .findInvoicesDelegationsStubsByHCPartyPatientForeignKeysUsingPost(ownerId, _.uniq(delSfks)) : this.invoiceApi
-                      .findInvoicesDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                      ).then((ivs) =>
-                        parentId
-                          ? this.invoiceApi
-                              .findInvoicesDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                              .then((moreIvs) => _.uniqBy(ivs.concat(moreIvs), 'id'))
-                          : ivs
-                      )
+                    (usingPost
+                      ? this.invoiceApi.findInvoicesDelegationsStubsByHCPartyPatientForeignKeysUsingPost(ownerId, _.uniq(delSfks))
+                      : this.invoiceApi.findInvoicesDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
+                    ).then((ivs) =>
+                      parentId
+                        ? this.invoiceApi
+                            .findInvoicesDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
+                            .then((moreIvs) => _.uniqBy(ivs.concat(moreIvs), 'id'))
+                        : ivs
+                    )
                   ) as Promise<Array<models.IcureStub>>,
                   retry(() =>
                     this.classificationApi
@@ -853,17 +859,17 @@ export class IccPatientXApi extends IccPatientApi {
                       )
                   ) as Promise<Array<models.Classification>>,
                   retry(() =>
-                    (usingPost ? this.calendarItemApi
-                        .findByHCPartyPatientSecretFKeysArray(ownerId, _.uniq(delSfks)) : this.calendarItemApi
-                      .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
+                    (usingPost
+                      ? this.calendarItemApi.findByHCPartyPatientSecretFKeysArray(ownerId, _.uniq(delSfks))
+                      : this.calendarItemApi.findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
                     ).then((cls) =>
-                        parentId
-                          ? (usingPost ? this.calendarItemApi
-                              .findByHCPartyPatientSecretFKeysArray(parentId, _.uniq(delSfks)) : this.calendarItemApi
-                              .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
+                      parentId
+                        ? (usingPost
+                            ? this.calendarItemApi.findByHCPartyPatientSecretFKeysArray(parentId, _.uniq(delSfks))
+                            : this.calendarItemApi.findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
                           ).then((moreCls) => _.uniqBy(cls.concat(moreCls), 'id'))
-                          : cls
-                      )
+                        : cls
+                    )
                   ) as Promise<Array<models.CalendarItem>>,
                 ]).then(([hes, frms, ctcs, ivs, cls, cis]) => {
                   const cloneKeysAndDelegations = function (x: models.IcureStub) {
@@ -1123,55 +1129,55 @@ export class IccPatientXApi extends IccPatientApi {
             return delSfks.length
               ? Promise.all([
                   retry(() =>
-                      (usingPost ? this.helementApi
-                          .findByHCPartyPatientSecretFKeysArray(ownerId, _.uniq(delSfks)) : this.helementApi
-                      .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
-                      ).then((hes) =>
-                        parentId
-                          ? this.helementApi
-                              .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
-                              .then((moreHes) => _.uniqBy(hes.concat(moreHes), 'id'))
-                          : hes
-                      )
+                    (usingPost
+                      ? this.helementApi.findByHCPartyPatientSecretFKeysArray(ownerId, _.uniq(delSfks))
+                      : this.helementApi.findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
+                    ).then((hes) =>
+                      parentId
+                        ? this.helementApi
+                            .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
+                            .then((moreHes) => _.uniqBy(hes.concat(moreHes), 'id'))
+                        : hes
+                    )
                   ) as Promise<Array<models.IcureStub>>,
                   retry(() =>
-                      (usingPost ? this.formApi
-                          .findFormsByHCPartyPatientForeignKeysUsingPost(ownerId, undefined, undefined, undefined, _.uniq(delSfks)) : this.formApi
-                      .findFormsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                      ).then((frms) =>
-                        parentId
-                          ? (usingPost ? this.formApi
-                              .findFormsByHCPartyPatientForeignKeysUsingPost(parentId, undefined, undefined, undefined, _.uniq(delSfks)) : this.formApi
-                              .findFormsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
+                    (usingPost
+                      ? this.formApi.findFormsByHCPartyPatientForeignKeysUsingPost(ownerId, undefined, undefined, undefined, _.uniq(delSfks))
+                      : this.formApi.findFormsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
+                    ).then((frms) =>
+                      parentId
+                        ? (usingPost
+                            ? this.formApi.findFormsByHCPartyPatientForeignKeysUsingPost(parentId, undefined, undefined, undefined, _.uniq(delSfks))
+                            : this.formApi.findFormsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
                           ).then((moreFrms) => _.uniqBy(frms.concat(moreFrms), 'id'))
-                          : frms
-                      )
+                        : frms
+                    )
                   ) as Promise<Array<models.Form>>,
                   retry(() =>
-                      (usingPost ? this.contactApi
-                          .findByHCPartyPatientSecretFKeysArray(ownerId, _.uniq(delSfks)) : this.contactApi
-                      .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
-                      ).then((ctcs) =>
-                        parentId
-                          ? (usingPost ? this.contactApi
-                              .findByHCPartyPatientSecretFKeysArray(parentId, _.uniq(delSfks)) : this.contactApi
-                              .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
+                    (usingPost
+                      ? this.contactApi.findByHCPartyPatientSecretFKeysArray(ownerId, _.uniq(delSfks))
+                      : this.contactApi.findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
+                    ).then((ctcs) =>
+                      parentId
+                        ? (usingPost
+                            ? this.contactApi.findByHCPartyPatientSecretFKeysArray(parentId, _.uniq(delSfks))
+                            : this.contactApi.findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
                           ).then((moreCtcs) => _.uniqBy(ctcs.concat(moreCtcs), 'id'))
-                          : ctcs
-                      )
+                        : ctcs
+                    )
                   ) as Promise<Array<models.Contact>>,
                   retry(() =>
-                      (usingPost ? this.invoiceApi
-                          .findInvoicesByHCPartyPatientForeignKeysUsingPost(ownerId, _.uniq(delSfks)) : this.invoiceApi
-                      .findInvoicesByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                      ).then((ivs) =>
-                        parentId
-                          ? (usingPost ? this.invoiceApi
-                              .findInvoicesByHCPartyPatientForeignKeysUsingPost(parentId, _.uniq(delSfks)) : this.invoiceApi
-                              .findInvoicesByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
+                    (usingPost
+                      ? this.invoiceApi.findInvoicesByHCPartyPatientForeignKeysUsingPost(ownerId, _.uniq(delSfks))
+                      : this.invoiceApi.findInvoicesByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
+                    ).then((ivs) =>
+                      parentId
+                        ? (usingPost
+                            ? this.invoiceApi.findInvoicesByHCPartyPatientForeignKeysUsingPost(parentId, _.uniq(delSfks))
+                            : this.invoiceApi.findInvoicesByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
                           ).then((moreIvs) => _.uniqBy(ivs.concat(moreIvs), 'id'))
-                          : ivs
-                      )
+                        : ivs
+                    )
                   ) as Promise<Array<models.IcureStub>>,
                   retry(() =>
                     this.classificationApi
@@ -1187,14 +1193,14 @@ export class IccPatientXApi extends IccPatientApi {
                   retry(async () => {
                     const delegationSFKs = _.uniq(delSfks).join(',')
                     try {
-                      let calendarItems = await (usingPost ?
-                        this.calendarItemApi.findByHCPartyPatientSecretFKeysArray(ownerId, _.uniq(delSfks)) :
-                        this.calendarItemApi.findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(',')))
+                      let calendarItems = await (usingPost
+                        ? this.calendarItemApi.findByHCPartyPatientSecretFKeysArray(ownerId, _.uniq(delSfks))
+                        : this.calendarItemApi.findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(',')))
 
                       if (parentId) {
-                        const moreCalendarItems = await (usingPost ?
-                          this.calendarItemApi.findByHCPartyPatientSecretFKeysArray(parentId, _.uniq(delSfks)) :
-                          this.calendarItemApi.findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(',')))
+                        const moreCalendarItems = await (usingPost
+                          ? this.calendarItemApi.findByHCPartyPatientSecretFKeysArray(parentId, _.uniq(delSfks))
+                          : this.calendarItemApi.findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(',')))
                         calendarItems = _.uniqBy(calendarItems.concat(moreCalendarItems), 'id')
                       }
 
