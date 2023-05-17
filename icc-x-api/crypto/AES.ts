@@ -1,4 +1,4 @@
-import { appendBuffer, ua2hex } from '../utils'
+import { appendBuffer, hex2ua, ua2hex } from '../utils'
 
 export class AESUtils {
   /********* AES Config **********/
@@ -168,7 +168,15 @@ export class AESUtils {
     return new Promise((resolve: (value: CryptoKey) => any, reject: (reason: any) => any) => {
       const extractable = true
       const keyUsages: KeyUsage[] = ['decrypt', 'encrypt']
-      return this.crypto.subtle.importKey(format as any, aesKey as any, this.aesImportParams, extractable, keyUsages).then(resolve, reject)
+      return this.crypto.subtle
+        .importKey(format as any, aesKey as any, this.aesImportParams, extractable, keyUsages)
+        .catch((err) => {
+          if (format == 'raw' && (aesKey instanceof ArrayBuffer || ArrayBuffer.isView(aesKey))) {
+            console.warn(`Import of key ${ua2hex(aesKey)} failed`)
+          }
+          throw err
+        })
+        .then(resolve, reject)
     })
   }
 }
