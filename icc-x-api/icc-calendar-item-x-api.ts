@@ -91,9 +91,9 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
   findBy(hcpartyId: string, patient: models.Patient, usingPost: boolean = false) {
     return this.crypto.extractDelegationsSFKs(patient, hcpartyId).then((secretForeignKeys) => {
       return secretForeignKeys && secretForeignKeys.extractedKeys && secretForeignKeys.extractedKeys.length > 0
-        ? (usingPost ?
-          this.findByHCPartyPatientSecretFKeysArray(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys)) :
-          this.findByHCPartyPatientSecretFKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(',')))
+        ? usingPost
+          ? this.findByHCPartyPatientSecretFKeysArray(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys))
+          : this.findByHCPartyPatientSecretFKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(','))
         : Promise.resolve([])
     })
   }
@@ -103,7 +103,9 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
   }
 
   findByHCPartyPatientSecretFKeysArray(hcPartyId: string, secretFKeys: string[]): Promise<Array<models.CalendarItem> | any> {
-    return super.findCalendarItemsByHCPartyPatientForeignKeysUsingPost(hcPartyId, secretFKeys).then((calendarItems) => this.decrypt(hcPartyId, calendarItems))
+    return super
+      .findCalendarItemsByHCPartyPatientForeignKeysUsingPost(hcPartyId, secretFKeys)
+      .then((calendarItems) => this.decrypt(hcPartyId, calendarItems))
   }
 
   createCalendarItem(body?: CalendarItem): never {
@@ -242,9 +244,11 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
               calendarItem.encryptionKeys!
             )
           )
-          .then((eks: { extractedKeys: Array<string>; hcpartyId: string }) =>
-            this.crypto.AES.importKey('raw', hex2ua(eks.extractedKeys[0].replace(/-/g, '')))
-          )
+          .then((eks: { extractedKeys: Array<string>; hcpartyId: string }) => {
+            const keys = this.crypto.filterAndFixValidEntityEncryptionKeyStrings(eks.extractedKeys)
+            if (!keys.length) throw new Error('No valid keys found for calendar item encryption')
+            return this.crypto.AES.importKey('raw', hex2ua(keys[0]))
+          })
           .then((key: CryptoKey) =>
             crypt(calendarItem, (obj: { [key: string]: string }) => this.crypto.AES.encrypt(key, utf8_2ua(JSON.stringify(obj))), this.encryptedKeys)
           )
@@ -265,10 +269,11 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
                 _.size(calendarItem.encryptionKeys) ? calendarItem.encryptionKeys! : calendarItem.delegations!
               )
               .then(({ extractedKeys: sfks }) => {
+                sfks = this.crypto.filterAndFixValidEntityEncryptionKeyStrings(sfks)
                 if (!sfks || !sfks.length) {
                   return Promise.resolve(calendarItem)
                 }
-                return this.crypto.AES.importKey('raw', hex2ua(sfks[0].replace(/-/g, ''))).then((key) =>
+                return this.crypto.AES.importKey('raw', hex2ua(sfks[0])).then((key) =>
                   decrypt(calendarItem, (ec) =>
                     this.crypto.AES.decrypt(key, ec)
                       .then((dec) => {

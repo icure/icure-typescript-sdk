@@ -179,9 +179,11 @@ export class IccContactXApi extends IccContactApi {
                 ])
               }, [] as Array<{ hcpartyId: string; extractedKeys: Array<string> }>)
               .filter((l) => l.extractedKeys.length > 0)
-              .map(({ hcpartyId, extractedKeys }) => usingPost ?
-                this.findByHCPartyPatientSecretFKeysArray(hcpartyId, _.uniq(extractedKeys)) :
-                this.findByHCPartyPatientSecretFKeys(hcpartyId, _.uniq(extractedKeys).join(',')))
+              .map(({ hcpartyId, extractedKeys }) =>
+                usingPost
+                  ? this.findByHCPartyPatientSecretFKeysArray(hcpartyId, _.uniq(extractedKeys))
+                  : this.findByHCPartyPatientSecretFKeys(hcpartyId, _.uniq(extractedKeys).join(','))
+              )
           ).then((results) => _.uniqBy(_.flatMap(results), (x) => x.id))
         : Promise.resolve([])
     )
@@ -432,11 +434,12 @@ export class IccContactXApi extends IccContactApi {
           extractedKeys: Array<string>
           hcpartyId: string
         } = await this.crypto.extractKeysFromDelegationsForHcpHierarchy(hcpartyId, initialisedCtc.id!, initialisedCtc.encryptionKeys!)
-        const rawKey = sfks.extractedKeys[0].replace(/-/g, '')
-        const key = await this.crypto.AES.importKey('raw', hex2ua(rawKey))
+        const keys = this.crypto.filterAndFixValidEntityEncryptionKeyStrings(sfks.extractedKeys)
+        if (!keys.length) throw new Error('No valid keys found for calendar item encryption')
+        const key = await this.crypto.AES.importKey('raw', hex2ua(keys[0]))
 
-        initialisedCtc.services = await this.encryptServices(key, rawKey, ctc.services || [])
-        initialisedCtc.encryptedSelf = b2a(ua2string(await this.crypto.AES.encrypt(key, utf8_2ua(JSON.stringify({ descr: ctc.descr })), rawKey)))
+        initialisedCtc.services = await this.encryptServices(key, keys[0], ctc.services || [])
+        initialisedCtc.encryptedSelf = b2a(ua2string(await this.crypto.AES.encrypt(key, utf8_2ua(JSON.stringify({ descr: ctc.descr })), keys[0])))
         delete initialisedCtc.descr
 
         return initialisedCtc
@@ -447,16 +450,17 @@ export class IccContactXApi extends IccContactApi {
   decrypt(hcpartyId: string, ctcs: Array<models.Contact>): Promise<Array<models.Contact>> {
     return Promise.all(
       ctcs.map(async (ctc) => {
-        const { extractedKeys: sfks } = await this.crypto.extractKeysFromDelegationsForHcpHierarchy(
+        let { extractedKeys: sfks } = await this.crypto.extractKeysFromDelegationsForHcpHierarchy(
           hcpartyId,
           ctc.id!,
           _.size(ctc.encryptionKeys) ? ctc.encryptionKeys! : ctc.delegations!
         )
+        sfks = this.crypto.filterAndFixValidEntityEncryptionKeyStrings(sfks)
         if (!sfks || !sfks.length) {
           console.log('Cannot decrypt contact', ctc.id)
           return ctc
         }
-        const rawKey = sfks[0].replace(/-/g, '')
+        const rawKey = sfks[0]
         const key = await this.crypto.AES.importKey('raw', hex2ua(rawKey))
 
         ctc.services = await this.decryptServices(hcpartyId, ctc.services || [], key, rawKey)
