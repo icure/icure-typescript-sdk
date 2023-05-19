@@ -97,9 +97,9 @@ describe('Exchange data manager', async function () {
   }
 
   async function checkAesKeysEquality(actual: CryptoKey | undefined, expected: CryptoKey | undefined) {
-    if (!actual && !expected) return true
-    if (!actual || !expected) return false
-    expect(ua2hex(await primitives.AES.exportKey(expected, 'raw'))).to.equal(ua2hex(await primitives.AES.exportKey(actual, 'raw')))
+    if (!actual && !expected) return
+    expect(!actual).to.equal(!expected)
+    expect(ua2hex(await primitives.AES.exportKey(expected!, 'raw'))).to.equal(ua2hex(await primitives.AES.exportKey(actual!, 'raw')))
   }
 
   async function createDataFromRandomToSelf(): Promise<{ exchangeData: ExchangeData; exchangeKey: CryptoKey; accessControlSecret: string }> {
