@@ -52,13 +52,13 @@ describe('Exchange data manager', async function () {
       {
         id: selfId,
         type: dataOwnerType,
-        publicKey: ua2hex(await primitives.RSA.exportKey(selfKeypair.publicKey, 'spki')),
+        publicKeysForOaepWithSha256: [ua2hex(await primitives.RSA.exportKey(selfKeypair.publicKey, 'spki'))],
       },
       [
         {
           id: delegateId,
           type: dataOwnerType,
-          publicKey: ua2hex(await primitives.RSA.exportKey(delegateKeypair.publicKey, 'spki')),
+          publicKeysForOaepWithSha256: [ua2hex(await primitives.RSA.exportKey(delegateKeypair.publicKey, 'spki'))],
         },
       ]
     )
