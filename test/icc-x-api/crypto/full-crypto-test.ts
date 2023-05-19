@@ -1,4 +1,4 @@
-import { Api, Apis, ua2hex } from '../../../icc-x-api'
+import { Api, Apis, sleep, ua2hex } from '../../../icc-x-api'
 import { v4 as uuid } from 'uuid'
 import { Patient } from '../../../icc-api/model/Patient'
 import { Contact } from '../../../icc-api/model/Contact'
@@ -25,6 +25,7 @@ import AccessLevel = SecureDelegation.AccessLevelEnum
 import { EntityShareRequest } from '../../../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
+import { fingerprintV1 } from '../../../icc-x-api/crypto/utils'
 
 setLocalStorage(fetch)
 
@@ -97,9 +98,6 @@ const facades: EntityFacades = {
     },
   } as EntityFacade<CalendarItem>,
 }
-const patientFacades = Object.entries(facades)
-  .filter((f) => f[0] !== 'Patient')
-  .reduce((prev, curr) => ({ ...prev, [curr[0]]: curr[1] }), {})
 
 const users: { user: User; password: string }[] = []
 const primitives = new CryptoPrimitives(webcrypto as any)
@@ -167,7 +165,7 @@ const userDefinitions: Record<string, (user: User, password: string, pair: KeyPa
         password,
       },
       new TestCryptoStrategies(originalKey, {
-        [ua2hex(await primitives.RSA.exportKey(newKey.publicKey, 'spki')).slice(-32)]: true,
+        [fingerprintV1(ua2hex(await primitives.RSA.exportKey(newKey.publicKey, 'spki')))]: true,
       }),
       webcrypto as any,
       fetch,

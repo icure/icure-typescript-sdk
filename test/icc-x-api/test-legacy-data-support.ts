@@ -159,8 +159,8 @@ class ApiFactoryV7 implements ApiFactory {
 
   async masterApi(env: TestVars): Promise<UniformizedMasterApi> {
     const key = {
-      privateKey: await cryptoPrimitives.RSA.importKey('pkcs8', hex2ua(env.masterHcp!.privateKey), ['decrypt']),
-      publicKey: await cryptoPrimitives.RSA.importKey('spki', hex2ua(env.masterHcp!.publicKey), ['encrypt']),
+      privateKey: await cryptoPrimitives.RSA.importKey('pkcs8', hex2ua(env.masterHcp!.privateKey), ['decrypt'], 'sha-1'),
+      publicKey: await cryptoPrimitives.RSA.importKey('spki', hex2ua(env.masterHcp!.publicKey), ['encrypt'], 'sha-1'),
     }
     const apis = await ApiV7(
       env.iCureUrl,

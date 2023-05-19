@@ -1,9 +1,8 @@
 import { DataOwner, DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { KeyPair } from './RSA'
-import { ua2hex } from '../utils'
+import { jwk2spki, ua2hex } from '../utils'
 import { IcureStorageFacade } from '../storage/IcureStorageFacade'
-import { BaseExchangeKeysManager } from './BaseExchangeKeysManager'
-import { fingerprintToPublicKeysMapOf, loadPublicKeys } from './utils'
+import { fingerprintToPublicKeysMapOf, fingerprintV1, getShaVersionForKey } from './utils'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { KeyRecovery } from './KeyRecovery'
 import { CryptoStrategies } from './CryptoStrategies'
@@ -130,7 +129,7 @@ export class UserEncryptionKeysManager {
             }
           )
         ),
-      (x) => {
+      (_) => {
         throw new Error("Can't create new keys at reload time: it should have already been created on initialisation")
       }
     )
@@ -180,8 +179,11 @@ export class UserEncryptionKeysManager {
     const otherVerifiedFp = new Set(
       Object.entries(await this.icureStorage.loadSelfVerifiedKeys(dataOwner.id!)).flatMap(([fp, verified]) => (verified ? [fp] : []))
     )
-    return Array.from(this.dataOwnerApi.getHexPublicKeysOf(dataOwner)).filter((key) => {
-      const fp = key.slice(-32)
+    return Array.from([
+      ...this.dataOwnerApi.getHexPublicKeysWithSha1Of(dataOwner),
+      ...this.dataOwnerApi.getHexPublicKeysWithSha256Of(dataOwner),
+    ]).filter((key) => {
+      const fp = fingerprintV1(key)
       return availableVerifiedKeysFp.has(fp) || otherVerifiedFp.has(fp)
     })
   }
@@ -212,15 +214,22 @@ export class UserEncryptionKeysManager {
     const keysData = []
     for (const dowt of hierarchy) {
       const availableKeys = await this.loadAndRecoverKeysFor(dowt)
+      console.log(Object.keys(availableKeys))
       const verifiedKeysMap = await this.icureStorage.loadSelfVerifiedKeys(dowt.dataOwner.id!)
-      const allPublicKeys = this.dataOwnerApi.getHexPublicKeysOf(dowt.dataOwner)
-      const fpToFullMap = fingerprintToPublicKeysMapOf(dowt.dataOwner)
+      const allPublicKeys = new Set([
+        ...this.dataOwnerApi.getHexPublicKeysWithSha1Of(dowt.dataOwner),
+        ...this.dataOwnerApi.getHexPublicKeysWithSha256Of(dowt.dataOwner),
+      ])
+      const fpToFullMap = {
+        ...fingerprintToPublicKeysMapOf(dowt.dataOwner, 'sha-1'),
+        ...fingerprintToPublicKeysMapOf(dowt.dataOwner, 'sha-256'),
+      }
       const unavailableKeys = Object.keys(availableKeys).flatMap((fp) => {
         const fullPublicKey = fpToFullMap[fp]
         return allPublicKeys.has(fullPublicKey) ? [] : [fullPublicKey]
       })
       const unknownKeys = Array.from(allPublicKeys).filter(
-        (x) => !(x.slice(-32) in verifiedKeysMap) && !(availableKeys?.[x.slice(-32)]?.isDevice === true)
+        (x) => !(fingerprintV1(x) in verifiedKeysMap) && !(availableKeys?.[fingerprintV1(x)]?.isDevice === true)
       )
       keysData.push({ dowt, availableKeys, unavailableKeys, unknownKeys })
     }
@@ -288,7 +297,10 @@ export class UserEncryptionKeysManager {
   ): Promise<{ publicKeyFingerprint: string; keyPair: KeyPair<CryptoKey>; updatedSelf: DataOwnerWithType }> {
     const keyPair = importedKeyPair ?? (await this.primitives.RSA.generateKeyPair())
     const publicKeyHex = ua2hex(await this.primitives.RSA.exportKey(keyPair.publicKey, 'spki'))
-    const publicKeyFingerprint = publicKeyHex.slice(-32)
+    if ((await this.primitives.RSA.exportKey(keyPair.publicKey, 'jwk')).alg !== 'RSA-OAEP-256') {
+      throw new Error('Only keys generated with SHA-256 are currently supported')
+    }
+    const publicKeyFingerprint = fingerprintV1(publicKeyHex)
     await this.icureStorage.saveKey(
       selfDataOwner.dataOwner.id!,
       publicKeyFingerprint,
@@ -299,13 +311,7 @@ export class UserEncryptionKeysManager {
     const updatedSelf = await this.dataOwnerApi.updateDataOwner({
       dataOwner: {
         ...selfDataOwner.dataOwner,
-        publicKey: selfDataOwner.dataOwner.publicKey ?? publicKeyHex,
-        aesExchangeKeys: selfDataOwner.dataOwner.publicKey
-          ? {
-              ...selfDataOwner.dataOwner.aesExchangeKeys,
-              [publicKeyHex]: {},
-            }
-          : selfDataOwner.dataOwner.aesExchangeKeys,
+        publicKeysForOaepWithSha256: [...(selfDataOwner.dataOwner.publicKeysForOaepWithSha256 ?? []), publicKeyHex],
       },
       type: selfDataOwner.type,
     })
@@ -320,9 +326,23 @@ export class UserEncryptionKeysManager {
       const awaitedAcc = await acc
       let loadedPair: { pair: KeyPair<CryptoKey>; isDevice: boolean } | undefined = undefined
       try {
-        const storedKeypair = await this.icureStorage.loadKey(dataOwner.dataOwner.id!, currentFingerprint, dataOwner.dataOwner.publicKey)
-        if (storedKeypair) {
-          const importedKey = await this.primitives.RSA.importKeyPair('jwk', storedKeypair.pair.privateKey, 'jwk', storedKeypair.pair.publicKey)
+        const storedPublic = await this.icureStorage.loadKey(dataOwner.dataOwner.id!, currentFingerprint, dataOwner.dataOwner.publicKey)
+        const storedKeypair = !!storedPublic
+          ? storedPublic
+          : await this.icureStorage.loadKey(
+              dataOwner.dataOwner.id!,
+              currentFingerprint,
+              dataOwner.dataOwner.publicKeysForOaepWithSha256?.find((key) => fingerprintV1(key) === currentFingerprint)
+            )
+        if (!!storedKeypair) {
+          const shaVersion = storedKeypair.pair.publicKey.alg === 'RSA-OAEP-256' ? 'sha-256' : 'sha-1'
+          const importedKey = await this.primitives.RSA.importKeyPair(
+            'jwk',
+            storedKeypair.pair.privateKey,
+            'jwk',
+            storedKeypair.pair.publicKey,
+            shaVersion
+          )
           loadedPair = { pair: importedKey, isDevice: storedKeypair.isDevice }
         }
       } catch (e) {
@@ -370,8 +390,11 @@ export class UserEncryptionKeysManager {
   }
 
   private async loadAndRecoverKeysFor(dataOwner: DataOwnerWithType): Promise<{ [keyFp: string]: { pair: KeyPair<CryptoKey>; isDevice: boolean } }> {
-    const selfPublicKeys = this.dataOwnerApi.getHexPublicKeysOf(dataOwner.dataOwner)
-    const pubKeysFingerprints = Array.from(selfPublicKeys).map((x) => x.slice(-32))
+    const selfPublicKeys = new Set([
+      ...this.dataOwnerApi.getHexPublicKeysWithSha1Of(dataOwner.dataOwner),
+      ...this.dataOwnerApi.getHexPublicKeysWithSha256Of(dataOwner.dataOwner),
+    ])
+    const pubKeysFingerprints = Array.from(selfPublicKeys).map((x) => fingerprintV1(x))
     const loadedKeys = pubKeysFingerprints.length > 0 ? await this.loadStoredKeys(dataOwner, pubKeysFingerprints) : {}
     const loadedKeysFingerprints = Object.keys(loadedKeys)
     if (loadedKeysFingerprints.length !== pubKeysFingerprints.length && loadedKeysFingerprints.length > 0) {
@@ -384,7 +407,7 @@ export class UserEncryptionKeysManager {
   }
 
   private ensureFingerprintKeys<T>(obj: { [shouldBeFingerprint: string]: T }): { [definitelyFingerprint: string]: T } {
-    return Object.fromEntries(Object.entries(obj).map(([k, v]) => [k.slice(-32), v]))
+    return Object.fromEntries(Object.entries(obj).map(([k, v]) => [fingerprintV1(k), v]))
   }
 
   private hasVerifiedKey(keysData: { [fp: string]: KeyPairData }) {

@@ -5,7 +5,7 @@ import { UserEncryptionKeysManager } from './UserEncryptionKeysManager'
 import { UserSignatureKeysManager } from './UserSignatureKeysManager'
 import { AccessControlSecretUtils } from './AccessControlSecretUtils'
 import { CryptoStrategies } from './CryptoStrategies'
-import { hexPublicKeysOf } from './utils'
+import { fingerprintV1, hexPublicKeysWithSha1Of, hexPublicKeysWithSha256Of } from './utils'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { hex2ua, ua2b64 } from '../utils'
 import { LruTemporisedAsyncCache } from '../utils/lru-temporised-async-cache'
@@ -191,17 +191,25 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
     const delegate = await this.dataOwnerApi.getDataOwner(delegateId)
     const verifiedDelegateKeys = await this.cryptoStrategies.verifyDelegatePublicKeys(
       delegate.dataOwner,
-      Array.from(hexPublicKeysOf(delegate.dataOwner)),
+      Array.from(hexPublicKeysWithSha1Of(delegate.dataOwner)),
       this.primitives
     )
-    if (!verifiedDelegateKeys.length)
+    const verifiedDelegateKeysWithSha256 = await this.cryptoStrategies.verifyDelegatePublicKeys(
+      delegate.dataOwner,
+      Array.from(hexPublicKeysWithSha256Of(delegate.dataOwner)),
+      this.primitives
+    )
+    if (!verifiedDelegateKeys.length && !verifiedDelegateKeysWithSha256.length)
       throw new Error(`Could not create exchange data to ${delegateId} as no public key for the delegate could be verified.`)
     const encryptionKeys: { [fp: string]: CryptoKey } = {}
     this.encryptionKeys.getSelfVerifiedKeys().forEach(({ fingerprint, pair }) => {
       encryptionKeys[fingerprint] = pair.publicKey
     })
     for (const delegateKey of verifiedDelegateKeys) {
-      encryptionKeys[delegateKey.slice(-32)] = await this.primitives.RSA.importKey('spki', hex2ua(delegateKey), ['encrypt'])
+      encryptionKeys[fingerprintV1(delegateKey)] = await this.primitives.RSA.importKey('spki', hex2ua(delegateKey), ['encrypt'], 'sha-1')
+    }
+    for (const delegateKey of verifiedDelegateKeysWithSha256) {
+      encryptionKeys[fingerprintV1(delegateKey)] = await this.primitives.RSA.importKey('spki', hex2ua(delegateKey), ['encrypt'], 'sha-256')
     }
     const signatureKey = await this.signatureKeys.getOrCreateSignatureKeyPair()
     const newData = await this.base.createExchangeData(
@@ -219,8 +227,9 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
 
   async giveAccessBackTo(otherDataOwner: string, newDataOwnerPublicKey: string) {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
-    const newKeyFp = newDataOwnerPublicKey.slice(-32)
-    const importedNewKey = await this.primitives.RSA.importKey('spki', hex2ua(newDataOwnerPublicKey), ['encrypt'])
+    const newKeyFp = fingerprintV1(newDataOwnerPublicKey)
+    const newKeyHashVersion = await this.dataOwnerApi.getShaVersionForKey(otherDataOwner, newDataOwnerPublicKey)
+    const importedNewKey = await this.primitives.RSA.importKey('spki', hex2ua(newDataOwnerPublicKey), ['encrypt'], newKeyHashVersion)
     const signatureKey = await this.signatureKeys.getOrCreateSignatureKeyPair()
     const decryptionKeys = this.encryptionKeys.getDecryptionKeys()
     const allExchangeDataToUpdate = [

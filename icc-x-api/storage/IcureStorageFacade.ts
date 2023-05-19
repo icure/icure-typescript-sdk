@@ -59,7 +59,7 @@ export class IcureStorageFacade {
    * {@link verificationDetails} take priority over the stored data.
    * @param dataOwnerId id of a data owner.
    * @param verificationDetails results of verification, associates key fingerprints to true if they were verified by the user or false otherwise.
-   * @return the udpated keys
+   * @return the updated keys
    */
   async saveSelfVerifiedKeys(
     dataOwnerId: string,

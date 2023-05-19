@@ -68,8 +68,8 @@ export namespace TestUtils {
 export async function getApiAndAddPrivateKeysForUser(iCureUrl: string, details: UserDetails) {
   const RSA = new RSAUtils(webcrypto as any)
   const keys = {
-    publicKey: await RSA.importKey('spki', hex2ua(details.publicKey), ['encrypt']),
-    privateKey: await RSA.importKey('pkcs8', hex2ua(details.privateKey), ['decrypt']),
+    publicKey: await RSA.importKey('spki', hex2ua(details.publicKey), ['encrypt'], 'sha-1'),
+    privateKey: await RSA.importKey('pkcs8', hex2ua(details.privateKey), ['decrypt'], 'sha-1'),
   }
   return await TestApi(iCureUrl, details.user, details.password, webcrypto as any, keys)
 }

@@ -34,7 +34,7 @@ type DataOwnerType = 'explicit' | 'anonymous'
 type UserInfo = { user: User; pw: string; dataOwnerId: string }
 
 const typeCombinations: [DataOwnerType, DataOwnerType][] = [
-  // ['explicit', 'explicit'],
+  ['explicit', 'explicit'],
   ['anonymous', 'explicit'],
   ['explicit', 'anonymous'],
   ['anonymous', 'anonymous'],

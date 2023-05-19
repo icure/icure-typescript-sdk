@@ -1,10 +1,9 @@
 import { KeyPair } from './RSA'
-import { BaseExchangeKeysManager } from './BaseExchangeKeysManager'
 import { DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { ua2hex } from '../utils'
 import { UserEncryptionKeysManager } from './UserEncryptionKeysManager'
 import { reachSetsAcyclic, StronglyConnectedGraph } from '../utils/graph-utils'
-import { fingerprintToPublicKeysMapOf, loadPublicKeys, transferKeysFpGraphOf } from './utils'
+import { fingerprintToPublicKeysMapOf, fingerprintV1, loadPublicKeys, transferKeysFpGraphOf } from './utils'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { IcureStorageFacade } from '../storage/IcureStorageFacade'
 import { BaseExchangeDataManager } from './BaseExchangeDataManager'
@@ -35,14 +34,17 @@ export class TransferKeysManager {
     const newEdges = await this.getNewVerifiedTransferKeysEdges(self)
     if (!newEdges) return
     const selfId = await this.dataOwnerApi.getCurrentDataOwnerId()
-    const fpToPublicKey = fingerprintToPublicKeysMapOf(self.dataOwner)
-    const newExchangeKeyPublicKeys = newEdges.sources.map((fp) => fpToPublicKey[fp])
+    const fpToPublicKey = fingerprintToPublicKeysMapOf(self.dataOwner, 'sha-1')
+    const fpToPublicKeyWithSha256 = fingerprintToPublicKeysMapOf(self.dataOwner, 'sha-256')
+    const newExchangeKeyPublicKeys = newEdges.sources.map((fp) => fpToPublicKey[fp]).filter((key) => !!key)
+    const newExchangeKeyPublicKeysWithSha256 = newEdges.sources.map((fp) => fpToPublicKeyWithSha256[fp]).filter((key) => !!key)
     const signatureKeyPair = await this.userSignatureKeysManager.getOrCreateSignatureKeyPair()
     const createdExchangeData = await this.baseExchangeDataManager.createExchangeData(
       selfId,
       { [signatureKeyPair.fingerprint]: signatureKeyPair.keyPair.privateKey },
       {
-        ...(await loadPublicKeys(this.primitives.RSA, newExchangeKeyPublicKeys)),
+        ...(await loadPublicKeys(this.primitives.RSA, newExchangeKeyPublicKeys, 'sha-1')),
+        ...(await loadPublicKeys(this.primitives.RSA, newExchangeKeyPublicKeysWithSha256, 'sha-256')),
         [newEdges.targetFp]: newEdges.target.publicKey,
       }
     )
@@ -96,7 +98,7 @@ export class TransferKeysManager {
   > {
     const verifiedKeysFpSet = new Set(this.encryptionKeysManager.getSelfVerifiedKeys().map((x) => x.fingerprint))
     Object.entries(await this.icureStorage.loadSelfVerifiedKeys(self.dataOwner.id!)).forEach(([key, verified]) => {
-      if (verified) verifiedKeysFpSet.add(key.slice(-32))
+      if (verified) verifiedKeysFpSet.add(fingerprintV1(key))
     })
     if (verifiedKeysFpSet.size == 0) return undefined
     const graph = transferKeysFpGraphOf(self.dataOwner)
