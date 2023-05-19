@@ -11,7 +11,7 @@ import { KeyStorageFacade } from './storage/KeyStorageFacade'
 import { ExchangeKeysManager } from './crypto/ExchangeKeysManager'
 import { CryptoPrimitives } from './crypto/CryptoPrimitives'
 import { KeyManager } from './crypto/KeyManager'
-import { DataOwner, DataOwnerWithType, IccDataOwnerXApi } from './icc-data-owner-x-api'
+import { DataOwner, IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { EntitiesEncryption } from './crypto/EntitiesEncryption'
 import { IcureStorageFacade } from './storage/IcureStorageFacade'
 import { ShamirKeysManager } from './crypto/ShamirKeysManager'
@@ -270,12 +270,11 @@ export class IccCryptoXApi {
   async encryptShamirRSAKey(hcp: HealthcareParty, notaries: Array<HealthcareParty>, threshold?: number): Promise<HealthcareParty> {
     const legacyKeyFp = hcp.publicKey?.slice(-32)
     if (!legacyKeyFp) throw new Error(`No legacy/default key for hcp ${hcp.id}`)
-    return (
-      await this.shamirKeysManager.updateSelfSplits(
-        { [legacyKeyFp]: { notariesIds: notaries.map((x) => x.id!), minShares: threshold ?? notaries.length } },
-        []
-      )
-    ).dataOwner
+    await this.shamirKeysManager.updateSelfSplits(
+      { [legacyKeyFp]: { notariesIds: notaries.map((x) => x.id!), minShares: threshold ?? notaries.length } },
+      []
+    )
+    return (await this.dataOwnerApi.getDataOwner(hcp.id!)).dataOwner as HealthcareParty
   }
 
   /**
@@ -455,10 +454,10 @@ export class IccCryptoXApi {
    * Note that currently this method does not cache results anymore (but the updated methods do).
    */
   async getEncryptedAesExchangeKeys(
-    owner: HealthcareParty | Patient | Device,
+    owner: DataOwner,
     delegateId: string
   ): Promise<{ [pubKeyIdentifier: string]: { [pubKeyFingerprint: string]: string } }> {
-    const publicKeys = Array.from(this.dataOwnerApi.getHexPublicKeysOf(owner as DataOwner))
+    const publicKeys = Array.from(this.dataOwnerApi.getHexPublicKeysOf(owner))
     const mapOfAesExchangeKeys = Object.entries(owner.aesExchangeKeys ?? {})
       .filter((e) => e[1][delegateId] && Object.keys(e[1][delegateId]).some((k1) => publicKeys.some((pk) => pk.endsWith(k1))))
       .reduce((map, e) => {
@@ -845,9 +844,9 @@ export class IccCryptoXApi {
   /**
    * @deprecated use {@link IccIcureMaintenanceXApi.applyKeyPairUpdate} instead.
    */
-  async giveAccessBackTo(delegateUser: User, ownerId: string, ownerNewPublicKey: string): Promise<DataOwnerWithType> {
+  async giveAccessBackTo(delegateUser: User, ownerId: string, ownerNewPublicKey: string): Promise<DataOwner> {
     await this.exchangeKeys.base.giveAccessBackTo(ownerId, ownerNewPublicKey, this.userKeysManager.getDecryptionKeys())
-    return this.dataOwnerApi.getDataOwner(ownerId)
+    return this.dataOwnerApi.getDataOwner(ownerId).then((x) => x.dataOwner)
   }
   /**
    * @deprecated You don't need to manually generate exchange keys as they will be automatically created by the api when needed.
@@ -859,10 +858,7 @@ export class IccCryptoXApi {
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) {
       throw new Error('You can only create delegation where the delegator is the current data owner')
     }
-    return (
-      (await this.exchangeKeysManager.getOrCreateEncryptionExchangeKeysTo(delegateId)).updatedDelegator?.dataOwner ??
-      (await this.dataOwnerApi.getDataOwner(ownerId)).dataOwner
-    )
+    return (await this.dataOwnerApi.getDataOwner(ownerId)).dataOwner
   }
 
   /**
@@ -877,7 +873,7 @@ export class IccCryptoXApi {
    * validity of keys recovered in your implementation of {@link CryptoStrategies}: in this case the method has been replaced with
    * {@link RSA.checkKeyPairValidity}
    */
-  async checkPrivateKeyValidity(dataOwner: HealthcareParty | Patient | Device): Promise<boolean> {
+  async checkPrivateKeyValidity(dataOwner: DataOwner): Promise<boolean> {
     const publicKeys = Array.from(new Set([dataOwner.publicKey].concat(Object.keys(dataOwner.aesExchangeKeys ?? {})).filter((x) => !!x))) as string[]
 
     return await publicKeys.reduce(async (pres, publicKey) => {

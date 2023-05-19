@@ -7,8 +7,9 @@ import { PropertyTypeStub } from '../icc-api/model/PropertyTypeStub'
 import { TypedValueObject } from '../icc-api/model/TypedValueObject'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 import { KeyPairUpdateRequest } from './maintenance/KeyPairUpdateRequest'
-import { DataOwnerTypeEnum, IccDataOwnerXApi } from './icc-data-owner-x-api'
+import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { User } from '../icc-api/model/User'
+import { DataOwnerTypeEnum } from '../icc-api/model/DataOwnerTypeEnum'
 
 type ExchangeKeyInfo = { delegator: string; delegate: string; fingerprints: Set<string> }
 

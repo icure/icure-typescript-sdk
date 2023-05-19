@@ -1,7 +1,8 @@
 import { CryptoStrategies } from './CryptoStrategies'
-import { DataOwner } from '../icc-data-owner-x-api'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { KeyPair } from './RSA'
+import { DataOwnerWithType } from '../../icc-api/model/DataOwnerWithType'
+import { CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
 
 /**
  * Implementation of crypto strategies which should closely resemble a basic legacy behaviour of the crypto api:
@@ -10,18 +11,18 @@ import { KeyPair } from './RSA'
  * - Never trust the own public keys coming from the server: this way the sdk will not automatically create data for key recovery.
  */
 export class LegacyCryptoStrategies implements CryptoStrategies {
-  generateNewKeyForDataOwner(self: DataOwner, cryptoPrimitives: CryptoPrimitives): Promise<KeyPair<CryptoKey> | boolean> {
+  generateNewKeyForDataOwner(self: DataOwnerWithType, cryptoPrimitives: CryptoPrimitives): Promise<KeyPair<CryptoKey> | boolean> {
     return Promise.resolve(true)
   }
 
   recoverAndVerifySelfHierarchyKeys(
-    keysData: { dataOwner: DataOwner; unknownKeys: string[]; unavailableKeys: string[] }[],
+    keysData: { dataOwner: DataOwnerWithType; unknownKeys: string[]; unavailableKeys: string[] }[],
     cryptoPrimitives: CryptoPrimitives
   ): Promise<{ [p: string]: { recoveredKeys: { [p: string]: KeyPair<CryptoKey> }; keyAuthenticity: { [p: string]: boolean } } }> {
-    return Promise.resolve(Object.fromEntries(keysData.map(({ dataOwner }) => [dataOwner.id, { recoveredKeys: {}, keyAuthenticity: {} }])))
+    return Promise.resolve(Object.fromEntries(keysData.map(({ dataOwner }) => [dataOwner.dataOwner.id, { recoveredKeys: {}, keyAuthenticity: {} }])))
   }
 
-  verifyDelegatePublicKeys(delegate: DataOwner, publicKeys: string[], cryptoPrimitives: CryptoPrimitives): Promise<string[]> {
+  verifyDelegatePublicKeys(delegate: CryptoActorStubWithType, publicKeys: string[], cryptoPrimitives: CryptoPrimitives): Promise<string[]> {
     return Promise.resolve(publicKeys)
   }
 }

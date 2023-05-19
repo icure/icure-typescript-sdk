@@ -1,11 +1,12 @@
 import { Delegation, EncryptedEntity, EncryptedEntityStub } from '../../icc-api/model/models'
-import { DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
+import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { ExchangeKeysManager } from './ExchangeKeysManager'
 import { b2a, crypt, decrypt, hex2ua, string2ua, truncateTrailingNulls, ua2hex, ua2string, ua2utf8, utf8_2ua } from '../utils'
 import * as _ from 'lodash'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { arrayEquals } from '../utils/collection-utils'
 import { ShareMetadataBehaviour } from './ShareMetadataBehaviour'
+import { CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
 
 /**
  * @internal this class is for internal use only and may be changed without notice
@@ -784,17 +785,17 @@ export class EntitiesEncryption {
         }
       },
       Promise.resolve({
-        updatedDelegator: undefined as DataOwnerWithType | undefined,
+        updatedDelegator: undefined as CryptoActorStubWithType | undefined,
         keysForDelegates: {} as { [delegateId: string]: CryptoKey[] },
       })
     )
     const updatedEntity =
-      entity.id === updatedDelegator?.dataOwner?.id
+      entity.id === updatedDelegator?.stub?.id
         ? {
             ...entity,
-            rev: updatedDelegator!.dataOwner.rev,
-            hcPartyKeys: updatedDelegator!.dataOwner.hcPartyKeys,
-            aesExchangeKeys: updatedDelegator!.dataOwner.aesExchangeKeys,
+            rev: updatedDelegator!.stub.rev,
+            hcPartyKeys: updatedDelegator!.stub.hcPartyKeys,
+            aesExchangeKeys: updatedDelegator!.stub.aesExchangeKeys,
           }
         : entity
     return { updatedEntity, keysForDelegates }

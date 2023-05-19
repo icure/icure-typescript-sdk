@@ -203,6 +203,10 @@ export class HealthcareParty {
    * The public key of this hcp
    */
   publicKey?: string
+  /**
+   * The public keys of this actor which should be used for RSA-OAEP with sha256 encryption.
+   */
+  publicKeysForOaepWithSha256?: string[]
 }
 export namespace HealthcareParty {
   export type GenderEnum = 'male' | 'female' | 'indeterminate' | 'changed' | 'changedToMale' | 'changedToFemale' | 'unknown'

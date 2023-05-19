@@ -55,13 +55,16 @@ describe('Patient', () => {
     const rawPatientApi = new IccPatientApi(env.iCureUrl, {}, new BasicAuthenticationProvider(tmpUser.id!, pwd))
     await rawPatientApi.modifyPatient({ ...patient, publicKey: publicKeyHex })
 
-    // TODO some of these operations may be forbidden by the backend in future versions...
     const { userApi, patientApi, cryptoApi } = await TestApi(env.iCureUrl, tmpUser.id!, pwd!, crypto, keyPair)
     const user = await userApi.getCurrentUser()
-    let me = await patientApi.getPatientWithUser(user, user.patientId!)
-    me = (await cryptoApi.exchangeKeys.getOrCreateEncryptionExchangeKeysTo(user.patientId!)).updatedDelegator?.dataOwner ?? me
+    let me: Patient = await patientApi.getPatientWithUser(user, user.patientId!)
+    let updatedRev = me.rev
+    updatedRev = (await cryptoApi.exchangeKeys.getOrCreateEncryptionExchangeKeysTo(user.patientId!)).updatedDelegator?.stub.rev ?? updatedRev
+    me = updatedRev == me.rev ? me : await patientApi.getPatientWithUser(user, user.patientId!)
     expect((await patientApi.getPatientWithUser(user, user.patientId!)).rev).to.equal(me.rev)
-    me = (await cryptoApi.exchangeKeys.getOrCreateEncryptionExchangeKeysTo(hcpUser.healthcarePartyId!)).updatedDelegator?.dataOwner ?? me
+    updatedRev =
+      (await cryptoApi.exchangeKeys.getOrCreateEncryptionExchangeKeysTo(hcpUser.healthcarePartyId!)).updatedDelegator?.stub.rev ?? updatedRev
+    me = updatedRev == me.rev ? me : await patientApi.getPatientWithUser(user, user.patientId!)
     expect((await patientApi.getPatientWithUser(user, user.patientId!)).rev).to.equal(me.rev)
     const mySecretIds = await cryptoApi.entities.secretIdsOf(me)
     const myEncryptionKeys = await cryptoApi.entities.encryptionKeysOf(me)

@@ -1,6 +1,6 @@
 // Uses fp as node names
 import { acyclic, graphFromEdges, StronglyConnectedGraph } from '../utils/graph-utils'
-import { DataOwner, DataOwnerTypeEnum, DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
+import { DataOwnerOrStub, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { RSAUtils } from './RSA'
 import { hex2ua } from '../utils'
 import { HealthcareParty } from '../../icc-api/model/HealthcareParty'
@@ -8,15 +8,18 @@ import { Patient } from '../../icc-api/model/Patient'
 import { Device } from '../../icc-api/model/Device'
 import { EntitiesEncryption } from './EntitiesEncryption'
 import { CryptoPrimitives } from './CryptoPrimitives'
-import { Delegation, EncryptedEntityStub } from '../../icc-api/model/models'
+import { DataOwnerWithType, Delegation, EncryptedEntityStub } from '../../icc-api/model/models'
 import { setEquals } from '../utils/collection-utils'
+import { DataOwnerTypeEnum } from '../../icc-api/model/DataOwnerTypeEnum'
+import { CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
+import { IccPatientApi } from '../../icc-api'
 
 /**
  * @internal this function is meant only for internal use and may be changed without notice.
  * Get the public keys of a data owner, same as {@link dataOwnerApi.getHexPublicKeysOf}.
  * @param dataOwner
  */
-export function hexPublicKeysOf(dataOwner: DataOwner) {
+export function hexPublicKeysOf(dataOwner: DataOwnerOrStub) {
   return new Set([dataOwner.publicKey, ...Object.keys(dataOwner.aesExchangeKeys ?? {})].filter((pubKey) => !!pubKey) as string[])
 }
 
@@ -27,7 +30,7 @@ export function hexPublicKeysOf(dataOwner: DataOwner) {
  * @param dataOwner a data owner.
  * @return a graph representing the possible key recovery paths using transfer keys for hte provided data owner.
  */
-export function transferKeysFpGraphOf(dataOwner: DataOwner): StronglyConnectedGraph {
+export function transferKeysFpGraphOf(dataOwner: DataOwnerOrStub): StronglyConnectedGraph {
   const publicKeys = Array.from(hexPublicKeysOf(dataOwner))
   const edges: [string, string][] = []
   Object.entries(dataOwner.transferKeys ?? {}).forEach(([from, tos]) => {
@@ -49,7 +52,7 @@ export function transferKeysFpGraphOf(dataOwner: DataOwner): StronglyConnectedGr
  * @param dataOwner a data owner.
  * @return a map to convert fingerprints of the data owner into full public keys.
  */
-export function fingerprintToPublicKeysMapOf(dataOwner: DataOwner): { [fp: string]: string } {
+export function fingerprintToPublicKeysMapOf(dataOwner: DataOwnerOrStub): { [fp: string]: string } {
   const publicKeys = Array.from(hexPublicKeysOf(dataOwner))
   const res: { [fp: string]: string } = {}
   publicKeys.forEach((pk) => {
@@ -79,11 +82,12 @@ export async function loadPublicKeys(rsa: RSAUtils, publicKeysSpkiHex: string[])
 export async function ensureDelegationForSelf(
   dataOwnerApi: IccDataOwnerXApi,
   entitiesEncryption: EntitiesEncryption,
-  cryptoPrimitives: CryptoPrimitives
+  cryptoPrimitives: CryptoPrimitives,
+  basePatientApi: IccPatientApi
 ): Promise<DataOwnerWithType> {
   const self = await dataOwnerApi.getCurrentDataOwner()
   if (self.type === DataOwnerTypeEnum.Patient) {
-    const patient: Patient & DataOwner = self.dataOwner
+    const patient: Patient = self.dataOwner
     const availableSecretIds = await entitiesEncryption.secretIdsOf(patient)
     if (availableSecretIds.length) {
       return self
@@ -99,10 +103,7 @@ export async function ensureDelegationForSelf(
               []
             ) // else initialise also encryption keys
           : await entitiesEncryption.entityWithInitialisedEncryptedMetadata(patient, undefined, undefined, true).then((x) => x.updatedEntity)
-      return await dataOwnerApi.updateDataOwner({
-        dataOwner: updatedPatient,
-        type: DataOwnerTypeEnum.Patient,
-      })
+      return await basePatientApi.modifyPatient(updatedPatient).then((x) => ({ dataOwner: x, type: DataOwnerTypeEnum.Patient }))
     }
   } else {
     return self

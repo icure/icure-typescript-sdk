@@ -113,13 +113,13 @@ describe('Full battery of tests on crypto and keys', async function () {
     expect(maintenanceTask.newPublicKey).equals(publicKey)
 
     await delegateApi.icureMaintenanceTaskApi.applyKeyPairUpdate(maintenanceTask)
-    const updatedDataOwner = await delegateApi.dataOwnerApi.getDataOwner(maintenanceTask.concernedDataOwnerId)
+    const updatedDataOwner = await delegateApi.dataOwnerApi.getCryptoActorStub(maintenanceTask.concernedDataOwnerId)
 
     expect(updatedDataOwner.type).to.be.equal('patient')
-    expect(updatedDataOwner.dataOwner).to.not.be.undefined
-    expect(updatedDataOwner.dataOwner).to.not.be.null
-    expect(updatedDataOwner.dataOwner.aesExchangeKeys![previousPubKey][delegateUser!.healthcarePartyId!][publicKey.slice(-32)]).to.be.not.undefined
-    expect(updatedDataOwner.dataOwner.aesExchangeKeys![previousPubKey][delegateUser!.healthcarePartyId!][publicKey.slice(-32)]).to.be.not.null
+    expect(updatedDataOwner.stub).to.not.be.undefined
+    expect(updatedDataOwner.stub).to.not.be.null
+    expect(updatedDataOwner.stub.aesExchangeKeys![previousPubKey][delegateUser!.healthcarePartyId!][publicKey.slice(-32)]).to.be.not.undefined
+    expect(updatedDataOwner.stub.aesExchangeKeys![previousPubKey][delegateUser!.healthcarePartyId!][publicKey.slice(-32)]).to.be.not.null
 
     const apiAfterSharedBack = await Api(
       env!.iCureUrl,
