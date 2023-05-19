@@ -71,10 +71,7 @@ export class FakeDataOwnerApi extends IccDataOwnerXApi {
     await this.updateDataOwner(
       this.mapObject({
         ...retrieved.dataOwner,
-        aesExchangeKeys: {
-          ...(retrieved.dataOwner.aesExchangeKeys ?? {}),
-          [publicHex]: retrieved.dataOwner.aesExchangeKeys?.[publicHex] ?? {},
-        },
+        publicKeysForOaepWithSha256: [...(retrieved.dataOwner.publicKeysForOaepWithSha256 || []), publicHex],
         type: retrieved.type,
       })
     )
