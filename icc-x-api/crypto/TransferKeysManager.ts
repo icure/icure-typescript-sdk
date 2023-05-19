@@ -1,12 +1,13 @@
 import { KeyPair } from './RSA'
 import { BaseExchangeKeysManager } from './BaseExchangeKeysManager'
-import { DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
+import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { ua2hex } from '../utils'
 import { KeyManager } from './KeyManager'
 import { reachSetsAcyclic, StronglyConnectedGraph } from '../utils/graph-utils'
 import { fingerprintToPublicKeysMapOf, loadPublicKeys, transferKeysFpGraphOf } from './utils'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { IcureStorageFacade } from '../storage/IcureStorageFacade'
+import { CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
 
 /**
  * @internal this class is intended only for internal use and may be changed without notice.
@@ -40,11 +41,11 @@ export class TransferKeysManager {
    * @param self the current data owner.
    * @return the updated data owner.
    */
-  async updateTransferKeys(self: DataOwnerWithType): Promise<void> {
+  async updateTransferKeys(self: CryptoActorStubWithType): Promise<void> {
     const newEdges = await this.getNewVerifiedTransferKeysEdges(self)
     if (!newEdges) return
     const selfId = await this.dataOwnerApi.getCurrentDataOwnerId()
-    const fpToPublicKey = fingerprintToPublicKeysMapOf(self.dataOwner)
+    const fpToPublicKey = fingerprintToPublicKeysMapOf(self.stub)
     const newExchangeKeyPublicKeys = newEdges.sources.map((fp) => fpToPublicKey[fp])
     const { key: exchangeKey, updatedDelegator: updatedSelf } = await this.baseExchangeKeysManager.createOrUpdateEncryptedExchangeKeyTo(
       selfId,
@@ -60,12 +61,12 @@ export class TransferKeysManager {
         acc[candidateFp] = existingKeys
         return acc
       },
-      { ...(updatedSelf.dataOwner.transferKeys ?? {}) }
+      { ...(updatedSelf.stub.transferKeys ?? {}) }
     )
-    await this.dataOwnerApi.updateDataOwner({
+    await this.dataOwnerApi.modifyCryptoActorStub({
       type: updatedSelf.type,
-      dataOwner: {
-        ...updatedSelf.dataOwner,
+      stub: {
+        ...updatedSelf.stub,
         transferKeys: newTransferKeys,
       },
     })
@@ -90,7 +91,7 @@ export class TransferKeysManager {
   }
 
   // Decides the best edges considering the verified public keys.
-  private async getNewVerifiedTransferKeysEdges(self: DataOwnerWithType): Promise<
+  private async getNewVerifiedTransferKeysEdges(self: CryptoActorStubWithType): Promise<
     | undefined
     | {
         sources: string[]
@@ -99,11 +100,11 @@ export class TransferKeysManager {
       }
   > {
     const verifiedKeysFpSet = new Set(this.keyManager.getSelfVerifiedKeys().map((x) => x.fingerprint))
-    Object.entries(await this.icureStorage.loadSelfVerifiedKeys(self.dataOwner.id!)).forEach(([key, verified]) => {
+    Object.entries(await this.icureStorage.loadSelfVerifiedKeys(self.stub.id!)).forEach(([key, verified]) => {
       if (verified) verifiedKeysFpSet.add(key.slice(-32))
     })
     if (verifiedKeysFpSet.size == 0) return undefined
-    const graph = transferKeysFpGraphOf(self.dataOwner)
+    const graph = transferKeysFpGraphOf(self.stub)
     // 1. Choose a key available in this device which should be reachable from all other verified keys
     const { fingerprint: targetKeyFp, pair: targetKey } = await this.transferTargetVerifiedKey(this.keyManager)
     // 2. Find groups which can't reach the existing target keys

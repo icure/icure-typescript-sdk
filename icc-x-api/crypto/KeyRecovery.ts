@@ -1,9 +1,10 @@
-import { DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
+import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { KeyPair } from './RSA'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { BaseExchangeKeysManager } from './BaseExchangeKeysManager'
 import { hex2ua, ua2hex } from '../utils'
 import { fingerprintToPublicKeysMapOf } from './utils'
+import { DataOwnerWithType } from '../../icc-api/model/DataOwnerWithType'
 
 /**
  * @internal this class is intended only for internal use and may be changed without notice.

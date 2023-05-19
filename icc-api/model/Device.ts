@@ -90,4 +90,8 @@ export class Device {
    * The public key of this hcp
    */
   publicKey?: string
+  /**
+   * The public keys of this actor which should be used for RSA-OAEP with sha256 encryption.
+   */
+  publicKeysForOaepWithSha256?: string[]
 }

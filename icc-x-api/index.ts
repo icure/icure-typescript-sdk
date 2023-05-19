@@ -53,6 +53,7 @@ import { IccIcureMaintenanceXApi } from './icc-icure-maintenance-x-api'
 import { EntitiesEncryption } from './crypto/EntitiesEncryption'
 import { ConfidentialEntities } from './crypto/ConfidentialEntities'
 import { ensureDelegationForSelf } from './crypto/utils'
+import { CryptoActorStub, CryptoActorStubWithType } from '../icc-api/model/CryptoActorStub'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -174,7 +175,7 @@ export const Api = async function (
   const healthcarePartyApi = new IccHcpartyXApi(host, params.headers, authenticationProvider, fetchImpl)
   const deviceApi = new IccDeviceApi(host, params.headers, authenticationProvider, fetchImpl)
   const basePatientApi = new IccPatientApi(host, params.headers, authenticationProvider, fetchImpl)
-  const dataOwnerApi = new IccDataOwnerXApi(userApi, healthcarePartyApi, basePatientApi, deviceApi)
+  const dataOwnerApi = new IccDataOwnerXApi(host, params.headers, authenticationProvider, fetchImpl)
   // Crypto initialisation
   const icureStorage = new IcureStorageFacade(params.keyStorage, params.storage, params.entryKeysFactory)
   const cryptoPrimitives = new CryptoPrimitives(crypto)
@@ -183,7 +184,7 @@ export const Api = async function (
   const keyManager = new KeyManager(cryptoPrimitives, dataOwnerApi, icureStorage, keyRecovery, baseExchangeKeysManager, cryptoStrategies)
   const newKey = await keyManager.initialiseKeys()
   await new TransferKeysManager(cryptoPrimitives, baseExchangeKeysManager, dataOwnerApi, keyManager, icureStorage).updateTransferKeys(
-    await dataOwnerApi.getCurrentDataOwner()
+    CryptoActorStubWithType.fromDataOwner(await dataOwnerApi.getCurrentDataOwner())
   )
   // TODO customise cache size?
   const exchangeKeysManager = new ExchangeKeysManager(
@@ -201,7 +202,7 @@ export const Api = async function (
   const entitiesEncryption = new EntitiesEncryption(cryptoPrimitives, dataOwnerApi, exchangeKeysManager)
   const shamirManager = new ShamirKeysManager(cryptoPrimitives, dataOwnerApi, keyManager, exchangeKeysManager)
   const confidentialEntitites = new ConfidentialEntities(entitiesEncryption, cryptoPrimitives, dataOwnerApi)
-  await ensureDelegationForSelf(dataOwnerApi, entitiesEncryption, cryptoPrimitives)
+  await ensureDelegationForSelf(dataOwnerApi, entitiesEncryption, cryptoPrimitives, basePatientApi)
   const cryptoApi = new IccCryptoXApi(
     exchangeKeysManager,
     cryptoPrimitives,

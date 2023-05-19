@@ -1,6 +1,7 @@
 import { KeyPair } from './RSA'
-import { DataOwner } from '../icc-data-owner-x-api'
 import { CryptoPrimitives } from './CryptoPrimitives'
+import { DataOwnerWithType } from '../../icc-api/model/DataOwnerWithType'
+import { CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
 
 /**
  * Allows to customise the behaviour of the crypto api to better suit your needs.
@@ -40,7 +41,7 @@ export interface CryptoStrategies {
    */
   recoverAndVerifySelfHierarchyKeys(
     keysData: {
-      dataOwner: DataOwner
+      dataOwner: DataOwnerWithType
       unknownKeys: string[]
       unavailableKeys: string[]
     }[],
@@ -64,7 +65,7 @@ export interface CryptoStrategies {
    * - If this method returns false the initialisation will fail with a predefined error.
    * - If this method throws an error the initialisation will propagate the error.
    */
-  generateNewKeyForDataOwner(self: DataOwner, cryptoPrimitives: CryptoPrimitives): Promise<KeyPair<CryptoKey> | boolean>
+  generateNewKeyForDataOwner(self: DataOwnerWithType, cryptoPrimitives: CryptoPrimitives): Promise<KeyPair<CryptoKey> | boolean>
 
   /**
    * Verifies if the public keys of a data owner which will be the delegate of a new exchange key do actually belong to the person the data owner
@@ -80,5 +81,5 @@ export interface CryptoStrategies {
    * @param cryptoPrimitives cryptographic primitives you can use to support the process.
    * @return all verified public keys, in spki hex-encoded format.
    */
-  verifyDelegatePublicKeys(delegate: DataOwner, publicKeys: string[], cryptoPrimitives: CryptoPrimitives): Promise<string[]>
+  verifyDelegatePublicKeys(delegate: CryptoActorStubWithType, publicKeys: string[], cryptoPrimitives: CryptoPrimitives): Promise<string[]>
 }

@@ -1,4 +1,4 @@
-import { DataOwner, DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
+import { DataOwner, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { KeyPair } from './RSA'
 import { ua2hex } from '../utils'
 import { IcureStorageFacade } from '../storage/IcureStorageFacade'
@@ -7,11 +7,13 @@ import { fingerprintToPublicKeysMapOf, loadPublicKeys } from './utils'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { KeyRecovery } from './KeyRecovery'
 import { CryptoStrategies } from './CryptoStrategies'
+import { DataOwnerWithType } from '../../icc-api/model/DataOwnerWithType'
+import { CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
 
 type KeyPairData = { pair: KeyPair<CryptoKey>; isVerified: boolean; isDevice: boolean }
 type KeyRecovererAndVerifier = (
   keysData: {
-    dataOwner: DataOwner
+    dataOwner: DataOwnerWithType
     unknownKeys: string[]
     unavailableKeys: string[]
   }[]
@@ -21,7 +23,7 @@ type KeyRecovererAndVerifier = (
     keyAuthenticity: { [keyPairFingerprint: string]: boolean }
   }
 }>
-type CurrentOwnerKeyGenerator = (self: DataOwner) => Promise<KeyPair<CryptoKey> | boolean>
+type CurrentOwnerKeyGenerator = (self: DataOwnerWithType) => Promise<KeyPair<CryptoKey> | boolean>
 
 /**
  * Allows to manage public and private keys for the current user and his parent hierarchy.
@@ -124,7 +126,7 @@ export class KeyManager {
       (x) =>
         Promise.resolve(
           x.reduce(
-            (acc, { dataOwner }) => ({ ...acc, [dataOwner.id]: { recoveredKeys: {}, keyAuthenticity: {} } }),
+            (acc, { dataOwner }) => ({ ...acc, [dataOwner.dataOwner.id!]: { recoveredKeys: {}, keyAuthenticity: {} } }),
             {} as {
               [dataOwnerId: string]: {
                 recoveredKeys: { [keyPairFingerprint: string]: KeyPair<CryptoKey> }
@@ -181,7 +183,7 @@ export class KeyManager {
     if (!availableKeys) throw new Error(`Data owner ${dataOwner.id} is not part of the hierarchy of the current data owner ${this.selfId}`)
     const availableVerifiedKeysFp = new Set(Object.entries(availableKeys).flatMap(([fp, info]) => (info.isVerified || info.isDevice ? [fp] : [])))
     const otherVerifiedFp = new Set(
-      Object.entries(await this.icureStorage.loadSelfVerifiedKeys(dataOwner.id)).flatMap(([fp, verified]) => (verified ? [fp] : []))
+      Object.entries(await this.icureStorage.loadSelfVerifiedKeys(dataOwner.id!)).flatMap(([fp, verified]) => (verified ? [fp] : []))
     )
     return Array.from(this.dataOwnerApi.getHexPublicKeysOf(dataOwner)).filter((key) => {
       const fp = key.slice(-32)
@@ -228,12 +230,12 @@ export class KeyManager {
       keysData.push({ dowt, availableKeys, unavailableKeys, unknownKeys })
     }
     const recoveryAndVerificationResult = await keyRecovererAndVerifier(
-      keysData.map(({ dowt, unavailableKeys, unknownKeys }) => ({ dataOwner: dowt.dataOwner, unavailableKeys, unknownKeys }))
+      keysData.map(({ dowt, unavailableKeys, unknownKeys }) => ({ dataOwner: dowt, unavailableKeys, unknownKeys }))
     )
     const keysCache: { [dataOwnerId: string]: { [fp: string]: KeyPairData } } = {}
     for (const keyData of keysData) {
-      const currAuthenticity = this.ensureFingerprintKeys(recoveryAndVerificationResult[keyData.dowt.dataOwner.id].keyAuthenticity)
-      const currExternallyRecovered = this.ensureFingerprintKeys(recoveryAndVerificationResult[keyData.dowt.dataOwner.id].recoveredKeys)
+      const currAuthenticity = this.ensureFingerprintKeys(recoveryAndVerificationResult[keyData.dowt.dataOwner.id!].keyAuthenticity)
+      const currExternallyRecovered = this.ensureFingerprintKeys(recoveryAndVerificationResult[keyData.dowt.dataOwner.id!].recoveredKeys)
       for (const [fp, keyPair] of Object.entries(currExternallyRecovered)) {
         const jwkPair = await this.primitives.RSA.exportKeys(keyPair, 'jwk', 'jwk')
         await this.icureStorage.saveKey(keyData.dowt.dataOwner.id!, fp, jwkPair, true)
@@ -261,22 +263,22 @@ export class KeyManager {
     }
     if (Object.entries(keysCache).some(([ownerId, data]) => ownerId !== self.dataOwner.id && !this.hasVerifiedKey(data))) {
       throw new Error('Some parent hcps have no verified keys: impossible to generate locally a new key for a parent.')
-    } else if (this.hasVerifiedKey(keysCache[self.dataOwner.id])) {
+    } else if (this.hasVerifiedKey(keysCache[self.dataOwner.id!])) {
       this.keysCache = keysCache
       this.selfLegacyPublicKey = self.dataOwner.publicKey
       return undefined
     } else {
-      const whatToDo = await currentOwnerKeyGenerator(self.dataOwner)
+      const whatToDo = await currentOwnerKeyGenerator(self)
       if (whatToDo === false) {
         throw new Error(`No verified key found for ${self.dataOwner.id} and settings do not allow creation of a new key.`)
       } else {
         const updateInfo = await this.createAndSaveNewKeyPair(whatToDo === true ? undefined : whatToDo, self)
         // self may be outdated now
-        this.selfLegacyPublicKey = updateInfo.updatedSelf.dataOwner.publicKey
+        this.selfLegacyPublicKey = updateInfo.updatedSelf.stub.publicKey
         this.keysCache = {
           ...keysCache,
           [self.dataOwner.id!]: {
-            ...keysCache[self.dataOwner.id],
+            ...keysCache[self.dataOwner.id!],
             [updateInfo.publicKeyFingerprint]: { pair: updateInfo.keyPair, isDevice: true, isVerified: true },
           },
         }
@@ -288,7 +290,7 @@ export class KeyManager {
   private async createAndSaveNewKeyPair(
     importedKeyPair: undefined | KeyPair<CryptoKey>,
     selfDataOwner: DataOwnerWithType
-  ): Promise<{ publicKeyFingerprint: string; keyPair: KeyPair<CryptoKey>; updatedSelf: DataOwnerWithType }> {
+  ): Promise<{ publicKeyFingerprint: string; keyPair: KeyPair<CryptoKey>; updatedSelf: CryptoActorStubWithType }> {
     const keyPair = importedKeyPair ?? (await this.primitives.RSA.generateKeyPair())
     const publicKeyHex = ua2hex(await this.primitives.RSA.exportKey(keyPair.publicKey, 'spki'))
     const publicKeyFingerprint = publicKeyHex.slice(-32)

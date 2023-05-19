@@ -1,41 +1,18 @@
 import { User } from '../icc-api/model/User'
-import { IccDeviceApi, IccPatientApi, IccUserApi } from '../icc-api'
 import { HealthcareParty } from '../icc-api/model/HealthcareParty'
 import { Patient } from '../icc-api/model/Patient'
 import { Device } from '../icc-api/model/Device'
 import { hexPublicKeysOf } from './crypto/utils'
-import { IccHcpartyXApi } from './icc-hcparty-x-api'
-import { XHR } from '../icc-api/api/XHR'
+import { DataOwnerTypeEnum } from 'icc-api/model/DataOwnerTypeEnum'
+import { CryptoActorStub, CryptoActorStubWithType } from '../icc-api/model/CryptoActorStub'
+import { IccDataownerApi } from '../icc-api/api/IccDataownerApi'
+import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import { DataOwnerWithType } from '../icc-api/model/DataOwnerWithType'
 
-/**
- * Represents a type of data owner.
- */
-export type DataOwnerTypeEnum = 'patient' | 'device' | 'hcp'
-export const DataOwnerTypeEnum: { [key: string]: DataOwnerTypeEnum } = {
-  Patient: 'patient',
-  Device: 'device',
-  Hcp: 'hcp',
-}
+export type DataOwnerOrStub = DataOwner | CryptoActorStub
+export type DataOwner = HealthcareParty | Patient | Device
 
-/**
- * Represents any data owner.
- */
-// Trick to make typechecking work: without this you can pass anything to a data owner
-export type DataOwner = (Patient | Device | HealthcareParty) & { id: string }
-
-/**
- * Represents any data owner enriched with type information.
- */
-export type DataOwnerWithType =
-  | { type: 'patient'; dataOwner: Patient & DataOwner }
-  | { type: 'device'; dataOwner: Device & DataOwner }
-  | { type: 'hcp'; dataOwner: HealthcareParty & DataOwner }
-
-export class IccDataOwnerXApi {
-  private readonly userBaseApi: IccUserApi
-  private readonly hcpartyBaseApi: IccHcpartyXApi
-  private readonly patientBaseApi: IccPatientApi
-  private readonly deviceBaseApi: IccDeviceApi
+export class IccDataOwnerXApi extends IccDataownerApi {
   private currentDataOwnerType: DataOwnerTypeEnum | undefined
   private currentDataOwnerHierarchyIds: string[] | undefined
 
@@ -45,15 +22,16 @@ export class IccDataOwnerXApi {
   }
 
   constructor(
-    userBaseApi: IccUserApi,
-    hcpartyBaseApi: IccHcpartyXApi, //Init with a hcparty x api for better performances
-    patientBaseApi: IccPatientApi,
-    deviceBaseApi: IccDeviceApi
+    host: string,
+    headers: { [key: string]: string },
+    authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
+    fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
+      ? window.fetch
+      : typeof self !== 'undefined'
+      ? self.fetch
+      : fetch
   ) {
-    this.userBaseApi = userBaseApi
-    this.hcpartyBaseApi = hcpartyBaseApi
-    this.patientBaseApi = patientBaseApi
-    this.deviceBaseApi = deviceBaseApi
+    super(host, headers, authenticationProvider, fetchImpl)
   }
 
   /**
@@ -99,17 +77,6 @@ export class IccDataOwnerXApi {
   }
 
   /**
-   * If the logged user is a data owner get the current data owner.
-   * @throws if the current user is not a data owner.
-   */
-  async getCurrentDataOwner(): Promise<DataOwnerWithType> {
-    if (!this.currentDataOwnerHierarchyIds) {
-      const dataOwnerHierarchy = await this.forceLoadCurrentDataOwnerHierarchyAndCacheIds()
-      return dataOwnerHierarchy[dataOwnerHierarchy.length - 1]
-    } else return this.getDataOwner(await this.getCurrentDataOwnerId())
-  }
-
-  /**
    * If the logged user is a data owner get the current data owner and all of his parents.
    * @throws if the current user is not a data owner.
    * @return the current data owner hierarchy, starting from the topmost parent to the current data owner.
@@ -146,29 +113,28 @@ export class IccDataOwnerXApi {
   }
 
   /**
-   * Get a data owner. Uses a cache to improve performance.
+   * Get a data owner. Note that this does not decrpyt patient data owners.
    * @param ownerId id of the data owner to retrieve (patient, medical device, hcp, ...)
-   * @return the data owner or undefined if loadIfMissingFromCache is false and there is no data owner with provided id in cache.
-   * @throws if no data owner with the provided id could be found on an error occurred while attempting to retrieve it.
+   * @return the data owner with the provided id
+   * @throws if you have no access to the data owner. Use {@link getCryptoActorStub}.
    */
   async getDataOwner(ownerId: string): Promise<DataOwnerWithType> {
-    const _url = this.userBaseApi.host + `/dataowner/` + ownerId + '?ts=' + new Date().getTime()
-    let headers = this.userBaseApi.headers
-    return XHR.sendCommand(
-      'GET',
-      _url,
-      headers,
-      null,
-      this.userBaseApi.fetchImpl,
-      undefined,
-      this.userBaseApi.authenticationProvider.getAuthService()
-    )
-      .then((doc) => doc.body as DataOwnerWithType)
-      .then((dowt) => {
-        if (dowt.dataOwner.id === this.selfDataOwnerId) this.checkDataOwnerIntegrity(dowt.dataOwner)
-        return dowt
-      })
-      .catch((err) => this.handleError(err))
+    return super.getDataOwner(ownerId).then((dowt) => {
+      if (dowt.dataOwner.id === this.selfDataOwnerId) this.checkDataOwnerIntegrity(dowt.dataOwner)
+      return dowt
+    })
+  }
+
+  /**
+   * Get a crypto actor stub for a data owner.
+   * @param ownerId id of the data owner for which you want to retrieve the stub (patient, medical device, hcp, ...)
+   * @return the crypto actor stub of the data owner with the provided id
+   */
+  async getCryptoActorStub(ownerId: string): Promise<CryptoActorStubWithType> {
+    return super.getCryptoActorStub(ownerId).then((dowt) => {
+      if (dowt.stub.id === this.selfDataOwnerId) this.checkDataOwnerIntegrity(dowt.stub)
+      return dowt
+    })
   }
 
   /**
@@ -176,7 +142,7 @@ export class IccDataOwnerXApi {
    * @param dataOwner a data owner.
    * @return the public keys for the data owner in hex format.
    */
-  getHexPublicKeysOf(dataOwner: DataOwner): Set<string> {
+  getHexPublicKeysOf(dataOwner: DataOwnerOrStub): Set<string> {
     return hexPublicKeysOf(dataOwner)
   }
 
@@ -188,27 +154,7 @@ export class IccDataOwnerXApi {
     this.currentDataOwnerHierarchyIds = undefined
   }
 
-  /**
-   * @internal This method is intended only for internal use and may be changed without notice.
-   * Updates a data owner and its cached value.
-   * @param dataOwner a data owner with updated value.
-   * @return the updated data owner, with updated revision.
-   */
-  async updateDataOwner(dataOwner: DataOwnerWithType): Promise<DataOwnerWithType> {
-    const ownerType = dataOwner.type
-    const ownerToUpdate = dataOwner.dataOwner
-    if (ownerType === 'hcp') {
-      return await this.hcpartyBaseApi
-        .modifyHealthcareParty(ownerToUpdate as HealthcareParty)
-        .then((x) => ({ type: 'hcp', dataOwner: x } as DataOwnerWithType))
-    } else if (ownerType === 'patient') {
-      return await this.patientBaseApi.modifyPatient(ownerToUpdate as Patient).then((x) => ({ type: 'patient', dataOwner: x } as DataOwnerWithType))
-    } else if (ownerType === 'device') {
-      return await this.deviceBaseApi.updateDevice(ownerToUpdate as Device).then((x) => ({ type: 'device', dataOwner: x } as DataOwnerWithType))
-    } else throw new Error(`Unrecognised data owner type: ${ownerType}`)
-  }
-
-  private checkDataOwnerIntegrity(dataOwner: DataOwner) {
+  private checkDataOwnerIntegrity(dataOwner: DataOwnerOrStub) {
     const keys = this.getHexPublicKeysOf(dataOwner)
     if (new Set(Array.from(keys).map((x) => x.slice(-32))).size != keys.size)
       throw new Error(
@@ -217,8 +163,7 @@ export class IccDataOwnerXApi {
   }
 
   private async forceLoadCurrentDataOwnerHierarchyAndCacheIds(): Promise<DataOwnerWithType[]> {
-    const currentUser = await this.userBaseApi.getCurrentUser()
-    let curr = await this.getDataOwner(this.getDataOwnerIdOf(currentUser))
+    let curr = await this.getCurrentDataOwner()
     this.checkDataOwnerIntegrity(curr.dataOwner)
     this.currentDataOwnerType = curr.type
     let res = [curr]
@@ -228,9 +173,5 @@ export class IccDataOwnerXApi {
     }
     this.currentDataOwnerHierarchyIds = res.map((x) => x.dataOwner.id!)
     return res
-  }
-
-  private handleError(e: XHR.XHRError): never {
-    throw e
   }
 }
