@@ -276,7 +276,6 @@ export class KeyRecovery {
         if (importedPrivateKey != undefined) return importedPrivateKey
       } catch (e) {
         /* failure is a valid possibility: we don't know the correct key to use */
-        console.warn(e)
       }
     }
     return undefined
