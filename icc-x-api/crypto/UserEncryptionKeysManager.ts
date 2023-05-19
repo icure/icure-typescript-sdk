@@ -139,10 +139,6 @@ export class UserEncryptionKeysManager {
    * @internal This method is intended for internal use only and may be changed without notice.
    * Get all verified key pairs for the current data owner which can safely be used for encryption. This includes all key pairs created on the current
    * device and all recovered key pairs which have been verified.
-   * The keys returned by this method will be in the following order:
-   * 1. Legacy key pair if it is verified
-   * 2. All device key pais, in alphabetical order according to the fingerprint
-   * 3. Other verified key pairs, in alphabetical order according to the fingerprint
    * @return all verified keys, in order.
    */
   getSelfVerifiedKeys(): { fingerprint: string; pair: KeyPair<CryptoKey> }[] {
@@ -214,7 +210,6 @@ export class UserEncryptionKeysManager {
     const keysData = []
     for (const dowt of hierarchy) {
       const availableKeys = await this.loadAndRecoverKeysFor(dowt)
-      console.log(Object.keys(availableKeys))
       const verifiedKeysMap = await this.icureStorage.loadSelfVerifiedKeys(dowt.dataOwner.id!)
       const allPublicKeys = new Set([
         ...this.dataOwnerApi.getHexPublicKeysWithSha1Of(dowt.dataOwner),
