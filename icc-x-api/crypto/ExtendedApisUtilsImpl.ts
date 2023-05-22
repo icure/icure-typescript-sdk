@@ -643,7 +643,7 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     } else {
       const cryptedCopyWithRandomKey = await crypt(
         _.cloneDeep(entity),
-        async (obj: { [key: string]: string }) => Promise.resolve(new ArrayBuffer(1)),
+        async (_: { [key: string]: string }) => Promise.resolve(new ArrayBuffer(1)),
         cryptedKeys
       )
       if (

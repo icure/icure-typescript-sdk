@@ -123,7 +123,7 @@ describe('Full battery of tests on crypto and keys', async function () {
     expect(originalDecryptedData.successfulDecryptions.length).to.equal(2)
 
     // And creates a new one
-    const newKey = await api.cryptoApi.primitives.RSA.generateKeyPair()
+    const newKey = await api.cryptoApi.primitives.RSA.generateKeyPair('sha-256')
     const publicKey = ua2hex(await api.cryptoApi.primitives.RSA.exportKey(newKey.publicKey, 'spki'))
     const apiAfterNewKey = await Api(
       env!.iCureUrl,

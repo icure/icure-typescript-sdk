@@ -3,6 +3,7 @@ import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { hex2ua, jwk2spki, ua2hex } from '../utils'
 import { KeyPair } from './RSA'
+import { fingerprintV1 } from './utils'
 
 export class UserSignatureKeysManager {
   constructor(
@@ -30,12 +31,12 @@ export class UserSignatureKeysManager {
     const dataOwnerId = await this.dataOwnerApi.getCurrentDataOwnerId()
     const existing = await this.iCureStorage.loadSignatureKey(dataOwnerId)
     if (existing) {
-      const fingerprint = jwk2spki(existing.publicKey).slice(-32)
+      const fingerprint = fingerprintV1(jwk2spki(existing.publicKey))
       this.signatureKeysCache = {
         fingerprint,
         keyPair: {
-          privateKey: await this.primitives.RSA.importKey('jwk', existing.privateKey, ['sign']),
-          publicKey: await this.primitives.RSA.importKey('jwk', existing.publicKey, ['verify']),
+          privateKey: await this.primitives.RSA.importKey('jwk', existing.privateKey, ['sign'], 'sha-256'),
+          publicKey: await this.primitives.RSA.importKey('jwk', existing.publicKey, ['verify'], 'sha-256'),
         },
       }
       return this.signatureKeysCache
@@ -60,7 +61,7 @@ export class UserSignatureKeysManager {
     if (cached) return cached
     const loaded = await this.iCureStorage.loadSignatureVerificationKey(await this.dataOwnerApi.getCurrentDataOwnerId(), fingerprint)
     if (loaded) {
-      const imported = await this.primitives.RSA.importKey('jwk', loaded, ['verify'])
+      const imported = await this.primitives.RSA.importKey('jwk', loaded, ['verify'], 'sha-256')
       this.verificationKeysCache.set(fingerprint, imported)
       return imported
     }

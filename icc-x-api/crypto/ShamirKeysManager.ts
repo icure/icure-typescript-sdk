@@ -1,6 +1,5 @@
 import { DataOwner, DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { UserEncryptionKeysManager } from './UserEncryptionKeysManager'
-import { ExchangeKeysManager } from './ExchangeKeysManager'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { KeyPair } from './RSA'
 import { hex2ua, ua2hex } from '../utils'

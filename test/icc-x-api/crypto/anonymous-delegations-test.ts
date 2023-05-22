@@ -34,7 +34,7 @@ type DataOwnerType = 'explicit' | 'anonymous'
 type UserInfo = { user: User; pw: string; dataOwnerId: string }
 
 const typeCombinations: [DataOwnerType, DataOwnerType][] = [
-  // ['explicit', 'explicit'],
+  ['explicit', 'explicit'],
   ['anonymous', 'explicit'],
   ['explicit', 'anonymous'],
   ['anonymous', 'anonymous'],
@@ -90,7 +90,7 @@ describe('Anonymous delegations', () => {
   }
 
   async function loseKeyAndGiveAccessBack(userThatLosesKey: UserInfo, apiToGiveAccessBack: Apis, userGivingAccessBack: UserInfo): Promise<Apis> {
-    const newKeyPair = await primitives.RSA.generateKeyPair()
+    const newKeyPair = await primitives.RSA.generateKeyPair('sha-256')
     const newApi = await TestApi(env.iCureUrl, userThatLosesKey.user.login!, userThatLosesKey.pw, webcrypto as any, newKeyPair)
     await newApi.icureMaintenanceTaskApi.createMaintenanceTasksForNewKeypair(userThatLosesKey.user, newKeyPair, ['patient', 'hcp'])
     await apiToGiveAccessBack.cryptoApi.forceReload()

@@ -78,7 +78,7 @@ class ApiFactoryV6 implements ApiFactory {
     )
     return <UniformizedMasterApi>{
       createUser: async () => {
-        const pair = await cryptoPrimitives.RSA.generateKeyPair()
+        const pair = await cryptoPrimitives.RSA.generateKeyPair('sha-1')
         const hcp = await apis.healthcarePartyApi.createHealthcareParty(new HealthcareParty({ id: uuid(), firstName: `name`, lastName: 'v6' }))
         const user = await apis.userApi.createUser(
           new UserV6({
@@ -159,8 +159,8 @@ class ApiFactoryV7 implements ApiFactory {
 
   async masterApi(env: TestVars): Promise<UniformizedMasterApi> {
     const key = {
-      privateKey: await cryptoPrimitives.RSA.importKey('pkcs8', hex2ua(env.masterHcp!.privateKey), ['decrypt']),
-      publicKey: await cryptoPrimitives.RSA.importKey('spki', hex2ua(env.masterHcp!.publicKey), ['encrypt']),
+      privateKey: await cryptoPrimitives.RSA.importKey('pkcs8', hex2ua(env.masterHcp!.privateKey), ['decrypt'], 'sha-1'),
+      publicKey: await cryptoPrimitives.RSA.importKey('spki', hex2ua(env.masterHcp!.publicKey), ['encrypt'], 'sha-1'),
     }
     const apis = await ApiV7(
       env.iCureUrl,
@@ -175,7 +175,7 @@ class ApiFactoryV7 implements ApiFactory {
     )
     return <UniformizedMasterApi>{
       createUser: async () => {
-        const pair = await cryptoPrimitives.RSA.generateKeyPair()
+        const pair = await cryptoPrimitives.RSA.generateKeyPair('sha-256')
         const hcp = await apis.healthcarePartyApi.createHealthcareParty(new HealthcareParty({ id: uuid(), firstName: `name`, lastName: 'v7' }))
         const user = await apis.userApi.createUser(
           new User({
@@ -201,8 +201,11 @@ class ApiFactoryV7 implements ApiFactory {
         dataOwnerId: credentials.ownerId,
         pairs: [
           {
-            publicKey: ua2hex(await cryptoPrimitives.RSA.exportKey(credentials.key.publicKey, 'spki')),
-            privateKey: ua2hex(await cryptoPrimitives.RSA.exportKey(credentials.key.privateKey, 'pkcs8')),
+            keyPair: {
+              publicKey: ua2hex(await cryptoPrimitives.RSA.exportKey(credentials.key.publicKey, 'spki')),
+              privateKey: ua2hex(await cryptoPrimitives.RSA.exportKey(credentials.key.privateKey, 'pkcs8')),
+            },
+            shaVersion: 'sha-1',
           },
         ],
       },

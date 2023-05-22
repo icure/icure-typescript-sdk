@@ -2,7 +2,7 @@ import { UserEncryptionKeysManager } from './UserEncryptionKeysManager'
 import { BaseExchangeKeysManager } from './BaseExchangeKeysManager'
 import { DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { LruTemporisedAsyncCache } from '../utils/lru-temporised-async-cache'
-import { loadPublicKeys } from './utils'
+import { getShaVersionForKey, loadPublicKeys } from './utils'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { CryptoStrategies } from './CryptoStrategies'
 import { IcureStorageFacade } from '../storage/IcureStorageFacade'
@@ -152,7 +152,10 @@ export class ExchangeKeysManager {
     let otherPublicKeys = Object.fromEntries(otherSelfKeys.map((x) => [x.fingerprint, x.pair.publicKey]))
     if (delegateId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) {
       const delegate = (await this.dataOwnerApi.getDataOwner(delegateId)).dataOwner
-      const delegatePublicKeys = Array.from(this.dataOwnerApi.getHexPublicKeysOf(delegate))
+      const delegatePublicKeys = Array.from([
+        ...this.dataOwnerApi.getHexPublicKeysWithSha1Of(delegate),
+        ...this.dataOwnerApi.getHexPublicKeysWithSha256Of(delegate),
+      ])
       let verifiedDelegatePublicKeys: string[]
       if ((await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()).includes(delegateId)) {
         verifiedDelegatePublicKeys = await this.keyManager.getVerifiedPublicKeysFor(delegate)
@@ -161,9 +164,18 @@ export class ExchangeKeysManager {
       }
       if (!verifiedDelegatePublicKeys || verifiedDelegatePublicKeys.length == 0)
         throw new Error(`No verified public keys for delegate ${delegateId}: impossible to create new exchange key.`)
+      const delegateDataOwner = await this.dataOwnerApi.getDataOwner(delegateId)
+      const keysWithShaVersion = verifiedDelegatePublicKeys.reduce(
+        (previous, key) => {
+          const shaVersion = getShaVersionForKey(delegateDataOwner.dataOwner, key)
+          return !!shaVersion ? { ...previous, [shaVersion]: [...previous[shaVersion], key] } : previous
+        },
+        { 'sha-1': [], 'sha-256': [] } as { [key: string]: string[] }
+      )
       otherPublicKeys = {
         ...otherPublicKeys,
-        ...(await loadPublicKeys(this.primitives.RSA, verifiedDelegatePublicKeys)),
+        ...(await loadPublicKeys(this.primitives.RSA, keysWithShaVersion['sha-1'], 'sha-1')),
+        ...(await loadPublicKeys(this.primitives.RSA, keysWithShaVersion['sha-256'], 'sha-256')),
       }
     }
     return await this.baseExchangeKeysManager.createOrUpdateEncryptedExchangeKeyTo(delegateId, mainKey.pair, otherPublicKeys)

@@ -5,6 +5,8 @@ import { ua2utf8, utf8_2ua } from '../utils'
  */
 export type KeyPair<T> = { publicKey: T; privateKey: T }
 
+export type ShaVersion = 'sha-1' | 'sha-256'
+
 export class RSAUtils {
   /********* RSA Config **********/
   //TODO bigger modulus
@@ -16,6 +18,12 @@ export class RSAUtils {
     modulusLength: 2048,
     publicExponent: new Uint8Array([0x01, 0x00, 0x01]), // Equivalent to 65537 (Fermat F4), read http://en.wikipedia.org/wiki/65537_(number)
     hash: { name: 'sha-1' },
+  }
+  rsaWithSha256HashedParams: any = {
+    name: 'RSA-OAEP',
+    modulusLength: 2048,
+    publicExponent: new Uint8Array([0x01, 0x00, 0x01]), // Equivalent to 65537 (Fermat F4), read http://en.wikipedia.org/wiki/65537_(number)
+    hash: { name: 'SHA-256' },
   }
   private readonly signatureKeysGenerationParams = {
     name: 'RSA-PSS',
@@ -32,13 +40,15 @@ export class RSAUtils {
 
   /**
    * Generates a key pair for encryption/decryption of data.
+   * @param shaVersion the version of the SHA algorithm to use.
    */
-  generateKeyPair(): Promise<KeyPair<CryptoKey>> {
+  generateKeyPair(shaVersion: ShaVersion): Promise<KeyPair<CryptoKey>> {
     const extractable = true
     const keyUsages: KeyUsage[] = ['decrypt', 'encrypt']
+    const rsaParams = this.paramsForCreationOrImport(shaVersion)
 
     return new Promise<KeyPair<CryptoKey>>((resolve, reject) => {
-      this.crypto.subtle.generateKey(this.rsaHashedParams, extractable, keyUsages).then(resolve, reject)
+      this.crypto.subtle.generateKey(rsaParams, extractable, keyUsages).then(resolve, reject)
     })
   }
 
@@ -121,25 +131,39 @@ export class RSAUtils {
    * @param format 'jwk', 'spki', or 'pkcs8'
    * @param keydata should be the key data based on the format.
    * @param keyUsages Array of usages. For example, ['encrypt'] for public key.
+   * @param hashAlgorithm 'sha-1' or 'sha-256'
    * @returns {*}
    */
-  importKey(format: string, keydata: JsonWebKey | ArrayBuffer, keyUsages: KeyUsage[]): Promise<CryptoKey> {
+  importKey(format: string, keydata: JsonWebKey | ArrayBuffer, keyUsages: KeyUsage[], hashAlgorithm: ShaVersion): Promise<CryptoKey> {
     const extractable = true
     return new Promise((resolve: (value: CryptoKey) => any, reject) => {
-      this.crypto.subtle.importKey(format as any, keydata as any, this.rsaHashedParams, extractable, keyUsages).then(resolve, reject)
+      const rsaParams = this.paramsForCreationOrImport(hashAlgorithm)
+      this.crypto.subtle.importKey(format as any, keydata as any, rsaParams, extractable, keyUsages).then(resolve, reject)
     })
+  }
+
+  private paramsForCreationOrImport(shaVersion: ShaVersion) {
+    if (shaVersion === 'sha-1') {
+      return this.rsaHashedParams
+    } else if (shaVersion === 'sha-256') {
+      return this.rsaWithSha256HashedParams
+    } else {
+      throw new Error('Unexpected error, invalid SHA version')
+    }
   }
 
   /**
    *
    * @param format 'jwk' or 'pkcs8'
    * @param keydata should be the key data based on the format.
+   * @param hashAlgorithm 'sha-1' or 'sha-256'
    * @returns {*}
    */
-  importPrivateKey(format: string, keydata: JsonWebKey | ArrayBuffer): Promise<CryptoKey> {
+  importPrivateKey(format: string, keydata: JsonWebKey | ArrayBuffer, hashAlgorithm: ShaVersion): Promise<CryptoKey> {
     const extractable = true
     return new Promise((resolve: (value: CryptoKey) => any, reject) => {
-      this.crypto.subtle.importKey(format as any, keydata as any, this.rsaHashedParams, extractable, ['decrypt']).then(resolve, reject)
+      const rsaParams = this.paramsForCreationOrImport(hashAlgorithm)
+      this.crypto.subtle.importKey(format as any, keydata as any, rsaParams, extractable, ['decrypt']).then(resolve, reject)
     })
   }
 
@@ -149,17 +173,20 @@ export class RSAUtils {
    * @param privateKeydata    should be the key data based on the format.
    * @param publicKeyFormat 'jwk' or 'spki'
    * @param publicKeyData should be the key data based on the format.
+   * @param hashAlgorithm 'sha-1' or 'sha-256'
    * @returns {Promise|*}
    */
   importKeyPair(
     privateKeyFormat: string,
     privateKeydata: JsonWebKey | ArrayBuffer,
     publicKeyFormat: string,
-    publicKeyData: JsonWebKey | ArrayBuffer
+    publicKeyData: JsonWebKey | ArrayBuffer,
+    hashAlgorithm: ShaVersion
   ): Promise<KeyPair<CryptoKey>> {
     const extractable = true
-    const privPromise = this.crypto.subtle.importKey(privateKeyFormat as any, privateKeydata as any, this.rsaHashedParams, extractable, ['decrypt'])
-    const pubPromise = this.crypto.subtle.importKey(publicKeyFormat as any, publicKeyData as any, this.rsaHashedParams, extractable, ['encrypt'])
+    const rsaParams = this.paramsForCreationOrImport(hashAlgorithm)
+    const privPromise = this.crypto.subtle.importKey(privateKeyFormat as any, privateKeydata as any, rsaParams, extractable, ['decrypt'])
+    const pubPromise = this.crypto.subtle.importKey(publicKeyFormat as any, publicKeyData as any, rsaParams, extractable, ['encrypt'])
 
     return Promise.all([pubPromise, privPromise]).then(function (results) {
       return {
