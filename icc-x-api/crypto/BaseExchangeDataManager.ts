@@ -7,7 +7,7 @@ import XHRError = XHR.XHRError
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { b64_2ua, hex2ua, ua2b64, ua2hex, ua2utf8, utf8_2ua } from '../utils'
 import * as _ from 'lodash'
-import { fingerprintV1toV2, isFingerprintV1 } from './utils'
+import { fingerprintV1toV2, fingerprintIsV1 } from './utils'
 
 /**
  * @internal this class is intended for internal use only and may be modified without notice
@@ -189,7 +189,7 @@ export class BaseExchangeDataManager {
     const decryptionKeysWithV2Fp = Object.keys(decryptionKeys).reduce((prev, fp) => {
       return {
         ...prev,
-        [isFingerprintV1(fp) ? fingerprintV1toV2(fp) : fp]: decryptionKeys[fp],
+        [fingerprintIsV1(fp) ? fingerprintV1toV2(fp) : fp]: decryptionKeys[fp],
       }
     }, {} as { [publicKeyFingerprint: string]: KeyPair<CryptoKey> })
     for (const [fp, encrypted] of Object.entries(encryptedData)) {
@@ -372,7 +372,7 @@ export class BaseExchangeDataManager {
   ): Promise<{ [keyPairFingerprintV2: string]: string }> {
     const res: { [keyPairFingerprintV2: string]: string } = {}
     for (const [fp, key] of Object.entries(keys)) {
-      res[isFingerprintV1(fp) ? fingerprintV1toV2(fp) : fp] = ua2b64(await this.primitives.RSA.encrypt(key, utf8_2ua(ua2hex(rawData))))
+      res[fingerprintIsV1(fp) ? fingerprintV1toV2(fp) : fp] = ua2b64(await this.primitives.RSA.encrypt(key, utf8_2ua(ua2hex(rawData))))
     }
     return res
   }

@@ -186,7 +186,7 @@ export function fingerprintV1toV2(fp: string): string {
  * @param fp the fingerprint.
  * @return true if the fingerprint is in V1 format, false otherwise.
  */
-export function isFingerprintV1(fp: string): boolean {
+export function fingerprintIsV1(fp: string): boolean {
   return fp.length === 32
 }
 
@@ -195,6 +195,6 @@ export function isFingerprintV1(fp: string): boolean {
  * @param fp the fingerprint.
  * @return true if the fingerprint is in V2 format, false otherwise.
  */
-export function isFingerprintV2(fp: string): boolean {
+export function fingerprintIsV2(fp: string): boolean {
   return fp.length === 22
 }
