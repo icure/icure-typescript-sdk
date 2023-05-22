@@ -22,6 +22,7 @@ import { MaintenanceTaskAfterDateFilter } from '../../../icc-x-api/filters/Maint
 import { KeyPairUpdateRequest } from '../../../icc-x-api/maintenance/KeyPairUpdateRequest'
 import { RSAUtils } from '../../../icc-x-api/crypto/RSA'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
+import { fingerprintV1, fingerprintV1toV2, fingerprintV2 } from '../../../icc-x-api/crypto/utils'
 
 // Data was randomly generated, not based on any real key
 const data =
@@ -102,7 +103,7 @@ describe('Shamir key recovery', async function () {
       await api.healthcareElementApi.newInstance(user, pat, { descr }, { confidential: true })
     )
     await api.cryptoApi.shamirKeysManager.updateSelfSplits(
-      { [hierarchyApis.childCredentials.publicKey.slice(-32)]: { notariesIds, minShares: 3 } },
+      { [fingerprintV1(hierarchyApis.childCredentials.publicKey)]: { notariesIds, minShares: 3 } },
       []
     )
     const lostKeyStorage = await testStorageWithKeys([

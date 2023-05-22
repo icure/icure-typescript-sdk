@@ -149,7 +149,7 @@ const userDefinitions: Record<string, (user: User, password: string, pair: KeyPa
         password,
       },
       new TestCryptoStrategies(newKey, {
-        [ua2hex(await primitives.RSA.exportKey(originalKey.publicKey, 'spki')).slice(-32)]: true,
+        [fingerprintV1(ua2hex(await primitives.RSA.exportKey(originalKey.publicKey, 'spki')))]: true,
       }),
       webcrypto as any,
       fetch,

@@ -4,6 +4,7 @@ import { KeyPair } from '../../icc-x-api/crypto/RSA'
 import { CryptoPrimitives } from '../../icc-x-api/crypto/CryptoPrimitives'
 import { ua2hex } from '../../icc-x-api'
 import * as _ from 'lodash'
+import { fingerprintV1 } from '../../icc-x-api/crypto/utils'
 
 export class FakeEncryptionKeysManager extends UserEncryptionKeysManager {
   constructor(private readonly keys: { [fingerprint: string]: { pair: KeyPair<CryptoKey>; verified: boolean } }) {
@@ -17,11 +18,11 @@ export class FakeEncryptionKeysManager extends UserEncryptionKeysManager {
   ): Promise<FakeEncryptionKeysManager> {
     const keysByFingerprint = {} as { [fingerprint: string]: { pair: KeyPair<CryptoKey>; verified: boolean } }
     for (const key of verifiedKeys) {
-      const fingerprint = ua2hex(await primitives.RSA.exportKey(key.publicKey, 'spki')).slice(-32)
+      const fingerprint = fingerprintV1(ua2hex(await primitives.RSA.exportKey(key.publicKey, 'spki')))
       keysByFingerprint[fingerprint] = { pair: key, verified: true }
     }
     for (const key of unverifiedKeys) {
-      const fingerprint = ua2hex(await primitives.RSA.exportKey(key.publicKey, 'spki')).slice(-32)
+      const fingerprint = fingerprintV1(ua2hex(await primitives.RSA.exportKey(key.publicKey, 'spki')))
       keysByFingerprint[fingerprint] = { pair: key, verified: false }
     }
     return new FakeEncryptionKeysManager(keysByFingerprint)
@@ -68,7 +69,7 @@ export class FakeEncryptionKeysManager extends UserEncryptionKeysManager {
   }
 
   async addOrUpdateKey(primitives: CryptoPrimitives, pair: KeyPair<CryptoKey>, verified: boolean) {
-    const fp = ua2hex(await primitives.RSA.exportKey(pair.publicKey, 'spki')).slice(-32)
+    const fp = fingerprintV1(ua2hex(await primitives.RSA.exportKey(pair.publicKey, 'spki')))
     this.keys[fp] = { pair, verified }
   }
 }

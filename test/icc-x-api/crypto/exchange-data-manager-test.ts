@@ -9,7 +9,6 @@ import { webcrypto } from 'crypto'
 import { BaseExchangeDataManager } from '../../../icc-x-api/crypto/BaseExchangeDataManager'
 import { FakeExchangeDataApi } from '../../utils/FakeExchangeDataApi'
 import { FakeDataOwnerApi } from '../../utils/FakeDataOwnerApi'
-import { DataOwnerTypeEnum } from '../../../icc-x-api/icc-data-owner-x-api'
 import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
 import { ua2b64, ua2hex } from '../../../icc-x-api'
 import { FakeEncryptionKeysManager } from '../../utils/FakeEncryptionKeysManager'
@@ -20,12 +19,14 @@ import { expect } from 'chai'
 import { setEquals } from '../../../icc-x-api/utils/collection-utils'
 import { KeyPair } from '../../../icc-x-api/crypto/RSA'
 import * as _ from 'lodash'
+import { fingerprintV1, fingerprintV1toV2, fingerprintV2 } from '../../../icc-x-api/crypto/utils'
 
 describe('Exchange data manager', async function () {
   const primitives = new CryptoPrimitives(webcrypto as any)
   const accessControlSecretUtils = new AccessControlSecretUtils(primitives)
   let selfId: string
-  let selfKeyFp: string
+  let selfKeyFpV1: string
+  let selfKeyFpV2: string
   let selfKeypair: KeyPair<CryptoKey>
   let delegateId: string
   let delegateKeyFp: string
@@ -44,7 +45,8 @@ describe('Exchange data manager', async function () {
     const dataOwnerType = allowFullExchangeDataLoad ? 'patient' : 'hcp'
     selfId = primitives.randomUuid()
     selfKeypair = await primitives.RSA.generateKeyPair('sha-256')
-    selfKeyFp = ua2hex(await primitives.RSA.exportKey(selfKeypair.publicKey, 'spki')).slice(-32)
+    selfKeyFpV1 = fingerprintV1(ua2hex(await primitives.RSA.exportKey(selfKeypair.publicKey, 'spki')))
+    selfKeyFpV2 = fingerprintV1toV2(selfKeyFpV1)
     delegateId = primitives.randomUuid()
     delegateKeypair = await primitives.RSA.generateKeyPair('sha-256')
     delegateKeyFp = ua2hex(await primitives.RSA.exportKey(delegateKeypair.publicKey, 'spki')).slice(-32)
@@ -98,7 +100,7 @@ describe('Exchange data manager', async function () {
 
   async function checkAesKeysEquality(actual: CryptoKey | undefined, expected: CryptoKey | undefined) {
     if (!actual && !expected) return
-    expect(!actual).to.equal(!expected)
+    expect(!actual).to.equal(!expected, !expected ? 'Key should not have been decrypted' : 'Key should have been decrypted')
     expect(ua2hex(await primitives.AES.exportKey(expected!, 'raw'))).to.equal(ua2hex(await primitives.AES.exportKey(actual!, 'raw')))
   }
 
@@ -110,7 +112,7 @@ describe('Exchange data manager', async function () {
     const created = await baseExchangeData.createExchangeData(
       selfId,
       { [signatureFp]: signatureKey.privateKey },
-      { [encryptionFp]: encryptionKey.publicKey, [selfKeyFp]: selfKeypair.publicKey }
+      { [encryptionFp]: encryptionKey.publicKey, [selfKeyFpV1]: selfKeypair.publicKey }
     )
     const modified = await exchangeDataApi.modifyExchangeData(
       new ExchangeData({
@@ -121,15 +123,15 @@ describe('Exchange data manager', async function () {
     return { exchangeData: modified, exchangeKey: created.exchangeKey, accessControlSecret: created.accessControlSecret }
   }
 
-  async function generateEncryptionKeys(n: number): Promise<{ pair: KeyPair<CryptoKey>; fingerprint: string; hexPub: string }[]> {
+  async function generateEncryptionKeys(n: number): Promise<{ pair: KeyPair<CryptoKey>; fingerprintV2: string; hexPub: string }[]> {
     return await Promise.all(
       Array(n)
         .fill(null)
         .map(async () => {
           const pair = await primitives.RSA.generateKeyPair('sha-256')
           const hexPub = ua2hex(await primitives.RSA.exportKey(pair.publicKey, 'spki'))
-          const fingerprint = hexPub.slice(-32)
-          return { pair, fingerprint, hexPub }
+          const fingerprint = fingerprintV2(hexPub)
+          return { pair, fingerprintV2: fingerprint, hexPub }
         })
     )
   }
@@ -250,19 +252,19 @@ describe('Exchange data manager', async function () {
       expect(
         setEquals(
           new Set(Object.keys(created.exchangeData.exchangeKey)),
-          new Set([...delegateVerifiedKeys.map((x) => x.fingerprint), ...extraDelegatorVerifiedKeys.map((x) => x.fingerprint), selfKeyFp])
+          new Set([...delegateVerifiedKeys.map((x) => x.fingerprintV2), ...extraDelegatorVerifiedKeys.map((x) => x.fingerprintV2), selfKeyFpV2])
         ),
         'Only verified keys of delegate and delegator should be used for encryption of exchange key and access control secret.'
       ).to.be.true
-      for (const keyData of [{ pair: selfKeypair, fingerprint: selfKeyFp }, ...extraDelegatorVerifiedKeys, ...delegateVerifiedKeys]) {
+      for (const keyData of [{ pair: selfKeypair, fingerprintV2: selfKeyFpV1 }, ...extraDelegatorVerifiedKeys, ...delegateVerifiedKeys]) {
         await checkAesKeysEquality(
           (
-            await baseExchangeData.tryDecryptExchangeKeys([created.exchangeData], { [keyData.fingerprint]: keyData.pair })
+            await baseExchangeData.tryDecryptExchangeKeys([created.exchangeData], { [keyData.fingerprintV2]: keyData.pair })
           ).successfulDecryptions[0],
           created.exchangeKey
         )
         expect(
-          (await baseExchangeData.tryDecryptAccessControlSecret([created.exchangeData], { [keyData.fingerprint]: keyData.pair }))
+          (await baseExchangeData.tryDecryptAccessControlSecret([created.exchangeData], { [keyData.fingerprintV2]: keyData.pair }))
             .successfulDecryptions[0]
         ).to.equal(created.accessControlSecret)
       }
@@ -330,7 +332,7 @@ describe('Exchange data manager', async function () {
       const sfk = primitives.randomUuid()
       const createdData = await exchangeData.getOrCreateEncryptionDataTo(delegateId, 'Contact', [sfk])
       // Tamper with exchange data
-      await exchangeDataApi.modifyExchangeData(await tamper(createdData.exchangeData, selfKeypair, selfKeyFp))
+      await exchangeDataApi.modifyExchangeData(await tamper(createdData.exchangeData, selfKeypair, selfKeyFpV1))
       await exchangeData.clearOrRepopulateCache()
       const countAfterCacheClear = exchangeDataApi.callCount
       const newData = await exchangeData.getOrCreateEncryptionDataTo(delegateId, 'Contact', [sfk])
@@ -459,7 +461,8 @@ describe('Exchange data manager', async function () {
       const createdByOther = await createDataFromRandomToSelf()
       const newKey = await primitives.RSA.generateKeyPair('sha-256')
       await dataOwnerApi.addPublicKeyForOwner(selfId, newKey)
-      encryptionKeysManager.deleteKey(selfKeyFp)
+      // Simulate loss of key
+      encryptionKeysManager.deleteKey(selfKeyFpV1)
       await encryptionKeysManager.addOrUpdateKey(primitives, newKey, true)
       await exchangeData.clearOrRepopulateCache()
       await checkDataEqual(await exchangeData.getDecryptionDataKeyById(createdBySelf.exchangeData.id!, 'Patient', [], true), {

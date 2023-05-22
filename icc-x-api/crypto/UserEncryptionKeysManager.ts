@@ -2,7 +2,7 @@ import { DataOwner, DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owne
 import { KeyPair, ShaVersion } from './RSA'
 import { ua2hex } from '../utils'
 import { IcureStorageFacade } from '../storage/IcureStorageFacade'
-import { fingerprintToPublicKeysMapOf, fingerprintV1, getShaVersionForKey } from './utils'
+import { fingerprintToPublicKeysMapOf, fingerprintV1 } from './utils'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { KeyRecovery } from './KeyRecovery'
 import { CryptoStrategies } from './CryptoStrategies'

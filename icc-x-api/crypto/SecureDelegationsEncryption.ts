@@ -2,6 +2,7 @@ import { SecureDelegation } from '../../icc-api/model/SecureDelegation'
 import { b64_2ua, concat_uas, hex2ua, ua2b64, ua2hex, ua2utf8, utf8_2ua } from '../utils'
 import { UserEncryptionKeysManager } from './UserEncryptionKeysManager'
 import { CryptoPrimitives } from './CryptoPrimitives'
+import { fingerprintV1toV2, fingerprintIsV1 } from './utils'
 
 /**
  * @internal this class is for internal use only and may be changed without notice.
@@ -40,8 +41,11 @@ export class SecureDelegationsEncryption {
    */
   async decryptExchangeDataId(secureDelegation: SecureDelegation): Promise<string | undefined> {
     const decryptionKeys = this.userKeys.getDecryptionKeys()
+    const decryptionKeysV2 = Object.fromEntries(
+      Object.entries(decryptionKeys).map(([fp, keyPair]) => [fingerprintIsV1(fp) ? fingerprintV1toV2(fp) : fp, keyPair])
+    )
     for (const [fp, encryptedId] of Object.entries(secureDelegation.encryptedExchangeDataId ?? {})) {
-      const key = decryptionKeys?.[fp]
+      const key = decryptionKeys?.[fp] ?? decryptionKeysV2?.[fp]
       if (key) return ua2utf8(await this.primitives.RSA.decrypt(key.privateKey, b64_2ua(encryptedId)))
     }
     return undefined

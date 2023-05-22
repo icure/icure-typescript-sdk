@@ -7,6 +7,7 @@ import XHRError = XHR.XHRError
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { b64_2ua, hex2ua, ua2b64, ua2hex, ua2utf8, utf8_2ua } from '../utils'
 import * as _ from 'lodash'
+import { fingerprintV1toV2, fingerprintIsV1 } from './utils'
 
 /**
  * @internal this class is intended for internal use only and may be modified without notice
@@ -182,12 +183,18 @@ export class BaseExchangeDataManager {
   }
 
   private async tryDecrypt(
-    encryptedData: { [keyPairFingerprint: string]: string },
-    decryptionKeys: { [publicKeyFingerprint: string]: KeyPair<CryptoKey> }
+    encryptedData: { [keyPairFingerprintV2: string]: string },
+    decryptionKeys: { [publicKeyFingerprintV1: string]: KeyPair<CryptoKey> }
   ): Promise<ArrayBuffer | undefined> {
+    const decryptionKeysWithV2Fp = Object.keys(decryptionKeys).reduce((prev, fp) => {
+      return {
+        ...prev,
+        [fingerprintIsV1(fp) ? fingerprintV1toV2(fp) : fp]: decryptionKeys[fp],
+      }
+    }, {} as { [publicKeyFingerprint: string]: KeyPair<CryptoKey> })
     for (const [fp, encrypted] of Object.entries(encryptedData)) {
       try {
-        const key = decryptionKeys[fp]?.privateKey
+        const key = decryptionKeysWithV2Fp[fp]?.privateKey
         if (key) return hex2ua(ua2utf8(await this.primitives.RSA.decrypt(key, b64_2ua(encrypted))))
       } catch (e) {
         // Try with another key
@@ -361,11 +368,11 @@ export class BaseExchangeDataManager {
 
   private async encryptDataWithKeys(
     rawData: ArrayBuffer,
-    keys: { [keyPairFingerprint: string]: CryptoKey }
-  ): Promise<{ [keyPairFingerprint: string]: string }> {
-    const res: { [keyPairFingerprint: string]: string } = {}
+    keys: { [keyPairFingerprintV1: string]: CryptoKey }
+  ): Promise<{ [keyPairFingerprintV2: string]: string }> {
+    const res: { [keyPairFingerprintV2: string]: string } = {}
     for (const [fp, key] of Object.entries(keys)) {
-      res[fp] = ua2b64(await this.primitives.RSA.encrypt(key, utf8_2ua(ua2hex(rawData))))
+      res[fingerprintIsV1(fp) ? fingerprintV1toV2(fp) : fp] = ua2b64(await this.primitives.RSA.encrypt(key, utf8_2ua(ua2hex(rawData))))
     }
     return res
   }

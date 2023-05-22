@@ -90,17 +90,6 @@ export async function loadPublicKeys(
 }
 
 /**
- * @internal this function is meant only for internal use and may be changed without notice.
- * Calculates the fingerprint from the hexadecimal representation of a SPKI key. The fingerprint is calculated as the last 16 bytes (32 characters)
- * of the SPKI key.
- * @param key the hexadecimal representation of the SPKI key.
- * @return the fingerprint.
- */
-export function fingerprintV1(key: string): string {
-  return key.slice(-32)
-}
-
-/**
  * @internal This method is intended only for internal use and may be changed without notice.
  * Creates a delegation for the current data owner if the data owner is an encrypted entity and there is no delegation to himself.
  * @return the updated self.
@@ -158,4 +147,54 @@ export function getShaVersionForKey(dataOwner: Patient | HealthcareParty | Devic
     : !!dataOwner.publicKeysForOaepWithSha256?.includes(publicKey)
     ? 'sha-256'
     : undefined
+}
+
+/**
+ * @internal this function is meant only for internal use and may be changed without notice.
+ * Calculates the fingerprint from the hexadecimal representation of a SPKI key. The fingerprint is calculated as the last 16 bytes (32 characters)
+ * of the SPKI key.
+ * @param key the hexadecimal representation of the SPKI key.
+ * @return the fingerprint.
+ */
+export function fingerprintV1(key: string): string {
+  return key.slice(-32)
+}
+
+/**
+ * @internal this function is meant only for internal use and may be changed without notice.
+ * Calculates the fingerprint from the hexadecimal representation of a SPKI key. The fingerprint is calculated as the last 16 bytes (32 characters) from which the
+ * last 5 (10 characters) are removed because they are a constant of the SPKI format.
+ * @param key the hexadecimal representation of the SPKI key.
+ * @return the fingerprint.
+ */
+export function fingerprintV2(key: string): string {
+  return key.slice(-32, -10)
+}
+
+/**
+ * @internal this function is meant only for internal use and may be changed without notice.
+ * Converts the fingerprint of a key from a V1 format to a V2 format.
+ * @param fp the fingerprint of the key in the V1 format.
+ * @return the fingerprint of the key in the v2 format.
+ */
+export function fingerprintV1toV2(fp: string): string {
+  return fp.slice(0, -10)
+}
+
+/**
+ * @internal this function is meant only for internal use and may be changed without notice.
+ * @param fp the fingerprint.
+ * @return true if the fingerprint is in V1 format, false otherwise.
+ */
+export function fingerprintIsV1(fp: string): boolean {
+  return fp.length === 32
+}
+
+/**
+ * @internal this function is meant only for internal use and may be changed without notice.
+ * @param fp the fingerprint.
+ * @return true if the fingerprint is in V2 format, false otherwise.
+ */
+export function fingerprintIsV2(fp: string): boolean {
+  return fp.length === 22
 }

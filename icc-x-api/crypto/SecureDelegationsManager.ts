@@ -4,7 +4,7 @@ import { UserEncryptionKeysManager } from './UserEncryptionKeysManager'
 import { CryptoStrategies } from './CryptoStrategies'
 import { EncryptedEntityWithType, EntityWithDelegationTypeName } from '../utils/EntityWithDelegationTypeName'
 import { LruTemporisedAsyncCache } from '../utils/lru-temporised-async-cache'
-import { fingerprintV1, hexPublicKeysWithSha1Of, hexPublicKeysWithSha256Of } from './utils'
+import { fingerprintV2, hexPublicKeysWithSha1Of, hexPublicKeysWithSha256Of } from './utils'
 import { ExchangeDataManager } from './ExchangeDataManager'
 import { ExchangeData } from '../../icc-api/model/ExchangeData'
 import { SecureDelegationsEncryption } from './SecureDelegationsEncryption'
@@ -316,7 +316,7 @@ export class SecureDelegationsManager {
       const fingerprintsOfVerifiedExchangeData = new Set(Object.keys(exchangeData.exchangeKey))
       const delegateVerifiedKeys: { [fp: string]: CryptoKey } = {}
       for (const keyHex of [...delegateInfo.availablePublicKeysHexWithSha1, ...delegateInfo.availablePublicKeysHexWithSha256]) {
-        const currFp = fingerprintV1(keyHex)
+        const currFp = fingerprintV2(keyHex)
         const shaVersion = delegateInfo.availablePublicKeysHexWithSha1.includes(keyHex) ? 'sha-1' : 'sha-256'
         if (fingerprintsOfVerifiedExchangeData.has(currFp)) {
           delegateVerifiedKeys[currFp] = await this.primitives.RSA.importKey('spki', hex2ua(keyHex), ['encrypt'], shaVersion)
