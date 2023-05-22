@@ -1,10 +1,14 @@
 import { DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
-import { KeyPair } from './RSA'
+import { KeyPair, ShaVersion } from './RSA'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { BaseExchangeKeysManager } from './BaseExchangeKeysManager'
 import { hex2ua, ua2hex } from '../utils'
-import { fingerprintToPublicKeysMapOf } from './utils'
+import { fingerprintToPublicKeysMapOf, fingerprintV1, getShaVersionForKey } from './utils'
 import { BaseExchangeDataManager } from './BaseExchangeDataManager'
+import { HealthcareParty } from '../../icc-api/model/HealthcareParty'
+import { Device } from '../../icc-api/model/Device'
+import { Patient } from '../../icc-api/model/Patient'
+import { da } from 'date-fns/locale'
 
 /**
  * @internal this class is intended only for internal use and may be changed without notice.
@@ -40,9 +44,12 @@ export class KeyRecovery {
     dataOwner: DataOwnerWithType,
     knownKeys: { [pubKeyFp: string]: KeyPair<CryptoKey> }
   ): Promise<{ [pubKeyFp: string]: KeyPair<CryptoKey> }> {
-    const selfPublicKeys = Array.from(this.dataOwnerApi.getHexPublicKeysOf(dataOwner.dataOwner))
+    const selfPublicKeys = Array.from([
+      ...this.dataOwnerApi.getHexPublicKeysWithSha1Of(dataOwner.dataOwner),
+      ...this.dataOwnerApi.getHexPublicKeysWithSha256Of(dataOwner.dataOwner),
+    ])
     const knownKeysFpSet = new Set(Object.keys(knownKeys))
-    const missingKeysFpSet = new Set(selfPublicKeys.map((x) => x.slice(-32)).filter((x) => !knownKeysFpSet.has(x)))
+    const missingKeysFpSet = new Set(selfPublicKeys.map((x) => fingerprintV1(x)).filter((x) => !knownKeysFpSet.has(x)))
 
     const recoveryFunctions = [this.recoverFromTransferKeys.bind(this), this.recoverFromShamirSplitKeys.bind(this)]
     let allPrivateKeys: { [pubKeyFingerprint: string]: KeyPair<CryptoKey> } = { ...knownKeys }
@@ -67,7 +74,6 @@ export class KeyRecovery {
         }
       }
     }
-
     return Object.fromEntries(Object.entries(allPrivateKeys).filter(([keyFp]) => !knownKeysFpSet.has(keyFp)))
   }
 
@@ -109,23 +115,26 @@ export class KeyRecovery {
     exchangeKeys: { [delegateId: string]: CryptoKey[] }
   ): Promise<{ [pubKeyFingerprint: string]: KeyPair<CryptoKey> }> {
     const res: { [pubKeyFingerprint: string]: KeyPair<CryptoKey> } = {}
-    const keysByFp = fingerprintToPublicKeysMapOf(dataOwner.dataOwner)
+    const keysByFp = fingerprintToPublicKeysMapOf(dataOwner.dataOwner, 'sha-1')
+    const keysByFpWithSha256 = fingerprintToPublicKeysMapOf(dataOwner.dataOwner, 'sha-256')
     for (const [fp, split] of Object.entries(splits)) {
-      const recovered = await this.tryRecoverSplitPrivate(split, exchangeKeys)
-      if (recovered) {
-        const pub = keysByFp[fp]
-        if (!pub) {
-          console.warn(`Missing public key for fingerprint ${fp} of recovered shamir key.`)
-        } else {
+      const pub = keysByFp[fp] ?? keysByFpWithSha256[fp]
+      const shaVersion = !!pub && !!keysByFp[fp] ? 'sha-1' : !!pub && !!keysByFpWithSha256[fp] ? 'sha-256' : undefined
+      if (!!pub && !!shaVersion) {
+        const recovered = await this.tryRecoverSplitPrivate(split, exchangeKeys, shaVersion)
+        if (recovered) {
+          const pub = keysByFp[fp]
           try {
             res[fp] = {
               privateKey: recovered,
-              publicKey: await this.primitives.RSA.importKey('spki', hex2ua(pub), ['encrypt']),
+              publicKey: await this.primitives.RSA.importKey('spki', hex2ua(pub), ['encrypt'], shaVersion),
             }
           } catch (e) {
             console.warn(`Failed to import public key ${pub}`, e)
           }
         }
+      } else {
+        console.warn(`Missing public key for fingerprint ${fp} of recovered shamir key.`)
       }
     }
     return res
@@ -133,7 +142,8 @@ export class KeyRecovery {
 
   private async tryRecoverSplitPrivate(
     split: { [delegateId: string]: string },
-    exchangeKeys: { [delegateId: string]: CryptoKey[] }
+    exchangeKeys: { [delegateId: string]: CryptoKey[] },
+    shaVersion: ShaVersion
   ): Promise<CryptoKey | undefined> {
     const splitsCount = Object.keys(split).length
     if (splitsCount === 1) {
@@ -142,7 +152,7 @@ export class KeyRecovery {
       for (const exchangeKey of exchangeKeys[delegate] ?? []) {
         try {
           const decrypted = await this.primitives.AES.decrypt(exchangeKey, hex2ua(encryptedKey))
-          const importedKey = await this.primitives.RSA.importKey('pkcs8', decrypted, ['decrypt'])
+          const importedKey = await this.primitives.RSA.importKey('pkcs8', decrypted, ['decrypt'], shaVersion)
           if (importedKey) return importedKey
         } catch (e) {}
       }
@@ -155,7 +165,7 @@ export class KeyRecovery {
       }
       try {
         const combinedKey = hex2ua(this.primitives.shamir.combine(decryptedSplits))
-        return await this.primitives.RSA.importKey('pkcs8', combinedKey, ['decrypt'])
+        return await this.primitives.RSA.importKey('pkcs8', combinedKey, ['decrypt'], shaVersion)
       } catch (e) {
         // Could be not enough splits decrypted
         return undefined
@@ -196,11 +206,14 @@ export class KeyRecovery {
     allKeys: { [pubKeyFingerprint: string]: KeyPair<CryptoKey> },
     missingKeysFp: Set<string>
   ): Promise<{ [pubKeyFingerprint: string]: KeyPair<CryptoKey> }> {
-    const publicKeyFingerprintToPublicKey = fingerprintToPublicKeysMapOf(dataOwner.dataOwner)
+    const publicKeyFingerprintToPublicKey = {
+      ...fingerprintToPublicKeysMapOf(dataOwner.dataOwner, 'sha-1'),
+      ...fingerprintToPublicKeysMapOf(dataOwner.dataOwner, 'sha-256'),
+    }
     const missingKeysTransferData: { [recoverableKeyPubFp: string]: { publicKey: string; encryptedPrivateKey: Set<string> } } = {}
     Object.values(dataOwner.dataOwner.transferKeys ?? {}).forEach((transferKeysByEncryptor) => {
       Object.entries(transferKeysByEncryptor).forEach(([transferToPublicKey, transferPrivateKeyEncrypted]) => {
-        const transferToPublicKeyFp = transferToPublicKey.slice(-32) // We are not sure if transfer public key will be a fp or not
+        const transferToPublicKeyFp = fingerprintV1(transferToPublicKey) // We are not sure if transfer public key will be a fp or not
         if (missingKeysFp.has(transferToPublicKeyFp)) {
           const existingEntryValue = missingKeysTransferData[transferToPublicKeyFp]
           if (existingEntryValue) {
@@ -219,28 +232,31 @@ export class KeyRecovery {
         }
       })
     })
-
     const availableExchangeKeys = await this.getExchangeKeys(dataOwner.dataOwner.id!, dataOwner.dataOwner.id!, allKeys)
 
     return Object.entries(missingKeysTransferData).reduce(async (acc, [recoverableKeyPubFp, transferData]) => {
       const awaitedAcc = await acc
-      const decryptedTransferData = await this.tryDecryptTransferData(transferData, availableExchangeKeys)
-      if (decryptedTransferData != undefined) {
-        return { ...awaitedAcc, [recoverableKeyPubFp]: decryptedTransferData }
+      const shaVersion = getShaVersionForKey(dataOwner.dataOwner, transferData.publicKey)
+      if (!!shaVersion) {
+        const decryptedTransferData = await this.tryDecryptTransferData(transferData, availableExchangeKeys, shaVersion)
+        if (decryptedTransferData != undefined) {
+          return { ...awaitedAcc, [recoverableKeyPubFp]: decryptedTransferData }
+        } else return awaitedAcc
       } else return awaitedAcc
     }, Promise.resolve({} as { [pubKeyFingerprint: string]: KeyPair<CryptoKey> }))
   }
 
   private async tryDecryptTransferData(
     transferData: { publicKey: string; encryptedPrivateKey: Set<string> },
-    availableExchangeKeys: CryptoKey[]
+    availableExchangeKeys: CryptoKey[],
+    shaVersion: ShaVersion
   ): Promise<KeyPair<CryptoKey> | undefined> {
     for (const encryptedTransferKey of transferData.encryptedPrivateKey) {
-      const decryptedTransferKey = await this.tryDecryptTransferKey(encryptedTransferKey, availableExchangeKeys)
+      const decryptedTransferKey = await this.tryDecryptTransferKey(encryptedTransferKey, availableExchangeKeys, shaVersion)
       if (decryptedTransferKey != undefined)
         return {
           privateKey: decryptedTransferKey,
-          publicKey: await this.primitives.RSA.importKey('spki', hex2ua(transferData.publicKey), ['encrypt']),
+          publicKey: await this.primitives.RSA.importKey('spki', hex2ua(transferData.publicKey), ['encrypt'], shaVersion),
         }
     }
     return undefined
@@ -249,13 +265,14 @@ export class KeyRecovery {
   // attempt to decrypt a transfer key in pkcs8 using any of the provided exchange keys
   private async tryDecryptTransferKey(
     encryptedTransferKey: string, // in hex format
-    exchangeKeys: CryptoKey[]
+    exchangeKeys: CryptoKey[],
+    shaVersion: ShaVersion
   ): Promise<CryptoKey | undefined> {
     const encryptedKeyBytes = hex2ua(encryptedTransferKey)
     for (const exchangeKey of exchangeKeys) {
       try {
         const decryptedKeyData = await this.primitives.AES.decrypt(exchangeKey, encryptedKeyBytes)
-        const importedPrivateKey = await this.primitives.RSA.importPrivateKey('pkcs8', decryptedKeyData)
+        const importedPrivateKey = await this.primitives.RSA.importPrivateKey('pkcs8', decryptedKeyData, shaVersion)
         if (importedPrivateKey != undefined) return importedPrivateKey
       } catch (e) {
         /* failure is a valid possibility: we don't know the correct key to use */

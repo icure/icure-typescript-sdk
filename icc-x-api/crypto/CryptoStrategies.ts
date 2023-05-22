@@ -1,5 +1,5 @@
 import { KeyPair } from './RSA'
-import { DataOwner, DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
+import { DataOwner, DataOwnerWithType } from '../icc-data-owner-x-api'
 import { CryptoPrimitives } from './CryptoPrimitives'
 
 /**

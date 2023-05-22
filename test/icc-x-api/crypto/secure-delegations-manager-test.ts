@@ -42,10 +42,10 @@ describe('Secure delegations manager', async function () {
 
   async function initialiseComponents(explicitSelf: boolean, explicitDelegate: boolean) {
     selfId = primitives.randomUuid()
-    selfKeypair = await primitives.RSA.generateKeyPair()
+    selfKeypair = await primitives.RSA.generateKeyPair('sha-256')
     selfKeyFp = ua2hex(await primitives.RSA.exportKey(selfKeypair.publicKey, 'spki')).slice(-32)
     delegateId = primitives.randomUuid()
-    delegateKeypair = await primitives.RSA.generateKeyPair()
+    delegateKeypair = await primitives.RSA.generateKeyPair('sha-256')
     delegateKeyFp = ua2hex(await primitives.RSA.exportKey(delegateKeypair.publicKey, 'spki')).slice(-32)
     dataOwnerApi = new FakeDataOwnerApi(
       {

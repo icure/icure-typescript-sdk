@@ -7,7 +7,6 @@ import XHRError = XHR.XHRError
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { b64_2ua, hex2ua, ua2b64, ua2hex, ua2utf8, utf8_2ua } from '../utils'
 import * as _ from 'lodash'
-import { CryptoStrategies } from './CryptoStrategies'
 
 /**
  * @internal this class is intended for internal use only and may be modified without notice

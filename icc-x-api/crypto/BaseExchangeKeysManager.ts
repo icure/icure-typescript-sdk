@@ -3,6 +3,7 @@ import { hex2ua, notConcurrent, ua2hex } from '../utils'
 import { DataOwner, DataOwnerTypeEnum, DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { IccDeviceApi, IccHcpartyApi, IccPatientApi } from '../../icc-api'
+import { fingerprintV1 } from './utils'
 
 /**
  * @internal This class is meant only for internal use and may be changed without notice.
@@ -110,9 +111,10 @@ export class BaseExchangeKeysManager {
     keyPairsByFingerprint: { [publicKeyFingerprint: string]: KeyPair<CryptoKey> }
   ) {
     const selfId = await this.dataOwnerApi.getCurrentDataOwnerId()
-    const newPublicKey = await this.primitives.RSA.importKey('spki', hex2ua(newDataOwnerPublicKey), ['encrypt'])
-    await this.extendForGiveAccessBackTo(selfId, otherDataOwner, newDataOwnerPublicKey.slice(-32), newPublicKey, keyPairsByFingerprint)
-    await this.extendForGiveAccessBackTo(otherDataOwner, selfId, newDataOwnerPublicKey.slice(-32), newPublicKey, keyPairsByFingerprint)
+    const newKeyHashVersion = await this.dataOwnerApi.getShaVersionForKey(otherDataOwner, newDataOwnerPublicKey)
+    const newPublicKey = await this.primitives.RSA.importKey('spki', hex2ua(newDataOwnerPublicKey), ['encrypt'], newKeyHashVersion)
+    await this.extendForGiveAccessBackTo(selfId, otherDataOwner, fingerprintV1(newDataOwnerPublicKey), newPublicKey, keyPairsByFingerprint)
+    await this.extendForGiveAccessBackTo(otherDataOwner, selfId, fingerprintV1(newDataOwnerPublicKey), newPublicKey, keyPairsByFingerprint)
   }
 
   /**

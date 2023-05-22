@@ -55,7 +55,7 @@ describe('Patient', () => {
     )
 
     const rsa = new RSAUtils(crypto)
-    const keyPair = await rsa.generateKeyPair()
+    const keyPair = await rsa.generateKeyPair('sha-256')
     const { publicKey, privateKey } = keyPair
     const publicKeyHex = ua2hex(await rsa.exportKey(publicKey, 'spki'))
     const rawPatientApi = new IccPatientApi(env.iCureUrl, {}, new BasicAuthenticationProvider(tmpUser.id!, pwd))

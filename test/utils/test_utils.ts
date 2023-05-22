@@ -68,8 +68,8 @@ export namespace TestUtils {
 export async function getApiAndAddPrivateKeysForUser(iCureUrl: string, details: UserDetails) {
   const RSA = new RSAUtils(webcrypto as any)
   const keys = {
-    publicKey: await RSA.importKey('spki', hex2ua(details.publicKey), ['encrypt']),
-    privateKey: await RSA.importKey('pkcs8', hex2ua(details.privateKey), ['decrypt']),
+    publicKey: await RSA.importKey('spki', hex2ua(details.publicKey), ['encrypt'], 'sha-1'),
+    privateKey: await RSA.importKey('pkcs8', hex2ua(details.privateKey), ['decrypt'], 'sha-1'),
   }
   return await TestApi(iCureUrl, details.user, details.password, webcrypto as any, keys)
 }
@@ -130,7 +130,10 @@ export async function createNewHcpApi(env: TestVars): Promise<{
   const primitives = new CryptoPrimitives(webcrypto as any)
   const credentials = await createHealthcarePartyUser(initialisationApi, `user-${primitives.randomUuid()}`, primitives.randomUuid())
   const storage = await testStorageWithKeys([
-    { dataOwnerId: credentials.dataOwnerId, pairs: [{ privateKey: credentials.privateKey, publicKey: credentials.publicKey }] },
+    {
+      dataOwnerId: credentials.dataOwnerId,
+      pairs: [{ keyPair: { privateKey: credentials.privateKey, publicKey: credentials.publicKey }, shaVersion: 'sha-1' }],
+    },
   ])
   const api = await Api(
     env.iCureUrl,
@@ -161,6 +164,7 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
   child2User: User
   child2Credentials: UserDetails
 }> {
+  const shaVersion = 'sha-1'
   const initialisationApi = await TestSetupApi(
     env.iCureUrl + '/rest/v1',
     env.masterHcp!.user,
@@ -188,7 +192,10 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
     parentId: grandCredentials.dataOwnerId,
   })
   const grandStorage = await testStorageWithKeys([
-    { dataOwnerId: grandCredentials.dataOwnerId, pairs: [{ privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }] },
+    {
+      dataOwnerId: grandCredentials.dataOwnerId,
+      pairs: [{ keyPair: { privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }, shaVersion: shaVersion }],
+    },
   ])
   const grandApi = await Api(
     env.iCureUrl,
@@ -203,8 +210,14 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
     }
   )
   const parentStorage = await testStorageWithKeys([
-    { dataOwnerId: grandCredentials.dataOwnerId, pairs: [{ privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }] },
-    { dataOwnerId: parentCredentials.dataOwnerId, pairs: [{ privateKey: parentCredentials.privateKey, publicKey: parentCredentials.publicKey }] },
+    {
+      dataOwnerId: grandCredentials.dataOwnerId,
+      pairs: [{ keyPair: { privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }, shaVersion: shaVersion }],
+    },
+    {
+      dataOwnerId: parentCredentials.dataOwnerId,
+      pairs: [{ keyPair: { privateKey: parentCredentials.privateKey, publicKey: parentCredentials.publicKey }, shaVersion: shaVersion }],
+    },
   ])
   const parentApi = await Api(
     env.iCureUrl,
@@ -223,9 +236,18 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
     autoDelegations: { all: [grandCredentials.dataOwnerId] },
   })
   const childStorage = await testStorageWithKeys([
-    { dataOwnerId: grandCredentials.dataOwnerId, pairs: [{ privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }] },
-    { dataOwnerId: parentCredentials.dataOwnerId, pairs: [{ privateKey: parentCredentials.privateKey, publicKey: parentCredentials.publicKey }] },
-    { dataOwnerId: childCredentials.dataOwnerId, pairs: [{ privateKey: childCredentials.privateKey, publicKey: childCredentials.publicKey }] },
+    {
+      dataOwnerId: grandCredentials.dataOwnerId,
+      pairs: [{ keyPair: { privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }, shaVersion: shaVersion }],
+    },
+    {
+      dataOwnerId: parentCredentials.dataOwnerId,
+      pairs: [{ keyPair: { privateKey: parentCredentials.privateKey, publicKey: parentCredentials.publicKey }, shaVersion: shaVersion }],
+    },
+    {
+      dataOwnerId: childCredentials.dataOwnerId,
+      pairs: [{ keyPair: { privateKey: childCredentials.privateKey, publicKey: childCredentials.publicKey }, shaVersion: shaVersion }],
+    },
   ])
   const childApi = await Api(
     env.iCureUrl,
@@ -244,8 +266,14 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
     autoDelegations: { all: [grandCredentials.dataOwnerId, parentCredentials.dataOwnerId] },
   })
   const child2Storage = await testStorageWithKeys([
-    { dataOwnerId: grandCredentials.dataOwnerId, pairs: [{ privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }] },
-    { dataOwnerId: child2Credentials.dataOwnerId, pairs: [{ privateKey: child2Credentials.privateKey, publicKey: child2Credentials.publicKey }] },
+    {
+      dataOwnerId: grandCredentials.dataOwnerId,
+      pairs: [{ keyPair: { privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }, shaVersion: shaVersion }],
+    },
+    {
+      dataOwnerId: child2Credentials.dataOwnerId,
+      pairs: [{ keyPair: { privateKey: child2Credentials.privateKey, publicKey: child2Credentials.publicKey }, shaVersion: shaVersion }],
+    },
   ])
   const child2Api = await Api(
     env.iCureUrl,

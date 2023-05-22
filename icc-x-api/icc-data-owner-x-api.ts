@@ -3,7 +3,7 @@ import { IccDeviceApi, IccPatientApi, IccUserApi } from '../icc-api'
 import { HealthcareParty } from '../icc-api/model/HealthcareParty'
 import { Patient } from '../icc-api/model/Patient'
 import { Device } from '../icc-api/model/Device'
-import { hexPublicKeysOf } from './crypto/utils'
+import { fingerprintV1, hexPublicKeysWithSha1Of, hexPublicKeysWithSha256Of } from './crypto/utils'
 import { IccHcpartyXApi } from './icc-hcparty-x-api'
 import { XHR } from '../icc-api/api/XHR'
 
@@ -104,6 +104,27 @@ export class IccDataOwnerXApi {
   }
 
   /**
+   * Check the SHA version used to generate a key for a data owner. If the key is present in the 'publicKeysForOaepWithSha256' array, then it was generated
+   * with SHA-256, if it's in the field 'publicKey' or in the 'aesExchangeKeys', then it was generated with SHA-1. If it's in neither, an Error is thrown.
+   * @param dataOwnerId the id of the Data Owner.
+   * @param publicKey the public key to search.
+   * @return 'sha-1' or 'sha-256'
+   */
+  async getShaVersionForKey(dataOwnerId: string, publicKey: string) {
+    const dataOwner = (await this.getDataOwner(dataOwnerId)).dataOwner
+    const newKeyHashVersion =
+      dataOwner.publicKey === publicKey || Object.keys(dataOwner.aesExchangeKeys ?? {}).includes(publicKey)
+        ? 'sha-1'
+        : !!dataOwner.publicKeysForOaepWithSha256?.includes(publicKey)
+        ? 'sha-256'
+        : undefined
+    if (!newKeyHashVersion) {
+      throw new Error(`Public key not found on Data Owner ${publicKey}`)
+    }
+    return newKeyHashVersion
+  }
+
+  /**
    * If the logged user is a data owner get the current data owner and all of his parents.
    * @throws if the current user is not a data owner.
    * @return the current data owner hierarchy, starting from the topmost parent to the current data owner.
@@ -166,12 +187,21 @@ export class IccDataOwnerXApi {
   }
 
   /**
-   * Gets the public keys of a data owner in hex format.
+   * Gets the public keys of a data owner, generated with SHA-1, in hex format.
    * @param dataOwner a data owner.
    * @return the public keys for the data owner in hex format.
    */
-  getHexPublicKeysOf(dataOwner: DataOwner): Set<string> {
-    return hexPublicKeysOf(dataOwner)
+  getHexPublicKeysWithSha1Of(dataOwner: DataOwner): Set<string> {
+    return hexPublicKeysWithSha1Of(dataOwner)
+  }
+
+  /**
+   * Gets the public keys of a data owner, generated with SHA-256, in hex format.
+   * @param dataOwner a data owner.
+   * @return the public keys for the data owner in hex format.
+   */
+  getHexPublicKeysWithSha256Of(dataOwner: DataOwner): Set<string> {
+    return hexPublicKeysWithSha256Of(dataOwner)
   }
 
   /**
@@ -218,8 +248,8 @@ export class IccDataOwnerXApi {
   }
 
   private checkDataOwnerIntegrity(dataOwner: DataOwner) {
-    const keys = this.getHexPublicKeysOf(dataOwner)
-    if (new Set(Array.from(keys).map((x) => x.slice(-32))).size != keys.size)
+    const keys = new Set([...this.getHexPublicKeysWithSha1Of(dataOwner), ...this.getHexPublicKeysWithSha256Of(dataOwner)])
+    if (new Set(Array.from(keys).map((x) => fingerprintV1(x))).size != keys.size)
       throw new Error(
         `Different public keys for ${dataOwner.id} have the same fingerprint; this should not happen in normal circumstances. Please report this error to iCure.`
       )

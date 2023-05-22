@@ -203,6 +203,10 @@ export class HealthcareParty {
    * The public key of this hcp
    */
   publicKey?: string
+  /**
+   * The public keys of this actor that are generates using the OAEP Sha-256 standard
+   */
+  publicKeysForOaepWithSha256?: Array<string>
 }
 export namespace HealthcareParty {
   export type GenderEnum = 'male' | 'female' | 'indeterminate' | 'changed' | 'changedToMale' | 'changedToFemale' | 'unknown'

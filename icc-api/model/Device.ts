@@ -83,11 +83,15 @@ export class Device {
    */
   transferKeys?: { [key: string]: { [key: string]: string } }
   /**
-   * The privateKeyShamirPartitions are used to share this hcp's private RSA key with a series of other hcParties using Shamir's algorithm. The key of the map is the hcp Id with whom this partition has been shared. The value is \"threshold⎮partition in hex\" encrypted using the the partition's holder's public RSA key
+   * The privateKeyShamirPartitions are used to share this device private RSA key with a series of other hcParties using Shamir's algorithm. The key of the map is the hcp Id with whom this partition has been shared. The value is \"threshold⎮partition in hex\" encrypted using the the partition's holder's public RSA key
    */
   privateKeyShamirPartitions?: { [key: string]: string }
   /**
-   * The public key of this hcp
+   * The public key of this device
    */
   publicKey?: string
+  /**
+   * The public keys of this actor that are generates using the OAEP Sha-256 standard
+   */
+  publicKeysForOaepWithSha256?: Array<string>
 }
