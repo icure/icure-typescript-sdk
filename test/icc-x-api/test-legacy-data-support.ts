@@ -78,7 +78,7 @@ class ApiFactoryV6 implements ApiFactory {
     )
     return <UniformizedMasterApi>{
       createUser: async () => {
-        const pair = await cryptoPrimitives.RSA.generateKeyPair()
+        const pair = await cryptoPrimitives.RSA.generateKeyPair('sha-1')
         const hcp = await apis.healthcarePartyApi.createHealthcareParty(new HealthcareParty({ id: uuid(), firstName: `name`, lastName: 'v6' }))
         const user = await apis.userApi.createUser(
           new UserV6({
@@ -175,7 +175,7 @@ class ApiFactoryV7 implements ApiFactory {
     )
     return <UniformizedMasterApi>{
       createUser: async () => {
-        const pair = await cryptoPrimitives.RSA.generateKeyPair()
+        const pair = await cryptoPrimitives.RSA.generateKeyPair('sha-256')
         const hcp = await apis.healthcarePartyApi.createHealthcareParty(new HealthcareParty({ id: uuid(), firstName: `name`, lastName: 'v7' }))
         const user = await apis.userApi.createUser(
           new User({
@@ -201,8 +201,11 @@ class ApiFactoryV7 implements ApiFactory {
         dataOwnerId: credentials.ownerId,
         pairs: [
           {
-            publicKey: ua2hex(await cryptoPrimitives.RSA.exportKey(credentials.key.publicKey, 'spki')),
-            privateKey: ua2hex(await cryptoPrimitives.RSA.exportKey(credentials.key.privateKey, 'pkcs8')),
+            keyPair: {
+              publicKey: ua2hex(await cryptoPrimitives.RSA.exportKey(credentials.key.publicKey, 'spki')),
+              privateKey: ua2hex(await cryptoPrimitives.RSA.exportKey(credentials.key.privateKey, 'pkcs8')),
+            },
+            shaVersion: 'sha-1',
           },
         ],
       },

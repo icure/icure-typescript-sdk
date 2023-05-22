@@ -36,7 +36,8 @@ export class IcureStorageFacade {
    * Get an existing key pair for the data owner.
    * @param dataOwnerId id of the data owner with the key.
    * @param publicKeyFingerprint fingerprint of a public key of the data owner.
-   * @param legacyPublicKey the legacy public key of the data owner, if present
+   * @param legacyPublicKey the legacy public key of the data owner, if present (only used to know if we should search for the key in 'legacy' storage
+   * locations.
    * @return the keypair and if the key was generated on this device or undefined if the key pair could not be found.
    */
   async loadKey(

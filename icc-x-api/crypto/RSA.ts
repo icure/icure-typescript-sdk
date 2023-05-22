@@ -40,13 +40,15 @@ export class RSAUtils {
 
   /**
    * Generates a key pair for encryption/decryption of data.
+   * @param shaVersion the version of the SHA algorithm to use.
    */
-  generateKeyPair(): Promise<KeyPair<CryptoKey>> {
+  generateKeyPair(shaVersion: ShaVersion): Promise<KeyPair<CryptoKey>> {
     const extractable = true
     const keyUsages: KeyUsage[] = ['decrypt', 'encrypt']
+    const rsaParams = this.paramsForCreationOrImport(shaVersion)
 
     return new Promise<KeyPair<CryptoKey>>((resolve, reject) => {
-      this.crypto.subtle.generateKey(this.rsaWithSha256HashedParams, extractable, keyUsages).then(resolve, reject)
+      this.crypto.subtle.generateKey(rsaParams, extractable, keyUsages).then(resolve, reject)
     })
   }
 
@@ -135,12 +137,12 @@ export class RSAUtils {
   importKey(format: string, keydata: JsonWebKey | ArrayBuffer, keyUsages: KeyUsage[], hashAlgorithm: ShaVersion): Promise<CryptoKey> {
     const extractable = true
     return new Promise((resolve: (value: CryptoKey) => any, reject) => {
-      const rsaParams = this.paramsForImport(hashAlgorithm)
+      const rsaParams = this.paramsForCreationOrImport(hashAlgorithm)
       this.crypto.subtle.importKey(format as any, keydata as any, rsaParams, extractable, keyUsages).then(resolve, reject)
     })
   }
 
-  private paramsForImport(shaVersion: ShaVersion) {
+  private paramsForCreationOrImport(shaVersion: ShaVersion) {
     if (shaVersion === 'sha-1') {
       return this.rsaHashedParams
     } else if (shaVersion === 'sha-256') {
@@ -160,7 +162,7 @@ export class RSAUtils {
   importPrivateKey(format: string, keydata: JsonWebKey | ArrayBuffer, hashAlgorithm: ShaVersion): Promise<CryptoKey> {
     const extractable = true
     return new Promise((resolve: (value: CryptoKey) => any, reject) => {
-      const rsaParams = this.paramsForImport(hashAlgorithm)
+      const rsaParams = this.paramsForCreationOrImport(hashAlgorithm)
       this.crypto.subtle.importKey(format as any, keydata as any, rsaParams, extractable, ['decrypt']).then(resolve, reject)
     })
   }
@@ -182,7 +184,7 @@ export class RSAUtils {
     hashAlgorithm: ShaVersion
   ): Promise<KeyPair<CryptoKey>> {
     const extractable = true
-    const rsaParams = this.paramsForImport(hashAlgorithm)
+    const rsaParams = this.paramsForCreationOrImport(hashAlgorithm)
     const privPromise = this.crypto.subtle.importKey(privateKeyFormat as any, privateKeydata as any, rsaParams, extractable, ['decrypt'])
     const pubPromise = this.crypto.subtle.importKey(publicKeyFormat as any, publicKeyData as any, rsaParams, extractable, ['encrypt'])
 

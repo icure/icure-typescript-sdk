@@ -4,7 +4,7 @@ import * as _ from 'lodash'
 import { a2b, b2a, b64Url2ua, hex2ua, string2ua, ua2b64Url, ua2hex, ua2string } from '../utils/binary-utils'
 import { pack } from './asn1-packer'
 import { parseAsn1 } from './asn1-parser'
-import { KeyPair } from '../crypto/RSA'
+import { KeyPair, ShaVersion } from '../crypto/RSA'
 
 export function notConcurrent<T>(concurrencyMap: { [key: string]: PromiseLike<any> }, key: string, proc: () => PromiseLike<T>): PromiseLike<T> {
   const inFlight = concurrencyMap[key]
@@ -73,7 +73,7 @@ export function jwk2spki(jwk: any): string {
   ])
 }
 
-export function spkiToJwk(buf: Uint8Array): { kty: string; alg: string; n: string; e: string; ext: boolean } {
+export function spkiToJwk(buf: Uint8Array, shaVersion: ShaVersion): { kty: string; alg: string; n: string; e: string; ext: boolean } {
   const asn1 = parseAsn1(new Uint8Array(buf))
 
   var modulus: Uint8Array | undefined = undefined
@@ -96,7 +96,7 @@ export function spkiToJwk(buf: Uint8Array): { kty: string; alg: string; n: strin
   }
   return {
     kty: 'RSA',
-    alg: 'RSA-OAEP',
+    alg: shaVersion === 'sha-256' ? 'RSA-OAEP-256' : 'RSA-OAEP',
     ext: true,
     n: ua2b64Url(minimalRep(modulus)),
     e: ua2b64Url(minimalRep(exponent)),
@@ -240,12 +240,13 @@ export async function decrypt(obj: any, decryptor: (obj: Uint8Array) => Promise<
 /**
  * Extracts the full jwk key pair from the jwk representation of the private key.
  * @param privateKeyJwk private key in jwk representation
+ * @param shaVersion the SHA algorithm version
  * @throws if the key is missing the public modulus or public exponent.
  */
-export function keyPairFromPrivateKeyJwk(privateKeyJwk: JsonWebKey): KeyPair<JsonWebKey> {
+export function keyPairFromPrivateKeyJwk(privateKeyJwk: JsonWebKey, shaVersion: ShaVersion): KeyPair<JsonWebKey> {
   if (!privateKeyJwk.n || !privateKeyJwk.e) throw new Error('Incomplete private JsonWebKey: missing public modulus and/or exponent')
   return {
     privateKey: privateKeyJwk,
-    publicKey: spkiToJwk(hex2ua(jwk2spki(privateKeyJwk))),
+    publicKey: spkiToJwk(hex2ua(jwk2spki(privateKeyJwk)), shaVersion),
   }
 }

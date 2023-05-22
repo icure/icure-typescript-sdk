@@ -1,6 +1,6 @@
 import { DataOwner, DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
-import { KeyPair } from './RSA'
-import { jwk2spki, ua2hex } from '../utils'
+import { KeyPair, ShaVersion } from './RSA'
+import { ua2hex } from '../utils'
 import { IcureStorageFacade } from '../storage/IcureStorageFacade'
 import { fingerprintToPublicKeysMapOf, fingerprintV1, getShaVersionForKey } from './utils'
 import { CryptoPrimitives } from './CryptoPrimitives'
@@ -290,9 +290,10 @@ export class UserEncryptionKeysManager {
     importedKeyPair: undefined | KeyPair<CryptoKey>,
     selfDataOwner: DataOwnerWithType
   ): Promise<{ publicKeyFingerprint: string; keyPair: KeyPair<CryptoKey>; updatedSelf: DataOwnerWithType }> {
-    const keyPair = importedKeyPair ?? (await this.primitives.RSA.generateKeyPair())
+    const keyPair = importedKeyPair ?? (await this.primitives.RSA.generateKeyPair('sha-256'))
     const publicKeyHex = ua2hex(await this.primitives.RSA.exportKey(keyPair.publicKey, 'spki'))
-    if ((await this.primitives.RSA.exportKey(keyPair.publicKey, 'jwk')).alg !== 'RSA-OAEP-256') {
+    const jwKey = await this.primitives.RSA.exportKey(keyPair.publicKey, 'jwk')
+    if (jwKey.alg !== 'RSA-OAEP-256') {
       throw new Error('Only keys generated with SHA-256 are currently supported')
     }
     const publicKeyFingerprint = fingerprintV1(publicKeyHex)
@@ -315,22 +316,17 @@ export class UserEncryptionKeysManager {
 
   private async loadStoredKeys(
     dataOwner: DataOwnerWithType,
-    pubKeysFingerprints: string[]
+    pubKeysFingerprints: { [key: string]: string[] }
   ): Promise<{ [pubKeyFingerprint: string]: { pair: KeyPair<CryptoKey>; isDevice: boolean } }> {
-    return await pubKeysFingerprints.reduce(async (acc, currentFingerprint) => {
+    const pubKeysFingerprintsWithVersion = Object.entries(pubKeysFingerprints).flatMap(([shaVersion, fps]) => {
+      return fps.map((fp) => [shaVersion, fp] as [ShaVersion, string])
+    })
+    return await pubKeysFingerprintsWithVersion.reduce(async (acc, [shaVersion, currentFingerprint]) => {
       const awaitedAcc = await acc
       let loadedPair: { pair: KeyPair<CryptoKey>; isDevice: boolean } | undefined = undefined
       try {
-        const storedPublic = await this.icureStorage.loadKey(dataOwner.dataOwner.id!, currentFingerprint, dataOwner.dataOwner.publicKey)
-        const storedKeypair = !!storedPublic
-          ? storedPublic
-          : await this.icureStorage.loadKey(
-              dataOwner.dataOwner.id!,
-              currentFingerprint,
-              dataOwner.dataOwner.publicKeysForOaepWithSha256?.find((key) => fingerprintV1(key) === currentFingerprint)
-            )
+        const storedKeypair = await this.icureStorage.loadKey(dataOwner.dataOwner.id!, currentFingerprint, dataOwner.dataOwner.publicKey)
         if (!!storedKeypair) {
-          const shaVersion = storedKeypair.pair.publicKey.alg === 'RSA-OAEP-256' ? 'sha-256' : 'sha-1'
           const importedKey = await this.primitives.RSA.importKeyPair(
             'jwk',
             storedKeypair.pair.privateKey,
@@ -385,14 +381,17 @@ export class UserEncryptionKeysManager {
   }
 
   private async loadAndRecoverKeysFor(dataOwner: DataOwnerWithType): Promise<{ [keyFp: string]: { pair: KeyPair<CryptoKey>; isDevice: boolean } }> {
-    const selfPublicKeys = new Set([
-      ...this.dataOwnerApi.getHexPublicKeysWithSha1Of(dataOwner.dataOwner),
-      ...this.dataOwnerApi.getHexPublicKeysWithSha256Of(dataOwner.dataOwner),
-    ])
-    const pubKeysFingerprints = Array.from(selfPublicKeys).map((x) => fingerprintV1(x))
-    const loadedKeys = pubKeysFingerprints.length > 0 ? await this.loadStoredKeys(dataOwner, pubKeysFingerprints) : {}
+    const pubKeysFingerprints = {
+      'sha-1': [...new Set(this.dataOwnerApi.getHexPublicKeysWithSha1Of(dataOwner.dataOwner))].map((x) => fingerprintV1(x)),
+      'sha-256': [...new Set(this.dataOwnerApi.getHexPublicKeysWithSha256Of(dataOwner.dataOwner))].map((x) => fingerprintV1(x)),
+    }
+    const loadedKeys =
+      pubKeysFingerprints['sha-1'].length + pubKeysFingerprints['sha-256'].length > 0 ? await this.loadStoredKeys(dataOwner, pubKeysFingerprints) : {}
     const loadedKeysFingerprints = Object.keys(loadedKeys)
-    if (loadedKeysFingerprints.length !== pubKeysFingerprints.length && loadedKeysFingerprints.length > 0) {
+    if (
+      loadedKeysFingerprints.length !== pubKeysFingerprints['sha-1'].length + pubKeysFingerprints['sha-256'].length &&
+      loadedKeysFingerprints.length > 0
+    ) {
       const recoveredKeys = await this.recoverAndCacheKeys(dataOwner, this.plainKeysByFingerprint(loadedKeys))
       for (const [fp, pair] of Object.entries(recoveredKeys)) {
         loadedKeys[fp] = { pair, isDevice: false }

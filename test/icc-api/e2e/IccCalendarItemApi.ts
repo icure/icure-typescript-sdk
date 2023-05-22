@@ -25,7 +25,7 @@ describe('Calendar', () => {
     const hcp = await hcpApi.userApi.getCurrentUser()
 
     const jwk = {
-      publicKey: spkiToJwk(hex2ua(env!.dataOwnerDetails[patUsername].publicKey)),
+      publicKey: spkiToJwk(hex2ua(env!.dataOwnerDetails[patUsername].publicKey), 'sha-1'),
       privateKey: pkcs8ToJwk(hex2ua(env!.dataOwnerDetails[patUsername].privateKey)),
     }
     await api.cryptoApi.keyStorage.storeKeyPair(`${currentUser.healthcarePartyId!}.${env!.dataOwnerDetails[patUsername].publicKey.slice(-32)}`, jwk)
