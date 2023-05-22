@@ -27,4 +27,5 @@ export class UserGroup {
   patientId?: string
   healthcarePartyId?: string
   deviceId?: string
+  nameOfParentOfTopmostGroupInHierarchy?: string
 }
