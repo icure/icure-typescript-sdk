@@ -115,7 +115,7 @@ class ApiFactoryV6 implements ApiFactory {
         return { userId: user.id!, dataOwnerId: credentials.ownerId }
       },
       createEncryptedData: async () => {
-        const note = `v6 note ${uuid}`
+        const note = `v6 note ${uuid()}`
         const patient = await apis.patientApi.createPatientWithUser(user, await apis.patientApi.newInstance(user))
         const healthdata = await apis.healthcareElementApi.createHealthElementWithUser(
           user,
@@ -231,7 +231,7 @@ class ApiFactoryV7 implements ApiFactory {
         return { userId: user.id!, dataOwnerId: credentials.ownerId }
       },
       createEncryptedData: async () => {
-        const note = `v7 note ${uuid}`
+        const note = `v7 note ${uuid()}`
         const patient = await apis.patientApi.createPatientWithUser(user, await apis.patientApi.newInstance(user))
         const healthdata = await apis.healthcareElementApi.createHealthElementWithUser(
           user,
