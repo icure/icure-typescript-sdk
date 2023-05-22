@@ -2,7 +2,7 @@ import * as i18n from './rsrc/contact.i18n'
 
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import { CalendarItem, User } from '../icc-api/model/models'
+import { CalendarItem, EncryptedEntityStub, User } from '../icc-api/model/models'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 import { IccCalendarItemApi } from '../icc-api'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
@@ -14,8 +14,9 @@ import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import { XHR } from '../icc-api/api/XHR'
+import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
-export class IccCalendarItemXApi extends IccCalendarItemApi {
+export class IccCalendarItemXApi extends IccCalendarItemApi implements EncryptedEntityXApi<models.CalendarItem> {
   i18n: any = i18n
   crypto: IccCryptoXApi
   dataOwnerApi: IccDataOwnerXApi
@@ -111,17 +112,25 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
     )
   }
 
-  async findBy(hcpartyId: string, patient: models.Patient) {
+  async findBy(hcpartyId: string, patient: models.Patient, usingPost: boolean = false) {
     const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: 'Patient' }, hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     return extractedKeys && extractedKeys.length > 0
-      ? this.findByHCPartyPatientSecretFKeys(topmostParentId, _.uniq(extractedKeys).join(','))
+      ? usingPost
+        ? this.findByHCPartyPatientSecretFKeysArray(hcpartyId!, _.uniq(extractedKeys))
+        : this.findByHCPartyPatientSecretFKeys(hcpartyId!, _.uniq(extractedKeys).join(','))
       : Promise.resolve([])
   }
 
   async findByHCPartyPatientSecretFKeys(hcPartyId: string, secretFKeys: string): Promise<Array<models.CalendarItem>> {
     const calendarItems = await super.findCalendarItemsByHCPartyPatientForeignKeys(hcPartyId, secretFKeys)
     return await this.decrypt(hcPartyId, calendarItems)
+  }
+
+  findByHCPartyPatientSecretFKeysArray(hcPartyId: string, secretFKeys: string[]): Promise<Array<models.CalendarItem> | any> {
+    return super
+      .findCalendarItemsByHCPartyPatientForeignKeysUsingPost(hcPartyId, secretFKeys)
+      .then((calendarItems) => this.decrypt(hcPartyId, calendarItems))
   }
 
   createCalendarItem(body?: CalendarItem): never {
@@ -269,6 +278,58 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
       sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
+  ): Promise<models.CalendarItem> {
+    return this.shareWithMany(calendarItem, { [delegateId]: options })
+  }
+
+  /**
+   * Share an existing calendar item with other data owners, allowing them to access the non-encrypted data of the calendar item and optionally also
+   * the encrypted content, with read-only or read-write permissions.
+   * @param calendarItem item the calendar item to share.
+   * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * calendar item does not have encrypted content.
+   * - sharePatientId: specifies if the id of the patient that this calendar item refers to should be shared with the delegate (defaults to
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
+   * @return the updated entity
+   */
+  async shareWithMany(
+    calendarItem: models.CalendarItem,
+    delegates: {
+      [delegateId: string]: {
+        requestedPermissions?: RequestedPermissionEnum
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+        sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
+  ): Promise<models.CalendarItem> {
+    return (await this.tryShareWithMany(calendarItem, delegates)).updatedEntityOrThrow
+  }
+
+  /**
+   * Share an existing calendar item with other data owners, allowing them to access the non-encrypted data of the calendar item and optionally also
+   * the encrypted content, with read-only or read-write permissions.
+   * @param calendarItem item the calendar item to share.
+   * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * calendar item does not have encrypted content.
+   * - sharePatientId: specifies if the id of the patient that this calendar item refers to should be shared with the delegate (defaults to
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
+   * @return the updated entity
+   */
+  async tryShareWithMany(
+    calendarItem: models.CalendarItem,
+    delegates: {
+      [delegateId: string]: {
+        requestedPermissions?: RequestedPermissionEnum
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+        sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
   ): Promise<ShareResult<models.CalendarItem>> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
@@ -277,13 +338,76 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
     return this.crypto.xapi
       .simpleShareOrUpdateEncryptedEntityMetadata(
         { entity: updatedEntity, type: 'CalendarItem' },
-        delegateId,
-        options?.shareEncryptionKey,
-        options?.sharePatientId,
-        undefined,
-        options.requestedPermissions ?? RequestedPermissionEnum.MAX_WRITE,
+        true,
+        Object.fromEntries(
+          Object.entries(delegates).map(([delegateId, options]) => [
+            delegateId,
+            {
+              requestedPermissions: options.requestedPermissions,
+              shareEncryptionKeys: options.shareEncryptionKey,
+              shareOwningEntityIds: options.sharePatientId,
+              shareSecretIds: undefined,
+            },
+          ])
+        ),
         (x) => this.bulkShareCalendarItems(x)
       )
       .then((r) => r.mapSuccessAsync((e) => this.decrypt(self, [e]).then((es) => es[0])))
+  }
+
+  getDataOwnersWithAccessTo(
+    entity: CalendarItem
+  ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
+    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'CalendarItem' })
+  }
+
+  getEncryptionKeysOf(entity: CalendarItem): Promise<string[]> {
+    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'CalendarItem' }, undefined)
+  }
+
+  /**
+   * Links a calendar item with a patient. Note that this operation is not reversible: it is not possible to change the patient linked to a calendar
+   * item.
+   * @param calendarItem a calendar item
+   * @param patient the patient which will be linked to the calendar item.
+   * @param shareLinkWithDelegates data owners other than the current data owner which will also be able to decrypt the id of the newly linked
+   * patient. If any of these data owners do not already have access to the calendar item, they will be granted read access (no write).
+   * @return the updated calendar item
+   */
+  async linkToPatient(calendarItem: models.CalendarItem, patient: models.Patient, shareLinkWithDelegates: string[]): Promise<models.CalendarItem> {
+    if (!!calendarItem.secretForeignKeys?.length) throw new Error(`Calendar item ${calendarItem.id} is already linked to a patient`)
+    const delegates = [...new Set([await this.dataOwnerApi.getCurrentDataOwnerId(), ...shareLinkWithDelegates])]
+    const sfk = await this.crypto.confidential.getAnySecretIdSharedWithParents({ entity: patient, type: 'Patient' })
+    if (!sfk) {
+      throw new Error(`Could not find any secret id for patient ${patient.id} which is shared with the topmost ancestor of the current data owner`)
+    }
+    const individualShareData = {
+      shareSecretIds: [] as string[],
+      shareEncryptionKeys: [] as string[],
+      shareOwningEntityIds: [patient.id!],
+      requestedPermissions: RequestedPermissionEnum.FULL_READ,
+    }
+    const shared = await this.crypto.xapi.bulkShareOrUpdateEncryptedEntityMetadata(
+      'CalendarItem',
+      [
+        {
+          entity: calendarItem,
+          dataForDelegates: Object.fromEntries(delegates.map((d) => [d, individualShareData])),
+        },
+      ],
+      (x) => this.bulkShareCalendarItems(x)
+    )
+    if (!shared.updatedEntities.length || shared.updatedEntities[0].id !== calendarItem.id) {
+      const errorsForEntity = shared.updateErrors.filter((e) => e.entityId === calendarItem.id)
+      if (!errorsForEntity.length || !errorsForEntity.find((x) => x.code === 409)) {
+        throw new Error(`Unexpected error while linking calendar item ${calendarItem.id}`)
+      } else {
+        throw new Error(`Outdated calendar item revision ${calendarItem.id}-${calendarItem.rev}`)
+      }
+    }
+    const self = await this.dataOwnerApi.getCurrentDataOwnerId()
+    const sharedDecrypted = (await this.decrypt(self, [shared.updatedEntities[0]]))[0]
+    const withSfk = await this.modifyAs(self, { ...sharedDecrypted, secretForeignKeys: [sfk] })
+    return (await this.decrypt(self, [withSfk]))[0]
   }
 }

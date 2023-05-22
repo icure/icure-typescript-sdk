@@ -11,11 +11,13 @@ export const TestApi = async function (
   crypto: Crypto = typeof window !== 'undefined' ? window.crypto : typeof self !== 'undefined' ? self.crypto : ({} as Crypto),
   keyPair?: KeyPair<CryptoKey>
 ): Promise<Apis> {
-  const initialisedKeys = keyPair ?? (await new RSAUtils(crypto).generateKeyPair())
+  const initialisedKeys = keyPair ?? (await new RSAUtils(crypto).generateKeyPair('sha-256'))
   return Api(
     host,
-    username,
-    password,
+    {
+      username,
+      password,
+    },
     new TestCryptoStrategies(initialisedKeys),
     crypto,
     typeof window !== 'undefined' ? window.fetch : typeof self !== 'undefined' ? self.fetch : fetch,

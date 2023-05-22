@@ -25,10 +25,10 @@ describe('Secure delegations security metadata decryptor', async function () {
   let secureDelegationsEncryption: SecureDelegationsEncryption
 
   async function initialiseComponents() {
-    encryptionKeysManager = await FakeEncryptionKeysManager.create(primitives, [], [await primitives.RSA.generateKeyPair()])
+    encryptionKeysManager = await FakeEncryptionKeysManager.create(primitives, [], [await primitives.RSA.generateKeyPair('sha-256')])
     exchangeData = new FakeDecryptionExchangeDataManager(expectedType, expectedSfks)
     secureDelegationsEncryption = new SecureDelegationsEncryption(encryptionKeysManager, primitives)
-    decryptor = new SecureDelegationsSecurityMetadataDecryptor(exchangeData, secureDelegationsEncryption)
+    decryptor = new SecureDelegationsSecurityMetadataDecryptor(exchangeData, secureDelegationsEncryption, undefined as any) // data owner api not used in these tests
   }
 
   async function randomHash(): Promise<string> {
@@ -316,7 +316,7 @@ describe('Secure delegations security metadata decryptor', async function () {
     await initialiseComponents()
     const self = primitives.randomUuid()
     const createdData = await createExchangeDataAndSecureDelegationEncryptedData(self, primitives.randomUuid())
-    const newKey = await primitives.RSA.generateKeyPair()
+    const newKey = await primitives.RSA.generateKeyPair('sha-256')
     const newKeyFp = ua2hex(await primitives.RSA.exportKey(newKey.publicKey, 'spki')).slice(-32)
     const delegation = new SecureDelegation({
       ...createdData.secureDelegationEncryptedData,

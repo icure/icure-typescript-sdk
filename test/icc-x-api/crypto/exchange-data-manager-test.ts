@@ -43,22 +43,22 @@ describe('Exchange data manager', async function () {
   ) {
     const dataOwnerType = allowFullExchangeDataLoad ? 'patient' : 'hcp'
     selfId = primitives.randomUuid()
-    selfKeypair = await primitives.RSA.generateKeyPair()
+    selfKeypair = await primitives.RSA.generateKeyPair('sha-256')
     selfKeyFp = fingerprintV2(ua2hex(await primitives.RSA.exportKey(selfKeypair.publicKey, 'spki')))
     delegateId = primitives.randomUuid()
-    delegateKeypair = await primitives.RSA.generateKeyPair()
+    delegateKeypair = await primitives.RSA.generateKeyPair('sha-256')
     delegateKeyFp = ua2hex(await primitives.RSA.exportKey(delegateKeypair.publicKey, 'spki')).slice(-32)
     dataOwnerApi = new FakeDataOwnerApi(
       {
         id: selfId,
         type: dataOwnerType,
-        publicKey: ua2hex(await primitives.RSA.exportKey(selfKeypair.publicKey, 'spki')),
+        publicKeysForOaepWithSha256: [ua2hex(await primitives.RSA.exportKey(selfKeypair.publicKey, 'spki'))],
       },
       [
         {
           id: delegateId,
           type: dataOwnerType,
-          publicKey: ua2hex(await primitives.RSA.exportKey(delegateKeypair.publicKey, 'spki')),
+          publicKeysForOaepWithSha256: [ua2hex(await primitives.RSA.exportKey(delegateKeypair.publicKey, 'spki'))],
         },
       ]
     )
@@ -97,13 +97,13 @@ describe('Exchange data manager', async function () {
   }
 
   async function checkAesKeysEquality(actual: CryptoKey | undefined, expected: CryptoKey | undefined) {
-    if (!actual && !expected) return true
-    if (!actual || !expected) return false
-    expect(ua2hex(await primitives.AES.exportKey(expected, 'raw'))).to.equal(ua2hex(await primitives.AES.exportKey(actual, 'raw')))
+    if (!actual && !expected) return
+    expect(!actual).to.equal(!expected)
+    expect(ua2hex(await primitives.AES.exportKey(expected!, 'raw'))).to.equal(ua2hex(await primitives.AES.exportKey(actual!, 'raw')))
   }
 
   async function createDataFromRandomToSelf(): Promise<{ exchangeData: ExchangeData; exchangeKey: CryptoKey; accessControlSecret: string }> {
-    const encryptionKey = await primitives.RSA.generateKeyPair()
+    const encryptionKey = await primitives.RSA.generateKeyPair('sha-256')
     const encryptionFp = ua2hex(await primitives.RSA.exportKey(encryptionKey.publicKey, 'spki')).slice(-32)
     const signatureKey = await primitives.RSA.generateSignatureKeyPair()
     const signatureFp = ua2hex(await primitives.RSA.exportKey(signatureKey.publicKey, 'spki')).slice(-32)
@@ -126,7 +126,7 @@ describe('Exchange data manager', async function () {
       Array(n)
         .fill(null)
         .map(async () => {
-          const pair = await primitives.RSA.generateKeyPair()
+          const pair = await primitives.RSA.generateKeyPair('sha-256')
           const hexPub = ua2hex(await primitives.RSA.exportKey(pair.publicKey, 'spki'))
           const fingerprint = fingerprintV2(hexPub)
           return { pair, fingerprint, hexPub }
@@ -350,7 +350,7 @@ describe('Exchange data manager', async function () {
       )
       expect(createdData.accessControlSecret).to.not.equal(newData.accessControlSecret)
     }
-    const extraKeyPair = await primitives.RSA.generateKeyPair()
+    const extraKeyPair = await primitives.RSA.generateKeyPair('sha-256')
     const extraKeyPairFp = ua2hex(await primitives.RSA.exportKey(extraKeyPair.publicKey, 'spki')).slice(-32)
     const fakeKey = primitives.randomBytes(16)
     const tamperByAddingEncryptionKey = async (exchangeData: ExchangeData) =>
@@ -457,7 +457,7 @@ describe('Exchange data manager', async function () {
       await initialiseComponents(allowFullExchangeDataLoad)
       const createdBySelf = await exchangeData.getOrCreateEncryptionDataTo(selfId, 'Patient', [])
       const createdByOther = await createDataFromRandomToSelf()
-      const newKey = await primitives.RSA.generateKeyPair()
+      const newKey = await primitives.RSA.generateKeyPair('sha-256')
       await dataOwnerApi.addPublicKeyForOwner(selfId, newKey)
       encryptionKeysManager.deleteKey(selfKeyFp)
       await encryptionKeysManager.addOrUpdateKey(primitives, newKey, true)

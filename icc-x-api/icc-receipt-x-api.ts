@@ -11,8 +11,9 @@ import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import { XHR } from '../icc-api/api/XHR'
+import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
-export class IccReceiptXApi extends IccReceiptApi {
+export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi<models.Receipt> {
   dataOwnerApi: IccDataOwnerXApi
 
   get headers(): Promise<Array<XHR.Header>> {
@@ -101,6 +102,17 @@ export class IccReceiptXApi extends IccReceiptApi {
   }
 
   /**
+   * Adds an unencrypted attachment to a receipt.
+   * @param receipt a receipt.
+   * @param blobType the type of the attachment.
+   * @param attachment a attachment for the receipt.
+   * @return the updated receipt.
+   */
+  async setClearReceiptAttachment(receipt: models.Receipt, blobType: string, attachment: ArrayBuffer | Uint8Array): Promise<models.Receipt> {
+    return await this.setReceiptAttachmentForBlobType(receipt.id!, receipt.rev!, blobType, attachment)
+  }
+
+  /**
    * Gets the attachment of a receipt and tries to decrypt it using the encryption keys of the receipt.
    * @param receipt a receipt.
    * @param attachmentId id of the attachment of this receipt to retrieve.
@@ -113,7 +125,27 @@ export class IccReceiptXApi extends IccReceiptApi {
     attachmentId: string,
     validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<ArrayBuffer> {
-    return await this.crypto.xapi.decryptDataOf(
+    const retrieved = await this.getAndTryDecryptReceiptAttachment(receipt, attachmentId, (x) => validator(x))
+    if (!retrieved.wasDecrypted) throw new Error(`No valid key found to decrypt data of receipt ${receipt.id}.`)
+    return retrieved.data
+  }
+
+  /**
+   * Gets the attachment of a receipt and tries to decrypt it using the encryption keys of the receipt.
+   * @param receipt a receipt.
+   * @param attachmentId id of the attachment of this receipt to retrieve.
+   * @param validator optionally a validator function which checks if the decryption was successful. In cases where the receipt has many encryption
+   * keys and it is unclear which one should be used this function can help to detect bad decryptions.
+   * @return an object containing:
+   * - data: the decrypted attachment, if it could be decrypted, else the encrypted attachment.
+   * - wasDecrypted: if the data was successfully decrypted or not
+   */
+  async getAndTryDecryptReceiptAttachment(
+    receipt: models.Receipt,
+    attachmentId: string,
+    validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
+  ): Promise<{ data: ArrayBuffer; wasDecrypted: boolean }> {
+    return await this.crypto.xapi.tryDecryptDataOf(
       { entity: receipt, type: 'Receipt' },
       await this.getReceiptAttachment(receipt.id!, attachmentId),
       (x) => validator(x)
@@ -137,8 +169,7 @@ export class IccReceiptXApi extends IccReceiptApi {
    * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
    * receipt does not have encrypted content.
    * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
-   * @return a promise which will contain the result of the operation: the updated entity if the operation was successful or details of the error if
-   * the operation failed.
+   * @return the updated entity
    */
   async shareWith(
     delegateId: string,
@@ -147,18 +178,82 @@ export class IccReceiptXApi extends IccReceiptApi {
       requestedPermissions?: RequestedPermissionEnum
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
+  ): Promise<models.Receipt> {
+    return this.shareWithMany(receipt, { [delegateId]: options })
+  }
+
+  /**
+   * Share an existing receipt with other data owners, allowing them to access the non-encrypted data of the receipt and optionally also
+   * the encrypted content, with read-only or read-write permissions.
+   * @param receipt the receipt to share.
+   * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * receipt does not have encrypted content.
+   * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
+   * @return the updated entity
+   */
+  async shareWithMany(
+    receipt: models.Receipt,
+    delegates: {
+      [delegateId: string]: {
+        requestedPermissions?: RequestedPermissionEnum
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
+  ): Promise<models.Receipt> {
+    return (await this.tryShareWithMany(receipt, delegates)).updatedEntityOrThrow
+  }
+
+  /**
+   * Share an existing receipt with other data owners, allowing them to access the non-encrypted data of the receipt and optionally also
+   * the encrypted content, with read-only or read-write permissions.
+   * @param receipt the receipt to share.
+   * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * receipt does not have encrypted content.
+   * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
+   * @return a promise which will contain the result of the operation: the updated entity if the operation was successful or details of the error if
+   * the operation failed.
+   */
+  async tryShareWithMany(
+    receipt: models.Receipt,
+    delegates: {
+      [delegateId: string]: {
+        requestedPermissions?: RequestedPermissionEnum
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
   ): Promise<ShareResult<models.Receipt>> {
     // All entities should have an encryption key.
     const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(receipt, 'Receipt')
     const updatedEntity = entityWithEncryptionKey ? await this.modifyReceipt(entityWithEncryptionKey) : receipt
     return this.crypto.xapi.simpleShareOrUpdateEncryptedEntityMetadata(
       { entity: updatedEntity, type: 'Receipt' },
-      delegateId,
-      options?.shareEncryptionKey,
-      undefined,
-      undefined,
-      options.requestedPermissions ?? RequestedPermissionEnum.MAX_WRITE,
+      true,
+      Object.fromEntries(
+        Object.entries(delegates).map(([delegateId, options]) => [
+          delegateId,
+          {
+            requestedPermissions: options.requestedPermissions,
+            shareEncryptionKeys: options.shareEncryptionKey,
+            shareOwningEntityIds: ShareMetadataBehaviour.NEVER,
+            shareSecretIds: undefined,
+          },
+        ])
+      ),
       (x) => this.bulkShareReceipt(x)
     )
+  }
+
+  getDataOwnersWithAccessTo(
+    entity: models.Receipt
+  ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
+    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Receipt' })
+  }
+
+  getEncryptionKeysOf(entity: models.Receipt): Promise<string[]> {
+    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'Receipt' }, undefined)
   }
 }

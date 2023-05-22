@@ -60,6 +60,17 @@ export class LegacyDelegationSecurityMetadataDecryptor implements SecurityMetada
     return Object.values(entity.encryptionKeys ?? {}).some((delegations) => delegations.length > 0)
   }
 
+  async getDataOwnersWithAccessTo(
+    typedEntity: EncryptedEntityWithType
+  ): Promise<{ permissionsByDataOwnerId: { [p: string]: SecureDelegation.AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
+    return {
+      hasUnknownAnonymousDataOwners: false,
+      permissionsByDataOwnerId: Object.fromEntries(
+        Object.keys(typedEntity.entity.delegations ?? {}).map((dataOwnerId) => [dataOwnerId, AccessLevel.WRITE])
+      ),
+    }
+  }
+
   private extractFromDelegations(
     dataOwnersHierarchySubset: string[],
     delegations: { [delegateId: string]: Delegation[] },

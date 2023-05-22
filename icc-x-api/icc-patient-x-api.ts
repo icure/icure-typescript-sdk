@@ -27,9 +27,10 @@ import { ShareResult } from './utils/ShareResult'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
+import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
 // noinspection JSUnusedGlobalSymbols
-export class IccPatientXApi extends IccPatientApi {
+export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi<models.Patient> {
   crypto: IccCryptoXApi
   contactApi: IccContactXApi
   formApi: IccFormXApi
@@ -566,12 +567,13 @@ export class IccPatientXApi extends IccPatientApi {
     patId: string,
     ownerId: string,
     delegateIds: Array<string>,
-    delegationTags: { [key: string]: Array<string> }
+    delegationTags: { [key: string]: Array<string> },
+    usingPost: boolean = false
   ): Promise<{
     patient: models.Patient | null
     statuses: { [key: string]: { success: boolean | null; error: Error | null } }
   } | null> {
-    return this.shareAllDataOfPatient(user, patId, ownerId, delegateIds, delegationTags)
+    return this.shareAllDataOfPatient(user, patId, ownerId, delegateIds, delegationTags, usingPost)
   }
 
   async shareAllDataOfPatient(
@@ -579,7 +581,8 @@ export class IccPatientXApi extends IccPatientApi {
     patId: string,
     ownerId: string,
     delegateIds: Array<string>,
-    delegationTags: { [key: string]: Array<string> }
+    delegationTags: { [key: string]: Array<string> },
+    usingPost: boolean = false
   ): Promise<{
     patient: models.Patient | null
     statuses: { [key: string]: { success: boolean | null; error: Error | null } }
@@ -647,48 +650,55 @@ export class IccPatientXApi extends IccPatientApi {
 
     if (delSfks.length) {
       const retrievedHealthElements = await retry(() =>
-        this.helementApi
-          .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-          .then((hes) =>
-            parentId
-              ? this.helementApi
-                  .findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                  .then((moreHes) => _.uniqBy(hes.concat(moreHes), 'id'))
-              : hes
-          )
+        (usingPost
+          ? this.helementApi.findHealthElementsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(ownerId, _.uniq(delSfks))
+          : this.helementApi.findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
+        ).then((hes) =>
+          parentId
+            ? (usingPost
+                ? this.helementApi.findHealthElementsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(parentId, _.uniq(delSfks))
+                : this.helementApi.findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
+              ).then((moreHes) => _.uniqBy(hes.concat(moreHes), 'id'))
+            : hes
+        )
       )
       const retrievedForms = await retry(() =>
-        this.formApi
-          .findFormsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-          .then((frms) =>
-            parentId
-              ? this.formApi
-                  .findFormsDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                  .then((moreFrms) => _.uniqBy(frms.concat(moreFrms), 'id'))
-              : frms
-          )
+        (usingPost
+          ? this.formApi.findFormsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(ownerId, _.uniq(delSfks))
+          : this.formApi.findFormsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
+        ).then((frms) =>
+          parentId
+            ? (usingPost
+                ? this.formApi.findFormsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(parentId, _.uniq(delSfks))
+                : this.formApi.findFormsDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
+              ).then((moreFrms) => _.uniqBy(frms.concat(moreFrms), 'id'))
+            : frms
+        )
       )
       const retrievedContacts = await retry(() =>
-        this.contactApi
-          .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
-          .then((ctcs) =>
-            parentId
-              ? this.contactApi
-                  .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
-                  .then((moreCtcs) => _.uniqBy(ctcs.concat(moreCtcs), 'id'))
-              : ctcs
-          )
+        (usingPost
+          ? this.contactApi.findByHCPartyPatientSecretFKeysUsingPost(ownerId, undefined, undefined, _.uniq(delSfks))
+          : this.contactApi.findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
+        ).then((ctcs) =>
+          parentId
+            ? (usingPost
+                ? this.contactApi.findByHCPartyPatientSecretFKeysUsingPost(parentId, undefined, undefined, _.uniq(delSfks))
+                : this.contactApi.findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
+              ).then((moreCtcs) => _.uniqBy(ctcs.concat(moreCtcs), 'id'))
+            : ctcs
+        )
       )
       const retrievedInvoices = await retry(() =>
-        this.invoiceApi
-          .findInvoicesDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-          .then((ivs) =>
-            parentId
-              ? this.invoiceApi
-                  .findInvoicesDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                  .then((moreIvs) => _.uniqBy(ivs.concat(moreIvs), 'id'))
-              : ivs
-          )
+        (usingPost
+          ? this.invoiceApi.findInvoicesDelegationsStubsByHCPartyPatientForeignKeysUsingPost(ownerId, _.uniq(delSfks))
+          : this.invoiceApi.findInvoicesDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
+        ).then((ivs) =>
+          parentId
+            ? this.invoiceApi
+                .findInvoicesDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
+                .then((moreIvs) => _.uniqBy(ivs.concat(moreIvs), 'id'))
+            : ivs
+        )
       )
       const retrievedClassifications = await retry(() =>
         this.classificationApi
@@ -702,15 +712,17 @@ export class IccPatientXApi extends IccPatientApi {
           )
       )
       const retrievedCalendarItems = await retry(() =>
-        this.calendarItemApi
-          .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
-          .then((cls) =>
-            parentId
-              ? this.calendarItemApi
-                  .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
-                  .then((moreCls) => _.uniqBy(cls.concat(moreCls), 'id'))
-              : cls
-          )
+        (usingPost
+          ? this.calendarItemApi.findByHCPartyPatientSecretFKeysArray(ownerId, _.uniq(delSfks))
+          : this.calendarItemApi.findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
+        ).then((cls) =>
+          parentId
+            ? (usingPost
+                ? this.calendarItemApi.findByHCPartyPatientSecretFKeysArray(parentId, _.uniq(delSfks))
+                : this.calendarItemApi.findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
+              ).then((moreCls) => _.uniqBy(cls.concat(moreCls), 'id'))
+            : cls
+        )
       )
       const isMedicalInfoTags = (tags: string[]) => tags.includes('medicalInformation') || tags.includes('all')
       const isFinancialInfoTags = (tags: string[]) => tags.includes('financialInformation') || tags.includes('all')
@@ -831,7 +843,7 @@ export class IccPatientXApi extends IccPatientApi {
       })
   }
 
-  export(user: models.User, patId: string, ownerId: string): Promise<{ id: string }> {
+  export(user: models.User, patId: string, ownerId: string, usingPost: boolean = false): Promise<{ id: string }> {
     return this.hcpartyApi.getHealthcareParty(ownerId).then((hcp) => {
       const parentId = hcp.parentId
 
@@ -852,48 +864,55 @@ export class IccPatientXApi extends IccPatientApi {
           return delSfks.length
             ? Promise.all([
                 retry(() =>
-                  this.helementApi
-                    .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
-                    .then((hes) =>
-                      parentId
-                        ? this.helementApi
-                            .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
-                            .then((moreHes) => _.uniqBy(hes.concat(moreHes), 'id'))
-                        : hes
-                    )
+                  (usingPost
+                    ? this.helementApi.findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
+                    : this.helementApi.findByHCPartyPatientSecretFKeysArray(ownerId, delSfks)
+                  ).then((hes) =>
+                    parentId
+                      ? (usingPost
+                          ? this.helementApi.findHealthElementsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(parentId, _.uniq(delSfks))
+                          : this.helementApi.findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
+                        ).then((moreHes) => _.uniqBy(hes.concat(moreHes), 'id'))
+                      : hes
+                  )
                 ) as Promise<Array<models.IcureStub>>,
                 retry(() =>
-                  this.formApi
-                    .findFormsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                    .then((frms) =>
-                      parentId
-                        ? this.formApi
-                            .findFormsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                            .then((moreFrms) => _.uniqBy(frms.concat(moreFrms), 'id'))
-                        : frms
-                    )
+                  (usingPost
+                    ? this.formApi.findFormsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(ownerId, _.uniq(delSfks))
+                    : this.formApi.findFormsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
+                  ).then((frms) =>
+                    parentId
+                      ? (usingPost
+                          ? this.formApi.findFormsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(parentId, _.uniq(delSfks))
+                          : this.formApi.findFormsDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
+                        ).then((moreFrms) => _.uniqBy(frms.concat(moreFrms), 'id'))
+                      : frms
+                  )
                 ) as Promise<Array<models.Form>>,
                 retry(() =>
-                  this.contactApi
-                    .findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
-                    .then((ctcs) =>
-                      parentId
-                        ? this.contactApi
-                            .findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
-                            .then((moreCtcs) => _.uniqBy(ctcs.concat(moreCtcs), 'id'))
-                        : ctcs
-                    )
+                  (usingPost
+                    ? this.contactApi.findByHCPartyPatientSecretFKeysUsingPost(ownerId, undefined, undefined, _.uniq(delSfks))
+                    : this.contactApi.findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
+                  ).then((ctcs) =>
+                    parentId
+                      ? (usingPost
+                          ? this.contactApi.findByHCPartyPatientSecretFKeysUsingPost(parentId, undefined, undefined, _.uniq(delSfks))
+                          : this.contactApi.findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
+                        ).then((moreCtcs) => _.uniqBy(ctcs.concat(moreCtcs), 'id'))
+                      : ctcs
+                  )
                 ) as Promise<Array<models.Contact>>,
                 retry(() =>
-                  this.invoiceApi
-                    .findInvoicesByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                    .then((ivs) =>
-                      parentId
-                        ? this.invoiceApi
-                            .findInvoicesByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                            .then((moreIvs) => _.uniqBy(ivs.concat(moreIvs), 'id'))
-                        : ivs
-                    )
+                  (usingPost
+                    ? this.invoiceApi.findInvoicesDelegationsStubsByHCPartyPatientForeignKeysUsingPost(ownerId, _.uniq(delSfks))
+                    : this.invoiceApi.findInvoicesDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
+                  ).then((ivs) =>
+                    parentId
+                      ? this.invoiceApi
+                          .findInvoicesDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
+                          .then((moreIvs) => _.uniqBy(ivs.concat(moreIvs), 'id'))
+                      : ivs
+                  )
                 ) as Promise<Array<models.IcureStub>>,
                 retry(() =>
                   this.classificationApi
@@ -909,10 +928,14 @@ export class IccPatientXApi extends IccPatientApi {
                 retry(async () => {
                   const delegationSFKs = _.uniq(delSfks).join(',')
                   try {
-                    let calendarItems = await this.calendarItemApi.findByHCPartyPatientSecretFKeys(ownerId, delegationSFKs)
+                    let calendarItems = await (usingPost
+                      ? this.calendarItemApi.findByHCPartyPatientSecretFKeysArray(ownerId, _.uniq(delSfks))
+                      : this.calendarItemApi.findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(',')))
 
                     if (parentId) {
-                      const moreCalendarItems = await this.calendarItemApi.findByHCPartyPatientSecretFKeys(parentId, delegationSFKs)
+                      const moreCalendarItems = await (usingPost
+                        ? this.calendarItemApi.findByHCPartyPatientSecretFKeysArray(parentId, _.uniq(delSfks))
+                        : this.calendarItemApi.findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(',')))
                       calendarItems = _.uniqBy(calendarItems.concat(moreCalendarItems), 'id')
                     }
 
@@ -1054,8 +1077,7 @@ export class IccPatientXApi extends IccPatientApi {
    * patient does not have encrypted content.
    * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
    * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
-   * @return a promise which will contain the result of the operation: the updated entity if the operation was successful or details of the error if
-   * the operation failed.
+   * @return the updated entity
    */
   async shareWith(
     delegateId: string,
@@ -1065,6 +1087,61 @@ export class IccPatientXApi extends IccPatientApi {
       requestedPermissions?: RequestedPermissionEnum
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
+  ): Promise<models.Patient> {
+    return this.shareWithMany(patient, { [delegateId]: { ...options, shareSecretIds: shareSecretIds } })
+  }
+
+  /**
+   * Share an existing patient with other data owners, allowing them to access the non-encrypted data of the patient and optionally also
+   * the encrypted content, with read-only or read-write permissions.
+   * @param patient the patient to share.
+   * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareSecretIds the secret ids of the Patient that the delegate will be given access to. Allows the delegate to search for data where the
+   * shared Patient is the owning entity id.
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * patient does not have encrypted content.
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
+   * @return the updated entity
+   */
+  async shareWithMany(
+    patient: models.Patient,
+    delegates: {
+      [delegateIds: string]: {
+        shareSecretIds: string[]
+        requestedPermissions?: RequestedPermissionEnum
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
+  ): Promise<models.Patient> {
+    return (await this.tryShareWithMany(patient, delegates)).updatedEntityOrThrow
+  }
+
+  /**
+   * Share an existing patient with other data owners, allowing them to access the non-encrypted data of the patient and optionally also
+   * the encrypted content, with read-only or read-write permissions.
+   * @param patient the patient to share.
+   * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareSecretIds the secret ids of the Patient that the delegate will be given access to. Allows the delegate to search for data where the
+   * shared Patient is the owning entity id.
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * patient does not have encrypted content.
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
+   * @return a promise which will contain the result of the operation: the updated entity if the operation was successful or details of the error if
+   * the operation failed.
+   */
+  async tryShareWithMany(
+    patient: models.Patient,
+    delegates: {
+      [delegateIds: string]: {
+        shareSecretIds: string[]
+        requestedPermissions?: RequestedPermissionEnum
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
   ): Promise<ShareResult<models.Patient>> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
@@ -1073,11 +1150,18 @@ export class IccPatientXApi extends IccPatientApi {
     return this.crypto.xapi
       .simpleShareOrUpdateEncryptedEntityMetadata(
         { entity: updatedEntity, type: 'Patient' },
-        delegateId,
-        options?.shareEncryptionKey,
-        ShareMetadataBehaviour.NEVER,
-        shareSecretIds,
-        options.requestedPermissions ?? RequestedPermissionEnum.MAX_WRITE,
+        false,
+        Object.fromEntries(
+          Object.entries(delegates).map(([delegateId, options]) => [
+            delegateId,
+            {
+              requestedPermissions: options.requestedPermissions,
+              shareEncryptionKeys: options.shareEncryptionKey,
+              shareOwningEntityIds: ShareMetadataBehaviour.NEVER,
+              shareSecretIds: options.shareSecretIds,
+            },
+          ])
+        ),
         (x) => this.bulkSharePatients(x)
       )
       .then((r) => r.mapSuccessAsync((e) => this.decryptAs(self, [e]).then((es) => es[0])))
@@ -1108,5 +1192,58 @@ export class IccPatientXApi extends IccPatientApi {
    */
   decryptNonConfidentialSecretIdsOf(patient: models.Patient): Promise<string[]> {
     return this.crypto.confidential.getSecretIdsSharedWithParents({ entity: patient, type: 'Patient' })
+  }
+
+  getDataOwnersWithAccessTo(
+    entity: models.Patient
+  ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
+    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Patient' })
+  }
+
+  getEncryptionKeysOf(entity: models.Patient): Promise<string[]> {
+    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'Patient' }, undefined)
+  }
+
+  /**
+   * Merge two patients into one. This method performs the following operations:
+   * - The `from` patient will be soft-deleted, and it will point to the `into` patient. Only the `deletionDate` and `mergeToPatientId` fields of the
+   *   patient will be changed (automatically by this method). Note that the value of {@link from} is only used to verify that the client is aware of
+   *   the last version of the `from` patient: any changes to its content and/or metadata compared to what is actually stored in the database will be
+   *   ignored.
+   * - The metadata of the `into` patient will be automatically updated to contain also the metadata of the `from` patient and to keep track of the
+   *   merge:
+   *   - the `mergedIds` will be updated to contain the `from` patient id
+   *   - all secret ids of the `from` patient will be added to the `into` patient
+   *   - all data owners (including anonymous data owners) with access to the `from` patient will have the same access to the merged `into` patient
+   *     (unless they already had greater access to the `into` patient, in which case they keep the greater access)
+   * - The content of the `into` patient will be updated to match the content (name, address, note, ...) of the provided {@link mergedInto} parameter.
+   *   Note that since the metadata is automatically updated by this method you must not change the metadata of the `mergedInto` patient
+   *   (`delegations`, mergedInto`, ...): if there is any change between the metadata of the provided `mergedInto` patient and the stored patient this
+   *   method will fail with an error.
+   *
+   * In case the revisions of {@link from} and/or {@link mergedInto} does not match the latest revisions for these patients in the database this
+   * method will fail without soft-deleting the `from` patient and without updating the `into` patient with the merged content and metadata. You will
+   * have to retrieve the updated versions of both patients before retrying the merge.
+   *
+   * Finally, note that this method only merges existing data, and does not perform any automatic sharing of the data. The secret ids and encryption
+   * keys will not be shared with users that had access only to one of the entity, you will have to use the {@link shareWith} method after the merge
+   * if you want to do so.
+   * For example consider hcps A, B with access to P' and hcps A, C with access to P'', and we merge P'' into P'. After the merge:
+   * - A has access to all secret ids of the merged patient and to the encryption key of the merged patient
+   * - B has access to the encryption key of the merged patient (since it is the same as in P'), but only to the secret id which was originally from
+   *   the unmerged P'
+   * - C has no access to the encryption key of the merged patient, and has access only to the secret id which was originally from the unmerged P''
+   *
+   * @param from the original, unmodified `from` patient. Its content will be unchanged and its metadata will be automatically updated by this method
+   * to reflect the merge.
+   * @param mergedInto the `into` patient with updated content result of the merge with the `from` patient, as specified by your application logic.
+   * The metadata of the `mergedInto` patient must not differ from the metadata of the stored version of the patient, since it will be automatically
+   * updated by the method.
+   * @return the updated `into` patient.
+   */
+  async mergePatients(from: Patient, mergedInto: Patient): Promise<Patient> {
+    const encryptedMerged = (await this.encryptAs(await this.dataOwnerApi.getCurrentDataOwnerId(), [mergedInto]))[0]
+    const merged = await super.baseMergePatients(from.id!, from.rev!, encryptedMerged)
+    return (await this.tryDecryptOrReturnOriginal(await this.dataOwnerApi.getCurrentDataOwnerId(), [merged]))[0].entity
   }
 }

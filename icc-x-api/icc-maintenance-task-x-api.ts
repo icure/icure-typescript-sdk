@@ -13,8 +13,9 @@ import { ShareResult } from './utils/ShareResult'
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
+import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
-export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
+export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements EncryptedEntityXApi<models.MaintenanceTask> {
   crypto: IccCryptoXApi
   hcPartyApi: IccHcpartyXApi
   dataOwnerApi: IccDataOwnerXApi
@@ -193,8 +194,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
    * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
    * maintenance task does not have encrypted content.
    * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
-   * @return a promise which will contain the result of the operation: the updated entity if the operation was successful or details of the error if
-   * the operation failed.
+   * @return the updated entity
    */
   async shareWith(
     delegateId: string,
@@ -203,6 +203,53 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
       requestedPermissions?: RequestedPermissionEnum
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
+  ): Promise<models.MaintenanceTask> {
+    return this.shareWithMany(maintenanceTask, { [delegateId]: options })
+  }
+
+  /**
+   * Share an existing maintenance task with other data owners, allowing them to access the non-encrypted data of the maintenance task and optionally also
+   * the encrypted content, with read-only or read-write permissions.
+   * @param maintenanceTask the maintenance task to share.
+   * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * maintenance task does not have encrypted content.
+   * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
+   * @return the updated entity.
+   */
+  async shareWithMany(
+    maintenanceTask: models.MaintenanceTask,
+    delegates: {
+      [delegateId: string]: {
+        requestedPermissions?: RequestedPermissionEnum
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
+  ): Promise<models.MaintenanceTask> {
+    return (await this.tryShareWithMany(maintenanceTask, delegates)).updatedEntityOrThrow
+  }
+
+  /**
+   * Share an existing maintenance task with other data owners, allowing them to access the non-encrypted data of the maintenance task and optionally also
+   * the encrypted content, with read-only or read-write permissions.
+   * @param maintenanceTask the maintenance task to share.
+   * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * maintenance task does not have encrypted content.
+   * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
+   * @return a promise which will contain the result of the operation: the updated entity if the operation was successful or details of the error if
+   * the operation failed.
+   */
+  async tryShareWithMany(
+    maintenanceTask: models.MaintenanceTask,
+    delegates: {
+      [delegateId: string]: {
+        requestedPermissions?: RequestedPermissionEnum
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
   ): Promise<ShareResult<models.MaintenanceTask>> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
@@ -211,13 +258,30 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
     return this.crypto.xapi
       .simpleShareOrUpdateEncryptedEntityMetadata(
         { entity: updatedEntity, type: 'MaintenanceTask' },
-        delegateId,
-        options?.shareEncryptionKey,
-        undefined,
-        undefined,
-        options.requestedPermissions ?? RequestedPermissionEnum.MAX_WRITE,
+        true,
+        Object.fromEntries(
+          Object.entries(delegates).map(([delegateId, options]) => [
+            delegateId,
+            {
+              requestedPermissions: options.requestedPermissions,
+              shareEncryptionKeys: options.shareEncryptionKey,
+              shareOwningEntityIds: ShareMetadataBehaviour.NEVER,
+              shareSecretIds: undefined,
+            },
+          ])
+        ),
         (x) => this.bulkShareMaintenanceTask(x)
       )
       .then((r) => r.mapSuccessAsync((e) => this.decryptAs(self, [e]).then((es) => es[0])))
+  }
+
+  getDataOwnersWithAccessTo(
+    entity: models.MaintenanceTask
+  ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
+    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'MaintenanceTask' })
+  }
+
+  getEncryptionKeysOf(entity: models.MaintenanceTask): Promise<string[]> {
+    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'MaintenanceTask' }, undefined)
   }
 }

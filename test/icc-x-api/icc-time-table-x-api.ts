@@ -1,7 +1,7 @@
 import 'isomorphic-fetch'
 
 import { before } from 'mocha'
-import { getEnvironmentInitializer, hcp1Username, setLocalStorage, TestUtils } from '../utils/test_utils'
+import { getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { IccTimeTableXApi } from '../../icc-x-api'
 import initApi = TestUtils.initApi
 import { User } from '../../icc-api/model/User'
@@ -75,5 +75,24 @@ describe('icc-x-time-table-api Tests', () => {
     expect(await cryptoApi.xapi.encryptionKeysOf({ entity: createdTimeTable, type: 'TimeTable' }, undefined)).to.have.length(1)
     expect(await cryptoApi.xapi.secretIdsOf({ entity: createdTimeTable, type: 'TimeTable' }, undefined)).to.have.length(0)
     expect(await cryptoApi.xapi.owningEntityIdsOf({ entity: createdTimeTable, type: 'TimeTable' }, undefined)).to.have.length(0)
+  })
+
+  it('Share with should work as expected', async () => {
+    const api1 = await initApi(env!, hcp1Username)
+    const user1 = await api1.userApi.getCurrentUser()
+    const api2 = await initApi(env!, hcp2Username)
+    const user2 = await api2.userApi.getCurrentUser()
+    const entity = (await api1.timetableApi.createTimeTable(await api1.timetableApi.newInstance(user1, {})))!
+    await api2.timetableApi
+      .getTimeTable(entity.id!)
+      .then(() => {
+        throw new Error('Should not be able to get the entity')
+      })
+      .catch(() => {
+        /* expected */
+      })
+    await api1.timetableApi.shareWith(user2.healthcarePartyId!, entity)
+    const retrieved = await api2.timetableApi.getTimeTable(entity.id!)
+    expect(retrieved.id).to.equal(entity.id)
   })
 })

@@ -52,13 +52,11 @@ describe('Full battery of tests on crypto and keys', async function () {
 
     const apiAsPatient = await Api(
       env!.iCureUrl,
-      newPatientUser.login!,
-      'LetMeInForReal',
-      new TestCryptoStrategies(await api.cryptoApi.primitives.RSA.generateKeyPair()),
+      { username: newPatientUser.login!, password: 'LetMeInForReal', forceBasic: true },
+      new TestCryptoStrategies(await api.cryptoApi.primitives.RSA.generateKeyPair('sha-256')),
       webcrypto as unknown as Crypto,
       fetch,
       {
-        forceBasic: true,
         storage: new TestStorage(),
         keyStorage: new TestKeyStorage(),
       }

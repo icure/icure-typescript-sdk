@@ -272,6 +272,10 @@ export class Patient {
    */
   publicKey?: string
   /**
+   * The public keys of this actor that are generates using the OAEP Sha-256 standard
+   */
+  publicKeysForOaepWithSha256?: Array<string>
+  /**
    * The secretForeignKeys are filled at the to many end of a one to many relationship (for example inside Contact for the Patient -> Contacts relationship). Used when we want to find all contacts for a specific patient. These keys are in clear. You can have several to partition the medical document space.
    */
   secretForeignKeys?: Array<string>

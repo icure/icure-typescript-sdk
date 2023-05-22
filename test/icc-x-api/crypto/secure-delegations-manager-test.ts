@@ -14,7 +14,6 @@ import { FakeDataOwnerApi } from '../../utils/FakeDataOwnerApi'
 import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
 import { FakeSignatureKeysManager } from '../../utils/FakeSignatureKeysManager'
 import { KeyPair } from '../../../icc-x-api/crypto/RSA'
-import { DataOwnerTypeEnum } from '../../../icc-x-api/icc-data-owner-x-api'
 import { EntityShareRequest } from '../../../icc-api/model/requests/EntityShareRequest'
 import { expect } from 'chai'
 import { EncryptedEntityStub } from '../../../icc-api/model/models'
@@ -44,10 +43,10 @@ describe('Secure delegations manager', async function () {
 
   async function initialiseComponents(explicitSelf: boolean, explicitDelegate: boolean) {
     selfId = primitives.randomUuid()
-    selfKeypair = await primitives.RSA.generateKeyPair()
+    selfKeypair = await primitives.RSA.generateKeyPair('sha-256')
     selfKeyFp = ua2hex(await primitives.RSA.exportKey(selfKeypair.publicKey, 'spki')).slice(-32)
     delegateId = primitives.randomUuid()
-    delegateKeypair = await primitives.RSA.generateKeyPair()
+    delegateKeypair = await primitives.RSA.generateKeyPair('sha-256')
     delegateKeyFp = fingerprintV2(ua2hex(await primitives.RSA.exportKey(delegateKeypair.publicKey, 'spki')))
     dataOwnerApi = new FakeDataOwnerApi(
       {
@@ -79,7 +78,7 @@ describe('Secure delegations manager', async function () {
       primitives
     )
     secureDelegationsEncryption = new SecureDelegationsEncryption(encryptionKeysManager, primitives)
-    decryptor = new SecureDelegationsSecurityMetadataDecryptor(exchangeData, secureDelegationsEncryption)
+    decryptor = new SecureDelegationsSecurityMetadataDecryptor(exchangeData, secureDelegationsEncryption, dataOwnerApi)
     manager = new SecureDelegationsManager(
       exchangeData,
       secureDelegationsEncryption,

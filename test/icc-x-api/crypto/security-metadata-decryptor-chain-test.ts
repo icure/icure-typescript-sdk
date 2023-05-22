@@ -7,6 +7,27 @@ import { EncryptedEntityWithType } from '../../../icc-x-api/utils/EntityWithDele
 import { SecureDelegation } from '../../../icc-api/model/SecureDelegation'
 import AccessLevel = SecureDelegation.AccessLevelEnum
 
+const baseDecryptor = {
+  decryptEncryptionKeysOf: () => {
+    throw new Error('This should not be called')
+  },
+  decryptOwningEntityIdsOf: () => {
+    throw new Error('This should not be called')
+  },
+  decryptSecretIdsOf: () => {
+    throw new Error('This should not be called')
+  },
+  getEntityAccessLevel: () => {
+    throw new Error('This should not be called')
+  },
+  hasAnyEncryptionKeys(): boolean {
+    throw new Error('This should not be called')
+  },
+  getDataOwnersWithAccessTo() {
+    throw new Error('This should not be called')
+  },
+}
+
 describe('Security metadata decryptor chain', async function () {
   const expectedEntity: EncryptedEntityWithType = { entity: {} as EncryptedEntityStub, type: 'Patient' }
   const expectedDataOwnerHierarchySubset = ['a', 'b']
@@ -14,6 +35,7 @@ describe('Security metadata decryptor chain', async function () {
   it('should return all elements in order for encryption keys', async function () {
     const chained = new SecurityMetadataDecryptorChain([
       {
+        ...baseDecryptor,
         decryptEncryptionKeysOf(
           typedEntity: EncryptedEntityWithType,
           dataOwnersHierarchySubset: string[]
@@ -27,20 +49,9 @@ describe('Security metadata decryptor chain', async function () {
           }
           return generator()
         },
-        decryptOwningEntityIdsOf: () => {
-          throw new Error('This should not be called')
-        },
-        decryptSecretIdsOf: () => {
-          throw new Error('This should not be called')
-        },
-        getEntityAccessLevel: () => {
-          throw new Error('This should not be called')
-        },
-        hasAnyEncryptionKeys(): boolean {
-          throw new Error('This should not be called')
-        },
       },
       {
+        ...baseDecryptor,
         decryptEncryptionKeysOf(
           typedEntity: EncryptedEntityWithType,
           dataOwnersHierarchySubset: string[]
@@ -53,18 +64,6 @@ describe('Security metadata decryptor chain', async function () {
             yield { decrypted: '6', dataOwnersWithAccess: ['6'] }
           }
           return generator()
-        },
-        decryptOwningEntityIdsOf: () => {
-          throw new Error('This should not be called')
-        },
-        decryptSecretIdsOf: () => {
-          throw new Error('This should not be called')
-        },
-        getEntityAccessLevel: () => {
-          throw new Error('This should not be called')
-        },
-        hasAnyEncryptionKeys(): boolean {
-          throw new Error('This should not be called')
         },
       },
     ])
@@ -85,6 +84,7 @@ describe('Security metadata decryptor chain', async function () {
   it('should return all elements in order for secret ids', async function () {
     const chained = new SecurityMetadataDecryptorChain([
       {
+        ...baseDecryptor,
         decryptSecretIdsOf(
           typedEntity: EncryptedEntityWithType,
           dataOwnersHierarchySubset: string[]
@@ -98,20 +98,9 @@ describe('Security metadata decryptor chain', async function () {
           }
           return generator()
         },
-        decryptEncryptionKeysOf: () => {
-          throw new Error('This should not be called')
-        },
-        decryptOwningEntityIdsOf: () => {
-          throw new Error('This should not be called')
-        },
-        getEntityAccessLevel: () => {
-          throw new Error('This should not be called')
-        },
-        hasAnyEncryptionKeys(): boolean {
-          throw new Error('This should not be called')
-        },
       },
       {
+        ...baseDecryptor,
         decryptSecretIdsOf(
           typedEntity: EncryptedEntityWithType,
           dataOwnersHierarchySubset: string[]
@@ -124,18 +113,6 @@ describe('Security metadata decryptor chain', async function () {
             yield { decrypted: '6', dataOwnersWithAccess: ['6'] }
           }
           return generator()
-        },
-        decryptEncryptionKeysOf: () => {
-          throw new Error('This should not be called')
-        },
-        decryptOwningEntityIdsOf: () => {
-          throw new Error('This should not be called')
-        },
-        getEntityAccessLevel: () => {
-          throw new Error('This should not be called')
-        },
-        hasAnyEncryptionKeys(): boolean {
-          throw new Error('This should not be called')
         },
       },
     ])
@@ -156,6 +133,7 @@ describe('Security metadata decryptor chain', async function () {
   it('should return all elements in order for owning entity id', async function () {
     const chained = new SecurityMetadataDecryptorChain([
       {
+        ...baseDecryptor,
         decryptOwningEntityIdsOf(
           typedEntity: EncryptedEntityWithType,
           dataOwnersHierarchySubset: string[]
@@ -169,20 +147,9 @@ describe('Security metadata decryptor chain', async function () {
           }
           return generator()
         },
-        decryptEncryptionKeysOf: () => {
-          throw new Error('This should not be called')
-        },
-        decryptSecretIdsOf: () => {
-          throw new Error('This should not be called')
-        },
-        getEntityAccessLevel: () => {
-          throw new Error('This should not be called')
-        },
-        hasAnyEncryptionKeys(): boolean {
-          throw new Error('This should not be called')
-        },
       },
       {
+        ...baseDecryptor,
         decryptOwningEntityIdsOf(
           typedEntity: EncryptedEntityWithType,
           dataOwnersHierarchySubset: string[]
@@ -195,18 +162,6 @@ describe('Security metadata decryptor chain', async function () {
             yield { decrypted: '6', dataOwnersWithAccess: ['6'] }
           }
           return generator()
-        },
-        decryptEncryptionKeysOf: () => {
-          throw new Error('This should not be called')
-        },
-        decryptSecretIdsOf: () => {
-          throw new Error('This should not be called')
-        },
-        getEntityAccessLevel: () => {
-          throw new Error('This should not be called')
-        },
-        hasAnyEncryptionKeys(): boolean {
-          throw new Error('This should not be called')
         },
       },
     ])
@@ -227,22 +182,11 @@ describe('Security metadata decryptor chain', async function () {
   it('should return the best access level across all decryptors of the chain', async function () {
     function newAccessLevelDecryptor(accessLevel: AccessLevel | undefined): SecurityMetadataDecryptor {
       return {
-        decryptOwningEntityIdsOf: () => {
-          throw new Error('This should not be called')
-        },
-        decryptEncryptionKeysOf: () => {
-          throw new Error('This should not be called')
-        },
-        decryptSecretIdsOf: () => {
-          throw new Error('This should not be called')
-        },
+        ...baseDecryptor,
         getEntityAccessLevel: (typedEntity, dataOwnersHierarchySubset) => {
           expect(typedEntity).to.equal(expectedEntity)
           expect(dataOwnersHierarchySubset).to.equal(expectedDataOwnerHierarchySubset)
           return Promise.resolve(accessLevel)
-        },
-        hasAnyEncryptionKeys(): boolean {
-          throw new Error('This should not be called')
         },
       }
     }

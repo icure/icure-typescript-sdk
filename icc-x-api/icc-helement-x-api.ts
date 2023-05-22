@@ -5,7 +5,8 @@ import * as models from '../icc-api/model/models'
 
 import * as _ from 'lodash'
 import * as moment from 'moment'
-import { HealthElement } from '../icc-api/model/models'
+import { a2b, b2a, hex2ua, string2ua, ua2utf8, utf8_2ua } from './utils/binary-utils'
+import { FilterChainHealthElement, HealthElement, PaginatedListHealthElement } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
@@ -15,8 +16,9 @@ import { ShareResult } from './utils/ShareResult'
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
+import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
-export class IccHelementXApi extends IccHelementApi {
+export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXApi<models.HealthElement> {
   crypto: IccCryptoXApi
   dataOwnerApi: IccDataOwnerXApi
 
@@ -183,17 +185,24 @@ export class IccHelementXApi extends IccHelementApi {
     return super.findHealthElementsByHCPartyPatientForeignKeys(hcPartyId, secretFKeys).then((hes) => this.decryptWithUser(user, hes))
   }
 
+  findHealthElementsByHCPartyPatientForeignKeysArrayWithUser(user: models.User, hcPartyId: string, secretFKeys: string[]): Promise<HealthElement[]> {
+    return super.findHealthElementsByHCPartyPatientForeignKeysUsingPost(hcPartyId, secretFKeys).then((hes) => this.decryptWithUser(user, hes))
+  }
+
   async findHealthElementsByHCPartyAndPatientWithUser(
     user: models.User,
     hcPartyId: string,
-    patient: models.Patient
+    patient: models.Patient,
+    usingPost: boolean = false
   ): Promise<models.HealthElement[]> {
     let keysAndHcPartyId = await this.crypto.xapi.secretIdsForHcpHierarchyOf({ entity: patient, type: 'Patient' })
     const keys = keysAndHcPartyId.find((secretForeignKeys) => secretForeignKeys.ownerId == hcPartyId)?.extracted
     if (keys == undefined) {
       throw Error('No delegation for user')
     }
-    return this.findHealthElementsByHCPartyPatientForeignKeysWithUser(user, hcPartyId, keys.join(','))
+    return usingPost
+      ? this.findHealthElementsByHCPartyPatientForeignKeysArrayWithUser(user, hcPartyId, keys)
+      : this.findHealthElementsByHCPartyPatientForeignKeysWithUser(user, hcPartyId, keys.join(','))
   }
 
   modifyHealthElement(body?: HealthElement): never {
@@ -241,9 +250,10 @@ export class IccHelementXApi extends IccHelementApi {
    * @param hcpartyId
    * @param patient (Promise)
    * @param keepObsoleteVersions
+   * @param usingPost
    */
 
-  findBy(hcpartyId: string, patient: models.Patient, keepObsoleteVersions = false) {
+  findBy(hcpartyId: string, patient: models.Patient, keepObsoleteVersions = false, usingPost = false) {
     return this.crypto.xapi
       .secretIdsForHcpHierarchyOf({ entity: patient, type: 'Patient' })
       .then((secretForeignKeys) =>
@@ -259,7 +269,11 @@ export class IccHelementXApi extends IccHelementApi {
                   ])
                 }, [] as Array<{ hcpartyId: string; extractedKeys: Array<string> }>)
                 .filter((l) => l.extractedKeys.length > 0)
-                .map(({ hcpartyId, extractedKeys }) => this.findByHCPartyPatientSecretFKeys(hcpartyId, _.uniq(extractedKeys).join(',')))
+                .map(({ hcpartyId, extractedKeys }) =>
+                  usingPost
+                    ? this.findByHCPartyPatientSecretFKeysArray(hcpartyId, _.uniq(extractedKeys))
+                    : this.findByHCPartyPatientSecretFKeys(hcpartyId, _.uniq(extractedKeys).join(','))
+                )
             ).then((results) => _.uniqBy(_.flatMap(results), (x) => x.id))
           : Promise.resolve([])
       )
@@ -286,6 +300,12 @@ export class IccHelementXApi extends IccHelementApi {
     return super.findHealthElementsByHCPartyPatientForeignKeys(hcPartyId, secretFKeys).then((helements) => this.decrypt(hcPartyId, helements))
   }
 
+  findByHCPartyPatientSecretFKeysArray(hcPartyId: string, secretFKeys: string[]): Promise<Array<models.Contact> | any> {
+    return super
+      .findHealthElementsByHCPartyPatientForeignKeysUsingPost(hcPartyId, secretFKeys)
+      .then((helements) => this.decrypt(hcPartyId, helements))
+  }
+
   encrypt(user: models.User, healthElements: Array<models.HealthElement>): Promise<Array<models.HealthElement>> {
     const owner = this.dataOwnerApi.getDataOwnerIdOf(user)
     return this.encryptAs(owner, healthElements)
@@ -309,6 +329,21 @@ export class IccHelementXApi extends IccHelementApi {
         this.crypto.xapi.decryptEntity(he, 'HealthElement', dataOwnerId, (x) => new models.HealthElement(x)).then(({ entity }) => entity)
       )
     )
+  }
+
+  filterHealthElementsBy(startDocumentId?: string, limit?: number, body?: FilterChainHealthElement): never {
+    throw new Error('Cannot call a method that returns health elements without providing a user for de/encryption')
+  }
+
+  filterByWithUser(
+    user: models.User,
+    startDocumentId?: string,
+    limit?: number,
+    body?: FilterChainHealthElement
+  ): Promise<PaginatedListHealthElement> {
+    return super
+      .filterHealthElementsBy(startDocumentId, limit, body)
+      .then((pl) => this.decryptWithUser(user, pl.rows!).then((dr) => Object.assign(pl, { rows: dr })))
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -368,8 +403,7 @@ export class IccHelementXApi extends IccHelementApi {
    * - sharePatientId: specifies if the id of the patient that this health element refers to should be shared with the delegate (defaults to
    * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
    * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
-   * @return a promise which will contain the result of the operation: the updated entity if the operation was successful or details of the error if
-   * the operation failed.
+   * @return the updated entity
    */
   async shareWith(
     delegateId: string,
@@ -379,6 +413,58 @@ export class IccHelementXApi extends IccHelementApi {
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
       sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
+  ): Promise<models.HealthElement> {
+    return this.shareWithMany(healthElement, { [delegateId]: options })
+  }
+  /**
+   * Share an existing health element with other data owners, allowing them to access the non-encrypted data of the health element and optionally also
+   * the encrypted content, with read-only or read-write permissions.
+   * @param delegateId the id of the data owner which will be granted access to the health element.
+   * @param healthElement the health element to share.
+   * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * health element does not have encrypted content.
+   * - sharePatientId: specifies if the id of the patient that this health element refers to should be shared with the delegate (defaults to
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
+   * @return the updated entity
+   */
+  async shareWithMany(
+    healthElement: models.HealthElement,
+    delegates: {
+      [delegateId: string]: {
+        requestedPermissions?: RequestedPermissionEnum
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+        sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
+  ): Promise<models.HealthElement> {
+    return (await this.tryShareWithMany(healthElement, delegates)).updatedEntityOrThrow
+  }
+  /**
+   * Share an existing health element with other data owners, allowing them to access the non-encrypted data of the health element and optionally also
+   * the encrypted content, with read-only or read-write permissions.
+   * @param healthElement the health element to share.
+   * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
+   * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
+   * health element does not have encrypted content.
+   * - sharePatientId: specifies if the id of the patient that this health element refers to should be shared with the delegate (defaults to
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}).
+   * - requestedPermissions: the requested permissions for the delegate, defaults to {@link RequestedPermissionEnum.MAX_WRITE}.
+   * @return a promise which will contain the result of the operation: the updated entity if the operation was successful or details of the error if
+   * the operation failed.
+   */
+  async tryShareWithMany(
+    healthElement: models.HealthElement,
+    delegates: {
+      [delegateId: string]: {
+        requestedPermissions?: RequestedPermissionEnum
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+        sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
   ): Promise<ShareResult<models.HealthElement>> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
@@ -387,13 +473,30 @@ export class IccHelementXApi extends IccHelementApi {
     return this.crypto.xapi
       .simpleShareOrUpdateEncryptedEntityMetadata(
         { entity: updatedEntity, type: 'HealthElement' },
-        delegateId,
-        options?.shareEncryptionKey,
-        options?.sharePatientId,
-        undefined,
-        options.requestedPermissions ?? RequestedPermissionEnum.MAX_WRITE,
+        true,
+        Object.fromEntries(
+          Object.entries(delegates).map(([delegateId, options]) => [
+            delegateId,
+            {
+              requestedPermissions: options.requestedPermissions,
+              shareEncryptionKeys: options.shareEncryptionKey,
+              shareOwningEntityIds: options.sharePatientId,
+              shareSecretIds: undefined,
+            },
+          ])
+        ),
         (x) => this.bulkShareHealthElements(x)
       )
       .then((r) => r.mapSuccessAsync((e) => this.decrypt(self, [e]).then((es) => es[0])))
+  }
+
+  getDataOwnersWithAccessTo(
+    entity: models.HealthElement
+  ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
+    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'HealthElement' })
+  }
+
+  getEncryptionKeysOf(entity: models.HealthElement): Promise<string[]> {
+    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'HealthElement' }, undefined)
   }
 }

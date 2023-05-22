@@ -12,7 +12,7 @@ import { createNewHcpApi, getApiAndAddPrivateKeysForUser, getEnvironmentInitiali
 import { TestKeyStorage, TestStorage } from '../../utils/TestStorage'
 import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
 import { KeyPairUpdateRequest } from '../../../icc-x-api/maintenance/KeyPairUpdateRequest'
-import { SecureDelegation } from '../../../dist/icc-api/model/SecureDelegation'
+import { SecureDelegation } from '../../../icc-api/model/SecureDelegation'
 import AccessLevel = SecureDelegation.AccessLevelEnum
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
@@ -123,12 +123,14 @@ describe('Full battery of tests on crypto and keys', async function () {
     expect(originalDecryptedData.successfulDecryptions.length).to.equal(2)
 
     // And creates a new one
-    const newKey = await api.cryptoApi.primitives.RSA.generateKeyPair()
+    const newKey = await api.cryptoApi.primitives.RSA.generateKeyPair('sha-256')
     const publicKey = ua2hex(await api.cryptoApi.primitives.RSA.exportKey(newKey.publicKey, 'spki'))
     const apiAfterNewKey = await Api(
       env!.iCureUrl,
-      env!.dataOwnerDetails[patUsername].user,
-      env!.dataOwnerDetails[patUsername].password,
+      {
+        username: env!.dataOwnerDetails[patUsername].user,
+        password: env!.dataOwnerDetails[patUsername].password,
+      },
       new TestCryptoStrategies(newKey),
       webcrypto as unknown as Crypto,
       fetch,
@@ -178,8 +180,10 @@ describe('Full battery of tests on crypto and keys', async function () {
 
     const apiAfterSharedBack = await Api(
       env!.iCureUrl,
-      env!.dataOwnerDetails[patUsername].user,
-      env!.dataOwnerDetails[patUsername].password,
+      {
+        username: env!.dataOwnerDetails[patUsername].user,
+        password: env!.dataOwnerDetails[patUsername].password,
+      },
       new TestCryptoStrategies(newKey),
       webcrypto as unknown as Crypto,
       fetch,

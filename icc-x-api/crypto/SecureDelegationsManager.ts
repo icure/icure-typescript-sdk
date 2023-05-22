@@ -4,7 +4,7 @@ import { UserEncryptionKeysManager } from './UserEncryptionKeysManager'
 import { CryptoStrategies } from './CryptoStrategies'
 import { EncryptedEntityWithType, EntityWithDelegationTypeName } from '../utils/EntityWithDelegationTypeName'
 import { LruTemporisedAsyncCache } from '../utils/lru-temporised-async-cache'
-import { fingerprintV2, hexPublicKeysOf } from './utils'
+import { fingerprintV2, hexPublicKeysWithSha1Of, hexPublicKeysWithSha256Of } from './utils'
 import { ExchangeDataManager } from './ExchangeDataManager'
 import { ExchangeData } from '../../icc-api/model/ExchangeData'
 import { SecureDelegationsEncryption } from './SecureDelegationsEncryption'
@@ -35,7 +35,8 @@ export class SecureDelegationsManager {
     string,
     {
       requiresAnonymousDelegations: boolean
-      availablePublicKeysHex: string[]
+      availablePublicKeysHexWithSha1: string[]
+      availablePublicKeysHexWithSha256: string[]
     }
   > = new LruTemporisedAsyncCache(100, () => 30 * 60 * 1000)
 
@@ -314,10 +315,11 @@ export class SecureDelegationsManager {
     } else if (!delegateInfo.requiresAnonymousDelegations && this.selfNeedsAnonymousDelegations) {
       const fingerprintsOfVerifiedExchangeData = new Set(Object.keys(exchangeData.exchangeKey))
       const delegateVerifiedKeys: { [fp: string]: CryptoKey } = {}
-      for (const keyHex of delegateInfo.availablePublicKeysHex) {
+      for (const keyHex of [...delegateInfo.availablePublicKeysHexWithSha1, ...delegateInfo.availablePublicKeysHexWithSha256]) {
         const currFp = fingerprintV2(keyHex)
+        const shaVersion = delegateInfo.availablePublicKeysHexWithSha1.includes(keyHex) ? 'sha-1' : 'sha-256'
         if (fingerprintsOfVerifiedExchangeData.has(currFp)) {
-          delegateVerifiedKeys[currFp] = await this.primitives.RSA.importKey('spki', hex2ua(keyHex), ['encrypt'])
+          delegateVerifiedKeys[currFp] = await this.primitives.RSA.importKey('spki', hex2ua(keyHex), ['encrypt'], shaVersion)
         }
       }
       if (!Object.keys(delegateVerifiedKeys).length)
@@ -355,7 +357,8 @@ export class SecureDelegationsManager {
       return {
         item: {
           requiresAnonymousDelegations: this.cryptoStrategies.dataOwnerRequiresAnonymousDelegation(dataOwnerWithType),
-          availablePublicKeysHex: Array.from(hexPublicKeysOf(dataOwnerWithType.dataOwner)),
+          availablePublicKeysHexWithSha1: Array.from(hexPublicKeysWithSha1Of(dataOwnerWithType.dataOwner)),
+          availablePublicKeysHexWithSha256: Array.from(hexPublicKeysWithSha256Of(dataOwnerWithType.dataOwner)),
         },
       }
     })

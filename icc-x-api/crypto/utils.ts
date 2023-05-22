@@ -1,7 +1,7 @@
 // Uses fp as node names
 import { acyclic, graphFromEdges, StronglyConnectedGraph } from '../utils/graph-utils'
 import { DataOwner, DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
-import { RSAUtils } from './RSA'
+import { RSAUtils, ShaVersion } from './RSA'
 import { hex2ua } from '../utils'
 import { Patient } from '../../icc-api/model/Patient'
 import { ExtendedApisUtils } from './ExtendedApisUtils'
@@ -11,13 +11,24 @@ import { IccPatientApi } from '../../icc-api'
 import { ShareMetadataBehaviour } from './ShareMetadataBehaviour'
 import { EntityShareRequest } from '../../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
+import { HealthcareParty } from '../../icc-api/model/HealthcareParty'
+import { Device } from '../../icc-api/model/Device'
+
+/**
+ * @internal this function is meant only for internal use and may be changed without notice.
+ * Get the public keys of a data owner that are generated using SHA-256 OAEP.
+ * @param dataOwner
+ */
+export function hexPublicKeysWithSha256Of(dataOwner: DataOwner) {
+  return new Set([...(dataOwner.publicKeysForOaepWithSha256 ?? [])].filter((pubKey) => !!pubKey) as string[])
+}
 
 /**
  * @internal this function is meant only for internal use and may be changed without notice.
  * Get the public keys of a data owner, same as {@link dataOwnerApi.getHexPublicKeysOf}.
  * @param dataOwner
  */
-export function hexPublicKeysOf(dataOwner: DataOwner) {
+export function hexPublicKeysWithSha1Of(dataOwner: DataOwner) {
   return new Set([dataOwner.publicKey, ...Object.keys(dataOwner.aesExchangeKeys ?? {})].filter((pubKey) => !!pubKey) as string[])
 }
 
@@ -29,7 +40,7 @@ export function hexPublicKeysOf(dataOwner: DataOwner) {
  * @return a graph representing the possible key recovery paths using transfer keys for hte provided data owner.
  */
 export function transferKeysFpGraphOf(dataOwner: DataOwner): StronglyConnectedGraph {
-  const publicKeys = Array.from(hexPublicKeysOf(dataOwner))
+  const publicKeys = Array.from([...hexPublicKeysWithSha1Of(dataOwner), ...hexPublicKeysWithSha256Of(dataOwner)])
   const edges: [string, string][] = []
   Object.entries(dataOwner.transferKeys ?? {}).forEach(([from, tos]) => {
     Object.keys(tos).forEach((to) => {
@@ -48,10 +59,11 @@ export function transferKeysFpGraphOf(dataOwner: DataOwner): StronglyConnectedGr
  * @internal this function is meant only for internal use and may be changed without notice.
  * Get a map for converting public keys fingerprint to full public keys for the provided data owner.
  * @param dataOwner a data owner.
+ * @param shaVersion gets only the keys that are generated with this SHA version (default: 'sha-1').
  * @return a map to convert fingerprints of the data owner into full public keys.
  */
-export function fingerprintToPublicKeysMapOf(dataOwner: DataOwner): { [fp: string]: string } {
-  const publicKeys = Array.from(hexPublicKeysOf(dataOwner))
+export function fingerprintToPublicKeysMapOf(dataOwner: DataOwner, shaVersion: ShaVersion): { [fp: string]: string } {
+  const publicKeys = shaVersion === 'sha-1' ? Array.from(hexPublicKeysWithSha1Of(dataOwner)) : Array.from(hexPublicKeysWithSha256Of(dataOwner))
   const res: { [fp: string]: string } = {}
   publicKeys.forEach((pk) => {
     res[fingerprintV1(pk)] = pk
@@ -64,11 +76,16 @@ export function fingerprintToPublicKeysMapOf(dataOwner: DataOwner): { [fp: strin
  * Load many public keys in spki format.
  * @param rsa the rsa service
  * @param publicKeysSpkiHex public keys in spki format, hex encoded.
+ * @param shaVersion the version of the Sha algorithm used in the keys generations. ()
  * @return public keys as crypto keys by their fingerprint.
  */
-export async function loadPublicKeys(rsa: RSAUtils, publicKeysSpkiHex: string[]): Promise<{ [publicKeyFingerprint: string]: CryptoKey }> {
+export async function loadPublicKeys(
+  rsa: RSAUtils,
+  publicKeysSpkiHex: string[],
+  shaVersion: ShaVersion
+): Promise<{ [publicKeyFingerprint: string]: CryptoKey }> {
   return Object.fromEntries(
-    await Promise.all(publicKeysSpkiHex.map(async (x) => [fingerprintV1(x), await rsa.importKey('spki', hex2ua(x), ['encrypt'])]))
+    await Promise.all(publicKeysSpkiHex.map(async (x) => [fingerprintV1(x), await rsa.importKey('spki', hex2ua(x), ['encrypt'], shaVersion)]))
   )
 }
 
@@ -98,11 +115,15 @@ export async function ensureDelegationForSelf(
       } else {
         const updatedPatient = await xapi.simpleShareOrUpdateEncryptedEntityMetadata(
           { entity: patient, type: 'Patient' },
-          patient.id!,
-          ShareMetadataBehaviour.IF_AVAILABLE,
-          ShareMetadataBehaviour.NEVER,
-          [cryptoPrimitives.randomUuid()],
-          RequestedPermissionEnum.FULL_WRITE,
+          false,
+          {
+            [patient.id!]: {
+              shareEncryptionKeys: ShareMetadataBehaviour.IF_AVAILABLE,
+              shareOwningEntityIds: ShareMetadataBehaviour.NEVER,
+              shareSecretIds: [cryptoPrimitives.randomUuid()],
+              requestedPermissions: RequestedPermissionEnum.FULL_WRITE,
+            },
+          },
           (x) => patientApi.bulkSharePatients(x)
         )
         return { dataOwner: updatedPatient.updatedEntityOrThrow, type: 'patient' }
@@ -111,6 +132,21 @@ export async function ensureDelegationForSelf(
   } else {
     return self
   }
+}
+
+/**
+ * @internal This method is intended only for internal use and may be changed without notice.
+ * Search a public key in the data owner and returns the corresponding SHA version used to generate it or undefined if not found.
+ * @param dataOwner the data owner.
+ * @param publicKey the public key.
+ * @return 'sha-1', 'sha-256', undefined
+ */
+export function getShaVersionForKey(dataOwner: Patient | HealthcareParty | Device, publicKey: string) {
+  return dataOwner.publicKey === publicKey || Object.keys(dataOwner.aesExchangeKeys ?? {}).includes(publicKey)
+    ? 'sha-1'
+    : !!dataOwner.publicKeysForOaepWithSha256?.includes(publicKey)
+    ? 'sha-256'
+    : undefined
 }
 
 /**

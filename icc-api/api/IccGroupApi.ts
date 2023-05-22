@@ -13,6 +13,7 @@ import { XHR } from './XHR'
 import { DatabaseInitialisation } from '../model/DatabaseInitialisation'
 import { Group } from '../model/Group'
 import { GroupDatabasesInfo } from '../model/GroupDatabasesInfo'
+import { GroupDeletionReport } from '../model/GroupDeletionReport'
 import { IdWithRev } from '../model/IdWithRev'
 import { ListOfIds } from '../model/ListOfIds'
 import { ListOfProperties } from '../model/ListOfProperties'
@@ -209,6 +210,21 @@ export class IccGroupApi {
   }
 
   /**
+   * Hard deletes the provided group from CouchDB. This operation can only be done by an admin user
+   * @summary Hard delete group
+   * @param id The id of group to delete
+   */
+  hardDeleteGroup(id: string): Promise<Array<GroupDeletionReport>> {
+    let _body = null
+
+    const _url = this.host + `/group/hard/${encodeURIComponent(String(id))}` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new GroupDeletionReport(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    * Init design docs for provided group
    * @summary Init design docs
    * @param id The id of the group
@@ -297,12 +313,20 @@ export class IccGroupApi {
    * Create a new group and associated dbs.  The created group will be manageable by the users that belong to the same group as the one that called createGroup. Several tasks can be executed during the group creation like DB replications towards the created DBs, users creation and healthcare parties creation
    * @summary Create a group
    * @param body
+   * @param type The tyoe of the group (default: root)
+   * @param role The role of the user (default: admin)
    */
-  registerNewGroupAdministrator(body?: RegistrationInformation): Promise<RegistrationSuccess> {
+  registerNewGroupAdministrator(type?: string, role?: string, body?: RegistrationInformation): Promise<RegistrationSuccess> {
     let _body = null
     _body = body
 
-    const _url = this.host + `/group/register/trial` + '?ts=' + new Date().getTime()
+    const _url =
+      this.host +
+      `/group/register/trial` +
+      '?ts=' +
+      new Date().getTime() +
+      (type ? '&type=' + encodeURIComponent(String(type)) : '') +
+      (role ? '&role=' + encodeURIComponent(String(role)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())

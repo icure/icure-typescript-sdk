@@ -1,5 +1,5 @@
 import { CryptoPrimitives } from './CryptoPrimitives'
-import { EntityWithDelegationTypeName, entityWithDelegationTypeNames } from '../utils/EntityWithDelegationTypeName'
+import { EntityWithDelegationTypeName } from '../utils/EntityWithDelegationTypeName'
 import { ua2hex, utf8_2ua } from '../utils'
 
 const ACCESS_CONTROL_KEY_LENGTH_BYTES = 16

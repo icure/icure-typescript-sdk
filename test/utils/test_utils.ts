@@ -68,8 +68,8 @@ export namespace TestUtils {
 export async function getApiAndAddPrivateKeysForUser(iCureUrl: string, details: UserDetails) {
   const RSA = new RSAUtils(webcrypto as any)
   const keys = {
-    publicKey: await RSA.importKey('spki', hex2ua(details.publicKey), ['encrypt']),
-    privateKey: await RSA.importKey('pkcs8', hex2ua(details.privateKey), ['decrypt']),
+    publicKey: await RSA.importKey('spki', hex2ua(details.publicKey), ['encrypt'], 'sha-1'),
+    privateKey: await RSA.importKey('pkcs8', hex2ua(details.privateKey), ['decrypt'], 'sha-1'),
   }
   return await TestApi(iCureUrl, details.user, details.password, webcrypto as any, keys)
 }
@@ -130,13 +130,23 @@ export async function createNewHcpApi(env: TestVars): Promise<{
   const primitives = new CryptoPrimitives(webcrypto as any)
   const credentials = await createHealthcarePartyUser(initialisationApi, `user-${primitives.randomUuid()}`, primitives.randomUuid())
   const storage = await testStorageWithKeys([
-    { dataOwnerId: credentials.dataOwnerId, pairs: [{ privateKey: credentials.privateKey, publicKey: credentials.publicKey }] },
+    {
+      dataOwnerId: credentials.dataOwnerId,
+      pairs: [{ keyPair: { privateKey: credentials.privateKey, publicKey: credentials.publicKey }, shaVersion: 'sha-1' }],
+    },
   ])
-  const api = await Api(env.iCureUrl, credentials.user, credentials.password, new TestCryptoStrategies(), webcrypto as any, fetch, {
-    storage: storage.storage,
-    keyStorage: storage.keyStorage,
-    entryKeysFactory: storage.keyFactory,
-  })
+  const api = await Api(
+    env.iCureUrl,
+    { username: credentials.user, password: credentials.password },
+    new TestCryptoStrategies(),
+    webcrypto as any,
+    fetch,
+    {
+      storage: storage.storage,
+      keyStorage: storage.keyStorage,
+      entryKeysFactory: storage.keyFactory,
+    }
+  )
   return { api, credentials, user: await api.userApi.getCurrentUser() }
 }
 
@@ -154,6 +164,7 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
   child2User: User
   child2Credentials: UserDetails
 }> {
+  const shaVersion = 'sha-1'
   const initialisationApi = await TestSetupApi(
     env.iCureUrl + '/rest/v1',
     env.masterHcp!.user,
@@ -181,49 +192,101 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
     parentId: grandCredentials.dataOwnerId,
   })
   const grandStorage = await testStorageWithKeys([
-    { dataOwnerId: grandCredentials.dataOwnerId, pairs: [{ privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }] },
+    {
+      dataOwnerId: grandCredentials.dataOwnerId,
+      pairs: [{ keyPair: { privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }, shaVersion: shaVersion }],
+    },
   ])
-  const grandApi = await Api(env.iCureUrl, grandCredentials.user, grandCredentials.password, new TestCryptoStrategies(), webcrypto as any, fetch, {
-    storage: grandStorage.storage,
-    keyStorage: grandStorage.keyStorage,
-    entryKeysFactory: grandStorage.keyFactory,
-  })
+  const grandApi = await Api(
+    env.iCureUrl,
+    { username: grandCredentials.user, password: grandCredentials.password },
+    new TestCryptoStrategies(),
+    webcrypto as any,
+    fetch,
+    {
+      storage: grandStorage.storage,
+      keyStorage: grandStorage.keyStorage,
+      entryKeysFactory: grandStorage.keyFactory,
+    }
+  )
   const parentStorage = await testStorageWithKeys([
-    { dataOwnerId: grandCredentials.dataOwnerId, pairs: [{ privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }] },
-    { dataOwnerId: parentCredentials.dataOwnerId, pairs: [{ privateKey: parentCredentials.privateKey, publicKey: parentCredentials.publicKey }] },
+    {
+      dataOwnerId: grandCredentials.dataOwnerId,
+      pairs: [{ keyPair: { privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }, shaVersion: shaVersion }],
+    },
+    {
+      dataOwnerId: parentCredentials.dataOwnerId,
+      pairs: [{ keyPair: { privateKey: parentCredentials.privateKey, publicKey: parentCredentials.publicKey }, shaVersion: shaVersion }],
+    },
   ])
-  const parentApi = await Api(env.iCureUrl, parentCredentials.user, parentCredentials.password, new TestCryptoStrategies(), webcrypto as any, fetch, {
-    storage: parentStorage.storage,
-    keyStorage: parentStorage.keyStorage,
-    entryKeysFactory: parentStorage.keyFactory,
-  })
+  const parentApi = await Api(
+    env.iCureUrl,
+    { username: parentCredentials.user, password: parentCredentials.password },
+    new TestCryptoStrategies(),
+    webcrypto as any,
+    fetch,
+    {
+      storage: parentStorage.storage,
+      keyStorage: parentStorage.keyStorage,
+      entryKeysFactory: parentStorage.keyFactory,
+    }
+  )
   const parentUser = await parentApi.userApi.modifyUser({
     ...(await parentApi.userApi.getCurrentUser()),
     autoDelegations: { all: [grandCredentials.dataOwnerId] },
   })
   const childStorage = await testStorageWithKeys([
-    { dataOwnerId: grandCredentials.dataOwnerId, pairs: [{ privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }] },
-    { dataOwnerId: parentCredentials.dataOwnerId, pairs: [{ privateKey: parentCredentials.privateKey, publicKey: parentCredentials.publicKey }] },
-    { dataOwnerId: childCredentials.dataOwnerId, pairs: [{ privateKey: childCredentials.privateKey, publicKey: childCredentials.publicKey }] },
+    {
+      dataOwnerId: grandCredentials.dataOwnerId,
+      pairs: [{ keyPair: { privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }, shaVersion: shaVersion }],
+    },
+    {
+      dataOwnerId: parentCredentials.dataOwnerId,
+      pairs: [{ keyPair: { privateKey: parentCredentials.privateKey, publicKey: parentCredentials.publicKey }, shaVersion: shaVersion }],
+    },
+    {
+      dataOwnerId: childCredentials.dataOwnerId,
+      pairs: [{ keyPair: { privateKey: childCredentials.privateKey, publicKey: childCredentials.publicKey }, shaVersion: shaVersion }],
+    },
   ])
-  const childApi = await Api(env.iCureUrl, childCredentials.user, childCredentials.password, new TestCryptoStrategies(), webcrypto as any, fetch, {
-    storage: childStorage.storage,
-    keyStorage: childStorage.keyStorage,
-    entryKeysFactory: childStorage.keyFactory,
-  })
+  const childApi = await Api(
+    env.iCureUrl,
+    { username: childCredentials.user, password: childCredentials.password },
+    new TestCryptoStrategies(),
+    webcrypto as any,
+    fetch,
+    {
+      storage: childStorage.storage,
+      keyStorage: childStorage.keyStorage,
+      entryKeysFactory: childStorage.keyFactory,
+    }
+  )
   const childUser = await childApi.userApi.modifyUser({
     ...(await childApi.userApi.getCurrentUser()),
     autoDelegations: { all: [grandCredentials.dataOwnerId, parentCredentials.dataOwnerId] },
   })
   const child2Storage = await testStorageWithKeys([
-    { dataOwnerId: grandCredentials.dataOwnerId, pairs: [{ privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }] },
-    { dataOwnerId: child2Credentials.dataOwnerId, pairs: [{ privateKey: child2Credentials.privateKey, publicKey: child2Credentials.publicKey }] },
+    {
+      dataOwnerId: grandCredentials.dataOwnerId,
+      pairs: [{ keyPair: { privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }, shaVersion: shaVersion }],
+    },
+    {
+      dataOwnerId: child2Credentials.dataOwnerId,
+      pairs: [{ keyPair: { privateKey: child2Credentials.privateKey, publicKey: child2Credentials.publicKey }, shaVersion: shaVersion }],
+    },
   ])
-  const child2Api = await Api(env.iCureUrl, child2Credentials.user, child2Credentials.password, new TestCryptoStrategies(), webcrypto as any, fetch, {
-    storage: child2Storage.storage,
-    keyStorage: child2Storage.keyStorage,
-    entryKeysFactory: child2Storage.keyFactory,
-  })
+  const child2Api = await Api(
+    env.iCureUrl,
+    { username: child2Credentials.user, password: child2Credentials.password },
+    new TestCryptoStrategies(),
+    webcrypto as any,
+    fetch,
+    {
+      storage: child2Storage.storage,
+      keyStorage: child2Storage.keyStorage,
+      entryKeysFactory: child2Storage.keyFactory,
+    }
+  )
   const child2User = await child2Api.userApi.modifyUser({
     ...(await child2Api.userApi.getCurrentUser()),
     autoDelegations: { all: [grandCredentials.dataOwnerId] },

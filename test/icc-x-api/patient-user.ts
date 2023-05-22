@@ -55,7 +55,7 @@ describe('Patient', () => {
     )
 
     const rsa = new RSAUtils(crypto)
-    const keyPair = await rsa.generateKeyPair()
+    const keyPair = await rsa.generateKeyPair('sha-256')
     const { publicKey, privateKey } = keyPair
     const publicKeyHex = ua2hex(await rsa.exportKey(publicKey, 'spki'))
     const rawPatientApi = new IccPatientApi(env.iCureUrl, {}, new BasicAuthenticationProvider(tmpUser.id!, pwd))
@@ -73,7 +73,7 @@ describe('Patient', () => {
     expect(mySecretIds).to.have.length(1)
     expect(await cryptoApi.xapi.encryptionKeysOf({ entity: me, type: 'Patient' }, undefined)).to.have.length(1)
 
-    me = (await patientApi.shareWith(hcpUser.healthcarePartyId!, me, mySecretIds, { requestedPermissions: FULL_WRITE })).updatedEntityOrThrow
+    me = await patientApi.shareWith(hcpUser.healthcarePartyId!, me, mySecretIds, { requestedPermissions: FULL_WRITE })
     const expectedNote = 'This will be encrypted'
     await patientApi.modifyPatientWithUser(user, new Patient({ ...me, note: expectedNote }))
 
