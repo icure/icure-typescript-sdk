@@ -21,10 +21,11 @@ import { EntityWithDelegationTypeName } from '../../../icc-x-api/utils/EntityWit
 import { SecurityMetadata } from '../../../icc-api/model/SecurityMetadata'
 import { SecureDelegation } from '../../../icc-api/model/SecureDelegation'
 import { asyncGeneratorToArray } from '../../../icc-x-api/utils/collection-utils'
-import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionInternal
 import { EntitySharedMetadataUpdateRequest } from '../../../icc-api/model/requests/EntitySharedMetadataUpdateRequest'
-import EntryUpdateTypeEnum = EntitySharedMetadataUpdateRequest.EntryUpdateTypeEnum
 import { fingerprintV2 } from '../../../icc-x-api/crypto/utils'
+import { DataOwnerTypeEnum } from '../../../icc-api/model/DataOwnerTypeEnum'
+import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionInternal
+import EntryUpdateTypeEnum = EntitySharedMetadataUpdateRequest.EntryUpdateTypeEnum
 
 describe('Secure delegations manager', async function () {
   const primitives = new CryptoPrimitives(webcrypto as any)
@@ -51,13 +52,13 @@ describe('Secure delegations manager', async function () {
     dataOwnerApi = new FakeDataOwnerApi(
       {
         id: selfId,
-        type: explicitSelf ? 'hcp' : 'patient',
+        type: explicitSelf ? DataOwnerTypeEnum.Hcp : DataOwnerTypeEnum.Patient,
         publicKey: ua2hex(await primitives.RSA.exportKey(selfKeypair.publicKey, 'spki')),
       },
       [
         {
           id: delegateId,
-          type: explicitDelegate ? 'hcp' : 'patient',
+          type: explicitDelegate ? DataOwnerTypeEnum.Hcp : DataOwnerTypeEnum.Patient,
           publicKey: ua2hex(await primitives.RSA.exportKey(delegateKeypair.publicKey, 'spki')),
         },
       ]

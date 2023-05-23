@@ -1,11 +1,13 @@
 import { UserEncryptionKeysManager } from './UserEncryptionKeysManager'
 import { BaseExchangeKeysManager } from './BaseExchangeKeysManager'
-import { DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
+import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { LruTemporisedAsyncCache } from '../utils/lru-temporised-async-cache'
 import { getShaVersionForKey, loadPublicKeys } from './utils'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { CryptoStrategies } from './CryptoStrategies'
 import { IcureStorageFacade } from '../storage/IcureStorageFacade'
+import { DataOwnerWithType } from '../../icc-api/model/DataOwnerWithType'
+import { CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
 
 /**
  * @internal This class is meant only for internal use and may be changed without notice.
@@ -71,13 +73,13 @@ export class ExchangeKeysManager {
    *  - keys: all available exchange keys which are safe for encryption.
    *  - updatedDelegator (optional): if a new key creation job was started when the function was invoked the updated delegator, else undefined.
    */
-  async getOrCreateEncryptionExchangeKeysTo(delegateId: string): Promise<{ updatedDelegator?: DataOwnerWithType; keys: CryptoKey[] }> {
+  async getOrCreateEncryptionExchangeKeysTo(delegateId: string): Promise<{ updatedDelegator?: CryptoActorStubWithType; keys: CryptoKey[] }> {
     const currentKeys = await this.getSelfExchangeKeysTo(delegateId)
     if (currentKeys.length > 0) {
       return { keys: currentKeys }
     } else {
       while (true) {
-        let updatedDelegatorJob: Promise<DataOwnerWithType> | undefined = undefined
+        let updatedDelegatorJob: Promise<CryptoActorStubWithType> | undefined = undefined
         const keysWithNew = await this.delegatorExchangeKeysCache.get(
           delegateId,
           async (previous) => {
@@ -147,14 +149,14 @@ export class ExchangeKeysManager {
     return successfulDecryptions
   }
 
-  private async forceCreateVerifiedExchangeKeyTo(delegateId: string): Promise<{ updatedDelegator: DataOwnerWithType; key: CryptoKey }> {
+  private async forceCreateVerifiedExchangeKeyTo(delegateId: string): Promise<{ updatedDelegator: CryptoActorStubWithType; key: CryptoKey }> {
     const [mainKey, ...otherSelfKeys] = this.keyManager.getSelfVerifiedKeys()
     let otherPublicKeys = Object.fromEntries(otherSelfKeys.map((x) => [x.fingerprint, x.pair.publicKey]))
     if (delegateId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) {
-      const delegate = (await this.dataOwnerApi.getDataOwner(delegateId)).dataOwner
+      const delegate = await this.dataOwnerApi.getCryptoActorStub(delegateId)
       const delegatePublicKeys = Array.from([
-        ...this.dataOwnerApi.getHexPublicKeysWithSha1Of(delegate),
-        ...this.dataOwnerApi.getHexPublicKeysWithSha256Of(delegate),
+        ...this.dataOwnerApi.getHexPublicKeysWithSha1Of(delegate.stub),
+        ...this.dataOwnerApi.getHexPublicKeysWithSha256Of(delegate.stub),
       ])
       let verifiedDelegatePublicKeys: string[]
       if ((await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()).includes(delegateId)) {
@@ -164,10 +166,10 @@ export class ExchangeKeysManager {
       }
       if (!verifiedDelegatePublicKeys || verifiedDelegatePublicKeys.length == 0)
         throw new Error(`No verified public keys for delegate ${delegateId}: impossible to create new exchange key.`)
-      const delegateDataOwner = await this.dataOwnerApi.getDataOwner(delegateId)
+      const delegateDataOwner = await this.dataOwnerApi.getCryptoActorStub(delegateId)
       const keysWithShaVersion = verifiedDelegatePublicKeys.reduce(
         (previous, key) => {
-          const shaVersion = getShaVersionForKey(delegateDataOwner.dataOwner, key)
+          const shaVersion = getShaVersionForKey(delegateDataOwner.stub, key)
           return !!shaVersion ? { ...previous, [shaVersion]: [...previous[shaVersion], key] } : previous
         },
         { 'sha-1': [], 'sha-256': [] } as { [key: string]: string[] }

@@ -12,16 +12,14 @@
 import { XHR } from './XHR'
 import { DataOwnerWithType } from '../model/DataOwnerWithType'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { CryptoActorStub, CryptoActorStubWithType } from '../model/CryptoActorStub'
+import { iccRestApiPath } from './IccRestApiPath'
 
 export class IccDataownerApi {
   host: string
-  _headers: Array<XHR.Header>
+  headers: Array<XHR.Header>
   authenticationProvider: AuthenticationProvider
   fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
-
-  get headers(): Promise<Array<XHR.Header>> {
-    return Promise.resolve(this._headers)
-  }
 
   constructor(
     host: string,
@@ -29,8 +27,8 @@ export class IccDataownerApi {
     authenticationProvider?: AuthenticationProvider,
     fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
   ) {
-    this.host = host
-    this._headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
+    this.host = iccRestApiPath(host)
+    this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
     this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
     this.fetchImpl = fetchImpl
   }
@@ -40,31 +38,60 @@ export class IccDataownerApi {
   }
 
   /**
-   * General information about the current data owner
+   * General information about the current data owner. Note that this does not decrpyt patient data owners.
    * @summary Get the data owner corresponding to the current user
    */
-  async getCurrentDataOwner(): Promise<DataOwnerWithType> {
+  getCurrentDataOwner(): Promise<DataOwnerWithType> {
     let _body = null
 
     const _url = this.host + `/dataowner/current` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
+    let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new DataOwnerWithType(doc.body as JSON))
+      .then((doc) => DataOwnerWithType.fromJson(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 
   /**
-   * General information about the data owner
+   * Full data owner information
    * @summary Get a data owner by his ID
    * @param dataOwnerId
    */
-  async getDataOwner(dataOwnerId: string): Promise<DataOwnerWithType> {
+  getDataOwner(dataOwnerId: string): Promise<DataOwnerWithType> {
     let _body = null
 
     const _url = this.host + `/dataowner/${encodeURIComponent(String(dataOwnerId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, await headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new DataOwnerWithType(doc.body as JSON))
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => DataOwnerWithType.fromJson(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * General information about the keys of a data owner
+   * @summary Get a data owner by his ID
+   * @param dataOwnerId
+   */
+  getCryptoActorStub(dataOwnerId: string): Promise<CryptoActorStubWithType> {
+    let _body = null
+
+    const _url = this.host + `/dataowner/stub/${encodeURIComponent(String(dataOwnerId))}` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new CryptoActorStubWithType(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Updates the keys of a data owner
+   */
+  modifyCryptoActorStub(stub: CryptoActorStubWithType): Promise<CryptoActorStubWithType> {
+    let _body = stub
+
+    const _url = this.host + `/dataowner/stub` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new CryptoActorStubWithType(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 }

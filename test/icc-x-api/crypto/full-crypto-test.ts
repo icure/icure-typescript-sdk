@@ -432,7 +432,7 @@ describe('Full crypto test - Creation scenarios', async function () {
           const api = apis['delegate']
           const patApi = apis[`${uType}-${uId}`]
           const dataOwnerId = api.dataOwnerApi.getDataOwnerIdOf(user)
-          const dataOwner = (await patApi.dataOwnerApi.getDataOwner(dataOwnerId))!.dataOwner
+          const dataOwner = (await patApi.dataOwnerApi.getCryptoActorStub(dataOwnerId))!.stub
 
           const parent = f[0] !== 'Patient' ? await api.patientApi.getPatientWithUser(delegateUser!, `delegate-${user.id}-Patient`) : undefined
 

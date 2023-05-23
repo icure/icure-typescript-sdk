@@ -9,11 +9,23 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
+import { DataOwnerTypeEnum } from './DataOwnerTypeEnum'
+import { HealthcareParty } from './HealthcareParty'
+import { Patient } from './Patient'
+import { Device } from './Device'
 
-export class DataOwnerWithType {
-  constructor(json: JSON | any) {
-    Object.assign(this as DataOwnerWithType, json)
+export type DataOwnerWithType =
+  | { type: DataOwnerTypeEnum.Hcp; dataOwner: HealthcareParty }
+  | { type: DataOwnerTypeEnum.Patient; dataOwner: Patient }
+  | { type: DataOwnerTypeEnum.Device; dataOwner: Device }
+export namespace DataOwnerWithType {
+  export function fromJson(json: any | JSON): DataOwnerWithType {
+    if (json.type === DataOwnerTypeEnum.Hcp) {
+      return { type: DataOwnerTypeEnum.Hcp, dataOwner: new HealthcareParty(json.dataOwner) }
+    } else if (json.type === DataOwnerTypeEnum.Patient) {
+      return { type: DataOwnerTypeEnum.Patient, dataOwner: new Patient(json.dataOwner) }
+    } else if (json.type === DataOwnerTypeEnum.Device) {
+      return { type: DataOwnerTypeEnum.Device, dataOwner: new Device(json.dataOwner) }
+    } else throw new Error(`Unknown data owner type ${json.type}`)
   }
-
-  dataOwner?: any
 }

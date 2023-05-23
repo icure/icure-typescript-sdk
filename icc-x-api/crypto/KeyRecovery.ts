@@ -1,14 +1,11 @@
-import { DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
+import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { KeyPair, ShaVersion } from './RSA'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { BaseExchangeKeysManager } from './BaseExchangeKeysManager'
 import { hex2ua, ua2hex } from '../utils'
 import { fingerprintToPublicKeysMapOf, fingerprintV1, getShaVersionForKey } from './utils'
 import { BaseExchangeDataManager } from './BaseExchangeDataManager'
-import { HealthcareParty } from '../../icc-api/model/HealthcareParty'
-import { Device } from '../../icc-api/model/Device'
-import { Patient } from '../../icc-api/model/Patient'
-import { da } from 'date-fns/locale'
+import { DataOwnerWithType } from '../../icc-api/model/DataOwnerWithType'
 
 /**
  * @internal this class is intended only for internal use and may be changed without notice.

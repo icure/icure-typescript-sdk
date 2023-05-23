@@ -5,11 +5,12 @@ import { UserEncryptionKeysManager } from './UserEncryptionKeysManager'
 import { UserSignatureKeysManager } from './UserSignatureKeysManager'
 import { AccessControlSecretUtils } from './AccessControlSecretUtils'
 import { CryptoStrategies } from './CryptoStrategies'
-import { fingerprintV1, hexPublicKeysWithSha1Of, hexPublicKeysWithSha256Of } from './utils'
+import { fingerprintV1, getShaVersionForKey, hexPublicKeysWithSha1Of, hexPublicKeysWithSha256Of } from './utils'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { hex2ua, ua2b64 } from '../utils'
 import { LruTemporisedAsyncCache } from '../utils/lru-temporised-async-cache'
 import { EntityWithDelegationTypeName } from '../utils/EntityWithDelegationTypeName'
+import { CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
 
 export type ExchangeDataManagerOptionalParameters = {
   // Only for not fully cached implementation (data owner can't request all his exchange data), amount of exchange data which can be cached
@@ -30,7 +31,7 @@ export async function initialiseExchangeDataManagerForCurrentDataOwner(
   primitives: CryptoPrimitives,
   optionalParameters: ExchangeDataManagerOptionalParameters = {}
 ): Promise<ExchangeDataManager> {
-  const currentOwner = await dataOwnerApi.getCurrentDataOwner()
+  const currentOwner = CryptoActorStubWithType.fromDataOwner(await dataOwnerApi.getCurrentDataOwner())
   if (cryptoStrategies.dataOwnerRequiresAnonymousDelegation(currentOwner)) {
     const res = new FullyCachedExchangeDataManager(
       base,
@@ -188,11 +189,11 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
     delegateId: string,
     newDataId?: string
   ): Promise<{ exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey }> {
-    const delegate = await this.dataOwnerApi.getDataOwner(delegateId)
-    const sha256KeysOfDelegate = hexPublicKeysWithSha256Of(delegate.dataOwner)
-    const sha1KeysOfDelegate = hexPublicKeysWithSha1Of(delegate.dataOwner)
+    const delegate = await this.dataOwnerApi.getCryptoActorStub(delegateId)
+    const sha256KeysOfDelegate = hexPublicKeysWithSha256Of(delegate.stub)
+    const sha1KeysOfDelegate = hexPublicKeysWithSha1Of(delegate.stub)
     const allVerifiedDelegateKeys = await this.cryptoStrategies.verifyDelegatePublicKeys(
-      delegate.dataOwner,
+      delegate,
       [...Array.from(sha256KeysOfDelegate), ...Array.from(sha1KeysOfDelegate)],
       this.primitives
     )
@@ -226,7 +227,9 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
   async giveAccessBackTo(otherDataOwner: string, newDataOwnerPublicKey: string) {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     const newKeyFp = fingerprintV1(newDataOwnerPublicKey)
-    const newKeyHashVersion = await this.dataOwnerApi.getShaVersionForKey(otherDataOwner, newDataOwnerPublicKey)
+    const other = await this.dataOwnerApi.getCryptoActorStub(otherDataOwner)
+    const newKeyHashVersion = getShaVersionForKey(other.stub, newDataOwnerPublicKey)
+    if (!newKeyHashVersion) throw new Error(`Public key not found for data owner ${otherDataOwner}`)
     const importedNewKey = await this.primitives.RSA.importKey('spki', hex2ua(newDataOwnerPublicKey), ['encrypt'], newKeyHashVersion)
     const signatureKey = await this.signatureKeys.getOrCreateSignatureKeyPair()
     const decryptionKeys = this.encryptionKeys.getDecryptionKeys()
