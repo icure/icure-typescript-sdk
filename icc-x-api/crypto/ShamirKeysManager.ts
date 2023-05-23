@@ -1,9 +1,10 @@
-import { DataOwner, DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
+import { DataOwnerOrStub, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { UserEncryptionKeysManager } from './UserEncryptionKeysManager'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { KeyPair } from './RSA'
 import { hex2ua, ua2hex } from '../utils'
 import { ExchangeDataManager } from './ExchangeDataManager'
+import { CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
 
 /**
  * Allows to create or update shamir split keys.
@@ -22,7 +23,7 @@ export class ShamirKeysManager {
    * @param dataOwner a data owner
    * @return the existing splits for the current data owner as a publicKeyFingerprint -> notariesIds object
    */
-  getExistingSplitsInfo(dataOwner: DataOwner): { [keyPairFingerprint: string]: string[] } {
+  getExistingSplitsInfo(dataOwner: DataOwnerOrStub): { [keyPairFingerprint: string]: string[] } {
     const legacyPartitionDelegates = Object.keys(dataOwner.privateKeyShamirPartitions ?? {})
     if (legacyPartitionDelegates.length > 0) {
       const fp = dataOwner.publicKey?.slice(-32)
@@ -45,12 +46,12 @@ export class ShamirKeysManager {
   async updateSelfSplits(
     keySplitsToUpdate: { [publicKeyHexOrFp: string]: { notariesIds: string[]; minShares: number } },
     keySplitsToDelete: string[]
-  ): Promise<DataOwnerWithType> {
-    const self = await this.dataOwnerApi.getCurrentDataOwner()
+  ): Promise<CryptoActorStubWithType> {
+    const self = CryptoActorStubWithType.fromDataOwner(await this.dataOwnerApi.getCurrentDataOwner())
     const toUpdateSet = new Set(Object.keys(keySplitsToUpdate).map((x) => x.slice(-32)))
     const toDeleteSet = new Set(keySplitsToDelete.slice(-32))
     const intersection = Array.from(toDeleteSet).filter((x) => toUpdateSet.has(x))
-    const existingSplits = new Set(Object.keys(this.getExistingSplitsInfo(self.dataOwner)))
+    const existingSplits = new Set(Object.keys(this.getExistingSplitsInfo(self.stub)))
     const allKeys = this.encryptionKeysManager.getDecryptionKeys()
     if (toDeleteSet.size !== keySplitsToDelete.length || toUpdateSet.size !== Object.keys(keySplitsToUpdate).length || intersection.length > 0)
       throw new Error(`Duplicate keys in input:\nkeySplitsToUpdate: ${keySplitsToUpdate}\nkeySplitsToDelete: ${keySplitsToDelete}`)
@@ -73,7 +74,7 @@ export class ShamirKeysManager {
     for (const keyFp of toDeleteSet) {
       updatedSelf = this.deleteKeySplit(updatedSelf, keyFp)
     }
-    return await this.dataOwnerApi.updateDataOwner(updatedSelf)
+    return await this.dataOwnerApi.modifyCryptoActorStub(updatedSelf)
   }
 
   /*TODO
@@ -88,37 +89,37 @@ export class ShamirKeysManager {
     } else throw new Error(`Invalid parameters for key ${key}: must have at least one delegate. ${params}`)
   }
 
-  private deleteKeySplit(dataOwner: DataOwnerWithType, keyFp: string): DataOwnerWithType {
-    if (keyFp !== dataOwner.dataOwner.publicKey?.slice(-32)) {
+  private deleteKeySplit(dataOwner: CryptoActorStubWithType, keyFp: string): CryptoActorStubWithType {
+    if (keyFp !== dataOwner.stub.publicKey?.slice(-32)) {
       throw new Error('Currently it is possible to use shamir splits only for the legacy public key')
     }
-    return IccDataOwnerXApi.instantiateDataOwnerWithType(
-      {
-        ...dataOwner.dataOwner,
+    return {
+      type: dataOwner.type,
+      stub: {
+        ...dataOwner.stub,
         privateKeyShamirPartitions: {},
       },
-      dataOwner.type
-    )
+    }
   }
 
   private async updateKeySplit(
-    dataOwner: DataOwnerWithType,
+    dataOwner: CryptoActorStubWithType,
     keyFp: string,
     delegateIds: string[],
     minShares: number,
     delegatesKeys: { [p: string]: CryptoKey },
     allKeys: { [p: string]: KeyPair<CryptoKey> }
-  ): Promise<DataOwnerWithType> {
-    if (keyFp !== dataOwner.dataOwner.publicKey?.slice(-32)) {
+  ): Promise<CryptoActorStubWithType> {
+    if (keyFp !== dataOwner.stub.publicKey?.slice(-32)) {
       throw new Error('Currently it is possible to use shamir splits only for the legacy public key')
     }
-    return IccDataOwnerXApi.instantiateDataOwnerWithType(
-      {
-        ...dataOwner.dataOwner,
+    return {
+      type: dataOwner.type,
+      stub: {
+        ...dataOwner.stub,
         privateKeyShamirPartitions: await this.createPartitionsFor(allKeys[keyFp], delegateIds, minShares, delegatesKeys),
       },
-      dataOwner.type
-    )
+    }
   }
 
   private async createPartitionsFor(

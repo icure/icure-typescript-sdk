@@ -1,9 +1,11 @@
 import { KeyPair } from './RSA'
 import { hex2ua, notConcurrent, ua2hex } from '../utils'
-import { DataOwner, DataOwnerTypeEnum, DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
+import { DataOwner, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { IccDeviceApi, IccHcpartyApi, IccPatientApi } from '../../icc-api'
-import { fingerprintV1 } from './utils'
+import { fingerprintV1, getShaVersionForKey } from './utils'
+import { CryptoActorStub, CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
+import { DataOwnerTypeEnum } from '../../icc-api/model/DataOwnerTypeEnum'
 
 /**
  * @internal This class is meant only for internal use and may be changed without notice.
@@ -46,25 +48,25 @@ export class BaseExchangeKeysManager {
     delegatorMainKeyPair: KeyPair<CryptoKey>,
     additionalPublicKeys: { [keyFingerprint: string]: CryptoKey }
   ): Promise<{
-    updatedDelegator: DataOwnerWithType
+    updatedDelegator: CryptoActorStubWithType
     key: CryptoKey
   }> {
     const delegatorId = await this.dataOwnerApi.getCurrentDataOwnerId()
     return await notConcurrent(this.generateKeyConcurrencyMap, delegatorId, async () => {
-      const delegator = await this.dataOwnerApi.getCurrentDataOwner()
-      const delegate = delegatorId === delegateId ? delegator : await this.dataOwnerApi.getDataOwner(delegateId)
+      const delegator = CryptoActorStubWithType.fromDataOwner(await this.dataOwnerApi.getCurrentDataOwner())
+      const delegate = delegatorId === delegateId ? delegator : await this.dataOwnerApi.getCryptoActorStub(delegateId)
       const mainDelegatorKeyPairPubHex = ua2hex(await this.primitives.RSA.exportKey(delegatorMainKeyPair.publicKey, 'spki'))
       let exchangeKey: { raw: string; key: CryptoKey } | undefined = undefined
       const existingExchangeKey =
-        delegator.dataOwner.aesExchangeKeys?.[mainDelegatorKeyPairPubHex]?.[delegateId]?.[mainDelegatorKeyPairPubHex.slice(-32)] ??
-        (mainDelegatorKeyPairPubHex === delegator.dataOwner.publicKey ? delegator.dataOwner.hcPartyKeys?.[delegateId]?.[0] : undefined)
+        delegator.stub.aesExchangeKeys?.[mainDelegatorKeyPairPubHex]?.[delegateId]?.[mainDelegatorKeyPairPubHex.slice(-32)] ??
+        (mainDelegatorKeyPairPubHex === delegator.stub.publicKey ? delegator.stub.hcPartyKeys?.[delegateId]?.[0] : undefined)
       if (existingExchangeKey) {
         exchangeKey = await this.tryDecryptExchangeKeyWith(existingExchangeKey, delegatorMainKeyPair, undefined)
         if (!exchangeKey)
           throw new Error(
             `Failed to decrypt existing exchange key for update of ${mainDelegatorKeyPairPubHex.slice(-32)}@${delegatorId}->${delegateId}`
           )
-        const existingAesExchangeKey = delegator.dataOwner.aesExchangeKeys?.[mainDelegatorKeyPairPubHex]?.[delegateId]
+        const existingAesExchangeKey = delegator.stub.aesExchangeKeys?.[mainDelegatorKeyPairPubHex]?.[delegateId]
         if (existingAesExchangeKey) {
           const existingPublicKeysSet = new Set(existingExchangeKey)
           if (Object.keys(additionalPublicKeys).every((fp) => existingPublicKeysSet.has(fp)))
@@ -79,17 +81,18 @@ export class BaseExchangeKeysManager {
         [mainDelegatorKeyPairPubHex.slice(-32)]: delegatorMainKeyPair.publicKey,
       }
       const encryptedKeyInfo = await this.encryptExchangeKey(exchangeKey, allPublicKeys)
-      const updatedDataOwner: DataOwner = {
-        ...delegator.dataOwner,
+      const updatedStub: CryptoActorStub = {
+        ...delegator.stub,
         aesExchangeKeys: await this.updateExchangeKeys(delegator, delegate, mainDelegatorKeyPairPubHex, encryptedKeyInfo.encryptedExchangeKey),
-        publicKey: delegator.dataOwner.publicKey ?? mainDelegatorKeyPairPubHex,
+        publicKey: delegator.stub.publicKey ?? mainDelegatorKeyPairPubHex,
       }
-      if (delegator.dataOwner.publicKey === mainDelegatorKeyPairPubHex) {
-        updatedDataOwner.hcPartyKeys = this.updateLegacyExchangeKeys(delegator, delegate, encryptedKeyInfo.encryptedExchangeKey)
+      if (delegator.stub.publicKey === mainDelegatorKeyPairPubHex) {
+        updatedStub.hcPartyKeys = this.updateLegacyExchangeKeys(delegator, delegate, encryptedKeyInfo.encryptedExchangeKey)
       }
-      const updatedDelegator = await this.dataOwnerApi.updateDataOwner(
-        IccDataOwnerXApi.instantiateDataOwnerWithType(updatedDataOwner, delegator.type)
-      )
+      const updatedDelegator = await this.dataOwnerApi.modifyCryptoActorStub({
+        type: delegator.type,
+        stub: updatedStub,
+      })
       return {
         key: encryptedKeyInfo.exchangeKey,
         updatedDelegator,
@@ -111,7 +114,9 @@ export class BaseExchangeKeysManager {
     keyPairsByFingerprint: { [publicKeyFingerprint: string]: KeyPair<CryptoKey> }
   ) {
     const selfId = await this.dataOwnerApi.getCurrentDataOwnerId()
-    const newKeyHashVersion = await this.dataOwnerApi.getShaVersionForKey(otherDataOwner, newDataOwnerPublicKey)
+    const other = await this.dataOwnerApi.getCryptoActorStub(otherDataOwner)
+    const newKeyHashVersion = getShaVersionForKey(other.stub, newDataOwnerPublicKey)
+    if (!newKeyHashVersion) throw new Error(`Public key not found for data owner ${otherDataOwner}`)
     const newPublicKey = await this.primitives.RSA.importKey('spki', hex2ua(newDataOwnerPublicKey), ['encrypt'], newKeyHashVersion)
     await this.extendForGiveAccessBackTo(selfId, otherDataOwner, fingerprintV1(newDataOwnerPublicKey), newPublicKey, keyPairsByFingerprint)
     await this.extendForGiveAccessBackTo(otherDataOwner, selfId, fingerprintV1(newDataOwnerPublicKey), newPublicKey, keyPairsByFingerprint)
@@ -124,8 +129,8 @@ export class BaseExchangeKeysManager {
    * @return an array of exchange keys from the delegator to delegate where each key is encrypted with one or more public keys.
    */
   async getEncryptedExchangeKeysFor(delegatorId: string, delegateId: string): Promise<{ [publicKeyFingerprint: string]: string }[]> {
-    const delegator = await this.dataOwnerApi.getDataOwner(delegatorId)
-    const res: { [publicKeyFingerprint: string]: string }[] = Object.values(delegator.dataOwner.aesExchangeKeys ?? {}).flatMap((delegateToKey) => {
+    const delegator = await this.dataOwnerApi.getCryptoActorStub(delegatorId)
+    const res: { [publicKeyFingerprint: string]: string }[] = Object.values(delegator.stub.aesExchangeKeys ?? {}).flatMap((delegateToKey) => {
       const encryptedKeyForDelegate = delegateToKey[delegateId]
       if (encryptedKeyForDelegate) {
         return [encryptedKeyForDelegate]
@@ -133,7 +138,7 @@ export class BaseExchangeKeysManager {
         return []
       }
     })
-    const legacyDelegation = delegator.dataOwner.hcPartyKeys?.[delegateId]?.[1]
+    const legacyDelegation = delegator.stub.hcPartyKeys?.[delegateId]?.[1]
     if (legacyDelegation) res.push({ '': legacyDelegation })
     return res
   }
@@ -161,15 +166,15 @@ export class BaseExchangeKeysManager {
         ? this.deviceBaseApi.getDeviceAesExchangeKeysForDelegate(dataOwnerId).catch(() => {})
         : Promise.resolve({}),
     ]).then(([a, b, c]) => ({ ...a, ...b, ...c } as { [delegatorId: string]: { [delegatorFp: string]: { [entryFp: string]: string } } }))
-    const dataOwner = await this.dataOwnerApi.getDataOwner(dataOwnerId)
-    const allOwnerKeys = await this.combineLegacyHcpKeysWithAesExchangeKeys(dataOwner.dataOwner, undefined)
+    const dataOwner = await this.dataOwnerApi.getCryptoActorStub(dataOwnerId)
+    const allOwnerKeys = await this.combineLegacyHcpKeysWithAesExchangeKeys(dataOwner.stub, undefined)
     const filteredDelegates = new Set(
       await Array.from(new Set(Object.values(allOwnerKeys).flatMap((x) => Object.keys(x)))).reduce(async (acc, ownerId) => {
         const awaitedAcc = await acc
         if (ownerId === dataOwnerId) {
           return [...awaitedAcc, ownerId]
         } else {
-          const dataOwnerType: DataOwnerTypeEnum = (await this.dataOwnerApi.getDataOwner(ownerId)).type
+          const dataOwnerType: DataOwnerTypeEnum = (await this.dataOwnerApi.getCryptoActorStub(ownerId)).type
           if (otherOwnerTypes.some((x) => x === dataOwnerType)) {
             return [...awaitedAcc, ownerId]
           } else return awaitedAcc
@@ -227,10 +232,10 @@ export class BaseExchangeKeysManager {
     decryptionKeyPairsByFingerprint: { [publicKeyFingerprint: string]: KeyPair<CryptoKey> }
   ) {
     await notConcurrent(this.generateKeyConcurrencyMap, delegatorId, async () => {
-      const delegator = await this.dataOwnerApi.getDataOwner(delegatorId)
-      const delegate = await this.dataOwnerApi.getDataOwner(delegateId)
+      const delegator = await this.dataOwnerApi.getCryptoActorStub(delegatorId)
+      const delegate = await this.dataOwnerApi.getCryptoActorStub(delegateId)
       let didUpdateSomeKey = false
-      const combinedKeys = await this.combineLegacyHcpKeysWithAesExchangeKeys(delegator.dataOwner, delegate.dataOwner)
+      const combinedKeys = await this.combineLegacyHcpKeysWithAesExchangeKeys(delegator.stub, delegate.stub)
       const updatedExchangeKeys: { [delegatorKey: string]: { [delegateId: string]: { [keyFp: string]: string } } } = {}
       const newEncryptionKeys = { [newPublicKeyFp]: newPublicKey }
       for (const [currDelegatorKey, currDelegatesToKeys] of Object.entries(combinedKeys)) {
@@ -254,15 +259,13 @@ export class BaseExchangeKeysManager {
         updatedExchangeKeys[currDelegatorKey] = updatedDelegatesToKeys
       }
       if (didUpdateSomeKey) {
-        await this.dataOwnerApi.updateDataOwner(
-          IccDataOwnerXApi.instantiateDataOwnerWithType(
-            {
-              ...delegator.dataOwner,
-              aesExchangeKeys: updatedExchangeKeys,
-            },
-            delegator.type
-          )
-        )
+        await this.dataOwnerApi.modifyCryptoActorStub({
+          type: delegator.type,
+          stub: {
+            ...delegator.stub,
+            aesExchangeKeys: updatedExchangeKeys,
+          },
+        })
       }
     })
   }
@@ -349,33 +352,33 @@ export class BaseExchangeKeysManager {
   }
 
   private updateLegacyExchangeKeys(
-    delegator: DataOwnerWithType,
-    delegate: DataOwnerWithType,
+    delegator: CryptoActorStubWithType,
+    delegate: CryptoActorStubWithType,
     encryptedKeyMap: { [fp: string]: string }
   ): { [delegateId: string]: string[] } | undefined {
-    const legacyEncryptedKeyDelegator = delegator.dataOwner.publicKey ? encryptedKeyMap[delegator.dataOwner.publicKey] : undefined
-    const legacyEncryptedKeyDelegate = delegate.dataOwner.publicKey ? encryptedKeyMap[delegate.dataOwner.publicKey] : undefined
+    const legacyEncryptedKeyDelegator = delegator.stub.publicKey ? encryptedKeyMap[delegator.stub.publicKey] : undefined
+    const legacyEncryptedKeyDelegate = delegate.stub.publicKey ? encryptedKeyMap[delegate.stub.publicKey] : undefined
     if (legacyEncryptedKeyDelegator && legacyEncryptedKeyDelegate) {
       return {
-        ...(delegator.dataOwner.hcPartyKeys ?? {}),
-        [delegate.dataOwner.id!]: [legacyEncryptedKeyDelegator, legacyEncryptedKeyDelegate],
+        ...(delegator.stub.hcPartyKeys ?? {}),
+        [delegate.stub.id!]: [legacyEncryptedKeyDelegator, legacyEncryptedKeyDelegate],
       }
-    } else return delegator.dataOwner.hcPartyKeys
+    } else return delegator.stub.hcPartyKeys
   }
 
   private async updateExchangeKeys(
-    delegator: DataOwnerWithType,
-    delegate: DataOwnerWithType,
+    delegator: CryptoActorStubWithType,
+    delegate: CryptoActorStubWithType,
     mainDelegatorKeyPairPubHex: string,
     encryptedKeyMap: { [fp: string]: string }
   ): Promise<{ [ownerPublicKey: string]: { [delegateId: string]: { [fingerprint: string]: string } } }> {
-    const combinedAesExchangeKeys = await this.combineLegacyHcpKeysWithAesExchangeKeys(delegator.dataOwner, delegate.dataOwner)
+    const combinedAesExchangeKeys = await this.combineLegacyHcpKeysWithAesExchangeKeys(delegator.stub, delegate.stub)
     return this.fixAesExchangeKeyEntriesToFingerprints({
       ...combinedAesExchangeKeys,
       [mainDelegatorKeyPairPubHex]: {
         ...(combinedAesExchangeKeys[mainDelegatorKeyPairPubHex] ?? {}),
-        [delegate.dataOwner.id!]: {
-          ...(combinedAesExchangeKeys[mainDelegatorKeyPairPubHex]?.[delegate.dataOwner.id!] ?? {}),
+        [delegate.stub.id!]: {
+          ...(combinedAesExchangeKeys[mainDelegatorKeyPairPubHex]?.[delegate.stub.id!] ?? {}),
           ...encryptedKeyMap,
         },
       },
@@ -398,7 +401,7 @@ export class BaseExchangeKeysManager {
       const counterPartsById = [
         owner,
         ...(delegate ? [delegate] : []),
-        ...(await Promise.all(unknownDataOwnerCounterPartIds.map(async (cpid) => (await this.dataOwnerApi.getDataOwner(cpid)).dataOwner))),
+        ...(await Promise.all(unknownDataOwnerCounterPartIds.map(async (cpid) => (await this.dataOwnerApi.getCryptoActorStub(cpid)).stub))),
       ].reduce((acc, dataOwner) => {
         acc[dataOwner.id!] = dataOwner
         return acc

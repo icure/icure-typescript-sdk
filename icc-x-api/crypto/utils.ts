@@ -1,6 +1,6 @@
 // Uses fp as node names
 import { acyclic, graphFromEdges, StronglyConnectedGraph } from '../utils/graph-utils'
-import { DataOwner, DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
+import { DataOwner, DataOwnerOrStub, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { RSAUtils, ShaVersion } from './RSA'
 import { hex2ua } from '../utils'
 import { Patient } from '../../icc-api/model/Patient'
@@ -10,13 +10,13 @@ import { EncryptedEntityWithType } from '../utils/EntityWithDelegationTypeName'
 import { IccPatientApi } from '../../icc-api'
 import { ShareMetadataBehaviour } from './ShareMetadataBehaviour'
 import { EntityShareRequest } from '../../icc-api/model/requests/EntityShareRequest'
+import { DataOwnerWithType } from '../../icc-api/model/DataOwnerWithType'
+import { DataOwnerTypeEnum } from '../../icc-api/model/DataOwnerTypeEnum'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
-import { HealthcareParty } from '../../icc-api/model/HealthcareParty'
-import { Device } from '../../icc-api/model/Device'
 
 /**
  * @internal this function is meant only for internal use and may be changed without notice.
- * Get the public keys of a data owner that are generated using SHA-256 OAEP.
+ * Get the public keys of a data owner which should be used for RSA-OAEP with sha256.
  * @param dataOwner
  */
 export function hexPublicKeysWithSha256Of(dataOwner: DataOwner) {
@@ -25,7 +25,7 @@ export function hexPublicKeysWithSha256Of(dataOwner: DataOwner) {
 
 /**
  * @internal this function is meant only for internal use and may be changed without notice.
- * Get the public keys of a data owner, same as {@link dataOwnerApi.getHexPublicKeysOf}.
+ * Get the public keys of a data owner which should be used for RSA-OAEP with sha1.
  * @param dataOwner
  */
 export function hexPublicKeysWithSha1Of(dataOwner: DataOwner) {
@@ -111,7 +111,7 @@ export async function ensureDelegationForSelf(
       if (xapi.hasEmptyEncryptionMetadata(patient)) {
         // This should not really happen, usually some user will have already initialised the patient and its encryption metadata.
         const updatedPatient = await xapi.entityWithInitialisedEncryptedMetadata(patient, 'Patient', undefined, undefined, true, true, {})
-        return await dataOwnerApi.updateDataOwner(IccDataOwnerXApi.instantiateDataOwnerWithType(updatedPatient.updatedEntity, 'patient'))
+        return { dataOwner: await patientApi.modifyPatient(updatedPatient.updatedEntity), type: DataOwnerTypeEnum.Patient }
       } else {
         const updatedPatient = await xapi.simpleShareOrUpdateEncryptedEntityMetadata(
           { entity: patient, type: 'Patient' },
@@ -126,7 +126,7 @@ export async function ensureDelegationForSelf(
           },
           (x) => patientApi.bulkSharePatients(x)
         )
-        return { dataOwner: updatedPatient.updatedEntityOrThrow, type: 'patient' }
+        return { dataOwner: updatedPatient.updatedEntityOrThrow, type: DataOwnerTypeEnum.Patient }
       }
     }
   } else {
@@ -141,7 +141,7 @@ export async function ensureDelegationForSelf(
  * @param publicKey the public key.
  * @return 'sha-1', 'sha-256', undefined
  */
-export function getShaVersionForKey(dataOwner: Patient | HealthcareParty | Device, publicKey: string) {
+export function getShaVersionForKey(dataOwner: DataOwnerOrStub, publicKey: string) {
   return dataOwner.publicKey === publicKey || Object.keys(dataOwner.aesExchangeKeys ?? {}).includes(publicKey)
     ? 'sha-1'
     : !!dataOwner.publicKeysForOaepWithSha256?.includes(publicKey)

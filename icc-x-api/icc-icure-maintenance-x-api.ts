@@ -7,11 +7,12 @@ import { PropertyTypeStub } from '../icc-api/model/PropertyTypeStub'
 import { TypedValueObject } from '../icc-api/model/TypedValueObject'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 import { KeyPairUpdateRequest } from './maintenance/KeyPairUpdateRequest'
-import { DataOwnerWithType, IccDataOwnerXApi } from './icc-data-owner-x-api'
+import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { User } from '../icc-api/model/User'
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
-import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import { IccExchangeDataApi } from '../icc-api/api/IccExchangeDataApi'
+import { DataOwnerTypeEnum } from '../icc-api/model/DataOwnerTypeEnum'
+import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 
 type ExchangeKeyInfo = { delegator: string; delegate: string; fingerprints: Set<string> }
 
@@ -51,18 +52,15 @@ export class IccIcureMaintenanceXApi {
    * @param requestToOwnerTypes specifies the types of data owner that have shared data with the current data owner or which were given access to data
    * from the current data owner will receive a 'give access back' request. If not specified, the value be inferred from the current data owner type.
    */
-  async createMaintenanceTasksForNewKeypair(
-    user: User,
-    keypair: KeyPair<CryptoKey>,
-    requestToOwnerTypes?: DataOwnerWithType['type'][]
-  ): Promise<void> {
+  async createMaintenanceTasksForNewKeypair(user: User, keypair: KeyPair<CryptoKey>, requestToOwnerTypes?: DataOwnerTypeEnum[]): Promise<void> {
     const currentUserType = await this.dataOwnerApi.getCurrentDataOwnerType()
     if (!requestToOwnerTypes) {
       if (currentUserType === 'device') {
         console.warn('Current data owner is a device and there is no need to create maintenance tasks for updated keypair.')
         return
       } else {
-        requestToOwnerTypes = currentUserType === 'patient' ? ['patient', 'hcp'] : ['hcp']
+        requestToOwnerTypes =
+          currentUserType === DataOwnerTypeEnum.Patient ? [DataOwnerTypeEnum.Patient, DataOwnerTypeEnum.Hcp] : [DataOwnerTypeEnum.Hcp]
       }
     }
     const hexNewPubKey = ua2hex(await this.crypto.primitives.RSA.exportKey(keypair.publicKey, 'spki'))
@@ -94,7 +92,7 @@ export class IccIcureMaintenanceXApi {
     }
   }
 
-  private async getExchangeKeysInfosOf(dataOwnerId: string, otherOwnerTypes: DataOwnerWithType['type'][]): Promise<ExchangeKeyInfo[]> {
+  private async getExchangeKeysInfosOf(dataOwnerId: string, otherOwnerTypes: DataOwnerTypeEnum[]): Promise<ExchangeKeyInfo[]> {
     const allExchangeKeys = await this.crypto.exchangeKeys.base.getAllExchangeKeysWith(dataOwnerId, otherOwnerTypes)
     const infoTo = Object.entries(allExchangeKeys.keysToOwner).flatMap(([delegatorId, delegatorFpToKeys]) =>
       Object.values(delegatorFpToKeys).map((encryptedKeys) => ({

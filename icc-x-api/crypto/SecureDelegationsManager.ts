@@ -353,12 +353,12 @@ export class SecureDelegationsManager {
 
   private async getDataOwnerInfo(dataOwnerId: string) {
     return this.dataOwnerInfoCache.get(dataOwnerId, async () => {
-      const dataOwnerWithType = await this.dataOwnerApi.getDataOwner(dataOwnerId)
+      const dataOwnerWithType = await this.dataOwnerApi.getCryptoActorStub(dataOwnerId)
       return {
         item: {
           requiresAnonymousDelegations: this.cryptoStrategies.dataOwnerRequiresAnonymousDelegation(dataOwnerWithType),
-          availablePublicKeysHexWithSha1: Array.from(hexPublicKeysWithSha1Of(dataOwnerWithType.dataOwner)),
-          availablePublicKeysHexWithSha256: Array.from(hexPublicKeysWithSha256Of(dataOwnerWithType.dataOwner)),
+          availablePublicKeysHexWithSha1: Array.from(hexPublicKeysWithSha1Of(dataOwnerWithType.stub)),
+          availablePublicKeysHexWithSha256: Array.from(hexPublicKeysWithSha256Of(dataOwnerWithType.stub)),
         },
       }
     })
