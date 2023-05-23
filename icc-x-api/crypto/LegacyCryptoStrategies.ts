@@ -1,7 +1,8 @@
 import { CryptoStrategies } from './CryptoStrategies'
-import { DataOwner, DataOwnerWithType } from '../icc-data-owner-x-api'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { KeyPair } from './RSA'
+import { CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
+import { DataOwnerWithType } from '../../icc-api/model/DataOwnerWithType'
 
 /**
  * Implementation of crypto strategies which should closely resemble a basic legacy behaviour of the crypto api in regard to user keys management
@@ -14,22 +15,24 @@ import { KeyPair } from './RSA'
  * of never requiring anonymous delegations).
  */
 export class LegacyCryptoStrategies implements CryptoStrategies {
-  generateNewKeyForDataOwner(self: DataOwner, cryptoPrimitives: CryptoPrimitives): Promise<KeyPair<CryptoKey> | boolean> {
+  generateNewKeyForDataOwner(self: DataOwnerWithType, cryptoPrimitives: CryptoPrimitives): Promise<KeyPair<CryptoKey> | boolean> {
     return Promise.resolve(true)
   }
 
   recoverAndVerifySelfHierarchyKeys(
-    keysData: { dataOwner: DataOwner; unknownKeys: string[]; unavailableKeys: string[] }[],
+    keysData: { dataOwnerInfo: DataOwnerWithType; unknownKeys: string[]; unavailableKeys: string[] }[],
     cryptoPrimitives: CryptoPrimitives
   ): Promise<{ [p: string]: { recoveredKeys: { [p: string]: KeyPair<CryptoKey> }; keyAuthenticity: { [p: string]: boolean } } }> {
-    return Promise.resolve(Object.fromEntries(keysData.map(({ dataOwner }) => [dataOwner.id, { recoveredKeys: {}, keyAuthenticity: {} }])))
+    return Promise.resolve(
+      Object.fromEntries(keysData.map(({ dataOwnerInfo }) => [dataOwnerInfo.dataOwner.id, { recoveredKeys: {}, keyAuthenticity: {} }]))
+    )
   }
 
-  verifyDelegatePublicKeys(delegate: DataOwner, publicKeys: string[], cryptoPrimitives: CryptoPrimitives): Promise<string[]> {
+  verifyDelegatePublicKeys(delegate: CryptoActorStubWithType, publicKeys: string[], cryptoPrimitives: CryptoPrimitives): Promise<string[]> {
     return Promise.resolve(publicKeys)
   }
 
-  dataOwnerRequiresAnonymousDelegation(dataOwner: DataOwnerWithType): boolean {
+  dataOwnerRequiresAnonymousDelegation(dataOwner: CryptoActorStubWithType): boolean {
     return dataOwner.type !== 'hcp'
   }
 }

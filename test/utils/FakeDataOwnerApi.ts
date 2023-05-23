@@ -1,4 +1,4 @@
-import { DataOwner, DataOwnerTypeEnum, DataOwnerWithType, IccDataOwnerXApi } from '../../icc-x-api/icc-data-owner-x-api'
+import { DataOwner, DataOwnerOrStub, IccDataOwnerXApi } from '../../icc-x-api/icc-data-owner-x-api'
 import { FakeGenericApi } from './FakeGenericApi'
 import { Patient } from '../../icc-api/model/Patient'
 import { Device } from '../../icc-api/model/Device'
@@ -7,6 +7,10 @@ import { KeyPair } from '../../icc-x-api/crypto/RSA'
 import { CryptoPrimitives } from '../../icc-x-api/crypto/CryptoPrimitives'
 import { webcrypto } from 'crypto'
 import { ua2hex } from '../../icc-x-api'
+import { DataOwnerTypeEnum } from '../../icc-api/model/DataOwnerTypeEnum'
+import { DataOwnerWithType } from '../../icc-api/model/DataOwnerWithType'
+import { CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
+import { User } from '../../icc-api/model/User'
 
 export class FakeDataOwnerApi extends IccDataOwnerXApi {
   private readonly selfId: string
@@ -14,7 +18,7 @@ export class FakeDataOwnerApi extends IccDataOwnerXApi {
   private readonly primitives = new CryptoPrimitives(webcrypto as any)
 
   constructor(self: DataOwner & { type: DataOwnerTypeEnum }, others: (DataOwner & { type: DataOwnerTypeEnum })[] = []) {
-    super(null as any, null as any, null as any, null as any)
+    super('fake', {}, null as any, null as any)
     this.selfId = self.id!
     this.data.createObject(self)
     others.forEach((x) => this.data.createObject(x))
@@ -56,30 +60,62 @@ export class FakeDataOwnerApi extends IccDataOwnerXApi {
     return this.data.getById(this.selfId)!.type
   }
 
+  getHexPublicKeysWithSha1Of(dataOwner: DataOwnerOrStub): Set<string> {
+    return super.getHexPublicKeysWithSha1Of(dataOwner)
+  }
+
+  getHexPublicKeysWithSha256Of(dataOwner: DataOwnerOrStub): Set<string> {
+    return super.getHexPublicKeysWithSha256Of(dataOwner)
+  }
+
+  async getCurrentDataOwnerStub(): Promise<CryptoActorStubWithType> {
+    return CryptoActorStubWithType.fromDataOwner(await this.getCurrentDataOwner())
+  }
+
+  getDataOwnerIdOf(user: User): string {
+    return super.getDataOwnerIdOf(user)
+  }
+
   async getDataOwner(ownerId: string): Promise<DataOwnerWithType> {
     return this.mapObject(this.data.getById(ownerId)!)
   }
 
-  async updateDataOwner(dataOwner: DataOwnerWithType): Promise<DataOwnerWithType> {
-    if (this.data.getById(dataOwner.dataOwner.id!)?.type !== dataOwner.type) throw new Error('Unexpected type for data owner.')
-    return this.mapObject(this.data.modifyObject({ ...dataOwner.dataOwner, type: dataOwner.type }))
+  clearCurrentDataOwnerIdsCache() {
+    super.clearCurrentDataOwnerIdsCache()
+  }
+
+  async modifyCryptoActorStub(stub: CryptoActorStubWithType): Promise<CryptoActorStubWithType> {
+    const existing = this.data.getById(stub.stub.id!)
+    if (!existing) throw new Error('Data owner not found.')
+    if (existing.type !== stub.type) throw new Error('Unexpected type for data owner.')
+    return CryptoActorStubWithType.fromDataOwner(this.mapObject(this.data.modifyObject({ ...existing, ...stub.stub })))
+  }
+
+  async getCryptoActorStub(ownerId: string): Promise<CryptoActorStubWithType> {
+    return CryptoActorStubWithType.fromDataOwner(await this.getDataOwner(ownerId))
   }
 
   async addPublicKeyForOwner(dataOwnerId: string, keyPair: KeyPair<CryptoKey>) {
-    const retrieved = await this.getDataOwner(dataOwnerId)
+    const retrieved = await this.getCryptoActorStub(dataOwnerId)
     const publicHex = ua2hex(await this.primitives.RSA.exportKey(keyPair.publicKey, 'spki'))
-    await this.updateDataOwner(
-      this.mapObject({
-        ...retrieved.dataOwner,
-        publicKeysForOaepWithSha256: [...(retrieved.dataOwner.publicKeysForOaepWithSha256 || []), publicHex],
-        type: retrieved.type,
-      })
-    )
+    await this.modifyCryptoActorStub({
+      type: retrieved.type,
+      stub: {
+        ...retrieved.stub,
+        publicKeysForOaepWithSha256: [...(retrieved.stub.publicKeysForOaepWithSha256 || []), publicHex],
+      },
+    })
   }
 
   private mapObject(x: DataOwner & { type: DataOwnerTypeEnum }): DataOwnerWithType {
     const type = x.type
     delete (x as any).type
-    return IccDataOwnerXApi.instantiateDataOwnerWithType(x, type)
+    if (type === DataOwnerTypeEnum.Patient) {
+      return { type, dataOwner: x as Patient }
+    } else if (type === DataOwnerTypeEnum.Device) {
+      return { type, dataOwner: x as Device }
+    } else if (type === DataOwnerTypeEnum.Hcp) {
+      return { type, dataOwner: x as HealthcareParty }
+    } else throw new Error('Unexpected type for data owner.')
   }
 }

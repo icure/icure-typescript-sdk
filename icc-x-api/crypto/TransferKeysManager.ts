@@ -1,5 +1,5 @@
 import { KeyPair } from './RSA'
-import { DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
+import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { ua2hex } from '../utils'
 import { UserEncryptionKeysManager } from './UserEncryptionKeysManager'
 import { reachSetsAcyclic, StronglyConnectedGraph } from '../utils/graph-utils'
@@ -8,6 +8,7 @@ import { CryptoPrimitives } from './CryptoPrimitives'
 import { IcureStorageFacade } from '../storage/IcureStorageFacade'
 import { BaseExchangeDataManager } from './BaseExchangeDataManager'
 import { UserSignatureKeysManager } from './UserSignatureKeysManager'
+import { CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
 
 /**
  * @internal this class is intended only for internal use and may be changed without notice.
@@ -30,12 +31,12 @@ export class TransferKeysManager {
    * @param self the current data owner.
    * @return the updated data owner.
    */
-  async updateTransferKeys(self: DataOwnerWithType): Promise<void> {
+  async updateTransferKeys(self: CryptoActorStubWithType): Promise<void> {
     const newEdgesByTarget = await this.getNewVerifiedTransferKeysEdges(self)
     if (!newEdgesByTarget.length) return
-    const selfId = self.dataOwner.id!
-    const fpToPublicKey = fingerprintToPublicKeysMapOf(self.dataOwner, 'sha-1')
-    const fpToPublicKeyWithSha256 = fingerprintToPublicKeysMapOf(self.dataOwner, 'sha-256')
+    const selfId = self.stub.id!
+    const fpToPublicKey = fingerprintToPublicKeysMapOf(self.stub, 'sha-1')
+    const fpToPublicKeyWithSha256 = fingerprintToPublicKeysMapOf(self.stub, 'sha-256')
     const signatureKeyPair = await this.userSignatureKeysManager.getOrCreateSignatureKeyPair()
     const verifiedFps = new Set(this.encryptionKeysManager.getSelfVerifiedKeys().map((x) => x.fingerprint))
     const allVerifiedSourcesAndTarget = Array.from(
@@ -56,7 +57,7 @@ export class TransferKeysManager {
         ...(await loadPublicKeys(this.primitives.RSA, newExchangeKeyPublicKeysWithSha256, 'sha-256')),
       }
     )
-    let updatedTransferKeys = self.dataOwner.transferKeys ?? {}
+    let updatedTransferKeys = self.stub.transferKeys ?? {}
     for (const newEdges of newEdgesByTarget) {
       const encryptedTransferKey = await this.encryptTransferKey(newEdges.target, createdExchangeData.exchangeKey)
       updatedTransferKeys = newEdges.sources.reduce((acc, candidateFp) => {
@@ -66,15 +67,13 @@ export class TransferKeysManager {
         return acc
       }, updatedTransferKeys)
     }
-    await this.dataOwnerApi.updateDataOwner(
-      IccDataOwnerXApi.instantiateDataOwnerWithType(
-        {
-          ...self.dataOwner,
-          transferKeys: updatedTransferKeys,
-        },
-        self.type
-      )
-    )
+    await this.dataOwnerApi.modifyCryptoActorStub({
+      stub: {
+        ...self.stub,
+        transferKeys: updatedTransferKeys,
+      },
+      type: self.type,
+    })
   }
 
   // encrypts a transfer key in pkcs8 format using an exchange key, returns the hex representation
@@ -109,7 +108,7 @@ export class TransferKeysManager {
   }
 
   // Decides the best edges considering the verified public keys.
-  private async getNewVerifiedTransferKeysEdges(self: DataOwnerWithType): Promise<
+  private async getNewVerifiedTransferKeysEdges(self: CryptoActorStubWithType): Promise<
     {
       sources: string[]
       target: KeyPair<CryptoKey>
@@ -117,11 +116,11 @@ export class TransferKeysManager {
     }[]
   > {
     const verifiedKeysFpSet = new Set(this.encryptionKeysManager.getSelfVerifiedKeys().map((x) => x.fingerprint))
-    Object.entries(await this.icureStorage.loadSelfVerifiedKeys(self.dataOwner.id!)).forEach(([key, verified]) => {
+    Object.entries(await this.icureStorage.loadSelfVerifiedKeys(self.stub.id!)).forEach(([key, verified]) => {
       if (verified) verifiedKeysFpSet.add(fingerprintV1(key))
     })
     if (verifiedKeysFpSet.size == 0) return []
-    const graph = transferKeysFpGraphOf(self.dataOwner)
+    const graph = transferKeysFpGraphOf(self.stub)
     // 1. Choose keys available in this device which should be reachable from all other verified keys
     const targetKeys = await this.transferTargetKeys(this.encryptionKeysManager, graph)
     const res = []

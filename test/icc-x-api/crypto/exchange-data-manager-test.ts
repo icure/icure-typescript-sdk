@@ -20,6 +20,7 @@ import { setEquals } from '../../../icc-x-api/utils/collection-utils'
 import { KeyPair } from '../../../icc-x-api/crypto/RSA'
 import * as _ from 'lodash'
 import { fingerprintV1, fingerprintV1toV2, fingerprintV2 } from '../../../icc-x-api/crypto/utils'
+import { DataOwnerTypeEnum } from '../../../icc-api/model/DataOwnerTypeEnum'
 
 describe('Exchange data manager', async function () {
   const primitives = new CryptoPrimitives(webcrypto as any)
@@ -42,14 +43,14 @@ describe('Exchange data manager', async function () {
     allowFullExchangeDataLoad: boolean,
     optionalParameters: ExchangeDataManagerOptionalParameters & { verifiedDelegateKeys?: Set<string> } = {}
   ) {
-    const dataOwnerType = allowFullExchangeDataLoad ? 'patient' : 'hcp'
+    const dataOwnerType = allowFullExchangeDataLoad ? DataOwnerTypeEnum.Patient : DataOwnerTypeEnum.Hcp
     selfId = primitives.randomUuid()
     selfKeypair = await primitives.RSA.generateKeyPair('sha-256')
     selfKeyFpV1 = fingerprintV1(ua2hex(await primitives.RSA.exportKey(selfKeypair.publicKey, 'spki')))
     selfKeyFpV2 = fingerprintV1toV2(selfKeyFpV1)
     delegateId = primitives.randomUuid()
     delegateKeypair = await primitives.RSA.generateKeyPair('sha-256')
-    delegateKeyFp = ua2hex(await primitives.RSA.exportKey(delegateKeypair.publicKey, 'spki')).slice(-32)
+    delegateKeyFp = fingerprintV1(ua2hex(await primitives.RSA.exportKey(delegateKeypair.publicKey, 'spki')))
     dataOwnerApi = new FakeDataOwnerApi(
       {
         id: selfId,

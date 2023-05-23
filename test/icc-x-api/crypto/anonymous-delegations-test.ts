@@ -7,7 +7,6 @@ import { Apis } from '../../../icc-x-api'
 import { User } from '../../../icc-api/model/User'
 import { Patient } from '../../../icc-api/model/Patient'
 import { HealthElement } from '../../../icc-api/model/HealthElement'
-import initMasterApi = TestUtils.initMasterApi
 import { HealthcareParty } from '../../../icc-api/model/HealthcareParty'
 import { v4 as uuid } from 'uuid'
 import { TestApi } from '../../utils/TestApi'
@@ -16,14 +15,16 @@ import { FilterChainMaintenanceTask } from '../../../icc-api/model/FilterChainMa
 import { MaintenanceTaskAfterDateFilter } from '../../../icc-x-api/filters/MaintenanceTaskAfterDateFilter'
 import { KeyPairUpdateRequest } from '../../../icc-x-api/maintenance/KeyPairUpdateRequest'
 import { EntityShareRequest } from '../../../icc-api/model/requests/EntityShareRequest'
-import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { EntityWithDelegationTypeName } from '../../../icc-x-api/utils/EntityWithDelegationTypeName'
 import { MaintenanceTask } from '../../../icc-api/model/MaintenanceTask'
 import * as _ from 'lodash'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import { SecureDelegation } from '../../../icc-api/model/SecureDelegation'
-import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import { CalendarItem } from '../../../icc-api/model/CalendarItem'
+import { DataOwnerTypeEnum } from '../../../icc-api/model/DataOwnerTypeEnum'
+import initMasterApi = TestUtils.initMasterApi
+import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
+import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 
 const FULL_WRITE = RequestedPermissionEnum.FULL_WRITE
 const FULL_READ = RequestedPermissionEnum.FULL_READ
@@ -92,7 +93,10 @@ describe('Anonymous delegations', () => {
   async function loseKeyAndGiveAccessBack(userThatLosesKey: UserInfo, apiToGiveAccessBack: Apis, userGivingAccessBack: UserInfo): Promise<Apis> {
     const newKeyPair = await primitives.RSA.generateKeyPair('sha-256')
     const newApi = await TestApi(env.iCureUrl, userThatLosesKey.user.login!, userThatLosesKey.pw, webcrypto as any, newKeyPair)
-    await newApi.icureMaintenanceTaskApi.createMaintenanceTasksForNewKeypair(userThatLosesKey.user, newKeyPair, ['patient', 'hcp'])
+    await newApi.icureMaintenanceTaskApi.createMaintenanceTasksForNewKeypair(userThatLosesKey.user, newKeyPair, [
+      DataOwnerTypeEnum.Patient,
+      DataOwnerTypeEnum.Hcp,
+    ])
     await apiToGiveAccessBack.cryptoApi.forceReload()
     const searchIds = await dataOwnerIdsForSearch(apiToGiveAccessBack, userGivingAccessBack.dataOwnerId, 'MaintenanceTask')
     const keyPairUpdateRequests = await searchIds

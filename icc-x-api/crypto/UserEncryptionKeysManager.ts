@@ -1,4 +1,4 @@
-import { DataOwner, DataOwnerWithType, IccDataOwnerXApi } from '../icc-data-owner-x-api'
+import { DataOwner, DataOwnerOrStub, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { KeyPair, ShaVersion } from './RSA'
 import { ua2hex } from '../utils'
 import { IcureStorageFacade } from '../storage/IcureStorageFacade'
@@ -6,11 +6,13 @@ import { fingerprintToPublicKeysMapOf, fingerprintV1 } from './utils'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { KeyRecovery } from './KeyRecovery'
 import { CryptoStrategies } from './CryptoStrategies'
+import { DataOwnerWithType } from '../../icc-api/model/DataOwnerWithType'
+import { CryptoActorStub, CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
 
 type KeyPairData = { pair: KeyPair<CryptoKey>; isVerified: boolean; isDevice: boolean }
 type KeyRecovererAndVerifier = (
   keysData: {
-    dataOwner: DataOwner
+    dataOwnerInfo: DataOwnerWithType
     unknownKeys: string[]
     unavailableKeys: string[]
   }[]
@@ -20,7 +22,7 @@ type KeyRecovererAndVerifier = (
     keyAuthenticity: { [keyPairFingerprint: string]: boolean }
   }
 }>
-type CurrentOwnerKeyGenerator = (self: DataOwner) => Promise<KeyPair<CryptoKey> | boolean>
+type CurrentOwnerKeyGenerator = (self: DataOwnerWithType) => Promise<KeyPair<CryptoKey> | boolean>
 
 /**
  * Allows to manage public and private keys for the current user and his parent hierarchy.
@@ -120,7 +122,7 @@ export class UserEncryptionKeysManager {
       (x) =>
         Promise.resolve(
           x.reduce(
-            (acc, { dataOwner }) => ({ ...acc, [dataOwner.id!]: { recoveredKeys: {}, keyAuthenticity: {} } }),
+            (acc, { dataOwnerInfo }) => ({ ...acc, [dataOwnerInfo.dataOwner.id!]: { recoveredKeys: {}, keyAuthenticity: {} } }),
             {} as {
               [dataOwnerId: string]: {
                 recoveredKeys: { [keyPairFingerprint: string]: KeyPair<CryptoKey> }
@@ -167,7 +169,7 @@ export class UserEncryptionKeysManager {
    * @param dataOwner the current data owner or a member of his hierarchy.
    * @throws if the provided data owner is not part of the current data owner hierarchy
    */
-  async getVerifiedPublicKeysFor(dataOwner: DataOwner): Promise<string[]> {
+  async getVerifiedPublicKeysFor(dataOwner: DataOwnerOrStub): Promise<string[]> {
     this.ensureInitialised()
     const availableKeys = this.keysCache![dataOwner.id!]
     if (!availableKeys) throw new Error(`Data owner ${dataOwner.id} is not part of the hierarchy of the current data owner ${this.selfId}`)
@@ -229,7 +231,7 @@ export class UserEncryptionKeysManager {
       keysData.push({ dowt, availableKeys, unavailableKeys, unknownKeys })
     }
     const recoveryAndVerificationResult = await keyRecovererAndVerifier(
-      keysData.map(({ dowt, unavailableKeys, unknownKeys }) => ({ dataOwner: dowt.dataOwner, unavailableKeys, unknownKeys }))
+      keysData.map(({ dowt, unavailableKeys, unknownKeys }) => ({ dataOwnerInfo: dowt, unavailableKeys, unknownKeys }))
     )
     const keysCache: { [dataOwnerId: string]: { [fp: string]: KeyPairData } } = {}
     for (const keyData of keysData) {
@@ -267,13 +269,13 @@ export class UserEncryptionKeysManager {
       this.selfLegacyPublicKey = self.dataOwner.publicKey
       return undefined
     } else {
-      const whatToDo = await currentOwnerKeyGenerator(self.dataOwner)
+      const whatToDo = await currentOwnerKeyGenerator(self)
       if (whatToDo === false) {
         throw new Error(`No verified key found for ${self.dataOwner.id} and settings do not allow creation of a new key.`)
       } else {
         const updateInfo = await this.createAndSaveNewKeyPair(whatToDo === true ? undefined : whatToDo, self)
         // self may be outdated now
-        this.selfLegacyPublicKey = updateInfo.updatedSelf.dataOwner.publicKey
+        this.selfLegacyPublicKey = updateInfo.updatedSelf.stub.publicKey
         this.keysCache = {
           ...keysCache,
           [self.dataOwner.id!]: {
@@ -289,7 +291,7 @@ export class UserEncryptionKeysManager {
   private async createAndSaveNewKeyPair(
     importedKeyPair: undefined | KeyPair<CryptoKey>,
     selfDataOwner: DataOwnerWithType
-  ): Promise<{ publicKeyFingerprint: string; keyPair: KeyPair<CryptoKey>; updatedSelf: DataOwnerWithType }> {
+  ): Promise<{ publicKeyFingerprint: string; keyPair: KeyPair<CryptoKey>; updatedSelf: CryptoActorStubWithType }> {
     const keyPair = importedKeyPair ?? (await this.primitives.RSA.generateKeyPair('sha-256'))
     const publicKeyHex = ua2hex(await this.primitives.RSA.exportKey(keyPair.publicKey, 'spki'))
     const jwKey = await this.primitives.RSA.exportKey(keyPair.publicKey, 'jwk')
@@ -304,9 +306,9 @@ export class UserEncryptionKeysManager {
       true
     )
     await this.icureStorage.saveSelfVerifiedKeys(selfDataOwner.dataOwner.id!, { [publicKeyFingerprint]: true })
-    const updatedSelf = await this.dataOwnerApi.updateDataOwner({
-      dataOwner: {
-        ...selfDataOwner.dataOwner,
+    const updatedSelf = await this.dataOwnerApi.modifyCryptoActorStub({
+      stub: {
+        ...CryptoActorStub.fromDataOwner(selfDataOwner.dataOwner),
         publicKeysForOaepWithSha256: [...(selfDataOwner.dataOwner.publicKeysForOaepWithSha256 ?? []), publicKeyHex],
       },
       type: selfDataOwner.type,

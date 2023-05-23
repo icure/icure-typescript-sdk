@@ -64,6 +64,7 @@ import { LegacyDelegationSecurityMetadataDecryptor } from './crypto/LegacyDelega
 import { ExtendedApisUtilsImpl } from './crypto/ExtendedApisUtilsImpl'
 import { SecureDelegationsManager } from './crypto/SecureDelegationsManager'
 import { AccessControlKeysHeadersProvider } from './crypto/AccessControlKeysHeadersProvider'
+import { CryptoActorStubWithType } from '../icc-api/model/CryptoActorStub'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -185,7 +186,7 @@ export const Api = async function (
   const healthcarePartyApi = new IccHcpartyXApi(host, params.headers, authenticationProvider, fetchImpl)
   const deviceApi = new IccDeviceApi(host, params.headers, authenticationProvider, fetchImpl)
   const basePatientApi = new IccPatientApi(host, params.headers, authenticationProvider, fetchImpl)
-  const dataOwnerApi = new IccDataOwnerXApi(userApi, healthcarePartyApi, basePatientApi, deviceApi)
+  const dataOwnerApi = new IccDataOwnerXApi(host, params.headers, authenticationProvider, fetchImpl)
   const exchangeDataApi = new IccExchangeDataApi(host, params.headers, authenticationProvider, fetchImpl)
   // Crypto initialisation
   const icureStorage = new IcureStorageFacade(params.keyStorage, params.storage, params.entryKeysFactory)
@@ -195,7 +196,7 @@ export const Api = async function (
     exchangeDataApi,
     dataOwnerApi,
     cryptoPrimitives,
-    cryptoStrategies.dataOwnerRequiresAnonymousDelegation(await dataOwnerApi.getCurrentDataOwner())
+    cryptoStrategies.dataOwnerRequiresAnonymousDelegation(await dataOwnerApi.getCurrentDataOwnerStub())
   )
   const keyRecovery = new KeyRecovery(cryptoPrimitives, dataOwnerApi, baseExchangeKeysManager, baseExchangeDataManager)
   const userEncryptionKeysManager = new UserEncryptionKeysManager(cryptoPrimitives, dataOwnerApi, icureStorage, keyRecovery, cryptoStrategies)
@@ -208,7 +209,7 @@ export const Api = async function (
     userEncryptionKeysManager,
     userSignatureKeysManager,
     icureStorage
-  ).updateTransferKeys(await dataOwnerApi.getCurrentDataOwner())
+  ).updateTransferKeys(await dataOwnerApi.getCurrentDataOwnerStub())
   // TODO customise cache size?
   const exchangeKeysManager = new ExchangeKeysManager(
     100,
@@ -246,7 +247,7 @@ export const Api = async function (
       cryptoPrimitives,
       dataOwnerApi,
       cryptoStrategies,
-      cryptoStrategies.dataOwnerRequiresAnonymousDelegation(await dataOwnerApi.getCurrentDataOwner())
+      cryptoStrategies.dataOwnerRequiresAnonymousDelegation(await dataOwnerApi.getCurrentDataOwnerStub())
     ),
     userApi
   )
