@@ -26,7 +26,6 @@ import { fingerprintV2 } from '../../../icc-x-api/crypto/utils'
 import { DataOwnerTypeEnum } from '../../../icc-api/model/DataOwnerTypeEnum'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionInternal
 import EntryUpdateTypeEnum = EntitySharedMetadataUpdateRequest.EntryUpdateTypeEnum
-import { fingerprintV2 } from '../../../icc-x-api/crypto/utils'
 
 describe('Secure delegations manager', async function () {
   const primitives = new CryptoPrimitives(webcrypto as any)
