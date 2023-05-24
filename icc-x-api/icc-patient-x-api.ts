@@ -328,14 +328,14 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
   getPatientWithUser(user: models.User, patientId: string): Promise<models.Patient | any> {
     return super
       .getPatient(patientId)
-      .then((p) => this.tryDecryptOrReturnOriginal(this.dataOwnerApi.getDataOwnerIdOf(user), [p], false))
+      .then((p) => this.tryDecryptOrReturnOriginal([p]))
       .then((pats) => pats[0].entity)
   }
 
   getPotentiallyEncryptedPatientWithUser(user: models.User, patientId: string): Promise<{ patient: models.Patient; decrypted: boolean }> {
     return super
       .getPatient(patientId)
-      .then((p) => this.tryDecryptOrReturnOriginal(this.dataOwnerApi.getDataOwnerIdOf(user), [p], false))
+      .then((p) => this.tryDecryptOrReturnOriginal([p]))
       .then((pats) => ({ patient: pats[0].entity, decrypted: pats[0].decrypted }))
   }
 
@@ -521,7 +521,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
 
   private encryptAs(dataOwner: string, pats: Array<models.Patient>): Promise<Array<models.Patient>> {
     return Promise.all(
-      pats.map((p) => this.crypto.xapi.tryEncryptEntity(p, 'Patient', dataOwner, this.encryptedKeys, true, false, (x) => new models.Patient(x)))
+      pats.map((p) => this.crypto.xapi.tryEncryptEntity(p, 'Patient', this.encryptedKeys, true, false, (x) => new models.Patient(x)))
     )
   }
 
@@ -531,19 +531,15 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
   }
 
   private decryptAs(dataOwner: string, patients: Array<models.Patient>, fillDelegations = true): Promise<Array<models.Patient>> {
-    return this.tryDecryptOrReturnOriginal(dataOwner, patients, fillDelegations).then((ps) => ps.map((p) => p.entity))
+    return this.tryDecryptOrReturnOriginal(patients).then((ps) => ps.map((p) => p.entity))
   }
 
-  private tryDecryptOrReturnOriginal(
-    dataOwner: string,
-    patients: Array<models.Patient>,
-    fillDelegations = true
-  ): Promise<{ entity: models.Patient; decrypted: boolean }[]> {
+  tryDecryptOrReturnOriginal(patients: Array<models.Patient>): Promise<{ entity: models.Patient; decrypted: boolean }[]> {
     return Promise.all(
       patients.map(
         async (p) =>
           await this.crypto.xapi
-            .decryptEntity(p, 'Patient', dataOwner, (x) => new models.Patient(x))
+            .decryptEntity(p, 'Patient', (x) => new models.Patient(x))
             .then((p) => {
               if (p.entity.picture && !(p.entity.picture instanceof ArrayBuffer)) {
                 return {
@@ -1244,6 +1240,6 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
   async mergePatients(from: Patient, mergedInto: Patient): Promise<Patient> {
     const encryptedMerged = (await this.encryptAs(await this.dataOwnerApi.getCurrentDataOwnerId(), [mergedInto]))[0]
     const merged = await super.baseMergePatients(from.id!, from.rev!, encryptedMerged)
-    return (await this.tryDecryptOrReturnOriginal(await this.dataOwnerApi.getCurrentDataOwnerId(), [merged]))[0].entity
+    return (await this.tryDecryptOrReturnOriginal([merged]))[0].entity
   }
 }

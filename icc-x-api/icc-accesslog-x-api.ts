@@ -144,7 +144,7 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
 
   decrypt(hcpId: string, accessLogs: Array<models.AccessLog>): Promise<Array<models.AccessLog>> {
     return Promise.all(
-      accessLogs.map((x) => this.crypto.xapi.decryptEntity(x, 'AccessLog', hcpId, (json) => new AccessLog(json)).then(({ entity }) => entity))
+      accessLogs.map((x) => this.crypto.xapi.decryptEntity(x, 'AccessLog', (json) => new AccessLog(json)).then(({ entity }) => entity))
     )
   }
 
@@ -155,9 +155,7 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
 
   private encryptAs(dataOwner: string, accessLogs: Array<models.AccessLog>): Promise<Array<models.AccessLog>> {
     return Promise.all(
-      accessLogs.map((x) =>
-        this.crypto.xapi.tryEncryptEntity(x, 'AccessLog', dataOwner, this.cryptedKeys, false, false, (json) => new AccessLog(json))
-      )
+      accessLogs.map((x) => this.crypto.xapi.tryEncryptEntity(x, 'AccessLog', this.cryptedKeys, false, false, (json) => new AccessLog(json)))
     )
   }
 

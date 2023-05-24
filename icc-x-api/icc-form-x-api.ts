@@ -122,9 +122,7 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
   }
 
   decrypt(hcpartyId: string, forms: Array<models.Form>) {
-    return Promise.all(
-      forms.map((form) => this.crypto.xapi.decryptEntity(form, 'Form', hcpartyId, (x) => new models.Form(x)).then(({ entity }) => entity))
-    )
+    return Promise.all(forms.map((form) => this.crypto.xapi.decryptEntity(form, 'Form', (x) => new models.Form(x)).then(({ entity }) => entity)))
   }
 
   /**

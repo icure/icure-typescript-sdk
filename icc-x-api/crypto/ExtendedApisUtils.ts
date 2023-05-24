@@ -303,7 +303,6 @@ export interface ExtendedApisUtils {
   decryptEntity<T extends EncryptedEntity>(
     entity: T,
     entityType: EntityWithDelegationTypeName,
-    ownerId: string,
     constructor: (json: any) => T
   ): Promise<{ entity: T; decrypted: boolean }>
 
@@ -327,7 +326,6 @@ export interface ExtendedApisUtils {
   tryEncryptEntity<T extends EncryptedEntity>(
     entity: T,
     entityType: EntityWithDelegationTypeName,
-    dataOwnerId: string,
     cryptedKeys: string[],
     encodeBinaryData: boolean,
     requireEncryption: boolean,
