@@ -4,32 +4,30 @@
 import { MaintenanceTask } from '../../icc-api/model/MaintenanceTask'
 import { PropertyStub } from '../../icc-api/model/PropertyStub'
 
-export class KeyPairUpdateRequest {
+export interface KeyPairUpdateRequest {
   /**
-   * @internal this field is intended for internal use only and may be changed in future without notice
+   * New public key of the data owner, in hex-encoded spki format.
    */
-  readonly originalTask: MaintenanceTask
-  private readonly _concernedDataOwnerId: string
-  private readonly _newPublicKey: string
+  readonly newPublicKey: string
 
   /**
    * Id of the data owner which created a new key pair and wants to regain access to his exchange keys.
    */
-  get concernedDataOwnerId(): string {
-    return this._concernedDataOwnerId
-  }
+  readonly concernedDataOwnerId: string
 
   /**
-   * New public key of the data owner, in hex-encoded spki format.
+   * @internal this field is intended for internal use only and may be changed in future without notice
    */
-  get newPublicKey(): string {
-    return this._newPublicKey
-  }
+  readonly originalTask?: MaintenanceTask
+}
 
-  constructor(task: MaintenanceTask) {
+export namespace KeyPairUpdateRequest {
+  /**
+   * Create a key pair update request from a maintenance task.
+   */
+  export function fromMaintenanceTask(task: MaintenanceTask): KeyPairUpdateRequest {
     if (task.taskType !== KeyPairUpdateRequest.TASK_TYPE)
       throw new Error(`Key pair update tasks should have task type ${KeyPairUpdateRequest.TASK_TYPE}, but got task with type ${task.taskType}`)
-    this.originalTask = task
 
     function findStringProp(propId: string): string {
       const prop: PropertyStub | undefined = task.properties?.find((x) => x.id === propId)
@@ -40,10 +38,14 @@ export class KeyPairUpdateRequest {
       return propValue
     }
 
-    this._concernedDataOwnerId = findStringProp(KeyPairUpdateRequest.OWNER_ID_PROP_ID)
-    this._newPublicKey = findStringProp(KeyPairUpdateRequest.OWNER_PUB_PROP_ID)
+    return {
+      concernedDataOwnerId: findStringProp(KeyPairUpdateRequest.OWNER_ID_PROP_ID),
+      newPublicKey: findStringProp(KeyPairUpdateRequest.OWNER_PUB_PROP_ID),
+      originalTask: task,
+    }
   }
 }
+
 export namespace KeyPairUpdateRequest {
   /**
    * @internal this field is intended for internal use only and may be changed in future without notice
