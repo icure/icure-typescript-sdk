@@ -579,7 +579,6 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
   async decryptEntity<T extends EncryptedEntity>(
     entity: T,
     entityType: EntityWithDelegationTypeName,
-    ownerId: string,
     constructor: (json: any) => T
   ): Promise<{ entity: T; decrypted: boolean }> {
     if (!entity.encryptedSelf) return { entity, decrypted: true }
@@ -612,7 +611,6 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
   async tryEncryptEntity<T extends EncryptedEntity>(
     entity: T,
     entityType: EntityWithDelegationTypeName,
-    dataOwnerId: string,
     cryptedKeys: string[],
     encodeBinaryData: boolean,
     requireEncryption: boolean,
@@ -652,9 +650,7 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
           _.omitBy({ ...entity, encryptedSelf: undefined }, _.isNil)
         )
       ) {
-        throw new Error(
-          `Impossible to modify encrypted value of an entity if no encryption key is known.\nData owner: ${dataOwnerId}\n${JSON.stringify(entity)}`
-        )
+        throw new Error(`Impossible to modify encrypted value of an entity if no encryption key is known.\n${JSON.stringify(entity)}`)
       }
       return entity
     }

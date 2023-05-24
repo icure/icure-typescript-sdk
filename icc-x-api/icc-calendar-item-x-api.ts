@@ -226,16 +226,14 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
   private encryptAs(dataOwner: string, calendarItems: Array<models.CalendarItem>): Promise<Array<models.CalendarItem>> {
     return Promise.all(
       calendarItems.map((x) =>
-        this.crypto.xapi.tryEncryptEntity(x, 'CalendarItem', dataOwner, this.encryptedKeys, false, false, (json) => new CalendarItem(json))
+        this.crypto.xapi.tryEncryptEntity(x, 'CalendarItem', this.encryptedKeys, false, false, (json) => new CalendarItem(json))
       )
     )
   }
 
   decrypt(hcpId: string, calendarItems: Array<models.CalendarItem>): Promise<Array<models.CalendarItem>> {
     return Promise.all(
-      calendarItems.map((x) =>
-        this.crypto.xapi.decryptEntity(x, 'CalendarItem', hcpId, (json) => new CalendarItem(json)).then(({ entity }) => entity)
-      )
+      calendarItems.map((x) => this.crypto.xapi.decryptEntity(x, 'CalendarItem', (json) => new CalendarItem(json)).then(({ entity }) => entity))
     )
   }
 

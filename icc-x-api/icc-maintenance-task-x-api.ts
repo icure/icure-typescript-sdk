@@ -159,7 +159,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
   private encryptAs(dataOwner: string, maintenanceTasks: Array<models.MaintenanceTask>): Promise<Array<models.MaintenanceTask>> {
     return Promise.all(
       maintenanceTasks.map((m) =>
-        this.crypto.xapi.tryEncryptEntity(m, 'MaintenanceTask', dataOwner, this.encryptedKeys, true, false, (x) => new models.MaintenanceTask(x))
+        this.crypto.xapi.tryEncryptEntity(m, 'MaintenanceTask', this.encryptedKeys, true, false, (x) => new models.MaintenanceTask(x))
       )
     )
   }
@@ -172,7 +172,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
   private decryptAs(dataOwner: string, maintenanceTasks: Array<models.MaintenanceTask>): Promise<Array<models.MaintenanceTask>> {
     return Promise.all(
       maintenanceTasks.map(async (mT) =>
-        this.crypto.xapi.decryptEntity(mT, 'MaintenanceTask', dataOwner, (x) => new MaintenanceTask(x)).then(({ entity }) => entity)
+        this.crypto.xapi.decryptEntity(mT, 'MaintenanceTask', (x) => new MaintenanceTask(x)).then(({ entity }) => entity)
       )
     )
   }

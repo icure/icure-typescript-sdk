@@ -314,7 +314,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
   private encryptAs(owner: string, healthElements: Array<models.HealthElement>): Promise<Array<models.HealthElement>> {
     return Promise.all(
       healthElements.map((he) =>
-        this.crypto.xapi.tryEncryptEntity(he, 'HealthElement', owner, this.encryptedKeys, false, false, (x) => new models.HealthElement(x))
+        this.crypto.xapi.tryEncryptEntity(he, 'HealthElement', this.encryptedKeys, false, false, (x) => new models.HealthElement(x))
       )
     )
   }
@@ -325,9 +325,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
 
   decrypt(dataOwnerId: string, hes: Array<models.HealthElement>): Promise<Array<models.HealthElement>> {
     return Promise.all(
-      hes.map((he) =>
-        this.crypto.xapi.decryptEntity(he, 'HealthElement', dataOwnerId, (x) => new models.HealthElement(x)).then(({ entity }) => entity)
-      )
+      hes.map((he) => this.crypto.xapi.decryptEntity(he, 'HealthElement', (x) => new models.HealthElement(x)).then(({ entity }) => entity))
     )
   }
 
