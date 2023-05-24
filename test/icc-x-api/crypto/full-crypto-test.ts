@@ -239,7 +239,7 @@ const userDefinitions: Record<string, (user: User, password: string, pair: KeyPa
           }),
         })
       )
-    ).rows!.map((x) => new KeyPairUpdateRequest(x))
+    ).rows!.map((x) => KeyPairUpdateRequest.fromMaintenanceTask(x))
     const concernedRequest = keyPairUpdateRequests.find((x) => x.concernedDataOwnerId === (user.healthcarePartyId ?? user.patientId))
     if (!concernedRequest) throw new Error('Could not find maintenance task')
     await giveAccessBackApi.icureMaintenanceTaskApi.applyKeyPairUpdate(concernedRequest)
