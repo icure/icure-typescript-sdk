@@ -167,7 +167,7 @@ describe('Shamir key recovery', async function () {
             }),
           })
         )
-      ).rows!.map((x) => new KeyPairUpdateRequest(x))
+      ).rows!.map((x) => KeyPairUpdateRequest.fromMaintenanceTask(x))
       const filteredNotifications = notifications.filter((x) => x.concernedDataOwnerId === lostUser.healthcarePartyId)
       expect(filteredNotifications).to.have.length(1)
       await notaryApi.icureMaintenanceTaskApi.applyKeyPairUpdate(filteredNotifications[0])

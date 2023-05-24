@@ -115,7 +115,7 @@ describe('Anonymous delegations', () => {
         )
         return [...awaitedAcc, ...currResult.rows!]
       }, Promise.resolve([] as MaintenanceTask[]))
-      .then((tasks) => tasks.map((task) => new KeyPairUpdateRequest(task)))
+      .then((tasks) => tasks.map((task) => KeyPairUpdateRequest.fromMaintenanceTask(task)))
     const concernedRequest = keyPairUpdateRequests.filter((x) => x.concernedDataOwnerId === userThatLosesKey.dataOwnerId)
     expect(concernedRequest).to.have.length(1)
     await apiToGiveAccessBack.icureMaintenanceTaskApi.applyKeyPairUpdate(concernedRequest[0])
