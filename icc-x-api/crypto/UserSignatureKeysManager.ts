@@ -35,8 +35,8 @@ export class UserSignatureKeysManager {
       this.signatureKeysCache = {
         fingerprint,
         keyPair: {
-          privateKey: await this.primitives.RSA.importKey('jwk', existing.privateKey, ['sign'], 'sha-256'),
-          publicKey: await this.primitives.RSA.importKey('jwk', existing.publicKey, ['verify'], 'sha-256'),
+          privateKey: await this.primitives.RSA.importSignatureKey('jwk', existing.privateKey),
+          publicKey: await this.primitives.RSA.importVerificationKey('jwk', existing.publicKey),
         },
       }
       return this.signatureKeysCache
