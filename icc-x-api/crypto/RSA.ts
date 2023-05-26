@@ -142,6 +142,16 @@ export class RSAUtils {
     })
   }
 
+  importSignatureKey(format: 'jwk' | 'pkcs8', keydata: JsonWebKey | ArrayBuffer): Promise<CryptoKey> {
+    const extractable = true
+    return this.crypto.subtle.importKey(format as any, keydata as any, this.signatureKeysGenerationParams, extractable, ['sign'])
+  }
+
+  importVerificationKey(format: 'jwk' | 'spki', keydata: JsonWebKey | ArrayBuffer): Promise<CryptoKey> {
+    const extractable = true
+    return this.crypto.subtle.importKey(format as any, keydata as any, this.signatureKeysGenerationParams, extractable, ['verify'])
+  }
+
   private paramsForCreationOrImport(shaVersion: ShaVersion) {
     if (shaVersion === 'sha-1') {
       return this.rsaHashedParams
