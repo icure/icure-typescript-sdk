@@ -32,7 +32,7 @@ import { EntityWithDelegationTypeName } from '../../icc-x-api/utils/EntityWithDe
 import { Annotation } from './Annotation'
 export class Patient {
   constructor(json: JSON | any) {
-    Object.assign(this as Patient, json, json.picture ? { picture: b64_2ab(json.picture) } : {})
+    Object.assign(this as Patient, json, json?.picture ? { picture: b64_2ab(json.picture) } : {})
   }
 
   /**
