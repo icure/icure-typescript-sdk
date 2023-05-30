@@ -1672,30 +1672,32 @@ export class IccCryptoXApi {
    * @param id  doc id - hcPartyId
    * @returns {Promise} -> {CryptoKey} - imported RSA
    */
-  loadKeyPairImported(id: string) {
-    return new Promise((resolve: (value: { publicKey: CryptoKey; privateKey: CryptoKey }) => any, reject) => {
-      try {
-        const jwkKeyPair = this._keyStorage.getKeypair(this.rsaLocalStoreIdPrefix + id)
-        if (jwkKeyPair !== undefined) {
-          if (jwkKeyPair.publicKey && jwkKeyPair.privateKey) {
-            this._RSA.importKeyPair('jwk', jwkKeyPair.privateKey, 'jwk', jwkKeyPair.publicKey).then(resolve, (err) => {
-              console.error('Error in RSA.importKeyPair: ' + err)
-              reject(err)
-            })
-          } else {
-            const message = 'Error in RSA.importKeyPair: Invalid key'
-            console.error(message)
-            reject(Error(message))
-          }
-        } else {
-          const message = 'Error in RSA.importKeyPair: Missing key'
-          console.error(message)
-          reject(Error(message))
-        }
-      } catch (err) {
-        reject(err)
+  async loadKeyPairImported(id: string): Promise<{ publicKey: CryptoKey; privateKey: CryptoKey }> {
+    let jwkKeyPair = this._keyStorage.getKeypair(this.rsaLocalStoreIdPrefix + id)
+    if (!jwkKeyPair) {
+      const { dataOwner } = await this.getDataOwner(id)
+      if (dataOwner.publicKey) {
+        jwkKeyPair = this._keyStorage.getKeypair(this.rsaLocalStoreIdPrefix + id + '.' + dataOwner.publicKey.slice(-32))
+      } else {
+        console.warn('Attempting to load default public key for data owner without default public key')
       }
-    })
+    }
+    if (jwkKeyPair !== undefined) {
+      if (jwkKeyPair.publicKey && jwkKeyPair.privateKey) {
+        return await this._RSA.importKeyPair('jwk', jwkKeyPair.privateKey, 'jwk', jwkKeyPair.publicKey).catch((err) => {
+          console.error('Error in RSA.importKeyPair: ' + err)
+          throw err
+        })
+      } else {
+        const message = 'Error in RSA.importKeyPair: Invalid key'
+        console.error(message)
+        throw Error(message)
+      }
+    } else {
+      const message = 'Error in RSA.importKeyPair: Missing key'
+      console.error(message)
+      throw Error(message)
+    }
   }
 
   /**
@@ -2277,23 +2279,18 @@ export class IccCryptoXApi {
     this._storage.setItem(this.rsaLocalStoreIdPrefix + id, JSON.stringify(keyPair))
   }
 
-  fixAesExchangeKeyEntriesToFingerprints(
-    aesExchangeKeys: { [delegatorPubKey: string]: { [delegateId: string]: { [pubKeyFp: string]: string } } }
-  ): { [delegatorPubKey: string]: { [delegateId: string]: { [pubKeyFp: string]: string } } } {
+  fixAesExchangeKeyEntriesToFingerprints(aesExchangeKeys: { [delegatorPubKey: string]: { [delegateId: string]: { [pubKeyFp: string]: string } } }): {
+    [delegatorPubKey: string]: { [delegateId: string]: { [pubKeyFp: string]: string } }
+  } {
     return Object.fromEntries(
       Object.entries(aesExchangeKeys).map(([delegatorPubKey, allDelegates]) => [
         delegatorPubKey,
         Object.fromEntries(
           Object.entries(allDelegates).map(([delegateId, keyEntries]) => [
             delegateId,
-            Object.fromEntries(
-              Object.entries(keyEntries).map(([publicKey, encryptedValue]) => [
-                publicKey.slice(-32),
-                encryptedValue
-              ])
-            )
+            Object.fromEntries(Object.entries(keyEntries).map(([publicKey, encryptedValue]) => [publicKey.slice(-32), encryptedValue])),
           ])
-        )
+        ),
       ])
     )
   }
