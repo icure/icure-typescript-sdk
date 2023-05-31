@@ -26,6 +26,7 @@ import { fingerprintV2 } from '../../../icc-x-api/crypto/utils'
 import { DataOwnerTypeEnum } from '../../../icc-api/model/DataOwnerTypeEnum'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionInternal
 import EntryUpdateTypeEnum = EntitySharedMetadataUpdateRequest.EntryUpdateTypeEnum
+import { FakeExchangeDataMapManager } from '../../utils/FakeExchangeDataMapManager'
 
 describe('Secure delegations manager', async function () {
   const primitives = new CryptoPrimitives(webcrypto as any)
@@ -36,6 +37,7 @@ describe('Secure delegations manager', async function () {
   let delegateKeyFp: string
   let delegateKeypair: KeyPair<CryptoKey>
   let dataOwnerApi: FakeDataOwnerApi
+  let exchangeDataMapManager: FakeExchangeDataMapManager
   let secureDelegationsEncryption: SecureDelegationsEncryption
   let decryptor: SecureDelegationsSecurityMetadataDecryptor
   let manager: SecureDelegationsManager
@@ -78,10 +80,12 @@ describe('Secure delegations manager', async function () {
       dataOwnerApi,
       primitives
     )
+    exchangeDataMapManager = new FakeExchangeDataMapManager()
     secureDelegationsEncryption = new SecureDelegationsEncryption(encryptionKeysManager, primitives)
-    decryptor = new SecureDelegationsSecurityMetadataDecryptor(exchangeData, secureDelegationsEncryption, dataOwnerApi)
+    decryptor = new SecureDelegationsSecurityMetadataDecryptor(exchangeData, exchangeDataMapManager, secureDelegationsEncryption, dataOwnerApi)
     manager = new SecureDelegationsManager(
       exchangeData,
+      exchangeDataMapManager,
       secureDelegationsEncryption,
       accessControlSecretUtils,
       encryptionKeysManager,
@@ -111,6 +115,7 @@ describe('Secure delegations manager', async function () {
       expect(shareOrUpdateParams!.update).to.be.undefined
       expect(shareOrUpdateParams!.share).to.not.be.undefined
       const shareParams = shareOrUpdateParams!.share!
+      await exchangeDataMapManager.createExchangeDataMaps({ [shareParams.accessControlHashes[0]!]: shareParams.encryptedExchangeDataId! })
       expect(shareParams.accessControlHashes).to.have.length(1)
       if (explicitSelf && explicitDelegate) {
         expect(shareParams.exchangeDataId).to.not.be.undefined

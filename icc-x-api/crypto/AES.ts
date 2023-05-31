@@ -106,7 +106,7 @@ export class AESUtils {
           resolve(decipheredData)
         },
         (err) => {
-          reject('AES decryption failed: ' + err)
+          reject(new Error('AES decryption failed: ' + err))
         }
       )
     })
