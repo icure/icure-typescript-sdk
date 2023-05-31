@@ -411,6 +411,21 @@ export class IccContactApi {
   }
 
   /**
+   * Gets a service based on its id
+   * @summary Get a service
+   * @param serviceId
+   */
+  async getService(serviceId: string): Promise<Service> {
+    let _body = null
+
+    const _url = this.host + `/contact/service/${encodeURIComponent(String(serviceId))}` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new Service(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    * Get a list of contact by ids/keys.
    * @summary Get contacts by batch
    * @param body

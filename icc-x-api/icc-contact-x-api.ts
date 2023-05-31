@@ -288,10 +288,17 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       )
   }
 
+  getServiceWithUser(user: models.User, serviceId: string): Promise<Service> {
+    return super
+      .getService(serviceId)
+      .then((service) => this.decryptServices(user.healthcarePartyId ?? user.patientId ?? user.deviceId!, [service]))
+      .then((decrypted) => decrypted[0])
+  }
+
   listServicesWithUser(user: models.User, serviceIds: ListOfIds): Promise<Array<Service> | any> {
     return super
       .filterServicesBy(undefined, serviceIds.ids?.length, new FilterChainService({ filter: new ServiceByIdsFilter({ ids: serviceIds.ids }) }))
-      .then((paginatedList) => this.decryptServices(user.healthcarePartyId! || user.patientId!, paginatedList.rows ?? []))
+      .then((paginatedList) => this.decryptServices(user.healthcarePartyId ?? user.patientId ?? user.deviceId!, paginatedList.rows ?? []))
   }
 
   findByHCPartyFormIdWithUser(user: models.User, hcPartyId: string, formId: string): Promise<Array<models.Contact> | any> {
