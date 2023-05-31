@@ -233,10 +233,13 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
     const importedNewKey = await this.primitives.RSA.importKey('spki', hex2ua(newDataOwnerPublicKey), ['encrypt'], newKeyHashVersion)
     const signatureKey = await this.signatureKeys.getOrCreateSignatureKeyPair()
     const decryptionKeys = this.encryptionKeys.getDecryptionKeys()
-    const allExchangeDataToUpdate = [
-      ...(await this.base.getExchangeDataByDelegatorDelegatePair(self, otherDataOwner)),
-      ...(await this.base.getExchangeDataByDelegatorDelegatePair(otherDataOwner, self)),
-    ]
+    const allExchangeDataToUpdate =
+      self == otherDataOwner
+        ? await this.base.getExchangeDataByDelegatorDelegatePair(self, self)
+        : [
+            ...(await this.base.getExchangeDataByDelegatorDelegatePair(self, otherDataOwner)),
+            ...(await this.base.getExchangeDataByDelegatorDelegatePair(otherDataOwner, self)),
+          ]
     for (const dataToUpdate of allExchangeDataToUpdate) {
       if (!Object.keys(dataToUpdate.exchangeKey).find((fp) => fp == newKeyFp)) {
         const updated = await this.base.tryUpdateExchangeData(
