@@ -9,7 +9,7 @@ import { fingerprintV1, getShaVersionForKey, hexPublicKeysWithSha1Of, hexPublicK
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { hex2ua, ua2b64 } from '../utils'
 import { LruTemporisedAsyncCache } from '../utils/lru-temporised-async-cache'
-import { EntityWithDelegationTypeName } from '../utils/EntityWithDelegationTypeName'
+import { EntityWithDelegationTypeName, entityWithDelegationTypeNames } from '../utils/EntityWithDelegationTypeName'
 import { CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
 
 export type ExchangeDataManagerOptionalParameters = {
@@ -513,6 +513,21 @@ class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
     return res
   }
 
+  private async secureDelegationKeysForAllEntities(
+    accessControlSecret: string,
+    entitiesToSkip: EntityWithDelegationTypeName[] = []
+  ): Promise<string[]> {
+    return (
+      await Promise.all(
+        [...entityWithDelegationTypeNames]
+          .filter((e) => !entitiesToSkip.includes(e))
+          .flatMap(async (entityType) => {
+            return await this.accessControlSecret.secureDelegationKeysFor(accessControlSecret, entityType, [])
+          })
+      )
+    ).flat()
+  }
+
   async getDecryptionDataKeyById(
     id: string,
     entityType: EntityWithDelegationTypeName | undefined,
@@ -526,7 +541,7 @@ class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
         async (prevData) => {
           const toUpdate = prevData ?? cached.item
           if (toUpdate.decrypted) {
-            // Usage of sfks in secure delegation key should be configurable: it is not necessary for all users and it has some performance impact
+            // Usage of sfks in secure delegation key should be configurable: it is not necessary for all users, and it has some performance impact
             // `secureDelegationKeysFor` is currently ignoring the sfks
             if (entityType && entitySecretForeignKeys) {
               const hashes = await this.accessControlSecret.secureDelegationKeysFor(
@@ -553,14 +568,13 @@ class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
             if (!data) throw new Error(`Could not find exchange data with id ${id}`)
             const decrypted = await this.decryptData(data)
             if (decrypted) {
-              // Usage of sfks in secure delegation key should be configurable: it is not necessary for all users and it has some performance impact
+              // Usage of sfks in secure delegation key should be configurable: it is not necessary for all users, and it has some performance impact
               // `secureDelegationKeysFor` is currently ignoring the sfks
               if (entityType && entitySecretForeignKeys) {
-                const hashes = await this.accessControlSecret.secureDelegationKeysFor(
-                  decrypted.accessControlSecret,
-                  entityType,
-                  entitySecretForeignKeys
-                )
+                const hashes = [
+                  ...(await this.accessControlSecret.secureDelegationKeysFor(decrypted.accessControlSecret, entityType, entitySecretForeignKeys)),
+                  ...(await this.secureDelegationKeysForAllEntities(decrypted.accessControlSecret, [entityType])),
+                ]
                 return { exchangeData: data, hashes, decrypted, verified: decrypted.verified }
               } else {
                 return { exchangeData: data, hashes: [], decrypted, verified: decrypted.verified }
@@ -613,7 +627,10 @@ class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
             // `secureDelegationKeysFor` is currently ignoring the sfks
             hashes:
               entityType && entitySecretForeignKeys
-                ? await this.accessControlSecret.secureDelegationKeysFor(created.accessControlSecret, entityType, entitySecretForeignKeys)
+                ? [
+                    ...(await this.accessControlSecret.secureDelegationKeysFor(created.accessControlSecret, entityType, entitySecretForeignKeys)),
+                    ...(await this.secureDelegationKeysForAllEntities(created.accessControlSecret, [entityType])),
+                  ]
                 : [],
           }
         })
@@ -640,13 +657,12 @@ class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
             const decrypted = await this.decryptData(data)
             if (decrypted) {
               if (entityType && entitySecretForeignKeys) {
-                // Usage of sfks in secure delegation key should be configurable: it is not necessary for all users and it has some performance impact
+                // Usage of sfks in secure delegation key should be configurable: it is not necessary for all users, and it has some performance impact
                 // `secureDelegationKeysFor` is currently ignoring the sfks
-                const hashes = await this.accessControlSecret.secureDelegationKeysFor(
-                  decrypted.accessControlSecret,
-                  entityType,
-                  entitySecretForeignKeys
-                )
+                const hashes = [
+                  ...(await this.accessControlSecret.secureDelegationKeysFor(decrypted.accessControlSecret, entityType, entitySecretForeignKeys)),
+                  ...(await this.secureDelegationKeysForAllEntities(decrypted.accessControlSecret, [entityType])),
+                ]
                 return { exchangeData: data, hashes, decrypted }
               } else {
                 return { exchangeData: data, hashes: [], decrypted }
