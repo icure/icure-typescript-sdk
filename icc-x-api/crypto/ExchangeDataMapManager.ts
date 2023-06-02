@@ -10,7 +10,7 @@ import { ExchangeDataMapCreationBatch } from '../../icc-api/model/ExchangeDataMa
 export class ExchangeDataMapManager {
   constructor(private readonly api: IccExchangeDataMapApi) {}
 
-  private exchangeDataMapCache: LruTemporisedAsyncCache<string, null> = new LruTemporisedAsyncCache(100, () => 30 * 60 * 1000)
+  private exchangeDataMapCache: LruTemporisedAsyncCache<string, null> = new LruTemporisedAsyncCache(1000, () => -1)
 
   /**
    * This function creates a batch of Exchange Data Map, ignoring the one that already exist and are already present in the cache.
