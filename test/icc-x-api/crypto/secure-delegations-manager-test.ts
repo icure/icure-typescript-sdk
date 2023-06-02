@@ -4,7 +4,7 @@ import { webcrypto } from 'crypto'
 import { FakeEncryptionKeysManager } from '../../utils/FakeEncryptionKeysManager'
 import { SecureDelegationsSecurityMetadataDecryptor } from '../../../icc-x-api/crypto/SecureDelegationsSecurityMetadataDecryptor'
 import { SecureDelegationsEncryption } from '../../../icc-x-api/crypto/SecureDelegationsEncryption'
-import { ua2hex } from '../../../icc-x-api'
+import { hex2ua, ua2hex } from '../../../icc-x-api'
 import { SecureDelegationsManager } from '../../../icc-x-api/crypto/SecureDelegationsManager'
 import { AccessControlSecretUtils } from '../../../icc-x-api/crypto/AccessControlSecretUtils'
 import { ExchangeDataManager, initialiseExchangeDataManagerForCurrentDataOwner } from '../../../icc-x-api/crypto/ExchangeDataManager'
@@ -115,8 +115,7 @@ describe('Secure delegations manager', async function () {
       expect(shareOrUpdateParams!.update).to.be.undefined
       expect(shareOrUpdateParams!.share).to.not.be.undefined
       const shareParams = shareOrUpdateParams!.share!
-      await exchangeDataMapManager.createExchangeDataMaps({ [shareParams.accessControlHashes[0]!]: shareParams.encryptedExchangeDataId! })
-      expect(shareParams.accessControlHashes).to.have.length(1)
+      expect(shareParams.accessControlKeys).to.have.length(1)
       if (explicitSelf && explicitDelegate) {
         expect(shareParams.exchangeDataId).to.not.be.undefined
         expect(Object.entries(shareParams.encryptedExchangeDataId ?? {})).to.have.length(0)
@@ -132,12 +131,13 @@ describe('Secure delegations manager', async function () {
         expect(shareParams.exchangeDataId).to.be.undefined
         expect(Object.entries(shareParams.encryptedExchangeDataId ?? {})).to.have.length(0)
       }
+      const secDelKey = ua2hex(await primitives.sha256(hex2ua(shareParams.accessControlKeys[0])))
       const fakeEntity: { entity: EncryptedEntityStub; type: EntityWithDelegationTypeName } = {
         entity: {
           secretForeignKeys: [],
           securityMetadata: new SecurityMetadata({
             secureDelegations: {
-              [shareParams.accessControlHashes[0]]: new SecureDelegation({
+              [secDelKey]: new SecureDelegation({
                 delegator: shareParams.explicitDelegator,
                 delegate: shareParams.explicitDelegate,
                 secretIds: shareParams.secretIds,
@@ -152,6 +152,7 @@ describe('Secure delegations manager', async function () {
         },
         type: 'Patient',
       }
+      await exchangeDataMapManager.createExchangeDataMaps({ [secDelKey]: shareParams.encryptedExchangeDataId! })
       await exchangeData.clearOrRepopulateCache()
       const decryptedSecretIds = (await asyncGeneratorToArray(decryptor.decryptSecretIdsOf(fakeEntity, [selfId]))).map((x) => x.decrypted)
       const decryptedEncryptionKeys = (await asyncGeneratorToArray(decryptor.decryptEncryptionKeysOf(fakeEntity, [selfId]))).map((x) => x.decrypted)

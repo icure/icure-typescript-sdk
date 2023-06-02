@@ -199,7 +199,7 @@ export class SecureDelegationsSecurityMetadataDecryptor implements SecurityMetad
     ): Promise<string | undefined> {
       for (const hash of new Set(hashes)) {
         const decryptedExchangeDataId = await self.secureDelegationsEncryption.decryptExchangeDataId(
-          encryptedExchangeDataIdsByDelegationKey[hash].encryptedExchangeDataIds
+          encryptedExchangeDataIdsByDelegationKey[hash]?.encryptedExchangeDataIds
         )
         if (!!decryptedExchangeDataId) return decryptedExchangeDataId
       }

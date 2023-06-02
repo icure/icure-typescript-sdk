@@ -15,10 +15,10 @@ export class ExchangeDataMapManager {
   /**
    * This function creates a batch of Exchange Data Map, ignoring the one that already exist and are already present in the cache.
    * The ones that are not are created and their ids are cached.
-   * @param batch a map where each key is the hex-encoded hash of the access control key to another map that associates the encoded id of an
+   * @param batch a map where each key is the hex-encoded access control key to another map that associates the encoded id of an
    * Exchange Data entity to the fingerprint of the key used to encrypt it.
    */
-  async createExchangeDataMaps(batch: { [accessControlKeyHash: string]: { [fp: string]: string } }): Promise<void> {
+  async createExchangeDataMaps(batch: { [accessControlKey: string]: { [fp: string]: string } }): Promise<void> {
     const notCachedEntries = (
       await Promise.all(
         Object.entries(batch).map(async ([k, v]) => {
