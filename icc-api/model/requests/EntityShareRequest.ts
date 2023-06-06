@@ -2,7 +2,7 @@ export class EntityShareRequest {
   constructor(params: {
     explicitDelegator?: string
     explicitDelegate?: string
-    accessControlHashes: string[]
+    accessControlKeys: string[]
     secretIds?: string[]
     encryptionKeys?: string[]
     owningEntityIds?: string[]
@@ -10,10 +10,10 @@ export class EntityShareRequest {
     encryptedExchangeDataId?: { [fp: string]: string }
     requestedPermissions?: EntityShareRequest.RequestedPermissionInternal
   }) {
-    if (!params.accessControlHashes.length) throw new Error('Access control hashes should not be empty')
+    if (!params.accessControlKeys.length) throw new Error('Access control keys should not be empty')
     this.explicitDelegator = params.explicitDelegator
     this.explicitDelegate = params.explicitDelegate
-    this.accessControlHashes = params.accessControlHashes
+    this.accessControlKeys = params.accessControlKeys
     this.secretIds = params.secretIds
     this.encryptionKeys = params.encryptionKeys
     this.owningEntityIds = params.owningEntityIds
@@ -33,10 +33,10 @@ export class EntityShareRequest {
    */
   explicitDelegate?: string
   /**
-   * Hashes generated using the access control secret of the exchange data used for the encryption of the ids and keys
+   * The access control keys obtained from the access control secrets of the exchange data used for the encryption of the ids and keys
    * to share. These are also used to uniquely identify an instance of share metadata.
    */
-  accessControlHashes: string[]
+  accessControlKeys: string[]
   /**
    * Encrypted secret ids to share with the delegate.
    */

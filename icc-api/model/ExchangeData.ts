@@ -54,7 +54,7 @@ export class ExchangeData {
    */
   signature!: { [keyPairFingerprint: string]: string }
   /**
-   * hard delete (unix epoch in ms) timestamp of the object. Filled automatically when deletePatient is called.
+   * hard delete (unix epoch in ms) timestamp of the object. Filled automatically when the delete method is called.
    */
   deletionDate?: number
 }

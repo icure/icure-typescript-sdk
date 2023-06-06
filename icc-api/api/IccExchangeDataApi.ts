@@ -1,6 +1,5 @@
 import { XHR } from './XHR'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
-import { AccessLog } from '../model/AccessLog'
 import { ExchangeData } from '../model/ExchangeData'
 import { PaginatedListExchangeData } from '../model/PaginatedListExchangeData'
 import { iccRestApiPath } from './IccRestApiPath'
