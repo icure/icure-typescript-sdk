@@ -57,7 +57,7 @@ export class ExchangeDataMapManager {
     const exchangeDataMaps = await this.api.getExchangeDataMapByBatch(accessControlKeyHashes)
     await Promise.all(
       exchangeDataMaps.map(async (entry) => {
-        await this.exchangeDataMapCache.get(entry.id, async () => Promise.resolve({ item: null }))
+        await this.exchangeDataMapCache.get(entry.id, () => Promise.resolve({ item: null }))
       })
     )
     return exchangeDataMaps
