@@ -33,7 +33,7 @@ export class EntityShareRequest {
    */
   explicitDelegate?: string
   /**
-   * The access control secrets of the exchange data used for the encryption of the ids and keys
+   * The access control keys obtained from the access control secrets of the exchange data used for the encryption of the ids and keys
    * to share. These are also used to uniquely identify an instance of share metadata.
    */
   accessControlKeys: string[]
