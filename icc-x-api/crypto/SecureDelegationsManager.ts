@@ -9,7 +9,7 @@ import { ExchangeDataManager } from './ExchangeDataManager'
 import { ExchangeData } from '../../icc-api/model/ExchangeData'
 import { SecureDelegationsEncryption } from './SecureDelegationsEncryption'
 import { CryptoPrimitives } from './CryptoPrimitives'
-import { hex2ua } from '../utils'
+import { hex2ua, ua2hex } from '../utils'
 import { AccessControlSecretUtils } from './AccessControlSecretUtils'
 import { EntityShareOrMetadataUpdateRequest } from '../../icc-api/model/requests/EntityShareOrMetadataUpdateRequest'
 import { EncryptedEntity, EncryptedEntityStub } from '../../icc-api/model/models'
@@ -18,10 +18,12 @@ import { EntitySharedMetadataUpdateRequest } from '../../icc-api/model/requests/
 import EntryUpdateTypeEnum = EntitySharedMetadataUpdateRequest.EntryUpdateTypeEnum
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import { SecurityMetadata } from '../../icc-api/model/SecurityMetadata'
+import { ExchangeDataMapManager } from './ExchangeDataMapManager'
 
 export class SecureDelegationsManager {
   constructor(
     private readonly exchangeDataManager: ExchangeDataManager,
+    private readonly exchangeDataMapManager: ExchangeDataMapManager,
     private readonly secureDelegationsEncryption: SecureDelegationsEncryption,
     private readonly accessControlSecretUtils: AccessControlSecretUtils,
     private readonly userKeys: UserEncryptionKeysManager,
@@ -69,7 +71,13 @@ export class SecureDelegationsManager {
       undefined
     )
     const selfId = await this.dataOwnerApi.getCurrentDataOwnerId()
-    const otherDelegationsInfo: { canonicalKey: string; delegation: SecureDelegation; keyEquivalences: { [p: string]: string } }[] = []
+    const otherDelegationsInfo: {
+      canonicalDelegationKey: string
+      canonicalAccessControlKey: string
+      delegation: SecureDelegation
+      delegationKeyEquivalences: { [p: string]: string }
+      encryptedExchangeDataId: { [fp: string]: string } | undefined
+    }[] = []
     for (const [delegateId, permissions] of Object.entries(autoDelegations)) {
       if (delegateId !== selfId) {
         otherDelegationsInfo.push(
@@ -80,20 +88,26 @@ export class SecureDelegationsManager {
             encryptionKeys,
             owningEntityIds,
             permissions,
-            rootDelegationInfo.canonicalKey
+            rootDelegationInfo.canonicalDelegationKey
           )
         )
       }
     }
     const secureDelegations = Object.fromEntries(
-      [rootDelegationInfo, ...otherDelegationsInfo].map(({ canonicalKey, delegation }) => [canonicalKey, delegation])
+      [rootDelegationInfo, ...otherDelegationsInfo].map(({ canonicalDelegationKey, delegation }) => [canonicalDelegationKey, delegation])
     )
     const keysEquivalences = {
-      ...rootDelegationInfo.keyEquivalences,
+      ...rootDelegationInfo.delegationKeyEquivalences,
     }
-    for (const { keyEquivalences: otherKeyEquivalences } of otherDelegationsInfo) {
+    for (const { delegationKeyEquivalences: otherKeyEquivalences } of otherDelegationsInfo) {
       Object.assign(keysEquivalences, otherKeyEquivalences)
     }
+    const newExchangeDataMaps = Object.fromEntries(
+      otherDelegationsInfo
+        .filter(({ encryptedExchangeDataId }) => !!encryptedExchangeDataId)
+        .map(({ canonicalAccessControlKey, encryptedExchangeDataId }) => [canonicalAccessControlKey, encryptedExchangeDataId!])
+    )
+    await this.exchangeDataMapManager.createExchangeDataMaps(newExchangeDataMaps)
     return {
       ...entity,
       securityMetadata: new SecurityMetadata({ secureDelegations, keysEquivalences }),
@@ -145,10 +159,17 @@ export class SecureDelegationsManager {
       )
       return updateParams ? { update: updateParams } : undefined
     } else {
+      const accessControlKeys = (
+        await this.accessControlSecretUtils.accessControlKeysFor(
+          exchangeDataInfo.accessControlSecret,
+          entityWithType.type,
+          entityWithType.entity.secretForeignKeys ?? []
+        )
+      ).map((x) => ua2hex(x))
       return {
         share: await this.makeShareRequestParams(
           exchangeDataInfo,
-          accessControlHashes,
+          accessControlKeys,
           delegateId,
           shareSecretIds,
           shareEncryptionKeys,
@@ -195,7 +216,7 @@ export class SecureDelegationsManager {
 
   private async makeShareRequestParams(
     exchangeDataInfo: { exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey },
-    accessControlHashes: string[],
+    accessControlKeys: string[],
     delegateId: string,
     shareSecretIds: string[],
     shareEncryptionKeys: string[],
@@ -205,7 +226,7 @@ export class SecureDelegationsManager {
     return new EntityShareRequest({
       ...(await this.makeSecureDelegationEncryptedData(exchangeDataInfo, delegateId, shareSecretIds, shareEncryptionKeys, shareOwningEntityIds)),
       requestedPermissions: newDelegationPermissions,
-      accessControlHashes,
+      accessControlKeys,
     })
   }
 
@@ -218,9 +239,11 @@ export class SecureDelegationsManager {
     permissions: AccessLevelEnum,
     parentDelegationKey: string | undefined
   ): Promise<{
-    canonicalKey: string
+    canonicalDelegationKey: string
+    canonicalAccessControlKey: string
     delegation: SecureDelegation
-    keyEquivalences: { [alias: string]: string }
+    encryptedExchangeDataId: { [fp: string]: string } | undefined
+    delegationKeyEquivalences: { [alias: string]: string }
   }> {
     // Be wary of explicit delegator and explicit delegate
     const exchangeDataInfo = await this.exchangeDataManager.getOrCreateEncryptionDataTo(
@@ -233,8 +256,21 @@ export class SecureDelegationsManager {
       entity.type,
       entity.entity.secretForeignKeys ?? []
     )
-    const canonicalKey = accessControlHashes[0]
-    const keyEquivalences = Object.fromEntries(accessControlHashes.slice(1).map((hash) => [hash, canonicalKey]))
+    const accessControlKeys = (
+      await this.accessControlSecretUtils.accessControlKeysFor(
+        exchangeDataInfo.accessControlSecret,
+        entity.type,
+        entity.entity.secretForeignKeys ?? []
+      )
+    ).map((x) => ua2hex(x))
+    const accessControlKeysToHashes = accessControlKeys
+      .map((key, index) => {
+        return [key, accessControlHashes[index]]
+      })
+      .sort((a, b) => a[1].localeCompare(b[1]))
+
+    const canonicalKey = accessControlKeysToHashes[0][1]
+    const keyEquivalences = Object.fromEntries(accessControlKeysToHashes.slice(1).map((hash) => [hash[1], canonicalKey]))
     const encryptedDelegationInfo = await this.makeSecureDelegationEncryptedData(
       exchangeDataInfo,
       delegateId,
@@ -253,7 +289,13 @@ export class SecureDelegationsManager {
       encryptedExchangeDataId: encryptedDelegationInfo?.encryptedExchangeDataId,
       permissions: permissions,
     })
-    return { canonicalKey, delegation, keyEquivalences }
+    return {
+      canonicalDelegationKey: canonicalKey,
+      canonicalAccessControlKey: accessControlKeysToHashes[0][0],
+      delegation,
+      encryptedExchangeDataId: encryptedDelegationInfo?.encryptedExchangeDataId,
+      delegationKeyEquivalences: keyEquivalences,
+    }
   }
 
   private async makeSecureDelegationEncryptedData(
@@ -269,7 +311,7 @@ export class SecureDelegationsManager {
     encryptionKeys?: string[]
     owningEntityIds?: string[]
     exchangeDataId?: string
-    encryptedExchangeDataId?: { [fp: string]: string }
+    encryptedExchangeDataId?: { [fp: string]: string } // TODO if secure delegation info, check cache before calculating
   }> {
     const selfId = await this.dataOwnerApi.getCurrentDataOwnerId()
     const exchangeDataIdInfo =

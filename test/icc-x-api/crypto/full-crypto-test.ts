@@ -1,4 +1,4 @@
-import { Api, Apis, sleep, ua2hex } from '../../../icc-x-api'
+import { Api, Apis, ua2hex } from '../../../icc-x-api'
 import { v4 as uuid } from 'uuid'
 import { Patient } from '../../../icc-api/model/Patient'
 import { Contact } from '../../../icc-api/model/Contact'
