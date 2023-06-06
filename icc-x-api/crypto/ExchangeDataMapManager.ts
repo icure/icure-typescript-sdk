@@ -19,18 +19,12 @@ export class ExchangeDataMapManager {
    * Exchange Data entity to the fingerprint of the key used to encrypt it.
    */
   async createExchangeDataMaps(batch: { [accessControlKey: string]: { [fp: string]: string } }): Promise<void> {
-    const notCachedEntries = (
-      await Promise.all(
-        Object.entries(batch).flatMap(async ([k, v]) => {
-          if (!!(await this.exchangeDataMapCache.getIfCachedJob(k))) {
-            return []
-          } else {
-            return [[k, v]]
-          }
-        })
-      )
-    )
-    const entriesToCreate = Object.fromEntries(notCachedEntries.map((entry) => entry!))
+    const entriesToCreate: { [accessControlKey: string]: { [fp: string]: string } } = {}
+    for (const [k, v] of Object.entries(batch)) {
+      if (!(await this.exchangeDataMapCache.getIfCachedJob(k))) {
+        entriesToCreate[k] = v
+      }
+    }
     await this.api.createExchangeDataMapBatch(new ExchangeDataMapCreationBatch({ batch: entriesToCreate }))
     await Promise.all(
       Object.keys(entriesToCreate).map(async (entry) => {

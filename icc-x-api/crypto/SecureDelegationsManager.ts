@@ -73,7 +73,7 @@ export class SecureDelegationsManager {
     const selfId = await this.dataOwnerApi.getCurrentDataOwnerId()
     const otherDelegationsInfo: {
       canonicalDelegationKey: string
-      canonicalKey: string
+      canonicalAccessControlKey: string
       delegation: SecureDelegation
       delegationKeyEquivalences: { [p: string]: string }
       encryptedExchangeDataId: { [fp: string]: string } | undefined
@@ -105,7 +105,7 @@ export class SecureDelegationsManager {
     const newExchangeDataMaps = Object.fromEntries(
       otherDelegationsInfo
         .filter(({ encryptedExchangeDataId }) => !!encryptedExchangeDataId)
-        .map(({ canonicalKey, encryptedExchangeDataId }) => [canonicalKey, encryptedExchangeDataId!])
+        .map(({ canonicalAccessControlKey, encryptedExchangeDataId }) => [canonicalAccessControlKey, encryptedExchangeDataId!])
     )
     await this.exchangeDataMapManager.createExchangeDataMaps(newExchangeDataMaps)
     return {
@@ -240,7 +240,7 @@ export class SecureDelegationsManager {
     parentDelegationKey: string | undefined
   ): Promise<{
     canonicalDelegationKey: string
-    canonicalKey: string
+    canonicalAccessControlKey: string
     delegation: SecureDelegation
     encryptedExchangeDataId: { [fp: string]: string } | undefined
     delegationKeyEquivalences: { [alias: string]: string }
@@ -291,7 +291,7 @@ export class SecureDelegationsManager {
     })
     return {
       canonicalDelegationKey: canonicalKey,
-      canonicalKey: accessControlKeysToHashes[0][0],
+      canonicalAccessControlKey: accessControlKeysToHashes[0][0],
       delegation,
       encryptedExchangeDataId: encryptedDelegationInfo?.encryptedExchangeDataId,
       delegationKeyEquivalences: keyEquivalences,
