@@ -21,15 +21,15 @@ export class ExchangeDataMapManager {
   async createExchangeDataMaps(batch: { [accessControlKey: string]: { [fp: string]: string } }): Promise<void> {
     const notCachedEntries = (
       await Promise.all(
-        Object.entries(batch).map(async ([k, v]) => {
+        Object.entries(batch).flatMap(async ([k, v]) => {
           if (!!(await this.exchangeDataMapCache.getIfCachedJob(k))) {
-            return undefined
+            return []
           } else {
-            return [k, v]
+            return [[k, v]]
           }
         })
       )
-    ).filter((it) => !!it)
+    )
     const entriesToCreate = Object.fromEntries(notCachedEntries.map((entry) => entry!))
     await this.api.createExchangeDataMapBatch(new ExchangeDataMapCreationBatch({ batch: entriesToCreate }))
     await Promise.all(
