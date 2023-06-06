@@ -30,4 +30,6 @@ export class AuthenticationToken {
    * Token validity in seconds
    */
   validity?: number
+
+  deletionDate?: number
 }
