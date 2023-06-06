@@ -24,7 +24,7 @@ import { IccMessageXApi } from './icc-message-x-api'
 import { IccReceiptXApi } from './icc-receipt-x-api'
 import { IccAccesslogXApi } from './icc-accesslog-x-api'
 import { IccTimeTableXApi } from './icc-time-table-x-api'
-import { IccDeviceApi } from '../icc-api/api/IccDeviceApi'
+import { IccDeviceApi } from '../icc-api'
 import { IccCodeXApi } from './icc-code-x-api'
 import { IccMaintenanceTaskXApi } from './icc-maintenance-task-x-api'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
@@ -64,7 +64,8 @@ import { LegacyDelegationSecurityMetadataDecryptor } from './crypto/LegacyDelega
 import { ExtendedApisUtilsImpl } from './crypto/ExtendedApisUtilsImpl'
 import { SecureDelegationsManager } from './crypto/SecureDelegationsManager'
 import { AccessControlKeysHeadersProvider } from './crypto/AccessControlKeysHeadersProvider'
-import { CryptoActorStubWithType } from '../icc-api/model/CryptoActorStub'
+import { IccExchangeDataMapApi } from '../icc-api/api/IccExchangeDataMapApi'
+import { ExchangeDataMapManager } from './crypto/ExchangeDataMapManager'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -233,14 +234,16 @@ export const Api = async function (
     dataOwnerApi,
     cryptoPrimitives
   )
+  const exchangeDataMapManager = new ExchangeDataMapManager(new IccExchangeDataMapApi(host, params.headers, authenticationProvider, fetchImpl))
   const secureDelegationsEncryption = new SecureDelegationsEncryption(userEncryptionKeysManager, cryptoPrimitives)
   const xApiUtils = new ExtendedApisUtilsImpl(
     cryptoPrimitives,
     dataOwnerApi,
     new LegacyDelegationSecurityMetadataDecryptor(exchangeKeysManager, cryptoPrimitives),
-    new SecureDelegationsSecurityMetadataDecryptor(exchangeDataManager, secureDelegationsEncryption, dataOwnerApi),
+    new SecureDelegationsSecurityMetadataDecryptor(exchangeDataManager, exchangeDataMapManager, secureDelegationsEncryption, dataOwnerApi),
     new SecureDelegationsManager(
       exchangeDataManager,
+      exchangeDataMapManager,
       secureDelegationsEncryption,
       accessControlSecretUtils,
       userEncryptionKeysManager,

@@ -38,11 +38,6 @@ export class SecureDelegation {
    */
   exchangeDataId?: string
   /**
-   * If only the [delegator] or only the [delegate] is explicit in this secure delegation this field will hold the id of the
-   * exchange data used for the encryption encrypted with the public keys of that data owner. Otherwise, this will be null.
-   */
-  encryptedExchangeDataId?: { [pubKeyFp: string]: string }
-  /**
    * Permissions of users with access to this [SecureDelegation] on the corresponding entity.
    * The permissions only refer to the actual content of the entity and not to any metadata (excluding the `encryptedSelf`):
    * any data owner will always be allowed to use the methods to share the with other data owners, even if these method

@@ -35,16 +35,16 @@ export class SecureDelegationsEncryption {
 
   /**
    * If the secure delegation has an encrypted exchange data id attempts to decrypt it with the available keys for the current user.
-   * @param secureDelegation a secure delegation.
+   * @param encryptedExchangeIds a map that associates an encrypted exchange data id to the fingerprint of the public key used to encrypt it.
    * @return the id of the exchange data used for the encryption of the provided secure delegation if it was encrypted and could be decrypted,
    * undefined otherwise (there was no encrypted id of the exchange data, or it could not be decrypted as no key was available).
    */
-  async decryptExchangeDataId(secureDelegation: SecureDelegation): Promise<string | undefined> {
+  async decryptExchangeDataId(encryptedExchangeIds: { [fp: string]: string }): Promise<string | undefined> {
     const decryptionKeys = this.userKeys.getDecryptionKeys()
     const decryptionKeysV2 = Object.fromEntries(
       Object.entries(decryptionKeys).map(([fp, keyPair]) => [fingerprintIsV1(fp) ? fingerprintV1toV2(fp) : fp, keyPair])
     )
-    for (const [fp, encryptedId] of Object.entries(secureDelegation.encryptedExchangeDataId ?? {})) {
+    for (const [fp, encryptedId] of Object.entries(encryptedExchangeIds)) {
       const key = decryptionKeys?.[fp] ?? decryptionKeysV2?.[fp]
       if (key) return ua2utf8(await this.primitives.RSA.decrypt(key.privateKey, b64_2ua(encryptedId)))
     }
