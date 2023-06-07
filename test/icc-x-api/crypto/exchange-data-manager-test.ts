@@ -448,8 +448,8 @@ describe('Exchange data manager', async function () {
       ]
       expect(Object.keys(await exchangeData.getCachedDecryptionDataKeyByAccessControlHash(unknownHashes, 'Patient', []))).to.have.length(0)
       const uncachedHash = await accessControlSecretUtils.secureDelegationKeyFor(createdData1.accessControlSecret, 'Document', sfk1)
-      const retrievedByUncachedHash = await exchangeData.getCachedDecryptionDataKeyByAccessControlHash([uncachedHash], 'Document', [sfk1])
-      expect(Object.keys(retrievedByUncachedHash)).to.have.length(allowFullExchangeDataLoad ? 1 : 0)
+      const retrievedByAutomaticallyCachedHash = await exchangeData.getCachedDecryptionDataKeyByAccessControlHash([uncachedHash], 'Document', [sfk1])
+      expect(Object.keys(retrievedByAutomaticallyCachedHash)).to.have.length(1)
     }
     await doTest(true)
     await doTest(false)

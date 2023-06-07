@@ -7,16 +7,18 @@ import { SecureDelegationsEncryption } from './SecureDelegationsEncryption'
 import AccessLevel = SecureDelegation.AccessLevelEnum
 import { EncryptedEntity, EncryptedEntityStub } from '../../icc-api/model/models'
 import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
+import { ExchangeDataMapManager } from './ExchangeDataMapManager'
+import { ExchangeDataMap } from '../../icc-api/model/ExchangeDataMap'
 
 type DelegationDecryptionDetails = {
   delegation: SecureDelegation
   hashes: string[]
-  exchangeDataId: string | undefined
 }
 
 export class SecureDelegationsSecurityMetadataDecryptor implements SecurityMetadataDecryptor {
   constructor(
     private readonly exchangeData: ExchangeDataManager,
+    private readonly exchangeDataMap: ExchangeDataMapManager,
     private readonly secureDelegationsEncryption: SecureDelegationsEncryption,
     private readonly dataOwnerApi: IccDataOwnerXApi
   ) {}
@@ -106,10 +108,21 @@ export class SecureDelegationsSecurityMetadataDecryptor implements SecurityMetad
     if (!remainingDelegations.length) return { permissionsByDataOwnerId: accumulatedPermissions, hasUnknownAnonymousDataOwners }
     // 3. Attempt to identify the anonymous data owner of remaining delegations between us (or one of our parents) and an anonymous data owner
     const hierarchy = await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
-    for (const delegationEntry of remainingDelegations) {
-      const delegation = delegationEntry[1]
+    const allHashes = [
+      ...remainingDelegations.flatMap(([hash, _]) => hash),
+      ...Object.keys(typedEntity.entity.securityMetadata?.keysEquivalences ?? {}),
+    ]
+    const encryptedExchangeDataIds = (await this.exchangeDataMap.getExchangeDataMapBatch(allHashes)).reduce((maps, current) => {
+      return {
+        ...maps,
+        [current.id]: current,
+      }
+    }, {} as { [hash: string]: ExchangeDataMap })
+    for (const [hash, delegation] of remainingDelegations) {
       if (hierarchy.some((x) => x === delegation.delegate || x === delegation.delegator)) {
-        const dataId = await this.secureDelegationsEncryption.decryptExchangeDataId(delegation)
+        const dataId = !!encryptedExchangeDataIds[hash]
+          ? await this.secureDelegationsEncryption.decryptExchangeDataId(encryptedExchangeDataIds[hash].encryptedExchangeDataIds)
+          : undefined
         const exchangeDataInfo = dataId
           ? await this.exchangeData.getDecryptionDataKeyById(dataId, typedEntity.type, typedEntity.entity.secretForeignKeys ?? [], true)
           : undefined
@@ -185,6 +198,18 @@ export class SecureDelegationsSecurityMetadataDecryptor implements SecurityMetad
     if (!dataOwnersHierarchySubset.length) throw new Error("`dataOwnersHierarchySubset` can't be empty")
     const self = this
 
+    async function getFirstDecryptedExchangeDataIdForHash(
+      hashes: string[],
+      encryptedExchangeDataIdsByDelegationKey: { [hash: string]: ExchangeDataMap }
+    ): Promise<string | undefined> {
+      for (const hash of new Set(hashes)) {
+        const decryptedExchangeDataId = !!encryptedExchangeDataIdsByDelegationKey[hash]
+          ? await self.secureDelegationsEncryption.decryptExchangeDataId(encryptedExchangeDataIdsByDelegationKey[hash]?.encryptedExchangeDataIds)
+          : undefined
+        if (!!decryptedExchangeDataId) return decryptedExchangeDataId
+      }
+    }
+
     async function decrypt(
       delegation: SecureDelegation,
       exchangeDataDetails: { exchangeData: ExchangeData; exchangeKey: CryptoKey | undefined }
@@ -206,7 +231,6 @@ export class SecureDelegationsSecurityMetadataDecryptor implements SecurityMetad
       let remainingDelegations: DelegationDecryptionDetails[] = Object.entries(typedEntity.entity.securityMetadata?.secureDelegations ?? {}).map(
         ([canonicalHash, delegation]) => ({
           delegation,
-          exchangeDataId: delegation.exchangeDataId, // Initially only if explicit, later will also fill for encrypted
           hashes: [
             canonicalHash,
             ...Object.entries(typedEntity.entity.securityMetadata?.keysEquivalences ?? {})
@@ -215,17 +239,17 @@ export class SecureDelegationsSecurityMetadataDecryptor implements SecurityMetad
           ],
         })
       )
-      if (!remainingDelegations.length) return
+
       /*
        * Generate from least expensive to most (in terms of time to decrypt). 1 and 2a have equivalent costs.
        * 1) Secure delegations with cached exchange data by hash
-       * 2) Secure delegations with cached exchange data by id for relevant data owners
-       *    a) With clear-text id
-       *    b) With encrypted id
-       * 3) Secure delegations with exchange data by id not cached, for relevant data owners (all ids already decrypted)
+       * 2) Secure delegations with cached exchange data by id for explicit->explicit delegations where delegator and/or delegate is me or parent
+       * 3) Non cached secure delegations for explicit->explicit delegations where delegator and/or delegate is me or parent (half of old 3)
+       * 4) Decrypt secure delegation id for explicit->anonymous or anonymous->explicit where explicit is me or parent (2b and half of old3)
        */
 
       // Step 1) Secure delegations with cached exchange data by hash
+      if (!remainingDelegations.length) return
       const cachedDataByHash = await self.exchangeData.getCachedDecryptionDataKeyByAccessControlHash(
         [
           ...Object.keys(typedEntity.entity.securityMetadata?.secureDelegations ?? {}),
@@ -249,18 +273,18 @@ export class SecureDelegationsSecurityMetadataDecryptor implements SecurityMetad
       remainingDelegations = updatedRemainingDelegations
       updatedRemainingDelegations = []
 
-      // Step 2)a) Secure delegations with cached exchange data by clear-text id for relevant data owners
+      // Step 2) Secure delegations with cached exchange data by id for explicit->explicit delegations where delegator and/or delegate is me or parent
       if (!remainingDelegations.length) return
       for (const decryptionDetails of remainingDelegations) {
-        const exchangeDataDetails = decryptionDetails.exchangeDataId
+        const exchangeDataDetails = decryptionDetails.delegation.exchangeDataId
           ? await self.exchangeData.getDecryptionDataKeyById(
-              decryptionDetails.exchangeDataId,
+              decryptionDetails.delegation.exchangeDataId,
               typedEntity.type,
               typedEntity.entity.secretForeignKeys ?? [],
               false
             )
           : undefined
-        if (exchangeDataDetails) {
+        if (!!exchangeDataDetails) {
           for (const decrypted of await decrypt(decryptionDetails.delegation, exchangeDataDetails)) yield decrypted
         } else {
           updatedRemainingDelegations.push(decryptionDetails)
@@ -269,43 +293,52 @@ export class SecureDelegationsSecurityMetadataDecryptor implements SecurityMetad
       remainingDelegations = updatedRemainingDelegations
       updatedRemainingDelegations = []
 
-      // Step 2)b) Secure delegations with cached exchange data by decrypted id for relevant data owners
+      // Step 3) Non cached secure delegations for explicit->explicit delegations where delegator and/or delegate is me or parent
       if (!remainingDelegations.length) return
       for (const decryptionDetails of remainingDelegations) {
-        if (!decryptionDetails.exchangeDataId) {
-          const decryptedExchangeDataId = await self.secureDelegationsEncryption.decryptExchangeDataId(decryptionDetails.delegation)
-          if (decryptedExchangeDataId) {
-            const exchangeDataDetails = await self.exchangeData.getDecryptionDataKeyById(
-              decryptedExchangeDataId,
+        const exchangeDataDetails = decryptionDetails.delegation.exchangeDataId
+          ? await self.exchangeData.getDecryptionDataKeyById(
+              decryptionDetails.delegation.exchangeDataId,
               typedEntity.type,
               typedEntity.entity.secretForeignKeys ?? [],
-              false
+              true
             )
-            if (exchangeDataDetails) {
-              for (const decrypted of await decrypt(decryptionDetails.delegation, exchangeDataDetails)) yield decrypted
-            } else {
-              updatedRemainingDelegations.push({
-                delegation: decryptionDetails.delegation,
-                exchangeDataId: decryptedExchangeDataId,
-                hashes: decryptionDetails.hashes,
-              })
-            }
-          }
-        } else updatedRemainingDelegations.push(decryptionDetails)
+          : undefined
+        if (!!exchangeDataDetails) {
+          for (const decrypted of await decrypt(decryptionDetails.delegation, exchangeDataDetails)) yield decrypted
+        } else {
+          updatedRemainingDelegations.push(decryptionDetails)
+        }
       }
       remainingDelegations = updatedRemainingDelegations
 
-      // Step 3) Secure delegations with exchange data by id (clear-text or decrypted) not cached for relevant data owners
+      // Step 4) Decrypt secure delegation id for explicit->anonymous or anonymous->explicit where explicit is me or parent
       if (!remainingDelegations.length) return
+      const allHashes = [
+        ...remainingDelegations.flatMap((x) => x.hashes),
+        ...Object.keys(typedEntity.entity.securityMetadata?.keysEquivalences ?? {}),
+      ]
+      const encryptedExchangeDataIdsByDelegationKey = (await self.exchangeDataMap.getExchangeDataMapBatch(allHashes)).reduce((maps, current) => {
+        return {
+          ...maps,
+          [current.id]: current,
+        }
+      }, {} as { [hash: string]: ExchangeDataMap })
       for (const decryptionDetails of remainingDelegations) {
-        const exchangeDataDetails = await self.exchangeData.getDecryptionDataKeyById(
-          decryptionDetails.exchangeDataId!,
-          typedEntity.type,
-          typedEntity.entity.secretForeignKeys ?? [],
-          true
+        const decryptedExchangeDataId = await getFirstDecryptedExchangeDataIdForHash(
+          decryptionDetails.hashes,
+          encryptedExchangeDataIdsByDelegationKey
         )
-        if (exchangeDataDetails) {
-          for (const decrypted of await decrypt(decryptionDetails.delegation, exchangeDataDetails)) yield decrypted
+        if (decryptedExchangeDataId) {
+          const exchangeDataDetails = await self.exchangeData.getDecryptionDataKeyById(
+            decryptedExchangeDataId,
+            typedEntity.type,
+            typedEntity.entity.secretForeignKeys ?? [],
+            true
+          )
+          if (exchangeDataDetails) {
+            for (const decrypted of await decrypt(decryptionDetails.delegation, exchangeDataDetails)) yield decrypted
+          }
         }
       }
     }
