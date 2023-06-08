@@ -2161,19 +2161,36 @@ export class IccCryptoXApi {
     })
   }
 
-  getDataOwner(ownerId: string, loadIfMissingFromCache: boolean = true) {
+  getDataOwner(ownerId: string, loadIfMissingFromCache: boolean = true): Promise<CachedDataOwner> {
+    const retrieve: () => Promise<CachedDataOwner> = async () => {
+      const hcpDataOwnerPromise = this.hcpartyBaseApi
+        .getHealthcareParty(ownerId)
+        .then((x) => ({ type: 'hcp', dataOwner: x } as CachedDataOwner))
+        .catch(() => undefined)
+      const patientDataOwnerPromise = this.patientBaseApi
+        .getPatient(ownerId)
+        .then((x) => ({ type: 'patient', dataOwner: x } as CachedDataOwner))
+        .catch(() => undefined)
+      const hcpDataOwner = await hcpDataOwnerPromise
+      const patientDataOwner = await patientDataOwnerPromise
+      if (!!hcpDataOwner && !!patientDataOwner) console.error("Both hcp and patient data owner found for id: '" + ownerId + "'")
+      if (!!hcpDataOwner || !!patientDataOwner) {
+        return hcpDataOwner ?? patientDataOwner!
+      }
+      const deviceDataOwner = await this.deviceBaseApi
+        .getDevice(ownerId)
+        .then((x) => ({ type: 'device', dataOwner: x } as CachedDataOwner))
+        .catch(() => undefined)
+      if (!!deviceDataOwner) return deviceDataOwner
+      throw new Error("Data owner with id '" + ownerId + "' not found")
+    }
     return (
       this.dataOwnerCache[ownerId] ??
       (loadIfMissingFromCache
-        ? (this.dataOwnerCache[ownerId] = this.patientBaseApi
-            .getPatient(ownerId)
-            .then((x) => ({ type: 'patient', dataOwner: x } as CachedDataOwner))
-            .catch(() => this.deviceBaseApi.getDevice(ownerId).then((x) => ({ type: 'device', dataOwner: x } as CachedDataOwner)))
-            .catch(() => this.hcpartyBaseApi.getHealthcareParty(ownerId).then((x) => ({ type: 'hcp', dataOwner: x } as CachedDataOwner)))
-            .catch((e) => {
-              delete this.dataOwnerCache[ownerId]
-              throw e
-            }))
+        ? (this.dataOwnerCache[ownerId] = retrieve().catch((e) => {
+            delete this.dataOwnerCache[ownerId]
+            throw e
+          }))
         : undefined)
     )
   }
