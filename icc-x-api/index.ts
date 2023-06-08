@@ -8,6 +8,7 @@ import {
   IccMedicallocationApi,
   IccPatientApi,
   IccPermissionApi,
+  OAuthThirdParty,
 } from '../icc-api'
 import { IccUserXApi } from './icc-user-x-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
@@ -24,7 +25,7 @@ import { IccMessageXApi } from './icc-message-x-api'
 import { IccReceiptXApi } from './icc-receipt-x-api'
 import { IccAccesslogXApi } from './icc-accesslog-x-api'
 import { IccTimeTableXApi } from './icc-time-table-x-api'
-import { IccDeviceApi } from '../icc-api/api/IccDeviceApi'
+import { IccDeviceApi } from '../icc-api'
 import { IccCodeXApi } from './icc-code-x-api'
 import { IccMaintenanceTaskXApi } from './icc-maintenance-task-x-api'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
@@ -163,7 +164,7 @@ export const Api = async function (
           authenticationOptions.password
         )
   } else {
-    authenticationProvider = authenticationOptions
+    authenticationProvider = authenticationOptions as AuthenticationProvider
   }
 
   // Here I instantiate a separate instance of the AuthApi that can call also login-protected methods (logout)
