@@ -1,15 +1,22 @@
 import { AuthService } from './AuthService'
 import { XHR } from '../../icc-api/api/XHR'
-import { IccAuthApi } from '../../icc-api'
+import { IccAuthApi, OAuthThirdParty } from '../../icc-api'
 import { LoginCredentials } from '../../icc-api/model/LoginCredentials'
 import Header = XHR.Header
 import { a2b } from '../utils'
+import { AuthenticationResponse } from '../../icc-api/model/AuthenticationResponse'
+import XHRError = XHR.XHRError
 
 export class JwtAuthService implements AuthService {
   private _error: Error | null = null
   private _currentPromise: Promise<{ authJwt?: string; refreshJwt?: string }> = Promise.resolve({})
 
-  constructor(private authApi: IccAuthApi, private username: string, private password: string) {}
+  constructor(
+    private authApi: IccAuthApi,
+    private username: string,
+    private password: string,
+    private thirdPartyTokens: { [thirdParty: OAuthThirdParty]: string } = {}
+  ) {}
 
   async getAuthHeaders(): Promise<Array<Header>> {
     return this._currentPromise
@@ -51,17 +58,46 @@ export class JwtAuthService implements AuthService {
   }
 
   private async _loginAndGetTokens(): Promise<{ authJwt?: string; refreshJwt?: string }> {
-    return this.authApi
-      .login(
-        new LoginCredentials({
-          username: this.username,
-          password: this.password,
-        })
-      )
-      .then((authResponse) => ({
-        authJwt: authResponse.token,
-        refreshJwt: authResponse.refreshToken,
-      }))
+    let authResponse
+    let firstError
+    if (this.username && this.password) {
+      try {
+        authResponse = await this.authApi.login(
+          new LoginCredentials({
+            username: this.username,
+            password: this.password,
+          })
+        )
+      } catch (e) {
+        firstError = e
+      }
+    }
+    if (!authResponse) {
+      authResponse = await (Object.entries(this.thirdPartyTokens) as [OAuthThirdParty, string][]).reduce(async (acc, [thirdParty, token]) => {
+        const prev = await acc
+        return (
+          prev ||
+          (token
+            ? this.authApi.loginWithThirdPartyToken(thirdParty, token).catch((e) => {
+                if (!firstError) {
+                  firstError = e
+                }
+                return Promise.resolve()
+              })
+            : undefined)
+        )
+      }, Promise.resolve() as Promise<AuthenticationResponse | undefined>)
+    }
+
+    if (!authResponse) {
+      if (firstError) throw firstError
+      throw new XHRError('', 'Unknown error', 401, 'Unauthorized', new Headers())
+    }
+
+    return {
+      authJwt: authResponse.token,
+      refreshJwt: authResponse.refreshToken,
+    }
   }
 
   private _isJwtExpired(jwt: string): boolean {
