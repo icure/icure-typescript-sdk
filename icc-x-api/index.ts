@@ -137,7 +137,6 @@ class NamedApiParametersWithDefault implements ApiOptions {
 export type AuthenticationDetails = {
   username: string
   password: string
-  forceBasic?: boolean // default false
 }
 
 export const Api = async function (
@@ -155,13 +154,11 @@ export const Api = async function (
   const params = new NamedApiParametersWithDefault(options)
   let authenticationProvider: AuthenticationProvider
   if ('username' in authenticationOptions && 'password' in authenticationOptions) {
-    authenticationProvider = authenticationOptions.forceBasic
-      ? new BasicAuthenticationProvider(authenticationOptions.username, authenticationOptions.password)
-      : new EnsembleAuthenticationProvider(
-          new IccAuthApi(host, params.headers, new NoAuthenticationProvider(), fetchImpl),
-          authenticationOptions.username,
-          authenticationOptions.password
-        )
+    authenticationProvider = new EnsembleAuthenticationProvider(
+      new IccAuthApi(host, params.headers, new NoAuthenticationProvider(), fetchImpl),
+      authenticationOptions.username,
+      authenticationOptions.password
+    )
   } else {
     authenticationProvider = authenticationOptions
   }
