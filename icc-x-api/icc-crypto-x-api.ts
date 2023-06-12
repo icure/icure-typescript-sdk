@@ -1980,32 +1980,30 @@ export class IccCryptoXApi {
     newPublicKey: CryptoKey
   ): Promise<MaintenanceTask[]> {
     const hexNewPubKey = ua2hex(await this.RSA.exportKey(newPublicKey, 'spki'))
-    const nonAccessiblePubKeys = Array.from(this.getDataOwnerHexPublicKeys(dataOwner).values())
-      .filter((existingPubKey) => existingPubKey != hexNewPubKey)
-      .filter(async (existingPubKey) => (await this.getPublicKeysAsSpki()).find((pubKey) => pubKey == existingPubKey) == undefined)
+    const availablePubKeysSet = new Set(await this.getPublicKeysAsSpki())
+    const hasNonAccessiblePubKeys = Array.from(this.getDataOwnerHexPublicKeys(dataOwner).values()).some(
+      (existingPubKey) => existingPubKey != hexNewPubKey && !availablePubKeysSet.has(existingPubKey)
+    )
 
-    if (nonAccessiblePubKeys.length) {
-      const tasksForDelegates = Object.entries(await this.getEncryptedAesExchangeKeysForDelegate(dataOwner.id!))
-        .filter(([delegatorId]) => delegatorId != dataOwner.id)
-        .flatMap(([delegatorId, delegatorKeys]) => {
-          return Object.entries(delegatorKeys).flatMap(([, aesExchangeKeys]) => {
-            return Object.keys(aesExchangeKeys).map((delegatePubKey) => {
-              return { delegateId: delegatorId, maintenanceTask: this.createMaintenanceTask(dataOwner, delegatePubKey) }
-            })
-          })
-        })
-
-      const tasksForDelegator = (await this._getDelegateIdsOf(dataOwner))
+    if (hasNonAccessiblePubKeys) {
+      const allDelegatesAndDelegator = new Set([
+        ...Object.keys(await this.getEncryptedAesExchangeKeysForDelegate(dataOwner.id!)),
+        ...(await this._getDelegateIdsOf(dataOwner)),
+      ])
+      const tasks = [...allDelegatesAndDelegator]
         .filter((delegateId) => delegateId != dataOwner.id)
         .map((delegateId) => {
-          return { delegateId: delegateId, maintenanceTask: this.createMaintenanceTask(dataOwner, hexNewPubKey) }
+          return { delegateId, maintenanceTask: this.createMaintenanceTask(dataOwner, hexNewPubKey) }
         })
-
-      return await tasksForDelegates.concat(tasksForDelegator).reduce(async (existingTasks, task) => {
+      const res: MaintenanceTask[] = []
+      for (const task of tasks) {
         const taskToCreate = await maintenanceTaskApi?.newInstance(user, task.maintenanceTask, [task.delegateId])
         const createdTask: MaintenanceTask = taskToCreate ? await maintenanceTaskApi?.createMaintenanceTaskWithUser(user, taskToCreate) : undefined
-        return createdTask ? (await existingTasks).concat(createdTask) : await existingTasks
-      }, Promise.resolve([] as MaintenanceTask[]))
+        if (createdTask) {
+          res.push(createdTask)
+        }
+      }
+      return res
     } else {
       return []
     }
