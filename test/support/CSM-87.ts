@@ -7,14 +7,14 @@ setLocalStorage(fetch)
 
 let env: TestVars
 
-describe('An hcp', async function () {
+describe('CSM-87', async function () {
   before(async function () {
     this.timeout(600000)
     const initializer = await getEnvironmentInitializer()
     env = await initializer.execute(getEnvVariables())
   })
 
-  it('should be able to load his key with `loadKeyPairsAsJwkInBrowserLocalStorage` and then create shamir partitions for himself', async function () {
+  it('An hcp should be able to load his key with `loadKeyPairsAsJwkInBrowserLocalStorage` and then create shamir partitions for himself', async function () {
     const hcp1Credentials = env.dataOwnerDetails[hcp1Username]
     const apis = await Api(env.iCureUrl, hcp1Credentials.user, hcp1Credentials.password, webcrypto as any, fetch)
     const hcp1Id = (await apis.userApi.getCurrentUser()).healthcarePartyId!
