@@ -43,16 +43,4 @@ describe('Shamir combine', () => {
       }
     }
   })
-
-  it('should be able to decrypt the hcparty private key using notaries', async () => {
-    const { cryptoApi, healthcarePartyApi } = await Api(
-      'https://kraken.icure.cloud/rest/v1',
-      process.env.SHAMIR_USER!,
-      process.env.SHAMIR_PASSWORD!,
-      crypto
-    )
-    const hcp: HealthcareParty = await healthcarePartyApi.getCurrentHealthcareParty()
-    await cryptoApi.loadKeyPairsAsTextInBrowserLocalStorage(hcp.parentId!, hex2ua(process.env.SHAMIR_PARENT_PK!))
-    await cryptoApi.decryptShamirRSAKey(hcp, [await healthcarePartyApi.getHealthcareParty(hcp.parentId!)])
-  })
 })

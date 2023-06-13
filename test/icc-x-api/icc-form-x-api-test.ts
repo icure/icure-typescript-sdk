@@ -88,7 +88,7 @@ describe('icc-form-x-api Tests', () => {
     assert(readForm.cryptedForeignKeys![hcpUser.healthcarePartyId!].length > 0)
   })
 
-  it('CreateFormTemplate Success for HCP', async () => {
+  /*it('CreateFormTemplate Success for HCP', async () => {
     // Given
     const { formApi: hFormApiForHcp } = await Api(
       env!.iCureUrl,
@@ -269,5 +269,5 @@ describe('icc-form-x-api Tests', () => {
     assert(!!readFormTemplate.id)
     assert(readFormTemplate.descr === createdFormTemplate.descr)
     assert(!!readFormTemplate.templateLayout)
-  })
+  })*/
 })

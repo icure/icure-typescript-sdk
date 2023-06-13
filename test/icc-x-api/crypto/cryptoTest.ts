@@ -8,6 +8,7 @@ import { Api } from '../../../icc-x-api'
 import { Patient } from '../../../icc-api/model/Patient'
 import { getEnvironmentInitializer, getEnvVariables, hcp1Username, hcp2Username, initKeys, TestVars } from '../../utils/test_utils'
 import { BasicAuthenticationProvider } from '../../../icc-x-api/auth/AuthenticationProvider'
+import { Contact } from '../../../icc-api/model/Contact'
 
 let env: TestVars | undefined
 
@@ -141,40 +142,62 @@ describe('Test that contact information can be decrypted', () => {
       await initKeys(api, env!.dataOwnerDetails[hcp1Username].privateKey, env!.dataOwnerDetails[hcp1Username].publicKey)
 
       const pat = await api.patientApi.createPatientWithUser(user, await api.patientApi.newInstance(user, { firstName: 'John', lastName: 'Doe' }))
-      const ctc = await api.contactApi.createContactWithUser(
+      const idFlat = api.cryptoApi.randomUuid()
+      const idCompound = api.cryptoApi.randomUuid()
+      const idAtoi = api.cryptoApi.randomUuid()
+      const idSalut = api.cryptoApi.randomUuid()
+
+      const created: Contact = await api.contactApi.createContactWithUser(
         user,
         await api.contactApi.newInstance(user, pat, {
           services: [
             {
-              id: api.cryptoApi.randomUuid(),
+              id: idFlat,
               content: { fr: { stringValue: 'Salut' }, nl: { stringValue: 'Halo' } },
             },
             {
-              id: api.cryptoApi.randomUuid(),
+              id: idCompound,
               content: {
                 fr: {
-                  compoundValue: [{ content: { fr: { stringValue: 'Salut' } } }, { content: { fr: { stringValue: 'à toi' } } }],
+                  compoundValue: [
+                    { id: idSalut, content: { fr: { stringValue: 'Salut' } } },
+                    { id: idAtoi, content: { fr: { stringValue: 'à toi' } } },
+                  ],
                 },
               },
             },
           ],
         })
       )
-      const check = await api.contactApi.getContactWithUser(user, ctc.id)
 
-      expect(check.services[0].content.fr.stringValue).to.equal(ctc.services[0].content.fr.stringValue)
-      expect(check.services[0].content.nl.stringValue).to.equal(ctc.services[0].content.nl.stringValue)
-      expect(check.services[0].encryptedSelf).to.not.be.null
+      const createdFlat = created!.services!.find((x) => x.id === idFlat)!
+      const createdCompound = created!.services!.find((x) => x.id === idCompound)!
+      const createdSalut = createdCompound.content!.fr.compoundValue!.find((x) => x.id === idSalut)!
+      const createdAtoi = createdCompound.content!.fr.compoundValue!.find((x) => x.id === idAtoi)!
 
-      expect(check.services[1].content.fr.compoundValue[0].content.fr.stringValue).to.equal(
-        ctc.services[1].content.fr.compoundValue[0].content.fr.stringValue
-      )
-      expect(check.services[1].content.fr.compoundValue[0].encryptedSelf).to.not.be.null
+      const check: Contact = await api.contactApi.getContactWithUser(user, created!.id!)
 
-      expect(check.services[1].content.fr.compoundValue[1].content.fr.stringValue).to.equal(
-        ctc.services[1].content.fr.compoundValue[1].content.fr.stringValue
-      )
-      expect(check.services[1].content.fr.compoundValue[1].encryptedSelf).to.not.be.null
+      const checkFlat = check!.services!.find((x) => x.id == idFlat)!
+      const checkCompound = check!.services!.find((x) => x.id == idCompound)!
+      const checkSalut = checkCompound.content!.fr.compoundValue!.find((x) => x.id === idSalut)!
+      const checkAtoi = checkCompound.content!.fr.compoundValue!.find((x) => x.id === idAtoi)!
+
+      expect(checkFlat).to.not.be.undefined
+      expect(checkFlat).to.not.be.null
+      expect(checkSalut).to.not.be.undefined
+      expect(checkSalut).to.not.be.null
+      expect(checkAtoi).to.not.be.undefined
+      expect(checkAtoi).to.not.be.null
+
+      expect(checkFlat.content!.fr.stringValue).to.equal(createdFlat!.content!.fr.stringValue)
+      expect(checkFlat.content!.nl.stringValue).to.equal(createdFlat!.content!.nl.stringValue)
+      expect(checkFlat.content!.encryptedSelf).to.not.be.null
+
+      expect(checkSalut.content!.fr.stringValue).to.equal(createdSalut.content!.fr.stringValue)
+      expect(checkSalut.encryptedSelf).to.not.be.null
+
+      expect(checkAtoi.content!.fr.stringValue).to.equal(createdAtoi.content!.fr.stringValue)
+      expect(checkAtoi.encryptedSelf).to.not.be.null
     } catch (e) {
       console.log(e)
       throw e

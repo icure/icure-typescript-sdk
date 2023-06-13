@@ -77,11 +77,7 @@ describe('Full battery of tests on crypto and keys', async function () {
     console.log('All prerequisites are started')
   })
 
-  after(async () => {
-    const env = getEnvVariables()
-    await cleanup('test/scratch', env.composeFileUrl)
-    console.log('Cleanup complete')
-  })
+  after(async () => {})
 
   it(`Share patient from hcp to patient`, async () => {
     const u = hcpUser!

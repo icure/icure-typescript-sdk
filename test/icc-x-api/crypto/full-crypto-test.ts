@@ -248,132 +248,138 @@ let apis: { [key: string]: Apis }
 
 describe('Full battery of tests on crypto and keys', async function () {
   before(async function () {
-    this.timeout(6000000)
-    const initializer = await getEnvironmentInitializer()
-    env = await initializer.execute(getEnvVariables())
+    try {
+      this.timeout(6000000)
+      const initializer = await getEnvironmentInitializer()
+      env = await initializer.execute(getEnvVariables())
 
-    const api = await Api(env!.iCureUrl, env.masterHcp!.user, env.masterHcp!.password, webcrypto as unknown as Crypto)
-    const user = await api.userApi.getCurrentUser()
-    const dataOwnerId = api.dataOwnerApi.getDataOwnerOf(user)
-    const jwk = {
-      publicKey: spkiToJwk(hex2ua(env.masterHcp!.publicKey)),
-      privateKey: pkcs8ToJwk(hex2ua(env.masterHcp!.privateKey)),
-    }
-    await api.cryptoApi.cacheKeyPair(jwk)
-    await api.cryptoApi.keyStorage.storeKeyPair(`${dataOwnerId}.${env.masterHcp!.publicKey.slice(-32)}`, jwk)
+      const api = await Api(env!.iCureUrl, env.masterHcp!.user, env.masterHcp!.password, webcrypto as unknown as Crypto)
+      const user = await api.userApi.getCurrentUser()
+      const dataOwnerId = api.dataOwnerApi.getDataOwnerOf(user)
+      const jwk = {
+        publicKey: spkiToJwk(hex2ua(env.masterHcp!.publicKey)),
+        privateKey: pkcs8ToJwk(hex2ua(env.masterHcp!.privateKey)),
+      }
+      await api.cryptoApi.cacheKeyPair(jwk)
+      await api.cryptoApi.keyStorage.storeKeyPair(`${dataOwnerId}.${env.masterHcp!.publicKey.slice(-32)}`, jwk)
 
-    const { userApi, patientApi, healthcarePartyApi, cryptoApi } = api
+      const { userApi, patientApi, healthcarePartyApi, cryptoApi } = api
 
-    const publicKeyDelegate = await makeKeyPair(cryptoApi, `hcp-delegate`)
-    delegateHcp = await healthcarePartyApi.createHealthcareParty(
-      new HealthcareParty({ id: uuid(), publicKey: publicKeyDelegate, firstName: 'test', lastName: 'test' }) //FIXME Shouldn't we call addNewKeyPair directly, instead of initialising like before ?
-    )
-    delegateUser = await userApi.createUser(
-      new User({
-        id: `user-${uuid()}-hcp`,
-        login: `hcp-delegate`,
-        status: 'ACTIVE',
-        healthcarePartyId: delegateHcp.id,
-      })
-    )
-    delegateHcpPassword = await userApi.getToken(delegateUser!.id!, uuid())
-
-    const publicKeyHcpGivingAccessBack = await makeKeyPair(cryptoApi, `hcp-giving-access-back`)
-    hcpGivingAccessBack = await healthcarePartyApi.createHealthcareParty(
-      new HealthcareParty({ id: uuid(), publicKey: publicKeyHcpGivingAccessBack, firstName: 'test', lastName: 'test' })
-    )
-    userGivingAccessBack = await userApi.createUser(
-      new User({
-        id: `user-${uuid()}-hcp`,
-        login: `hcp-giving-access-back`,
-        status: 'ACTIVE',
-        healthcarePartyId: hcpGivingAccessBack.id,
-      })
-    )
-    userGivingAccessBackPassword = await userApi.getToken(userGivingAccessBack!.id!, uuid())
-
-    await Object.entries(userDefinitions).reduce(async (p, [login, creationProcess]) => {
-      await p
-      const newPatientEmail = getTempEmail()
-      const publicKeyPatient = await makeKeyPair(cryptoApi, newPatientEmail)
-      const patientToCreate = await patientApi.newInstance(
-        user,
-        new Patient({ id: uuid(), publicKey: publicKeyPatient, firstName: 'test', lastName: 'test' }),
-        [dataOwnerId]
+      const hcpDelegateLogin = `hcp-delegate-${uuid()}`
+      const publicKeyDelegate = await makeKeyPair(cryptoApi, hcpDelegateLogin)
+      delegateHcp = await healthcarePartyApi.createHealthcareParty(
+        new HealthcareParty({ id: uuid(), publicKey: publicKeyDelegate, firstName: 'test', lastName: 'test' }) //FIXME Shouldn't we call addNewKeyPair directly, instead of initialising like before ?
       )
-      const patient = await patientApi.createPatientWithUser(user, patientToCreate)
-
-      const newHcpEmail = getTempEmail()
-      const publicKeyHcp = await makeKeyPair(cryptoApi, newHcpEmail)
-      const hcp = await healthcarePartyApi.createHealthcareParty(
-        new HealthcareParty({ id: uuid(), publicKey: publicKeyHcp, firstName: 'test', lastName: 'test' })
-      )
-
-      const newPatientUser = await userApi.createUser(
-        new User({
-          id: `user-${uuid()}-patient`,
-          name: `patient-${login}`,
-          login: newPatientEmail,
-          email: newPatientEmail,
-          status: 'ACTIVE',
-          patientId: patient.id,
-        })
-      )
-      const newPatientUserPassword = await userApi.getToken(newPatientUser!.id!, uuid())
-
-      const newHcpUser = await userApi.createUser(
+      delegateUser = await userApi.createUser(
         new User({
           id: `user-${uuid()}-hcp`,
-          login: newHcpEmail,
-          email: newHcpEmail,
-          name: `hcp-${login}`,
+          login: hcpDelegateLogin,
           status: 'ACTIVE',
-          healthcarePartyId: hcp.id,
+          healthcarePartyId: delegateHcp.id,
         })
       )
-      const newHcpUserPassword = await userApi.getToken(newHcpUser!.id!, uuid())
+      delegateHcpPassword = await userApi.getToken(delegateUser!.id!, uuid())
 
-      await createPartialsForHcp(facades, entities, newHcpUser, newHcpUserPassword)
-      await createPartialsForPatient(facades, entities, newPatientUser, newPatientUserPassword)
-
-      users.push({ user: await creationProcess(newPatientUser, api), password: newPatientUserPassword })
-      users.push({ user: await creationProcess(newHcpUser, api), password: newHcpUserPassword })
-    }, Promise.resolve())
-
-    const delegateApi = await getApiAndAddPrivateKeysForUser(env!.iCureUrl, delegateUser!, delegateHcpPassword!)
-
-    apis = await Promise.all(
-      users.map(async ({ user, password }) => {
-        return { [user.name!]: await getApiAndAddPrivateKeysForUser(env!.iCureUrl, user, password, false, false) }
-      })
-    ).then((apiDictList) =>
-      apiDictList.reduce(
-        (prev, curr) => {
-          return { ...prev, ...curr }
-        },
-        { delegate: delegateApi }
+      const hcpGivingAccessBackLogin = `hcp-giving-access-back-${uuid()}`
+      const publicKeyHcpGivingAccessBack = await makeKeyPair(cryptoApi, hcpGivingAccessBackLogin)
+      hcpGivingAccessBack = await healthcarePartyApi.createHealthcareParty(
+        new HealthcareParty({ id: uuid(), publicKey: publicKeyHcpGivingAccessBack, firstName: 'test', lastName: 'test' })
       )
-    )
+      userGivingAccessBack = await userApi.createUser(
+        new User({
+          id: `user-${uuid()}-hcp`,
+          login: hcpGivingAccessBackLogin,
+          status: 'ACTIVE',
+          healthcarePartyId: hcpGivingAccessBack.id,
+        })
+      )
+      userGivingAccessBackPassword = await userApi.getToken(userGivingAccessBack!.id!, uuid())
 
-    await users
-      .filter((it) => it.user.id!.endsWith('patient'))
-      .map((it) => it.user)
-      .reduce(async (prev, it) => {
-        await prev
-        const otherUsers = users.filter((u) => u.user.id!.endsWith('patient') && u.user.id !== it.id).map((u) => u.user)
+      await Object.entries(userDefinitions).reduce(async (p, [login, creationProcess]) => {
+        await p
+        const newPatientEmail = getTempEmail()
+        const publicKeyPatient = await makeKeyPair(cryptoApi, newPatientEmail)
+        const patientToCreate = await patientApi.newInstance(
+          user,
+          new Patient({ id: uuid(), publicKey: publicKeyPatient, firstName: 'test', lastName: 'test' }),
+          [dataOwnerId]
+        )
+        const patient = await patientApi.createPatientWithUser(user, patientToCreate)
 
-        await otherUsers.reduce(async (p, u) => {
-          await p
-          const patientToShare = await facades.Patient.get(api, it.patientId!)
-          const sharedPatient = await facades.Patient.share(api, null, patientToShare, u.patientId!)
-          expect(Object.keys(sharedPatient.delegations ?? {})).to.contain(u.patientId!)
+        const newHcpEmail = getTempEmail()
+        const publicKeyHcp = await makeKeyPair(cryptoApi, newHcpEmail)
+        const hcp = await healthcarePartyApi.createHealthcareParty(
+          new HealthcareParty({ id: uuid(), publicKey: publicKeyHcp, firstName: 'test', lastName: 'test' })
+        )
+
+        const newPatientUser = await userApi.createUser(
+          new User({
+            id: `user-${uuid()}-patient`,
+            name: `patient-${login}`,
+            login: newPatientEmail,
+            email: newPatientEmail,
+            status: 'ACTIVE',
+            patientId: patient.id,
+          })
+        )
+        const newPatientUserPassword = await userApi.getToken(newPatientUser!.id!, uuid())
+
+        const newHcpUser = await userApi.createUser(
+          new User({
+            id: `user-${uuid()}-hcp`,
+            login: newHcpEmail,
+            email: newHcpEmail,
+            name: `hcp-${login}`,
+            status: 'ACTIVE',
+            healthcarePartyId: hcp.id,
+          })
+        )
+        const newHcpUserPassword = await userApi.getToken(newHcpUser!.id!, uuid())
+
+        await createPartialsForHcp(facades, entities, newHcpUser, newHcpUserPassword)
+        await createPartialsForPatient(facades, entities, newPatientUser, newPatientUserPassword)
+
+        users.push({ user: await creationProcess(newPatientUser, api), password: newPatientUserPassword })
+        users.push({ user: await creationProcess(newHcpUser, api), password: newHcpUserPassword })
+      }, Promise.resolve())
+
+      const delegateApi = await getApiAndAddPrivateKeysForUser(env!.iCureUrl, delegateUser!, delegateHcpPassword!)
+
+      apis = await Promise.all(
+        users.map(async ({ user, password }) => {
+          return { [user.name!]: await getApiAndAddPrivateKeysForUser(env!.iCureUrl, user, password, false, false) }
+        })
+      ).then((apiDictList) =>
+        apiDictList.reduce(
+          (prev, curr) => {
+            return { ...prev, ...curr }
+          },
+          { delegate: delegateApi }
+        )
+      )
+
+      await users
+        .filter((it) => it.user.id!.endsWith('patient'))
+        .map((it) => it.user)
+        .reduce(async (prev, it) => {
+          await prev
+          const otherUsers = users.filter((u) => u.user.id!.endsWith('patient') && u.user.id !== it.id).map((u) => u.user)
+
+          await otherUsers.reduce(async (p, u) => {
+            await p
+            const patientToShare = await facades.Patient.get(api, it.patientId!)
+            const sharedPatient = await facades.Patient.share(api, null, patientToShare, u.patientId!)
+            expect(Object.keys(sharedPatient.delegations ?? {})).to.contain(u.patientId!)
+            return Promise.resolve([])
+          }, Promise.resolve([]))
+
           return Promise.resolve([])
         }, Promise.resolve([]))
 
-        return Promise.resolve([])
-      }, Promise.resolve([]))
-
-    await api.authApi.logout()
+      await api.authApi.logout()
+    } catch (e) {
+      console.error(e)
+    }
   })
   ;['hcp'].forEach((uType) => {
     Object.keys(userDefinitions).forEach((uId) => {

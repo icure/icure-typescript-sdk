@@ -69,7 +69,7 @@ describe('CSM-93', async function () {
         new FilterChainMaintenanceTask({
           filter: new MaintenanceTaskAfterDateFilter({
             healthcarePartyId: hcpUser.healthcarePartyId!,
-            date: startTimestamp - 1000,
+            date: startTimestamp - 1,
           }),
         })
       )
