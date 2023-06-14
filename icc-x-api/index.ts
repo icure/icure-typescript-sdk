@@ -159,15 +159,13 @@ export const Api = async function (
   const params = new NamedApiParametersWithDefault(options)
   let authenticationProvider: AuthenticationProvider
   if ('username' in authenticationOptions && 'password' in authenticationOptions) {
-    authenticationProvider = authenticationOptions.forceBasic
-      ? new BasicAuthenticationProvider(authenticationOptions.username, authenticationOptions.password)
-      : new EnsembleAuthenticationProvider(
-          new IccAuthApi(host, params.headers, new NoAuthenticationProvider(), fetchImpl),
-          authenticationOptions.username,
-          authenticationOptions.password,
-          3600,
-          authenticationOptions.thirdPartyTokens
-        )
+    authenticationProvider = new EnsembleAuthenticationProvider(
+      new IccAuthApi(host, params.headers, new NoAuthenticationProvider(), fetchImpl),
+      authenticationOptions.username,
+      authenticationOptions.password,
+      3600,
+      authenticationOptions.thirdPartyTokens
+    )
   } else if ('icureTokens' in authenticationOptions) {
     new JwtAuthenticationProvider(
       new IccAuthApi(host, {}, new NoAuthenticationProvider(), fetchImpl),
