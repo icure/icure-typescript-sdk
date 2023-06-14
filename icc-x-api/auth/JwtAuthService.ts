@@ -9,7 +9,20 @@ export class JwtAuthService implements AuthService {
   private _error: Error | null = null
   private _currentPromise: Promise<{ authJwt?: string; refreshJwt?: string }> = Promise.resolve({})
 
-  constructor(private authApi: IccAuthApi, private username: string, private password: string) {}
+  constructor(
+    private readonly authApi: IccAuthApi,
+    private readonly username: string,
+    private readonly password: string,
+    initialJwt?: { authJwt: string; refreshJwt?: string }
+  ) {
+    if (!!initialJwt) {
+      this._currentPromise = Promise.resolve(initialJwt)
+    }
+  }
+
+  get refreshToken(): Promise<string | undefined> {
+    return this._currentPromise.then((x) => x.refreshJwt)
+  }
 
   async getAuthHeaders(): Promise<Array<Header>> {
     return this._currentPromise
