@@ -62,14 +62,11 @@ describe('CSM-93', async function () {
       )
     )
     function checkContactDecrypted(ctc: Contact) {
-      expect(ctc.services).to.not.be.undefined
-      expect(ctc.services![0].content).to.not.be.undefined
-      expect(ctc.services![0].content!.fr).to.not.be.undefined
-      expect(ctc.services![0].content!.fr!.stringValue).to.equal(ctcData)
+      expect(ctc.services?.[0]?.content?.fr?.stringValue).to.equal(ctcData)
       expect(ctc.descr).to.equal(ctcDescr)
     }
     function checkContactEncrypted(ctc: Contact) {
-      expect(ctc.services![0]).to.not.be.undefined
+      expect(ctc.services?.[0]).to.not.be.undefined
       expect(Object.keys(ctc.services![0].content ?? {})).to.be.empty
       expect(ctc.descr).to.be.undefined
     }
