@@ -6,6 +6,8 @@ import 'isomorphic-fetch'
 import { FilterChainMaintenanceTask } from '../../icc-api/model/FilterChainMaintenanceTask'
 import { MaintenanceTask } from '../../icc-api/model/MaintenanceTask'
 import { MaintenanceTaskAfterDateFilter } from '../../icc-x-api/filters/MaintenanceTaskAfterDateFilter'
+import { Service } from '../../icc-api/model/Service'
+import { Contact } from '../../icc-api/model/Contact'
 setLocalStorage(fetch)
 
 let env: TestVars
@@ -44,10 +46,39 @@ describe('CSM-93', async function () {
       patUser,
       await patApis.healthcareElementApi.newInstance(patUser, p2, { note: heNote }, false, [hcpUser.healthcarePartyId!])
     )
+    const ctcData = 'Some data'
+    const ctcDescr = 'Some description'
+    const ctc = await hcpApis.contactApi.createContactWithUser(
+      hcpUser,
+      await hcpApis.contactApi.newInstance(
+        hcpUser,
+        p2,
+        {
+          services: [new Service({ label: 'svc', content: { fr: { stringValue: ctcData } } })],
+          descr: ctcDescr,
+        },
+        false,
+        [patUser.patientId!]
+      )
+    )
+    function checkContactDecrypted(ctc: Contact) {
+      expect(ctc.services).to.not.be.undefined
+      expect(ctc.services![0].content).to.not.be.undefined
+      expect(ctc.services![0].content!.fr).to.not.be.undefined
+      expect(ctc.services![0].content!.fr!.stringValue).to.equal(ctcData)
+      expect(ctc.descr).to.equal(ctcDescr)
+    }
+    function checkContactEncrypted(ctc: Contact) {
+      expect(ctc.services![0]).to.not.be.undefined
+      expect(Object.keys(ctc.services![0].content ?? {})).to.be.empty
+      expect(ctc.descr).to.be.undefined
+    }
     expect((await hcpApis.patientApi.getPatientWithUser(hcpUser, p2.id!)).note).to.equal(patientNote)
     expect((await patApis.patientApi.getPatientWithUser(patUser, p2.id!)).note).to.equal(patientNote)
     expect((await hcpApis.healthcareElementApi.getHealthElementWithUser(hcpUser, he.id!)).note).to.equal(heNote)
     expect((await patApis.healthcareElementApi.getHealthElementWithUser(patUser, he.id!)).note).to.equal(heNote)
+    checkContactDecrypted(await hcpApis.contactApi.getContactWithUser(hcpUser, ctc.id!))
+    checkContactDecrypted(await patApis.contactApi.getContactWithUser(patUser, ctc.id!))
     const startTimestamp = new Date().getTime()
     const patApisLost = await Api(env.iCureUrl, patientCredentials.user, patientCredentials.password, webcrypto as any, fetch)
     const newPair = await patApisLost.cryptoApi.addNewKeyPairForOwnerId(patApisLost.maintenanceTaskApi, patUser, patUser.patientId!)
@@ -57,6 +88,7 @@ describe('CSM-93', async function () {
     expect(retrievedHeLost).to.not.be.undefined
     expect(retrievedPatientLost.note).to.be.undefined
     expect(retrievedHeLost.note).to.be.undefined
+    checkContactEncrypted(await patApisLost.contactApi.getContactWithUser(patUser, ctc.id!))
     // The patient had to create a new aes exchange key to share the maintenance task with the hcp:
     // If you don't clear the cache of the hcp he will not be able to decrypt the maintenance task
     hcpApis.cryptoApi.emptyHcpCache(hcpUser.healthcarePartyId!)
@@ -69,7 +101,7 @@ describe('CSM-93', async function () {
         new FilterChainMaintenanceTask({
           filter: new MaintenanceTaskAfterDateFilter({
             healthcarePartyId: hcpUser.healthcarePartyId!,
-            date: startTimestamp - 1000,
+            date: startTimestamp - 1,
           }),
         })
       )
@@ -83,11 +115,16 @@ describe('CSM-93', async function () {
       ?.stringValue
     expect(dataOwnerConcernedPubKey).to.not.be.undefined
     expect(dataOwnerConcernedPubKey).to.equal(newPair.publicKey)
+    console.log('Patient is ' + patUser.patientId)
+    console.log('Hcp is ' + hcpUser.healthcarePartyId)
+    console.log('Og patient key ' + patientCredentials.publicKey.slice(-32))
+    console.log('New patient key ' + newPair.publicKey.slice(-32))
     await hcpApis.cryptoApi.giveAccessBackTo(hcpUser, dataOwnerConcernedId!, dataOwnerConcernedPubKey!)
     // Clear the caches to ensure the user uses the latest version of the exchange keys with the 'give access back' data
     patApisLost.cryptoApi.emptyHcpCache(hcpUser.healthcarePartyId!)
     patApisLost.cryptoApi.emptyHcpCache(patUser.patientId!)
-    expect((await patApis.patientApi.getPatientWithUser(patUser, p2.id!)).note).to.equal(patientNote)
-    expect((await patApis.healthcareElementApi.getHealthElementWithUser(patUser, he.id!)).note).to.equal(heNote)
+    expect((await patApisLost.patientApi.getPatientWithUser(patUser, p2.id!)).note).to.equal(patientNote)
+    expect((await patApisLost.healthcareElementApi.getHealthElementWithUser(patUser, he.id!)).note).to.equal(heNote)
+    checkContactDecrypted(await patApisLost.contactApi.getContactWithUser(patUser, ctc.id!))
   })
 })
