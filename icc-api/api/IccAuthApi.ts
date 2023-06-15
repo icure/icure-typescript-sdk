@@ -168,6 +168,25 @@ export class IccAuthApi {
   }
 
   /**
+   * Gets a new authentication and refresh JWT for a different group
+   */
+  switchGroup(refreshJWT: string, groupId: string): Promise<AuthenticationResponse> {
+    let _body = null
+
+    const _url = this.host + `/auth/switch/${encodeURIComponent(String(groupId))}` + '?ts=' + new Date().getTime()
+    let headers = [...this.headers, new XHR.Header('Refresh-Token', refreshJWT)]
+    return XHR.sendCommand(
+      'POST',
+      _url,
+      headers.filter((h) => h.header?.toLowerCase() !== 'authorization'),
+      _body,
+      this.fetchImpl
+    )
+      .then((doc) => new AuthenticationResponse(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    * Gets a new authentication JWT using the refresh JWT
    * @summary refresh
    */
