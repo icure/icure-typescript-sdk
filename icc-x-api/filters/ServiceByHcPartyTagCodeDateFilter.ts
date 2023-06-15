@@ -28,4 +28,5 @@ export class ServiceByHcPartyTagCodeDateFilter extends AbstractFilterService {
   codeCode?: string
   startValueDate?: number
   endValueDate?: number
+  descending?: boolean
 }
