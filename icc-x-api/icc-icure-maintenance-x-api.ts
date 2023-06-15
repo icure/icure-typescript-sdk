@@ -60,12 +60,14 @@ export class IccIcureMaintenanceXApi {
       const hexNewPubKeyFp = hexNewPubKey.slice(-32)
       const selfId = await this.dataOwnerApi.getCurrentDataOwnerId()
       const keysInfo = await this.getExchangeKeysInfosOf(selfId, requestsToOwnerTypes)
-      const requestDataOwners = keysInfo
-        .filter((info) => !info.fingerprints.has(hexNewPubKeyFp))
-        .flatMap((info) => [info.delegate, info.delegator])
-        .filter((dataOwner) => dataOwner !== selfId)
-      if (requestDataOwners.length > 0) {
-        const tasksToCreate = requestDataOwners.map((dataOwner) => ({
+      const requestDataOwners = new Set(
+        keysInfo
+          .filter((info) => !info.fingerprints.has(hexNewPubKeyFp))
+          .flatMap((info) => [info.delegate, info.delegator])
+          .filter((dataOwner) => dataOwner !== selfId)
+      )
+      if (requestDataOwners.size > 0) {
+        const tasksToCreate = [...requestDataOwners].map((dataOwner) => ({
           delegate: dataOwner,
           task: this.createMaintenanceTask(selfId, hexNewPubKey),
         }))
