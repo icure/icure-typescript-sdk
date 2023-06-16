@@ -1,7 +1,6 @@
-import { Api, Apis } from '../../icc-x-api'
+import { IcureApi } from '../../icc-x-api'
 import { KeyPair, RSAUtils } from '../../icc-x-api/crypto/RSA'
 import { TestKeyStorage, TestStorage } from './TestStorage'
-import { DefaultStorageEntryKeysFactory } from '../../icc-x-api/storage/DefaultStorageEntryKeysFactory'
 import { TestCryptoStrategies } from './TestCryptoStrategies'
 
 export const TestApi = async function (
@@ -10,9 +9,9 @@ export const TestApi = async function (
   password: string,
   crypto: Crypto = typeof window !== 'undefined' ? window.crypto : typeof self !== 'undefined' ? self.crypto : ({} as Crypto),
   keyPair?: KeyPair<CryptoKey>
-): Promise<Apis> {
+): Promise<IcureApi> {
   const initialisedKeys = keyPair ?? (await new RSAUtils(crypto).generateKeyPair())
-  return Api(
+  return IcureApi.initialise(
     host,
     { username, password },
     new TestCryptoStrategies(initialisedKeys),

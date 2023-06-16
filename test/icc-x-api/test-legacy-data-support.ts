@@ -1,7 +1,7 @@
 import 'isomorphic-fetch'
 import { Api as ApiV6 } from '@icure/apiV6'
 import { User as UserV6 } from '@icure/apiV6'
-import { Api as ApiV7, ua2hex, hex2ua } from '../../icc-x-api'
+import { IcureApi as ApiV7, ua2hex, hex2ua } from '../../icc-x-api'
 import { User } from '../../icc-api/model/User'
 import { getEnvironmentInitializer, setLocalStorage } from '../utils/test_utils'
 import { KeyPair } from '../../icc-x-api/crypto/RSA'
@@ -156,7 +156,7 @@ class ApiFactoryV7 implements ApiFactory {
       privateKey: await cryptoPrimitives.RSA.importKey('pkcs8', hex2ua(env.masterHcp!.privateKey), ['decrypt']),
       publicKey: await cryptoPrimitives.RSA.importKey('spki', hex2ua(env.masterHcp!.publicKey), ['encrypt']),
     }
-    const apis = await ApiV7(
+    const apis = await ApiV7.initialise(
       env.iCureUrl,
       { username: env.masterHcp!.user, password: env.masterHcp!.password },
       new TestCryptoStrategies(key),
@@ -201,7 +201,7 @@ class ApiFactoryV7 implements ApiFactory {
         ],
       },
     ])
-    const apis = await ApiV7(
+    const apis = await ApiV7.initialise(
       env.iCureUrl,
       { username: credentials.login, password: credentials.password },
       new TestCryptoStrategies(credentials.key),

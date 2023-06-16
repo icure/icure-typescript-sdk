@@ -1,4 +1,4 @@
-import { Api, Apis, ua2hex } from '../../../icc-x-api'
+import { Apis, IcureApi, ua2hex } from '../../../icc-x-api'
 import { v4 as uuid } from 'uuid'
 import { Patient } from '../../../icc-api/model/Patient'
 import { Contact } from '../../../icc-api/model/Contact'
@@ -185,7 +185,7 @@ const userDefinitions: Record<
 > = {
   'one available key and one lost key recoverable through transfer keys': async (user, password, originalKey) => {
     const newKey = await primitives.RSA.generateKeyPair()
-    const apiWithOnlyNewKey = await Api(
+    const apiWithOnlyNewKey = await IcureApi.initialise(
       env!.iCureUrl,
       { username: user.login!, password },
       new TestCryptoStrategies(newKey, {
@@ -198,7 +198,7 @@ const userDefinitions: Record<
         keyStorage: new TestKeyStorage(),
       }
     )
-    const apis = await Api(
+    const apis = await IcureApi.initialise(
       env!.iCureUrl,
       { username: user.login!, password },
       new TestCryptoStrategies(originalKey, {
@@ -216,7 +216,7 @@ const userDefinitions: Record<
   },
   'two available keys': async (user, password, originalKey) => {
     const newKey = await primitives.RSA.generateKeyPair()
-    const apiWithOnlyNewKey = await Api(
+    const apiWithOnlyNewKey = await IcureApi.initialise(
       env!.iCureUrl,
       { username: user.login!, password },
       new TestCryptoStrategies(newKey),
@@ -234,7 +234,7 @@ const userDefinitions: Record<
       }))
     )
     const storage = await testStorageWithKeys([{ dataOwnerId: user.healthcarePartyId ?? user.patientId!, pairs: keyStrings }])
-    const apis = await Api(env!.iCureUrl, { username: user.login!, password }, new TestCryptoStrategies(), webcrypto as any, fetch, {
+    const apis = await IcureApi.initialise(env!.iCureUrl, { username: user.login!, password }, new TestCryptoStrategies(), webcrypto as any, fetch, {
       storage: storage.storage,
       keyStorage: storage.keyStorage,
       entryKeysFactory: storage.keyFactory,

@@ -2,7 +2,7 @@ import 'isomorphic-fetch'
 import { ShamirClass } from '../../../icc-x-api/crypto/shamir'
 import { expect } from 'chai'
 import 'mocha'
-import { Api, ua2hex } from '../../../icc-x-api'
+import { IcureApi, ua2hex } from '../../../icc-x-api'
 import {
   createHcpHierarchyApis,
   getEnvironmentInitializer,
@@ -116,7 +116,7 @@ describe('Shamir key recovery', async function () {
       },
     ])
     const newKey = await api.cryptoApi.primitives.RSA.generateKeyPair()
-    const lostKeyApi = await Api(
+    const lostKeyApi = await IcureApi.initialise(
       env.iCureUrl,
       {
         username: hierarchyApis.childCredentials.user,
@@ -129,11 +129,11 @@ describe('Shamir key recovery', async function () {
         entryKeysFactory: lostKeyStorage.keyFactory,
         storage: lostKeyStorage.storage,
         keyStorage: lostKeyStorage.keyStorage,
+        createMaintenanceTasksOnNewKey: true,
       }
     )
     const lostUser = await lostKeyApi.userApi.getCurrentUser()
     const lostPatient = await lostKeyApi.patientApi.getPatientWithUser(lostUser, pat.id!)
-    await lostKeyApi.icureMaintenanceTaskApi.createMaintenanceTasksForNewKeypair(lostUser, newKey)
 
     async function checkNotRecovered() {
       await lostKeyApi.cryptoApi.forceReload()

@@ -1,13 +1,31 @@
 import {
   IccAgendaApi,
+  IccAnonymousAccessApi,
+  IccApplicationsettingsApi,
+  IccArticleApi,
   IccAuthApi,
+  IccBeefactApi,
+  IccBeresultexportApi,
+  IccBeresultimportApi,
+  IccBesamv2Api,
   IccCalendarItemTypeApi,
+  IccClassificationTemplateApi,
   IccEntityrefApi,
+  IccEntitytemplateApi,
+  IccFrontendmigrationApi,
   IccGroupApi,
+  IccIcureApi,
   IccInsuranceApi,
+  IccKeywordApi,
+  IccMedexApi,
   IccMedicallocationApi,
   IccPatientApi,
   IccPermissionApi,
+  IccPlaceApi,
+  IccPubsubApi,
+  IccReplicationApi,
+  IccTarificationApi,
+  IccTmpApi,
 } from '../icc-api'
 import { IccUserXApi } from './icc-user-x-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
@@ -53,7 +71,10 @@ import { IccIcureMaintenanceXApi } from './icc-icure-maintenance-x-api'
 import { EntitiesEncryption } from './crypto/EntitiesEncryption'
 import { ConfidentialEntities } from './crypto/ConfidentialEntities'
 import { ensureDelegationForSelf } from './crypto/utils'
-import { CryptoActorStub, CryptoActorStubWithType } from '../icc-api/model/CryptoActorStub'
+import { CryptoActorStubWithType } from '../icc-api/model/CryptoActorStub'
+import { IccBekmehrXApi } from './icc-bekmehr-x-api'
+import { IccDoctemplateXApi } from './icc-doctemplate-x-api'
+import { UserGroup } from '../icc-api/model/UserGroup'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -78,101 +99,279 @@ export { KeyStorageFacade } from './storage/KeyStorageFacade'
 export { LocalStorageImpl } from './storage/LocalStorageImpl'
 export { StorageFacade } from './storage/StorageFacade'
 export { KeyStorageImpl } from './storage/KeyStorageImpl'
+export { CryptoStrategies } from './crypto/CryptoStrategies'
 
 export interface Apis {
-  authApi: IccAuthApi
-  codeApi: IccCodeXApi
-  calendarItemTypeApi: IccCalendarItemTypeApi
-  medicalLocationApi: IccMedicallocationApi
-  entityReferenceApi: IccEntityrefApi
-  userApi: IccUserXApi
-  permissionApi: IccPermissionApi
-  healthcarePartyApi: IccHcpartyXApi
-  deviceApi: IccDeviceApi
-  cryptoApi: IccCryptoXApi
-  accessLogApi: IccAccesslogXApi
-  agendaApi: IccAgendaApi
-  contactApi: IccContactXApi
-  formApi: IccFormXApi
-  groupApi: IccGroupApi
-  invoiceApi: IccInvoiceXApi
-  insuranceApi: IccInsuranceApi
-  documentApi: IccDocumentXApi
-  healthcareElementApi: IccHelementXApi
-  classificationApi: IccClassificationXApi
-  calendarItemApi: IccCalendarItemXApi
-  receiptApi: IccReceiptXApi
-  timetableApi: IccTimeTableXApi
-  patientApi: IccPatientXApi
-  messageApi: IccMessageXApi
-  maintenanceTaskApi: IccMaintenanceTaskXApi
-  dataOwnerApi: IccDataOwnerXApi
-  icureMaintenanceTaskApi: IccIcureMaintenanceXApi
+  readonly authApi: IccAuthApi
+  readonly codeApi: IccCodeXApi
+  readonly calendarItemTypeApi: IccCalendarItemTypeApi
+  readonly medicalLocationApi: IccMedicallocationApi
+  readonly entityReferenceApi: IccEntityrefApi
+  readonly userApi: IccUserXApi
+  readonly permissionApi: IccPermissionApi
+  readonly healthcarePartyApi: IccHcpartyXApi
+  readonly deviceApi: IccDeviceApi
+  readonly cryptoApi: IccCryptoXApi
+  readonly accessLogApi: IccAccesslogXApi
+  readonly agendaApi: IccAgendaApi
+  readonly contactApi: IccContactXApi
+  readonly formApi: IccFormXApi
+  readonly groupApi: IccGroupApi
+  readonly invoiceApi: IccInvoiceXApi
+  readonly insuranceApi: IccInsuranceApi
+  readonly documentApi: IccDocumentXApi
+  readonly healthcareElementApi: IccHelementXApi
+  readonly classificationApi: IccClassificationXApi
+  readonly calendarItemApi: IccCalendarItemXApi
+  readonly receiptApi: IccReceiptXApi
+  readonly timetableApi: IccTimeTableXApi
+  readonly patientApi: IccPatientXApi
+  readonly messageApi: IccMessageXApi
+  readonly maintenanceTaskApi: IccMaintenanceTaskXApi
+  readonly dataOwnerApi: IccDataOwnerXApi
+  readonly icureMaintenanceTaskApi: IccIcureMaintenanceXApi
+  readonly anonymousAccessApi: IccAnonymousAccessApi
+  readonly applicationSettingsApi: IccApplicationsettingsApi
+  readonly articleApi: IccArticleApi
+  readonly bekmehrApi: IccBekmehrXApi
+  readonly beefactApi: IccBeefactApi
+  readonly beresultexportApi: IccBeresultexportApi
+  readonly beresultimportApi: IccBeresultimportApi
+  readonly besamv2Api: IccBesamv2Api
+  readonly classificationTemplateApi: IccClassificationTemplateApi
+  readonly doctemplateApi: IccDoctemplateXApi
+  readonly entitytemplateApi: IccEntitytemplateApi
+  readonly frontendmigrationApi: IccFrontendmigrationApi
+  readonly icureApi: IccIcureApi
+  readonly keywordApi: IccKeywordApi
+  readonly medexApi: IccMedexApi
+  readonly placeApi: IccPlaceApi
+  readonly pubsubApi: IccPubsubApi
+  readonly replicationApi: IccReplicationApi
+  readonly tarificationApi: IccTarificationApi
+  readonly tmpApi: IccTmpApi
 }
 
-export type ApiOptions = {
-  readonly entryKeysFactory?: StorageEntryKeysFactory
-  readonly createMaintenanceTasksOnNewKey?: boolean
+/**
+ * Allows to customise the behaviour of the iCure API by providing various optional parameters.
+ */
+export interface IcureApiOptions {
+  /**
+   * Specifies how iCure can store string values (e.g. json). In production this should be persistent storage.
+   * @default the browser's localStorage.
+   */
   readonly storage?: StorageFacade<string>
+  /**
+   * Specifies how iCure can store cryptographic keys. Preferably this should be some ad-hoc storage key storage.
+   * @default stores the json of the jwk representation of the key in {@link storage}.
+   */
   readonly keyStorage?: KeyStorageFacade
+  /**
+   * Specifies where iCure should store his data within the {@link storage} and {@link keyStorage}.
+   * @default {@link DefaultStorageEntryKeysFactory}
+   */
+  readonly entryKeysFactory?: StorageEntryKeysFactory
+  /**
+   * Specifies if iCure should create maintenance tasks for requesting access back when a new key is generated at initialisation time.
+   * @default true
+   */
+  readonly createMaintenanceTasksOnNewKey?: boolean
+  /**
+   * Additional headers to use on each request made by the iCure api.
+   * @default no additional headers
+   */
   readonly headers?: { [headerName: string]: string }
+  /**
+   * Specifies which fields should be encrypted for each kind of encryptable entity. You should make sure that every application in your environment
+   * specifies the same values for this configuration.
+   * @default see documentation for {@link EncryptedFieldsConfig}
+   */
+  readonly encryptedFieldsConfig?: EncryptedFieldsConfig
+  /**
+   * Each user may exist in multiple groups, but an instance of {@link IcureApi} is specialised for a single group. This function allows you to decide
+   * the group to use for a given user. This functions will be called only if a user exists in at least 2 groups, takes in input the information on
+   * the groups the user can access (in no specific order) and must return the id of one of these groups.
+   * @default takes the first group provided. The group chosen by this method may vary between different instantiations of the {@link IcureApi} even
+   * if for the same user and if the groups available for the user do not change.
+   */
+  readonly groupSelector?: (availableGroupsInfo: UserGroup[]) => Promise<string>
 }
-
-class NamedApiParametersWithDefault implements ApiOptions {
-  constructor(custom: ApiOptions) {
-    this.entryKeysFactory = custom.entryKeysFactory ?? new DefaultStorageEntryKeysFactory()
-    this.createMaintenanceTasksOnNewKey = custom.createMaintenanceTasksOnNewKey ?? false
-    this.storage = custom.storage ?? new LocalStorageImpl()
-    this.keyStorage = custom.keyStorage ?? new KeyStorageImpl(this.storage)
-    this.headers = custom.headers ?? {}
+namespace IcureApiOptions {
+  export namespace Defaults {
+    export const entryKeysFactory = new DefaultStorageEntryKeysFactory()
+    export const createMaintenanceTasksOnNewKey = true
+    export const headers = {}
   }
+  export class WithDefaults implements IcureApiOptions {
+    constructor(custom: IcureApiOptions) {
+      this.entryKeysFactory = custom.entryKeysFactory ?? Defaults.entryKeysFactory
+      this.createMaintenanceTasksOnNewKey = custom.createMaintenanceTasksOnNewKey ?? Defaults.createMaintenanceTasksOnNewKey
+      this.storage = custom.storage ?? new LocalStorageImpl()
+      this.keyStorage = custom.keyStorage ?? new KeyStorageImpl(this.storage)
+      this.headers = custom.headers ?? Defaults.headers
+      this.encryptedFieldsConfig = custom.encryptedFieldsConfig ?? EncryptedFieldsConfig.Defaults
+      this.groupSelector = custom.groupSelector ?? ((groups) => Promise.resolve(groups[0].groupId!))
+    }
 
-  readonly entryKeysFactory: StorageEntryKeysFactory
-  readonly createMaintenanceTasksOnNewKey: boolean
-  readonly storage: StorageFacade<string>
-  readonly keyStorage: KeyStorageFacade
-  readonly headers: { [headerName: string]: string }
+    readonly entryKeysFactory: StorageEntryKeysFactory
+    readonly createMaintenanceTasksOnNewKey: boolean
+    readonly storage: StorageFacade<string>
+    readonly keyStorage: KeyStorageFacade
+    readonly headers: { [headerName: string]: string }
+    readonly encryptedFieldsConfig: EncryptedFieldsConfig
+    readonly groupSelector: (availableGroupsInfo: UserGroup[]) => Promise<string>
+  }
 }
 
+/**
+ * Specifies which fields should be encrypted for each kind of encryptable entity.
+ * Note that any value you specify here overrides the default values. For example if you specify `['medicalLocationId']` for `healthElement` the
+ * fields `['descr', 'note']` which are usually encrypted by default will no longer be encrypted. If you want to add fields to the default values
+ * you can use {@link EncryptedFieldsConfig.Defaults}, for example `[...EncryptedFieldsConfig.Defaults.healthElement, 'medicalLocationId'].
+ */
+export interface EncryptedFieldsConfig {
+  /**
+   * Fields to encrypt for entities of type {@link AccessLog}
+   * @default ['detail', 'objectId']
+   */
+  readonly accessLog?: string[]
+  /**
+   * Fields to encrypt for entities of type {@link CalendarItem}
+   * @default ['details', 'title', 'patientId']
+   */
+  readonly calendarItem?: string[]
+  /*TODO
+   * configuration not yet supported for contact; automatically applies to descr and content of services
+   */
+  // readonly contact?: string[]
+  /**
+   * Fields to encrypt for entities of type {@link HealthElement}
+   * @default ['descr', 'note']
+   */
+  readonly healthElement?: string[]
+  /**
+   * Fields to encrypt for entities of type {@link MaintenanceTask}
+   * @default ['properties']
+   */
+  readonly maintenanceTask?: string[]
+  /**
+   * Fields to encrypt for entities of type {@link Patient}
+   * @default ['note']
+   */
+  readonly patient?: string[]
+}
+export namespace EncryptedFieldsConfig {
+  export const Defaults = {
+    accessLog: ['detail', 'objectId'],
+    calendarItem: ['details', 'title', 'patientId'],
+    // TODO contact
+    healthElement: ['descr', 'note'],
+    maintenanceTask: ['properties'],
+    patient: ['note'],
+  }
+}
+
+/**
+ * Details for the authentication of a user
+ */
 export type AuthenticationDetails = {
   username: string
   password: string
 }
 
-export const Api = async function (
-  host: string,
-  authenticationOptions: AuthenticationDetails | AuthenticationProvider,
-  cryptoStrategies: CryptoStrategies,
-  crypto: Crypto = typeof window !== 'undefined' ? window.crypto : typeof self !== 'undefined' ? self.crypto : ({} as Crypto),
-  fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
-    ? window.fetch
-    : typeof self !== 'undefined'
-    ? self.fetch
-    : fetch,
-  options: ApiOptions = {}
-): Promise<Apis> {
-  const params = new NamedApiParametersWithDefault(options)
-  let authenticationProvider: AuthenticationProvider
-  if ('username' in authenticationOptions && 'password' in authenticationOptions) {
-    authenticationProvider = new EnsembleAuthenticationProvider(
-      new IccAuthApi(host, params.headers, new NoAuthenticationProvider(), fetchImpl),
-      authenticationOptions.username,
-      authenticationOptions.password
-    )
-  } else {
-    authenticationProvider = authenticationOptions
-  }
+/**
+ * Main entry point for the iCure API. Provides entity-specific sub-apis and some general methods which are not related to a specific entity.
+ */
+export interface IcureApi extends Apis {
+  /**
+   * Get the information on groups that the current user can access and the current group that this api instance is working on.
+   * Note that the values you will get for `availableGroups` may differ from the values you would get if you call {@link IccUserApi.getMatchingUsers}
+   * on {@link Apis.userApi}, since the latter is specialised on the specific instance of the user in `currentGroup`.
+   */
+  getGroupsInfo(): Promise<{ currentGroup: UserGroup; availableGroups: UserGroup[] }>
 
-  // Here I instantiate a separate instance of the AuthApi that can call also login-protected methods (logout)
-  const authApi = new IccAuthApi(host, params.headers, authenticationProvider, fetchImpl)
-  const codeApi = new IccCodeXApi(host, params.headers, authenticationProvider, fetchImpl)
-  const entityReferenceApi = new IccEntityrefApi(host, params.headers, authenticationProvider, fetchImpl)
-  const userApi = new IccUserXApi(host, params.headers, authenticationProvider, fetchImpl)
-  const permissionApi = new IccPermissionApi(host, params.headers, authenticationProvider, fetchImpl)
-  const healthcarePartyApi = new IccHcpartyXApi(host, params.headers, authenticationProvider, fetchImpl)
-  const deviceApi = new IccDeviceApi(host, params.headers, authenticationProvider, fetchImpl)
-  const basePatientApi = new IccPatientApi(host, params.headers, authenticationProvider, fetchImpl)
-  const dataOwnerApi = new IccDataOwnerXApi(host, params.headers, authenticationProvider, fetchImpl)
+  /**
+   * Switches the api to allow the user to work on a different group.
+   * @param newGroupId the id of the group to switch to.
+   * @return a new api for the specified group.
+   */
+  switchGroup(newGroupId: string): Promise<IcureApi>
+}
+export namespace IcureApi {
+  /**
+   * Initialises a new instance of the iCure API.
+   */
+  export async function initialise(
+    host: string,
+    authenticationOptions: AuthenticationDetails | AuthenticationProvider,
+    cryptoStrategies: CryptoStrategies,
+    crypto: Crypto = typeof window !== 'undefined' ? window.crypto : typeof self !== 'undefined' ? self.crypto : ({} as Crypto),
+    fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
+      ? window.fetch
+      : typeof self !== 'undefined'
+      ? self.fetch
+      : fetch,
+    options: IcureApiOptions = {}
+  ): Promise<IcureApi> {
+    const params = new IcureApiOptions.WithDefaults(options)
+    let grouplessAuthenticationProvider: AuthenticationProvider
+    if ('username' in authenticationOptions && 'password' in authenticationOptions) {
+      grouplessAuthenticationProvider = new EnsembleAuthenticationProvider(
+        new IccAuthApi(host, params.headers, new NoAuthenticationProvider(), fetchImpl),
+        authenticationOptions.username,
+        authenticationOptions.password
+      )
+    } else {
+      grouplessAuthenticationProvider = authenticationOptions
+    }
+    const grouplessUserApi = new IccUserXApi(host, params.headers, grouplessAuthenticationProvider, fetchImpl)
+    const matches = await grouplessUserApi.getMatchingUsers()
+    const chosenGroupId = matches.length > 1 ? await params.groupSelector(matches) : matches[0].groupId!
+    /*TODO
+     * On new very new users switching the authentication provider to a specific group may fail and block the user for too many requests. This is
+     * probably linked to replication of the user in the fallback database.
+     */
+    const groupSpecificAuthenticationProvider =
+      matches.length > 1 ? await grouplessAuthenticationProvider.switchGroup(chosenGroupId, matches) : grouplessAuthenticationProvider
+    const cryptoApis = await initialiseCryptoWithProvider(host, fetchImpl, groupSpecificAuthenticationProvider, params, cryptoStrategies, crypto)
+    return new IcureApiImpl(
+      cryptoApis,
+      host,
+      groupSpecificAuthenticationProvider,
+      fetch,
+      grouplessUserApi,
+      matches,
+      matches.find((match) => match.groupId === chosenGroupId)!,
+      params,
+      cryptoStrategies
+    )
+  }
+}
+
+// Apis which are used during crypto api initialisation, to avoid re-instantiating them later
+type CryptoInitialisationApis = {
+  cryptoApi: IccCryptoXApi
+  healthcarePartyApi: IccHcpartyXApi
+  deviceApi: IccDeviceApi
+  // no patient api since it is base
+  dataOwnerApi: IccDataOwnerXApi
+  userApi: IccUserXApi
+  icureMaintenanceTaskApi: IccIcureMaintenanceXApi
+  maintenanceTaskApi: IccMaintenanceTaskXApi
+}
+
+async function initialiseCryptoWithProvider(
+  host: string,
+  fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response>,
+  groupSpecificAuthenticationProvider: AuthenticationProvider,
+  params: IcureApiOptions.WithDefaults,
+  cryptoStrategies: CryptoStrategies,
+  crypto: Crypto
+): Promise<CryptoInitialisationApis> {
+  const healthcarePartyApi = new IccHcpartyXApi(host, params.headers, groupSpecificAuthenticationProvider, fetchImpl)
+  const deviceApi = new IccDeviceApi(host, params.headers, groupSpecificAuthenticationProvider, fetchImpl)
+  const basePatientApi = new IccPatientApi(host, params.headers, groupSpecificAuthenticationProvider, fetchImpl)
+  const dataOwnerApi = new IccDataOwnerXApi(host, params.headers, groupSpecificAuthenticationProvider, fetchImpl)
   // Crypto initialisation
   const icureStorage = new IcureStorageFacade(params.keyStorage, params.storage, params.entryKeysFactory)
   const cryptoPrimitives = new CryptoPrimitives(crypto)
@@ -213,102 +412,490 @@ export const Api = async function (
     healthcarePartyApi,
     confidentialEntitites
   )
-  const accessLogApi = new IccAccesslogXApi(host, params.headers, cryptoApi, dataOwnerApi, authenticationProvider, fetchImpl)
-  const agendaApi = new IccAgendaApi(host, params.headers, authenticationProvider, fetchImpl)
-  const contactApi = new IccContactXApi(host, params.headers, cryptoApi, dataOwnerApi, authenticationProvider, fetchImpl)
-  const formApi = new IccFormXApi(host, params.headers, cryptoApi, dataOwnerApi, authenticationProvider, fetchImpl)
-  const groupApi = new IccGroupApi(host, params.headers, authenticationProvider)
-  const medicalLocationApi = new IccMedicallocationApi(host, params.headers, authenticationProvider)
-  const calendarItemTypeApi = new IccCalendarItemTypeApi(host, params.headers, authenticationProvider)
-  const invoiceApi = new IccInvoiceXApi(host, params.headers, cryptoApi, entityReferenceApi, dataOwnerApi, authenticationProvider, fetchImpl)
-  const insuranceApi = new IccInsuranceApi(host, params.headers, authenticationProvider, fetchImpl)
-  const documentApi = new IccDocumentXApi(host, params.headers, cryptoApi, authApi, dataOwnerApi, authenticationProvider, fetchImpl)
-  const healthcareElementApi = new IccHelementXApi(
-    host,
-    params.headers,
-    cryptoApi,
-    dataOwnerApi,
-    ['descr', 'note'],
-    authenticationProvider,
-    fetchImpl
-  )
-  const classificationApi = new IccClassificationXApi(host, params.headers, cryptoApi, dataOwnerApi, authenticationProvider, fetchImpl)
-  const calendarItemApi = new IccCalendarItemXApi(
-    host,
-    params.headers,
-    cryptoApi,
-    dataOwnerApi,
-    ['details', 'title', 'patientId'],
-    authenticationProvider,
-    fetchImpl
-  )
-  const receiptApi = new IccReceiptXApi(host, params.headers, cryptoApi, dataOwnerApi, authenticationProvider, fetchImpl)
-  const timetableApi = new IccTimeTableXApi(host, params.headers, cryptoApi, dataOwnerApi, authenticationProvider, fetchImpl)
-  const patientApi = new IccPatientXApi(
-    host,
-    params.headers,
-    cryptoApi,
-    contactApi,
-    formApi,
-    healthcareElementApi,
-    invoiceApi,
-    documentApi,
-    healthcarePartyApi,
-    classificationApi,
-    dataOwnerApi,
-    calendarItemApi,
-    ['note'],
-    authenticationProvider,
-    fetchImpl
-  )
-  const messageApi = new IccMessageXApi(host, params.headers, cryptoApi, dataOwnerApi, authenticationProvider, fetchImpl)
   const maintenanceTaskApi = new IccMaintenanceTaskXApi(
     host,
     params.headers,
     cryptoApi,
     healthcarePartyApi,
     dataOwnerApi,
-    ['properties'],
-    authenticationProvider,
+    params.encryptedFieldsConfig?.maintenanceTask ?? EncryptedFieldsConfig.Defaults.maintenanceTask,
+    groupSpecificAuthenticationProvider,
     fetchImpl
   )
   const icureMaintenanceTaskApi = new IccIcureMaintenanceXApi(cryptoApi, maintenanceTaskApi, dataOwnerApi)
-
+  const userApi = new IccUserXApi(host, params.headers, groupSpecificAuthenticationProvider, fetchImpl)
   if (newKey && params.createMaintenanceTasksOnNewKey) {
     await icureMaintenanceTaskApi.createMaintenanceTasksForNewKeypair(await userApi.getCurrentUser(), newKey.newKeyPair)
   }
   return {
     cryptoApi,
-    authApi,
-    codeApi,
-    calendarItemTypeApi,
-    medicalLocationApi,
-    userApi,
-    permissionApi,
-    patientApi,
     healthcarePartyApi,
     deviceApi,
-    accessLogApi,
-    contactApi,
-    healthcareElementApi,
-    documentApi,
-    formApi,
-    invoiceApi,
-    insuranceApi,
-    messageApi,
-    entityReferenceApi,
-    receiptApi,
-    agendaApi,
-    calendarItemApi,
-    classificationApi,
-    timetableApi,
-    groupApi,
-    maintenanceTaskApi,
     dataOwnerApi,
+    userApi,
     icureMaintenanceTaskApi,
+    maintenanceTaskApi,
   }
 }
 
+class IcureApiImpl implements IcureApi {
+  private latestGroupsRequest: Promise<UserGroup[]>
+  private _authApi: IccAuthApi | undefined
+  private _codeApi: IccCodeXApi | undefined
+  private _calendarItemTypeApi: IccCalendarItemTypeApi | undefined
+  private _medicalLocationApi: IccMedicallocationApi | undefined
+  private _entityReferenceApi: IccEntityrefApi | undefined
+  private _permissionApi: IccPermissionApi | undefined
+  private _accessLogApi: IccAccesslogXApi | undefined
+  private _agendaApi: IccAgendaApi | undefined
+  private _contactApi: IccContactXApi | undefined
+  private _formApi: IccFormXApi | undefined
+  private _groupApi: IccGroupApi | undefined
+  private _invoiceApi: IccInvoiceXApi | undefined
+  private _insuranceApi: IccInsuranceApi | undefined
+  private _documentApi: IccDocumentXApi | undefined
+  private _healthcareElementApi: IccHelementXApi | undefined
+  private _classificationApi: IccClassificationXApi | undefined
+  private _calendarItemApi: IccCalendarItemXApi | undefined
+  private _receiptApi: IccReceiptXApi | undefined
+  private _timetableApi: IccTimeTableXApi | undefined
+  private _patientApi: IccPatientXApi | undefined
+  private _messageApi: IccMessageXApi | undefined
+  private _anonymousAccessApi: IccAnonymousAccessApi | undefined
+  private _applicationSettingsApi: IccApplicationsettingsApi | undefined
+  private _articleApi: IccArticleApi | undefined
+  private _bekmehrApi: IccBekmehrXApi | undefined
+  private _beefactApi: IccBeefactApi | undefined
+  private _beresultexportApi: IccBeresultexportApi | undefined
+  private _beresultimportApi: IccBeresultimportApi | undefined
+  private _besamv2Api: IccBesamv2Api | undefined
+  private _classificationTemplateApi: IccClassificationTemplateApi | undefined
+  private _doctemplateApi: IccDoctemplateXApi | undefined
+  private _entitytemplateApi: IccEntitytemplateApi | undefined
+  private _frontendmigrationApi: IccFrontendmigrationApi | undefined
+  private _icureApi: IccIcureApi | undefined
+  private _keywordApi: IccKeywordApi | undefined
+  private _medexApi: IccMedexApi | undefined
+  private _placeApi: IccPlaceApi | undefined
+  private _pubsubApi: IccPubsubApi | undefined
+  private _replicationApi: IccReplicationApi | undefined
+  private _tarificationApi: IccTarificationApi | undefined
+  private _tmpApi: IccTmpApi | undefined
+
+  get cryptoApi(): IccCryptoXApi {
+    return this.cryptoInitApis.cryptoApi
+  }
+
+  get dataOwnerApi(): IccDataOwnerXApi {
+    return this.cryptoInitApis.dataOwnerApi
+  }
+
+  get accessLogApi(): IccAccesslogXApi {
+    return (
+      this._accessLogApi ??
+      (this._accessLogApi = new IccAccesslogXApi(
+        this.host,
+        this.params.headers,
+        this.cryptoApi,
+        this.dataOwnerApi,
+        this.params.encryptedFieldsConfig.accessLog ?? EncryptedFieldsConfig.Defaults.accessLog,
+        this.groupSpecificAuthenticationProvider,
+        this.fetch
+      ))
+    )
+  }
+  get agendaApi(): IccAgendaApi {
+    return (
+      this._agendaApi ?? (this._agendaApi = new IccAgendaApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
+  }
+  get anonymousAccessApi(): IccAnonymousAccessApi {
+    return (
+      this._anonymousAccessApi ??
+      (this._anonymousAccessApi = new IccAnonymousAccessApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
+  }
+  get applicationSettingsApi(): IccApplicationsettingsApi {
+    return (
+      this._applicationSettingsApi ??
+      (this._applicationSettingsApi = new IccApplicationsettingsApi(
+        this.host,
+        this.params.headers,
+        this.groupSpecificAuthenticationProvider,
+        this.fetch
+      ))
+    )
+  }
+  get articleApi(): IccArticleApi {
+    return (
+      this._articleApi ?? (this._articleApi = new IccArticleApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
+  }
+  get authApi(): IccAuthApi {
+    return this._authApi ?? (this._authApi = new IccAuthApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+  }
+  get beefactApi(): IccBeefactApi {
+    return (
+      this._beefactApi ?? (this._beefactApi = new IccBeefactApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
+  }
+  get bekmehrApi(): IccBekmehrXApi {
+    return (
+      this._bekmehrApi ??
+      (this._bekmehrApi = new IccBekmehrXApi(
+        this.host,
+        this.params.headers,
+        this.authApi,
+        this.contactApi,
+        this.healthcareElementApi,
+        this.documentApi,
+        this.groupSpecificAuthenticationProvider,
+        this.fetch
+      ))
+    )
+  }
+  get beresultexportApi(): IccBeresultexportApi {
+    return (
+      this._beresultexportApi ??
+      (this._beresultexportApi = new IccBeresultexportApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
+  }
+  get beresultimportApi(): IccBeresultimportApi {
+    return (
+      this._beresultimportApi ??
+      (this._beresultimportApi = new IccBeresultimportApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
+  }
+  get besamv2Api(): IccBesamv2Api {
+    return (
+      this._besamv2Api ?? (this._besamv2Api = new IccBesamv2Api(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
+  }
+  get calendarItemApi(): IccCalendarItemXApi {
+    return (
+      this._calendarItemApi ??
+      (this._calendarItemApi = new IccCalendarItemXApi(
+        this.host,
+        this.params.headers,
+        this.cryptoApi,
+        this.dataOwnerApi,
+        this.params.encryptedFieldsConfig.calendarItem ?? EncryptedFieldsConfig.Defaults.calendarItem,
+        this.groupSpecificAuthenticationProvider,
+        this.fetch
+      ))
+    )
+  }
+  get calendarItemTypeApi(): IccCalendarItemTypeApi {
+    return (
+      this._calendarItemTypeApi ??
+      (this._calendarItemTypeApi = new IccCalendarItemTypeApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
+  }
+  get classificationApi(): IccClassificationXApi {
+    return (
+      this._classificationApi ??
+      (this._classificationApi = new IccClassificationXApi(
+        this.host,
+        this.params.headers,
+        this.cryptoApi,
+        this.dataOwnerApi,
+        this.groupSpecificAuthenticationProvider,
+        this.fetch
+      ))
+    )
+  }
+  get classificationTemplateApi(): IccClassificationTemplateApi {
+    return (
+      this._classificationTemplateApi ??
+      (this._classificationTemplateApi = new IccClassificationTemplateApi(
+        this.host,
+        this.params.headers,
+        this.groupSpecificAuthenticationProvider,
+        this.fetch
+      ))
+    )
+  }
+  get codeApi(): IccCodeXApi {
+    return this._codeApi ?? (this._codeApi = new IccCodeXApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+  }
+  get contactApi(): IccContactXApi {
+    return (
+      this._contactApi ??
+      (this._contactApi = new IccContactXApi(
+        this.host,
+        this.params.headers,
+        this.cryptoApi,
+        this.dataOwnerApi,
+        this.groupSpecificAuthenticationProvider,
+        this.fetch
+      ))
+    )
+  }
+  get deviceApi(): IccDeviceApi {
+    return this.cryptoInitApis.deviceApi
+  }
+  get doctemplateApi(): IccDoctemplateXApi {
+    return (
+      this._doctemplateApi ??
+      (this._doctemplateApi = new IccDoctemplateXApi(
+        this.host,
+        this.params.headers,
+        this.cryptoApi,
+        this.groupSpecificAuthenticationProvider,
+        this.fetch
+      ))
+    )
+  }
+  get documentApi(): IccDocumentXApi {
+    return (
+      this._documentApi ??
+      (this._documentApi = new IccDocumentXApi(
+        this.host,
+        this.params.headers,
+        this.cryptoApi,
+        this.authApi,
+        this.dataOwnerApi,
+        this.groupSpecificAuthenticationProvider,
+        this.fetch
+      ))
+    )
+  }
+  get entityReferenceApi(): IccEntityrefApi {
+    return (
+      this._entityReferenceApi ??
+      (this._entityReferenceApi = new IccEntityrefApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
+  }
+  get entitytemplateApi(): IccEntitytemplateApi {
+    return (
+      this._entitytemplateApi ??
+      (this._entitytemplateApi = new IccEntitytemplateApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
+  }
+  get formApi(): IccFormXApi {
+    return (
+      this._formApi ??
+      (this._formApi = new IccFormXApi(
+        this.host,
+        this.params.headers,
+        this.cryptoApi,
+        this.dataOwnerApi,
+        this.groupSpecificAuthenticationProvider,
+        this.fetch
+      ))
+    )
+  }
+  get frontendmigrationApi(): IccFrontendmigrationApi {
+    return (
+      this._frontendmigrationApi ??
+      (this._frontendmigrationApi = new IccFrontendmigrationApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
+  }
+  get groupApi(): IccGroupApi {
+    return this._groupApi ?? (this._groupApi = new IccGroupApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+  }
+  get healthcareElementApi(): IccHelementXApi {
+    return (
+      this._healthcareElementApi ??
+      (this._healthcareElementApi = new IccHelementXApi(
+        this.host,
+        this.params.headers,
+        this.cryptoApi,
+        this.dataOwnerApi,
+        this.params.encryptedFieldsConfig.healthElement ?? EncryptedFieldsConfig.Defaults.healthElement,
+        this.groupSpecificAuthenticationProvider,
+        this.fetch
+      ))
+    )
+  }
+  get healthcarePartyApi(): IccHcpartyXApi {
+    return this.cryptoInitApis.healthcarePartyApi
+  }
+  get icureApi(): IccIcureApi {
+    return this._icureApi ?? (this._icureApi = new IccIcureApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+  }
+  get icureMaintenanceTaskApi(): IccIcureMaintenanceXApi {
+    return this.cryptoInitApis.icureMaintenanceTaskApi
+  }
+  get insuranceApi(): IccInsuranceApi {
+    return (
+      this._insuranceApi ??
+      (this._insuranceApi = new IccInsuranceApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
+  }
+  get invoiceApi(): IccInvoiceXApi {
+    return (
+      this._invoiceApi ??
+      (this._invoiceApi = new IccInvoiceXApi(
+        this.host,
+        this.params.headers,
+        this.cryptoApi,
+        this.entityReferenceApi,
+        this.dataOwnerApi,
+        this.groupSpecificAuthenticationProvider,
+        this.fetch
+      ))
+    )
+  }
+  get keywordApi(): IccKeywordApi {
+    return (
+      this._keywordApi ?? (this._keywordApi = new IccKeywordApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
+  }
+  get maintenanceTaskApi(): IccMaintenanceTaskXApi {
+    return this.cryptoInitApis.maintenanceTaskApi
+  }
+  get medexApi(): IccMedexApi {
+    return this._medexApi ?? (this._medexApi = new IccMedexApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+  }
+  get medicalLocationApi(): IccMedicallocationApi {
+    return (
+      this._medicalLocationApi ??
+      (this._medicalLocationApi = new IccMedicallocationApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
+  }
+  get messageApi(): IccMessageXApi {
+    return (
+      this._messageApi ??
+      (this._messageApi = new IccMessageXApi(
+        this.host,
+        this.params.headers,
+        this.cryptoApi,
+        this.dataOwnerApi,
+        this.groupSpecificAuthenticationProvider,
+        this.fetch
+      ))
+    )
+  }
+  get patientApi(): IccPatientXApi {
+    return (
+      this._patientApi ??
+      (this._patientApi = new IccPatientXApi(
+        this.host,
+        this.params.headers,
+        this.cryptoApi,
+        this.contactApi,
+        this.formApi,
+        this.healthcareElementApi,
+        this.invoiceApi,
+        this.documentApi,
+        this.healthcarePartyApi,
+        this.classificationApi,
+        this.dataOwnerApi,
+        this.calendarItemApi,
+        this.params.encryptedFieldsConfig.patient ?? EncryptedFieldsConfig.Defaults.patient,
+        this.groupSpecificAuthenticationProvider,
+        this.fetch
+      ))
+    )
+  }
+  get permissionApi(): IccPermissionApi {
+    return (
+      this._permissionApi ??
+      (this._permissionApi = new IccPermissionApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
+  }
+  get placeApi(): IccPlaceApi {
+    return this._placeApi ?? (this._placeApi = new IccPlaceApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+  }
+  get pubsubApi(): IccPubsubApi {
+    return (
+      this._pubsubApi ?? (this._pubsubApi = new IccPubsubApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
+  }
+  get receiptApi(): IccReceiptXApi {
+    return (
+      this._receiptApi ??
+      (this._receiptApi = new IccReceiptXApi(
+        this.host,
+        this.params.headers,
+        this.cryptoApi,
+        this.dataOwnerApi,
+        this.groupSpecificAuthenticationProvider,
+        this.fetch
+      ))
+    )
+  }
+  get replicationApi(): IccReplicationApi {
+    return (
+      this._replicationApi ??
+      (this._replicationApi = new IccReplicationApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
+  }
+  get tarificationApi(): IccTarificationApi {
+    return (
+      this._tarificationApi ??
+      (this._tarificationApi = new IccTarificationApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
+  }
+  get timetableApi(): IccTimeTableXApi {
+    return (
+      this._timetableApi ??
+      (this._timetableApi = new IccTimeTableXApi(
+        this.host,
+        this.params.headers,
+        this.cryptoApi,
+        this.dataOwnerApi,
+        this.groupSpecificAuthenticationProvider,
+        this.fetch
+      ))
+    )
+  }
+  get tmpApi(): IccTmpApi {
+    return this._tmpApi ?? (this._tmpApi = new IccTmpApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+  }
+  get userApi(): IccUserXApi {
+    return this.cryptoInitApis.userApi
+  }
+
+  constructor(
+    private readonly cryptoInitApis: CryptoInitialisationApis,
+    private readonly host: string,
+    private readonly groupSpecificAuthenticationProvider: AuthenticationProvider,
+    private readonly fetch: (input: RequestInfo, init?: RequestInit) => Promise<Response>,
+    private readonly grouplessUserApi: IccUserXApi,
+    private readonly latestMatches: UserGroup[],
+    private readonly currentGroupInfo: UserGroup,
+    private readonly params: IcureApiOptions.WithDefaults,
+    private readonly cryptoStrategies: CryptoStrategies
+  ) {
+    this.latestGroupsRequest = Promise.resolve(latestMatches)
+  }
+
+  async getGroupsInfo(): Promise<{ currentGroup: UserGroup; availableGroups: UserGroup[] }> {
+    this.latestGroupsRequest = this.grouplessUserApi.getMatchingUsers()
+    return { currentGroup: this.currentGroupInfo, availableGroups: await this.latestGroupsRequest }
+  }
+
+  async switchGroup(newGroupId: string): Promise<IcureApi> {
+    const availableGroups = await this.latestGroupsRequest
+    const switchedProvider = await this.groupSpecificAuthenticationProvider.switchGroup(newGroupId, availableGroups)
+    const cryptoInitApis = await initialiseCryptoWithProvider(
+      this.host,
+      this.fetch,
+      switchedProvider,
+      this.params,
+      this.cryptoStrategies,
+      this.cryptoApi.primitives.crypto
+    )
+    return new IcureApiImpl(
+      cryptoInitApis,
+      this.host,
+      switchedProvider,
+      this.fetch,
+      this.grouplessUserApi,
+      availableGroups,
+      availableGroups.find((x) => x.groupId === newGroupId)!,
+      this.params,
+      this.cryptoStrategies
+    )
+  }
+}
+
+/**
+ * @experimental This function still needs development and will be changed
+ * Build apis which do not need crypto and can be used by non-data-owner users
+ */
 export const BasicApis = async function (
   host: string,
   username: string,
@@ -334,6 +921,7 @@ export const BasicApis = async function (
   const agendaApi = new IccAgendaApi(host, headers, authenticationProvider, fetchImpl)
   const groupApi = new IccGroupApi(host, headers, authenticationProvider)
   const insuranceApi = new IccInsuranceApi(host, headers, authenticationProvider, fetchImpl)
+  const healthcarePartyApi = new IccHcpartyXApi(host, headers, authenticationProvider, fetchImpl)
 
   return {
     authApi,
@@ -344,5 +932,6 @@ export const BasicApis = async function (
     entityReferenceApi,
     agendaApi,
     groupApi,
+    healthcarePartyApi,
   }
 }
