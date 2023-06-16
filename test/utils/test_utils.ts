@@ -1,11 +1,11 @@
-import { Api, Apis, hex2ua, ua2hex } from '../../icc-x-api'
+import { Apis, hex2ua, IcureApi, ua2hex } from '../../icc-x-api'
 import { tmpdir } from 'os'
 import { TextDecoder, TextEncoder } from 'util'
 import { v4 as uuid } from 'uuid'
 import { webcrypto } from 'crypto'
 import { RSAUtils } from '../../icc-x-api/crypto/RSA'
 import { TestApi } from './TestApi'
-import { Api as TestSetupApi, Apis as TestSetupApis } from '@icure/apiV6'
+import { Api, Api as TestSetupApi, Apis as TestSetupApis } from '@icure/apiV6'
 import { CryptoPrimitives } from '../../icc-x-api/crypto/CryptoPrimitives'
 import { testStorageWithKeys } from './TestStorage'
 import { TestCryptoStrategies } from './TestCryptoStrategies'
@@ -132,7 +132,7 @@ export async function createNewHcpApi(env: TestVars): Promise<{
   const storage = await testStorageWithKeys([
     { dataOwnerId: credentials.dataOwnerId, pairs: [{ privateKey: credentials.privateKey, publicKey: credentials.publicKey }] },
   ])
-  const api = await Api(
+  const api = await IcureApi.initialise(
     env.iCureUrl,
     { username: credentials.user, password: credentials.password },
     new TestCryptoStrategies(),
@@ -182,7 +182,7 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
   const grandStorage = await testStorageWithKeys([
     { dataOwnerId: grandCredentials.dataOwnerId, pairs: [{ privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }] },
   ])
-  const grandApi = await Api(
+  const grandApi = await IcureApi.initialise(
     env.iCureUrl,
     { username: grandCredentials.user, password: grandCredentials.password },
     new TestCryptoStrategies(),
@@ -198,7 +198,7 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
     { dataOwnerId: grandCredentials.dataOwnerId, pairs: [{ privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }] },
     { dataOwnerId: parentCredentials.dataOwnerId, pairs: [{ privateKey: parentCredentials.privateKey, publicKey: parentCredentials.publicKey }] },
   ])
-  const parentApi = await Api(
+  const parentApi = await IcureApi.initialise(
     env.iCureUrl,
     { username: parentCredentials.user, password: parentCredentials.password },
     new TestCryptoStrategies(),
@@ -219,7 +219,7 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
     { dataOwnerId: parentCredentials.dataOwnerId, pairs: [{ privateKey: parentCredentials.privateKey, publicKey: parentCredentials.publicKey }] },
     { dataOwnerId: childCredentials.dataOwnerId, pairs: [{ privateKey: childCredentials.privateKey, publicKey: childCredentials.publicKey }] },
   ])
-  const childApi = await Api(
+  const childApi = await IcureApi.initialise(
     env.iCureUrl,
     { username: childCredentials.user, password: childCredentials.password },
     new TestCryptoStrategies(),
@@ -239,7 +239,7 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
     { dataOwnerId: grandCredentials.dataOwnerId, pairs: [{ privateKey: grandCredentials.privateKey, publicKey: grandCredentials.publicKey }] },
     { dataOwnerId: child2Credentials.dataOwnerId, pairs: [{ privateKey: child2Credentials.privateKey, publicKey: child2Credentials.publicKey }] },
   ])
-  const child2Api = await Api(
+  const child2Api = await IcureApi.initialise(
     env.iCureUrl,
     { username: child2Credentials.user, password: child2Credentials.password },
     new TestCryptoStrategies(),

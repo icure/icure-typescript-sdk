@@ -1,5 +1,5 @@
 import { getEnvironmentInitializer, hcp1Username, patUsername, setLocalStorage, TestUtils } from '../utils/test_utils'
-import { Api, hex2ua, pkcs8ToJwk, ua2hex } from '../../icc-x-api'
+import { hex2ua, IcureApi, pkcs8ToJwk, ua2hex } from '../../icc-x-api'
 import { webcrypto } from 'crypto'
 import { expect } from 'chai'
 import 'isomorphic-fetch'
@@ -84,7 +84,7 @@ describe('CSM-93', async function () {
     checkContactDecrypted(await patApis.contactApi.getContactWithUser(patUser, ctc!.id!))
     const startTimestamp = new Date().getTime()
     const newPair = await patApis.cryptoApi.primitives.RSA.generateKeyPair()
-    const patApisLost = await Api(
+    const patApisLost = await IcureApi.initialise(
       env.iCureUrl,
       { username: env.dataOwnerDetails[patUsername].user, password: env.dataOwnerDetails[patUsername].password },
       new TestCryptoStrategies(newPair),
