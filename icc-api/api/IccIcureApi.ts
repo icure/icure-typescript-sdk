@@ -21,6 +21,7 @@ import { Patient } from '../model/Patient'
 import { ReplicationInfo } from '../model/ReplicationInfo'
 import { ReplicatorDocument } from '../model/ReplicatorDocument'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { iccRestApiPath } from './IccRestApiPath'
 
 export class IccIcureApi {
   host: string
@@ -34,7 +35,7 @@ export class IccIcureApi {
     authenticationProvider?: AuthenticationProvider,
     fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
   ) {
-    this.host = host
+    this.host = iccRestApiPath(host)
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
     this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
     this.fetchImpl = fetchImpl

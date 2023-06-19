@@ -22,6 +22,7 @@ import { PaginatedListPatient } from '../model/PaginatedListPatient'
 import { PaginatedListString } from '../model/PaginatedListString'
 import { Patient } from '../model/Patient'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { iccRestApiPath } from './IccRestApiPath'
 
 export class IccPatientApi {
   host: string
@@ -35,7 +36,7 @@ export class IccPatientApi {
     authenticationProvider?: AuthenticationProvider,
     fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
   ) {
-    this.host = host
+    this.host = iccRestApiPath(host)
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
     this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
     this.fetchImpl = fetchImpl

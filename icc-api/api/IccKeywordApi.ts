@@ -13,6 +13,7 @@ import { XHR } from './XHR'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { Keyword } from '../model/Keyword'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { iccRestApiPath } from './IccRestApiPath'
 
 export class IccKeywordApi {
   host: string
@@ -26,7 +27,7 @@ export class IccKeywordApi {
     authenticationProvider?: AuthenticationProvider,
     fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
   ) {
-    this.host = host
+    this.host = iccRestApiPath(host)
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
     this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
     this.fetchImpl = fetchImpl

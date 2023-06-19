@@ -117,7 +117,7 @@ describe('CSM-93', async function () {
         )
       ).rows ?? []
     expect(foundTasks.length).to.equal(1)
-    const task = new KeyPairUpdateRequest(foundTasks[0] as MaintenanceTask)
+    const task = KeyPairUpdateRequest.fromMaintenanceTask(foundTasks[0] as MaintenanceTask)
     expect(task.concernedDataOwnerId).to.equal(patUser.patientId)
     expect(task.newPublicKey).to.equal(ua2hex(await hcpApis.cryptoApi.primitives.RSA.exportKey(newPair.publicKey, 'spki')))
     await hcpApis.icureMaintenanceTaskApi.applyKeyPairUpdate(task)

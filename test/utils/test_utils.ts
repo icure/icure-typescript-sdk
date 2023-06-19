@@ -161,7 +161,15 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
   child2User: User
   child2Credentials: UserDetails
 }> {
-  const initialisationApi = await TestSetupApi(env.iCureUrl, env.masterHcp!.user, env.masterHcp!.password, webcrypto as any, fetch, true, false)
+  const initialisationApi = await TestSetupApi(
+    env.iCureUrl + '/rest/v1',
+    env.masterHcp!.user,
+    env.masterHcp!.password,
+    webcrypto as any,
+    fetch,
+    true,
+    false
+  )
   const primitives = new CryptoPrimitives(webcrypto as any)
   const grandCredentials = await createHealthcarePartyUser(initialisationApi, `grand-${primitives.randomUuid()}`, primitives.randomUuid())
   const parentCredentials = await createHealthcarePartyUser(initialisationApi, `parent-${primitives.randomUuid()}`, primitives.randomUuid())

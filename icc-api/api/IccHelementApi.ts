@@ -19,6 +19,7 @@ import { IcureStub } from '../model/IcureStub'
 import { ListOfIds } from '../model/ListOfIds'
 import { PaginatedListHealthElement } from '../model/PaginatedListHealthElement'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { iccRestApiPath } from './IccRestApiPath'
 
 export class IccHelementApi {
   host: string
@@ -32,7 +33,7 @@ export class IccHelementApi {
     authenticationProvider?: AuthenticationProvider,
     fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
   ) {
-    this.host = host
+    this.host = iccRestApiPath(host)
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
     this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
     this.fetchImpl = fetchImpl
