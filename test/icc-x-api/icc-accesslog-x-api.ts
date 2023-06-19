@@ -1,7 +1,7 @@
 import 'isomorphic-fetch'
 import { getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { before } from 'mocha'
-import { IccAccesslogXApi, IccPatientXApi, IccUserXApi } from '../../icc-x-api'
+import { EncryptedFieldsConfig, IccAccesslogXApi, IccPatientXApi, IccUserXApi } from '../../icc-x-api'
 import { BasicAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { IccAccesslogApi } from '../../icc-api'
 import { Patient } from '../../icc-api/model/Patient'
@@ -68,7 +68,15 @@ describe('icc-x-accesslog-api Tests', () => {
 
     const authProvider = new BasicAuthenticationProvider(username, password)
 
-    const accessLogXApi = new IccAccesslogXApi(env.iCureUrl, {}, cryptoApiForHcp, dateOwnerApiForHcp, authProvider, fetch)
+    const accessLogXApi = new IccAccesslogXApi(
+      env.iCureUrl,
+      {},
+      cryptoApiForHcp,
+      dateOwnerApiForHcp,
+      EncryptedFieldsConfig.Defaults.accessLog,
+      authProvider,
+      fetch
+    )
 
     const patient = (await createPatient(patientApiForHcp, hcpUser)) as Patient
 

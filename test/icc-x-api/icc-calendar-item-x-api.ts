@@ -1,7 +1,7 @@
 import 'isomorphic-fetch'
 import { getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { before } from 'mocha'
-import { Api, IccCalendarItemXApi, IccPatientXApi, IccUserXApi } from '../../icc-x-api'
+import { IccCalendarItemXApi, IccPatientXApi, IccUserXApi } from '../../icc-x-api'
 import { BasicAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { IccCalendarItemApi } from '../../icc-api'
 import { Patient } from '../../icc-api/model/Patient'
