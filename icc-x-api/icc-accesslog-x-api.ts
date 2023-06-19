@@ -14,7 +14,6 @@ export interface AccessLogWithPatientId extends AccessLog {
 
 export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntityXApi<models.AccessLog> {
   crypto: IccCryptoXApi
-  cryptedKeys = ['detail', 'objectId']
   dataOwnerApi: IccDataOwnerXApi
 
   constructor(
@@ -22,6 +21,7 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
     headers: { [key: string]: string },
     crypto: IccCryptoXApi,
     dataOwnerApi: IccDataOwnerXApi,
+    private readonly cryptedKeys = ['detail', 'objectId'],
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch

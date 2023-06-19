@@ -1,4 +1,3 @@
-import { Api } from '../../../icc-x-api'
 import { v4 as uuid } from 'uuid'
 import { User } from '../../../icc-api/model/User'
 import { before, describe, it } from 'mocha'
@@ -14,6 +13,7 @@ import { createHcpHierarchyApis, getEnvironmentInitializer, setLocalStorage } fr
 import { TestKeyStorage, TestStorage } from '../../utils/TestStorage'
 import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
+import { IcureApi } from '../../../icc-x-api'
 
 setLocalStorage(fetch)
 
@@ -50,7 +50,7 @@ describe('Full battery of tests on crypto and keys', async function () {
       })
     )
 
-    const apiAsPatient = await Api(
+    const apiAsPatient = await IcureApi.initialise(
       env!.iCureUrl,
       { username: newPatientUser.login!, password: 'LetMeInForReal' },
       new TestCryptoStrategies(await api.cryptoApi.primitives.RSA.generateKeyPair()),

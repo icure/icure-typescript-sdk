@@ -1,4 +1,4 @@
-import { Api, Apis, ua2hex } from '../../../icc-x-api'
+import { Apis, IcureApi, ua2hex } from '../../../icc-x-api'
 import { CalendarItem } from '../../../icc-api/model/CalendarItem'
 import { FilterChainMaintenanceTask, MaintenanceTask, PaginatedListMaintenanceTask } from '../../../icc-api/model/models'
 import { before, describe, it } from 'mocha'
@@ -67,7 +67,7 @@ describe('Full battery of tests on crypto and keys', async function () {
     // And creates a new one
     const newKey = await api.cryptoApi.primitives.RSA.generateKeyPair()
     const publicKey = ua2hex(await api.cryptoApi.primitives.RSA.exportKey(newKey.publicKey, 'spki'))
-    const apiAfterNewKey = await Api(
+    const apiAfterNewKey = await IcureApi.initialise(
       env!.iCureUrl,
       { username: env!.dataOwnerDetails[patUsername].user, password: env!.dataOwnerDetails[patUsername].password },
       new TestCryptoStrategies(newKey),
@@ -121,7 +121,7 @@ describe('Full battery of tests on crypto and keys', async function () {
     expect(updatedDataOwner.stub.aesExchangeKeys![previousPubKey][delegateUser!.healthcarePartyId!][publicKey.slice(-32)]).to.be.not.undefined
     expect(updatedDataOwner.stub.aesExchangeKeys![previousPubKey][delegateUser!.healthcarePartyId!][publicKey.slice(-32)]).to.be.not.null
 
-    const apiAfterSharedBack = await Api(
+    const apiAfterSharedBack = await IcureApi.initialise(
       env!.iCureUrl,
       {
         username: env!.dataOwnerDetails[patUsername].user,
