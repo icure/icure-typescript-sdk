@@ -1,6 +1,6 @@
 import 'isomorphic-fetch'
 import { Api as ApiV6 } from '@icure/apiV6'
-import { User as UserV6 } from '@icure/apiV6'
+import { User as UserV6, HealthcareParty as HealthcarePartyV6 } from '@icure/apiV6'
 import { IcureApi as ApiV7, ua2hex, hex2ua } from '../../icc-x-api'
 import { User } from '../../icc-api/model/User'
 import { getEnvironmentInitializer, setLocalStorage } from '../utils/test_utils'
@@ -73,7 +73,9 @@ class ApiFactoryV6 implements ApiFactory {
     return <UniformizedMasterApi>{
       createUser: async () => {
         const pair = await cryptoPrimitives.RSA.generateKeyPair()
-        const hcp = await apis.healthcarePartyApi.createHealthcareParty(new HealthcareParty({ id: uuid(), firstName: `name`, lastName: 'v6' }))
+        const hcp = await apis.healthcarePartyApi.createHealthcareParty(
+          new HealthcareParty({ id: uuid(), firstName: `name`, lastName: 'v6' }) as HealthcarePartyV6
+        )
         const user = await apis.userApi.createUser(
           new UserV6({
             id: uuid(),

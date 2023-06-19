@@ -26,6 +26,7 @@ import {
   IccReplicationApi,
   IccTarificationApi,
   IccTmpApi,
+  OAuthThirdParty,
 } from '../icc-api'
 import { IccUserXApi } from './icc-user-x-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
@@ -42,7 +43,7 @@ import { IccMessageXApi } from './icc-message-x-api'
 import { IccReceiptXApi } from './icc-receipt-x-api'
 import { IccAccesslogXApi } from './icc-accesslog-x-api'
 import { IccTimeTableXApi } from './icc-time-table-x-api'
-import { IccDeviceApi } from '../icc-api/api/IccDeviceApi'
+import { IccDeviceApi } from '../icc-api'
 import { IccCodeXApi } from './icc-code-x-api'
 import { IccMaintenanceTaskXApi } from './icc-maintenance-task-x-api'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
@@ -54,6 +55,7 @@ import {
   AuthenticationProvider,
   BasicAuthenticationProvider,
   EnsembleAuthenticationProvider,
+  JwtAuthenticationProvider,
   NoAuthenticationProvider,
 } from './auth/AuthenticationProvider'
 import { CryptoPrimitives } from './crypto/CryptoPrimitives'
@@ -277,6 +279,9 @@ export namespace EncryptedFieldsConfig {
 export type AuthenticationDetails = {
   username: string
   password: string
+  forceBasic?: boolean // default false
+  icureTokens?: { token: string; refreshToken: string }
+  thirdPartyTokens?: { [thirdParty: string]: string }
 }
 
 /**
@@ -319,7 +324,19 @@ export namespace IcureApi {
       grouplessAuthenticationProvider = new EnsembleAuthenticationProvider(
         new IccAuthApi(host, params.headers, new NoAuthenticationProvider(), fetchImpl),
         authenticationOptions.username,
-        authenticationOptions.password
+        authenticationOptions.password,
+        3600,
+        undefined,
+        undefined,
+        authenticationOptions.thirdPartyTokens
+      )
+    } else if ('icureTokens' in authenticationOptions) {
+      grouplessAuthenticationProvider = new JwtAuthenticationProvider(
+        new IccAuthApi(host, {}, new NoAuthenticationProvider(), fetchImpl),
+        undefined,
+        undefined,
+        undefined,
+        (authenticationOptions as unknown as AuthenticationDetails).icureTokens!
       )
     } else {
       grouplessAuthenticationProvider = authenticationOptions

@@ -1,9 +1,10 @@
 import { AuthService } from './AuthService'
-import { IccAuthApi } from '../../icc-api'
+import { IccAuthApi, OAuthThirdParty } from '../../icc-api'
 import { EnsembleAuthService } from './EnsembleAuthService'
-import { JwtAuthService } from './JwtAuthService'
+import { JwtBridgedAuthService } from './JwtBridgedAuthService'
 import { NoAuthService } from './NoAuthService'
 import { BasicAuthService } from './BasicAuthService'
+import { JwtAuthService } from './JwtAuthService'
 import { UserGroup } from '../../icc-api/model/UserGroup'
 
 /**
@@ -25,11 +26,13 @@ export interface AuthenticationProvider {
    * @return a new authentication provider
    */
   switchGroup(newGroupId: string, matches: Array<UserGroup>): Promise<AuthenticationProvider>
+
+  getIcureTokens(): Promise<{ token: string; refreshToken: string } | undefined>
 }
 
 export class EnsembleAuthenticationProvider implements AuthenticationProvider {
   private readonly basicAuth: BasicAuthService
-  private jwtAuth: JwtAuthService
+  private jwtAuth: JwtAuthService | JwtBridgedAuthService
   private suspensionEnd: Date | undefined
 
   constructor(
@@ -37,11 +40,16 @@ export class EnsembleAuthenticationProvider implements AuthenticationProvider {
     private readonly username: string,
     private readonly password: string,
     private readonly jwtTimeout: number = 3600,
-    jwtAuth?: JwtAuthService,
-    basicAuth?: BasicAuthService
+    jwtAuth?: JwtAuthService | JwtBridgedAuthService,
+    basicAuth?: BasicAuthService,
+    thirdPartyTokens: { [thirdParty: string]: string } = {}
   ) {
-    this.jwtAuth = jwtAuth ?? new JwtAuthService(this.authApi, this.username, this.password)
+    this.jwtAuth = jwtAuth ?? new JwtBridgedAuthService(this.authApi, this.username, this.password)
     this.basicAuth = basicAuth ?? new BasicAuthService(this.username, this.password)
+  }
+
+  getIcureTokens(): Promise<{ token: string; refreshToken: string } | undefined> {
+    return this.jwtAuth.getIcureTokens()
   }
 
   getAuthService(): AuthService {
@@ -49,7 +57,7 @@ export class EnsembleAuthenticationProvider implements AuthenticationProvider {
     // but it will not use it until the suspension ends
     if (this.jwtAuth.isInErrorState()) {
       console.warn('Error state in JWT, I will skip it')
-      this.jwtAuth = new JwtAuthService(this.authApi, this.username, this.password)
+      this.jwtAuth = new JwtBridgedAuthService(this.authApi, this.username, this.password)
       this.suspensionEnd = new Date(new Date().getTime() + this.jwtTimeout * 1000)
     }
 
@@ -72,10 +80,38 @@ export class EnsembleAuthenticationProvider implements AuthenticationProvider {
 }
 
 export class JwtAuthenticationProvider implements AuthenticationProvider {
-  private readonly jwtAuth: JwtAuthService
+  getIcureTokens(): Promise<{ token: string; refreshToken: string }> {
+    return Promise.resolve({ refreshToken: '', token: '' })
+  }
 
-  constructor(private readonly authApi: IccAuthApi, private readonly username: string, private readonly password: string, jwtAuth?: JwtAuthService) {
-    this.jwtAuth = jwtAuth ?? new JwtAuthService(authApi, username, password)
+  private readonly jwtAuth: JwtAuthService | JwtBridgedAuthService
+
+  /**
+   * @internal
+   * @param authApi
+   * @param username
+   * @param password
+   * @param jwtAuth
+   * @param icureToken
+   */
+  constructor(
+    private readonly authApi: IccAuthApi,
+    private readonly username?: string,
+    private readonly password?: string,
+    jwtAuth?: JwtAuthService | JwtBridgedAuthService,
+    private readonly icureToken?: { token: string; refreshToken: string }
+  ) {
+    const composedAuth =
+      jwtAuth ??
+      (icureToken
+        ? new JwtAuthService(authApi, { authJwt: icureToken.token, refreshJwt: icureToken.refreshToken })
+        : !!username && !!password
+        ? new JwtBridgedAuthService(authApi, username!, password!)
+        : undefined)
+    if (!composedAuth) {
+      throw new Error('No authentication method provided')
+    }
+    this.jwtAuth = composedAuth
   }
 
   getAuthService(): AuthService {
@@ -89,6 +125,10 @@ export class JwtAuthenticationProvider implements AuthenticationProvider {
 }
 
 export class BasicAuthenticationProvider implements AuthenticationProvider {
+  getIcureTokens(): Promise<{ token: string; refreshToken: string } | undefined> {
+    return Promise.resolve() as Promise<undefined>
+  }
+
   constructor(private username: string, private password: string) {}
 
   getAuthService(): AuthService {
@@ -105,8 +145,12 @@ export class NoAuthenticationProvider implements AuthenticationProvider {
     return new NoAuthService()
   }
 
-  switchGroup(newGroupId: string, matches: Array<UserGroup>): Promise<AuthenticationProvider> {
-    return Promise.resolve(this)
+  getIcureTokens(): Promise<{ token: string; refreshToken: string } | undefined> {
+    return Promise.resolve() as Promise<undefined>
+  }
+
+  async switchGroup(newGroupId: string, matches: Array<UserGroup>): Promise<AuthenticationProvider> {
+    return this
   }
 }
 
@@ -127,20 +171,30 @@ function loginForGroup(groupId: string, matches: Array<UserGroup>): string {
  */
 async function switchJwtAuth(
   authApi: IccAuthApi,
-  jwtAuth: JwtAuthService,
-  username: string,
-  password: string,
+  jwtAuth: JwtAuthService | JwtBridgedAuthService,
+  username: string | undefined,
+  password: string | undefined,
   newGroupId: string,
   matches: Array<UserGroup>
-): Promise<{ loginForGroup: string; switchedJwtAuth: JwtAuthService }> {
+): Promise<{ loginForGroup: string; switchedJwtAuth: JwtAuthService | JwtBridgedAuthService }> {
   const refreshToken = jwtAuth.isInErrorState() ? undefined : await jwtAuth.refreshToken
-  const switchedJwtInfo = refreshToken ? await authApi.switchGroup(refreshToken, newGroupId).catch(() => undefined) : undefined
+  const switchedJwtInfo = refreshToken ? await authApi.switchGroup(refreshToken, newGroupId).catch(() => undefined as any) : undefined
   const updatedLogin = loginForGroup(newGroupId, matches)
-  const switchedJwtAuth = new JwtAuthService(
-    authApi,
-    updatedLogin,
-    password,
-    switchedJwtInfo?.token && switchedJwtInfo?.refreshToken ? { authJwt: switchedJwtInfo.token, refreshJwt: switchedJwtInfo.refreshToken } : undefined
-  )
+  const switchedJwtAuth =
+    !!username && !!password
+      ? new JwtBridgedAuthService(
+          authApi,
+          updatedLogin,
+          password,
+          switchedJwtInfo?.token && switchedJwtInfo?.refreshToken
+            ? { authJwt: switchedJwtInfo.token, refreshJwt: switchedJwtInfo.refreshToken }
+            : undefined
+        )
+      : new JwtAuthService(
+          authApi,
+          switchedJwtInfo?.token && switchedJwtInfo?.refreshToken
+            ? { authJwt: switchedJwtInfo.token, refreshJwt: switchedJwtInfo.refreshToken }
+            : undefined
+        )
   return { loginForGroup: updatedLogin, switchedJwtAuth }
 }
