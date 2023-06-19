@@ -506,7 +506,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     return this.tryDecryptOrReturnOriginal(this.dataOwnerApi.getDataOwnerIdOf(user), patients).then((ps) => ps.map((p) => p.entity))
   }
 
-  private tryDecryptOrReturnOriginal(
+  tryDecryptOrReturnOriginal(
     dataOwnerId: string | undefined,
     patients: Array<models.Patient>
   ): Promise<{ entity: models.Patient; decrypted: boolean }[]> {

@@ -107,7 +107,7 @@ describe('Full battery of tests on crypto and keys', async function () {
 
     // Hcp gets his maintenance tasks
     await delegateApi.cryptoApi.forceReload()
-    const maintenanceTask = new KeyPairUpdateRequest(await _getHcpKeyUpdateMaintenanceTask(delegateApi))
+    const maintenanceTask = KeyPairUpdateRequest.fromMaintenanceTask(await _getHcpKeyUpdateMaintenanceTask(delegateApi))
 
     expect(maintenanceTask.concernedDataOwnerId).equals(patient.id)
     expect(maintenanceTask.newPublicKey).equals(publicKey)
