@@ -431,7 +431,7 @@ describe('Full crypto test - Creation scenarios', async function () {
               }),
             })
           )
-        ).rows!.map((x) => new KeyPairUpdateRequest(x))
+        ).rows!.map((x) => KeyPairUpdateRequest.fromMaintenanceTask(x))
         const dataOwnerWithLostKey = newPatientUser.patientId!
         const concernedRequest = keyPairUpdateRequests.find((x) => x.concernedDataOwnerId === dataOwnerWithLostKey)
         if (!concernedRequest) throw new Error('Could not find maintenance task to regive access back to own sfks')
