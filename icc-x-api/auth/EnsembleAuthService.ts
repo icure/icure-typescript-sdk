@@ -5,6 +5,7 @@ import { NoAuthService } from './NoAuthService'
 import { BasicAuthService } from './BasicAuthService'
 import Header = XHR.Header
 import XHRError = XHR.XHRError
+import { JwtAuthService } from './JwtAuthService'
 
 export class EnsembleAuthService implements AuthService {
   private currentState: string | null
@@ -12,7 +13,7 @@ export class EnsembleAuthService implements AuthService {
   private stateMap: { [key: string]: { state: AuthService | null; next: string | null } }
 
   constructor(
-    private readonly jwtAuth: JwtBridgedAuthService | null,
+    private readonly jwtAuth: JwtBridgedAuthService | JwtAuthService | null,
     private readonly sessionAuth: NoAuthService,
     private readonly basicAuth: BasicAuthService
   ) {

@@ -281,7 +281,7 @@ export type AuthenticationDetails = {
   password: string
   forceBasic?: boolean // default false
   icureTokens?: { token: string; refreshToken: string }
-  thirdPartyTokens: { [thirdParty: string]: string }
+  thirdPartyTokens?: { [thirdParty: string]: string }
 }
 
 /**
@@ -326,14 +326,17 @@ export namespace IcureApi {
         authenticationOptions.username,
         authenticationOptions.password,
         3600,
+        undefined,
+        undefined,
         authenticationOptions.thirdPartyTokens
       )
     } else if ('icureTokens' in authenticationOptions) {
-      new JwtAuthenticationProvider(
+      grouplessAuthenticationProvider = new JwtAuthenticationProvider(
         new IccAuthApi(host, {}, new NoAuthenticationProvider(), fetchImpl),
         undefined,
         undefined,
-        authenticationOptions.icureTokens
+        undefined,
+        (authenticationOptions as unknown as AuthenticationDetails).icureTokens!
       )
     } else {
       grouplessAuthenticationProvider = authenticationOptions

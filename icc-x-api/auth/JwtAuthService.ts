@@ -9,31 +9,29 @@ import XHRError = XHR.XHRError
 
 export class JwtAuthService implements AuthService {
   private _error: Error | null = null
-  private _currentPromise: Promise<{ authJwt: string; refreshJwt: string }>
+  private _currentPromise: Promise<{ authJwt: string; refreshJwt: string } | undefined> = Promise.resolve(undefined as any)
 
-  constructor(
-    private readonly authApi: IccAuthApi,
-    private readonly username: string,
-    private readonly password: string,
-    initialJwt?: { authJwt: string; refreshJwt?: string }
-  ) {
+  constructor(private readonly authApi: IccAuthApi, initialJwt?: { authJwt: string; refreshJwt: string }) {
     if (!!initialJwt) {
       this._currentPromise = Promise.resolve(initialJwt)
     }
   }
 
   getIcureTokens(): Promise<{ token: string; refreshToken: string } | undefined> {
-    return this._currentPromise.then(({ authJwt, refreshJwt }) => ({ token: authJwt, refreshToken: refreshJwt }))
+    return this._currentPromise.then((x) => (x ? { token: x.authJwt, refreshToken: x.refreshJwt } : undefined) as any)
   }
 
   get refreshToken(): Promise<string | undefined> {
-    return this._currentPromise.then((x) => x.refreshJwt)
+    return this._currentPromise.then((x) => x?.refreshJwt as any)
   }
 
   async getAuthHeaders(): Promise<Array<Header>> {
     return this._currentPromise
-      .then(({ authJwt, refreshJwt }) => {
-        if (!authJwt || this._isJwtExpired(authJwt)) {
+      .then((x) => {
+        const authJwt = x?.authJwt
+        const refreshJwt = x?.refreshJwt
+
+        if ((!authJwt || this._isJwtExpired(authJwt)) && refreshJwt) {
           // If it does not have the JWT, tries to get it
           // If the JWT is expired, tries to refresh it
 
@@ -46,13 +44,13 @@ export class JwtAuthService implements AuthService {
 
             return updatedTokens
           })
-        } else if (!!this._error) {
-          throw this._error
+        } else {
+          throw this._error ?? 'Expired JWT refresh token in pure JwtAuthService incapable of relogging'
         }
         return this._currentPromise
       })
-      .then(({ authJwt }) => {
-        return [new XHR.Header('Authorization', `Bearer ${authJwt}`)]
+      .then((x) => {
+        return x?.authJwt ? [new XHR.Header('Authorization', `Bearer ${x.authJwt}`)] : Promise.reject('Cannot provide auth: No JWT')
       })
   }
 

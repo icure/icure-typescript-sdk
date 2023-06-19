@@ -18,6 +18,9 @@ export class JwtBridgedAuthService implements AuthService {
     private thirdPartyTokens: { [thirdParty: string]: string } = {}
   ) {}
 
+  get refreshToken(): Promise<string | undefined> {
+    return this._currentPromise.then((x) => x.refreshJwt as any)
+  }
   getIcureTokens(): Promise<{ token: string; refreshToken: string } | undefined> {
     return this.getAuthHeaders().then(() => this._currentPromise.then(({ authJwt, refreshJwt }) => ({ token: authJwt!, refreshToken: refreshJwt! })))
   }
