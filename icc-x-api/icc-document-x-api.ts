@@ -919,21 +919,22 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
       }
     }
   ): Promise<models.Document> {
-    return await this.modifyDocument(
-      await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
-        document,
-        true,
-        Object.fromEntries(
-          Object.entries(delegates).map(([delegateId, options]) => [
-            delegateId,
-            {
-              shareEncryptionKey: options.shareEncryptionKey,
-              shareOwningEntityIds: options.shareMessageId,
-            },
-          ])
-        )
+    const extended = await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
+      document,
+      true,
+      Object.fromEntries(
+        Object.entries(delegates).map(([delegateId, options]) => [
+          delegateId,
+          {
+            shareEncryptionKey: options.shareEncryptionKey,
+            shareOwningEntityIds: options.shareMessageId,
+          },
+        ])
       )
     )
+    if (!!extended) {
+      return await this.modifyDocument(extended)
+    } else return document
   }
 
   async getDataOwnersWithAccessTo(

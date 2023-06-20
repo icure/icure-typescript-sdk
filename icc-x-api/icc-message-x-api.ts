@@ -150,22 +150,23 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
       }
     } = {}
   ): Promise<models.Message> {
-    return await this.modifyMessage(
-      await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
-        message,
-        false,
-        Object.fromEntries(
-          Object.entries(delegates).map(([delegateId, options]) => [
-            delegateId,
-            {
-              shareSecretIds: options.shareSecretIds,
-              shareEncryptionKey: options.shareEncryptionKey,
-              shareOwningEntityIds: options.sharePatientId,
-            },
-          ])
-        )
+    const extended = await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
+      message,
+      false,
+      Object.fromEntries(
+        Object.entries(delegates).map(([delegateId, options]) => [
+          delegateId,
+          {
+            shareSecretIds: options.shareSecretIds,
+            shareEncryptionKey: options.shareEncryptionKey,
+            shareOwningEntityIds: options.sharePatientId,
+          },
+        ])
       )
     )
+    if (!!extended) {
+      return await this.modifyMessage(extended)
+    } else return message
   }
 
   /**

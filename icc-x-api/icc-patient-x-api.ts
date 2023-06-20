@@ -625,9 +625,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
         .then((patient: models.Patient) =>
           patient.encryptionKeys && Object.keys(patient.encryptionKeys || {}).length
             ? Promise.resolve(patient)
-            : this.crypto.entities
-                .ensureEncryptionKeysInitialised(patient)
-                .then((patient: models.Patient) => this.modifyPatientWithUser(user, patient))
+            : this.crypto.entities.ensureEncryptionKeysInitialised(patient).then((p) => (!!p ? this.modifyPatientWithUser(user, p) : patient))
         )
         .then(async (patient: models.Patient | null) => {
           if (!patient) {
@@ -945,9 +943,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
         .then((patient: models.Patient) =>
           patient.encryptionKeys && Object.keys(patient.encryptionKeys || {}).length
             ? Promise.resolve(patient)
-            : this.crypto.entities
-                .ensureEncryptionKeysInitialised(patient)
-                .then((patient: models.Patient) => this.modifyPatientWithUser(user, patient))
+            : this.crypto.entities.ensureEncryptionKeysInitialised(patient).then((p) => (!!p ? this.modifyPatientWithUser(user, p) : patient))
         )
         .then(async (patient: models.Patient | null) => {
           if (!patient) {
@@ -1199,7 +1195,10 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     }
   ): Promise<models.Patient> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
-    return await this.modifyAs(self, await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(patient, false, delegates))
+    const extended = await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(patient, false, delegates)
+    if (!!extended) {
+      return await this.modifyAs(self, extended)
+    } else return patient
   }
 
   /**

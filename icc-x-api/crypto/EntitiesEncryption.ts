@@ -235,7 +235,7 @@ export class EntitiesEncryption {
         shareOwningEntityIds?: ShareMetadataBehaviour
       }
     }
-  ): Promise<T> {
+  ): Promise<T | undefined> {
     if (!Object.keys(delegatesShareInfo).length) {
       throw new Error('Must specify at least a delegate')
     }
@@ -250,7 +250,7 @@ export class EntitiesEncryption {
     }
     const availableEncryptionKeys = await this.encryptionKeysOf(entity)
     const availableOwningEntityIds = await this.owningEntityIdsOf(entity)
-    let updatedEntity = entity
+    let updatedEntity = undefined
     for (const [delegateId, requests] of Object.entries(delegatesShareInfo)) {
       let shareSecretIds: string[] = autoShareSecretIds ? defaultSecretIds! : requests.shareSecretIds ?? []
       let actualShareEncryptionKeys: string[] = []
@@ -267,13 +267,14 @@ export class EntitiesEncryption {
         }
         actualShareOwningEntityIds = availableOwningEntityIds
       }
-      updatedEntity = await this.entityWithExtendedEncryptedMetadata(
-        updatedEntity,
-        delegateId,
-        shareSecretIds,
-        actualShareEncryptionKeys,
-        actualShareOwningEntityIds
-      )
+      updatedEntity =
+        (await this.entityWithExtendedEncryptedMetadata(
+          updatedEntity ?? entity,
+          delegateId,
+          shareSecretIds,
+          actualShareEncryptionKeys,
+          actualShareOwningEntityIds
+        )) ?? updatedEntity
     }
     return updatedEntity
   }
@@ -304,7 +305,7 @@ export class EntitiesEncryption {
     shareEncryptionKeys: string[],
     shareOwningEntityIds: string[],
     newTags: string[] = []
-  ): Promise<T> {
+  ): Promise<T | undefined> {
     this.throwDetailedExceptionForInvalidParameter('entity.id', entity.id, 'entityWithSharedEncryptedMetadata', arguments)
     async function checkInputAndGet(input: string[], inputName: string, validate: (x: string) => boolean | Promise<boolean>): Promise<string[]> {
       for (const x of input) {
@@ -347,7 +348,7 @@ export class EntitiesEncryption {
       deduplicateInfoEncryptionKeys.missingEntries.length === 0 &&
       deduplicateInfoOwningEntityIds.missingEntries.length === 0
     )
-      return _.cloneDeep(entity)
+      return undefined
     const { updatedEntity, keysForDelegates } = await this.loadEncryptionKeysForDelegates(entity, [delegateId])
     return this.createOrUpdateEntityDelegations(
       updatedEntity,
@@ -381,7 +382,7 @@ export class EntitiesEncryption {
     dataOwnerId?: string,
     tagsFilter: (tags: string[]) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<ArrayBuffer> {
-    const keys = await this.encryptionKeysOf(await this.ensureEncryptionKeysInitialised(entity), dataOwnerId, tagsFilter)
+    const keys = await this.encryptionKeysOf((await this.ensureEncryptionKeysInitialised(entity)) ?? entity, dataOwnerId, tagsFilter)
     if (keys.length === 0)
       throw new Error(
         `Could not extract any encryption keys of entity ${entity} for data owner ${
@@ -529,7 +530,7 @@ export class EntitiesEncryption {
    * the entity. This function supports migration of entities using older encryption schemes (delegation only without encrypted keys) or entities
    * which were previously not encrypted.
    */
-  async ensureEncryptionKeysInitialised<T extends EncryptedEntity>(entity: T): Promise<T> {
+  async ensureEncryptionKeysInitialised<T extends EncryptedEntity>(entity: T): Promise<T | undefined> {
     if (Object.keys(entity.encryptionKeys ?? {}).length > 0) return entity
     if (!entity.rev) {
       throw new Error(

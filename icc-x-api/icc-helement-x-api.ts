@@ -403,22 +403,22 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     }
   ): Promise<models.HealthElement> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
-    return await this.modifyAs(
-      self,
-      await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
-        healthElement,
-        true,
-        Object.fromEntries(
-          Object.entries(delegates).map(([delegateId, options]) => [
-            delegateId,
-            {
-              shareEncryptionKey: options.shareEncryptionKey,
-              shareOwningEntityIds: options.sharePatientId,
-            },
-          ])
-        )
+    const extended = await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
+      healthElement,
+      true,
+      Object.fromEntries(
+        Object.entries(delegates).map(([delegateId, options]) => [
+          delegateId,
+          {
+            shareEncryptionKey: options.shareEncryptionKey,
+            shareOwningEntityIds: options.sharePatientId,
+          },
+        ])
       )
     )
+    if (!!extended) {
+      return await this.modifyAs(self, extended)
+    } else return healthElement
   }
 
   async getDataOwnersWithAccessTo(

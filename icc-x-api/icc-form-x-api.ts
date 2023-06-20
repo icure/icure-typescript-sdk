@@ -168,21 +168,22 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
       }
     }
   ): Promise<models.Form> {
-    return await this.modifyForm(
-      await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
-        form,
-        true,
-        Object.fromEntries(
-          Object.entries(delegates).map(([delegateId, options]) => [
-            delegateId,
-            {
-              shareEncryptionKey: options.shareEncryptionKey,
-              shareOwningEntityIds: options.sharePatientId,
-            },
-          ])
-        )
+    const extended = await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
+      form,
+      true,
+      Object.fromEntries(
+        Object.entries(delegates).map(([delegateId, options]) => [
+          delegateId,
+          {
+            shareEncryptionKey: options.shareEncryptionKey,
+            shareOwningEntityIds: options.sharePatientId,
+          },
+        ])
       )
     )
+    if (!!extended) {
+      return await this.modifyForm(extended)
+    } else return form
   }
 
   async getDataOwnersWithAccessTo(

@@ -343,22 +343,22 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
     }
   ): Promise<AccessLog> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
-    return await this.modifyAs(
-      self,
-      await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
-        accessLog,
-        true,
-        Object.fromEntries(
-          Object.entries(delegates).map(([delegateId, options]) => [
-            delegateId,
-            {
-              shareEncryptionKey: options.shareEncryptionKey,
-              shareOwningEntityIds: options.sharePatientId,
-            },
-          ])
-        )
+    const extended = await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
+      accessLog,
+      true,
+      Object.fromEntries(
+        Object.entries(delegates).map(([delegateId, options]) => [
+          delegateId,
+          {
+            shareEncryptionKey: options.shareEncryptionKey,
+            shareOwningEntityIds: options.sharePatientId,
+          },
+        ])
       )
     )
+    if (!!extended) {
+      return await this.modifyAs(self, extended)
+    } else return accessLog
   }
 
   async getDataOwnersWithAccessTo(entity: models.AccessLog): Promise<{
