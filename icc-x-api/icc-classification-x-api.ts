@@ -147,21 +147,22 @@ export class IccClassificationXApi extends IccClassificationApi implements Encry
       }
     }
   ): Promise<models.Classification> {
-    return await this.modifyClassification(
-      await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
-        classification,
-        true,
-        Object.fromEntries(
-          Object.entries(delegates).map(([delegateId, options]) => [
-            delegateId,
-            {
-              shareEncryptionKey: options.shareEncryptionKey,
-              shareOwningEntityIds: options.sharePatientId,
-            },
-          ])
-        )
+    const extended = await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
+      classification,
+      true,
+      Object.fromEntries(
+        Object.entries(delegates).map(([delegateId, options]) => [
+          delegateId,
+          {
+            shareEncryptionKey: options.shareEncryptionKey,
+            shareOwningEntityIds: options.sharePatientId,
+          },
+        ])
       )
     )
+    if (!!extended) {
+      return await this.modifyClassification(extended)
+    } else return classification
   }
 
   async getDataOwnersWithAccessTo(

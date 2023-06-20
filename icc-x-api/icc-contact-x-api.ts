@@ -394,7 +394,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       ctcs.map(async (ctc) => {
         const initialisedCtc = bypassEncryption //Prevent encryption for test ctc
           ? ctc
-          : await this.crypto.entities.ensureEncryptionKeysInitialised(ctc)
+          : (await this.crypto.entities.ensureEncryptionKeysInitialised(ctc)) ?? ctc
 
         const encryptionKey = await this.crypto.entities.importFirstValidKey(await this.crypto.entities.encryptionKeysOf(ctc, hcpartyId), ctc.id!)
 
@@ -975,22 +975,22 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     }
   ): Promise<models.Contact> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
-    return await this.modifyAs(
-      self,
-      await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
-        contact,
-        true,
-        Object.fromEntries(
-          Object.entries(delegates).map(([delegateId, options]) => [
-            delegateId,
-            {
-              shareEncryptionKey: options.shareEncryptionKey,
-              shareOwningEntityIds: options.sharePatientId,
-            },
-          ])
-        )
+    const extended = await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
+      contact,
+      true,
+      Object.fromEntries(
+        Object.entries(delegates).map(([delegateId, options]) => [
+          delegateId,
+          {
+            shareEncryptionKey: options.shareEncryptionKey,
+            shareOwningEntityIds: options.sharePatientId,
+          },
+        ])
       )
     )
+    if (!!extended) {
+      return await this.modifyAs(self, extended)
+    } else return contact
   }
 
   async getDataOwnersWithAccessTo(

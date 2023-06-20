@@ -119,7 +119,10 @@ export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntity
       }
     }
   ): Promise<models.TimeTable> {
-    return await this.modifyTimeTable(await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(timeTable, true, delegates))
+    const extended = await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(timeTable, true, delegates)
+    if (!!extended) {
+      return await this.modifyTimeTable(extended)
+    } else return timeTable
   }
 
   async getDataOwnersWithAccessTo(

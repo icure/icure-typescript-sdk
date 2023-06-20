@@ -288,22 +288,22 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
     }
   ): Promise<models.CalendarItem> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
-    return await this.modifyAs(
-      self,
-      await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
-        calendarItem,
-        true,
-        Object.fromEntries(
-          Object.entries(delegates).map(([delegateId, options]) => [
-            delegateId,
-            {
-              shareEncryptionKey: options.shareEncryptionKey,
-              shareOwningEntityIds: options.sharePatientId,
-            },
-          ])
-        )
+    const extended = await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(
+      calendarItem,
+      true,
+      Object.fromEntries(
+        Object.entries(delegates).map(([delegateId, options]) => [
+          delegateId,
+          {
+            shareEncryptionKey: options.shareEncryptionKey,
+            shareOwningEntityIds: options.sharePatientId,
+          },
+        ])
       )
     )
+    if (!!extended) {
+      return await this.modifyAs(self, extended)
+    } else return calendarItem
   }
 
   async getDataOwnersWithAccessTo(
@@ -336,7 +336,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
       secretForeignKeys: [sfk],
     }
     for (const delegate of delegates) {
-      updated = await this.crypto.entities.entityWithExtendedEncryptedMetadata(updated, delegate, [], [], [patient.id!])
+      updated = (await this.crypto.entities.entityWithExtendedEncryptedMetadata(updated, delegate, [], [], [patient.id!])) ?? updated
     }
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     const saved = await this.modifyAs(self, updated)

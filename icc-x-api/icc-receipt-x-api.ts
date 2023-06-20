@@ -181,7 +181,10 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
       }
     }
   ): Promise<models.Receipt> {
-    return await this.modifyReceipt(await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(receipt, true, delegates))
+    const extended = await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(receipt, true, delegates)
+    if (!!extended) {
+      return await this.modifyReceipt(extended)
+    } else return receipt
   }
 
   async getDataOwnersWithAccessTo(entity: models.Receipt): Promise<{

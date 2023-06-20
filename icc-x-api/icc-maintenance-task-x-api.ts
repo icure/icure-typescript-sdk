@@ -203,7 +203,10 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
     }
   ): Promise<models.MaintenanceTask> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
-    return await this.modifyAs(self, await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(maintenanceTask, true, delegates))
+    const extended = await this.crypto.entities.entityWithAutoExtendedEncryptedMetadata(maintenanceTask, true, delegates)
+    if (!!extended) {
+      return await this.modifyAs(self, extended)
+    } else return maintenanceTask
   }
 
   async getDataOwnersWithAccessTo(
