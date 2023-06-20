@@ -5,7 +5,7 @@ import { v4 as uuid } from 'uuid'
 import { webcrypto } from 'crypto'
 import { RSAUtils } from '../../icc-x-api/crypto/RSA'
 import { TestApi } from './TestApi'
-import { Api, Api as TestSetupApi, Apis as TestSetupApis } from '@icure/apiV6'
+import { Api as TestSetupApi, Apis as TestSetupApis, HealthcareParty } from '@icure/apiV6'
 import { CryptoPrimitives } from '../../icc-x-api/crypto/CryptoPrimitives'
 import { testStorageWithKeys } from './TestStorage'
 import { TestCryptoStrategies } from './TestCryptoStrategies'
@@ -13,7 +13,6 @@ import { User } from '../../icc-api/model/User'
 import { TestEnvironmentBuilder } from '@icure/test-setup/builder'
 import { getEnvVariables, TestVars, UserDetails } from '@icure/test-setup/types'
 import { EnvInitializer } from '@icure/test-setup/decorators'
-import { HealthcareParty } from '../../icc-api/model/HealthcareParty'
 
 export function getTempEmail(): string {
   return `${uuid().substring(0, 8)}@icure.com`
