@@ -272,13 +272,15 @@ export class IccDocumentApi {
   }
 
   /**
-   * Creates a document's attachment and returns the modified document instance afterward
+   * Creates or updates a document's attachment and returns the modified document instance afterward
    * @summary Create a document's attachment
    * @param body
    * @param documentId
    * @param enckeys
+   * @param utis an array of UTIs for the attachment. The first element will be considered as the main UTI for the document. If provided and non-empty
+   * overrides existing values.
    */
-  setDocumentAttachment(documentId: string, enckeys?: string, body?: Object): Promise<Document> {
+  setDocumentAttachment(documentId: string, enckeys?: string, body?: Object, utis?: Array<string>): Promise<Document> {
     let _body = null
     _body = body
 
@@ -287,7 +289,8 @@ export class IccDocumentApi {
       `/document/${encodeURIComponent(String(documentId))}/attachment` +
       '?ts=' +
       new Date().getTime() +
-      (enckeys ? '&enckeys=' + encodeURIComponent(String(enckeys)) : '')
+      (enckeys ? '&enckeys=' + encodeURIComponent(String(enckeys)) : '') +
+      (utis ? utis.map((x) => '&utis=' + encodeURIComponent(String(x))).join('') : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
@@ -367,14 +370,14 @@ export class IccDocumentApi {
   }
 
   /**
-   * Creates a secondary attachment for a document and returns the modified document instance afterward
+   * Creates or updates a secondary attachment for a document and returns the modified document instance afterward
    * @summary Creates or modifies a secondary attachment for a document
    * @param documentId id of the document to update
    * @param key Key of the secondary attachment to update
    * @param rev Revision of the latest known version of the document. If the revision does not match the current version of the document the method
    * will fail with CONFLICT status
    * @param attachment
-   * @param utis Utis for the attachment
+   * @param utis an array of UTIs for the attachment. If provided and non-empty overrides existing values.
    * @return the updated document
    */
   setSecondaryAttachment(documentId: string, key: string, rev: string, attachment: Object, utis?: Array<string>): Promise<Document> {
