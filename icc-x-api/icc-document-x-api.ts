@@ -741,21 +741,25 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
    * Adds an attachment to a document, encrypting it on client side using the encryption keys of the provided document.
    * @param document a document.
    * @param attachment a new main attachment for the document.
+   * @param utis an array of UTIs for the attachment. The first element will be considered as the main UTI for the document. If provided and non-empty
+   * overrides existing values.
    * @return the updated document.
    */
-  async encryptAndSetDocumentAttachment(document: models.Document, attachment: ArrayBuffer | Uint8Array): Promise<models.Document> {
+  async encryptAndSetDocumentAttachment(document: models.Document, attachment: ArrayBuffer | Uint8Array, utis?: string[]): Promise<models.Document> {
     const encryptedData = await this.crypto.entities.encryptDataOf(document, attachment)
-    return await this.setDocumentAttachment(document.id!, undefined, encryptedData)
+    return await this.setDocumentAttachment(document.id!, undefined, encryptedData, utis)
   }
 
   /**
    * Adds an unencrypted attachment to a document.
    * @param document a document.
    * @param attachment a new main attachment for the document.
+   * @param utis an array of UTIs for the attachment. The first element will be considered as the main UTI for the document. If provided and non-empty
+   * overrides existing values.
    * @return the updated document.
    */
-  async setClearDocumentAttachment(document: models.Document, attachment: ArrayBuffer | Uint8Array): Promise<models.Document> {
-    return await this.setDocumentAttachment(document.id!, undefined, attachment)
+  async setClearDocumentAttachment(document: models.Document, attachment: ArrayBuffer | Uint8Array, utis?: string[]): Promise<models.Document> {
+    return await this.setDocumentAttachment(document.id!, undefined, attachment, utis)
   }
 
   /**
@@ -763,15 +767,18 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
    * @param document a document.
    * @param secondaryAttachmentKey key for the secondary attachment.
    * @param attachment a new secondary attachment for the document.
+   * @param utis an array of UTIs for the attachment. The first element will be considered as the main UTI for the document. If provided and non-empty
+   * overrides existing values.
    * @return the updated document.
    */
   async encryptAndSetSecondaryDocumentAttachment(
     document: models.Document,
     secondaryAttachmentKey: string,
-    attachment: ArrayBuffer | Uint8Array
+    attachment: ArrayBuffer | Uint8Array,
+    utis?: string[]
   ): Promise<models.Document> {
     const encryptedData = await this.crypto.entities.encryptDataOf(document, attachment)
-    return await this.setSecondaryAttachment(document.id!, secondaryAttachmentKey, document.rev!, encryptedData)
+    return await this.setSecondaryAttachment(document.id!, secondaryAttachmentKey, document.rev!, encryptedData, utis)
   }
 
   /**
@@ -779,14 +786,17 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
    * @param document a document.
    * @param secondaryAttachmentKey key for the secondary attachment.
    * @param attachment a new secondary attachment for the document.
+   * @param utis an array of UTIs for the attachment. The first element will be considered as the main UTI for the document. If provided and non-empty
+   * overrides existing values.
    * @return the updated document.
    */
   async setClearSecondaryDocumentAttachment(
     document: models.Document,
     secondaryAttachmentKey: string,
-    attachment: ArrayBuffer | Uint8Array
+    attachment: ArrayBuffer | Uint8Array,
+    utis?: string[]
   ): Promise<models.Document> {
-    return await this.setSecondaryAttachment(document.id!, secondaryAttachmentKey, document.rev!, attachment)
+    return await this.setSecondaryAttachment(document.id!, secondaryAttachmentKey, document.rev!, attachment, utis)
   }
 
   /**
