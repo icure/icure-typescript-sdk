@@ -65,7 +65,9 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
 
     return this.crypto.extractDelegationsSFKs(patient, dataOwnerId!).then(async (secretForeignKeys) => {
-      const dels = await this.crypto.initObjectDelegations(calendarItem, patient, dataOwnerId!, secretForeignKeys.extractedKeys[0])
+      const sfk = secretForeignKeys.extractedKeys[0]
+      if (!!patient && !sfk) throw new Error("Could not find secret foreign key for patient '" + patient.id + "'")
+      const dels = await this.crypto.initObjectDelegations(calendarItem, patient, dataOwnerId!, sfk)
       const eks = await this.crypto.initEncryptionKeys(calendarItem, dataOwnerId!)
 
       _.extend(calendarItem, {
@@ -91,9 +93,9 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
   findBy(hcpartyId: string, patient: models.Patient, usingPost: boolean = false) {
     return this.crypto.extractDelegationsSFKs(patient, hcpartyId).then((secretForeignKeys) => {
       return secretForeignKeys && secretForeignKeys.extractedKeys && secretForeignKeys.extractedKeys.length > 0
-        ? (usingPost ?
-          this.findByHCPartyPatientSecretFKeysArray(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys)) :
-          this.findByHCPartyPatientSecretFKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(',')))
+        ? usingPost
+          ? this.findByHCPartyPatientSecretFKeysArray(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys))
+          : this.findByHCPartyPatientSecretFKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(','))
         : Promise.resolve([])
     })
   }
@@ -103,7 +105,9 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
   }
 
   findByHCPartyPatientSecretFKeysArray(hcPartyId: string, secretFKeys: string[]): Promise<Array<models.CalendarItem> | any> {
-    return super.findCalendarItemsByHCPartyPatientForeignKeysUsingPost(hcPartyId, secretFKeys).then((calendarItems) => this.decrypt(hcPartyId, calendarItems))
+    return super
+      .findCalendarItemsByHCPartyPatientForeignKeysUsingPost(hcPartyId, secretFKeys)
+      .then((calendarItems) => this.decrypt(hcPartyId, calendarItems))
   }
 
   createCalendarItem(body?: CalendarItem): never {
