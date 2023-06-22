@@ -279,12 +279,14 @@ export class IccDocumentApi {
   }
 
   /**
-   * Creates a main attachment for a document and returns the modified document instance afterward
+   * Creates or updates a main attachment for a document and returns the modified document instance afterward
    * @param documentId id of the document
    * @param documentRev revision of the document
    * @param body content of the attachment (must be compatible with XHR body)
+   * @param utis an array of UTIs for the attachment. The first element will be considered as the main UTI for the document. If provided and non-empty
+   * overrides existing values.
    */
-  setMainDocumentAttachment(documentId: string, documentRev: string, body: Object): Promise<Document> {
+  setMainDocumentAttachment(documentId: string, documentRev: string, body: Object, utis?: Array<string>): Promise<Document> {
     if (!documentRev) throw new Error('Document rev is required')
     let _body = body
 
@@ -294,7 +296,8 @@ export class IccDocumentApi {
       '?ts=' +
       new Date().getTime() +
       '&rev=' +
-      encodeURIComponent(String(documentRev))
+      encodeURIComponent(String(documentRev)) +
+      (utis ? utis.map((x) => '&utis=' + encodeURIComponent(String(x))).join('') : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
@@ -305,27 +308,27 @@ export class IccDocumentApi {
   /**
    * @deprecated use setMainDocumentAttachment instead
    */
-  setDocumentAttachmentBody(documentId: string, documentRev: string, enckeys?: null, body?: Object): Promise<Document> {
+  setDocumentAttachmentBody(documentId: string, documentRev: string, enckeys?: null, body?: Object, utis?: string[]): Promise<Document> {
     if (enckeys) {
       throw new Error('Server-side encryption of attachment is not allowed anymore')
     }
     if (!body) {
       throw new Error('body is now required.')
     }
-    return this.setMainDocumentAttachment(documentId, documentRev, body)
+    return this.setMainDocumentAttachment(documentId, documentRev, body, utis)
   }
 
   /**
    * @deprecated use setMainDocumentAttachment instead
    */
-  setDocumentAttachment(documentId: string, documentRev: string, enckeys?: null, body?: Object): Promise<Document> {
+  setDocumentAttachment(documentId: string, documentRev: string, enckeys?: null, body?: Object, utis?: string[]): Promise<Document> {
     if (enckeys) {
       throw new Error('Server-side encryption of attachment is not allowed anymore')
     }
     if (!body) {
       throw new Error('body is now required.')
     }
-    return this.setMainDocumentAttachment(documentId, documentRev, body)
+    return this.setMainDocumentAttachment(documentId, documentRev, body, utis)
   }
 
   /**
@@ -356,14 +359,14 @@ export class IccDocumentApi {
   }
 
   /**
-   * Creates a secondary attachment for a document and returns the modified document instance afterward
+   * Creates or updates a secondary attachment for a document and returns the modified document instance afterward
    * @summary Creates or modifies a secondary attachment for a document
    * @param documentId id of the document to update
    * @param key Key of the secondary attachment to update
    * @param rev Revision of the latest known version of the document. If the revision does not match the current version of the document the method
    * will fail with CONFLICT status
    * @param attachment
-   * @param utis Utis for the attachment
+   * @param utis an array of UTIs for the attachment. If provided and non-empty overrides existing values.
    * @return the updated document
    */
   setSecondaryAttachment(documentId: string, key: string, rev: string, attachment: Object, utis?: Array<string>): Promise<Document> {
