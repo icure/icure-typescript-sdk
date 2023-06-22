@@ -2,11 +2,13 @@ import { IccDocumentXApi } from '../../../icc-x-api'
 import { Document } from '../../../icc-api/model/Document'
 import { assert, expect } from 'chai'
 import { randomBytes, randomUUID } from 'crypto'
-import { getEnvironmentInitializer, hcp1Username, TestUtils } from '../../utils/test_utils'
+import { getEnvironmentInitializer, hcp1Username, setLocalStorage, TestUtils } from '../../utils/test_utils'
 import initApi = TestUtils.initApi
 import { Delegation } from '../../../icc-api/model/Delegation'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
+import 'isomorphic-fetch'
 
+setLocalStorage(fetch)
 const sampleKey = 'thumbnail'
 const sampleKey2 = 'thumbnail2'
 const sampleUti = ['uti2', 'uti1', 'uti3']
@@ -79,6 +81,31 @@ describe('Document api', () => {
     assert(bufferEquals(retrievedData, data))
   })
 
+  it('should allow to update main attachment', async () => {
+    const document = await createDocument()
+    const data1 = randomBytes(32)
+    const data2 = randomBytes(32)
+    const updated = await documentApi!.setMainDocumentAttachment(document.id!, document.rev!, data1, sampleUti)
+    expect(updated.mainUti).to.equal(sampleUti[0])
+    assert(arrayEquals(updated.otherUtis!, sampleUti.slice(1)))
+    assert(bufferEquals(await documentApi!.getMainDocumentAttachment(document.id!), data1))
+    const updated2 = await documentApi!.setMainDocumentAttachment(document.id!, updated.rev!, data2)
+    expect(updated2.mainUti).to.equal(sampleUti[0])
+    assert(arrayEquals(updated2.otherUtis!, sampleUti.slice(1)))
+    assert(bufferEquals(await documentApi!.getMainDocumentAttachment(document.id!), data2))
+  })
+
+  it('should allow to update utis in main attachment', async () => {
+    const document = await createDocument()
+    const data = randomBytes(32)
+    const updated = await documentApi!.setMainDocumentAttachment(document.id!, document.rev!, data, [])
+    expect(updated.mainUti).to.be.undefined
+    expect(updated.otherUtis ?? []).to.be.empty
+    const updated2 = await documentApi!.setMainDocumentAttachment(document.id!, updated.rev!, data, sampleUti)
+    expect(updated2.mainUti).to.equal(sampleUti[0])
+    assert(arrayEquals(updated2.otherUtis!, sampleUti.slice(1)))
+  })
+
   it('should allow to create and retrieve secondary attachments', async () => {
     const document = await createDocument()
     const data = randomBytes(32)
@@ -94,6 +121,18 @@ describe('Document api', () => {
     const data = randomBytes(32)
     const updated = await documentApi!.setSecondaryAttachment(document.id!, sampleKey, document.rev!, data, sampleUti)
     assert(arrayEquals(updated.secondaryAttachments![sampleKey].utis!, sampleUti))
+  })
+
+  it('should allow to update secondary attachments', async () => {
+    const document = await createDocument()
+    const data1 = randomBytes(32)
+    const data2 = randomBytes(32)
+    const updated = await documentApi!.setSecondaryAttachment(document.id!, sampleKey, document.rev!, data1, sampleUti)
+    assert(arrayEquals(updated.secondaryAttachments![sampleKey].utis!, sampleUti))
+    assert(bufferEquals(await documentApi!.getSecondaryAttachment(document.id!, sampleKey), data1))
+    const updated2 = await documentApi!.setSecondaryAttachment(document.id!, sampleKey, updated.rev!, data2)
+    assert(arrayEquals(updated2.secondaryAttachments![sampleKey].utis!, sampleUti))
+    assert(bufferEquals(await documentApi!.getSecondaryAttachment(document.id!, sampleKey), data2))
   })
 
   it('should allow to update utis in secondary attachments', async () => {
