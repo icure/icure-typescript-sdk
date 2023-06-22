@@ -84,12 +84,14 @@ export class IccInvoiceXApi extends IccInvoiceApi {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
     return this.crypto
       .extractDelegationsSFKs(patient, dataOwnerId)
-      .then((secretForeignKeys) =>
-        Promise.all([
-          this.crypto.initObjectDelegations(invoice, patient, dataOwnerId!, secretForeignKeys.extractedKeys[0]),
+      .then((secretForeignKeys) => {
+        const sfk = secretForeignKeys.extractedKeys[0]
+        if (!sfk) throw new Error("Could not find secret foreign key for patient '" + patient.id + "'")
+        return Promise.all([
+          this.crypto.initObjectDelegations(invoice, patient, dataOwnerId!, sfk),
           this.crypto.initEncryptionKeys(invoice, dataOwnerId!),
         ])
-      )
+      })
       .then((initData) => {
         const dels = initData[0]
         const eks = initData[1]
@@ -182,9 +184,9 @@ export class IccInvoiceXApi extends IccInvoiceApi {
     return this.crypto
       .extractDelegationsSFKs(patient, hcpartyId)
       .then((secretForeignKeys) =>
-        usingPost ?
-          this.findInvoicesByHCPartyPatientForeignKeysUsingPost(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys)) :
-          this.findInvoicesByHCPartyPatientForeignKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(','))
+        usingPost
+          ? this.findInvoicesByHCPartyPatientForeignKeysUsingPost(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys))
+          : this.findInvoicesByHCPartyPatientForeignKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(','))
       )
       .then((invoices) => this.decrypt(hcpartyId, invoices))
       .then(function (decryptedInvoices) {

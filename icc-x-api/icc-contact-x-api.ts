@@ -80,6 +80,7 @@ export class IccContactXApi extends IccContactApi {
     return this.crypto.extractPreferredSfk(patient, dataOwnerId!, confidential).then(async (key) => {
       if (!key) {
         console.error(`SFK cannot be found for Contact ${key}. The contact will not be reachable from the patient side`)
+        throw new Error("Could not find secret foreign key for patient '" + patient.id + "'")
       }
       const dels = await this.crypto.initObjectDelegations(contact, patient, dataOwnerId!, key ?? null)
       const eks = await this.crypto.initEncryptionKeys(contact, dataOwnerId!)
@@ -179,9 +180,11 @@ export class IccContactXApi extends IccContactApi {
                 ])
               }, [] as Array<{ hcpartyId: string; extractedKeys: Array<string> }>)
               .filter((l) => l.extractedKeys.length > 0)
-              .map(({ hcpartyId, extractedKeys }) => usingPost ?
-                this.findByHCPartyPatientSecretFKeysArray(hcpartyId, _.uniq(extractedKeys)) :
-                this.findByHCPartyPatientSecretFKeys(hcpartyId, _.uniq(extractedKeys).join(',')))
+              .map(({ hcpartyId, extractedKeys }) =>
+                usingPost
+                  ? this.findByHCPartyPatientSecretFKeysArray(hcpartyId, _.uniq(extractedKeys))
+                  : this.findByHCPartyPatientSecretFKeys(hcpartyId, _.uniq(extractedKeys).join(','))
+              )
           ).then((results) => _.uniqBy(_.flatMap(results), (x) => x.id))
         : Promise.resolve([])
     )
