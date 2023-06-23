@@ -26,14 +26,21 @@ import { StorageFacade } from './storage/StorageFacade'
 import { LocalStorageImpl } from './storage/LocalStorageImpl'
 import { KeyStorageFacade } from './storage/KeyStorageFacade'
 import { KeyStorageImpl } from './storage/KeyStorageImpl'
+import { ErrorReporting } from './utils/error-reporting'
 
-interface DelegatorAndKeys {
+/**
+ * @internal may be changed without notice
+ */
+export interface DelegatorAndKeys {
   delegatorId: string
   key: CryptoKey
   rawKey: string
 }
 
-type CachedDataOwner =
+/**
+ * @internal may be changed without notice
+ */
+export type CachedDataOwner =
   | {
       type: 'patient'
       dataOwner: Patient
@@ -92,15 +99,14 @@ export class IccCryptoXApi {
   }
 
   /**
+   * @internal may be changed without notice
    * Gets all delegate encrypted HcParty keys of the delegate with the given `delegateHcPartyId`, and for each key the delegator id
    * If the keys are not cached, they are retrieved from the backend.
    *
    * @param delegateHcPartyId The Health Care Party id
    * @returns  \{delegatorId: delegateEncryptedHcPartyKey\}
    */
-  private getEncryptedAesExchangeKeysForDelegate(
-    delegateHcPartyId: string
-  ): Promise<{ [key: string]: { [key: string]: { [key: string]: string } } }> {
+  getEncryptedAesExchangeKeysForDelegate(delegateHcPartyId: string): Promise<{ [key: string]: { [key: string]: { [key: string]: string } } }> {
     return (
       this.hcPartyKeysRequestsCache[delegateHcPartyId] ||
       (this.hcPartyKeysRequestsCache[delegateHcPartyId] = this.forceGetEncryptedAesExchangeKeysForDelegate(delegateHcPartyId))
@@ -129,7 +135,10 @@ export class IccCryptoXApi {
   private readonly _crypto: Crypto
 
   private generateKeyConcurrencyMap: { [key: string]: PromiseLike<HealthcareParty | Patient> }
-  private rsaKeyPairs: { [pubKeyFingerprint: string]: { publicKey: CryptoKey; privateKey: CryptoKey } } = {}
+  /**
+   * @internal may be changed without notice
+   */
+  rsaKeyPairs: { [pubKeyFingerprint: string]: { publicKey: CryptoKey; privateKey: CryptoKey } } = {}
 
   private readonly _AES: AESUtils
   private readonly _RSA: RSAUtils
@@ -2306,5 +2315,22 @@ export class IccCryptoXApi {
         ),
       ])
     )
+  }
+
+  // TODO allow custom callback
+  async reportError(
+    description: string, // Description of what caused the error
+    involvedEntities: EncryptedEntity[], // Entities that were being processed when the error occurred
+    dataOwnerId: string // Id of the data owner who was doing the processing when the error occurred
+  ): Promise<void> {
+    try {
+      const collectedData = await new ErrorReporting(this).collectDataForReport(description, involvedEntities, dataOwnerId)
+      const entryPrefix = `icure.errorreports.${(new Date() as any) / 1}.${this.randomUuid()}.`
+      console.warn('Reporting error for ' + description + ' with prefix ' + entryPrefix)
+      this.storage.setItem(entryPrefix + 'full', JSON.stringify(collectedData.fullData))
+    } catch (e) {
+      console.error('Failed to report error for ' + description)
+      console.error(e)
+    }
   }
 }

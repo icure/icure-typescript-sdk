@@ -25,8 +25,14 @@ export function getTempEmail(): string {
   return `${uuid().substring(0, 8)}@icure.com`
 }
 
+function getLocalStorageDir(): string {
+  const res = tmpdir()
+  console.log(`Using local storage at ${res}`)
+  return res
+}
+
 export function setLocalStorage(fetch: (input: RequestInfo, init?: RequestInit) => Promise<Response>) {
-  ;(global as any).localStorage = new (require('node-localstorage').LocalStorage)(tmpdir(), 5 * 1024 ** 3)
+  ;(global as any).localStorage = new (require('node-localstorage').LocalStorage)(getLocalStorageDir(), 5 * 1024 ** 3)
   ;(global as any).fetch = fetch
   ;(global as any).Storage = ''
   ;(global as any).TextDecoder = TextDecoder

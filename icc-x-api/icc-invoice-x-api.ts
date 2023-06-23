@@ -84,9 +84,12 @@ export class IccInvoiceXApi extends IccInvoiceApi {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
     return this.crypto
       .extractDelegationsSFKs(patient, dataOwnerId)
-      .then((secretForeignKeys) => {
+      .then(async (secretForeignKeys) => {
         const sfk = secretForeignKeys.extractedKeys[0]
-        if (!sfk) throw new Error("Could not find secret foreign key for patient '" + patient.id + "'")
+        if (!sfk) {
+          await this.crypto.reportError('Get sfk for Invoice creation', [patient], dataOwnerId!)
+          throw new Error("Could not find secret foreign key for patient '" + patient.id + "'")
+        }
         return Promise.all([
           this.crypto.initObjectDelegations(invoice, patient, dataOwnerId!, sfk),
           this.crypto.initEncryptionKeys(invoice, dataOwnerId!),
