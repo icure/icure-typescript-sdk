@@ -81,7 +81,7 @@ type FullData = {
   description: string
   involvedEntities: EncryptedEntity[]
   hierarchy: Result<CachedDataOwner[]>
-  keyData: Result<{ [fp: string]: { publicKey: string; privateKey: string } }>
+  availableKeypairsPublic: Result<{ [fp: string]: string }>
   byDataOwner: Result<{
     [dataOwnerId: string]: ByDataOwnerData
   }>
@@ -111,7 +111,7 @@ export class ErrorReporting {
 
   private async collectFullData(description: string, involvedEntities: EncryptedEntity[], dataOwnerId: string): Promise<FullData> {
     const hierarchy = await this.collectDataOwnerHierarchy(dataOwnerId)
-    const keyData = await this.collectAvailableKeys()
+    const availableKeypairsPublic = await this.collectAvailableKeypairsPublic()
     const byDataOwner = await hierarchy.map(async (hierarchy) => {
       const res = {} as { [dataOwnerId: string]: ByDataOwnerData }
       for (const currOwner of hierarchy) {
@@ -139,7 +139,7 @@ export class ErrorReporting {
       description,
       involvedEntities,
       hierarchy,
-      keyData,
+      availableKeypairsPublic,
       byDataOwner,
     }
   }
@@ -149,7 +149,7 @@ export class ErrorReporting {
       description: data.description,
       involvedEntities: data.involvedEntities,
       hierarchy: data.hierarchy.pojo(),
-      keyData: data.keyData.pojo(),
+      availableKeypairsPublic: data.availableKeypairsPublic.pojo(),
       byDataOwner: (
         await data.byDataOwner.map(async (byDataOwnerContent) => {
           const res = {} as { [dataOwnerId: string]: object }
@@ -207,14 +207,11 @@ export class ErrorReporting {
     })
   }
 
-  private async collectAvailableKeys(): Promise<Result<{ [fp: string]: { publicKey: string; privateKey: string } }>> {
-    return Result.wrap('collectAvailableKeys', async () => {
-      const res = {} as { [fp: string]: { publicKey: string; privateKey: string } }
+  private async collectAvailableKeypairsPublic(): Promise<Result<{ [fp: string]: string }>> {
+    return Result.wrap('collectAvailableKeypairsPublic', async () => {
+      const res = {} as { [fp: string]: string }
       for (const [fp, pair] of Object.entries(this.crypto.rsaKeyPairs)) {
-        res[fp] = {
-          publicKey: ua2hex(await this.crypto.RSA.exportKey(pair.publicKey, 'spki')),
-          privateKey: ua2hex(await this.crypto.RSA.exportKey(pair.privateKey, 'pkcs8')),
-        }
+        res[fp] = ua2hex(await this.crypto.RSA.exportKey(pair.publicKey, 'spki'))
       }
       return res
     })
