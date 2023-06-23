@@ -294,6 +294,7 @@ describe('Full battery of tests on crypto and keys', async function () {
         })
       )
       userGivingAccessBackPassword = await userApi.getToken(userGivingAccessBack!.id!, uuid())
+      const hcpGivingAccessBackApi = await getApiAndAddPrivateKeysForUser(env!.iCureUrl, userGivingAccessBack!, userGivingAccessBackPassword!)
 
       await Object.entries(userDefinitions).reduce(async (p, [login, creationProcess]) => {
         await p
@@ -302,7 +303,7 @@ describe('Full battery of tests on crypto and keys', async function () {
         const patientToCreate = await patientApi.newInstance(
           user,
           new Patient({ id: uuid(), publicKey: publicKeyPatient, firstName: 'test', lastName: 'test' }),
-          [dataOwnerId]
+          [dataOwnerId, hcpGivingAccessBack!.id!]
         )
         const patient = await patientApi.createPatientWithUser(user, patientToCreate)
 
@@ -336,11 +337,42 @@ describe('Full battery of tests on crypto and keys', async function () {
         )
         const newHcpUserPassword = await userApi.getToken(newHcpUser!.id!, uuid())
 
+        const createdPatientSecretId = (await hcpGivingAccessBackApi.cryptoApi.extractDelegationsSFKs(patient, dataOwnerId)).extractedKeys[0]
+        if (!createdPatientSecretId) throw new Error('No secret id found')
+        const updatedPatient = await hcpGivingAccessBackApi.patientApi.getPatientWithUser(user, patient.id!)
+        const newPatientData = await hcpGivingAccessBackApi.cryptoApi.extendedDelegationsAndCryptedForeignKeys(
+          updatedPatient,
+          null,
+          hcpGivingAccessBack!.id!,
+          patient.id!,
+          createdPatientSecretId
+        )
+        await hcpGivingAccessBackApi.patientApi.modifyPatientWithUser(user, {
+          ...(newPatientData.modifiedObject ?? updatedPatient),
+          delegations: newPatientData.delegations,
+        })
+
         await createPartialsForHcp(facades, entities, newHcpUser, newHcpUserPassword)
         await createPartialsForPatient(facades, entities, newPatientUser, newPatientUserPassword)
 
         users.push({ user: await creationProcess(newPatientUser, api), password: newPatientUserPassword })
         users.push({ user: await creationProcess(newHcpUser, api), password: newHcpUserPassword })
+
+        if (login == 'one lost key and one available key') {
+          // TODO sharing again with the same hcp is doing nothing
+          const updatedPatient = await patientApi.getPatientWithUser(user, patient.id!)
+          const newPatientData = await cryptoApi.extendedDelegationsAndCryptedForeignKeys(
+            updatedPatient,
+            null,
+            dataOwnerId,
+            patient.id!,
+            createdPatientSecretId
+          )
+          await patientApi.modifyPatientWithUser(user, {
+            ...(newPatientData.modifiedObject ?? updatedPatient),
+            delegations: newPatientData.delegations,
+          })
+        }
       }, Promise.resolve())
 
       const delegateApi = await getApiAndAddPrivateKeysForUser(env!.iCureUrl, delegateUser!, delegateHcpPassword!)
