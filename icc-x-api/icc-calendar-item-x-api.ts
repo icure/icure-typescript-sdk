@@ -65,7 +65,9 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
 
     return this.crypto.extractDelegationsSFKs(patient, dataOwnerId!).then(async (secretForeignKeys) => {
-      const dels = await this.crypto.initObjectDelegations(calendarItem, patient, dataOwnerId!, secretForeignKeys.extractedKeys[0])
+      const sfk = secretForeignKeys.extractedKeys[0]
+      if (!!patient && !sfk) throw new Error("Could not find secret foreign key for patient '" + patient.id + "'")
+      const dels = await this.crypto.initObjectDelegations(calendarItem, patient, dataOwnerId!, sfk)
       const eks = await this.crypto.initEncryptionKeys(calendarItem, dataOwnerId!)
 
       _.extend(calendarItem, {

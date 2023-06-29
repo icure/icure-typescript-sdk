@@ -80,12 +80,11 @@ export class IccFormXApi extends IccFormApi {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
     return this.crypto
       .extractDelegationsSFKs(patient, dataOwnerId!)
-      .then((secretForeignKeys) =>
-        Promise.all([
-          this.crypto.initObjectDelegations(form, patient, dataOwnerId!, secretForeignKeys.extractedKeys[0]),
-          this.crypto.initEncryptionKeys(form, dataOwnerId!),
-        ])
-      )
+      .then((secretForeignKeys) => {
+        const sfk = secretForeignKeys.extractedKeys[0]
+        if (!sfk) throw new Error('No secret foreign key found for patient ' + patient.id)
+        return Promise.all([this.crypto.initObjectDelegations(form, patient, dataOwnerId!, sfk), this.crypto.initEncryptionKeys(form, dataOwnerId!)])
+      })
       .then((initData) => {
         const dels = initData[0]
         const eks = initData[1]
@@ -133,9 +132,15 @@ export class IccFormXApi extends IccFormApi {
     return this.crypto
       .extractDelegationsSFKs(patient, hcpartyId)
       .then((secretForeignKeys) =>
-        usingPost ?
-          this.findFormsByHCPartyPatientForeignKeysUsingPost(secretForeignKeys.hcpartyId!, undefined, undefined, undefined, _.uniq(secretForeignKeys.extractedKeys)) :
-          this.findFormsByHCPartyPatientForeignKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(','))
+        usingPost
+          ? this.findFormsByHCPartyPatientForeignKeysUsingPost(
+              secretForeignKeys.hcpartyId!,
+              undefined,
+              undefined,
+              undefined,
+              _.uniq(secretForeignKeys.extractedKeys)
+            )
+          : this.findFormsByHCPartyPatientForeignKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(','))
       )
       .then((forms) => this.decrypt(hcpartyId, forms))
       .then(function (decryptedForms) {

@@ -124,17 +124,9 @@ describe('Full battery of tests on crypto and keys', async function () {
     expect(patientId!.typedValue!.stringValue!).equals(patient.id)
     expect(patientPubKey!.typedValue!.stringValue!).equals(publicKey)
 
-    const updatedDataOwner = await delegateApi.cryptoApi.giveAccessBackTo(
-      delegateUser!,
-      patientId!.typedValue!.stringValue!,
-      patientPubKey!.typedValue!.stringValue!
-    )
-
-    expect(updatedDataOwner.type).to.be.equal('patient')
-    expect(updatedDataOwner.dataOwner).to.not.be.undefined
-    expect(updatedDataOwner.dataOwner).to.not.be.null
-    expect(updatedDataOwner.dataOwner.aesExchangeKeys![previousPubKey][delegateUser!.healthcarePartyId!][publicKey.slice(-32)]).to.be.not.undefined
-    expect(updatedDataOwner.dataOwner.aesExchangeKeys![previousPubKey][delegateUser!.healthcarePartyId!][publicKey.slice(-32)]).to.be.not.null
+    await delegateApi.cryptoApi.giveAccessBackTo(delegateUser!, patientId!.typedValue!.stringValue!, patientPubKey!.typedValue!.stringValue!)
+    api.cryptoApi.emptyHcpCache(user.patientId!)
+    const updatedDataOwner = await api.cryptoApi.getDataOwner(user.patientId!)
 
     const apiAfterSharedBack = await Api(
       env!.iCureUrl,

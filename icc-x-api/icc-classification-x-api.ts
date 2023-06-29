@@ -58,7 +58,11 @@ export class IccClassificationXApi extends IccClassificationApi {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
     return this.crypto
       .extractDelegationsSFKs(patient, dataOwnerId!)
-      .then((secretForeignKeys) => this.crypto.initObjectDelegations(classification, patient, dataOwnerId!, secretForeignKeys.extractedKeys[0]))
+      .then((secretForeignKeys) => {
+        const sfk = secretForeignKeys.extractedKeys[0]
+        if (!sfk) throw new Error("Could not find secret foreign key for patient '" + patient.id + "'")
+        return this.crypto.initObjectDelegations(classification, patient, dataOwnerId!, sfk)
+      })
       .then((initData) => {
         _.extend(classification, {
           delegations: initData.delegations,
