@@ -1,9 +1,9 @@
 import * as _ from 'lodash'
 import { Patient, Insurability } from '../../icc-api/model/models'
 
-export function isBIM(ct1: number | string, ct2: number | string): boolean {
+export function isBIM(ct1: number | string | undefined, ct2: number | string | undefined): boolean {
   //BIM if ct1 ood and ct2 ood
-  return +ct1 % 2 !== 0 && +ct2 % 2 !== 0
+  return +(ct1 ?? 0) % 2 !== 0 && +(ct2 ?? 0) % 2 !== 0
 }
 
 export function patientIsBIM(patient: Patient) {
