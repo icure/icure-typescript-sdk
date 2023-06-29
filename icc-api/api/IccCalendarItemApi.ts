@@ -138,6 +138,73 @@ export class IccCalendarItemApi {
 
   /**
    *
+   * @summary Find CalendarItems by hcparty and patient
+   * @param body
+   * @param hcPartyId
+   * @param startKey
+   * @param startDocumentId
+   * @param limit
+   */
+  findCalendarItemsByHCPartyPatientForeignKeysUsingPostPaginated(
+    hcPartyId: string,
+    body: Array<string>,
+    limit: number,
+    startKey?: string,
+    startDocumentId?: string
+  ): Promise<Array<CalendarItem>> {
+    let _body = null
+    _body = body
+
+    const _url =
+      this.host +
+      `/calendarItem/byHcPartySecretForeignKeys/page/${limit}` +
+      '?ts=' +
+      new Date().getTime() +
+      (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
+      (hcPartyId ? '&startKey=' + encodeURIComponent(String(startKey)) : '') +
+      (hcPartyId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '')
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new CalendarItem(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
+   * @summary Find CalendarItems by hcparty and patient
+   * @param hcPartyId
+   * @param secretFKeys
+   * @param startKey
+   * @param startDocumentId
+   * @param limit
+   */
+  findCalendarItemsByHCPartyPatientForeignKeysPaginated(
+    hcPartyId: string,
+    secretFKeys: string,
+    limit: number,
+    startKey?: string,
+    startDocumentId?: string
+  ): Promise<Array<CalendarItem>> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/calendarItem/byHcPartySecretForeignKeys/page/${limit}` +
+      '?ts=' +
+      new Date().getTime() +
+      (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
+      (secretFKeys ? '&secretFKeys=' + encodeURIComponent(String(secretFKeys)) : '') +
+      (hcPartyId ? '&startKey=' + encodeURIComponent(String(startKey)) : '') +
+      (hcPartyId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '')
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new CalendarItem(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
    * @summary Find CalendarItems by recurrenceId
    * @param recurrenceId
    */

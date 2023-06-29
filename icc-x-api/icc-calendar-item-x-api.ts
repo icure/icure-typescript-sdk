@@ -2,7 +2,7 @@ import * as i18n from './rsrc/contact.i18n'
 
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import { CalendarItem, User } from '../icc-api/model/models'
+import { CalendarItem, PaginatedListCalendarItem, PaginatedListContact, User } from '../icc-api/model/models'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 import { IccCalendarItemApi } from '../icc-api'
 import { crypt, decrypt, hex2ua, ua2utf8, utf8_2ua } from './utils'
@@ -91,9 +91,9 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
   findBy(hcpartyId: string, patient: models.Patient, usingPost: boolean = false) {
     return this.crypto.extractDelegationsSFKs(patient, hcpartyId).then((secretForeignKeys) => {
       return secretForeignKeys && secretForeignKeys.extractedKeys && secretForeignKeys.extractedKeys.length > 0
-        ? (usingPost ?
-          this.findByHCPartyPatientSecretFKeysArray(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys)) :
-          this.findByHCPartyPatientSecretFKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(',')))
+        ? usingPost
+          ? this.findByHCPartyPatientSecretFKeysArray(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys))
+          : this.findByHCPartyPatientSecretFKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(','))
         : Promise.resolve([])
     })
   }
@@ -103,7 +103,33 @@ export class IccCalendarItemXApi extends IccCalendarItemApi {
   }
 
   findByHCPartyPatientSecretFKeysArray(hcPartyId: string, secretFKeys: string[]): Promise<Array<models.CalendarItem> | any> {
-    return super.findCalendarItemsByHCPartyPatientForeignKeysUsingPost(hcPartyId, secretFKeys).then((calendarItems) => this.decrypt(hcPartyId, calendarItems))
+    return super
+      .findCalendarItemsByHCPartyPatientForeignKeysUsingPost(hcPartyId, secretFKeys)
+      .then((calendarItems) => this.decrypt(hcPartyId, calendarItems))
+  }
+
+  findCalendarItemsByHCPartyPatientForeignKeysPaginated(
+    hcPartyId: string,
+    secretFKeys: string,
+    limit: number,
+    startKey?: string,
+    startDocumentId?: string
+  ): Promise<PaginatedListCalendarItem | any> {
+    return super
+      .findCalendarItemsByHCPartyPatientForeignKeysPaginated(hcPartyId, secretFKeys, limit, startKey, startDocumentId)
+      .then((calendarItems) => this.decrypt(hcPartyId, calendarItems))
+  }
+
+  findCalendarItemsByHCPartyPatientForeignKeysUsingPostPaginated(
+    hcPartyId: string,
+    secretFKeys: string[],
+    limit: number,
+    startKey?: string,
+    startDocumentId?: string
+  ): Promise<PaginatedListCalendarItem | any> {
+    return super
+      .findCalendarItemsByHCPartyPatientForeignKeysUsingPostPaginated(hcPartyId, secretFKeys, limit, startKey, startDocumentId)
+      .then((calendarItems) => this.decrypt(hcPartyId, calendarItems))
   }
 
   createCalendarItem(body?: CalendarItem): never {
