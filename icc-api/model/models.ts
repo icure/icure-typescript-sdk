@@ -296,3 +296,5 @@ export type EncryptedEntityStub = {
 }
 
 export type EncryptedParentEntity = Message | Patient
+
+export type { ISO639_1 } from './ISO639_1'

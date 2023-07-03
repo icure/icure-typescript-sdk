@@ -10,6 +10,9 @@
  * Do not edit the class manually.
  */
 
+import { ISO639_1 } from './ISO639_1'
+import { CodeStub } from './CodeStub'
+
 /**
  * Text node with attribution. Could be written by a healthcare party, as a side node of a     |medical record. For example, after taking a temperature, the HCP adds a node explaining the     |thermometer is faulty.
  */
@@ -33,10 +36,29 @@ export class Annotation {
   modified?: number
   /**
    * Text contained in the note, written as markdown.
+   * @deprecated use markdown instead
    */
   text?: string
+
+  /**
+   * Text contained in the note, written as markdown.
+   */
+  markdown?: { [lang in ISO639_1]?: string }
+
+  /**
+   * If true, the note is confidential and should be encrypted.
+   */
+  confidential?: boolean
+
+  /**
+   * A tag is an item from a codification system that qualifies an entity as being member of a certain class, whatever the value it might have taken. If the tag qualifies the content of a field, it means that whatever the content of the field, the tag will always apply. For example, the label of a field is qualified using a tag. LOINC is a codification system typically used for tags.
+   */
+  tags?: Array<CodeStub>
+
   /**
    * Defines to which part of the corresponding information the note is related to.
    */
   location?: string
+
+  encryptedSelf?: string
 }

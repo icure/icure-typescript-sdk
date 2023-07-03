@@ -5,3 +5,12 @@ scratchDir/
 coverage/
 .nyc_output/
 /test/scratch/
+
+# Yarn without zero-installs
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
