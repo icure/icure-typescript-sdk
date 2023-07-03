@@ -79,6 +79,7 @@ export class IccContactXApi extends IccContactApi {
 
     return this.crypto.extractPreferredSfk(patient, dataOwnerId!, confidential).then(async (key) => {
       if (!key) {
+        await this.crypto.reportError('Get sfk for Contact creation (confidential: ' + confidential + ')', [patient], dataOwnerId!)
         console.error(`SFK cannot be found for Contact ${key}. The contact will not be reachable from the patient side`)
         throw new Error("Could not find secret foreign key for patient '" + patient.id + "'")
       }

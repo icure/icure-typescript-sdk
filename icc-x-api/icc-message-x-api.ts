@@ -51,9 +51,12 @@ export class IccMessageXApi extends IccMessageApi {
 
     return this.crypto
       .extractDelegationsSFKs(patient, dataOwnerId)
-      .then((secretForeignKeys) => {
+      .then(async (secretForeignKeys) => {
         const sfk = secretForeignKeys.extractedKeys[0]
-        if (!!patient && !sfk) throw new Error("Could not find secret foreign key for patient '" + patient.id + "'")
+        if (!!patient && !sfk) {
+          await this.crypto.reportError('Get sfk for Message creation', [patient], dataOwnerId!)
+          throw new Error("Could not find secret foreign key for patient '" + patient.id + "'")
+        }
         return this.crypto.initObjectDelegations(message, patient, dataOwnerId!, secretForeignKeys.extractedKeys[0])
       })
       .then((initData) => {
