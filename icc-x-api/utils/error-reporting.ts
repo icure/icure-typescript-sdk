@@ -1,13 +1,14 @@
 import { CachedDataOwner, DelegatorAndKeys, IccCryptoXApi } from '../icc-crypto-x-api'
 import { StorageFacade } from '../storage/StorageFacade'
 import { Delegation, EncryptedEntity, HealthcareParty } from '../../icc-api/model/models'
-import { hex2ua, ua2hex, ua2string, ua2utf8 } from './binary-utils'
+import { hex2ua, string2ua, ua2hex, ua2string, ua2utf8 } from './binary-utils'
 
 interface Result<A> {
   map<B>(f: (content: A) => Promise<B>): Promise<Result<B>>
   mapErrorMsg(f: (errorMsg: string) => string): Result<A>
   flatMap<B>(f: (content: A) => Promise<Result<B>>): Promise<Result<B>>
   pojo(): any
+  getOrElse(defaultValue: () => A): A
 }
 namespace Result {
   export class Success<A> implements Result<A> {
@@ -26,6 +27,10 @@ namespace Result {
     }
 
     pojo(): any {
+      return this.content
+    }
+
+    getOrElse(defaultValue: () => A): A {
       return this.content
     }
   }
@@ -48,6 +53,10 @@ namespace Result {
     pojo(): any {
       return { failedOperation: this.failedOperation, errorMsg: this.errorMsg }
     }
+
+    getOrElse(defaultValue: () => never): never {
+      return defaultValue()
+    }
   }
 
   export async function wrap<A>(operation: string, f: () => Promise<A>): Promise<Result<A>> {
@@ -60,7 +69,7 @@ namespace Result {
   }
 }
 
-type DecryptedDelegationInfo = { [encryptedDelegationKey: string]: { [rawKey: string]: Result<string> } }
+type DecryptedDelegationInfo = { [encryptedDelegationKey: string]: { [rawKey: string]: Result<string> } } // rawKey: exchangeKey used in the decryption
 
 type DecryptedEntityInfo = {
   delegations: DecryptedDelegationInfo
@@ -72,7 +81,7 @@ type EncryptedExchangeKeys = { [delegator: string]: { [mainXkDelegatorPubFp: str
 
 type ByDataOwnerData = {
   delegators: Result<CachedDataOwner[]>
-  encryptedExchangeKeys: Result<EncryptedExchangeKeys>
+  encryptedExchangeKeys: Result<EncryptedExchangeKeys> // As retrieved using the view: may differ from data retrieved by delegators
   decryptedExchangeKeys: Result<DelegatorAndKeys[]>
   decryptedEntitiesMetadata: Result<{ [entityId: string]: DecryptedEntityInfo }>
 }
@@ -95,19 +104,15 @@ export class ErrorReporting {
     involvedEntities: EncryptedEntity[], // Entities that were being processed when the error occurred
     dataOwnerId: string // Id of the data owner who was doing the processing when the error occurred
   ): Promise<{
-    // minimalData: object // Should not contain any sensitive data
+    minimalData: object // Does not contain any sensitive data
     fullData: object // May contain sensitive data, we should not ask for it unless desperate
   }> {
     const fullData = await this.collectFullData(description, involvedEntities, dataOwnerId)
-    return { fullData: await this.fullDataPojo(fullData) }
+    return {
+      fullData: await new FullDataExporter(this.crypto).exportDataToPojo(fullData),
+      minimalData: await new MinimalDataExporter(this.crypto).exportDataToPojo(fullData),
+    }
   }
-
-  /*TODO: Minimal
-   * - Redact any mention of private keys or exchange keys from error messages
-   * - Keep only collected public keys
-   * - Keep only id, delegations, crypted foreign keys, encryption keys, and secret foreign keys of involved entities
-   * - Keep only id, publicKey, aesExchangeKeys, and hcPartyKeys of data owners
-   */
 
   private async collectFullData(description: string, involvedEntities: EncryptedEntity[], dataOwnerId: string): Promise<FullData> {
     const hierarchy = await this.collectDataOwnerHierarchy(dataOwnerId)
@@ -142,57 +147,6 @@ export class ErrorReporting {
       availableKeypairsPublic,
       byDataOwner,
     }
-  }
-
-  private async fullDataPojo(data: FullData): Promise<object> {
-    return {
-      description: data.description,
-      involvedEntities: data.involvedEntities,
-      hierarchy: data.hierarchy.pojo(),
-      availableKeypairsPublic: data.availableKeypairsPublic.pojo(),
-      byDataOwner: (
-        await data.byDataOwner.map(async (byDataOwnerContent) => {
-          const res = {} as { [dataOwnerId: string]: object }
-          for (const [dataOwnerId, dataOwnerContent] of Object.entries(byDataOwnerContent)) {
-            res[dataOwnerId] = {
-              delegators: dataOwnerContent.delegators.pojo(),
-              encryptedExchangeKeys: dataOwnerContent.encryptedExchangeKeys.pojo(),
-              decryptedExchangeKeys: dataOwnerContent.decryptedExchangeKeys.pojo(),
-              decryptedEntitiesMetadata: (
-                await dataOwnerContent.decryptedEntitiesMetadata.map(async (decryptedEntitiesData) => {
-                  const currEntityData = {} as { [entityId: string]: object }
-                  for (const [entityId, entityData] of Object.entries(decryptedEntitiesData)) {
-                    currEntityData[entityId] = await this.decryptedEntityInfoPojo(entityData)
-                  }
-                  return currEntityData
-                })
-              ).pojo(),
-            }
-          }
-          return res
-        })
-      ).pojo(),
-    }
-  }
-
-  private async decryptedEntityInfoPojo(data: DecryptedEntityInfo): Promise<object> {
-    return {
-      delegations: await this.decryptedDelegationInfoPojo(data.delegations),
-      encryptionKeys: await this.decryptedDelegationInfoPojo(data.encryptionKeys),
-      cryptedForeignKeys: await this.decryptedDelegationInfoPojo(data.cryptedForeignKeys),
-    }
-  }
-
-  private async decryptedDelegationInfoPojo(data: DecryptedDelegationInfo): Promise<object> {
-    const res = {} as { [encryptedDelegationKey: string]: object }
-    for (const [encryptedDelegationKey, rawKeys] of Object.entries(data)) {
-      const currRawKeys = {} as { [rawKey: string]: object }
-      for (const [rawKey, result] of Object.entries(rawKeys)) {
-        currRawKeys[rawKey] = result.pojo()
-      }
-      res[encryptedDelegationKey] = currRawKeys
-    }
-    return res
   }
 
   // res[0] -> self, res[1] -> self.parent, ...
@@ -267,6 +221,189 @@ export class ErrorReporting {
         }
       }
       res[currDelegation.key!] = currDelegationRes
+    }
+    return res
+  }
+}
+
+abstract class DataExporter {
+  protected constructor(protected readonly crypto: IccCryptoXApi) {}
+
+  async exportDataToPojo(data: FullData): Promise<object> {
+    /*
+     * To make sure we don't leak info we salt sensitive data before hasing it (for example we want to make sure that we are unable to figure out the
+     * actual value of a cfk by comparing its hash to the hash of all the ids of patients/messages in the database)
+     */
+    const salt = this.crypto.randomUuid()
+    const errorMsgSubstitutions = await this.getErrorMsgSubstitutions(data, salt)
+    return {
+      description: data.description,
+      involvedEntities: data.involvedEntities.map((x) => this.encryptedEntityPojo(x)),
+      hierarchy: (await data.hierarchy.map((res) => Promise.resolve(res.map((x) => this.dataOwnerPojo(x)))))
+        .mapErrorMsg((x) => this.applyErrorMsgSubstitutions(x, errorMsgSubstitutions))
+        .pojo(),
+      availableKeypairsPublic: data.availableKeypairsPublic.mapErrorMsg((x) => this.applyErrorMsgSubstitutions(x, errorMsgSubstitutions)).pojo(),
+      byDataOwner: (
+        await data.byDataOwner.map(async (byDataOwnerContent) => {
+          const res = {} as { [dataOwnerId: string]: object }
+          for (const [dataOwnerId, dataOwnerContent] of Object.entries(byDataOwnerContent)) {
+            res[dataOwnerId] = {
+              delegators: (await dataOwnerContent.delegators.map((ds) => Promise.resolve(ds.map((d) => this.dataOwnerPojo(d)))))
+                .mapErrorMsg((x) => this.applyErrorMsgSubstitutions(x, errorMsgSubstitutions))
+                .pojo(),
+              encryptedExchangeKeys: dataOwnerContent.encryptedExchangeKeys
+                .mapErrorMsg((x) => this.applyErrorMsgSubstitutions(x, errorMsgSubstitutions))
+                .pojo(),
+              decryptedExchangeKeys: (await dataOwnerContent.decryptedExchangeKeys.map((x) => this.decryptedExchangeKeysPojo(x, salt)))
+                .mapErrorMsg((x) => this.applyErrorMsgSubstitutions(x, errorMsgSubstitutions))
+                .pojo(),
+              decryptedEntitiesMetadata: (
+                await dataOwnerContent.decryptedEntitiesMetadata.map(async (decryptedEntitiesData) => {
+                  const currEntityData = {} as { [entityId: string]: object }
+                  for (const [entityId, entityData] of Object.entries(decryptedEntitiesData)) {
+                    currEntityData[entityId] = await this.decryptedEntityInfoPojo(entityData, salt, errorMsgSubstitutions)
+                  }
+                  return currEntityData
+                })
+              )
+                .mapErrorMsg((x) => this.applyErrorMsgSubstitutions(x, errorMsgSubstitutions))
+                .pojo(),
+            }
+          }
+          return res
+        })
+      )
+        .mapErrorMsg((x) => this.applyErrorMsgSubstitutions(x, errorMsgSubstitutions))
+        .pojo(),
+    }
+  }
+
+  protected abstract getErrorMsgSubstitutions(data: FullData, salt: string): Promise<{ [key: string]: string }>
+  protected abstract encryptedEntityPojo(entity: EncryptedEntity): object
+  protected abstract dataOwnerPojo(dataOwner: CachedDataOwner): object
+  protected async decryptedExchangeKeysPojo(decryptedExchangeKeys: DelegatorAndKeys[], hashingSalt: string): Promise<object> {
+    const res = []
+    for (const d of decryptedExchangeKeys) {
+      res.push({
+        delegatorId: d.delegatorId,
+        keyInfo: this.processRawSecretToExtendedInfo(d.rawKey, hashingSalt),
+      })
+    }
+    return res
+  }
+  private async decryptedEntityInfoPojo(data: DecryptedEntityInfo, salt: string, errorMsgSubstitutions: { [key: string]: string }): Promise<object> {
+    return {
+      delegations: await this.decryptedDelegationInfoPojo(data.delegations, salt, errorMsgSubstitutions),
+      encryptionKeys: await this.decryptedDelegationInfoPojo(data.encryptionKeys, salt, errorMsgSubstitutions),
+      cryptedForeignKeys: await this.decryptedDelegationInfoPojo(data.cryptedForeignKeys, salt, errorMsgSubstitutions),
+    }
+  }
+  private async decryptedDelegationInfoPojo(
+    data: DecryptedDelegationInfo,
+    salt: string,
+    errorMsgSubstitutions: { [key: string]: string }
+  ): Promise<object> {
+    const res = {} as { [encryptedDelegationKey: string]: object }
+    for (const [encryptedDelegationKey, rawKeys] of Object.entries(data)) {
+      const currRawKeys = {} as { [rawKey: string]: object }
+      for (const [rawKey, result] of Object.entries(rawKeys)) {
+        currRawKeys[await this.processRawSecretToString(rawKey, salt)] = (await result.map((x) => this.processRawSecretToExtendedInfo(x, salt)))
+          .mapErrorMsg((x) => this.applyErrorMsgSubstitutions(x, errorMsgSubstitutions))
+          .pojo()
+      }
+      res[encryptedDelegationKey] = currRawKeys
+    }
+    return res
+  }
+  protected abstract processRawSecretToString(rawSecret: string, salt: string): Promise<string>
+  protected abstract processRawSecretToExtendedInfo(rawSecret: string, salt: string): Promise<any>
+
+  private applyErrorMsgSubstitutions(msg: string, substitutions: { [key: string]: string }): string {
+    let res = msg
+    for (const [key, value] of Object.entries(substitutions)) {
+      res = res.split(key).join(value) // Replace all
+    }
+    return res
+  }
+}
+
+class FullDataExporter extends DataExporter {
+  constructor(crypto: IccCryptoXApi) {
+    super(crypto)
+  }
+
+  protected dataOwnerPojo(dataOwner: CachedDataOwner): object {
+    return dataOwner
+  }
+
+  protected encryptedEntityPojo(entity: EncryptedEntity): object {
+    return entity
+  }
+
+  protected processRawSecretToExtendedInfo(rawSecret: string, salt: string): Promise<any> {
+    return Promise.resolve(rawSecret)
+  }
+
+  protected processRawSecretToString(rawSecret: string, salt: string): Promise<string> {
+    return Promise.resolve(rawSecret)
+  }
+
+  protected getErrorMsgSubstitutions(data: FullData, salt: string): Promise<{ [p: string]: string }> {
+    return Promise.resolve({})
+  }
+}
+
+class MinimalDataExporter extends DataExporter {
+  constructor(crypto: IccCryptoXApi) {
+    super(crypto)
+  }
+
+  protected dataOwnerPojo(dataOwner: CachedDataOwner): object {
+    return {
+      id: dataOwner.dataOwner.id,
+      rev: dataOwner.dataOwner.rev,
+      type: dataOwner.type,
+      publicKey: dataOwner.dataOwner.publicKey,
+      aesExchangeKeys: dataOwner.dataOwner.aesExchangeKeys,
+      hcPartyKeys: dataOwner.dataOwner.hcPartyKeys,
+    }
+  }
+
+  protected encryptedEntityPojo(entity: EncryptedEntity): object {
+    return {
+      id: entity.id,
+      rev: entity.rev,
+      delegations: entity.delegations,
+      cryptedForeignKeys: entity.cryptedForeignKeys,
+      encryptionKeys: entity.encryptionKeys,
+      secretForeignKeys: entity.secretForeignKeys,
+    }
+  }
+
+  protected async processRawSecretToExtendedInfo(rawSecret: string, salt: string): Promise<any> {
+    return {
+      hashedValue: await this.hashWithSalt(rawSecret, salt),
+      length: rawSecret.length,
+      isUuid: !!rawSecret.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),
+      isSameCaseHex: !!rawSecret.match(/^[0-9a-f]+$/) || !!rawSecret.match(/^[0-9A-F]+$/),
+      isMixedCaseHex: !!rawSecret.match(/^[0-9a-fA-F]+$/),
+    }
+  }
+
+  protected processRawSecretToString(rawSecret: string, salt: string): Promise<string> {
+    return this.hashWithSalt(rawSecret, salt)
+  }
+
+  private async hashWithSalt(data: string, hashingSalt: string): Promise<string> {
+    return ua2hex(await this.crypto.sha256(string2ua(data + hashingSalt)))
+  }
+
+  protected async getErrorMsgSubstitutions(data: FullData, salt: string): Promise<{ [p: string]: string }> {
+    const res: { [p: string]: string } = {}
+    for (const infoOfCurrentDataOnwer of Object.values(data.byDataOwner.getOrElse(() => ({})))) {
+      for (const key of infoOfCurrentDataOnwer.decryptedExchangeKeys.getOrElse(() => [])) {
+        res[key.rawKey] = 'hashedRawKey-' + (await this.hashWithSalt(key.delegatorId, salt))
+      }
     }
     return res
   }
