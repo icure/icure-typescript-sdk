@@ -22,6 +22,7 @@ import { PatientHealthCareParty } from './PatientHealthCareParty'
 import { PersonName } from './PersonName'
 import { PropertyStub } from './PropertyStub'
 import { SchoolingInfo } from './SchoolingInfo'
+import { Annotation } from './Annotation'
 
 /**
  * This entity is a root level object. It represents a patient It is serialized in JSON and saved in the underlying icure-patient CouchDB database.
@@ -29,7 +30,7 @@ import { SchoolingInfo } from './SchoolingInfo'
 import { b64_2ab } from './ModelHelper'
 export class Patient {
   constructor(json: JSON | any) {
-    Object.assign(this as Patient, json, json.picture ? { picture: b64_2ab(json.picture) } : {})
+    Object.assign(this as Patient, json, json?.picture ? { picture: b64_2ab(json.picture) } : {})
   }
 
   /**
@@ -187,12 +188,18 @@ export class Patient {
   profession?: string
   /**
    * A text note (can be confidential, encrypted by default).
+   * @deprecated use notes instead with proper tags
    */
   note?: string
   /**
    * An administrative note, not confidential.
+   * @deprecated use notes instead with proper tags
    */
   administrativeNote?: string
+  /**
+   * A list of localized notes.
+   */
+  notes?: Annotation[]
   /**
    * The nationality of the patient.
    */
