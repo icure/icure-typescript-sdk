@@ -2317,20 +2317,34 @@ export class IccCryptoXApi {
     )
   }
 
-  // TODO allow custom callback
+  /**
+   * Specifies if the error reporting is enabled
+   */
+  enableErrorReporting = true
+  /**
+   * Allows to specify the behaviour for saving the error report
+   */
+  saveErrorReportCallback: (collectedData: { fullData: object; minimalData: object }) => Promise<void> = async (collectedData) => {
+    const entryPrefix = `icure.errorreports.${(new Date() as any) / 1}.${this.randomUuid()}.`
+    console.warn('Storage entry prefix: ' + entryPrefix)
+    this.storage.setItem(entryPrefix + 'full', JSON.stringify(collectedData.fullData))
+    this.storage.setItem(entryPrefix + 'minimal', JSON.stringify(collectedData.minimalData))
+  }
+
   async reportError(
     description: string, // Description of what caused the error
     involvedEntities: EncryptedEntity[], // Entities that were being processed when the error occurred
     dataOwnerId: string // Id of the data owner who was doing the processing when the error occurred
   ): Promise<void> {
-    try {
-      const collectedData = await new ErrorReporting(this).collectDataForReport(description, involvedEntities, dataOwnerId)
-      const entryPrefix = `icure.errorreports.${(new Date() as any) / 1}.${this.randomUuid()}.`
-      console.warn('Reporting error for ' + description + ' with prefix ' + entryPrefix)
-      this.storage.setItem(entryPrefix + 'full', JSON.stringify(collectedData.fullData))
-    } catch (e) {
-      console.error('Failed to report error for ' + description)
-      console.error(e)
+    if (this.enableErrorReporting) {
+      try {
+        const collectedData = await new ErrorReporting(this).collectDataForReport(description, involvedEntities, dataOwnerId)
+        console.warn('Reporting error for ' + description)
+        await this.saveErrorReportCallback(collectedData)
+      } catch (e) {
+        console.error('Failed to report error for ' + description)
+        console.error(e)
+      }
     }
   }
 }
