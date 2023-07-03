@@ -1,7 +1,6 @@
 import { CachedDataOwner, DelegatorAndKeys, IccCryptoXApi } from '../icc-crypto-x-api'
-import { StorageFacade } from '../storage/StorageFacade'
-import { Delegation, EncryptedEntity, HealthcareParty } from '../../icc-api/model/models'
-import { hex2ua, string2ua, ua2hex, ua2string, ua2utf8 } from './binary-utils'
+import { Delegation, EncryptedEntity } from '../../icc-api/model/models'
+import { hex2ua, string2ua, ua2hex, ua2string } from './binary-utils'
 
 interface Result<A> {
   map<B>(f: (content: A) => Promise<B>): Promise<Result<B>>
@@ -286,7 +285,7 @@ abstract class DataExporter {
     for (const d of decryptedExchangeKeys) {
       res.push({
         delegatorId: d.delegatorId,
-        keyInfo: this.processRawSecretToExtendedInfo(d.rawKey, hashingSalt),
+        keyInfo: await this.processRawSecretToExtendedInfo(d.rawKey, hashingSalt),
       })
     }
     return res
@@ -383,6 +382,13 @@ class MinimalDataExporter extends DataExporter {
   protected async processRawSecretToExtendedInfo(rawSecret: string, salt: string): Promise<any> {
     return {
       hashedValue: await this.hashWithSalt(rawSecret, salt),
+      ...this.analyseRawSecret(rawSecret),
+      byColumnSeparatedPiece: rawSecret.includes(':') ? rawSecret.split(':').map((x) => this.analyseRawSecret(x)) : undefined,
+    }
+  }
+
+  private analyseRawSecret(rawSecret: string): object {
+    return {
       length: rawSecret.length,
       isUuid: !!rawSecret.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),
       isSameCaseHex: !!rawSecret.match(/^[0-9a-f]+$/) || !!rawSecret.match(/^[0-9A-F]+$/),
