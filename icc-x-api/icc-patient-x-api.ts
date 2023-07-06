@@ -910,7 +910,8 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
                 })
               })
             : (allTags.includes('anonymousMedicalInformation')
-                ? Promise.resolve(patient)
+                ? // TODO check also in v8 how patient is shared with anonymousMedicalInformation tag
+                  Promise.resolve(patient)
                 : this.modifyPatientWithUser(
                     user,
                     _.assign(patient, {
