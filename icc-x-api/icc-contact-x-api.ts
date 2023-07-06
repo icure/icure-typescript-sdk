@@ -21,8 +21,8 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
   crypto: IccCryptoXApi
   dataOwnerApi: IccDataOwnerXApi
   private readonly contactEncryptedFields: EncryptedFieldsKeys
-  private readonly serviceEncryptedFields: EncryptedFieldsKeys
-  private readonly serviceCustomEncryptedFieldsAndContent: EncryptedFieldsKeys
+  private readonly serviceEncryptedFieldsNoContent: EncryptedFieldsKeys | undefined
+  private readonly serviceEncryptedFieldsWithContent: EncryptedFieldsKeys
 
   /**
    *
@@ -60,10 +60,13 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     this.crypto = crypto
     this.dataOwnerApi = dataOwnerApi
     this.contactEncryptedFields = parseEncryptedFields(contactEncryptedKeys, 'Contact.')
-    this.serviceEncryptedFields = parseEncryptedFields(serviceEncryptedKeys, 'Service.')
-    this.serviceCustomEncryptedFieldsAndContent = {
-      ...this.serviceEncryptedFields,
-      topLevelFields: [...this.serviceEncryptedFields.topLevelFields, { fieldName: 'content', fieldPath: 'Service.content' }],
+    const customServiceEncryptedFields = parseEncryptedFields(serviceEncryptedKeys, 'Service.')
+    if (serviceEncryptedKeys.length > 0) {
+      this.serviceEncryptedFieldsNoContent = customServiceEncryptedFields
+    }
+    this.serviceEncryptedFieldsWithContent = {
+      ...customServiceEncryptedFields,
+      topLevelFields: [...customServiceEncryptedFields.topLevelFields, { fieldName: 'content', fieldPath: 'Service.content' }],
     }
   }
 
@@ -397,24 +400,24 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
               })
             )
           )
-          return crypt(
-            {
-              ...svc,
-              content: recursivelyEncryptedContent,
-            },
-            (obj) => {
-              return this.crypto.primitives.AES.encrypt(key, utf8_2ua(JSON.stringify(obj)), rawKey)
-            },
-            this.serviceEncryptedFields,
-            'service'
-          )
+          const copyWithEncryptedContent = { ...svc, content: recursivelyEncryptedContent }
+          return this.serviceEncryptedFieldsNoContent
+            ? crypt(
+                copyWithEncryptedContent,
+                (obj) => {
+                  return this.crypto.primitives.AES.encrypt(key, utf8_2ua(JSON.stringify(obj)), rawKey)
+                },
+                this.serviceEncryptedFieldsNoContent,
+                'service'
+              )
+            : copyWithEncryptedContent
         } else {
           return crypt(
             svc,
             (obj) => {
               return this.crypto.primitives.AES.encrypt(key, utf8_2ua(JSON.stringify(obj)), rawKey)
             },
-            this.serviceCustomEncryptedFieldsAndContent,
+            this.serviceEncryptedFieldsWithContent,
             'service'
           )
         }

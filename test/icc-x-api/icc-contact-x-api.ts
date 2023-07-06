@@ -246,4 +246,8 @@ describe('icc-x-contact-api Tests', () => {
     expect(retrieved.services![0].content).deep.equals(entity.services![0].content)
     expect((await api2.contactApi.decryptPatientIdOf(retrieved))[0]).to.equal(samplePatient.id)
   })
+
+  it('Custom service encryption fields should be applied recursively on compound services', async () => {
+    throw new Error('Not implemented yet')
+  })
 })

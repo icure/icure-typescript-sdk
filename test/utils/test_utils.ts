@@ -55,7 +55,7 @@ export async function getEnvironmentInitializer(): Promise<EnvInitializer> {
 }
 
 export namespace TestUtils {
-  export async function initApi(envVars: TestVars, userName: string = hcp1Username): Promise<Apis> {
+  export async function initApi(envVars: TestVars, userName: string = hcp1Username): Promise<IcureApi> {
     return await getApiAndAddPrivateKeysForUser(envVars.iCureUrl, envVars.dataOwnerDetails[userName])
   }
 

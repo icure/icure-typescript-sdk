@@ -251,6 +251,8 @@ export interface EncryptedFieldsConfig {
   /**
    * Fields to encrypt for entities of type {@link Service}. Note that encryption of the `content` field and recursively contained `Services` through
    * `content.compoundValue` is automatically managed by the sdk, and you are not allowed to modify it.
+   * Note: specifying non-empty values for this field will break bi-directional data compatibility between v7 and previous: Contacts created with
+   * v7 will not be read properly by previous versions.
    * @default [] // encryption of `content` is managed in a special way
    */
   readonly service?: string[]
