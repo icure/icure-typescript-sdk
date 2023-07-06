@@ -1,7 +1,20 @@
 import { Delegation, EncryptedEntity, EncryptedEntityStub } from '../../icc-api/model/models'
 import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { ExchangeKeysManager } from './ExchangeKeysManager'
-import { b2a, crypt, decrypt, hex2ua, parseEncryptedFields, string2ua, truncateTrailingNulls, ua2hex, ua2string, ua2utf8, utf8_2ua } from '../utils'
+import {
+  b2a,
+  crypt,
+  decrypt,
+  EncryptedFieldsKeys,
+  hex2ua,
+  parseEncryptedFields,
+  string2ua,
+  truncateTrailingNulls,
+  ua2hex,
+  ua2string,
+  ua2utf8,
+  utf8_2ua,
+} from '../utils'
 import * as _ from 'lodash'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { arrayEquals } from '../utils/collection-utils'
@@ -479,7 +492,7 @@ export class EntitiesEncryption {
   async tryEncryptEntity<T extends EncryptedEntity>(
     entity: T,
     dataOwnerId: string | undefined,
-    cryptedKeys: string[],
+    cryptedKeys: EncryptedFieldsKeys,
     encodeBinaryData: boolean,
     requireEncryption: boolean,
     constructor: (json: any) => T
@@ -491,6 +504,7 @@ export class EntitiesEncryption {
         await crypt(
           entityWithInitialisedEncryptionKeys ?? entity,
           (obj) => {
+            // TODO should encoding of binary data should probably be applied to everything?
             const json = encodeBinaryData
               ? JSON.stringify(obj, (k, v) => {
                   return v instanceof ArrayBuffer || v instanceof Uint8Array
@@ -500,7 +514,7 @@ export class EntitiesEncryption {
               : JSON.stringify(obj)
             return this.primitives.AES.encrypt(encryptionKey.key, utf8_2ua(json), encryptionKey.raw)
           },
-          parseEncryptedFields(cryptedKeys, 'Unknown.'), // TODO tmp
+          cryptedKeys,
           'entity'
         )
       )
@@ -516,7 +530,7 @@ export class EntitiesEncryption {
           }
           return Promise.resolve(new ArrayBuffer(1))
         },
-        parseEncryptedFields(cryptedKeys, 'Unknown.'), // TODO tmp
+        cryptedKeys,
         'entity'
       )
       if (encryptedNonEmptyData) {

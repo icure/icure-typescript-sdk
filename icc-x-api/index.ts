@@ -242,10 +242,18 @@ export interface EncryptedFieldsConfig {
    * @default ['details', 'title', 'patientId']
    */
   readonly calendarItem?: string[]
-  /*TODO
-   * configuration not yet supported for contact; automatically applies to descr and content of services
+  /**
+   * Fields to encrypt for entities of type {@link Contact}, excluding `services`. You can specify which fields of `services` should be encrypted
+   * using {@link service}.
+   * @default ['descr'] // encryption of `services` is managed through {@link service}
    */
-  // readonly contact?: string[]
+  readonly contact?: string[]
+  /**
+   * Fields to encrypt for entities of type {@link Service}. Note that encryption of the `content` field and recursively contained `Services` through
+   * `content.compoundValue` is automatically managed by the sdk, and you are not allowed to modify it.
+   * @default [] // encryption of `content` is managed in a special way
+   */
+  readonly service?: string[]
   /**
    * Fields to encrypt for entities of type {@link HealthElement}
    * @default ['descr', 'note']
@@ -266,7 +274,8 @@ export namespace EncryptedFieldsConfig {
   export const Defaults = {
     accessLog: ['detail', 'objectId'],
     calendarItem: ['details', 'title', 'patientId'],
-    // TODO contact
+    contact: ['descr'],
+    service: [],
     healthElement: ['descr', 'note'],
     maintenanceTask: ['properties'],
     patient: ['note'],
@@ -644,7 +653,9 @@ class IcureApiImpl implements IcureApi {
         this.cryptoApi,
         this.dataOwnerApi,
         this.groupSpecificAuthenticationProvider,
-        this.fetch
+        this.fetch,
+        this.params.encryptedFieldsConfig.contact ?? EncryptedFieldsConfig.Defaults.contact,
+        this.params.encryptedFieldsConfig.service ?? EncryptedFieldsConfig.Defaults.service
       ))
     )
   }

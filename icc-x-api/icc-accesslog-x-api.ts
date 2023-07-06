@@ -7,12 +7,14 @@ import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
+import { EncryptedFieldsKeys, parseEncryptedFields } from './utils'
 
 export interface AccessLogWithPatientId extends AccessLog {
   patientId: string
 }
 
 export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntityXApi<models.AccessLog> {
+  private readonly encryptedFields: EncryptedFieldsKeys
   crypto: IccCryptoXApi
   dataOwnerApi: IccDataOwnerXApi
 
@@ -21,7 +23,7 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
     headers: { [key: string]: string },
     crypto: IccCryptoXApi,
     dataOwnerApi: IccDataOwnerXApi,
-    private readonly cryptedKeys = ['detail', 'objectId'],
+    cryptedKeys = ['detail', 'objectId'],
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
@@ -32,6 +34,7 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
     super(host, headers, authenticationProvider, fetchImpl)
     this.crypto = crypto
     this.dataOwnerApi = dataOwnerApi
+    this.encryptedFields = parseEncryptedFields(cryptedKeys, 'AccessLog.')
   }
 
   /**
@@ -144,7 +147,7 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
 
   private encryptAs(dataOwner: string, accessLogs: Array<models.AccessLog>): Promise<Array<models.AccessLog>> {
     return Promise.all(
-      accessLogs.map((x) => this.crypto.entities.tryEncryptEntity(x, dataOwner, this.cryptedKeys, false, true, (json) => new AccessLog(json)))
+      accessLogs.map((x) => this.crypto.entities.tryEncryptEntity(x, dataOwner, this.encryptedFields, false, true, (json) => new AccessLog(json)))
     )
   }
 

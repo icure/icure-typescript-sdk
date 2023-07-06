@@ -10,12 +10,12 @@ import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
+import { EncryptedFieldsKeys, parseEncryptedFields } from './utils'
 
 export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXApi<models.HealthElement> {
   crypto: IccCryptoXApi
   dataOwnerApi: IccDataOwnerXApi
-
-  private readonly encryptedKeys: Array<string>
+  private readonly encryptedFields: EncryptedFieldsKeys
 
   constructor(
     host: string,
@@ -33,7 +33,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     super(host, headers, authenticationProvider, fetchImpl)
     this.crypto = crypto
     this.dataOwnerApi = dataOwnerApi
-    this.encryptedKeys = encryptedKeys
+    this.encryptedFields = parseEncryptedFields(encryptedKeys, 'HealthElement.')
   }
 
   /**
@@ -290,7 +290,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
   private encryptAs(owner: string, healthElements: Array<models.HealthElement>): Promise<Array<models.HealthElement>> {
     return Promise.all(
       healthElements.map((he) =>
-        this.crypto.entities.tryEncryptEntity(he, owner, this.encryptedKeys, false, true, (x) => new models.HealthElement(x))
+        this.crypto.entities.tryEncryptEntity(he, owner, this.encryptedFields, false, true, (x) => new models.HealthElement(x))
       )
     )
   }
