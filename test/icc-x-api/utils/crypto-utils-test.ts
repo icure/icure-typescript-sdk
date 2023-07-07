@@ -388,7 +388,7 @@ describe('Crypt / decrypt', () => {
     expect(encryptedObj).to.deep.equal(expectedEncrypted)
   })
 
-  it('encrypted then decrypted object should equal the original', async () => {
+  it('encrypted then decrypted object should equal the original (excluding for the addition of encrypted self)', async () => {
     const encryptedObj = await crypt(
       sampleObj,
       async (obj: { [key: string]: string }) => {
@@ -400,8 +400,12 @@ describe('Crypt / decrypt', () => {
     const decryptedObj = await decrypt(encryptedObj, async (obj: Uint8Array) => {
       return JSON.parse(ua2utf8(obj))
     })
-    expect(encryptedObj).to.not.deep.equal(sampleObj)
-    expect(decryptedObj).to.deep.equal(sampleObj)
+    const stripEncryptedSelf = (obj: any) =>
+      _.cloneDeepWith(_.cloneDeep(obj), (v) => {
+        if (v !== null && typeof v == 'object') delete v['encryptedSelf']
+      })
+    expect(stripEncryptedSelf(encryptedObj)).to.not.deep.equal(sampleObj)
+    expect(stripEncryptedSelf(decryptedObj)).to.deep.equal(sampleObj)
   })
 
   it('crypt should verify the type of fields matches what is defined by the encrypted fields keys', async () => {

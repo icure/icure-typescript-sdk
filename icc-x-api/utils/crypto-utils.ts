@@ -484,8 +484,9 @@ export async function decrypt(
 ): Promise<{ [key: string]: any }> {
   const copy: { [key: string]: any } = {}
   for (const [key, value] of Object.entries(obj)) {
-    if (key === 'encryptedSelf') continue
-    if (typeof value === 'object' && value !== null) {
+    if (key === 'encryptedSelf') {
+      copy[key] = value
+    } else if (typeof value === 'object' && value !== null) {
       if (Array.isArray(value)) {
         // Note: nested arrays (and primitives) are returned as is and not they are not recursively decrypted. This is because we currently do not
         // support encryption of elements from arrays in arrays (we only support arrays in objects in arrays). In future this may change.
