@@ -54,7 +54,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     if (contactEncryptedKeys.some((key) => key.startsWith('services'))) {
       throw new Error("You can't customise encryption of the `services` field of Contact. Use the serviceEncryptedKeys parameter instead.")
     }
-    if (serviceEncryptedKeys.some((key) => !key.startsWith('content'))) {
+    if (serviceEncryptedKeys.some((key) => key.startsWith('content'))) {
       throw new Error("You can't customise encryption of the `content` of a Service. The content values for services is automatically encrypted.")
     }
     this.crypto = crypto

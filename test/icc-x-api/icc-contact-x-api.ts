@@ -2,10 +2,10 @@ import { before } from 'mocha'
 
 import 'isomorphic-fetch'
 
-import { IccContactXApi, IccHelementXApi, IccPatientXApi } from '../../icc-x-api'
+import { hex2ua, IccContactXApi, IccHelementXApi, IccPatientXApi, IcureApi } from '../../icc-x-api'
 import { Patient } from '../../icc-api/model/Patient'
 import { assert, expect } from 'chai'
-import { randomUUID } from 'crypto'
+import { randomUUID, webcrypto } from 'crypto'
 import { getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { Code } from '../../icc-api/model/Code'
 import { Contact } from '../../icc-api/model/Contact'
@@ -19,6 +19,10 @@ import { FilterChainService } from '../../icc-api/model/FilterChainService'
 import { ServiceByHcPartyHealthElementIdsFilter } from '../../icc-x-api/filters/ServiceByHcPartyHealthElementIdsFilter'
 import initApi = TestUtils.initApi
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
+import { TestCryptoStrategies } from '../utils/TestCryptoStrategies'
+import { TestKeyStorage, TestStorage } from '../utils/TestStorage'
+import { RSAUtils } from '../../icc-x-api/crypto/RSA'
+import { IccContactApi } from '../../icc-api'
 
 setLocalStorage(fetch)
 let env: TestVars | undefined
@@ -248,6 +252,111 @@ describe('icc-x-contact-api Tests', () => {
   })
 
   it('Custom service encryption fields should be applied recursively on compound services', async () => {
-    throw new Error('Not implemented yet')
+    const RSA = new RSAUtils(webcrypto as any)
+    const api = await IcureApi.initialise(
+      env!.iCureUrl,
+      { username: env!.dataOwnerDetails[hcp1Username].user, password: env!.dataOwnerDetails[hcp1Username].password },
+      new TestCryptoStrategies({
+        publicKey: await RSA.importKey('spki', hex2ua(env!.dataOwnerDetails[hcp1Username].publicKey), ['encrypt']),
+        privateKey: await RSA.importKey('pkcs8', hex2ua(env!.dataOwnerDetails[hcp1Username].privateKey), ['decrypt']),
+      }),
+      webcrypto as any,
+      fetch,
+      {
+        storage: new TestStorage(),
+        keyStorage: new TestKeyStorage(),
+        encryptedFieldsConfig: {
+          contact: ['descr', 'location'],
+          service: ['comment'],
+        },
+      }
+    )
+    const contactData = {
+      descr: 'secret',
+      location: 'secret',
+      externalId: 'notSecret',
+      services: [
+        {
+          id: 'flat',
+          label: 'notSecret1',
+          comment: 'secret2',
+          content: { fr: { stringValue: 'Salut' }, nl: { stringValue: 'Halo' } },
+        },
+        {
+          id: 'compound',
+          content: {
+            fr: {
+              compoundValue: [
+                {
+                  id: 'nested1',
+                  label: 'notSecret3',
+                  comment: 'secret4',
+                  content: { fr: { stringValue: 'A' } },
+                },
+                {
+                  id: 'nested2',
+                  label: 'notSecret5',
+                  comment: 'secret6',
+                  content: { fr: { stringValue: 'B' } },
+                },
+                {
+                  id: 'nested3',
+                  label: 'notSecret7',
+                  comment: 'secret8',
+                  content: {
+                    fr: {
+                      compoundValue: [
+                        {
+                          id: 'deeplyNested',
+                          label: 'notSecret9',
+                          comment: 'secret10',
+                          content: { fr: { stringValue: 'C' } },
+                        },
+                      ],
+                    },
+                  },
+                },
+              ],
+            },
+          },
+        },
+      ],
+    }
+    const user = await api.userApi.getCurrentUser()
+    const patient = await createPatient(api.patientApi, user)
+    const contact = await api.contactApi.createContactWithUser(user, await api.contactApi.newInstance(user, patient, contactData))
+    const encryptedContact = await new IccContactApi(env!.iCureUrl, {}, api.authApi.authenticationProvider, fetch).getContact(contact!.id!)
+    expect(encryptedContact.descr).to.be.undefined
+    expect(encryptedContact.location).to.be.undefined
+    expect(encryptedContact.externalId).to.equal(contactData.externalId)
+    expect(encryptedContact.encryptedSelf).to.not.be.undefined
+    const flat = encryptedContact.services!.find((s) => s.id === 'flat')!
+    expect(flat.label).to.equal(contactData.services[0].label)
+    expect(flat.comment).to.be.undefined
+    expect(Object.keys(flat.content ?? {})).to.have.length(0)
+    expect(flat.encryptedSelf).to.not.be.undefined
+    const compound = encryptedContact.services!.find((s) => s.id === 'compound')!
+    expect(compound.label).to.equal(contactData.services[1].label)
+    expect(compound.comment).to.be.undefined
+    expect(compound.encryptedSelf).to.not.be.undefined
+    const nested1 = compound.content!.fr.compoundValue!.find((s) => s.id === 'nested1')!
+    expect(nested1.label).to.equal(contactData.services[1].content!.fr.compoundValue![0].label)
+    expect(nested1.comment).to.be.undefined
+    expect(Object.keys(nested1.content ?? {})).to.have.length(0)
+    expect(nested1.encryptedSelf).to.not.be.undefined
+    const nested2 = compound.content!.fr.compoundValue!.find((s) => s.id === 'nested2')!
+    expect(nested2.label).to.equal(contactData.services[1].content!.fr.compoundValue![1].label)
+    expect(nested2.comment).to.be.undefined
+    expect(Object.keys(nested2.content ?? {})).to.have.length(0)
+    expect(nested2.encryptedSelf).to.not.be.undefined
+    const nested3 = compound.content!.fr.compoundValue!.find((s) => s.id === 'nested3')!
+    expect(nested3.label).to.equal(contactData.services[1].content!.fr.compoundValue![2].label)
+    expect(nested3.comment).to.be.undefined
+    expect(nested3.encryptedSelf).to.not.be.undefined
+    const deeplyNested = nested3.content!.fr.compoundValue![0]
+    expect(deeplyNested.label).to.equal(contactData.services[1].content!.fr.compoundValue![2].content!.fr.compoundValue![0].label)
+    expect(deeplyNested.comment).to.be.undefined
+    expect(Object.keys(deeplyNested.content ?? {})).to.have.length(0)
+    expect(deeplyNested.encryptedSelf).to.not.be.undefined
   })
 })
