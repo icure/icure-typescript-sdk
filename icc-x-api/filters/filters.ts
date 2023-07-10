@@ -70,6 +70,10 @@ export * from './ServiceByIdsFilter'
 export * from './ServiceBySecretForeignKeys'
 export * from './UnionFilter'
 export * from './UserByIdsFilter'
+export * from './MaintenanceTaskByHcPartyAndIdentifiersFilter'
+export * from './MaintenanceTaskByHcPartyAndTypeFilter'
+export * from './MaintenanceTaskByIdsFilter'
+export * from './MaintenanceTaskAfterDateFilter'
 
 export class Filter {
   public static patient(): PatientFilterBuilder {
