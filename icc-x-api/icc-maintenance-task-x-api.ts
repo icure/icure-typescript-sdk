@@ -179,7 +179,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi {
           .then((m: models.MaintenanceTask) => this.crypto.extractKeysFromDelegationsForHcpHierarchy(dataOwnerId!, m.id!, m.encryptionKeys!))
           .then((sfks: { extractedKeys: Array<string>; hcpartyId: string }) => {
             const keys = this.crypto.filterAndFixValidEntityEncryptionKeyStrings(sfks.extractedKeys)
-            if (!keys.length) throw new Error('No valid keys found for calendar item encryption')
+            if (!keys.length) throw new Error('No valid keys found for maintenance task encryption')
             return this.crypto.AES.importKey('raw', hex2ua(keys[0]))
           })
           .then((key: CryptoKey) =>
