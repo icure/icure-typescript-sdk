@@ -66,7 +66,7 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
       id: h?.id ?? this.crypto.primitives.randomUuid(),
       created: h?.created ?? new Date().getTime(),
       modified: h?.modified ?? new Date().getTime(),
-      date: h?.date ?? +new Date(),
+      date: h?.date ?? new Date().getTime(),
       responsible: h?.responsible ?? dataOwnerId,
       author: h?.author ?? user.id,
       codes: h?.codes ?? [],
