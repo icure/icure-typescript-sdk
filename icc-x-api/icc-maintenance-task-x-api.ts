@@ -57,17 +57,15 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
     } = {}
   ) {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
-    const maintenanceTask = _.assign(
-      {
-        id: this.crypto.primitives.randomUuid(),
-        _type: 'org.taktik.icure.entities.MaintenanceTask',
-        created: new Date().getTime(),
-        modified: new Date().getTime(),
-        responsible: dataOwnerId,
-        author: user.id,
-      },
-      m || {}
-    )
+    const maintenanceTask = {
+      ...(m ?? {}),
+      _type: 'org.taktik.icure.entities.MaintenanceTask',
+      id: m?.id ?? this.crypto.primitives.randomUuid(),
+      created: m?.created ?? new Date().getTime(),
+      modified: m?.modified ?? new Date().getTime(),
+      responsible: m?.responsible ?? dataOwnerId,
+      author: m?.author ?? user.id,
+    }
 
     const extraDelegations = [...Object.keys(options.additionalDelegates ?? {}), ...(user.autoDelegations?.all ?? [])]
     return new models.MaintenanceTask(

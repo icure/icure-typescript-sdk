@@ -359,4 +359,20 @@ describe('icc-calendar-item-x-api Tests', () => {
     expect(readFormTemplate.descr).to.equal(createdFormTemplate.descr)
     expect(readFormTemplate.templateLayout).to.not.be.undefined
   })
+
+  it('newInstance should honor non-default values unless they are undefined', async () => {
+    const api = await initApi(env!, hcp1Username)
+    const user = await api.userApi.getCurrentUser()
+    const patient = await api.patientApi.createPatientWithUser(
+      user,
+      await api.patientApi.newInstance(user, { firstName: 'Gigio', lastName: 'Bagigio' })
+    )
+    const formUndefinedId = await api.formApi.newInstance(user, patient, { id: undefined })
+    const customId = 'customId'
+    const formCustomId = await api.formApi.newInstance(user, patient, { id: customId })
+    const formWithUndefinedInit = await api.formApi.newInstance(user, patient, undefined)
+    expect(formUndefinedId.id).to.not.be.undefined
+    expect(formWithUndefinedInit.id).to.not.be.undefined
+    expect(formCustomId.id).to.equal(customId)
+  })
 })

@@ -117,4 +117,20 @@ describe('icc-calendar-item-x-api Tests', () => {
     const retrieved = await api2.invoiceApi.getInvoice(entity.id!)
     expect((await api2.invoiceApi.decryptPatientIdOf(retrieved))[0]).to.equal(samplePatient.id)
   })
+
+  it('newInstance should honor non-default values unless they are undefined', async () => {
+    const api = await initApi(env!, hcp1Username)
+    const user = await api.userApi.getCurrentUser()
+    const patient = await api.patientApi.createPatientWithUser(
+      user,
+      await api.patientApi.newInstance(user, { firstName: 'Gigio', lastName: 'Bagigio' })
+    )
+    const invoiceUndefinedId = await api.invoiceApi.newInstance(user, patient, { id: undefined })
+    const customId = 'customId'
+    const invoiceCustomId = await api.invoiceApi.newInstance(user, patient, { id: customId })
+    const invoiceWithUndefinedInit = await api.invoiceApi.newInstance(user, patient, undefined)
+    expect(invoiceUndefinedId.id).to.not.be.undefined
+    expect(invoiceWithUndefinedInit.id).to.not.be.undefined
+    expect(invoiceCustomId.id).to.equal(customId)
+  })
 })

@@ -90,19 +90,17 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
       additionalDelegates?: { [dataOwnerId: string]: 'WRITE' }
     } = {}
   ) {
-    const patient = _.extend(
-      {
-        id: this.crypto.primitives.randomUuid(),
-        _type: 'org.taktik.icure.entities.Patient',
-        created: new Date().getTime(),
-        modified: new Date().getTime(),
-        responsible: this.dataOwnerApi.getDataOwnerIdOf(user),
-        author: user.id,
-        codes: [],
-        tags: [],
-      },
-      p || {}
-    )
+    const patient = {
+      ...(p ?? {}),
+      _type: 'org.taktik.icure.entities.Patient',
+      id: p?.id ?? this.crypto.primitives.randomUuid(),
+      created: p?.created ?? new Date().getTime(),
+      modified: p?.modified ?? new Date().getTime(),
+      responsible: p?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
+      author: p?.author ?? user.id,
+      codes: p?.codes ?? [],
+      tags: p?.tags ?? [],
+    }
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')

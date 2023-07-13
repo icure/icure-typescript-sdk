@@ -298,4 +298,16 @@ describe('icc-x-maintenance-task-api Tests', () => {
     const retrieved = await api2.maintenanceTaskApi.getMaintenanceTaskWithUser(user2, entity.id!)
     expect(retrieved.properties![0].typedValue!.stringValue).to.be.equal(encryptedField)
   })
+
+  it('newInstance should honor non-default values unless they are undefined', async () => {
+    const api = await initApi(env!, hcp1Username)
+    const user = await api.userApi.getCurrentUser()
+    const maintenanceTaskUndefinedId = await api.maintenanceTaskApi.newInstance(user, { id: undefined })
+    const customId = 'customId'
+    const maintenanceTaskCustomId = await api.maintenanceTaskApi.newInstance(user, { id: customId })
+    const maintenanceTaskWithUndefinedInit = await api.maintenanceTaskApi.newInstance(user, undefined)
+    expect(maintenanceTaskUndefinedId.id).to.not.be.undefined
+    expect(maintenanceTaskWithUndefinedInit.id).to.not.be.undefined
+    expect(maintenanceTaskCustomId.id).to.equal(customId)
+  })
 })

@@ -65,25 +65,21 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       confidential?: boolean
     } = {}
   ): Promise<models.Contact> {
-    const contact = new models.Contact(
-      _.extend(
-        {
-          id: this.crypto.primitives.randomUuid(),
-          _type: 'org.taktik.icure.entities.Contact',
-          created: new Date().getTime(),
-          modified: new Date().getTime(),
-          responsible: this.dataOwnerApi.getDataOwnerIdOf(user),
-          author: user.id,
-          codes: [],
-          tags: [],
-          groupId: this.crypto.primitives.randomUuid(),
-          subContacts: [],
-          services: [],
-          openingDate: parseInt(moment().format('YYYYMMDDHHmmss')),
-        },
-        c || {}
-      )
-    )
+    const contact = new models.Contact({
+      ...(c ?? {}),
+      _type: 'org.taktik.icure.entities.Contact',
+      id: c?.id ?? this.crypto.primitives.randomUuid(),
+      created: c?.created ?? new Date().getTime(),
+      modified: c?.modified ?? new Date().getTime(),
+      responsible: c?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
+      author: c?.author ?? user.id,
+      codes: c?.codes ?? [],
+      tags: c?.tags ?? [],
+      groupId: c?.groupId ?? this.crypto.primitives.randomUuid(),
+      subContacts: c?.subContacts ?? [],
+      services: c?.services ?? [],
+      openingDate: c?.openingDate ?? parseInt(moment().format('YYYYMMDDHHmmss')),
+    })
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
