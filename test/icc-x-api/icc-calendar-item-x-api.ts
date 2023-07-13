@@ -162,4 +162,16 @@ describe('icc-calendar-item-x-api Tests', () => {
     expect(retrieved.details).to.be.equal(encryptedField)
     expect((await api2.calendarItemApi.decryptPatientIdOf(retrieved))[0]).to.equal(samplePatient.id)
   })
+
+  it('newInstance should honor non-default values unless they are undefined', async () => {
+    const apis = await initApi(env!, hcp1Username)
+    const user = await apis.userApi.getCurrentUser()
+    const calendarItemUndefinedId = await apis.calendarItemApi.newInstance(user, { id: undefined })
+    expect(calendarItemUndefinedId.id).to.not.be.undefined
+    const customId = 'customId'
+    const calendarItemCustomId = await apis.calendarItemApi.newInstance(user, { id: customId })
+    expect(calendarItemCustomId.id).to.equal(customId)
+    const calendarItemUndefinedInit = await apis.calendarItemApi.newInstance(user, undefined as any)
+    expect(calendarItemUndefinedInit.id).to.not.be.undefined
+  })
 })

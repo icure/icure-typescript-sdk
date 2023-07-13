@@ -55,19 +55,17 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
       preferredSfk?: string
     } = {}
   ) {
-    const form = _.extend(
-      {
-        id: this.crypto.randomUuid(),
-        _type: 'org.taktik.icure.entities.Form',
-        created: new Date().getTime(),
-        modified: new Date().getTime(),
-        responsible: this.dataOwnerApi.getDataOwnerIdOf(user),
-        author: user.id,
-        codes: [],
-        tags: [],
-      },
-      c || {}
-    )
+    const form = {
+      ...(c ?? {}),
+      _type: 'org.taktik.icure.entities.Form',
+      id: c?.id ?? this.crypto.primitives.randomUuid(),
+      created: c?.created ?? new Date().getTime(),
+      modified: c?.modified ?? new Date().getTime(),
+      responsible: c?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
+      author: c?.author ?? user.id,
+      codes: c?.codes ?? [],
+      tags: c?.tags ?? [],
+    }
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')

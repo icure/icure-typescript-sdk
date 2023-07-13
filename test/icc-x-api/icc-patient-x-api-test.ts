@@ -146,4 +146,16 @@ describe('icc-x-patient-api Tests', () => {
     expect(retrieved.note).to.be.equal(encryptedField)
     expect(await api2.patientApi.decryptSecretIdsOf(retrieved)).to.have.members(secretIds)
   })
+
+  it('newInstance should honor non-default values unless they are undefined', async () => {
+    const api = await initApi(env!, hcp1Username)
+    const user = await api.userApi.getCurrentUser()
+    const patientUndefinedId = await api.patientApi.newInstance(user, { id: undefined })
+    const customId = 'customId'
+    const patientCustomId = await api.patientApi.newInstance(user, { id: customId })
+    const patientWithUndefinedId = await api.patientApi.newInstance(user, undefined)
+    expect(patientUndefinedId.id).to.not.be.undefined
+    expect(patientWithUndefinedId.id).to.not.be.undefined
+    expect(patientCustomId.id).to.equal(customId)
+  })
 })

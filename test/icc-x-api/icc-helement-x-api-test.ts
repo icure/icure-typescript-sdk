@@ -224,4 +224,20 @@ describe('icc-helement-x-api Tests', () => {
     expect(retrieved.note).to.be.equal(encryptedField)
     expect((await api2.healthcareElementApi.decryptPatientIdOf(retrieved))[0]).to.equal(samplePatient.id)
   })
+
+  it('newInstance should honor non-default values unless they are undefined', async () => {
+    const api = await initApi(env!, hcp1Username)
+    const user = await api.userApi.getCurrentUser()
+    const patient = await api.patientApi.createPatientWithUser(
+      user,
+      await api.patientApi.newInstance(user, { firstName: 'Gigio', lastName: 'Bagigio' })
+    )
+    const helementUndefinedId = await api.healthcareElementApi.newInstance(user, patient, { id: undefined })
+    const customId = 'customId'
+    const helementCustomId = await api.healthcareElementApi.newInstance(user, patient, { id: customId })
+    const helementWithUndefinedInit = await api.healthcareElementApi.newInstance(user, patient, undefined)
+    expect(helementUndefinedId.id).to.not.be.undefined
+    expect(helementWithUndefinedInit.id).to.not.be.undefined
+    expect(helementCustomId.id).to.equal(customId)
+  })
 })

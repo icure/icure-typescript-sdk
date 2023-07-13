@@ -64,21 +64,19 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     } = {}
   ) {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
-    const helement = _.assign(
-      {
-        id: this.crypto.primitives.randomUuid(),
-        _type: 'org.taktik.icure.entities.HealthElement',
-        created: new Date().getTime(),
-        modified: new Date().getTime(),
-        responsible: dataOwnerId,
-        author: user.id,
-        codes: [],
-        tags: [],
-        healthElementId: this.crypto.primitives.randomUuid(),
-        openingDate: parseInt(moment().format('YYYYMMDDHHmmss')),
-      },
-      h || {}
-    )
+    const helement = {
+      ...(h ?? {}),
+      _type: 'org.taktik.icure.entities.HealthElement',
+      id: h?.id ?? this.crypto.primitives.randomUuid(),
+      created: h?.created ?? new Date().getTime(),
+      modified: h?.modified ?? new Date().getTime(),
+      responsible: h?.responsible ?? dataOwnerId,
+      author: h?.author ?? user.id,
+      codes: h?.codes ?? [],
+      tags: h?.tags ?? [],
+      healthElementId: h?.healthElementId ?? this.crypto.primitives.randomUuid(),
+      openingDate: h?.openingDate ?? parseInt(moment().format('YYYYMMDDHHmmss')),
+    }
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')

@@ -65,19 +65,17 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
     } = {}
   ): Promise<models.CalendarItem> {
     if (!patient && options.preferredSfk) throw new Error('You need to specify parent patient in order to use secret foreign keys.')
-    const calendarItem = _.extend(
-      {
-        id: this.crypto.primitives.randomUuid(),
-        _type: 'org.taktik.icure.entities.CalendarItem',
-        created: new Date().getTime(),
-        modified: new Date().getTime(),
-        responsible: this.dataOwnerApi.getDataOwnerIdOf(user),
-        author: user.id,
-        codes: [],
-        tags: [],
-      },
-      ci || {}
-    )
+    const calendarItem = {
+      ...(ci ?? {}),
+      _type: 'org.taktik.icure.entities.CalendarItem',
+      id: ci?.id ?? this.crypto.primitives.randomUuid(),
+      created: ci?.created ?? new Date().getTime(),
+      modified: ci?.modified ?? new Date().getTime(),
+      responsible: ci?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
+      author: ci?.author ?? user.id,
+      codes: ci?.codes ?? [],
+      tags: ci?.tags ?? [],
+    }
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')

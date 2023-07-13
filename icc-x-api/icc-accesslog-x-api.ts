@@ -63,23 +63,21 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
   ) {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
 
-    const accessLog = _.assign(
-      {
-        id: this.crypto.primitives.randomUuid(),
-        _type: 'org.taktik.icure.entities.AccessLog',
-        created: new Date().getTime(),
-        modified: new Date().getTime(),
-        date: +new Date(),
-        responsible: dataOwnerId,
-        author: user.id,
-        codes: [],
-        tags: [],
-        user: user.id,
-        patientId: patient.id,
-        accessType: 'USER_ACCESS',
-      },
-      h || {}
-    )
+    const accessLog = {
+      ...(h ?? {}),
+      _type: 'org.taktik.icure.entities.AccessLog',
+      id: h?.id ?? this.crypto.primitives.randomUuid(),
+      created: h?.created ?? new Date().getTime(),
+      modified: h?.modified ?? new Date().getTime(),
+      date: h?.date ?? new Date().getTime(),
+      responsible: h?.responsible ?? dataOwnerId,
+      author: h?.author ?? user.id,
+      codes: h?.codes ?? [],
+      tags: h?.tags ?? [],
+      user: h?.user ?? user.id,
+      patientId: h?.patientId ?? patient.id,
+      accessType: h?.accessType ?? 'USER_ACCESS',
+    }
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
