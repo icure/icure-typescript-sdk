@@ -1985,6 +1985,9 @@ export class IccCryptoXApi {
         .map((delegateId) => {
           return { delegateId, maintenanceTask: this.createMaintenanceTask(dataOwner, hexNewPubKey) }
         })
+      if (tasks.length > 0) {
+        this.emptyHcpCache(dataOwner.id!)
+      }
       const res: MaintenanceTask[] = []
       for (const task of tasks) {
         const taskToCreate = await maintenanceTaskApi?.newInstance(user, task.maintenanceTask, [task.delegateId])
