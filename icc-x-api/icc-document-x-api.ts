@@ -591,19 +591,17 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     } = {}
   ) {
     if (!message && options.preferredSfk) throw new Error('You need to specify parent message in order to use secret foreign keys.')
-    const document = _.extend(
-      {
-        id: this.crypto.primitives.randomUuid(),
-        _type: 'org.taktik.icure.entities.Document',
-        created: new Date().getTime(),
-        modified: new Date().getTime(),
-        responsible: this.dataOwnerApi.getDataOwnerIdOf(user),
-        author: user.id,
-        codes: [],
-        tags: [],
-      },
-      c
-    )
+    const document = {
+      ...(c ?? {}),
+      _type: 'org.taktik.icure.entities.Document',
+      id: c.id ?? this.crypto.primitives.randomUuid(),
+      created: c.created ?? new Date().getTime(),
+      modified: c.modified ?? new Date().getTime(),
+      responsible: c.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
+      author: c.author ?? user.id,
+      codes: c.codes ?? [],
+      tags: c.tags ?? [],
+    }
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')

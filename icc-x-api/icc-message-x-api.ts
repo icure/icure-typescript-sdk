@@ -60,19 +60,17 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     } = {}
   ) {
     if (!patient && options.preferredSfk) throw new Error('You need to specify parent patient in order to use secret foreign keys.')
-    const message = _.extend(
-      {
-        id: this.crypto.primitives.randomUuid(),
-        _type: 'org.taktik.icure.entities.Message',
-        created: new Date().getTime(),
-        modified: new Date().getTime(),
-        responsible: this.dataOwnerApi.getDataOwnerIdOf(user),
-        author: user.id,
-        codes: [],
-        tags: [],
-      },
-      m || {}
-    )
+    const message = {
+      ...(m ?? {}),
+      _type: 'org.taktik.icure.entities.Message',
+      id: m.id ?? this.crypto.primitives.randomUuid(),
+      created: m.created ?? new Date().getTime(),
+      modified: m.modified ?? new Date().getTime(),
+      responsible: m.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
+      author: m.author ?? user.id,
+      codes: m.codes ?? [],
+      tags: m.tags ?? [],
+    }
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')

@@ -55,21 +55,19 @@ export class IccClassificationXApi extends IccClassificationApi implements Encry
       preferredSfk?: string
     } = {}
   ): Promise<models.Classification> {
-    const classification = _.assign(
-      {
-        id: this.crypto.primitives.randomUuid(),
-        _type: 'org.taktik.icure.entities.Classification',
-        created: new Date().getTime(),
-        modified: new Date().getTime(),
-        responsible: this.dataOwnerApi.getDataOwnerIdOf(user),
-        author: user.id,
-        codes: [],
-        tags: [],
-        healthElementId: this.crypto.primitives.randomUuid(),
-        openingDate: parseInt(moment().format('YYYYMMDDHHmmss')),
-      },
-      c || {}
-    )
+    const classification = {
+      ...(c ?? {}),
+      _type: 'org.taktik.icure.entities.Classification',
+      id: c.id ?? this.crypto.primitives.randomUuid(),
+      created: c.created ?? new Date().getTime(),
+      modified: c.modified ?? new Date().getTime(),
+      responsible: c.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
+      author: c.author ?? user.id,
+      codes: c.codes ?? [],
+      tags: c.tags ?? [],
+      healthElementId: c.healthElementId ?? this.crypto.primitives.randomUuid(),
+      openingDate: c.openingDate ?? parseInt(moment().format('YYYYMMDDHHmmss')),
+    }
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')

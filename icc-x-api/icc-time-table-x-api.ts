@@ -52,19 +52,17 @@ export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntity
       additionalDelegates?: { [dataOwnerId: string]: 'WRITE' }
     } = {}
   ) {
-    const timeTable = _.extend(
-      {
-        id: this.crypto.primitives.randomUuid(),
-        _type: 'org.taktik.icure.entities.TimeTable',
-        created: new Date().getTime(),
-        modified: new Date().getTime(),
-        responsible: this.dataOwnerApi.getDataOwnerIdOf(user),
-        author: user.id,
-        codes: [],
-        tags: [],
-      },
-      tt || {}
-    )
+    const timeTable = {
+      ...(tt ?? {}),
+      _type: 'org.taktik.icure.entities.TimeTable',
+      id: tt.id ?? this.crypto.primitives.randomUuid(),
+      created: tt.created ?? new Date().getTime(),
+      modified: tt.modified ?? new Date().getTime(),
+      responsible: tt.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
+      author: tt.author ?? user.id,
+      codes: tt.codes ?? [],
+      tags: tt.tags ?? [],
+    }
 
     const extraDelegations = [
       ...Object.keys(options.additionalDelegates ?? {}),

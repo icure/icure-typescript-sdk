@@ -45,21 +45,17 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
       additionalDelegates?: { [dataOwnerId: string]: 'WRITE' }
     } = {}
   ): Promise<models.Receipt> {
-    const receipt = new models.Receipt(
-      _.extend(
-        {
-          id: this.crypto.randomUuid(),
-          _type: 'org.taktik.icure.entities.Receipt',
-          created: new Date().getTime(),
-          modified: new Date().getTime(),
-          responsible: this.dataOwnerApi.getDataOwnerIdOf(user),
-          author: user.id,
-          codes: [],
-          tags: [],
-        },
-        r || {}
-      )
-    )
+    const receipt = new models.Receipt({
+      ...(r ?? {}),
+      _type: 'org.taktik.icure.entities.Receipt',
+      id: r.id ?? this.crypto.randomUuid(),
+      created: r.created ?? new Date().getTime(),
+      modified: r.modified ?? new Date().getTime(),
+      responsible: r.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
+      author: r.author ?? user.id,
+      codes: r.codes ?? [],
+      tags: r.tags ?? [],
+    })
 
     const extraDelegations = [
       ...Object.keys(options.additionalDelegates ?? {}),

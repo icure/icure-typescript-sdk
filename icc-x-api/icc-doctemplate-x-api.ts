@@ -33,21 +33,19 @@ export class IccDoctemplateXApi extends IccDoctemplateApi {
 
   newInstance(user: models.User, template: string, c: any): Promise<DocumentTemplate> {
     return new Promise<DocumentTemplate>((resolve, reject) => {
-      const documentTemplate: DocumentTemplate = extend(
-        {
-          id: this.crypto.primitives.randomUuid(),
-          _type: 'org.taktik.icure.entities.DocumentTemplate',
-          owner: user.id,
-          created: new Date().getTime(),
-          modified: new Date().getTime(),
-          guid: this.crypto.primitives.randomUuid(),
-          group: null,
-          specialty: null,
-          attachment: string2ua(template),
-          mainUti: 'public.plain-text',
-        },
-        c || {}
-      )
+      const documentTemplate: DocumentTemplate = {
+        ...(c ?? {}),
+        _type: 'org.taktik.icure.entities.DocumentTemplate',
+        id: c.id ?? this.crypto.primitives.randomUuid(),
+        owner: c.owner ?? user.id,
+        created: c.created ?? new Date().getTime(),
+        modified: c.modified ?? new Date().getTime(),
+        guid: c.guid ?? this.crypto.primitives.randomUuid(),
+        group: c.group ?? null,
+        specialty: c.specialty ?? null,
+        attachment: c.attachment ?? string2ua(template),
+        mainUti: c.mainUti ?? 'public.plain-text',
+      }
       if (documentTemplate.group && documentTemplate.group.guid == null) {
         documentTemplate.group.guid = this.crypto.primitives.randomUuid()
       }
