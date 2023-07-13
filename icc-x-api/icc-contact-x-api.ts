@@ -68,17 +68,17 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     const contact = new models.Contact({
       ...(c ?? {}),
       _type: 'org.taktik.icure.entities.Contact',
-      id: c.id ?? this.crypto.primitives.randomUuid(),
-      created: c.created ?? new Date().getTime(),
-      modified: c.modified ?? new Date().getTime(),
-      responsible: c.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
-      author: c.author ?? user.id,
-      codes: c.codes ?? [],
-      tags: c.tags ?? [],
-      groupId: c.groupId ?? this.crypto.primitives.randomUuid(),
-      subContacts: c.subContacts ?? [],
-      services: c.services ?? [],
-      openingDate: c.openingDate ?? parseInt(moment().format('YYYYMMDDHHmmss')),
+      id: c?.id ?? this.crypto.primitives.randomUuid(),
+      created: c?.created ?? new Date().getTime(),
+      modified: c?.modified ?? new Date().getTime(),
+      responsible: c?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
+      author: c?.author ?? user.id,
+      codes: c?.codes ?? [],
+      tags: c?.tags ?? [],
+      groupId: c?.groupId ?? this.crypto.primitives.randomUuid(),
+      subContacts: c?.subContacts ?? [],
+      services: c?.services ?? [],
+      openingDate: c?.openingDate ?? parseInt(moment().format('YYYYMMDDHHmmss')),
     })
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)

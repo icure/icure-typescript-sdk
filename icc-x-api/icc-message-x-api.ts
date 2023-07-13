@@ -63,13 +63,13 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     const message = {
       ...(m ?? {}),
       _type: 'org.taktik.icure.entities.Message',
-      id: m.id ?? this.crypto.primitives.randomUuid(),
-      created: m.created ?? new Date().getTime(),
-      modified: m.modified ?? new Date().getTime(),
-      responsible: m.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
-      author: m.author ?? user.id,
-      codes: m.codes ?? [],
-      tags: m.tags ?? [],
+      id: m?.id ?? this.crypto.primitives.randomUuid(),
+      created: m?.created ?? new Date().getTime(),
+      modified: m?.modified ?? new Date().getTime(),
+      responsible: m?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
+      author: m?.author ?? user.id,
+      codes: m?.codes ?? [],
+      tags: m?.tags ?? [],
     }
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)

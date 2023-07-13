@@ -136,4 +136,20 @@ describe('icc-x-accesslog-api Tests', () => {
     expect(retrieved.detail).to.be.equal(encryptedField)
     expect((await api2.accessLogApi.decryptPatientIdOf(retrieved))[0]).to.equal(samplePatient.id)
   })
+
+  it('newInstance should honor non-default values unless they are undefined', async () => {
+    const apis = await initApi(env!, hcp1Username)
+    const user = await apis.userApi.getCurrentUser()
+    const samplePatient = await apis.patientApi.createPatientWithUser(
+      user,
+      await apis.patientApi.newInstance(user, { firstName: 'Gigio', lastName: 'Bagigio' })
+    )
+    const accessLogUndefinedId = await apis.accessLogApi.newInstance(user, samplePatient, { id: undefined })
+    expect(accessLogUndefinedId.id).to.not.be.undefined
+    const customId = 'customId'
+    const accessLogCustomId = await apis.accessLogApi.newInstance(user, samplePatient, { id: customId })
+    expect(accessLogCustomId.id).to.equal(customId)
+    const accessLogUndefinedInit = await apis.accessLogApi.newInstance(user, samplePatient, undefined)
+    expect(accessLogUndefinedInit.id).to.not.be.undefined
+  })
 })

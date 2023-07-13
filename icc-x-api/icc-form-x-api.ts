@@ -58,13 +58,13 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
     const form = {
       ...(c ?? {}),
       _type: 'org.taktik.icure.entities.Form',
-      id: c.id ?? this.crypto.primitives.randomUuid(),
-      created: c.created ?? new Date().getTime(),
-      modified: c.modified ?? new Date().getTime(),
-      responsible: c.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
-      author: c.author ?? user.id,
-      codes: c.codes ?? [],
-      tags: c.tags ?? [],
+      id: c?.id ?? this.crypto.primitives.randomUuid(),
+      created: c?.created ?? new Date().getTime(),
+      modified: c?.modified ?? new Date().getTime(),
+      responsible: c?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
+      author: c?.author ?? user.id,
+      codes: c?.codes ?? [],
+      tags: c?.tags ?? [],
     }
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)

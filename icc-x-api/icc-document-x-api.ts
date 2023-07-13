@@ -594,13 +594,13 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     const document = {
       ...(c ?? {}),
       _type: 'org.taktik.icure.entities.Document',
-      id: c.id ?? this.crypto.primitives.randomUuid(),
-      created: c.created ?? new Date().getTime(),
-      modified: c.modified ?? new Date().getTime(),
-      responsible: c.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
-      author: c.author ?? user.id,
-      codes: c.codes ?? [],
-      tags: c.tags ?? [],
+      id: c?.id ?? this.crypto.primitives.randomUuid(),
+      created: c?.created ?? new Date().getTime(),
+      modified: c?.modified ?? new Date().getTime(),
+      responsible: c?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
+      author: c?.author ?? user.id,
+      codes: c?.codes ?? [],
+      tags: c?.tags ?? [],
     }
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)

@@ -58,15 +58,15 @@ export class IccClassificationXApi extends IccClassificationApi implements Encry
     const classification = {
       ...(c ?? {}),
       _type: 'org.taktik.icure.entities.Classification',
-      id: c.id ?? this.crypto.primitives.randomUuid(),
-      created: c.created ?? new Date().getTime(),
-      modified: c.modified ?? new Date().getTime(),
-      responsible: c.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
-      author: c.author ?? user.id,
-      codes: c.codes ?? [],
-      tags: c.tags ?? [],
-      healthElementId: c.healthElementId ?? this.crypto.primitives.randomUuid(),
-      openingDate: c.openingDate ?? parseInt(moment().format('YYYYMMDDHHmmss')),
+      id: c?.id ?? this.crypto.primitives.randomUuid(),
+      created: c?.created ?? new Date().getTime(),
+      modified: c?.modified ?? new Date().getTime(),
+      responsible: c?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
+      author: c?.author ?? user.id,
+      codes: c?.codes ?? [],
+      tags: c?.tags ?? [],
+      healthElementId: c?.healthElementId ?? this.crypto.primitives.randomUuid(),
+      openingDate: c?.openingDate ?? parseInt(moment().format('YYYYMMDDHHmmss')),
     }
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)

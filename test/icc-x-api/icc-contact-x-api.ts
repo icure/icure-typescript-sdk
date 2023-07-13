@@ -246,4 +246,20 @@ describe('icc-x-contact-api Tests', () => {
     expect(retrieved.services![0].content).deep.equals(entity.services![0].content)
     expect((await api2.contactApi.decryptPatientIdOf(retrieved))[0]).to.equal(samplePatient.id)
   })
+
+  it('newInstance should honor non-default values unless they are undefined', async () => {
+    const api = await initApi(env!, hcp1Username)
+    const user = await api.userApi.getCurrentUser()
+    const patient = await api.patientApi.createPatientWithUser(
+      user,
+      await api.patientApi.newInstance(user, { firstName: 'Gigio', lastName: 'Bagigio' })
+    )
+    const contactUndefinedId = await api.contactApi.newInstance(user, patient, { id: undefined })
+    const customId = 'customId'
+    const contactCustomId = await api.contactApi.newInstance(user, patient, { id: customId })
+    const contactWithUndefinedInit = await api.contactApi.newInstance(user, patient, undefined)
+    expect(contactUndefinedId.id).to.not.be.undefined
+    expect(contactWithUndefinedInit.id).to.not.be.undefined
+    expect(contactCustomId.id).to.equal(customId)
+  })
 })

@@ -98,4 +98,16 @@ describe('icc-x-time-table-api Tests', () => {
     const retrieved = await api2.timetableApi.getTimeTable(entity.id!)
     expect(retrieved.id).to.equal(entity.id)
   })
+
+  it('newInstance should honor non-default values unless they are undefined', async () => {
+    const api = await initApi(env!, hcp1Username)
+    const user = await api.userApi.getCurrentUser()
+    const timeTableUndefinedId = await api.timetableApi.newInstance(user, { id: undefined })
+    const customId = 'customId'
+    const timeTableCustomId = await api.timetableApi.newInstance(user, { id: customId })
+    const timeTableWithUndefinedInit = await api.timetableApi.newInstance(user, undefined as any)
+    expect(timeTableUndefinedId.id).to.not.be.undefined
+    expect(timeTableWithUndefinedInit.id).to.not.be.undefined
+    expect(timeTableCustomId.id).to.equal(customId)
+  })
 })

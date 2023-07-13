@@ -60,11 +60,11 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
     const maintenanceTask = {
       ...(m ?? {}),
       _type: 'org.taktik.icure.entities.MaintenanceTask',
-      id: m.id ?? this.crypto.primitives.randomUuid(),
-      created: m.created ?? new Date().getTime(),
-      modified: m.modified ?? new Date().getTime(),
-      responsible: m.responsible ?? dataOwnerId,
-      author: m.author ?? user.id,
+      id: m?.id ?? this.crypto.primitives.randomUuid(),
+      created: m?.created ?? new Date().getTime(),
+      modified: m?.modified ?? new Date().getTime(),
+      responsible: m?.responsible ?? dataOwnerId,
+      author: m?.author ?? user.id,
     }
 
     const extraDelegations = [...Object.keys(options.additionalDelegates ?? {}), ...(user.autoDelegations?.all ?? [])]

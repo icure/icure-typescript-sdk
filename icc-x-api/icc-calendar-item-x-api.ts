@@ -67,13 +67,13 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
     const calendarItem = {
       ...(ci ?? {}),
       _type: 'org.taktik.icure.entities.CalendarItem',
-      id: ci.id ?? this.crypto.primitives.randomUuid(),
-      created: ci.created ?? new Date().getTime(),
-      modified: ci.modified ?? new Date().getTime(),
-      responsible: ci.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
-      author: ci.author ?? user.id,
-      codes: ci.codes ?? [],
-      tags: ci.tags ?? [],
+      id: ci?.id ?? this.crypto.primitives.randomUuid(),
+      created: ci?.created ?? new Date().getTime(),
+      modified: ci?.modified ?? new Date().getTime(),
+      responsible: ci?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
+      author: ci?.author ?? user.id,
+      codes: ci?.codes ?? [],
+      tags: ci?.tags ?? [],
     }
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)

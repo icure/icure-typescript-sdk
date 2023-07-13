@@ -67,15 +67,15 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     const helement = {
       ...(h ?? {}),
       _type: 'org.taktik.icure.entities.HealthElement',
-      id: h.id ?? this.crypto.primitives.randomUuid(),
-      created: h.created ?? new Date().getTime(),
-      modified: h.modified ?? new Date().getTime(),
-      responsible: h.responsible ?? dataOwnerId,
-      author: h.author ?? user.id,
-      codes: h.codes ?? [],
-      tags: h.tags ?? [],
-      healthElementId: h.healthElementId ?? this.crypto.primitives.randomUuid(),
-      openingDate: h.openingDate ?? parseInt(moment().format('YYYYMMDDHHmmss')),
+      id: h?.id ?? this.crypto.primitives.randomUuid(),
+      created: h?.created ?? new Date().getTime(),
+      modified: h?.modified ?? new Date().getTime(),
+      responsible: h?.responsible ?? dataOwnerId,
+      author: h?.author ?? user.id,
+      codes: h?.codes ?? [],
+      tags: h?.tags ?? [],
+      healthElementId: h?.healthElementId ?? this.crypto.primitives.randomUuid(),
+      openingDate: h?.openingDate ?? parseInt(moment().format('YYYYMMDDHHmmss')),
     }
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)

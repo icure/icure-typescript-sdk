@@ -60,15 +60,15 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
     const invoice = new models.Invoice({
       ...(inv ?? {}),
       _type: 'org.taktik.icure.entities.Invoice',
-      id: inv.id ?? this.crypto.primitives.randomUuid(),
-      groupId: inv.groupId ?? this.crypto.primitives.randomUuid(),
-      created: inv.created ?? new Date().getTime(),
-      modified: inv.modified ?? new Date().getTime(),
-      responsible: inv.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
-      author: inv.author ?? user.id,
-      codes: inv.codes ?? [],
-      tags: inv.tags ?? [],
-      invoicingCodes: inv.invoicingCodes ?? [],
+      id: inv?.id ?? this.crypto.primitives.randomUuid(),
+      groupId: inv?.groupId ?? this.crypto.primitives.randomUuid(),
+      created: inv?.created ?? new Date().getTime(),
+      modified: inv?.modified ?? new Date().getTime(),
+      responsible: inv?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
+      author: inv?.author ?? user.id,
+      codes: inv?.codes ?? [],
+      tags: inv?.tags ?? [],
+      invoicingCodes: inv?.invoicingCodes ?? [],
     })
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)

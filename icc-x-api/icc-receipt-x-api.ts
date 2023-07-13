@@ -48,13 +48,13 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
     const receipt = new models.Receipt({
       ...(r ?? {}),
       _type: 'org.taktik.icure.entities.Receipt',
-      id: r.id ?? this.crypto.randomUuid(),
-      created: r.created ?? new Date().getTime(),
-      modified: r.modified ?? new Date().getTime(),
-      responsible: r.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
-      author: r.author ?? user.id,
-      codes: r.codes ?? [],
-      tags: r.tags ?? [],
+      id: r?.id ?? this.crypto.randomUuid(),
+      created: r?.created ?? new Date().getTime(),
+      modified: r?.modified ?? new Date().getTime(),
+      responsible: r?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
+      author: r?.author ?? user.id,
+      codes: r?.codes ?? [],
+      tags: r?.tags ?? [],
     })
 
     const extraDelegations = [

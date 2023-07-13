@@ -56,16 +56,14 @@ const facades: EntityFacades = {
     share: async (api, p, r, doId) => {
       const user = await api.userApi.getCurrentUser()
       const ownerId = api.dataOwnerApi.getDataOwnerIdOf(user)
-      return api.patientApi.modifyPatientWithUser(
-        await api.userApi.getCurrentUser(),
-        await api.cryptoApi.entities.entityWithExtendedEncryptedMetadata(
-          r,
-          doId,
-          await api.cryptoApi.entities.secretIdsOf(r),
-          await api.cryptoApi.entities.encryptionKeysOf(r),
-          p ? [p.id!] : []
-        )
+      const shared = await api.cryptoApi.entities.entityWithExtendedEncryptedMetadata(
+        r,
+        doId,
+        await api.cryptoApi.entities.secretIdsOf(r),
+        await api.cryptoApi.entities.encryptionKeysOf(r),
+        p ? [p.id!] : []
       )
+      return shared ? api.patientApi.modifyPatientWithUser(await api.userApi.getCurrentUser(), shared) : r
     },
     isDecrypted: async (entityToCheck) => {
       return entityToCheck.note != undefined
@@ -77,16 +75,14 @@ const facades: EntityFacades = {
     share: async (api, p, r, doId) => {
       const user = await api.userApi.getCurrentUser()
       const ownerId = api.dataOwnerApi.getDataOwnerIdOf(user)
-      return api.contactApi.modifyContactWithUser(
-        await api.userApi.getCurrentUser(),
-        await api.cryptoApi.entities.entityWithExtendedEncryptedMetadata(
-          r,
-          doId,
-          await api.cryptoApi.entities.secretIdsOf(r),
-          await api.cryptoApi.entities.encryptionKeysOf(r),
-          p ? [p.id!] : []
-        )
+      const shared = await api.cryptoApi.entities.entityWithExtendedEncryptedMetadata(
+        r,
+        doId,
+        await api.cryptoApi.entities.secretIdsOf(r),
+        await api.cryptoApi.entities.encryptionKeysOf(r),
+        p ? [p.id!] : []
       )
+      return shared ? api.contactApi.modifyContactWithUser(await api.userApi.getCurrentUser(), shared) : r
     },
     isDecrypted: async (entityToCheck) => {
       return entityToCheck.services?.[0].content != undefined && Object.entries(entityToCheck.services?.[0].content).length > 0
@@ -98,16 +94,14 @@ const facades: EntityFacades = {
     share: async (api, p, r, doId) => {
       const user = await api.userApi.getCurrentUser()
       const ownerId = api.dataOwnerApi.getDataOwnerIdOf(user)
-      return api.healthcareElementApi.modifyHealthElementWithUser(
-        await api.userApi.getCurrentUser(),
-        await api.cryptoApi.entities.entityWithExtendedEncryptedMetadata(
-          r,
-          doId,
-          await api.cryptoApi.entities.secretIdsOf(r),
-          await api.cryptoApi.entities.encryptionKeysOf(r),
-          p ? [p.id!] : []
-        )
+      const shared = await api.cryptoApi.entities.entityWithExtendedEncryptedMetadata(
+        r,
+        doId,
+        await api.cryptoApi.entities.secretIdsOf(r),
+        await api.cryptoApi.entities.encryptionKeysOf(r),
+        p ? [p.id!] : []
       )
+      return shared ? api.healthcareElementApi.modifyHealthElementWithUser(await api.userApi.getCurrentUser(), shared) : r
     },
     isDecrypted: async (entityToCheck) => {
       return entityToCheck.descr != undefined
@@ -119,16 +113,14 @@ const facades: EntityFacades = {
     share: async (api, p, r, doId) => {
       const user = await api.userApi.getCurrentUser()
       const ownerId = api.dataOwnerApi.getDataOwnerIdOf(user)
-      return api.calendarItemApi.modifyCalendarItemWithHcParty(
-        await api.userApi.getCurrentUser(),
-        await api.cryptoApi.entities.entityWithExtendedEncryptedMetadata(
-          r,
-          doId,
-          await api.cryptoApi.entities.secretIdsOf(r),
-          await api.cryptoApi.entities.encryptionKeysOf(r),
-          p ? [p.id!] : []
-        )
+      const shared = await api.cryptoApi.entities.entityWithExtendedEncryptedMetadata(
+        r,
+        doId,
+        await api.cryptoApi.entities.secretIdsOf(r),
+        await api.cryptoApi.entities.encryptionKeysOf(r),
+        p ? [p.id!] : []
       )
+      return shared ? api.calendarItemApi.modifyCalendarItemWithHcParty(await api.userApi.getCurrentUser(), shared) : r
     },
     isDecrypted: async (entityToCheck) => {
       return entityToCheck.title != undefined
@@ -575,7 +567,8 @@ describe('Full crypto test - Read/Share scenarios', async function () {
                     ? await api.patientApi.getPatientWithUser(user, user.patientId!)
                     : await api.patientApi.getPatientWithUser(user, `${user.id}-Patient`)
                   : undefined
-              const entity = await facade.share(api, parent, await facade.get(api, `${user.id}-${f[0]}`), delegateDoId)
+              const retrievedEntity = await facade.get(api, `${user.id}-${f[0]}`)
+              const entity = await facade.share(api, parent, retrievedEntity, delegateDoId)
               const retrieved = await facade.get(api, entity.id)
               expect(entity.rev).to.equal(retrieved.rev)
               expect(Object.keys(entity.delegations)).to.contain(delegateDoId)
