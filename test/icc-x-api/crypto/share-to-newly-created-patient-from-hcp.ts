@@ -14,6 +14,7 @@ import { TestKeyStorage, TestStorage } from '../../utils/TestStorage'
 import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import { IcureApi } from '../../../icc-x-api'
+import exp = require('constants')
 
 setLocalStorage(fetch)
 
@@ -68,7 +69,11 @@ describe('Full battery of tests on crypto and keys', async function () {
 
     expect(pat.note ?? undefined).to.be.undefined
 
-    await api.patientApi.share(u, patient.id, u.healthcarePartyId!, [patient.id], { [patient.id]: ['all'] })
+    const shareResult = await api.patientApi.share(u, patient.id, u.healthcarePartyId!, [patient.id], { [patient.id]: ['all'] })
+    expect(shareResult).to.not.be.null
+    expect(shareResult!.patient).to.not.be.null
+    expect(shareResult!.patient!.rev).to.not.equal(pat.rev, 'Patient should have been updated')
+    expect(shareResult!.statuses.healthElements?.success).to.be.true
     await apiAsPatient.cryptoApi.forceReload()
     const patUser = await apiAsPatient.userApi.getCurrentUser()
     const entity = await apiAsPatient.patientApi.getPatientWithUser(patUser, patient.id)

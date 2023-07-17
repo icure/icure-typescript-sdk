@@ -227,9 +227,98 @@ namespace IcureApiOptions {
 
 /**
  * Specifies which fields should be encrypted for each kind of encryptable entity.
+ *
  * Note that any value you specify here overrides the default values. For example if you specify `['medicalLocationId']` for `healthElement` the
  * fields `['descr', 'note']` which are usually encrypted by default will no longer be encrypted. If you want to add fields to the default values
  * you can use {@link EncryptedFieldsConfig.Defaults}, for example `[...EncryptedFieldsConfig.Defaults.healthElement, 'medicalLocationId'].
+ *
+ * # Encrypted fields syntax
+ *
+ * ## Grammar
+ *
+ * The grammar for each encrypted field is the following:
+ * ```
+ * fieldName :=
+ *   regex([a-zA-Z_][a-zA-Z0-9_]+)
+ * encryptedField :=
+ *   fieldName
+ *   | fieldName + ("." | ".*." | "[].") + encryptedField
+ * ```
+ *
+ * This grammar allows you to specify the fields to encrypt for the object and recursively for nested objects.
+ * - A string containing only a single `fieldName` will encrypt the field with the given name.
+ * - A string starting with `fieldName.` allows to specify the encrypted fields of a nested object. The encrypted values of the
+ *   fields in the nested object will be saved in the nested object.
+ * - A string starting with `fieldName.*.` treats `fieldName` as a map/dictionary data structure and allows to specify the encrypted fields of the
+ *   values of the map. Note that the values of the map must be objects as well. The encrypted content of each map value is stored in that value.
+ * - A string starting with `fieldName[].` treats `fieldName` as an array and allows to specify the encrypted fields of the values of the array.
+ *   Note that the values of the array must be objects as well. The encrypted content of each array element is stored in that element.
+ *
+ * ## Example
+ *
+ * Consider the following object and encryption keys:
+ * ```javascript
+ * const obj = {
+ *   a: { x: 0, y: 1 },
+ *   b: "hello",
+ *   c: [ { public: "a", secret: "b" }, { public: "c", secret: "d" } ],
+ *   d: "ok",
+ *   e: {
+ *     info: "something",
+ *     private: "secret",
+ *     dataMap: {
+ *       "en": {
+ *         a: 1,
+ *         b: 2
+ *       },
+ *       "fr": {
+ *         a: 3,
+ *         b: 4
+ *       }
+ *     }
+ *   }
+ * }
+ * const encryptedFields = [
+ *   "a",
+ *   "c[].secret",
+ *   "d",
+ *   "e.private",
+ *   "e.datamap.*.a"
+ * ]
+ * ```
+ * If you use them with the crypt method you will get the following result:
+ * ```json
+ * {
+ *   b: "hello",
+ *   c: [
+ *     { public: "a", encryptedSelf: "...encrypted data of c[0]" },
+ *     { public: "c", encryptedSelf: "...encrypted data of c[1]" }
+ *   ],
+ *   e: {
+ *     info: "something",
+ *     dataMap: {
+ *       "en": { b: 2, encryptedSelf: "...encrypted data of e.dataMap['en']" },
+ *       "fr": { b: 4, encryptedSelf: "...encrypted data of e.dataMap['fr']" }
+ *     },
+ *     encryptedSelf: "...encrypted data of e"
+ *   },
+ *   encryptedSelf: "...encrypted data of obj"
+ * }
+ * ```
+ *
+ * ## Shortened representation
+ *
+ * You can also group encrypted fields having the same prefix by concatenating to the prefix the JSON representation of an array of all the postfixes.
+ * For example the following encrypted fields:
+ * ```javascript
+ * const encryptedFields = ["a.b.c.d.e.f1", "a.b.c.d.e.f2", "a.b.c.d.e.f3", "a.b.c.d.e.f4"]
+ * ```
+ * can be shortened to
+ * ```javascript
+ * const encryptedFields = ['a.b.c.d.e.["f1","f2","f3","f4"]'] // Note the use of single quotes to avoid escaping the double quotes
+ * ```
+ * If you use the shortened representation you may need to escape nested json representations. In that case the use of `JSON.stringify` is
+ * recommended.
  */
 export interface EncryptedFieldsConfig {
   /**
@@ -242,10 +331,20 @@ export interface EncryptedFieldsConfig {
    * @default ['details', 'title', 'patientId']
    */
   readonly calendarItem?: string[]
-  /*TODO
-   * configuration not yet supported for contact; automatically applies to descr and content of services
+  /**
+   * Fields to encrypt for entities of type {@link Contact}, excluding `services`. You can specify which fields of `services` should be encrypted
+   * using {@link service}.
+   * @default ['descr'] // encryption of `services` is managed through {@link service}
    */
-  // readonly contact?: string[]
+  readonly contact?: string[]
+  /**
+   * Fields to encrypt for entities of type {@link Service}. Note that encryption of the `content` field and recursively contained `Services` through
+   * `content.compoundValue` is automatically managed by the sdk, and you are not allowed to modify it.
+   * Note: specifying non-empty values for this field will break bi-directional data compatibility between v7 and previous: Contacts created with
+   * v7 will not be read properly by previous versions.
+   * @default [] // encryption of `content` is managed in a special way
+   */
+  readonly service?: string[]
   /**
    * Fields to encrypt for entities of type {@link HealthElement}
    * @default ['descr', 'note']
@@ -266,7 +365,8 @@ export namespace EncryptedFieldsConfig {
   export const Defaults = {
     accessLog: ['detail', 'objectId'],
     calendarItem: ['details', 'title', 'patientId'],
-    // TODO contact
+    contact: ['descr'],
+    service: [],
     healthElement: ['descr', 'note'],
     maintenanceTask: ['properties'],
     patient: ['note'],
@@ -644,7 +744,9 @@ class IcureApiImpl implements IcureApi {
         this.cryptoApi,
         this.dataOwnerApi,
         this.groupSpecificAuthenticationProvider,
-        this.fetch
+        this.fetch,
+        this.params.encryptedFieldsConfig.contact ?? EncryptedFieldsConfig.Defaults.contact,
+        this.params.encryptedFieldsConfig.service ?? EncryptedFieldsConfig.Defaults.service
       ))
     )
   }

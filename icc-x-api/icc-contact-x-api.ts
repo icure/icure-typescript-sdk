@@ -8,10 +8,10 @@ import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
 import { Contact, FilterChainService, ListOfIds, Service } from '../icc-api/model/models'
 import { PaginatedListContact } from '../icc-api/model/PaginatedListContact'
-import { a2b, b2a, string2ua, ua2string, utf8_2ua } from './utils/binary-utils'
+import { utf8_2ua } from './utils/binary-utils'
 import { ServiceByIdsFilter } from './filters/ServiceByIdsFilter'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
-import { before } from './utils'
+import { before, encryptObject, decryptObject, EncryptedFieldsManifest, parseEncryptedFields } from './utils'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
@@ -20,7 +20,22 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
   i18n: any = i18n
   crypto: IccCryptoXApi
   dataOwnerApi: IccDataOwnerXApi
+  private readonly contactEncryptedFields: EncryptedFieldsManifest
+  private readonly serviceEncryptedFieldsNoContent: EncryptedFieldsManifest | undefined
+  private readonly serviceEncryptedFieldsWithContent: EncryptedFieldsManifest
 
+  /**
+   *
+   * @param host
+   * @param headers
+   * @param crypto
+   * @param dataOwnerApi
+   * @param authenticationProvider
+   * @param fetchImpl
+   * @param contactEncryptedKeys custom encrypted fields for Contact. Note that to customise the encryption of contained services (`services` field),
+   * you need to use the serviceEncryptedKeys parameter.
+   * @param serviceEncryptedKeys custom encrypted fields for Service. Note that you can't customise encryption of the `content` field
+   */
   constructor(
     host: string,
     headers: { [key: string]: string },
@@ -31,11 +46,28 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       ? window.fetch
       : typeof self !== 'undefined'
       ? self.fetch
-      : fetch
+      : fetch,
+    contactEncryptedKeys: string[] = ['descr'],
+    serviceEncryptedKeys: string[] = []
   ) {
     super(host, headers, authenticationProvider, fetchImpl)
+    if (contactEncryptedKeys.some((key) => key.startsWith('services'))) {
+      throw new Error("You can't customise encryption of the `services` field of Contact. Use the serviceEncryptedKeys parameter instead.")
+    }
+    if (serviceEncryptedKeys.some((key) => key.startsWith('content'))) {
+      throw new Error("You can't customise encryption of the `content` of a Service. The content values for services is automatically encrypted.")
+    }
     this.crypto = crypto
     this.dataOwnerApi = dataOwnerApi
+    this.contactEncryptedFields = parseEncryptedFields(contactEncryptedKeys, 'Contact.')
+    const customServiceEncryptedFields = parseEncryptedFields(serviceEncryptedKeys, 'Service.')
+    if (serviceEncryptedKeys.length > 0) {
+      this.serviceEncryptedFieldsNoContent = customServiceEncryptedFields
+    }
+    this.serviceEncryptedFieldsWithContent = {
+      ...customServiceEncryptedFields,
+      topLevelFields: [...customServiceEncryptedFields.topLevelFields, { fieldName: 'content', fieldPath: 'Service.content' }],
+    }
   }
 
   /**
@@ -339,11 +371,8 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
   encryptServices(key: CryptoKey, rawKey: string, services: Service[]): PromiseLike<Service[]> {
     return Promise.all(
       services.map(async (svc) => {
-        if (!svc.content) {
-          return svc
-        }
-
         if (
+          svc.content &&
           Object.values(svc.content).every(
             (c) =>
               c.compoundValue &&
@@ -358,23 +387,36 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
               !c.binaryValue
           )
         ) {
-          svc.content = _.fromPairs(
+          const recursivelyEncryptedContent = Object.fromEntries(
             await Promise.all(
-              _.toPairs(svc.content).map(async (p) => {
+              Object.entries(svc.content).map(async (p) => {
                 if (p[1].compoundValue?.length) {
-                  p[1].compoundValue = await this.encryptServices(key, rawKey, p[1].compoundValue!)
-                }
-                return p
+                  return [p[0], { ...p[1], compoundValue: await this.encryptServices(key, rawKey, p[1].compoundValue!) }]
+                } else return p
               })
             )
           )
+          const copyWithEncryptedContent = { ...svc, content: recursivelyEncryptedContent }
+          return this.serviceEncryptedFieldsNoContent
+            ? encryptObject(
+                copyWithEncryptedContent,
+                (obj) => {
+                  return this.crypto.primitives.AES.encrypt(key, utf8_2ua(JSON.stringify(obj)), rawKey)
+                },
+                this.serviceEncryptedFieldsNoContent,
+                'service'
+              )
+            : copyWithEncryptedContent
         } else {
-          svc.encryptedSelf = b2a(
-            ua2string(await this.crypto.primitives.AES.encrypt(key, utf8_2ua(JSON.stringify({ content: svc.content })), rawKey))
+          return encryptObject(
+            svc,
+            (obj) => {
+              return this.crypto.primitives.AES.encrypt(key, utf8_2ua(JSON.stringify(obj)), rawKey)
+            },
+            this.serviceEncryptedFieldsWithContent,
+            'service'
           )
-          delete svc.content
         }
-        return svc
       })
     )
   }
@@ -394,13 +436,19 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
 
         const encryptionKey = await this.crypto.entities.importFirstValidKey(await this.crypto.entities.encryptionKeysOf(ctc, hcpartyId), ctc.id!)
 
-        initialisedCtc.services = await this.encryptServices(encryptionKey.key, encryptionKey.raw, ctc.services || [])
-        initialisedCtc.encryptedSelf = b2a(
-          ua2string(await this.crypto.primitives.AES.encrypt(encryptionKey.key, utf8_2ua(JSON.stringify({ descr: ctc.descr })), encryptionKey.raw))
+        return new Contact(
+          await encryptObject(
+            {
+              ...initialisedCtc,
+              services: initialisedCtc.services ? await this.encryptServices(encryptionKey.key, encryptionKey.raw, initialisedCtc.services) : [],
+            },
+            (obj) => {
+              return this.crypto.primitives.AES.encrypt(encryptionKey.key, utf8_2ua(JSON.stringify(obj)), encryptionKey.raw)
+            },
+            this.contactEncryptedFields,
+            'contact'
+          )
         )
-        delete initialisedCtc.descr
-
-        return initialisedCtc
       })
     )
   }
@@ -413,20 +461,11 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
           console.log('Cannot decrypt contact', ctc.id)
           return ctc
         }
-        ctc.services = await this.decryptServices(hcpartyId, ctc.services || [], keys)
-        if (ctc.encryptedSelf) {
-          try {
-            const json = await this.crypto.entities.tryDecryptJson(keys, string2ua(a2b(ctc.encryptedSelf!)), false)
-            if (json) {
-              _.assign(ctc, json)
-            } else {
-              console.log('Cannot decrypt ctc: no valid key could produce valid json', ctc.id)
-            }
-          } catch (e) {
-            console.log('Failed to decrypt ctc', ctc.id, e)
-          }
-        }
-        return ctc
+        return new Contact(
+          await decryptObject(ctc, async (encrypted) => {
+            return (await this.crypto.entities.tryDecryptJson(keys, encrypted, false)) ?? {}
+          })
+        )
       })
     )
   }
@@ -438,41 +477,11 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
           keys = await this.crypto.entities.importAllValidKeys(await this.crypto.entities.encryptionKeysOf(svc, hcpartyId))
         }
 
-        if (svc.encryptedContent) {
-          try {
-            const json = await this.crypto.entities.tryDecryptJson(keys, string2ua(a2b(svc.encryptedContent!)), true)
-            if (json) {
-              Object.assign(svc, { content: json })
-            } else {
-              console.log('Cannot decrypt service: no valid key could produce valid json', svc.id)
-            }
-          } catch (e) {
-            console.log('Cannot decrypt service', svc.id, e)
-          }
-        } else if (svc.encryptedSelf) {
-          try {
-            const json = await this.crypto.entities.tryDecryptJson(keys, string2ua(a2b(svc.encryptedSelf!)), true)
-            if (json) {
-              Object.assign(svc, json)
-            } else {
-              console.log('Cannot decrypt service: no valid key could produce valid json', svc.id)
-            }
-          } catch (e) {
-            console.log('Cannot decrypt service', svc.id, e)
-          }
-        } else {
-          svc.content = _.fromPairs(
-            await Promise.all(
-              _.toPairs(svc.content).map(async (p) => {
-                if (p[1].compoundValue) {
-                  p[1].compoundValue = await this.decryptServices(hcpartyId, p[1].compoundValue, keys)
-                }
-                return p
-              })
-            )
-          )
-        }
-        return svc
+        return new Contact(
+          await decryptObject(svc, async (encrypted) => {
+            return (await this.crypto.entities.tryDecryptJson(keys!, encrypted, false)) ?? {}
+          })
+        )
       })
     )
   }

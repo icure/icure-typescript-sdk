@@ -1,7 +1,20 @@
 import { Delegation, EncryptedEntity, EncryptedEntityStub } from '../../icc-api/model/models'
 import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { ExchangeKeysManager } from './ExchangeKeysManager'
-import { b2a, crypt, decrypt, hex2ua, string2ua, truncateTrailingNulls, ua2hex, ua2string, ua2utf8, utf8_2ua } from '../utils'
+import {
+  b2a,
+  encryptObject,
+  decryptObject,
+  EncryptedFieldsManifest,
+  hex2ua,
+  parseEncryptedFields,
+  string2ua,
+  truncateTrailingNulls,
+  ua2hex,
+  ua2string,
+  ua2utf8,
+  utf8_2ua,
+} from '../utils'
 import * as _ from 'lodash'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { arrayEquals } from '../utils/collection-utils'
@@ -436,12 +449,11 @@ export class EntitiesEncryption {
     ownerId: string | undefined,
     constructor: (json: any) => T
   ): Promise<{ entity: T; decrypted: boolean }> {
-    if (!entity.encryptedSelf) return { entity, decrypted: true }
     const encryptionKeys = await this.importAllValidKeys(await this.encryptionKeysOf(entity, ownerId))
     if (!encryptionKeys.length) return { entity, decrypted: false }
     return {
       entity: constructor(
-        await decrypt(entity, async (encrypted) => {
+        await decryptObject(entity, async (encrypted) => {
           return (await this.tryDecryptJson(encryptionKeys, encrypted, false)) ?? {}
         })
       ),
@@ -480,7 +492,7 @@ export class EntitiesEncryption {
   async tryEncryptEntity<T extends EncryptedEntity>(
     entity: T,
     dataOwnerId: string | undefined,
-    cryptedKeys: string[],
+    fieldsToEncrypt: EncryptedFieldsManifest,
     encodeBinaryData: boolean,
     requireEncryption: boolean,
     constructor: (json: any) => T
@@ -489,9 +501,10 @@ export class EntitiesEncryption {
     const encryptionKey = await this.tryImportFirstValidKey(await this.encryptionKeysOf(entity, dataOwnerId), entity.id!)
     if (!!encryptionKey) {
       return constructor(
-        await crypt(
-          entityWithInitialisedEncryptionKeys,
+        await encryptObject(
+          entityWithInitialisedEncryptionKeys ?? entity,
           (obj) => {
+            // TODO should encoding of binary data should probably be applied to everything?
             const json = encodeBinaryData
               ? JSON.stringify(obj, (k, v) => {
                   return v instanceof ArrayBuffer || v instanceof Uint8Array
@@ -501,25 +514,28 @@ export class EntitiesEncryption {
               : JSON.stringify(obj)
             return this.primitives.AES.encrypt(encryptionKey.key, utf8_2ua(json), encryptionKey.raw)
           },
-          cryptedKeys
+          fieldsToEncrypt,
+          'entity'
         )
       )
     } else if (requireEncryption) {
       throw new Error(`No key found for encryption of entity ${entity}`)
     } else {
-      const cryptedCopyWithRandomKey = await crypt(
-        _.cloneDeep(entity),
-        async (obj: { [key: string]: string }) => Promise.resolve(new ArrayBuffer(1)),
-        cryptedKeys
+      await encryptObject(
+        entity,
+        async (obj: { [key: string]: string }) => {
+          if (Object.keys(obj).length > 0) {
+            throw new Error(
+              `Impossible to modify encrypted content of an entity if no encryption key is known.\nEntity: ${JSON.stringify(
+                entity
+              )}\nTo encrypt: ${JSON.stringify(obj)}`
+            )
+          }
+          return Promise.resolve(new ArrayBuffer(1))
+        },
+        fieldsToEncrypt,
+        'entity'
       )
-      if (
-        !_.isEqual(
-          _.omitBy({ ...cryptedCopyWithRandomKey, encryptedSelf: undefined }, _.isNil),
-          _.omitBy({ ...entity, encryptedSelf: undefined }, _.isNil)
-        )
-      ) {
-        throw new Error(`Impossible to modify encrypted value of an entity if no encryption key is known.\n${entity}`)
-      }
       return entity
     }
   }
@@ -531,7 +547,7 @@ export class EntitiesEncryption {
    * which were previously not encrypted.
    */
   async ensureEncryptionKeysInitialised<T extends EncryptedEntity>(entity: T): Promise<T | undefined> {
-    if (Object.keys(entity.encryptionKeys ?? {}).length > 0) return entity
+    if (Object.keys(entity.encryptionKeys ?? {}).length > 0) return undefined
     if (!entity.rev) {
       throw new Error(
         'New encrypted entity is lacking encryption metadata. ' +

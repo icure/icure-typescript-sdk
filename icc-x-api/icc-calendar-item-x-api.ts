@@ -9,12 +9,13 @@ import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
+import { EncryptedFieldsManifest, parseEncryptedFields } from './utils'
 
 export class IccCalendarItemXApi extends IccCalendarItemApi implements EncryptedEntityXApi<models.CalendarItem> {
   i18n: any = i18n
   crypto: IccCryptoXApi
   dataOwnerApi: IccDataOwnerXApi
-  encryptedKeys = ['details', 'title', 'patientId']
+  private readonly encryptedFields: EncryptedFieldsManifest
 
   constructor(
     host: string,
@@ -32,7 +33,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
     super(host, headers, authenticationProvider, fetchImpl)
     this.crypto = crypto
     this.dataOwnerApi = dataOwnerApi
-    this.encryptedKeys = encryptedKeys
+    this.encryptedFields = parseEncryptedFields(encryptedKeys, 'CalendarItem.')
   }
 
   newInstance(user: User, ci: CalendarItem, options: { additionalDelegates?: { [dataOwnerId: string]: 'WRITE' } } = {}) {
@@ -221,7 +222,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
   private encryptAs(dataOwnerId: string, calendarItems: Array<models.CalendarItem>): Promise<Array<models.CalendarItem>> {
     return Promise.all(
       calendarItems.map((x) =>
-        this.crypto.entities.tryEncryptEntity(x, dataOwnerId, this.encryptedKeys, false, true, (json) => new CalendarItem(json))
+        this.crypto.entities.tryEncryptEntity(x, dataOwnerId, this.encryptedFields, false, true, (json) => new CalendarItem(json))
       )
     )
   }
