@@ -8,13 +8,14 @@ import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
+import { EncryptedFieldsManifest, parseEncryptedFields } from './utils'
 
 export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements EncryptedEntityXApi<models.MaintenanceTask> {
   crypto: IccCryptoXApi
   hcPartyApi: IccHcpartyXApi
   dataOwnerApi: IccDataOwnerXApi
 
-  private readonly encryptedKeys: Array<string>
+  private readonly encryptedFields: EncryptedFieldsManifest
 
   constructor(
     host: string,
@@ -22,7 +23,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
     crypto: IccCryptoXApi,
     hcPartyApi: IccHcpartyXApi,
     dataOwnerApi: IccDataOwnerXApi,
-    encryptedKeys: Array<string> = [],
+    encryptedKeys: Array<string> = ['properties'],
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
@@ -34,7 +35,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
     this.crypto = crypto
     this.hcPartyApi = hcPartyApi
     this.dataOwnerApi = dataOwnerApi
-    this.encryptedKeys = encryptedKeys
+    this.encryptedFields = parseEncryptedFields(encryptedKeys, 'MaintenanceTask.')
   }
 
   /**
@@ -144,7 +145,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
   private encryptAs(dataOwnerId: string, maintenanceTasks: Array<models.MaintenanceTask>): Promise<Array<models.MaintenanceTask>> {
     return Promise.all(
       maintenanceTasks.map((m) =>
-        this.crypto.entities.tryEncryptEntity(m, dataOwnerId, this.encryptedKeys, true, true, (x) => new models.MaintenanceTask(x))
+        this.crypto.entities.tryEncryptEntity(m, dataOwnerId, this.encryptedFields, true, true, (x) => new models.MaintenanceTask(x))
       )
     )
   }

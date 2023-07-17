@@ -14,7 +14,7 @@ import { CalendarItem, Classification, Document, IcureStub, Invoice, ListOfIds, 
 import { IccCalendarItemXApi } from './icc-calendar-item-x-api'
 import { b64_2ab } from '../icc-api/model/ModelHelper'
 import { findName, garnishPersonWithName, hasName } from './utils/person-util'
-import { retry } from './utils'
+import { EncryptedFieldsManifest, parseEncryptedFields, retry } from './utils'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
@@ -33,7 +33,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
   calendarItemApi: IccCalendarItemXApi
   dataOwnerApi: IccDataOwnerXApi
 
-  private readonly encryptedKeys: Array<string>
+  private readonly encryptedFields: EncryptedFieldsManifest
 
   constructor(
     host: string,
@@ -68,7 +68,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     this.calendarItemApi = calendarItemaApi
     this.dataOwnerApi = dataOwnerApi
 
-    this.encryptedKeys = encryptedKeys
+    this.encryptedFields = parseEncryptedFields(encryptedKeys, 'Patient.')
   }
 
   /**
@@ -495,7 +495,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
 
   private encryptAs(dataOwnerId: string | undefined, pats: Array<models.Patient>): Promise<Array<models.Patient>> {
     return Promise.all(
-      pats.map((p) => this.crypto.entities.tryEncryptEntity(p, dataOwnerId, this.encryptedKeys, true, false, (x) => new models.Patient(x)))
+      pats.map((p) => this.crypto.entities.tryEncryptEntity(p, dataOwnerId, this.encryptedFields, true, false, (x) => new models.Patient(x)))
     )
   }
 
@@ -908,7 +908,8 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
                 })
               })
             : (allTags.includes('anonymousMedicalInformation')
-                ? Promise.resolve(patient)
+                ? // TODO check also in v8 how patient is shared with anonymousMedicalInformation tag
+                  Promise.resolve(patient)
                 : this.modifyPatientWithUser(
                     user,
                     _.assign(patient, {

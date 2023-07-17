@@ -185,56 +185,322 @@ function moment(epochOrLongCalendar: number): Moment | null {
 }
 
 /**
- * Encrypt object graph recursively
- *
- * @param obj the object to encrypt
- * @param cryptor the cryptor function (returns a promise)
- * @param keys the keys to be crypted: ex for a Patient ['note', 'addresses.*.["street", "houseNumber", "telecoms.*.telecomNumber"]']
+ * Configuration for the encryption of an object.
+ * @param topLevelFields the fields of the object to encrypt. All the fields will be encrypted in a single encryptedSelf field which is added to the
+ * object.
+ * @param nestedObjectsKeys the name of fields which are expected to contain a nested object (or undefined). Allows to specify
  */
-export async function crypt(obj: any, cryptor: (obj: { [key: string]: string }) => Promise<ArrayBuffer>, keys: Array<string>) {
-  const subObj = _.pick(
-    obj,
-    keys.filter((k) => !k.includes('*'))
-  )
-  obj.encryptedSelf = b2a(ua2string(await cryptor(subObj)))
-  Object.keys(subObj).forEach((k) => delete obj[k])
-
-  await keys
-    .filter((k) => k.includes('*'))
-    .reduce(async (prev: Promise<void>, k: any) => {
-      await prev
-      const k1 = k.split('.*.')[0]
-      const k2 = k.substr(k1.length + 3)
-
-      const mapped = await Promise.all((_.get(obj, k1) || []).map((so: any) => crypt(so, cryptor, k2.startsWith('[') ? JSON.parse(k2) : [k2])))
-      _.set(obj, k1, mapped)
-    }, Promise.resolve())
-
-  return obj
+export type EncryptedFieldsManifest = {
+  topLevelFields: { fieldName: string; fieldPath: string }[]
+  nestedObjectsKeys: {
+    [objectFieldName: string]: EncryptedFieldsManifest
+  }
+  mapsValuesKeys: {
+    [mapFieldName: string]: EncryptedFieldsManifest
+  }
+  arraysValuesKeys: {
+    [arrayFieldName: string]: EncryptedFieldsManifest
+  }
 }
 
 /**
- * Decrypt object graph recursively
+ * @internal this function is for internal use only and may be changed without notice
  *
- * @param obj the object to encrypt
- * @param decryptor the decryptor function (returns a promise)
+ * Parse the encrypted fields configuration for a specific entity type.
+ *
+ * ## Grammar
+ *
+ * The grammar for each encrypted field is the following:
+ * ```
+ * fieldName :=
+ *   regex([a-zA-Z_][a-zA-Z0-9_]+)
+ * encryptedField :=
+ *   fieldName
+ *   | fieldName + ("." | ".*." | "[].") + encryptedField
+ * ```
+ *
+ * This grammar allows you to specify the fields to encrypt for the object and recursively for nested objects.
+ * - A string containing only a single `fieldName` will encrypt the field with the given name.
+ * - A string starting with `fieldName.` allows to specify the encrypted fields of a nested object. The encrypted values of the
+ *   fields in the nested object will be saved in the nested object.
+ * - A string starting with `fieldName.*.` treats `fieldName` as a map/dictionary data structure and allows to specify the encrypted fields of the
+ *   values of the map. Note that the values of the map must be objects as well. The encrypted content of each map value is stored in that value.
+ * - A string starting with `fieldName[].` treats `fieldName` as an array and allows to specify the encrypted fields of the values of the array.
+ *   Note that the values of the array must be objects as well. The encrypted content of each array element is stored in that element.
+ *
+ * ## Example
+ *
+ * Consider the following object and encryption keys:
+ * ```javascript
+ * const obj = {
+ *   a: { x: 0, y: 1 },
+ *   b: "hello",
+ *   c: [ { public: "a", secret: "b" }, { public: "c", secret: "d" } ],
+ *   d: "ok",
+ *   e: {
+ *     info: "something",
+ *     private: "secret",
+ *     dataMap: {
+ *       "en": {
+ *         a: 1,
+ *         b: 2
+ *       },
+ *       "fr": {
+ *         a: 3,
+ *         b: 4
+ *       }
+ *     }
+ *   }
+ * }
+ * const encryptedFields = [
+ *   "a",
+ *   "c[].secret",
+ *   "d",
+ *   "e.private",
+ *   "e.datamap.*.a"
+ * ]
+ * ```
+ * If you use them with the crypt method you will get the following result:
+ * ```json
+ * {
+ *   b: "hello",
+ *   c: [
+ *     { public: "a", encryptedSelf: "...encrypted data of c[0]" },
+ *     { public: "c", encryptedSelf: "...encrypted data of c[1]" }
+ *   ],
+ *   e: {
+ *     info: "something",
+ *     dataMap: {
+ *       "en": { b: 2, encryptedSelf: "...encrypted data of e.dataMap['en']" },
+ *       "fr": { b: 4, encryptedSelf: "...encrypted data of e.dataMap['fr']" }
+ *     },
+ *     encryptedSelf: "...encrypted data of e"
+ *   },
+ *   encryptedSelf: "...encrypted data of obj"
+ * }
+ * ```
+ *
+ * ## Shortened representation
+ *
+ * You can also group encrypted fields having the same prefix by concatenating to the prefix the JSON representation of an array of all the postfixes.
+ * For example the following encrypted fields:
+ * ```javascript
+ * const encryptedFields = ["a.b.c.d.e.f1", "a.b.c.d.e.f2", "a.b.c.d.e.f3", "a.b.c.d.e.f4"]
+ * ```
+ * can be shortened to
+ * ```javascript
+ * const encryptedFields = ['a.b.c.d.e.["f1","f2","f3","f4"]'] // Note the use of single quotes to avoid escaping the double quotes
+ * ```
+ * If you use the shortened representation you may need to escape nested json representations. In that case the use of `JSON.stringify` is
+ * recommended.
+ *
+ * @param encryptedFields
+ * @param path
  */
-export async function decrypt(obj: any, decryptor: (obj: Uint8Array) => Promise<{ [key: string]: string }>) {
-  await Object.keys(obj).reduce(async (prev: Promise<void>, k: any) => {
-    await prev
-    if (Array.isArray(obj[k])) {
-      await (obj[k] as Array<any>)
-        .filter((o) => typeof o === 'object' && o !== null)
-        .reduce(async (prev: Promise<void>, so: any) => {
-          await prev
-          await decrypt(so, decryptor)
-        }, Promise.resolve())
-    }
-  }, Promise.resolve())
-  if (obj.encryptedSelf) {
-    Object.assign(obj, await decryptor(string2ua(a2b(obj.encryptedSelf))))
+export function parseEncryptedFields(encryptedFields: string[], path: string): EncryptedFieldsManifest {
+  const groupedData = {
+    topLevelFields: new Set<string>(),
+    nestedObjectsKeys: {} as { [objectFieldName: string]: string[] },
+    mapsValuesKeys: {} as { [mapFieldName: string]: string[] },
+    arraysValuesKeys: {} as { [arrayFieldName: string]: string[] },
   }
-  return obj
+  const encryptedFieldRegex = /^([_a-zA-Z][_a-zA-Z0-9]*)(?:(\.\*\.|\[]\.|\.)(?:[_a-zA-Z].*|\[.*]))?$/
+  const addSubkeyToGroupedData = (
+    currFieldName: string,
+    currFieldSeparator: string,
+    currEncryptedField: string,
+    groupedDataKey: 'nestedObjectsKeys' | 'mapsValuesKeys' | 'arraysValuesKeys'
+  ) => {
+    const existingOrNew = groupedData[groupedDataKey][currFieldName] ?? (groupedData[groupedDataKey][currFieldName] = [])
+    const subKey = currEncryptedField.slice(currFieldName.length + currFieldSeparator.length)
+    if (subKey.startsWith('[')) {
+      let parsedJson: any[]
+      try {
+        parsedJson = JSON.parse(subKey)
+      } catch {
+        throw new Error(`Invalid encrypted field ${path}${currEncryptedField} (not a valid JSON subkey)`)
+      }
+      if (Array.isArray(parsedJson) && parsedJson.every((x) => typeof x == 'string')) {
+        parsedJson.forEach((x) => existingOrNew.push(x))
+      } else throw new Error(`Invalid encrypted field ${path}${currEncryptedField} (not an array of strings)`)
+    } else {
+      existingOrNew.push(subKey)
+    }
+  }
+  for (const currEncryptedField of encryptedFields) {
+    const currFieldMatch = currEncryptedField.match(encryptedFieldRegex)
+    if (!!currFieldMatch) {
+      const currFieldName = currFieldMatch[1]
+      const currFieldSeparator = currFieldMatch[2]
+      if (!currFieldSeparator) {
+        if (groupedData.topLevelFields.has(currFieldName)) throw new Error(`Duplicate encrypted field ${path}${currFieldName}`)
+        if (
+          !!groupedData.nestedObjectsKeys[currFieldName] ||
+          !!groupedData.mapsValuesKeys[currFieldName] ||
+          !!groupedData.arraysValuesKeys[currFieldName]
+        )
+          throw new Error(`Encrypted field appears multiple times as different nested types and or top-level-field: ${path}${currFieldName}`)
+        groupedData.topLevelFields.add(currFieldName)
+      } else if (currFieldSeparator == '.') {
+        if (
+          groupedData.topLevelFields.has(currFieldName) ||
+          !!groupedData.mapsValuesKeys[currFieldName] ||
+          !!groupedData.arraysValuesKeys[currFieldName]
+        )
+          throw new Error(`Encrypted field appears multiple times as different nested types and or top-level-field: ${path}${currFieldName}`)
+        addSubkeyToGroupedData(currFieldName, currFieldSeparator, currEncryptedField, 'nestedObjectsKeys')
+      } else if (currFieldSeparator == '.*.') {
+        if (
+          groupedData.topLevelFields.has(currFieldName) ||
+          !!groupedData.nestedObjectsKeys[currFieldName] ||
+          !!groupedData.arraysValuesKeys[currFieldName]
+        )
+          throw new Error(`Encrypted field appears multiple times as different nested types and or top-level-field: ${path}${currFieldName}`)
+        addSubkeyToGroupedData(currFieldName, currFieldSeparator, currEncryptedField, 'mapsValuesKeys')
+      } else if (currFieldSeparator == '[].') {
+        if (
+          groupedData.topLevelFields.has(currFieldName) ||
+          !!groupedData.nestedObjectsKeys[currFieldName] ||
+          !!groupedData.mapsValuesKeys[currFieldName]
+        )
+          throw new Error(`Encrypted field appears multiple times as different nested types and or top-level-field: ${path}${currFieldName}`)
+        addSubkeyToGroupedData(currFieldName, currFieldSeparator, currEncryptedField, 'arraysValuesKeys')
+      } else throw new Error(`Internal error: unknown separator ${currFieldSeparator} passed regex validation in ${path}${currEncryptedField}`)
+    } else throw new Error(`Invalid encrypted field ${path}${currEncryptedField}`)
+  }
+  return {
+    topLevelFields: Array.from(groupedData.topLevelFields).map((fieldName) => ({ fieldName, fieldPath: path + fieldName })),
+    nestedObjectsKeys: Object.fromEntries(
+      Object.entries(groupedData.nestedObjectsKeys).map(([fieldName, fieldNames]) => [
+        fieldName,
+        parseEncryptedFields(fieldNames, path + fieldName + '.'),
+      ])
+    ),
+    mapsValuesKeys: Object.fromEntries(
+      Object.entries(groupedData.mapsValuesKeys).map(([fieldName, fieldNames]) => [
+        fieldName,
+        parseEncryptedFields(fieldNames, path + fieldName + '.*.'),
+      ])
+    ),
+    arraysValuesKeys: Object.fromEntries(
+      Object.entries(groupedData.arraysValuesKeys).map(([fieldName, fieldNames]) => [
+        fieldName,
+        parseEncryptedFields(fieldNames, path + fieldName + '[].'),
+      ])
+    ),
+  }
+}
+
+/**
+ * @internal this function is for internal use only and may be changed without notice
+ * Encrypt the object graph recursively. Generally return an updated SHALLOW copy, although some fields may be deep copied if they also needed to be
+ * recursively encrypted.
+ * @param obj the object to encrypt
+ * @param cryptor takes in input an object consisting only of the fields to encrypt of obj, and returns the encrypted object.
+ * @param keys the keys to encrypt for the
+ * @param path path of the current object, used for error messages.
+ * @return a shallow copy of the object with a new encryptedSelfField and without the encrypted fields.
+ */
+export async function encryptObject(
+  obj: { [key: string]: any },
+  cryptor: (obj: { [key: string]: any }) => Promise<ArrayBuffer>,
+  keys: EncryptedFieldsManifest,
+  path: string = 'obj'
+): Promise<{ [key: string]: any }> {
+  const shallowClone = { ...obj }
+  const currEncryptedFields: { [key: string]: any } = {}
+  for (const { fieldName } of keys.topLevelFields) {
+    const fieldValue = shallowClone[fieldName]
+    if (fieldValue !== undefined) {
+      // we keep null values
+      currEncryptedFields[fieldName] = fieldValue
+      delete shallowClone[fieldName]
+    }
+  }
+  shallowClone['encryptedSelf'] = b2a(ua2string(await cryptor(currEncryptedFields)))
+  for (const [fieldName, subKeys] of Object.entries(keys.nestedObjectsKeys)) {
+    const fieldValue = shallowClone[fieldName]
+    if (fieldValue !== undefined && fieldValue !== null) {
+      if (!isPojo(fieldValue)) throw new Error(`Expected field ${path}.${fieldName} to be a non-array object`)
+      shallowClone[fieldName] = await encryptObject(fieldValue, cryptor, subKeys, path + '.' + fieldName)
+    }
+  }
+  for (const [mapFieldName, subKeys] of Object.entries(keys.mapsValuesKeys)) {
+    const fieldValue = shallowClone[mapFieldName]
+    if (fieldValue !== undefined && fieldValue !== null) {
+      if (!isPojo(fieldValue)) throw new Error(`Expected field ${path}.${mapFieldName} to be a non-array object`)
+      const newMap: { [key: string]: any } = {}
+      for (const [key, value] of Object.entries(fieldValue as object)) {
+        if (value === null || value === undefined) {
+          newMap[key] = value
+        } else {
+          if (!isPojo(value)) throw new Error(`Expected field ${path}.${mapFieldName}.${key} to be a non-array object`)
+          newMap[key] = await encryptObject(value, cryptor, subKeys, path + '.' + mapFieldName + '.' + key)
+        }
+      }
+      shallowClone[mapFieldName] = newMap
+    }
+  }
+  for (const [arrayFieldName, subKeys] of Object.entries(keys.arraysValuesKeys)) {
+    const fieldValue = shallowClone[arrayFieldName]
+    if (fieldValue !== undefined && fieldValue !== null) {
+      if (!Array.isArray(fieldValue)) throw new Error(`Expected field ${path}.${arrayFieldName} to be an array`)
+      const newArray: any[] = Array(fieldValue.length)
+      for (let i = 0; i < fieldValue.length; i++) {
+        const value = fieldValue[i]
+        if (value === null || value === undefined) {
+          newArray[i] = value
+        } else {
+          if (!isPojo(value)) throw new Error(`Expected field ${path}.${arrayFieldName}[${i}] to be a non-array object`)
+          newArray[i] = await encryptObject(value, cryptor, subKeys, path + '.' + arrayFieldName + '[' + i + ']')
+        }
+      }
+      shallowClone[arrayFieldName] = newArray
+    }
+  }
+  return shallowClone
+}
+
+/**
+ * Check if value is a non-null object that is not an array.
+ */
+function isPojo(value: any): boolean {
+  // This break if for some reason we have object versions of String/Number/Boolean
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+/**
+ * @internal this function is for internal use only and may be changed without notice
+ * Decrypt object graph recursively.
+ *
+ * @param obj the object to decrypt
+ * @param decryptor the decryptor function (returns a promise)
+ * @return a deep copy of the object with the decrypted fields and removed encryptedSelf field
+ */
+export async function decryptObject(
+  obj: { [key: string]: any },
+  decryptor: (obj: Uint8Array) => Promise<{ [key: string]: any }>
+): Promise<{ [key: string]: any }> {
+  const copy: { [key: string]: any } = {}
+  for (const [key, value] of Object.entries(obj)) {
+    if (key === 'encryptedSelf') {
+      copy[key] = value
+    } else if (typeof value === 'object' && value !== null) {
+      if (Array.isArray(value)) {
+        // Note: nested arrays (and primitives) are returned as is and not they are not recursively decrypted. This is because we currently do not
+        // support encryption of elements from arrays in arrays (we only support arrays in objects in arrays). In future this may change.
+        copy[key] = await Promise.all(value.map((v) => (isPojo(v) ? decryptObject(v, decryptor) : v)))
+      } else {
+        copy[key] = await decryptObject(value, decryptor)
+      }
+    } else {
+      copy[key] = value
+    }
+  }
+  if (obj.encryptedSelf) {
+    const decrypted = await decryptor(string2ua(a2b(obj.encryptedSelf)))
+    return { ...copy, ...decrypted }
+  } else return copy
 }
 
 /**
