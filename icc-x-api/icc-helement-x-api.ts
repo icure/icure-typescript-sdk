@@ -10,12 +10,12 @@ import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
-import { EncryptedFieldsKeys, parseEncryptedFields } from './utils'
+import { EncryptedFieldsManifest, parseEncryptedFields } from './utils'
 
 export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXApi<models.HealthElement> {
   crypto: IccCryptoXApi
   dataOwnerApi: IccDataOwnerXApi
-  private readonly encryptedFields: EncryptedFieldsKeys
+  private readonly encryptedFields: EncryptedFieldsManifest
 
   constructor(
     host: string,

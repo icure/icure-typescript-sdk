@@ -11,7 +11,7 @@ import { PaginatedListContact } from '../icc-api/model/PaginatedListContact'
 import { utf8_2ua } from './utils/binary-utils'
 import { ServiceByIdsFilter } from './filters/ServiceByIdsFilter'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
-import { before, crypt, decrypt, EncryptedFieldsKeys, parseEncryptedFields } from './utils'
+import { before, encryptObject, decryptObject, EncryptedFieldsManifest, parseEncryptedFields } from './utils'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
@@ -20,9 +20,9 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
   i18n: any = i18n
   crypto: IccCryptoXApi
   dataOwnerApi: IccDataOwnerXApi
-  private readonly contactEncryptedFields: EncryptedFieldsKeys
-  private readonly serviceEncryptedFieldsNoContent: EncryptedFieldsKeys | undefined
-  private readonly serviceEncryptedFieldsWithContent: EncryptedFieldsKeys
+  private readonly contactEncryptedFields: EncryptedFieldsManifest
+  private readonly serviceEncryptedFieldsNoContent: EncryptedFieldsManifest | undefined
+  private readonly serviceEncryptedFieldsWithContent: EncryptedFieldsManifest
 
   /**
    *
@@ -398,7 +398,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
           )
           const copyWithEncryptedContent = { ...svc, content: recursivelyEncryptedContent }
           return this.serviceEncryptedFieldsNoContent
-            ? crypt(
+            ? encryptObject(
                 copyWithEncryptedContent,
                 (obj) => {
                   return this.crypto.primitives.AES.encrypt(key, utf8_2ua(JSON.stringify(obj)), rawKey)
@@ -408,7 +408,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
               )
             : copyWithEncryptedContent
         } else {
-          return crypt(
+          return encryptObject(
             svc,
             (obj) => {
               return this.crypto.primitives.AES.encrypt(key, utf8_2ua(JSON.stringify(obj)), rawKey)
@@ -437,7 +437,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
         const encryptionKey = await this.crypto.entities.importFirstValidKey(await this.crypto.entities.encryptionKeysOf(ctc, hcpartyId), ctc.id!)
 
         return new Contact(
-          await crypt(
+          await encryptObject(
             {
               ...initialisedCtc,
               services: initialisedCtc.services ? await this.encryptServices(encryptionKey.key, encryptionKey.raw, initialisedCtc.services) : [],
@@ -462,7 +462,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
           return ctc
         }
         return new Contact(
-          await decrypt(ctc, async (encrypted) => {
+          await decryptObject(ctc, async (encrypted) => {
             return (await this.crypto.entities.tryDecryptJson(keys, encrypted, false)) ?? {}
           })
         )
@@ -478,7 +478,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
         }
 
         return new Contact(
-          await decrypt(svc, async (encrypted) => {
+          await decryptObject(svc, async (encrypted) => {
             return (await this.crypto.entities.tryDecryptJson(keys!, encrypted, false)) ?? {}
           })
         )

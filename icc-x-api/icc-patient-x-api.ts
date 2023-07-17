@@ -14,7 +14,7 @@ import { CalendarItem, Classification, Document, IcureStub, Invoice, ListOfIds, 
 import { IccCalendarItemXApi } from './icc-calendar-item-x-api'
 import { b64_2ab } from '../icc-api/model/ModelHelper'
 import { findName, garnishPersonWithName, hasName } from './utils/person-util'
-import { EncryptedFieldsKeys, parseEncryptedFields, retry } from './utils'
+import { EncryptedFieldsManifest, parseEncryptedFields, retry } from './utils'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
@@ -33,7 +33,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
   calendarItemApi: IccCalendarItemXApi
   dataOwnerApi: IccDataOwnerXApi
 
-  private readonly encryptedFields: EncryptedFieldsKeys
+  private readonly encryptedFields: EncryptedFieldsManifest
 
   constructor(
     host: string,

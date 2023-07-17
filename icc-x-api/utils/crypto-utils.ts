@@ -190,16 +190,16 @@ function moment(epochOrLongCalendar: number): Moment | null {
  * object.
  * @param nestedObjectsKeys the name of fields which are expected to contain a nested object (or undefined). Allows to specify
  */
-export type EncryptedFieldsKeys = {
+export type EncryptedFieldsManifest = {
   topLevelFields: { fieldName: string; fieldPath: string }[]
   nestedObjectsKeys: {
-    [objectFieldName: string]: EncryptedFieldsKeys
+    [objectFieldName: string]: EncryptedFieldsManifest
   }
   mapsValuesKeys: {
-    [mapFieldName: string]: EncryptedFieldsKeys
+    [mapFieldName: string]: EncryptedFieldsManifest
   }
   arraysValuesKeys: {
-    [arrayFieldName: string]: EncryptedFieldsKeys
+    [arrayFieldName: string]: EncryptedFieldsManifest
   }
 }
 
@@ -227,7 +227,6 @@ export type EncryptedFieldsKeys = {
  *   values of the map. Note that the values of the map must be objects as well. The encrypted content of each map value is stored in that value.
  * - A string starting with `fieldName[].` treats `fieldName` as an array and allows to specify the encrypted fields of the values of the array.
  *   Note that the values of the array must be objects as well. The encrypted content of each array element is stored in that element.
- * - You can specify multiple layers of recursion.
  *
  * ## Example
  *
@@ -298,7 +297,7 @@ export type EncryptedFieldsKeys = {
  * @param encryptedFields
  * @param path
  */
-export function parseEncryptedFields(encryptedFields: string[], path: string): EncryptedFieldsKeys {
+export function parseEncryptedFields(encryptedFields: string[], path: string): EncryptedFieldsManifest {
   const groupedData = {
     topLevelFields: new Set<string>(),
     nestedObjectsKeys: {} as { [objectFieldName: string]: string[] },
@@ -402,10 +401,10 @@ export function parseEncryptedFields(encryptedFields: string[], path: string): E
  * @param path path of the current object, used for error messages.
  * @return a shallow copy of the object with a new encryptedSelfField and without the encrypted fields.
  */
-export async function crypt(
+export async function encryptObject(
   obj: { [key: string]: any },
   cryptor: (obj: { [key: string]: any }) => Promise<ArrayBuffer>,
-  keys: EncryptedFieldsKeys,
+  keys: EncryptedFieldsManifest,
   path: string = 'obj'
 ): Promise<{ [key: string]: any }> {
   const shallowClone = { ...obj }
@@ -423,7 +422,7 @@ export async function crypt(
     const fieldValue = shallowClone[fieldName]
     if (fieldValue !== undefined && fieldValue !== null) {
       if (!isPojo(fieldValue)) throw new Error(`Expected field ${path}.${fieldName} to be a non-array object`)
-      shallowClone[fieldName] = await crypt(fieldValue, cryptor, subKeys, path + '.' + fieldName)
+      shallowClone[fieldName] = await encryptObject(fieldValue, cryptor, subKeys, path + '.' + fieldName)
     }
   }
   for (const [mapFieldName, subKeys] of Object.entries(keys.mapsValuesKeys)) {
@@ -436,7 +435,7 @@ export async function crypt(
           newMap[key] = value
         } else {
           if (!isPojo(value)) throw new Error(`Expected field ${path}.${mapFieldName}.${key} to be a non-array object`)
-          newMap[key] = await crypt(value, cryptor, subKeys, path + '.' + mapFieldName + '.' + key)
+          newMap[key] = await encryptObject(value, cryptor, subKeys, path + '.' + mapFieldName + '.' + key)
         }
       }
       shallowClone[mapFieldName] = newMap
@@ -453,7 +452,7 @@ export async function crypt(
           newArray[i] = value
         } else {
           if (!isPojo(value)) throw new Error(`Expected field ${path}.${arrayFieldName}[${i}] to be a non-array object`)
-          newArray[i] = await crypt(value, cryptor, subKeys, path + '.' + arrayFieldName + '[' + i + ']')
+          newArray[i] = await encryptObject(value, cryptor, subKeys, path + '.' + arrayFieldName + '[' + i + ']')
         }
       }
       shallowClone[arrayFieldName] = newArray
@@ -478,7 +477,7 @@ function isPojo(value: any): boolean {
  * @param decryptor the decryptor function (returns a promise)
  * @return a deep copy of the object with the decrypted fields and removed encryptedSelf field
  */
-export async function decrypt(
+export async function decryptObject(
   obj: { [key: string]: any },
   decryptor: (obj: Uint8Array) => Promise<{ [key: string]: any }>
 ): Promise<{ [key: string]: any }> {
@@ -490,9 +489,9 @@ export async function decrypt(
       if (Array.isArray(value)) {
         // Note: nested arrays (and primitives) are returned as is and not they are not recursively decrypted. This is because we currently do not
         // support encryption of elements from arrays in arrays (we only support arrays in objects in arrays). In future this may change.
-        copy[key] = await Promise.all(value.map((v) => (isPojo(v) ? decrypt(v, decryptor) : v)))
+        copy[key] = await Promise.all(value.map((v) => (isPojo(v) ? decryptObject(v, decryptor) : v)))
       } else {
-        copy[key] = await decrypt(value, decryptor)
+        copy[key] = await decryptObject(value, decryptor)
       }
     } else {
       copy[key] = value

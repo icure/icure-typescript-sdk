@@ -7,14 +7,14 @@ import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
-import { EncryptedFieldsKeys, parseEncryptedFields } from './utils'
+import { EncryptedFieldsManifest, parseEncryptedFields } from './utils'
 
 export interface AccessLogWithPatientId extends AccessLog {
   patientId: string
 }
 
 export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntityXApi<models.AccessLog> {
-  private readonly encryptedFields: EncryptedFieldsKeys
+  private readonly encryptedFields: EncryptedFieldsManifest
   crypto: IccCryptoXApi
   dataOwnerApi: IccDataOwnerXApi
 

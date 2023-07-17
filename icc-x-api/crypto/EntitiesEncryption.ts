@@ -3,9 +3,9 @@ import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { ExchangeKeysManager } from './ExchangeKeysManager'
 import {
   b2a,
-  crypt,
-  decrypt,
-  EncryptedFieldsKeys,
+  encryptObject,
+  decryptObject,
+  EncryptedFieldsManifest,
   hex2ua,
   parseEncryptedFields,
   string2ua,
@@ -453,7 +453,7 @@ export class EntitiesEncryption {
     if (!encryptionKeys.length) return { entity, decrypted: false }
     return {
       entity: constructor(
-        await decrypt(entity, async (encrypted) => {
+        await decryptObject(entity, async (encrypted) => {
           return (await this.tryDecryptJson(encryptionKeys, encrypted, false)) ?? {}
         })
       ),
@@ -492,7 +492,7 @@ export class EntitiesEncryption {
   async tryEncryptEntity<T extends EncryptedEntity>(
     entity: T,
     dataOwnerId: string | undefined,
-    cryptedKeys: EncryptedFieldsKeys,
+    fieldsToEncrypt: EncryptedFieldsManifest,
     encodeBinaryData: boolean,
     requireEncryption: boolean,
     constructor: (json: any) => T
@@ -501,7 +501,7 @@ export class EntitiesEncryption {
     const encryptionKey = await this.tryImportFirstValidKey(await this.encryptionKeysOf(entity, dataOwnerId), entity.id!)
     if (!!encryptionKey) {
       return constructor(
-        await crypt(
+        await encryptObject(
           entityWithInitialisedEncryptionKeys ?? entity,
           (obj) => {
             // TODO should encoding of binary data should probably be applied to everything?
@@ -514,28 +514,28 @@ export class EntitiesEncryption {
               : JSON.stringify(obj)
             return this.primitives.AES.encrypt(encryptionKey.key, utf8_2ua(json), encryptionKey.raw)
           },
-          cryptedKeys,
+          fieldsToEncrypt,
           'entity'
         )
       )
     } else if (requireEncryption) {
       throw new Error(`No key found for encryption of entity ${entity}`)
     } else {
-      let encryptedNonEmptyData = false
-      await crypt(
+      await encryptObject(
         entity,
         async (obj: { [key: string]: string }) => {
           if (Object.keys(obj).length > 0) {
-            encryptedNonEmptyData = true
+            throw new Error(
+              `Impossible to modify encrypted content of an entity if no encryption key is known.\nEntity: ${JSON.stringify(
+                entity
+              )}\nTo encrypt: ${JSON.stringify(obj)}`
+            )
           }
           return Promise.resolve(new ArrayBuffer(1))
         },
-        cryptedKeys,
+        fieldsToEncrypt,
         'entity'
       )
-      if (encryptedNonEmptyData) {
-        throw new Error(`Impossible to modify encrypted content of an entity if no encryption key is known.\n${entity}`)
-      }
       return entity
     }
   }

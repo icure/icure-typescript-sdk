@@ -1,4 +1,4 @@
-import { crypt, decrypt, EncryptedFieldsKeys, parseEncryptedFields, ua2utf8, utf8_2ua } from '../../../icc-x-api'
+import { encryptObject, decryptObject, EncryptedFieldsManifest, parseEncryptedFields, ua2utf8, utf8_2ua } from '../../../icc-x-api'
 import * as _ from 'lodash'
 import { expect } from 'chai'
 
@@ -19,11 +19,11 @@ describe('Crypt / decrypt', () => {
     ]
     const parsedFields = parseEncryptedFields(fields, 'Test.')
     function checkParsedFields(
-      fields: EncryptedFieldsKeys,
+      fields: EncryptedFieldsManifest,
       expectedTopLevelFields: { fieldName: string; fieldPath: string }[],
-      expectedNestedFields: { [name: string]: (subkeys: EncryptedFieldsKeys) => void },
-      expectedArrayFields: { [name: string]: (subkeys: EncryptedFieldsKeys) => void },
-      expectedMapFields: { [name: string]: (subkeys: EncryptedFieldsKeys) => void }
+      expectedNestedFields: { [name: string]: (subkeys: EncryptedFieldsManifest) => void },
+      expectedArrayFields: { [name: string]: (subkeys: EncryptedFieldsManifest) => void },
+      expectedMapFields: { [name: string]: (subkeys: EncryptedFieldsManifest) => void }
     ) {
       expect(fields.topLevelFields.map((x) => JSON.stringify(x))).to.have.members(expectedTopLevelFields.map((x) => JSON.stringify(x)))
       expect(Object.keys(fields.nestedObjectsKeys)).to.have.members(Object.keys(expectedNestedFields))
@@ -131,7 +131,7 @@ describe('Crypt / decrypt', () => {
       ['a.b.' + JSON.stringify(['c', 'd.*.' + JSON.stringify(['e', 'f[].' + JSON.stringify(['g', '1notAField'])])]), 'a.b.d.*.f[].1notAField'],
     ]
     for (const [field, expectedErrorMessageInfo] of invalidFields) {
-      let result: EncryptedFieldsKeys | undefined = undefined
+      let result: EncryptedFieldsManifest | undefined = undefined
       try {
         result = parseEncryptedFields([...sampleValidFields, field], 'Test.')
       } catch (e) {
@@ -270,7 +270,7 @@ describe('Crypt / decrypt', () => {
 
   it('crypt should not modify input object (should create shallow copy as needed)', async () => {
     const toBeCrypted = _.cloneDeep(sampleObj)
-    const crypted = await crypt(
+    const crypted = await encryptObject(
       toBeCrypted,
       async () => {
         return utf8_2ua('Test')
@@ -377,7 +377,7 @@ describe('Crypt / decrypt', () => {
         },
       },
     }
-    const encryptedObj = await crypt(
+    const encryptedObj = await encryptObject(
       sampleObj,
       async () => {
         return utf8_2ua('Test')
@@ -389,7 +389,7 @@ describe('Crypt / decrypt', () => {
   })
 
   it('encrypted then decrypted object should equal the original (excluding for the addition of encrypted self)', async () => {
-    const encryptedObj = await crypt(
+    const encryptedObj = await encryptObject(
       sampleObj,
       async (obj: { [key: string]: string }) => {
         return utf8_2ua(JSON.stringify(obj))
@@ -397,7 +397,7 @@ describe('Crypt / decrypt', () => {
       parseEncryptedFields(sampleObjEncryptionKeys, 'TestObj.'),
       'testObj.'
     )
-    const decryptedObj = await decrypt(encryptedObj, async (obj: Uint8Array) => {
+    const decryptedObj = await decryptObject(encryptedObj, async (obj: Uint8Array) => {
       return JSON.parse(ua2utf8(obj))
     })
     const stripEncryptedSelf = (obj: any) =>
@@ -409,7 +409,7 @@ describe('Crypt / decrypt', () => {
   })
 
   it('crypt should verify the type of fields matches what is defined by the encrypted fields keys', async () => {
-    const cases: { keys: EncryptedFieldsKeys; obj: { [k: string]: any }; brokenField: string }[] = [
+    const cases: { keys: EncryptedFieldsManifest; obj: { [k: string]: any }; brokenField: string }[] = [
       {
         keys: {
           topLevelFields: [],
@@ -609,7 +609,7 @@ describe('Crypt / decrypt', () => {
     for (const c of cases) {
       let success = false
       try {
-        await crypt(
+        await encryptObject(
           c.obj,
           async (obj: { [key: string]: string }) => {
             return utf8_2ua(JSON.stringify(obj))
@@ -637,7 +637,7 @@ describe('Crypt / decrypt', () => {
       { array: [BigInt(1), BigInt(2), BigInt(3)] },
     ]
     for (const c of cases) {
-      const decrypted = await decrypt(c, () => {
+      const decrypted = await decryptObject(c, () => {
         throw new Error('Should not actually be needed for this test')
       })
       expect(decrypted).to.deep.equal(c)
