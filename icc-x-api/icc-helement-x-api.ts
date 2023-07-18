@@ -1,4 +1,4 @@
-import { IccHelementApi } from '../icc-api'
+import {IccAuthApi, IccHelementApi} from '../icc-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 
 import * as models from '../icc-api/model/models'
@@ -11,10 +11,17 @@ import { AuthenticationProvider, NoAuthenticationProvider } from './auth/Authent
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 import { EncryptedFieldsManifest, parseEncryptedFields } from './utils'
+import {AbstractFilter} from "./filters/filters"
+import {Connection, ConnectionImpl} from "../icc-api/model/Connection"
+import {subscribeToEntityEvents} from "./utils/websocket"
+import {IccUserXApi} from "./icc-user-x-api"
 
 export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXApi<models.HealthElement> {
   crypto: IccCryptoXApi
   dataOwnerApi: IccDataOwnerXApi
+  private readonly userApi: IccUserXApi
+  private readonly icureBasePath: string
+  private readonly authApi: IccAuthApi
   private readonly encryptedFields: EncryptedFieldsManifest
 
   constructor(
@@ -22,6 +29,9 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     headers: { [key: string]: string },
     crypto: IccCryptoXApi,
     dataOwnerApi: IccDataOwnerXApi,
+    userApi: IccUserXApi,
+    icureBasePath: string,
+    authApi: IccAuthApi,
     encryptedKeys: Array<string> = ['descr', 'note'],
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
@@ -33,6 +43,9 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     super(host, headers, authenticationProvider, fetchImpl)
     this.crypto = crypto
     this.dataOwnerApi = dataOwnerApi
+    this.userApi = userApi
+    this.icureBasePath = icureBasePath
+    this.authApi = authApi
     this.encryptedFields = parseEncryptedFields(encryptedKeys, 'HealthElement.')
   }
 
@@ -427,5 +440,25 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
 
   async getEncryptionKeysOf(entity: HealthElement): Promise<string[]> {
     return await this.crypto.entities.encryptionKeysOf(entity)
+  }
+
+  async subscribeToHealthElementEvents(
+    eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
+    filter: AbstractFilter<HealthElement> | undefined,
+    eventFired: (dataSample: HealthElement) => Promise<void>,
+    options: { connectionMaxRetry?: number; connectionRetryIntervalMs?: number } = {}
+  ): Promise<Connection> {
+    const currentUser = await this.userApi.getCurrentUser()
+
+    return subscribeToEntityEvents(
+      this.icureBasePath,
+      this.authApi,
+      'HealthElement',
+      eventTypes,
+      filter,
+      eventFired,
+      options,
+      async (encrypted) => (await this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(currentUser), [encrypted]))[0]
+    ).then((rs) => new ConnectionImpl(rs))
   }
 }

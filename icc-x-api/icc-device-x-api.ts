@@ -1,16 +1,16 @@
-import { IccUserApi } from '../icc-api/api/IccUserApi'
-import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import {IccAuthApi, IccDeviceApi} from '../icc-api'
+import {Device} from '../icc-api/model/Device'
+import {AuthenticationProvider, NoAuthenticationProvider} from './auth/AuthenticationProvider'
 import {AbstractFilter} from "./filters/filters"
-import {User} from "../icc-api/model/User"
 import {Connection, ConnectionImpl} from "../icc-api/model/Connection"
 import {subscribeToEntityEvents} from "./utils/websocket"
-import {IccAuthApi} from "../icc-api"
+import {IccUserXApi} from "./icc-user-x-api"
 
-export class IccUserXApi extends IccUserApi {
-  fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response>
-  userApi: IccUserXApi
-  icureBasePath: string
-  authApi: IccAuthApi
+// noinspection JSUnusedGlobalSymbols
+export class IccDeviceXApi extends IccDeviceApi {
+  private readonly userApi: IccUserXApi
+  private readonly icureBasePath: string
+  private readonly authApi: IccAuthApi
 
   constructor(
     host: string,
@@ -22,23 +22,30 @@ export class IccUserXApi extends IccUserApi {
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
-      ? self.fetch
-      : fetch
+        ? self.fetch
+        : fetch
   ) {
     super(host, headers, authenticationProvider, fetchImpl)
-    this.fetchImpl = fetchImpl
+
     this.userApi = userApi
     this.icureBasePath = icureBasePath
     this.authApi = authApi
   }
 
-  subscribeToUserEvents(
+  async subscribeToDeviceEvents(
     eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
-    filter: AbstractFilter<User> | undefined,
-    eventFired: (user: User) => Promise<void>,
+    filter: AbstractFilter<Device> | undefined,
+    eventFired: (dataSample: Device) => Promise<void>,
     options: { connectionMaxRetry?: number; connectionRetryIntervalMs?: number } = {}
   ): Promise<Connection> {
-    return subscribeToEntityEvents(this.icureBasePath, this.authApi, 'User', eventTypes, filter, eventFired, options)
-      .then((rs) => new ConnectionImpl(rs))
+    return subscribeToEntityEvents(
+      this.icureBasePath,
+      this.authApi,
+      'Device',
+      eventTypes,
+      filter,
+      eventFired,
+      options,
+    ).then((rs) => new ConnectionImpl(rs))
   }
 }

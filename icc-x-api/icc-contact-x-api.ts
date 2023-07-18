@@ -1,4 +1,4 @@
-import { IccContactApi } from '../icc-api'
+import {IccAuthApi, IccContactApi} from '../icc-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 
 import i18n from './rsrc/contact.i18n'
@@ -15,11 +15,18 @@ import { before, encryptObject, decryptObject, EncryptedFieldsManifest, parseEnc
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
+import {AbstractFilter} from "./filters/filters"
+import {IccUserXApi} from "./icc-user-x-api"
+import {subscribeToEntityEvents} from "./utils/websocket"
+import {Connection, ConnectionImpl} from "../icc-api/model/Connection"
 
 export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi<models.Contact> {
   i18n: any = i18n
   crypto: IccCryptoXApi
   dataOwnerApi: IccDataOwnerXApi
+  private readonly userApi: IccUserXApi
+  private readonly icureBasePath: string
+  private readonly authApi: IccAuthApi
   private readonly contactEncryptedFields: EncryptedFieldsManifest
   private readonly serviceEncryptedFieldsNoContent: EncryptedFieldsManifest | undefined
   private readonly serviceEncryptedFieldsWithContent: EncryptedFieldsManifest
@@ -41,6 +48,9 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     headers: { [key: string]: string },
     crypto: IccCryptoXApi,
     dataOwnerApi: IccDataOwnerXApi,
+    userApi: IccUserXApi,
+    icureBasePath: string,
+    authApi: IccAuthApi,
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
@@ -59,6 +69,9 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     }
     this.crypto = crypto
     this.dataOwnerApi = dataOwnerApi
+    this.userApi = userApi
+    this.icureBasePath = icureBasePath
+    this.authApi = authApi
     this.contactEncryptedFields = parseEncryptedFields(contactEncryptedKeys, 'Contact.')
     const customServiceEncryptedFields = parseEncryptedFields(serviceEncryptedKeys, 'Service.')
     if (serviceEncryptedKeys.length > 0) {
@@ -1006,5 +1019,24 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
 
   async getEncryptionKeysOf(entity: Contact): Promise<string[]> {
     return await this.crypto.entities.encryptionKeysOf(entity)
+  }
+
+  async subscribeToServiceEvents(
+    eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
+    filter: AbstractFilter<Service> | undefined,
+    eventFired: (dataSample: Service) => Promise<void>,
+    options: { connectionMaxRetry?: number; connectionRetryIntervalMs?: number } = {}
+  ): Promise<Connection> {
+    const currentUser = await this.userApi.getCurrentUser()
+    return subscribeToEntityEvents(
+      this.icureBasePath,
+      this.authApi,
+      'Service',
+      eventTypes,
+      filter,
+      eventFired,
+      options,
+      async (encrypted) => (await this.decryptServices(currentUser.healthcarePartyId!, [encrypted]))[0]
+    ).then((ws) => new ConnectionImpl(ws))
   }
 }

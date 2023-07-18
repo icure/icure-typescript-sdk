@@ -1,19 +1,29 @@
-import { IccHcpartyApi } from '../icc-api'
+import {IccAuthApi, IccHcpartyApi} from '../icc-api'
 import { HealthcareParty } from '../icc-api/model/HealthcareParty'
 import * as models from '../icc-api/model/models'
 import { findName, garnishPersonWithName, hasName } from './utils/person-util'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import {AbstractFilter} from "./filters/filters"
+import {Connection, ConnectionImpl} from "../icc-api/model/Connection"
+import {subscribeToEntityEvents} from "./utils/websocket"
+import {IccUserXApi} from "./icc-user-x-api"
 
 // noinspection JSUnusedGlobalSymbols
 export class IccHcpartyXApi extends IccHcpartyApi {
   hcPartyKeysCache: { [key: string]: { [key: string]: string } } = {}
   hcPartyCache: { [key: string]: [number, Promise<HealthcareParty>] } = {}
+  private readonly userApi: IccUserXApi
+  private readonly icureBasePath: string
+  private readonly authApi: IccAuthApi
 
   private CACHE_RETENTION_IN_MS = 300_000
   constructor(
     host: string,
     headers: { [key: string]: string },
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
+    userApi: IccUserXApi,
+    icureBasePath: string,
+    authApi: IccAuthApi,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
@@ -21,6 +31,10 @@ export class IccHcpartyXApi extends IccHcpartyApi {
       : fetch
   ) {
     super(host, headers, authenticationProvider, fetchImpl)
+
+    this.userApi = userApi
+    this.icureBasePath = icureBasePath
+    this.authApi = authApi
   }
 
   private getHcPartyFromCache(key: string) {
@@ -146,5 +160,22 @@ export class IccHcpartyXApi extends IccHcpartyApi {
     cbe = cbe.length == 9 ? '0' + cbe : cbe
 
     return 97 - (Number(cbe.substring(0, 8)) % 97) === Number(cbe.substring(8, 2))
+  }
+
+  async subscribeToHealthcarePartyEvents(
+    eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
+    filter: AbstractFilter<HealthcareParty> | undefined,
+    eventFired: (dataSample: HealthcareParty) => Promise<void>,
+    options: { connectionMaxRetry?: number; connectionRetryIntervalMs?: number } = {}
+  ): Promise<Connection> {
+    return subscribeToEntityEvents(
+      this.icureBasePath,
+      this.authApi,
+      'HealthcareParty',
+      eventTypes,
+      filter,
+      eventFired,
+      options,
+    ).then((rs) => new ConnectionImpl(rs))
   }
 }
