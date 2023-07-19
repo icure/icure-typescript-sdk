@@ -340,14 +340,15 @@ export interface EncryptedFieldsConfig {
   /**
    * Fields to encrypt for entities of type {@link Service}. Note that encryption of the `content` field and recursively contained `Services` through
    * `content.compoundValue` is automatically managed by the sdk, and you are not allowed to modify it.
-   * Note: specifying non-empty values for this field will break bi-directional data compatibility between v7 and previous: Contacts created with
-   * v7 will not be read properly by previous versions.
-   * @default [] // encryption of `content` is managed in a special way
+   *
+   * Note: any non-empty values for this field will break bi-directional data compatibility between v7 and previous: Contacts created with
+   * v7 will not be read properly by previous versions. If you want
+   * @default ['notes[].markdown'] // encryption of `content` is managed in a special way
    */
   readonly service?: string[]
   /**
    * Fields to encrypt for entities of type {@link HealthElement}
-   * @default ['descr', 'note']
+   * @default ['descr', 'note', 'notes[].markdown']
    */
   readonly healthElement?: string[]
   /**
@@ -357,7 +358,7 @@ export interface EncryptedFieldsConfig {
   readonly maintenanceTask?: string[]
   /**
    * Fields to encrypt for entities of type {@link Patient}
-   * @default ['note']
+   * @default ['note', 'notes[].markdown']
    */
   readonly patient?: string[]
 }
@@ -366,10 +367,10 @@ export namespace EncryptedFieldsConfig {
     accessLog: ['detail', 'objectId'],
     calendarItem: ['details', 'title', 'patientId'],
     contact: ['descr'],
-    service: [],
-    healthElement: ['descr', 'note'],
+    service: ['notes[].markdown'],
+    healthElement: ['descr', 'note', 'notes[].markdown'],
     maintenanceTask: ['properties'],
-    patient: ['note'],
+    patient: ['note', 'notes[].markdown'],
   }
 }
 
