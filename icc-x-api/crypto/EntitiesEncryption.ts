@@ -523,8 +523,11 @@ export class EntitiesEncryption {
     } else {
       await encryptObject(
         entity,
-        async (obj: { [key: string]: string }) => {
-          if (Object.keys(obj).length > 0) {
+        async (obj: { [key: string]: any }) => {
+          const hasNonEmptyValues = Object.values(obj).some(
+            (v) => v !== undefined && (typeof v !== 'object' || (Array.isArray(v) && v.length > 0) || Object.keys(v).length > 0)
+          )
+          if (hasNonEmptyValues) {
             throw new Error(
               `Impossible to modify encrypted content of an entity if no encryption key is known.\nEntity: ${JSON.stringify(
                 entity
