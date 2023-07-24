@@ -73,6 +73,7 @@ describe('iCure API v6 and v7 (current) should be fully data compatible', async 
         keyStorage: new TestKeyStorage(),
         encryptedFieldsConfig: {
           patient: ['note', 'properties[].typedValue'],
+          service: [], // For full v6-v7 compatibility service should not have any encrypted fields apart from implicit 'content'
         },
       }
     )
