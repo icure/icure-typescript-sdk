@@ -24,6 +24,7 @@ import {PatientByHcPartyNameContainsFuzzyFilter} from "../../icc-x-api/filters/P
 import {WebSocketWrapper} from "../../icc-x-api/utils/websocket"
 import initApi = TestUtils.initApi
 import {AllUsersFilter} from "../../icc-x-api/filters/AllUsersFilter"
+import {User as UserV6} from "@icure/apiV6"
 
 setLocalStorage(fetch)
 
@@ -280,7 +281,7 @@ describe( 'Subscription API', () => {
           eventTypes,
           new MaintenanceTaskByHcPartyAndTypeFilter({
             healthcarePartyId: loggedUser!.healthcarePartyId!,
-            type: MaintenanceTask.TaskTypeEnum.KEY_PAIR_UPDATE,
+            type: MaintenanceTask.TaskTypeEnum.KeyPairUpdate,
           }),
           eventListener,
           options
@@ -326,10 +327,8 @@ describe( 'Subscription API', () => {
       events?.forEach((event) => console.log(`Event : ${event}`))
       statuses?.forEach((status) => console.log(`Status : ${status}`))
 
-      assert(statuses.length < 2, 'The statuses have not been recorded')
-      assert(statuses.length > 2, 'Connection has been reconnected')
-      assert(statuses.length === 2, 'The statuses have not been recorded')
       assert(events.length === 1, 'The events have not been recorded')
+      assert(statuses.length === 2, 'The statuses have not been recorded')
     }
 
     it('CREATE MaintenanceTask without options', async () => {
@@ -542,10 +541,13 @@ describe( 'Subscription API', () => {
         }),
         async () => {
 
-          const patApi = await initApi(env, patUsername)
-
-          const currentUser = await patApi.userApi.getCurrentUser()
-          assert(currentUser)
+          const user = await api!.userApi.createUser(
+            new User({
+              id: uuid(),
+              login: `${uuid()}`,
+              status: 'ACTIVE',
+            })
+          )
         },
         (status) => {
           statuses.push(status)
