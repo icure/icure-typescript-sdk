@@ -25,7 +25,7 @@ import {
   IccPubsubApi,
   IccReplicationApi,
   IccTarificationApi,
-  IccTmpApi,
+  IccTmpApi, IccUserApi,
   OAuthThirdParty,
 } from '../icc-api'
 import { IccUserXApi } from './icc-user-x-api'
@@ -442,7 +442,7 @@ export namespace IcureApi {
     } else {
       grouplessAuthenticationProvider = authenticationOptions
     }
-    const grouplessUserApi = new IccUserXApi(host, params.headers, grouplessAuthenticationProvider, fetchImpl)
+    const grouplessUserApi = new IccUserApi(host, params.headers, grouplessAuthenticationProvider, fetchImpl)
     const matches = await grouplessUserApi.getMatchingUsers()
     const chosenGroupId = matches.length > 1 ? await params.groupSelector(matches) : matches[0].groupId!
     /*TODO
@@ -486,7 +486,9 @@ async function initialiseCryptoWithProvider(
   cryptoStrategies: CryptoStrategies,
   crypto: Crypto
 ): Promise<CryptoInitialisationApis> {
-  const healthcarePartyApi = new IccHcpartyXApi(host, params.headers, groupSpecificAuthenticationProvider, fetchImpl)
+  const authApi = new IccAuthApi(host, params.headers, groupSpecificAuthenticationProvider, fetchImpl)
+  const userApi = new IccUserXApi(host, params.headers, groupSpecificAuthenticationProvider, authApi, fetchImpl)
+  const healthcarePartyApi = new IccHcpartyXApi(host, params.headers, groupSpecificAuthenticationProvider, authApi, fetchImpl)
   const deviceApi = new IccDeviceApi(host, params.headers, groupSpecificAuthenticationProvider, fetchImpl)
   const basePatientApi = new IccPatientApi(host, params.headers, groupSpecificAuthenticationProvider, fetchImpl)
   const dataOwnerApi = new IccDataOwnerXApi(host, params.headers, groupSpecificAuthenticationProvider, fetchImpl)
@@ -536,12 +538,13 @@ async function initialiseCryptoWithProvider(
     cryptoApi,
     healthcarePartyApi,
     dataOwnerApi,
+    userApi,
+    authApi,
     params.encryptedFieldsConfig?.maintenanceTask ?? EncryptedFieldsConfig.Defaults.maintenanceTask,
     groupSpecificAuthenticationProvider,
     fetchImpl
   )
   const icureMaintenanceTaskApi = new IccIcureMaintenanceXApi(cryptoApi, maintenanceTaskApi, dataOwnerApi)
-  const userApi = new IccUserXApi(host, params.headers, groupSpecificAuthenticationProvider, fetchImpl)
   if (newKey && params.createMaintenanceTasksOnNewKey) {
     await icureMaintenanceTaskApi.createMaintenanceTasksForNewKeypair(await userApi.getCurrentUser(), newKey.newKeyPair)
   }
@@ -744,6 +747,8 @@ class IcureApiImpl implements IcureApi {
         this.params.headers,
         this.cryptoApi,
         this.dataOwnerApi,
+        this.userApi,
+        this.authApi,
         this.groupSpecificAuthenticationProvider,
         this.fetch,
         this.params.encryptedFieldsConfig.contact ?? EncryptedFieldsConfig.Defaults.contact,
@@ -822,6 +827,8 @@ class IcureApiImpl implements IcureApi {
         this.params.headers,
         this.cryptoApi,
         this.dataOwnerApi,
+        this.userApi,
+        this.authApi,
         this.params.encryptedFieldsConfig.healthElement ?? EncryptedFieldsConfig.Defaults.healthElement,
         this.groupSpecificAuthenticationProvider,
         this.fetch
@@ -903,6 +910,8 @@ class IcureApiImpl implements IcureApi {
         this.classificationApi,
         this.dataOwnerApi,
         this.calendarItemApi,
+        this.userApi,
+        this.authApi,
         this.params.encryptedFieldsConfig.patient ?? EncryptedFieldsConfig.Defaults.patient,
         this.groupSpecificAuthenticationProvider,
         this.fetch
@@ -973,7 +982,7 @@ class IcureApiImpl implements IcureApi {
     private readonly host: string,
     private readonly groupSpecificAuthenticationProvider: AuthenticationProvider,
     private readonly fetch: (input: RequestInfo, init?: RequestInit) => Promise<Response>,
-    private readonly grouplessUserApi: IccUserXApi,
+    private readonly grouplessUserApi: IccUserApi,
     private readonly latestMatches: UserGroup[],
     private readonly currentGroupInfo: UserGroup,
     private readonly params: IcureApiOptions.WithDefaults,
@@ -1036,12 +1045,12 @@ export const BasicApis = async function (
 
   const codeApi = new IccCodeXApi(host, headers, authenticationProvider, fetchImpl)
   const entityReferenceApi = new IccEntityrefApi(host, headers, authenticationProvider, fetchImpl)
-  const userApi = new IccUserXApi(host, headers, authenticationProvider, fetchImpl)
+  const userApi = new IccUserXApi(host, headers, authenticationProvider, authApi, fetchImpl)
   const permissionApi = new IccPermissionApi(host, headers, authenticationProvider, fetchImpl)
   const agendaApi = new IccAgendaApi(host, headers, authenticationProvider, fetchImpl)
   const groupApi = new IccGroupApi(host, headers, authenticationProvider)
   const insuranceApi = new IccInsuranceApi(host, headers, authenticationProvider, fetchImpl)
-  const healthcarePartyApi = new IccHcpartyXApi(host, headers, authenticationProvider, fetchImpl)
+  const healthcarePartyApi = new IccHcpartyXApi(host, headers, authenticationProvider, authApi, fetchImpl)
 
   return {
     authApi,

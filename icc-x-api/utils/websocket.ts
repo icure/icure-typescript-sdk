@@ -131,7 +131,7 @@ export function subscribeToEntityEvents<T extends Patient | Service | HealthElem
   }
 
   return WebSocketWrapper.create(
-    iccRestApiPath(basePath).replace('http', 'ws').replace('rest', 'ws') + '/notification/subscribe',
+    basePath.replace('http', 'ws').replace('rest', 'ws') + '/notification/subscribe',
     new WebSocketAuthProviderImpl(authApi),
     options.connectionMaxRetry ?? 5,
     options.connectionRetryIntervalMs ?? 1_000,
@@ -141,7 +141,7 @@ export function subscribeToEntityEvents<T extends Patient | Service | HealthElem
           const subscription = {
             eventTypes,
             entityClass: config[entityClass].qualifiedName,
-            filter: filter
+            filter: { filter }
           }
 
           ws.send(JSON.stringify(subscription))

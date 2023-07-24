@@ -20,7 +20,6 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
   crypto: IccCryptoXApi
   dataOwnerApi: IccDataOwnerXApi
   private readonly userApi: IccUserXApi
-  private readonly icureBasePath: string
   private readonly authApi: IccAuthApi
   private readonly encryptedFields: EncryptedFieldsManifest
 
@@ -30,7 +29,6 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     crypto: IccCryptoXApi,
     dataOwnerApi: IccDataOwnerXApi,
     userApi: IccUserXApi,
-    icureBasePath: string,
     authApi: IccAuthApi,
     encryptedKeys: Array<string> = ['descr', 'note'],
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
@@ -44,7 +42,6 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     this.crypto = crypto
     this.dataOwnerApi = dataOwnerApi
     this.userApi = userApi
-    this.icureBasePath = icureBasePath
     this.authApi = authApi
     this.encryptedFields = parseEncryptedFields(encryptedKeys, 'HealthElement.')
   }
@@ -451,7 +448,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     const currentUser = await this.userApi.getCurrentUser()
 
     return subscribeToEntityEvents(
-      this.icureBasePath,
+      this.host,
       this.authApi,
       'HealthElement',
       eventTypes,

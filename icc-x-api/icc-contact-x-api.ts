@@ -25,7 +25,6 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
   crypto: IccCryptoXApi
   dataOwnerApi: IccDataOwnerXApi
   private readonly userApi: IccUserXApi
-  private readonly icureBasePath: string
   private readonly authApi: IccAuthApi
   private readonly contactEncryptedFields: EncryptedFieldsManifest
   private readonly serviceEncryptedFieldsNoContent: EncryptedFieldsManifest | undefined
@@ -49,7 +48,6 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     crypto: IccCryptoXApi,
     dataOwnerApi: IccDataOwnerXApi,
     userApi: IccUserXApi,
-    icureBasePath: string,
     authApi: IccAuthApi,
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
@@ -70,7 +68,6 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     this.crypto = crypto
     this.dataOwnerApi = dataOwnerApi
     this.userApi = userApi
-    this.icureBasePath = icureBasePath
     this.authApi = authApi
     this.contactEncryptedFields = parseEncryptedFields(contactEncryptedKeys, 'Contact.')
     const customServiceEncryptedFields = parseEncryptedFields(serviceEncryptedKeys, 'Service.')
@@ -1029,7 +1026,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
   ): Promise<Connection> {
     const currentUser = await this.userApi.getCurrentUser()
     return subscribeToEntityEvents(
-      this.icureBasePath,
+      this.host,
       this.authApi,
       'Service',
       eventTypes,

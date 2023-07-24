@@ -12,7 +12,8 @@
     "moment": "^2.22.1",
     "text-encoding": "^0.7.0",
     "uuid": "^8.3.2",
-    "uuid-encoder": "^1.1.0"
+    "uuid-encoder": "^1.1.0",
+    "ws": "^8.13.0"
   },
   "devDependencies": {
     "@icure/apiV6": "npm:@icure/api@6.4.0",

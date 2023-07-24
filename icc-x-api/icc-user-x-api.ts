@@ -8,16 +8,12 @@ import {IccAuthApi} from "../icc-api"
 
 export class IccUserXApi extends IccUserApi {
   fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response>
-  userApi: IccUserXApi
-  icureBasePath: string
   authApi: IccAuthApi
 
   constructor(
     host: string,
     headers: { [key: string]: string },
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
-    userApi: IccUserXApi,
-    icureBasePath: string,
     authApi: IccAuthApi,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
@@ -27,8 +23,6 @@ export class IccUserXApi extends IccUserApi {
   ) {
     super(host, headers, authenticationProvider, fetchImpl)
     this.fetchImpl = fetchImpl
-    this.userApi = userApi
-    this.icureBasePath = icureBasePath
     this.authApi = authApi
   }
 
@@ -38,7 +32,7 @@ export class IccUserXApi extends IccUserApi {
     eventFired: (user: User) => Promise<void>,
     options: { connectionMaxRetry?: number; connectionRetryIntervalMs?: number } = {}
   ): Promise<Connection> {
-    return subscribeToEntityEvents(this.icureBasePath, this.authApi, 'User', eventTypes, filter, eventFired, options)
+    return subscribeToEntityEvents(this.host, this.authApi, 'User', eventTypes, filter, eventFired, options)
       .then((rs) => new ConnectionImpl(rs))
   }
 }

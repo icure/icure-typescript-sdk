@@ -20,7 +20,6 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
   hcPartyApi: IccHcpartyXApi
   dataOwnerApi: IccDataOwnerXApi
   private readonly userApi: IccUserXApi
-  private readonly icureBasePath: string
   private readonly authApi: IccAuthApi
 
   private readonly encryptedFields: EncryptedFieldsManifest
@@ -32,7 +31,6 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
     hcPartyApi: IccHcpartyXApi,
     dataOwnerApi: IccDataOwnerXApi,
     userApi: IccUserXApi,
-    icureBasePath: string,
     authApi: IccAuthApi,
     encryptedKeys: Array<string> = ['properties'],
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
@@ -48,7 +46,6 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
     this.dataOwnerApi = dataOwnerApi
     this.encryptedFields = parseEncryptedFields(encryptedKeys, 'MaintenanceTask.')
     this.userApi = userApi
-    this.icureBasePath = icureBasePath
     this.authApi = authApi
   }
 
@@ -241,7 +238,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
     const currentUser = await this.userApi.getCurrentUser()
 
     return subscribeToEntityEvents(
-      this.icureBasePath,
+      this.host,
       this.authApi,
       'MaintenanceTask',
       eventTypes,

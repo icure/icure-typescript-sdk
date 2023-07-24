@@ -9,7 +9,6 @@ import {IccUserXApi} from "./icc-user-x-api"
 // noinspection JSUnusedGlobalSymbols
 export class IccDeviceXApi extends IccDeviceApi {
   private readonly userApi: IccUserXApi
-  private readonly icureBasePath: string
   private readonly authApi: IccAuthApi
 
   constructor(
@@ -17,7 +16,6 @@ export class IccDeviceXApi extends IccDeviceApi {
     headers: { [key: string]: string },
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     userApi: IccUserXApi,
-    icureBasePath: string,
     authApi: IccAuthApi,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
@@ -28,7 +26,6 @@ export class IccDeviceXApi extends IccDeviceApi {
     super(host, headers, authenticationProvider, fetchImpl)
 
     this.userApi = userApi
-    this.icureBasePath = icureBasePath
     this.authApi = authApi
   }
 
@@ -39,7 +36,7 @@ export class IccDeviceXApi extends IccDeviceApi {
     options: { connectionMaxRetry?: number; connectionRetryIntervalMs?: number } = {}
   ): Promise<Connection> {
     return subscribeToEntityEvents(
-      this.icureBasePath,
+      this.host,
       this.authApi,
       'Device',
       eventTypes,

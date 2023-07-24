@@ -37,7 +37,6 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
   calendarItemApi: IccCalendarItemXApi
   dataOwnerApi: IccDataOwnerXApi
   private readonly userApi: IccUserXApi
-  private readonly icureBasePath: string
   private readonly authApi: IccAuthApi
 
   private readonly encryptedFields: EncryptedFieldsManifest
@@ -56,7 +55,6 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     dataOwnerApi: IccDataOwnerXApi,
     calendarItemaApi: IccCalendarItemXApi,
     userApi: IccUserXApi,
-    icureBasePath: string,
     authApi: IccAuthApi,
     encryptedKeys: Array<string> = ['note'],
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
@@ -78,7 +76,6 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     this.calendarItemApi = calendarItemaApi
     this.dataOwnerApi = dataOwnerApi
     this.userApi = userApi
-    this.icureBasePath = icureBasePath
     this.authApi = authApi
 
     this.encryptedFields = parseEncryptedFields(encryptedKeys, 'Patient.')
@@ -1301,7 +1298,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
   ): Promise<Connection> {
     const currentUser = await this.userApi.getCurrentUser()
     return subscribeToEntityEvents(
-      this.icureBasePath,
+      this.host,
       this.authApi,
       'Patient',
       eventTypes,

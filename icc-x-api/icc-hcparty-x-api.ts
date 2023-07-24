@@ -1,4 +1,4 @@
-import {IccAuthApi, IccHcpartyApi} from '../icc-api'
+import {IccAuthApi, IccHcpartyApi, IccUserApi} from '../icc-api'
 import { HealthcareParty } from '../icc-api/model/HealthcareParty'
 import * as models from '../icc-api/model/models'
 import { findName, garnishPersonWithName, hasName } from './utils/person-util'
@@ -12,8 +12,6 @@ import {IccUserXApi} from "./icc-user-x-api"
 export class IccHcpartyXApi extends IccHcpartyApi {
   hcPartyKeysCache: { [key: string]: { [key: string]: string } } = {}
   hcPartyCache: { [key: string]: [number, Promise<HealthcareParty>] } = {}
-  private readonly userApi: IccUserXApi
-  private readonly icureBasePath: string
   private readonly authApi: IccAuthApi
 
   private CACHE_RETENTION_IN_MS = 300_000
@@ -21,8 +19,6 @@ export class IccHcpartyXApi extends IccHcpartyApi {
     host: string,
     headers: { [key: string]: string },
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
-    userApi: IccUserXApi,
-    icureBasePath: string,
     authApi: IccAuthApi,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
@@ -32,8 +28,6 @@ export class IccHcpartyXApi extends IccHcpartyApi {
   ) {
     super(host, headers, authenticationProvider, fetchImpl)
 
-    this.userApi = userApi
-    this.icureBasePath = icureBasePath
     this.authApi = authApi
   }
 
@@ -169,7 +163,7 @@ export class IccHcpartyXApi extends IccHcpartyApi {
     options: { connectionMaxRetry?: number; connectionRetryIntervalMs?: number } = {}
   ): Promise<Connection> {
     return subscribeToEntityEvents(
-      this.icureBasePath,
+      this.host,
       this.authApi,
       'HealthcareParty',
       eventTypes,
