@@ -3,7 +3,6 @@ import log, {LogLevelDesc} from 'loglevel'
 import {Patient} from "../../icc-api/model/Patient"
 import {AbstractFilter} from "../filters/filters"
 import {User} from "../../icc-api/model/User"
-import {iccRestApiPath} from "../../icc-api/api/IccRestApiPath"
 import {isNode} from "browser-or-node"
 import {IccAuthApi} from "../../icc-api"
 import {Service} from "../../icc-api/model/Service"
@@ -141,7 +140,7 @@ export function subscribeToEntityEvents<T extends Patient | Service | HealthElem
           const subscription = {
             eventTypes,
             entityClass: config[entityClass].qualifiedName,
-            filter: { filter }
+            filter: {filter}
           }
 
           ws.send(JSON.stringify(subscription))
@@ -171,7 +170,7 @@ export type WebSocketWrapperMessageCallback = (data: any) => void
 
 export class WebSocketWrapper {
   private readonly pingLifetime: number = 20_000
-  private socket: WebSocketNode | WebSocket | null = null
+  private socket: WebsocketAdapter | null = null
   private retries = 0
   private closed = false
   private lastPingReceived = Date.now()
@@ -236,92 +235,90 @@ export class WebSocketWrapper {
 
     const bearerToken = await this.authProvider.getBearerToken()
 
-    if (isNode) {
-      const socket: WebSocketNode = !!bearerToken
-        ? new WebSocketNode(this.url, {
-          headers: {
-            Authorization: bearerToken,
-          },
-        })
-        : await this.authProvider.getIcureOtt(this.methodPath).then((icureOttToken) => new WebSocketNode(`${this.url};tokenid=${icureOttToken}`))
-      this.socket = socket
+    const socket = isNode && !!bearerToken ? new WebSocketNode(this.url, {
+        headers: {
+          Authorization: bearerToken,
+        },
+      })
+      : await this.authProvider.getIcureOtt(this.methodPath).then((icureOttToken) => {
+        const address = `${this.url};tokenid=${icureOttToken}`
+        return isNode ? new WebSocketNode(address) : new WebSocket(address)
+      })
 
-      socket.on('open', async () => {
-        log.debug('WebSocket connection opened')
+    this.socket = new WebsocketAdapter(socket)
+
+    this.socket.on('open', async () => {
+      log.debug('WebSocket connection opened')
+
+      this.intervalIds.push(
+        setTimeout(() => {
+          this.retries = 0
+        }, (this.maxRetries + 1) * this.retryDelay)
+      )
+
+      this.callStatusCallbacks('CONNECTED')
+    })
+
+    this.socket.on('message', (event: Buffer) => {
+      log.debug('WebSocket message received', event)
+
+      const dataAsString = event.toString('utf8')
+
+      // Handle ping messages
+      if (dataAsString === 'ping') {
+        log.debug('Received ping, sending pong')
+
+        this.send('pong')
+        this.lastPingReceived = Date.now()
 
         this.intervalIds.push(
           setTimeout(() => {
-            this.retries = 0
-          }, (this.maxRetries + 1) * this.retryDelay)
+            if (Date.now() - this.lastPingReceived > this.pingLifetime) {
+              log.error(`No ping received in the last ${this.pingLifetime} ms`)
+              this.socket?.close()
+            }
+          }, this.pingLifetime)
         )
 
-        this.callStatusCallbacks('CONNECTED')
-      })
+        return
+      }
 
-      socket.on('message', (event: Buffer) => {
-        log.debug('WebSocket message received', event)
+      // Call the message callback for other messages
+      try {
+        const data = JSON.parse(dataAsString)
+        this.messageCallback(data)
+      } catch (error) {
+        log.error('Failed to parse WebSocket message', error)
+      }
+    })
 
-        const dataAsString = event.toString('utf8')
+    this.socket.on('close', (code, reason) => {
+      log.debug('WebSocket connection closed', code, reason.toString())
 
-        // Handle ping messages
-        if (dataAsString === 'ping') {
-          log.debug('Received ping, sending pong')
+      this.callStatusCallbacks('CLOSED')
 
-          this.send('pong')
-          this.lastPingReceived = Date.now()
+      this.intervalIds.forEach((id) => clearTimeout(id as number))
+      this.intervalIds = []
 
-          this.intervalIds.push(
-            setTimeout(() => {
-              if (Date.now() - this.lastPingReceived > this.pingLifetime) {
-                log.error(`No ping received in the last ${this.pingLifetime} ms`)
-                this.socket?.close()
-              }
-            }, this.pingLifetime)
-          )
+      if (this.closed) {
+        return
+      }
 
-          return
-        }
+      setTimeout(async () => {
+        ++this.retries
+        return await this.connect()
+      }, this.retryDelay)
+    })
 
-        // Call the message callback for other messages
-        try {
-          const data = JSON.parse(dataAsString)
-          this.messageCallback(data)
-        } catch (error) {
-          log.error('Failed to parse WebSocket message', error)
-        }
-      })
+    this.socket.on('error', async (err) => {
+      log.error('WebSocket error', err)
 
-      socket.on('close', (code, reason) => {
-        log.debug('WebSocket connection closed', code, reason.toString('utf8'))
+      this.callStatusCallbacks('ERROR', err)
 
-        this.callStatusCallbacks('CLOSED')
-
-        this.intervalIds.forEach((id) => clearTimeout(id as number))
-        this.intervalIds = []
-
-        if (this.closed) {
-          return
-        }
-
-        setTimeout(async () => {
-          ++this.retries
-          return await this.connect()
-        }, this.retryDelay)
-      })
-
-      socket.on('error', async (err) => {
-        log.error('WebSocket error', err)
-
-        this.callStatusCallbacks('ERROR', err)
-
-        if (this.socket) {
-          this.socket.close()
-        }
-      })
-    } else {
-      throw new Error('Subscription api is not yet supported in browser')
-      // TODO implement browser version
-    }
+      if (this.socket) {
+        this.socket.close()
+      }
+    })
   }
 
   private callStatusCallbacks(event: ConnectionStatus, error?: Error) {
@@ -354,5 +351,58 @@ class WebSocketAuthProviderImpl {
 
   async getIcureOtt(icureMethodPath: string): Promise<string> {
     return await this.authApi.token('GET', icureMethodPath)
+  }
+}
+
+type EventCallback = {
+  open: (event: any) => void,
+  message: (event: any) => void,
+  close: (code: number, reason: string) => void,
+  error: (error: Error) => void
+};
+
+class WebsocketAdapter {
+  constructor(
+    private readonly websocket: WebSocketNode | WebSocket,
+  ) {
+  }
+
+  public get readyState(): number {
+    if (this.websocket) {
+      return this.websocket.readyState
+    }
+    return isNode ? WebSocketNode.CLOSED : WebSocket.CLOSED
+  }
+
+  public send(data: Buffer | ArrayBuffer | string) {
+    if (this.websocket && (isNode && this.websocket.readyState === WebSocketNode.OPEN || this.websocket.readyState === WebSocket.OPEN)) {
+      this.websocket.send(data)
+    }
+  }
+
+  public close(code?: number, reason?: string) {
+    if (this.websocket) {
+      this.websocket.close(code, reason)
+    }
+  }
+
+  public on<K extends keyof EventCallback>(event: K, callback: EventCallback[K]) {
+    if (this.websocket) {
+      if (isNode) {
+        (this.websocket as WebSocketNode).on(event, callback)
+      } else {
+        (this.websocket as WebSocket).addEventListener(event, callback as any)
+      }
+    }
+  }
+
+  public off<K extends keyof EventCallback>(event: K, callback: EventCallback[K]) {
+    if (this.websocket) {
+      if (isNode) {
+        (this.websocket as WebSocketNode).off(event, callback)
+      } else {
+        (this.websocket as WebSocket).removeEventListener(event, callback as any)
+      }
+    }
   }
 }
