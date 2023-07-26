@@ -1,42 +1,42 @@
-import { ConstantFilter } from './ConstantFilter'
-import { Patient } from '../../icc-api/model/Patient'
-import { AbstractFilterPatient } from '../../icc-api/model/AbstractFilterPatient'
-import { AbstractFilterContact } from '../../icc-api/model/AbstractFilterContact'
-import { AbstractFilterService } from '../../icc-api/model/AbstractFilterService'
-import { Service } from '../../icc-api/model/Service'
-import { Contact } from '../../icc-api/model/Contact'
-import { IntersectionFilter } from './IntersectionFilter'
-import { UnionFilter } from './UnionFilter'
-import { ComplementFilter } from './ComplementFilter'
-import { PatientByHcPartyAndActiveFilter } from './PatientByHcPartyAndActiveFilter'
-import { PatientByHcPartyAndAddressFilter } from './PatientByHcPartyAndAddressFilter'
-import { PatientByHcPartyAndExternalIdFilter } from './PatientByHcPartyAndExternalIdFilter'
-import { PatientByHcPartyAndSsinsFilter } from './PatientByHcPartyAndSsinsFilter'
-import { PatientByHcPartyDateOfBirthBetweenFilter } from './PatientByHcPartyDateOfBirthBetweenFilter'
-import { PatientByHcPartyDateOfBirthFilter } from './PatientByHcPartyDateOfBirthFilter'
+import {ConstantFilter} from './ConstantFilter'
+import {Patient} from '../../icc-api/model/Patient'
+import {AbstractFilterPatient} from '../../icc-api/model/AbstractFilterPatient'
+import {AbstractFilterContact} from '../../icc-api/model/AbstractFilterContact'
+import {AbstractFilterService} from '../../icc-api/model/AbstractFilterService'
+import {Service} from '../../icc-api/model/Service'
+import {Contact} from '../../icc-api/model/Contact'
+import {IntersectionFilter} from './IntersectionFilter'
+import {UnionFilter} from './UnionFilter'
+import {ComplementFilter} from './ComplementFilter'
+import {PatientByHcPartyAndActiveFilter} from './PatientByHcPartyAndActiveFilter'
+import {PatientByHcPartyAndAddressFilter} from './PatientByHcPartyAndAddressFilter'
+import {PatientByHcPartyAndExternalIdFilter} from './PatientByHcPartyAndExternalIdFilter'
+import {PatientByHcPartyAndSsinsFilter} from './PatientByHcPartyAndSsinsFilter'
+import {PatientByHcPartyDateOfBirthBetweenFilter} from './PatientByHcPartyDateOfBirthBetweenFilter'
+import {PatientByHcPartyDateOfBirthFilter} from './PatientByHcPartyDateOfBirthFilter'
 
-import { add, format } from 'date-fns'
-import { PatientByHcPartyFilter } from './PatientByHcPartyFilter'
-import { PatientByHcPartyGenderEducationProfession } from './PatientByHcPartyGenderEducationProfession'
-import { PatientByIdsFilter } from './PatientByIdsFilter'
-import { PatientByHcPartyNameContainsFuzzyFilter } from './PatientByHcPartyNameContainsFuzzyFilter'
+import {add, format} from 'date-fns'
+import {PatientByHcPartyFilter} from './PatientByHcPartyFilter'
+import {PatientByHcPartyGenderEducationProfession} from './PatientByHcPartyGenderEducationProfession'
+import {PatientByIdsFilter} from './PatientByIdsFilter'
+import {PatientByHcPartyNameContainsFuzzyFilter} from './PatientByHcPartyNameContainsFuzzyFilter'
 
 import GenderEnum = Patient.GenderEnum
-import { ContactByHcPartyFilter } from './ContactByHcPartyFilter'
-import { HealthcareParty } from '../../icc-api/model/HealthcareParty'
-import { AbstractFilterHealthcareParty } from 'icc-api/model/AbstractFilterHealthcareParty'
-import { Device } from '../../icc-api/model/Device'
-import { AbstractFilterDevice } from '../../icc-api/model/AbstractFilterDevice'
-import { MaintenanceTask } from '../../icc-api/model/MaintenanceTask'
-import { AbstractFilterMaintenanceTask } from 'icc-api/model/AbstractFilterMaintenanceTask'
-import { Code } from '../../icc-api/model/Code'
-import { AbstractFilterCode } from '../../icc-api/model/AbstractFilterCode'
-import { HealthElement } from '../../icc-api/model/HealthElement'
-import { AbstractFilterHealthElement } from '../../icc-api/model/AbstractFilterHealthElement'
-import { Invoice } from '../../icc-api/model/Invoice'
-import { AbstractFilterInvoice } from '../../icc-api/model/AbstractFilterInvoice'
-import { User } from '../../icc-api/model/User'
-import { AbstractFilterUser } from '../../icc-api/model/AbstractFilterUser'
+import {ContactByHcPartyFilter} from './ContactByHcPartyFilter'
+import {Device} from '../../icc-api/model/Device'
+import {AbstractFilterDevice} from '../../icc-api/model/AbstractFilterDevice'
+import {MaintenanceTask} from '../../icc-api/model/MaintenanceTask'
+import {AbstractFilterMaintenanceTask} from '../../icc-api/model/AbstractFilterMaintenanceTask'
+import {Code} from '../../icc-api/model/Code'
+import {AbstractFilterCode} from '../../icc-api/model/AbstractFilterCode'
+import {HealthElement} from '../../icc-api/model/HealthElement'
+import {AbstractFilterHealthElement} from '../../icc-api/model/AbstractFilterHealthElement'
+import {Invoice} from '../../icc-api/model/Invoice'
+import {AbstractFilterInvoice} from '../../icc-api/model/AbstractFilterInvoice'
+import {User} from '../../icc-api/model/User'
+import {AbstractFilterUser} from '../../icc-api/model/AbstractFilterUser'
+import {HealthcareParty} from "../../icc-api/model/HealthcareParty"
+import {AbstractFilterHealthcareParty} from "../../icc-api/model/AbstractFilterHealthcareParty"
 
 export * from './AllCodesFilter'
 export * from './AllDevicesFilter'
@@ -97,26 +97,26 @@ export class Filter {
 
 export type AbstractFilter<T> =
   | (T extends Patient
-      ? AbstractFilterPatient
-      : T extends Contact
-      ? AbstractFilterContact
-      : T extends Service
+  ? AbstractFilterPatient
+  : T extends Contact
+    ? AbstractFilterContact
+    : T extends Service
       ? AbstractFilterService
       : T extends HealthcareParty
-      ? AbstractFilterHealthcareParty
-      : T extends Device
-      ? AbstractFilterDevice
-      : T extends MaintenanceTask
-      ? AbstractFilterMaintenanceTask
-      : T extends Code
-      ? AbstractFilterCode
-      : T extends HealthElement
-      ? AbstractFilterHealthElement
-      : T extends Invoice
-      ? AbstractFilterInvoice
-      : T extends User
-      ? AbstractFilterUser
-      : never)
+        ? AbstractFilterHealthcareParty
+        : T extends Device
+          ? AbstractFilterDevice
+          : T extends MaintenanceTask
+            ? AbstractFilterMaintenanceTask
+            : T extends Code
+              ? AbstractFilterCode
+              : T extends HealthElement
+                ? AbstractFilterHealthElement
+                : T extends Invoice
+                  ? AbstractFilterInvoice
+                  : T extends User
+                    ? AbstractFilterUser
+                    : never)
   | ConstantFilter<T>
   | IntersectionFilter<T>
   | UnionFilter<T>
@@ -130,11 +130,6 @@ abstract class FilterBuilder<T> {
   // This is the method that is called each time we chain a filter to another filter. The default behaviour is to
   // return a FilterBuilder with the provider set to the last element in the chain, except when we use combination
   // operators like or()/and()/… . After one of those, the composer is set to a function that will return a FilterBuilder
-  // that combines the existing filterBuilder with the filter definition we just added.
-  composer: (thisFilterBuilder: FilterBuilder<T>, otherFilterBuilder: FilterBuilder<T>) => FilterBuilder<T> = (
-    thisFilterBuilder: FilterBuilder<T>,
-    otherFilterBuilder: FilterBuilder<T>
-  ) => otherFilterBuilder
 
   protected constructor(
     filterProvider?: () => AbstractFilter<T>,
@@ -143,6 +138,12 @@ abstract class FilterBuilder<T> {
     this.filterProvider = filterProvider
     composer && (this.composer = composer)
   }
+
+  // that combines the existing filterBuilder with the filter definition we just added.
+  composer: (thisFilterBuilder: FilterBuilder<T>, otherFilterBuilder: FilterBuilder<T>) => FilterBuilder<T> = (
+    thisFilterBuilder: FilterBuilder<T>,
+    otherFilterBuilder: FilterBuilder<T>
+  ) => otherFilterBuilder
 
   abstract build(): AbstractFilter<T>
 
@@ -153,36 +154,6 @@ abstract class FilterBuilder<T> {
 
   listOf(elements: T[]): FilterBuilder<T> {
     return this.clone(() => new ConstantFilter<T>(elements) as AbstractFilter<T>)
-  }
-
-  private makeLazyLeftRightFilterBuilder(
-    leftHandRightHandFiltersCombiner: (leftHandFilter: AbstractFilter<T>, rightHandFilter: AbstractFilter<T>) => () => AbstractFilter<T>
-  ) {
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    const leftHandFilterBuilder: FilterBuilder<T> = this
-    const leftHandFilter = leftHandFilterBuilder.build() // Freeze the leftHand filter
-
-    return leftHandFilterBuilder.filterProvider
-      ? this.clone(
-          undefined, //filter provider is indeterminate until we have performed a composition
-          (unused: FilterBuilder<T>, rightHandFilterBuilder: FilterBuilder<T>) => {
-            // because we freeze the leftHand in the state it is right now, we are not going to use its value when the composition occurs
-            const rightHandFilter = rightHandFilterBuilder.build()
-
-            return rightHandFilter
-              ? this.clone(leftHandRightHandFiltersCombiner(leftHandFilter, rightHandFilter), rightHandFilterBuilder.composer)
-              : rightHandFilterBuilder //Can this happen ?
-          }
-        )
-      : this
-  }
-
-  private makeEagerLeftRightFilterBuilder(
-    rightHandFilterBuilderFactory: (it: FilterBuilder<T>) => FilterBuilder<T>,
-    leftHandRightHandFiltersCombiner: (leftHandFilter: AbstractFilter<T>, rightHandFilter: AbstractFilter<T>) => () => AbstractFilter<T>
-  ) {
-    const rightHandFilterBuilder = rightHandFilterBuilderFactory(this)
-    return this.filterProvider ? this.clone(leftHandRightHandFiltersCombiner(this.build(), rightHandFilterBuilder.build())) : this
   }
 
   /**
@@ -223,6 +194,36 @@ abstract class FilterBuilder<T> {
       new ComplementFilter<T>(leftHandFilter, rightHandFilter) as AbstractFilter<T>
 
     return filterBuilderFactory ? this.makeEagerLeftRightFilterBuilder(filterBuilderFactory, combiner) : this.makeLazyLeftRightFilterBuilder(combiner)
+  }
+
+  private makeLazyLeftRightFilterBuilder(
+    leftHandRightHandFiltersCombiner: (leftHandFilter: AbstractFilter<T>, rightHandFilter: AbstractFilter<T>) => () => AbstractFilter<T>
+  ) {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const leftHandFilterBuilder: FilterBuilder<T> = this
+    const leftHandFilter = leftHandFilterBuilder.build() // Freeze the leftHand filter
+
+    return leftHandFilterBuilder.filterProvider
+      ? this.clone(
+        undefined, //filter provider is indeterminate until we have performed a composition
+        (unused: FilterBuilder<T>, rightHandFilterBuilder: FilterBuilder<T>) => {
+          // because we freeze the leftHand in the state it is right now, we are not going to use its value when the composition occurs
+          const rightHandFilter = rightHandFilterBuilder.build()
+
+          return rightHandFilter
+            ? this.clone(leftHandRightHandFiltersCombiner(leftHandFilter, rightHandFilter), rightHandFilterBuilder.composer)
+            : rightHandFilterBuilder //Can this happen ?
+        }
+      )
+      : this
+  }
+
+  private makeEagerLeftRightFilterBuilder(
+    rightHandFilterBuilderFactory: (it: FilterBuilder<T>) => FilterBuilder<T>,
+    leftHandRightHandFiltersCombiner: (leftHandFilter: AbstractFilter<T>, rightHandFilter: AbstractFilter<T>) => () => AbstractFilter<T>
+  ) {
+    const rightHandFilterBuilder = rightHandFilterBuilderFactory(this)
+    return this.filterProvider ? this.clone(leftHandRightHandFiltersCombiner(this.build(), rightHandFilterBuilder.build())) : this
   }
 }
 
@@ -268,21 +269,21 @@ class PatientFilterBuilder extends FilterBuilder<Patient> {
   all(): PatientFilterBuilder {
     return this.composer(
       this,
-      new PatientFilterBuilder(() => new PatientByHcPartyFilter({ healthcarePartyId: this.hcpId }), this.hcpId)
+      new PatientFilterBuilder(() => new PatientByHcPartyFilter({healthcarePartyId: this.hcpId}), this.hcpId)
     ) as PatientFilterBuilder
   }
 
   activePatients(): PatientFilterBuilder {
     return this.composer(
       this,
-      new PatientFilterBuilder(() => new PatientByHcPartyAndActiveFilter({ healthcarePartyId: this.hcpId, active: true }), this.hcpId)
+      new PatientFilterBuilder(() => new PatientByHcPartyAndActiveFilter({healthcarePartyId: this.hcpId, active: true}), this.hcpId)
     ) as PatientFilterBuilder
   }
 
   inactivePatients(): PatientFilterBuilder {
     return this.composer(
       this,
-      new PatientFilterBuilder(() => new PatientByHcPartyAndActiveFilter({ healthcarePartyId: this.hcpId, active: false }), this.hcpId)
+      new PatientFilterBuilder(() => new PatientByHcPartyAndActiveFilter({healthcarePartyId: this.hcpId, active: false}), this.hcpId)
     ) as PatientFilterBuilder
   }
 
@@ -319,7 +320,7 @@ class PatientFilterBuilder extends FilterBuilder<Patient> {
   withSsins(ssins: string[]): PatientFilterBuilder {
     return this.composer(
       this,
-      new PatientFilterBuilder(() => new PatientByHcPartyAndSsinsFilter({ healthcarePartyId: this.hcpId, ssins: ssins }), this.hcpId)
+      new PatientFilterBuilder(() => new PatientByHcPartyAndSsinsFilter({healthcarePartyId: this.hcpId, ssins: ssins}), this.hcpId)
     ) as PatientFilterBuilder
   }
 
@@ -352,11 +353,11 @@ class PatientFilterBuilder extends FilterBuilder<Patient> {
   }
 
   olderThan(age: number): PatientFilterBuilder {
-    return this.withDateOfBirthBetween(10000101, parseInt(format(add(new Date(), { years: -age }), 'yyyyMMdd')))
+    return this.withDateOfBirthBetween(10000101, parseInt(format(add(new Date(), {years: -age}), 'yyyyMMdd')))
   }
 
   youngerThan(age: number): PatientFilterBuilder {
-    return this.withDateOfBirthBetween(parseInt(format(add(new Date(), { years: -age }), 'yyyyMMdd')), 99991231)
+    return this.withDateOfBirthBetween(parseInt(format(add(new Date(), {years: -age}), 'yyyyMMdd')), 99991231)
   }
 
   byGenderEducationProfession(gender?: GenderEnum, education?: string, profession?: string): PatientFilterBuilder {
@@ -376,7 +377,7 @@ class PatientFilterBuilder extends FilterBuilder<Patient> {
   }
 
   byIds(ids: string[]): PatientFilterBuilder {
-    return this.composer(this, new PatientFilterBuilder(() => new PatientByIdsFilter({ ids: ids }), this.hcpId)) as PatientFilterBuilder
+    return this.composer(this, new PatientFilterBuilder(() => new PatientByIdsFilter({ids: ids}), this.hcpId)) as PatientFilterBuilder
   }
 
   searchByName(name: string): PatientFilterBuilder {
