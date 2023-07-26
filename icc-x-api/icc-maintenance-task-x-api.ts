@@ -9,11 +9,18 @@ import { AuthenticationProvider, NoAuthenticationProvider } from './auth/Authent
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 import { EncryptedFieldsManifest, parseEncryptedFields } from './utils'
+import {AbstractFilter} from "./filters/filters"
+import {Connection, ConnectionImpl} from "../icc-api/model/Connection"
+import {subscribeToEntityEvents} from "./utils/websocket"
+import {IccUserXApi} from "./icc-user-x-api"
+import {IccAuthApi} from "../icc-api"
 
 export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements EncryptedEntityXApi<models.MaintenanceTask> {
   crypto: IccCryptoXApi
   hcPartyApi: IccHcpartyXApi
   dataOwnerApi: IccDataOwnerXApi
+  private readonly userApi: IccUserXApi
+  private readonly authApi: IccAuthApi
 
   private readonly encryptedFields: EncryptedFieldsManifest
 
@@ -23,6 +30,8 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
     crypto: IccCryptoXApi,
     hcPartyApi: IccHcpartyXApi,
     dataOwnerApi: IccDataOwnerXApi,
+    userApi: IccUserXApi,
+    authApi: IccAuthApi,
     encryptedKeys: Array<string> = ['properties'],
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
@@ -36,6 +45,8 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
     this.hcPartyApi = hcPartyApi
     this.dataOwnerApi = dataOwnerApi
     this.encryptedFields = parseEncryptedFields(encryptedKeys, 'MaintenanceTask.')
+    this.userApi = userApi
+    this.authApi = authApi
   }
 
   /**
@@ -216,5 +227,25 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
 
   async getEncryptionKeysOf(entity: MaintenanceTask): Promise<string[]> {
     return await this.crypto.entities.encryptionKeysOf(entity)
+  }
+
+  async subscribeToMaintenanceTaskEvents(
+    eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
+    filter: AbstractFilter<MaintenanceTask>,
+    eventFired: (dataSample: MaintenanceTask) => Promise<void>,
+    options: { connectionMaxRetry?: number; connectionRetryIntervalMs?: number } = {}
+  ): Promise<Connection> {
+    const currentUser = await this.userApi.getCurrentUser()
+
+    return subscribeToEntityEvents(
+      this.host,
+      this.authApi,
+      'MaintenanceTask',
+      eventTypes,
+      filter,
+      eventFired,
+      options,
+      async (encrypted) => (await this.decrypt(currentUser, [encrypted]))[0]
+    ).then((rs) => new ConnectionImpl(rs))
   }
 }

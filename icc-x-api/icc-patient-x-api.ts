@@ -1,4 +1,4 @@
-import { IccPatientApi } from '../icc-api'
+import {IccAuthApi, IccPatientApi} from '../icc-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 import { IccContactXApi } from './icc-contact-x-api'
 import { IccFormXApi } from './icc-form-x-api'
@@ -19,6 +19,10 @@ import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
+import {AbstractFilter} from "./filters/filters"
+import {Connection, ConnectionImpl} from "../icc-api/model/Connection"
+import {subscribeToEntityEvents} from "./utils/websocket"
+import {IccUserXApi} from "./icc-user-x-api"
 
 // noinspection JSUnusedGlobalSymbols
 export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi<models.Patient> {
@@ -32,6 +36,8 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
   classificationApi: IccClassificationXApi
   calendarItemApi: IccCalendarItemXApi
   dataOwnerApi: IccDataOwnerXApi
+  private readonly userApi: IccUserXApi
+  private readonly authApi: IccAuthApi
 
   private readonly encryptedFields: EncryptedFieldsManifest
 
@@ -48,6 +54,8 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     classificationApi: IccClassificationXApi,
     dataOwnerApi: IccDataOwnerXApi,
     calendarItemaApi: IccCalendarItemXApi,
+    userApi: IccUserXApi,
+    authApi: IccAuthApi,
     encryptedKeys: Array<string> = ['note'],
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
@@ -67,6 +75,8 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     this.classificationApi = classificationApi
     this.calendarItemApi = calendarItemaApi
     this.dataOwnerApi = dataOwnerApi
+    this.userApi = userApi
+    this.authApi = authApi
 
     this.encryptedFields = parseEncryptedFields(encryptedKeys, 'Patient.')
   }
@@ -1278,5 +1288,25 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     const encryptedMerged = (await this.encryptAs(undefined, [mergedInto]))[0]
     const merged = await super.baseMergePatients(from.id!, from.rev!, encryptedMerged)
     return (await this.tryDecryptOrReturnOriginal(undefined, [merged]))[0].entity
+  }
+
+  async subscribeToPatientEvents(
+    eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
+    filter: AbstractFilter<Patient> | undefined,
+    eventFired: (patient: Patient) => Promise<void>,
+    options: { connectionMaxRetry?: number; connectionRetryIntervalMs?: number } = {}
+  ): Promise<Connection> {
+    const currentUser = await this.userApi.getCurrentUser()
+    return subscribeToEntityEvents(
+      this.host,
+      this.authApi,
+      'Patient',
+      eventTypes,
+      filter,
+      eventFired,
+      options,
+      async (encrypted) => (await this.decrypt(currentUser, [encrypted]))[0]
+    )
+      .then((rs) => new ConnectionImpl(rs))
   }
 }
