@@ -5,7 +5,7 @@ import {sleep} from '@icure/api'
 
 import {assert} from 'chai'
 import {getEnvVariables, TestVars} from '@icure/test-setup/types'
-import {getEnvironmentInitializer, hcp1Username, hcp3Username, patUsername, setLocalStorage, TestUtils} from "../utils/test_utils"
+import {getEnvironmentInitializer, hcp1Username, hcp3Username, setLocalStorage, TestUtils} from "../utils/test_utils"
 import {IcureApi} from "../../icc-x-api"
 import {User} from "../../icc-api/model/User"
 import {Connection} from "../../icc-api/model/Connection"
@@ -22,9 +22,13 @@ import {HealthElement} from "../../icc-api/model/HealthElement"
 import {HealthElementByHcPartyTagCodeFilter} from "../../icc-x-api/filters/HealthElementByHcPartyTagCodeFilter"
 import {PatientByHcPartyNameContainsFuzzyFilter} from "../../icc-x-api/filters/PatientByHcPartyNameContainsFuzzyFilter"
 import {WebSocketWrapper} from "../../icc-x-api/utils/websocket"
-import initApi = TestUtils.initApi
 import {AllUsersFilter} from "../../icc-x-api/filters/AllUsersFilter"
-import {User as UserV6} from "@icure/apiV6"
+import {ContactByHcPartyFilter} from "../../icc-x-api/filters/ContactByHcPartyFilter"
+import {HealthcareParty} from "../../icc-api/model/HealthcareParty"
+import {Device} from "../../icc-api/model/Device"
+import {AllHealthcarePartiesFilter} from "../../icc-x-api/filters/AllHealthcarePartiesFilter"
+import {AllDevicesFilter} from "../../icc-x-api/filters/AllDevicesFilter"
+import initApi = TestUtils.initApi
 
 setLocalStorage(fetch)
 
@@ -36,7 +40,7 @@ let api: IcureApi | undefined = undefined
 let hcp1Api: IcureApi | undefined = undefined
 let hcp1User: User | undefined = undefined
 
-describe( 'Subscription API', () => {
+describe('Subscription API', () => {
   before(async function () {
     this.timeout(600000)
     const initializer = await getEnvironmentInitializer()
@@ -79,27 +83,36 @@ describe( 'Subscription API', () => {
     await sleep(3_000)
   }
 
-  describe('Can subscribe to Data Samples', async () => {
-    const subscribeAndCreateService = async (
+  describe('Can subscribe to Service and Contact', async () => {
+    const subscribeAndCreateContactOrService = async (
       options: { connectionMaxRetry?: number; connectionRetryIntervalMs?: number },
       eventTypes: ('CREATE' | 'DELETE' | 'UPDATE')[],
       creationApi: IcureApi,
       subscriptionApi: IcureApi,
-      supplier: () => Promise<void>
+      supplier: () => Promise<void>,
+      target: 'service' | 'contact'
     ) => {
       const connectionPromise = async (
         options: { connectionMaxRetry?: number; connectionRetryIntervalMs?: number },
         dataOwnerId: string,
         eventListener: (ds: Service) => Promise<void>
       ) =>
-        subscriptionApi!.contactApi.subscribeToServiceEvents(
-          eventTypes,
-          new ServiceByHcPartyFilter({
-            hcpId: dataOwnerId,
-          }),
-          eventListener,
-          options
-        )
+        target === 'service' ?
+          subscriptionApi!.contactApi.subscribeToServiceEvents(
+            eventTypes,
+            new ServiceByHcPartyFilter({
+              hcpId: dataOwnerId,
+            }),
+            eventListener,
+            options
+          ) : subscriptionApi!.contactApi.subscribeToContactEvents(
+            eventTypes,
+            new ContactByHcPartyFilter({
+              hcpId: dataOwnerId,
+            }),
+            eventListener,
+            options
+          )
 
       const loggedUser = await creationApi!!.userApi.getCurrentUser()
       const events: Service[] = []
@@ -183,7 +196,7 @@ describe( 'Subscription API', () => {
     }
 
     const deleteService = async () => {
-      const { service, patient } = await createService()
+      const {service, patient} = await createService()
       const user = await api!!.userApi.getCurrentUser()
 
       const contactToDeleteServices = await api!.contactApi
@@ -208,13 +221,13 @@ describe( 'Subscription API', () => {
     }
 
     it('CREATE Service without options', async () => {
-      await subscribeAndCreateService({}, ['CREATE'], api!!, api!!, async () => {
+      await subscribeAndCreateContactOrService({}, ['CREATE'], api!!, api!!, async () => {
         await createService()
-      })
+      }, 'service')
     }).timeout(60000)
 
     it('CREATE Service with options', async () => {
-      await subscribeAndCreateService(
+      await subscribeAndCreateContactOrService(
         {
           connectionRetryIntervalMs: 10_000,
           connectionMaxRetry: 5,
@@ -224,22 +237,23 @@ describe( 'Subscription API', () => {
         api!!,
         async () => {
           await createService()
-        }
+        },
+        'service'
       )
     }).timeout(60000)
 
     it('CREATE Service without options with another instance of api', async () => {
       const subscriptionApi = await initApi(env, hcp3Username)
 
-      await subscribeAndCreateService({}, ['CREATE'], api!!, subscriptionApi!!, async () => {
+      await subscribeAndCreateContactOrService({}, ['CREATE'], api!!, subscriptionApi!!, async () => {
         await createService()
-      })
+      }, 'service')
     }).timeout(60000)
 
     it('CREATE Service with options with another instance of api', async () => {
       const subscriptionApi = await initApi(env, hcp3Username)
 
-      await subscribeAndCreateService(
+      await subscribeAndCreateContactOrService(
         {
           connectionRetryIntervalMs: 10_000,
           connectionMaxRetry: 5,
@@ -249,16 +263,43 @@ describe( 'Subscription API', () => {
         subscriptionApi!!,
         async () => {
           await createService()
-        }
+        },
+        'service'
+      )
+    }).timeout(60000)
+
+    it('CREATE Contact without options with another instance of api', async () => {
+      const subscriptionApi = await initApi(env, hcp3Username)
+
+      await subscribeAndCreateContactOrService({}, ['CREATE'], api!!, subscriptionApi!!, async () => {
+        await createService()
+      }, 'contact')
+    }).timeout(60000)
+
+    it('CREATE Contact with options with another instance of api', async () => {
+      const subscriptionApi = await initApi(env, hcp3Username)
+
+      await subscribeAndCreateContactOrService(
+        {
+          connectionRetryIntervalMs: 10_000,
+          connectionMaxRetry: 5,
+        },
+        ['CREATE'],
+        api!!,
+        subscriptionApi!!,
+        async () => {
+          await createService()
+        },
+        'contact'
       )
     }).timeout(60000)
 
     it('DELETE Service without options', async () => {
-      await subscribeAndCreateService({}, ['DELETE'], api!!, api!!, async () => deleteService())
+      await subscribeAndCreateContactOrService({}, ['DELETE'], api!!, api!!, async () => deleteService(), 'service')
     }).timeout(60000)
 
     it('DELETE Service with options', async () => {
-      await subscribeAndCreateService(
+      await subscribeAndCreateContactOrService(
         {
           connectionRetryIntervalMs: 10_000,
           connectionMaxRetry: 5,
@@ -266,7 +307,8 @@ describe( 'Subscription API', () => {
         ['DELETE'],
         api!!,
         api!!,
-        async () => deleteService()
+        async () => deleteService(),
+        "service"
       )
     }).timeout(60000)
   })
@@ -502,6 +544,135 @@ describe( 'Subscription API', () => {
 
     it('CREATE Patient with options', async () => {
       await subscribeAndCreatePatient(
+        {
+          connectionRetryIntervalMs: 10_000,
+          connectionMaxRetry: 5,
+        },
+        ['CREATE']
+      )
+    }).timeout(60000)
+  })
+
+  describe('Can subscribe to HealthcareParty', async () => {
+    const subscribeAndCreateHealthcareParty = async (options: {}, eventTypes: ('CREATE' | 'DELETE' | 'UPDATE')[]) => {
+      const connectionPromise = async (options: {}, dataOwnerId: string, eventListener: (patient: HealthcareParty) => Promise<void>) => {
+        await sleep(2000)
+        return api!.healthcarePartyApi.subscribeToHealthcarePartyEvents(
+          eventTypes,
+          new AllHealthcarePartiesFilter({}),
+          eventListener,
+          options
+        )
+      }
+
+      const loggedUser = await api!.userApi.getCurrentUser()
+
+      const events: HealthcareParty[] = []
+      const statuses: string[] = []
+
+      let eventReceivedPromiseResolve!: (value: void | PromiseLike<void>) => void
+      let eventReceivedPromiseReject!: (reason?: any) => void
+      const eventReceivedPromise = new Promise<void>((res, rej) => {
+        eventReceivedPromiseResolve = res
+        eventReceivedPromiseReject = rej
+      })
+
+      await doXOnYAndSubscribe(
+        api!!,
+        options,
+        connectionPromise(options, loggedUser.healthcarePartyId!, async (patient) => {
+          events.push(patient)
+          eventReceivedPromiseResolve()
+        }),
+        async () => {
+          await api!!.healthcarePartyApi.createHealthcareParty(
+            new HealthcareParty({id: uuid(), firstName: 'Homer', lastName: 'Simpson', parentId: loggedUser.healthcarePartyId})
+          )
+        },
+        (status) => {
+          statuses.push(status)
+        },
+        eventReceivedPromiseReject,
+        eventReceivedPromise
+      )
+
+      events?.forEach((event) => console.log(`Event : ${event}`))
+      statuses?.forEach((status) => console.log(`Status : ${status}`))
+
+      assert(events.length === 1, 'The events have not been recorded')
+      assert(statuses.length === 2, 'The statuses have not been recorded')
+    }
+
+    it('CREATE HealthcareParty without option', async () => {
+      await subscribeAndCreateHealthcareParty({}, ['CREATE'])
+    }).timeout(60000)
+
+    it('CREATE HealthcareParty with options', async () => {
+      await subscribeAndCreateHealthcareParty(
+        {
+          connectionRetryIntervalMs: 10_000,
+          connectionMaxRetry: 5,
+        },
+        ['CREATE']
+      )
+    }).timeout(60000)
+  })
+
+  describe('Can subscribe to Device', async () => {
+    const subscribeAndCreateDevice = async (options: {}, eventTypes: ('CREATE' | 'DELETE' | 'UPDATE')[]) => {
+      const connectionPromise = async (options: {}, dataOwnerId: string, eventListener: (patient: Device) => Promise<void>) => {
+        await sleep(2000)
+        return api!.deviceApi.subscribeToDeviceEvents(
+          eventTypes,
+          new AllDevicesFilter({}),
+          eventListener,
+          options
+        )
+      }
+      const loggedUser = await api!!.userApi.getCurrentUser()
+
+      const events: Device[] = []
+      const statuses: string[] = []
+
+      let eventReceivedPromiseResolve!: (value: void | PromiseLike<void>) => void
+      let eventReceivedPromiseReject!: (reason?: any) => void
+      const eventReceivedPromise = new Promise<void>((res, rej) => {
+        eventReceivedPromiseResolve = res
+        eventReceivedPromiseReject = rej
+      })
+
+      await doXOnYAndSubscribe(
+        api!!,
+        options,
+        connectionPromise(options, loggedUser.healthcarePartyId!, async (patient) => {
+          events.push(patient)
+          eventReceivedPromiseResolve()
+        }),
+        async () => {
+          await api!!.deviceApi.createDevice(
+            new Device({id: uuid(), brand: 'Apple', model: 'iPod Shuffle'})
+          )
+        },
+        (status) => {
+          statuses.push(status)
+        },
+        eventReceivedPromiseReject,
+        eventReceivedPromise
+      )
+
+      events?.forEach((event) => console.log(`Event : ${event}`))
+      statuses?.forEach((status) => console.log(`Status : ${status}`))
+
+      assert(events.length === 1, 'The events have not been recorded')
+      assert(statuses.length === 2, 'The statuses have not been recorded')
+    }
+
+    it('CREATE Device without option', async () => {
+      await subscribeAndCreateDevice({}, ['CREATE'])
+    }).timeout(60000)
+
+    it('CREATE Device with options', async () => {
+      await subscribeAndCreateDevice(
         {
           connectionRetryIntervalMs: 10_000,
           connectionMaxRetry: 5,
