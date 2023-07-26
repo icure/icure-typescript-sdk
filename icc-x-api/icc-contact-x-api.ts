@@ -1036,4 +1036,23 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       async (encrypted) => (await this.decryptServices(currentUser.healthcarePartyId!, [encrypted]))[0]
     ).then((ws) => new ConnectionImpl(ws))
   }
+
+  async subscribeToContactEvents(
+    eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
+    filter: AbstractFilter<Contact> | undefined,
+    eventFired: (dataSample: Contact) => Promise<void>,
+    options: { connectionMaxRetry?: number; connectionRetryIntervalMs?: number } = {}
+  ): Promise<Connection> {
+    const currentUser = await this.userApi.getCurrentUser()
+    return subscribeToEntityEvents(
+      this.host,
+      this.authApi,
+      'Contact',
+      eventTypes,
+      filter,
+      eventFired,
+      options,
+      async (encrypted) => (await this.decryptServices(currentUser.healthcarePartyId!, [encrypted]))[0]
+    ).then((ws) => new ConnectionImpl(ws))
+  }
 }

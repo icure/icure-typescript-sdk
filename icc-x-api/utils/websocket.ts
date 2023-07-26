@@ -10,10 +10,11 @@ import {HealthElement} from "../../icc-api/model/HealthElement"
 import {MaintenanceTask} from "../../icc-api/model/MaintenanceTask"
 import {HealthcareParty} from "../../icc-api/model/HealthcareParty"
 import {Device} from "../../icc-api/model/Device"
+import {Contact} from "../../icc-api/model/Contact"
 
 export type EventTypes = 'CREATE' | 'UPDATE' | 'DELETE'
-type Subscribable = 'Patient' | 'Service' | 'User' | 'HealthElement' | 'MaintenanceTask' | 'HealthcareParty' | 'Device'
-type SubscribableEntity = Patient | Service | User | HealthElement | MaintenanceTask | HealthcareParty | Device
+type Subscribable = 'Patient' | 'Service' | 'User' | 'HealthElement' | 'MaintenanceTask' | 'HealthcareParty' | 'Device' | 'Contact'
+type SubscribableEntity = Patient | Service | User | HealthElement | MaintenanceTask | HealthcareParty | Device | Contact
 type SubscriptionOptions = {
   connectionMaxRetry?: number
   connectionRetryIntervalMs?: number
@@ -38,6 +39,16 @@ export function subscribeToEntityEvents(
   eventTypes: EventTypes[],
   filter: AbstractFilter<Service> | undefined,
   eventFired: (entity: Service) => Promise<void>,
+  options: SubscriptionOptions,
+  decryptor: (encrypted: Service) => Promise<Service>
+): Promise<WebSocketWrapper>
+export function subscribeToEntityEvents(
+  basePath: string,
+  authApi: IccAuthApi,
+  entityClass: 'Contact',
+  eventTypes: EventTypes[],
+  filter: AbstractFilter<Contact> | undefined,
+  eventFired: (entity: Contact) => Promise<void>,
   options: SubscriptionOptions,
   decryptor: (encrypted: Service) => Promise<Service>
 ): Promise<WebSocketWrapper>
@@ -131,7 +142,11 @@ export function subscribeToEntityEvents<T extends SubscribableEntity>(
       qualifiedName: 'org.taktik.icure.entities.Device',
       decryptor: (data: Device) =>
         Promise.resolve(data as Device as T),
-    }
+    },
+    Contact: {
+      qualifiedName: 'org.taktik.icure.entities.Contact',
+      decryptor: (data: Contact) => decryptor!(data as Contact as T),
+    },
   }
 
   return WebSocketWrapper.create(

@@ -77,6 +77,7 @@ import { CryptoActorStubWithType } from '../icc-api/model/CryptoActorStub'
 import { IccBekmehrXApi } from './icc-bekmehr-x-api'
 import { IccDoctemplateXApi } from './icc-doctemplate-x-api'
 import { UserGroup } from '../icc-api/model/UserGroup'
+import {IccDeviceXApi} from "./icc-device-x-api"
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -112,7 +113,7 @@ export interface Apis {
   readonly userApi: IccUserXApi
   readonly permissionApi: IccPermissionApi
   readonly healthcarePartyApi: IccHcpartyXApi
-  readonly deviceApi: IccDeviceApi
+  readonly deviceApi: IccDeviceXApi
   readonly cryptoApi: IccCryptoXApi
   readonly accessLogApi: IccAccesslogXApi
   readonly agendaApi: IccAgendaApi
@@ -470,7 +471,7 @@ export namespace IcureApi {
 type CryptoInitialisationApis = {
   cryptoApi: IccCryptoXApi
   healthcarePartyApi: IccHcpartyXApi
-  deviceApi: IccDeviceApi
+  deviceApi: IccDeviceXApi
   // no patient api since it is base
   dataOwnerApi: IccDataOwnerXApi
   userApi: IccUserXApi
@@ -489,7 +490,7 @@ async function initialiseCryptoWithProvider(
   const authApi = new IccAuthApi(host, params.headers, groupSpecificAuthenticationProvider, fetchImpl)
   const userApi = new IccUserXApi(host, params.headers, groupSpecificAuthenticationProvider, authApi, fetchImpl)
   const healthcarePartyApi = new IccHcpartyXApi(host, params.headers, groupSpecificAuthenticationProvider, authApi, fetchImpl)
-  const deviceApi = new IccDeviceApi(host, params.headers, groupSpecificAuthenticationProvider, fetchImpl)
+  const deviceApi = new IccDeviceXApi(host, params.headers, groupSpecificAuthenticationProvider, userApi, authApi,fetchImpl)
   const basePatientApi = new IccPatientApi(host, params.headers, groupSpecificAuthenticationProvider, fetchImpl)
   const dataOwnerApi = new IccDataOwnerXApi(host, params.headers, groupSpecificAuthenticationProvider, fetchImpl)
   // Crypto initialisation
@@ -756,7 +757,7 @@ class IcureApiImpl implements IcureApi {
       ))
     )
   }
-  get deviceApi(): IccDeviceApi {
+  get deviceApi(): IccDeviceXApi {
     return this.cryptoInitApis.deviceApi
   }
   get doctemplateApi(): IccDoctemplateXApi {
