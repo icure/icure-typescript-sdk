@@ -3,7 +3,7 @@ import log, {LogLevelDesc} from 'loglevel'
 import {Patient} from "../../icc-api/model/Patient"
 import {AbstractFilter} from "../filters/filters"
 import {User} from "../../icc-api/model/User"
-import {isNode} from "browser-or-node"
+import {isBrowser, isNode} from "browser-or-node"
 import {IccAuthApi} from "../../icc-api"
 import {Service} from "../../icc-api/model/Service"
 import {HealthElement} from "../../icc-api/model/HealthElement"
@@ -13,6 +13,11 @@ import {Device} from "../../icc-api/model/Device"
 
 export type EventTypes = 'CREATE' | 'UPDATE' | 'DELETE'
 type Subscribable = 'Patient' | 'Service' | 'User' | 'HealthElement' | 'MaintenanceTask' | 'HealthcareParty' | 'Device'
+type SubscribableEntity = Patient | Service | User | HealthElement | MaintenanceTask | HealthcareParty | Device
+type SubscriptionOptions = {
+  connectionMaxRetry?: number
+  connectionRetryIntervalMs?: number
+}
 
 log.setLevel((process.env.WEBSOCKET_LOG_LEVEL as LogLevelDesc) ?? 'info')
 
@@ -23,7 +28,7 @@ export function subscribeToEntityEvents(
   eventTypes: EventTypes[],
   filter: AbstractFilter<Patient> | undefined,
   eventFired: (entity: Patient) => Promise<void>,
-  options: { connectionMaxRetry?: number; connectionRetryIntervalMs?: number },
+  options: SubscriptionOptions,
   decryptor: (encrypted: Patient) => Promise<Patient>
 ): Promise<WebSocketWrapper>
 export function subscribeToEntityEvents(
@@ -33,7 +38,7 @@ export function subscribeToEntityEvents(
   eventTypes: EventTypes[],
   filter: AbstractFilter<Service> | undefined,
   eventFired: (entity: Service) => Promise<void>,
-  options: { connectionMaxRetry?: number; connectionRetryIntervalMs?: number },
+  options: SubscriptionOptions,
   decryptor: (encrypted: Service) => Promise<Service>
 ): Promise<WebSocketWrapper>
 export function subscribeToEntityEvents(
@@ -43,7 +48,7 @@ export function subscribeToEntityEvents(
   eventTypes: EventTypes[],
   filter: AbstractFilter<HealthElement> | undefined,
   eventFired: (entity: HealthElement) => Promise<void>,
-  options: { connectionMaxRetry?: number; connectionRetryIntervalMs?: number },
+  options: SubscriptionOptions,
   decryptor: (encrypted: HealthElement) => Promise<HealthElement>
 ): Promise<WebSocketWrapper>
 export function subscribeToEntityEvents(
@@ -53,7 +58,7 @@ export function subscribeToEntityEvents(
   eventTypes: EventTypes[],
   filter: AbstractFilter<User> | undefined,
   eventFired: (entity: User) => Promise<void>,
-  options: { connectionMaxRetry?: number; connectionRetryIntervalMs?: number }
+  options: SubscriptionOptions
 ): Promise<WebSocketWrapper>
 export function subscribeToEntityEvents(
   basePath: string,
@@ -62,7 +67,7 @@ export function subscribeToEntityEvents(
   eventTypes: EventTypes[],
   filter: AbstractFilter<MaintenanceTask> | undefined,
   eventFired: (entity: MaintenanceTask) => Promise<void>,
-  options: { connectionMaxRetry?: number; connectionRetryIntervalMs?: number },
+  options: SubscriptionOptions,
   decryptor: (encrypted: MaintenanceTask) => Promise<MaintenanceTask>
 ): Promise<WebSocketWrapper>
 export function subscribeToEntityEvents(
@@ -72,7 +77,7 @@ export function subscribeToEntityEvents(
   eventTypes: EventTypes[],
   filter: AbstractFilter<HealthcareParty> | undefined,
   eventFired: (entity: HealthcareParty) => Promise<void>,
-  options: { connectionMaxRetry?: number; connectionRetryIntervalMs?: number },
+  options: SubscriptionOptions,
 ): Promise<WebSocketWrapper>
 export function subscribeToEntityEvents(
   basePath: string,
@@ -81,17 +86,17 @@ export function subscribeToEntityEvents(
   eventTypes: EventTypes[],
   filter: AbstractFilter<Device> | undefined,
   eventFired: (entity: Device) => Promise<void>,
-  options: { connectionMaxRetry?: number; connectionRetryIntervalMs?: number },
+  options: SubscriptionOptions,
 ): Promise<WebSocketWrapper>
 
-export function subscribeToEntityEvents<T extends Patient | Service | HealthElement | MaintenanceTask | HealthcareParty | Device>(
+export function subscribeToEntityEvents<T extends SubscribableEntity>(
   basePath: string,
   authApi: IccAuthApi,
   entityClass: Subscribable,
   eventTypes: EventTypes[],
   filter: AbstractFilter<T> | undefined,
   eventFired: (entity: T) => Promise<void>,
-  options: { connectionMaxRetry?: number; connectionRetryIntervalMs?: number } = {},
+  options: SubscriptionOptions = {},
   decryptor?: (encrypted: T) => Promise<T>
 ): Promise<WebSocketWrapper> {
   const config = {
@@ -203,7 +208,7 @@ export class WebSocketWrapper {
   }
 
   public send(data: Buffer | ArrayBuffer | string) {
-    if (this.socket && this.socket.readyState === WebSocketNode.OPEN) {
+    if (this.socket && this.socket.readyState === ReadyState.OPEN) {
       this.socket.send(data)
     }
   }
@@ -211,7 +216,7 @@ export class WebSocketWrapper {
   public close() {
     if (this.socket) {
       this.closed = true
-      this.socket.close(1001, 'Client closed connection')
+      this.socket.close(1000, 'Client closed connection')
     }
   }
 
@@ -259,13 +264,11 @@ export class WebSocketWrapper {
       this.callStatusCallbacks('CONNECTED')
     })
 
-    this.socket.on('message', (event: Buffer) => {
+    this.socket.on('message', (event: string) => {
       log.debug('WebSocket message received', event)
 
-      const dataAsString = event.toString('utf8')
-
       // Handle ping messages
-      if (dataAsString === 'ping') {
+      if (event === 'ping') {
         log.debug('Received ping, sending pong')
 
         this.send('pong')
@@ -285,15 +288,15 @@ export class WebSocketWrapper {
 
       // Call the message callback for other messages
       try {
-        const data = JSON.parse(dataAsString)
+        const data = JSON.parse(event)
         this.messageCallback(data)
       } catch (error) {
         log.error('Failed to parse WebSocket message', error)
       }
     })
 
-    this.socket.on('close', (code, reason) => {
-      log.debug('WebSocket connection closed', code, reason.toString())
+    this.socket.on('close', ({code, reason}) => {
+      log.debug('WebSocket connection closed', code, reason?.toString())
 
       this.callStatusCallbacks('CLOSED')
 
@@ -356,10 +359,17 @@ class WebSocketAuthProviderImpl {
 
 type EventCallback = {
   open: (event: any) => void,
-  message: (event: any) => void,
-  close: (code: number, reason: string) => void,
-  error: (error: Error) => void
-};
+  message: (event: string) => void,
+  close: (event: {code: number, reason: string}) => void,
+  error: (error: any) => void
+}
+
+enum ReadyState {
+  CONNECTING = 0,
+  OPEN = 1,
+  CLOSING = 2,
+  CLOSED = 3
+}
 
 class WebsocketAdapter {
   constructor(
@@ -369,13 +379,40 @@ class WebsocketAdapter {
 
   public get readyState(): number {
     if (this.websocket) {
-      return this.websocket.readyState
+      if (isNode) {
+        switch ((this.websocket as WebSocketNode).readyState) {
+          case WebSocketNode.CONNECTING:
+            return ReadyState.CONNECTING
+          case WebSocketNode.OPEN:
+            return ReadyState.OPEN
+          case WebSocketNode.CLOSING:
+            return ReadyState.CLOSING
+          case WebSocketNode.CLOSED:
+            return ReadyState.CLOSED
+        }
+      } else {
+        switch ((this.websocket as WebSocket).readyState) {
+          case WebSocket.CONNECTING:
+            return ReadyState.CONNECTING
+          case WebSocket.OPEN:
+            return ReadyState.OPEN
+          case WebSocket.CLOSING:
+            return ReadyState.CLOSING
+          case WebSocket.CLOSED:
+            return ReadyState.CLOSED
+        }
+      }
     }
-    return isNode ? WebSocketNode.CLOSED : WebSocket.CLOSED
+    return ReadyState.CLOSED
   }
 
+  /**
+   * This is not throwing an error if the websocket is not open, because the purpose of the websocket wrapper is custom to notifications needs (subscribe and ping pong only)
+   * If in the future we need to use it for other purposes, we will have to throw an error and update the implementation of ping pong in the notification
+   * @param data the data to send
+   */
   public send(data: Buffer | ArrayBuffer | string) {
-    if (this.websocket && (isNode && this.websocket.readyState === WebSocketNode.OPEN || this.websocket.readyState === WebSocket.OPEN)) {
+    if (this.websocket && this.readyState === ReadyState.OPEN) {
       this.websocket.send(data)
     }
   }
@@ -386,22 +423,73 @@ class WebsocketAdapter {
     }
   }
 
-  public on<K extends keyof EventCallback>(event: K, callback: EventCallback[K]) {
+   private onMessage(callback: (event: string) => void) {
     if (this.websocket) {
       if (isNode) {
-        (this.websocket as WebSocketNode).on(event, callback)
+        (this.websocket as WebSocketNode).on('message', (x) => callback(x.toString('utf8')))
       } else {
-        (this.websocket as WebSocket).addEventListener(event, callback as any)
+        (this.websocket as WebSocket).addEventListener('message', async (event) => {
+          let dataAsString: string | undefined
+          if (event.type === 'message') {
+            dataAsString = event.data
+          } else log.error("Unexpected event type: " + event.type)
+          if (!dataAsString) {
+            log.error("Failed to parse WebSocket message")
+            return
+          }
+
+          callback(dataAsString)
+        })
+      }
+    }
+    else {
+      log.error("Websocket is not defined")
+      throw new Error('Websocket is not defined')
+    }
+  }
+
+  private onOpen(callback: (event: any) => void) {
+    if (this.websocket) {
+      if (isNode) {
+        (this.websocket as WebSocketNode).on('open', callback)
+      } else {
+        (this.websocket as WebSocket).addEventListener('open', callback)
       }
     }
   }
 
-  public off<K extends keyof EventCallback>(event: K, callback: EventCallback[K]) {
+  private onClose(callback: (event: {code: number, reason: string}) => void) {
     if (this.websocket) {
       if (isNode) {
-        (this.websocket as WebSocketNode).off(event, callback)
+        (this.websocket as WebSocketNode).on('close', callback)
       } else {
-        (this.websocket as WebSocket).removeEventListener(event, callback as any)
+        (this.websocket as WebSocket).addEventListener('close', callback)
+      }
+    }
+  }
+
+  private onError(callback: (error: any) => void) {
+    if (this.websocket) {
+      if (isNode) {
+        (this.websocket as WebSocketNode).on('error', callback)
+      } else {
+        (this.websocket as WebSocket).addEventListener('error', callback)
+      }
+    }
+  }
+
+
+  public on<K extends keyof EventCallback>(event: K, callback: EventCallback[K]) {
+    if (this.websocket) {
+      switch (event) {
+        case 'message':
+          return this.onMessage(callback as EventCallback['message'])
+        case 'open':
+          return this.onOpen(callback as EventCallback['open'])
+        case 'close':
+          return this.onClose(callback as EventCallback['close'])
+        case 'error':
+          return this.onError(callback as EventCallback['error'])
       }
     }
   }
