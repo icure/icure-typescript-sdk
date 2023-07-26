@@ -50,7 +50,7 @@ export function subscribeToEntityEvents(
   filter: AbstractFilter<Contact> | undefined,
   eventFired: (entity: Contact) => Promise<void>,
   options: SubscriptionOptions,
-  decryptor: (encrypted: Service) => Promise<Service>
+  decryptor: (encrypted: Contact) => Promise<Contact>
 ): Promise<WebSocketWrapper>
 export function subscribeToEntityEvents(
   basePath: string,

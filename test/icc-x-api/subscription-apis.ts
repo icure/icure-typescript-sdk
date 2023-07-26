@@ -145,6 +145,7 @@ describe('Subscription API', () => {
 
       assert(events.length === 1, 'The events have not been recorded')
       assert(statuses.length === 2, 'The statuses have not been recorded')
+      assert(events.every((event) => target === 'service' && event instanceof Service || target === 'contact' && event instanceof Contact), 'The events are not of type ' + target)
     }
 
     const createService = async () => {
@@ -371,6 +372,7 @@ describe('Subscription API', () => {
 
       assert(events.length === 1, 'The events have not been recorded')
       assert(statuses.length === 2, 'The statuses have not been recorded')
+      assert(events.every((event) => event instanceof MaintenanceTask), 'The events are not of type MaintenanceTask')
     }
 
     it('CREATE MaintenanceTask without options', async () => {
@@ -459,6 +461,7 @@ describe('Subscription API', () => {
 
       assert(events.length === 1, 'The events have not been recorded')
       assert(statuses.length === 2, 'The statuses have not been recorded')
+      assert(events.every((event) => event instanceof HealthElement), 'The events are not of type HealthElement')
     }
 
     it('CREATE HealthElement without options', async () => {
@@ -536,6 +539,7 @@ describe('Subscription API', () => {
 
       assert(events.length === 1, 'The events have not been recorded')
       assert(statuses.length === 2, 'The statuses have not been recorded')
+      assert(events.every((event) => event instanceof Patient), 'The events are not of type Patient')
     }
 
     it('CREATE Patient without option', async () => {
@@ -601,6 +605,7 @@ describe('Subscription API', () => {
 
       assert(events.length === 1, 'The events have not been recorded')
       assert(statuses.length === 2, 'The statuses have not been recorded')
+      assert(events.every((event) => event instanceof HealthcareParty), 'The events are not of type HealthcareParty')
     }
 
     it('CREATE HealthcareParty without option', async () => {
@@ -665,6 +670,7 @@ describe('Subscription API', () => {
 
       assert(events.length === 1, 'The events have not been recorded')
       assert(statuses.length === 2, 'The statuses have not been recorded')
+      assert(events.every((event) => event instanceof Device), 'The events are not of type Device')
     }
 
     it('CREATE Device without option', async () => {
@@ -732,6 +738,7 @@ describe('Subscription API', () => {
 
       assert(events.length === 1, 'The events have not been recorded')
       assert(statuses.length === 2, 'The statuses have not been recorded')
+      assert(events.every((event) => event instanceof User), 'The events are not of type User')
     }
 
     it('CREATE User without options', async () => {
