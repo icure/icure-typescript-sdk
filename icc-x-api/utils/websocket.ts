@@ -113,7 +113,7 @@ export function subscribeToEntityEvents<T extends SubscribableEntity>(
   const config = {
     User: {
       qualifiedName: 'org.taktik.icure.entities.User',
-      decryptor: (data: User) => Promise.resolve(data as T),
+      decryptor: (data: User) => Promise.resolve(new User({...data}) as T),
     },
     Patient: {
       qualifiedName: 'org.taktik.icure.entities.Patient',
@@ -136,12 +136,12 @@ export function subscribeToEntityEvents<T extends SubscribableEntity>(
     HealthcareParty: {
       qualifiedName: 'org.taktik.icure.entities.HealthcareParty',
       decryptor: (data: HealthcareParty) =>
-        Promise.resolve(data as HealthcareParty as T),
+        Promise.resolve(new HealthcareParty({...data}) as HealthcareParty as T),
     },
     Device: {
       qualifiedName: 'org.taktik.icure.entities.Device',
       decryptor: (data: Device) =>
-        Promise.resolve(data as Device as T),
+        Promise.resolve(new Device({...data}) as Device as T),
     },
     Contact: {
       qualifiedName: 'org.taktik.icure.entities.Contact',

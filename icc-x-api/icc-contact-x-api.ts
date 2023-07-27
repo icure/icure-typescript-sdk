@@ -1033,7 +1033,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       filter,
       eventFired,
       options,
-      async (encrypted: Service) => (await this.decryptServices(currentUser.healthcarePartyId!, [encrypted]))[0] as Service
+      async (encrypted: Service) => (await this.decryptServices(currentUser.healthcarePartyId!, [encrypted]))[0]
     ).then((ws) => new ConnectionImpl(ws))
   }
 
@@ -1052,7 +1052,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       filter,
       eventFired,
       options,
-      async (encrypted: Contact) => (await this.decrypt(currentUser.healthcarePartyId!, [encrypted]))[0] as Contact
+      async (encrypted: Contact) => (await this.decrypt(currentUser.healthcarePartyId!, [encrypted]))[0]
     ).then((ws) => new ConnectionImpl(ws))
   }
 }
