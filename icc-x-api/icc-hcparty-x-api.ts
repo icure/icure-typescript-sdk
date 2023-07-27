@@ -168,7 +168,7 @@ export class IccHcpartyXApi extends IccHcpartyApi {
       'HealthcareParty',
       eventTypes,
       filter,
-      eventFired,
+      (x) => eventFired(x as HealthcareParty),
       options,
     ).then((rs) => new ConnectionImpl(rs))
   }

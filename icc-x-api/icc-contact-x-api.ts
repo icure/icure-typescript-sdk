@@ -487,7 +487,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
           keys = await this.crypto.entities.importAllValidKeys(await this.crypto.entities.encryptionKeysOf(svc, hcpartyId))
         }
 
-        return new Contact(
+        return new Service(
           await decryptObject(svc, async (encrypted) => {
             return (await this.crypto.entities.tryDecryptJson(keys!, encrypted, false)) ?? {}
           })
@@ -1033,7 +1033,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       filter,
       eventFired,
       options,
-      async (encrypted) => (await this.decryptServices(currentUser.healthcarePartyId!, [encrypted]))[0]
+      async (encrypted: Service) => (await this.decryptServices(currentUser.healthcarePartyId!, [encrypted]))[0] as Service
     ).then((ws) => new ConnectionImpl(ws))
   }
 
@@ -1052,7 +1052,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       filter,
       eventFired,
       options,
-      async (encrypted) => (await this.decryptServices(currentUser.healthcarePartyId!, [encrypted]))[0]
+      async (encrypted: Contact) => (await this.decrypt(currentUser.healthcarePartyId!, [encrypted]))[0] as Contact
     ).then((ws) => new ConnectionImpl(ws))
   }
 }

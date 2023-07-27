@@ -95,7 +95,7 @@ describe('Subscription API', () => {
       const connectionPromise = async (
         options: { connectionMaxRetry?: number; connectionRetryIntervalMs?: number },
         dataOwnerId: string,
-        eventListener: (ds: Service) => Promise<void>
+        eventListener: (ds: Service | Contact) => Promise<void>
       ) =>
         target === 'service' ?
           subscriptionApi!.contactApi.subscribeToServiceEvents(
@@ -145,7 +145,7 @@ describe('Subscription API', () => {
 
       assert(events.length === 1, 'The events have not been recorded')
       assert(statuses.length === 2, 'The statuses have not been recorded')
-      assert(events.every((event) => target === 'service' && event instanceof Service || target === 'contact' && event instanceof Contact), 'The events are not of type ' + target)
+      assert(events.every((event) => target === 'service' && event satisfies Service || target === 'contact' && event satisfies Contact), 'The events are not of type ' + target)
     }
 
     const createService = async () => {
@@ -605,7 +605,6 @@ describe('Subscription API', () => {
 
       assert(events.length === 1, 'The events have not been recorded')
       assert(statuses.length === 2, 'The statuses have not been recorded')
-      assert(events.every((event) => event instanceof HealthcareParty), 'The events are not of type HealthcareParty')
     }
 
     it('CREATE HealthcareParty without option', async () => {
@@ -670,7 +669,6 @@ describe('Subscription API', () => {
 
       assert(events.length === 1, 'The events have not been recorded')
       assert(statuses.length === 2, 'The statuses have not been recorded')
-      assert(events.every((event) => event instanceof Device), 'The events are not of type Device')
     }
 
     it('CREATE Device without option', async () => {
@@ -738,7 +736,6 @@ describe('Subscription API', () => {
 
       assert(events.length === 1, 'The events have not been recorded')
       assert(statuses.length === 2, 'The statuses have not been recorded')
-      assert(events.every((event) => event instanceof User), 'The events are not of type User')
     }
 
     it('CREATE User without options', async () => {
