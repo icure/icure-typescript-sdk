@@ -46,11 +46,6 @@ export class Annotation {
   markdown?: { [lang in ISO639_1]?: string }
 
   /**
-   * If true, the note is confidential and should be encrypted.
-   */
-  confidential?: boolean
-
-  /**
    * A tag is an item from a codification system that qualifies an entity as being member of a certain class, whatever the value it might have taken. If the tag qualifies the content of a field, it means that whatever the content of the field, the tag will always apply. For example, the label of a field is qualified using a tag. LOINC is a codification system typically used for tags.
    */
   tags?: Array<CodeStub>
