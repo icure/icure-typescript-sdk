@@ -23,6 +23,20 @@ import { PatientByHcPartyNameContainsFuzzyFilter } from './PatientByHcPartyNameC
 
 import GenderEnum = Patient.GenderEnum
 import { ContactByHcPartyFilter } from './ContactByHcPartyFilter'
+import { HealthcareParty } from '../../icc-api/model/HealthcareParty'
+import { AbstractFilterHealthcareParty } from 'icc-api/model/AbstractFilterHealthcareParty'
+import { Device } from '../../icc-api/model/Device'
+import { AbstractFilterDevice } from '../../icc-api/model/AbstractFilterDevice'
+import { MaintenanceTask } from '../../icc-api/model/MaintenanceTask'
+import { AbstractFilterMaintenanceTask } from 'icc-api/model/AbstractFilterMaintenanceTask'
+import { Code } from '../../icc-api/model/Code'
+import { AbstractFilterCode } from '../../icc-api/model/AbstractFilterCode'
+import { HealthElement } from '../../icc-api/model/HealthElement'
+import { AbstractFilterHealthElement } from '../../icc-api/model/AbstractFilterHealthElement'
+import { Invoice } from '../../icc-api/model/Invoice'
+import { AbstractFilterInvoice } from '../../icc-api/model/AbstractFilterInvoice'
+import { User } from '../../icc-api/model/User'
+import { AbstractFilterUser } from '../../icc-api/model/AbstractFilterUser'
 
 export * from './AllCodesFilter'
 export * from './AllDevicesFilter'
@@ -81,13 +95,32 @@ export class Filter {
   }
 }
 
-export type AbstractFilter<T> = T extends Patient
-  ? AbstractFilterPatient | ConstantFilter<Patient> | IntersectionFilter<Patient> | UnionFilter<Patient> | ComplementFilter<Patient>
-  : T extends Contact
-  ? AbstractFilterContact | ConstantFilter<T> | IntersectionFilter<T> | UnionFilter<T> | ComplementFilter<T>
-  : T extends Service
-  ? AbstractFilterService | ConstantFilter<T> | IntersectionFilter<T> | UnionFilter<T> | ComplementFilter<T>
-  : ConstantFilter<T> | IntersectionFilter<T> | UnionFilter<T> | ComplementFilter<T>
+export type AbstractFilter<T> =
+  | (T extends Patient
+      ? AbstractFilterPatient
+      : T extends Contact
+      ? AbstractFilterContact
+      : T extends Service
+      ? AbstractFilterService
+      : T extends HealthcareParty
+      ? AbstractFilterHealthcareParty
+      : T extends Device
+      ? AbstractFilterDevice
+      : T extends MaintenanceTask
+      ? AbstractFilterMaintenanceTask
+      : T extends Code
+      ? AbstractFilterCode
+      : T extends HealthElement
+      ? AbstractFilterHealthElement
+      : T extends Invoice
+      ? AbstractFilterInvoice
+      : T extends User
+      ? AbstractFilterUser
+      : never)
+  | ConstantFilter<T>
+  | IntersectionFilter<T>
+  | UnionFilter<T>
+  | ComplementFilter<T>
 
 const f: AbstractFilterContact = new ComplementFilter<Contact>(new ContactByHcPartyFilter({}), new ContactByHcPartyFilter({}))
 
