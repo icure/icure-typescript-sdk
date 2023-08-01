@@ -44,7 +44,7 @@ describe('icc-x-accesslog-api Tests', () => {
 
     const authProvider = new BasicAuthenticationProvider(username, password)
 
-    const userApi = new IccUserXApi(env.iCureUrl, {}, authProvider, fetch)
+    const userApi = new IccUserXApi(env.iCureUrl, {}, authProvider, null as any, fetch)
     const accessLogApi = new IccAccesslogApi(env.iCureUrl, {}, authProvider, fetch)
 
     const currentUser = await userApi.getCurrentUser()
