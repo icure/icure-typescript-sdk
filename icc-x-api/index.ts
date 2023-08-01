@@ -25,7 +25,8 @@ import {
   IccPubsubApi,
   IccReplicationApi,
   IccTarificationApi,
-  IccTmpApi, IccUserApi,
+  IccTmpApi,
+  IccUserApi,
   OAuthThirdParty,
 } from '../icc-api'
 import { IccUserXApi } from './icc-user-x-api'
@@ -77,7 +78,7 @@ import { CryptoActorStubWithType } from '../icc-api/model/CryptoActorStub'
 import { IccBekmehrXApi } from './icc-bekmehr-x-api'
 import { IccDoctemplateXApi } from './icc-doctemplate-x-api'
 import { UserGroup } from '../icc-api/model/UserGroup'
-import {IccDeviceXApi} from "./icc-device-x-api"
+import { IccDeviceXApi } from './icc-device-x-api'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -198,6 +199,18 @@ export interface IcureApiOptions {
    * if for the same user and if the groups available for the user do not change.
    */
   readonly groupSelector?: (availableGroupsInfo: UserGroup[]) => Promise<string>
+  /**
+   * Temporary value to support EHR Lite and MedTech api implementations.
+   *
+   * Currently, all hcps are able to access encrypted data shared with any of their parents, and on initialisation the api will verify that there is a
+   * key pair available for the current user and for every parent of the user. If this option is set to true, the api will not load keys for the
+   * parent users.
+   *
+   * This "implicit data-sharing scheme" (each parent HCP is essentially sharing data with all its children HCPs), however, may not be ideal for all
+   * use cases, and it will be changed in future to be configurable in order to make it more general.
+   * @default false, equivalent to previous behaviour.
+   */
+  readonly disableParentKeysInitialisation?: boolean
 }
 namespace IcureApiOptions {
   export namespace Defaults {
@@ -214,6 +227,7 @@ namespace IcureApiOptions {
       this.headers = custom.headers ?? Defaults.headers
       this.encryptedFieldsConfig = custom.encryptedFieldsConfig ?? EncryptedFieldsConfig.Defaults
       this.groupSelector = custom.groupSelector ?? ((groups) => Promise.resolve(groups[0].groupId!))
+      this.disableParentKeysInitialisation = custom.disableParentKeysInitialisation ?? false
     }
 
     readonly entryKeysFactory: StorageEntryKeysFactory
@@ -223,6 +237,7 @@ namespace IcureApiOptions {
     readonly headers: { [headerName: string]: string }
     readonly encryptedFieldsConfig: EncryptedFieldsConfig
     readonly groupSelector: (availableGroupsInfo: UserGroup[]) => Promise<string>
+    readonly disableParentKeysInitialisation: boolean
   }
 }
 
@@ -292,18 +307,18 @@ namespace IcureApiOptions {
  * {
  *   b: "hello",
  *   c: [
- *     { public: "a", encryptedSelf: "...encrypted data of c[0]" },
- *     { public: "c", encryptedSelf: "...encrypted data of c[1]" }
+ *     { public: "a", encryptedSelf: 'encrypted+encoded { secret: "b" }' },
+ *     { public: "c", encryptedSelf: 'encrypted+encoded { secret: "d" }' }
  *   ],
  *   e: {
  *     info: "something",
  *     dataMap: {
- *       "en": { b: 2, encryptedSelf: "...encrypted data of e.dataMap['en']" },
- *       "fr": { b: 4, encryptedSelf: "...encrypted data of e.dataMap['fr']" }
+ *       "en": { b: 2, encryptedSelf: 'encrypted+encoded { a: 1 }' },
+ *       "fr": { b: 4, encryptedSelf: 'encrypted+encoded { a: 3 }' }
  *     },
- *     encryptedSelf: "...encrypted data of e"
+ *     encryptedSelf: 'encrypted+encoded { private: "secret" }'
  *   },
- *   encryptedSelf: "...encrypted data of obj"
+ *   encryptedSelf: 'encrypted+encoded { a: { x: 0, y: 1 }, d: "ok" }'
  * }
  * ```
  *
@@ -490,7 +505,7 @@ async function initialiseCryptoWithProvider(
   const authApi = new IccAuthApi(host, params.headers, groupSpecificAuthenticationProvider, fetchImpl)
   const userApi = new IccUserXApi(host, params.headers, groupSpecificAuthenticationProvider, authApi, fetchImpl)
   const healthcarePartyApi = new IccHcpartyXApi(host, params.headers, groupSpecificAuthenticationProvider, authApi, fetchImpl)
-  const deviceApi = new IccDeviceXApi(host, params.headers, groupSpecificAuthenticationProvider, userApi, authApi,fetchImpl)
+  const deviceApi = new IccDeviceXApi(host, params.headers, groupSpecificAuthenticationProvider, userApi, authApi, fetchImpl)
   const basePatientApi = new IccPatientApi(host, params.headers, groupSpecificAuthenticationProvider, fetchImpl)
   const dataOwnerApi = new IccDataOwnerXApi(host, params.headers, groupSpecificAuthenticationProvider, fetchImpl)
   // Crypto initialisation
@@ -498,7 +513,15 @@ async function initialiseCryptoWithProvider(
   const cryptoPrimitives = new CryptoPrimitives(crypto)
   const baseExchangeKeysManager = new BaseExchangeKeysManager(cryptoPrimitives, dataOwnerApi, healthcarePartyApi, basePatientApi, deviceApi)
   const keyRecovery = new KeyRecovery(cryptoPrimitives, baseExchangeKeysManager, dataOwnerApi)
-  const keyManager = new KeyManager(cryptoPrimitives, dataOwnerApi, icureStorage, keyRecovery, baseExchangeKeysManager, cryptoStrategies)
+  const keyManager = new KeyManager(
+    cryptoPrimitives,
+    dataOwnerApi,
+    icureStorage,
+    keyRecovery,
+    baseExchangeKeysManager,
+    cryptoStrategies,
+    !params.disableParentKeysInitialisation
+  )
   const newKey = await keyManager.initialiseKeys()
   await new TransferKeysManager(cryptoPrimitives, baseExchangeKeysManager, dataOwnerApi, keyManager, icureStorage).updateTransferKeys(
     CryptoActorStubWithType.fromDataOwner(await dataOwnerApi.getCurrentDataOwner())
@@ -514,9 +537,9 @@ async function initialiseCryptoWithProvider(
     keyManager,
     baseExchangeKeysManager,
     dataOwnerApi,
-    icureStorage
+    !params.disableParentKeysInitialisation
   )
-  const entitiesEncryption = new EntitiesEncryption(cryptoPrimitives, dataOwnerApi, exchangeKeysManager)
+  const entitiesEncryption = new EntitiesEncryption(cryptoPrimitives, dataOwnerApi, exchangeKeysManager, !params.disableParentKeysInitialisation)
   const shamirManager = new ShamirKeysManager(cryptoPrimitives, dataOwnerApi, keyManager, exchangeKeysManager)
   const confidentialEntitites = new ConfidentialEntities(entitiesEncryption, cryptoPrimitives, dataOwnerApi)
   await ensureDelegationForSelf(dataOwnerApi, entitiesEncryption, cryptoPrimitives, basePatientApi)

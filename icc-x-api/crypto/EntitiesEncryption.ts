@@ -26,15 +26,12 @@ import { CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
  * Give access to functions for retrieving encryption metadata of entities.
  */
 export class EntitiesEncryption {
-  private readonly primitives: CryptoPrimitives
-  private readonly dataOwnerApi: IccDataOwnerXApi
-  private readonly exchangeKeysManager: ExchangeKeysManager
-
-  constructor(primitives: CryptoPrimitives, dataOwnerApi: IccDataOwnerXApi, exchangeKeysManager: ExchangeKeysManager) {
-    this.primitives = primitives
-    this.dataOwnerApi = dataOwnerApi
-    this.exchangeKeysManager = exchangeKeysManager
-  }
+  constructor(
+    private readonly primitives: CryptoPrimitives,
+    private readonly dataOwnerApi: IccDataOwnerXApi,
+    private readonly exchangeKeysManager: ExchangeKeysManager,
+    private readonly useParentKeys: boolean
+  ) {}
 
   /**
    * Get the data owners which can access the entity
@@ -621,8 +618,11 @@ export class EntitiesEncryption {
     validateDecrypted: (result: string) => boolean | Promise<boolean>,
     tagsFilter: (tags: string[]) => Promise<boolean>
   ): Promise<{ ownerId: string; extracted: string[] }[]> {
+    const canDecryptOwnerIds = this.useParentKeys
+      ? await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
+      : [await this.dataOwnerApi.getCurrentDataOwnerId()]
     return Promise.all(
-      (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()).map(async (ownerId) => {
+      canDecryptOwnerIds.map(async (ownerId) => {
         const extracted = this.deduplicate(
           await this.extractFromDelegationsForDataOwner(
             ownerId,
@@ -646,9 +646,11 @@ export class EntitiesEncryption {
     validateDecrypted: (result: string) => boolean | Promise<boolean>,
     tagsFilter: (tags: string[]) => Promise<boolean>
   ): Promise<string[]> {
-    const hierarchy = dataOwnerId
-      ? await this.dataOwnerApi.getCurrentDataOwnerHierarchyIdsFrom(dataOwnerId)
-      : await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
+    const hierarchy = this.useParentKeys
+      ? dataOwnerId
+        ? await this.dataOwnerApi.getCurrentDataOwnerHierarchyIdsFrom(dataOwnerId)
+        : await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
+      : [dataOwnerId ?? (await this.dataOwnerApi.getCurrentDataOwnerId())]
     const extractedByOwner = await Promise.all(
       // Reverse is just to keep method behaviour as close as possible to the legacy behaviour, in case someone depended on the ordering.
       [...hierarchy].reverse().map((ownerId) =>
