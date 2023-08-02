@@ -8,7 +8,7 @@ import { expect } from 'chai'
 import { XHR } from '../../../icc-api/api/XHR'
 import XHRError = XHR.XHRError
 import { IccAuthApi } from '../../../icc-api'
-import { BasicAuthenticationProvider, JwtAuthenticationProvider } from '../../../icc-x-api/auth/AuthenticationProvider'
+import { BasicAuthenticationProvider, JwtAuthenticationProvider, NoAuthenticationProvider } from '../../../icc-x-api/auth/AuthenticationProvider'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
 setLocalStorage(fetch)
@@ -87,7 +87,7 @@ describe('Jwt authentication concurrency test', () => {
   })
 
   it('Can instantiate a x-api without provider and get a 401', async () => {
-    const xUserApi = new IccUserXApi(env.iCureUrl, {})
+    const xUserApi = new IccUserXApi(env.iCureUrl, {}, new NoAuthenticationProvider(), null as any)
     xUserApi
       .getCurrentUser()
       .then(() => {
@@ -103,7 +103,8 @@ describe('Jwt authentication concurrency test', () => {
     const xUserApi = new IccUserXApi(
       env.iCureUrl,
       {},
-      new JwtAuthenticationProvider(authApi, env.dataOwnerDetails[hcp1Username].user, env.dataOwnerDetails[hcp1Username].password)
+      new JwtAuthenticationProvider(authApi, env.dataOwnerDetails[hcp1Username].user, env.dataOwnerDetails[hcp1Username].password),
+      null as any
     )
 
     const users = await Promise.all(
@@ -118,13 +119,7 @@ describe('Jwt authentication concurrency test', () => {
 
   it('Can instantiate a user-x-api with Basic provider and make requests', async () => {
     const a = new BasicAuthenticationProvider(env.dataOwnerDetails[hcp1Username].user, env.dataOwnerDetails[hcp1Username].password)
-    const headers = await a.getAuthService().getAuthHeaders()
-    const xUserApi = new IccUserXApi(
-      env.iCureUrl,
-      headers.reduce((prev, h) => {
-        return { ...prev, [h.header]: h.data }
-      }, {})
-    )
+    const xUserApi = new IccUserXApi(env.iCureUrl, {}, a, null as any)
 
     const currentUser = await xUserApi.getCurrentUser()
     expect(currentUser.login).to.be.equal(env.dataOwnerDetails[hcp1Username].user)

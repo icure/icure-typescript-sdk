@@ -29,32 +29,19 @@ type CurrentOwnerKeyGenerator = (self: DataOwnerWithType) => Promise<KeyPair<Cry
  * Allows to manage public and private keys for the current user and his parent hierarchy.
  */
 export class KeyManager {
-  private readonly primitives: CryptoPrimitives
-  private readonly dataOwnerApi: IccDataOwnerXApi
-  private readonly keyRecovery: KeyRecovery
-  private readonly icureStorage: IcureStorageFacade
-  private readonly baseExchangeKeyManager: BaseExchangeKeysManager
-  private readonly strategies: CryptoStrategies
-
   private selfId: string | undefined
   private selfLegacyPublicKey: string | undefined
   private keysCache: { [selfOrParentId: string]: { [pubKeyFingerprint: string]: KeyPairData } } | undefined = undefined
 
   constructor(
-    primitives: CryptoPrimitives,
-    dataOwnerApi: IccDataOwnerXApi,
-    icureStorage: IcureStorageFacade,
-    keyRecovery: KeyRecovery,
-    baseExchangeKeyManager: BaseExchangeKeysManager,
-    strategies: CryptoStrategies
-  ) {
-    this.primitives = primitives
-    this.icureStorage = icureStorage
-    this.dataOwnerApi = dataOwnerApi
-    this.keyRecovery = keyRecovery
-    this.baseExchangeKeyManager = baseExchangeKeyManager
-    this.strategies = strategies
-  }
+    private readonly primitives: CryptoPrimitives,
+    private readonly dataOwnerApi: IccDataOwnerXApi,
+    private readonly icureStorage: IcureStorageFacade,
+    private readonly keyRecovery: KeyRecovery,
+    private readonly baseExchangeKeyManager: BaseExchangeKeysManager,
+    private readonly strategies: CryptoStrategies,
+    private readonly initialiseParentKeys: boolean
+  ) {}
 
   /**
    * Get the public keys of available key pairs for the current user in hex-encoded spki representation (uses cached keys: no request is done to the
@@ -215,7 +202,7 @@ export class KeyManager {
     const self = hierarchy[hierarchy.length - 1]
     this.selfId = self.dataOwner.id!
     const keysData = []
-    for (const dowt of hierarchy) {
+    for (const dowt of this.initialiseParentKeys ? hierarchy : [self]) {
       const availableKeys = await this.loadAndRecoverKeysFor(dowt)
       const verifiedKeysMap = await this.icureStorage.loadSelfVerifiedKeys(dowt.dataOwner.id!)
       const allPublicKeys = this.dataOwnerApi.getHexPublicKeysOf(dowt.dataOwner)
