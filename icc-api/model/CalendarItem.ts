@@ -71,6 +71,7 @@ export class CalendarItem {
   startTime?: number
   endTime?: number
   confirmationTime?: number
+  cancellationTimestamp?: number
   confirmationId?: string
   duration?: number
   allDay?: boolean
