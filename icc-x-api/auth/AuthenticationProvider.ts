@@ -80,8 +80,8 @@ export class EnsembleAuthenticationProvider implements AuthenticationProvider {
 }
 
 export class JwtAuthenticationProvider implements AuthenticationProvider {
-  getIcureTokens(): Promise<{ token: string; refreshToken: string }> {
-    return Promise.resolve({ refreshToken: '', token: '' })
+  getIcureTokens(): Promise<{ token: string; refreshToken: string } | undefined> {
+    return this.jwtAuth.getIcureTokens()
   }
 
   private readonly jwtAuth: JwtAuthService | JwtBridgedAuthService
