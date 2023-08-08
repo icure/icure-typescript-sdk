@@ -18,7 +18,7 @@ export class JwtAuthService implements AuthService {
   }
 
   getIcureTokens(): Promise<{ token: string; refreshToken: string } | undefined> {
-    return this._currentPromise.then((x) => (x ? { token: x.authJwt, refreshToken: x.refreshJwt } : undefined) as any)
+    return this._currentPromise.then((x) => (x ? { token: x.authJwt, refreshToken: x.refreshJwt } : undefined))
   }
 
   get refreshToken(): Promise<string | undefined> {
