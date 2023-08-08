@@ -437,7 +437,25 @@ export namespace IcureApi {
   ): Promise<IcureApi> {
     const params = new IcureApiOptions.WithDefaults(options)
     let grouplessAuthenticationProvider: AuthenticationProvider
-    if ('username' in authenticationOptions && 'password' in authenticationOptions) {
+    if ('getIcureTokens' in authenticationOptions && 'switchGroup' in authenticationOptions && 'getAuthService' in authenticationOptions) {
+      const tokens = await authenticationOptions.getIcureTokens()
+      if (!!tokens && !!tokens.token && !!tokens.refreshToken) {
+        grouplessAuthenticationProvider = new JwtAuthenticationProvider(
+          new IccAuthApi(host, params.headers, new NoAuthenticationProvider(), fetchImpl),
+          undefined,
+          undefined,
+          undefined,
+          tokens
+        )
+      } else {
+        grouplessAuthenticationProvider = authenticationOptions
+      }
+    } else if (
+      'username' in authenticationOptions &&
+      'password' in authenticationOptions &&
+      !!authenticationOptions.username &&
+      !!authenticationOptions.password
+    ) {
       grouplessAuthenticationProvider = new EnsembleAuthenticationProvider(
         new IccAuthApi(host, params.headers, new NoAuthenticationProvider(), fetchImpl),
         authenticationOptions.username,
@@ -447,16 +465,8 @@ export namespace IcureApi {
         undefined,
         authenticationOptions.thirdPartyTokens
       )
-    } else if ('icureTokens' in authenticationOptions) {
-      grouplessAuthenticationProvider = new JwtAuthenticationProvider(
-        new IccAuthApi(host, {}, new NoAuthenticationProvider(), fetchImpl),
-        undefined,
-        undefined,
-        undefined,
-        (authenticationOptions as unknown as AuthenticationDetails).icureTokens!
-      )
     } else {
-      grouplessAuthenticationProvider = authenticationOptions
+      throw new Error('Invalid authentication options provided')
     }
     const grouplessUserApi = new IccUserApi(host, params.headers, grouplessAuthenticationProvider, fetchImpl)
     const matches = await grouplessUserApi.getMatchingUsers()
