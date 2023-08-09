@@ -7,6 +7,9 @@ import { a2b } from '../utils'
 import { AuthenticationResponse } from '../../icc-api/model/AuthenticationResponse'
 import XHRError = XHR.XHRError
 
+/**
+ * Differs from JwtAuthService in that it can create new refresh tokens if the old one is expired
+ */
 export class JwtBridgedAuthService implements AuthService {
   private _error: Error | null = null
   private _currentPromise: Promise<{ authJwt?: string; refreshJwt?: string }> = Promise.resolve({})

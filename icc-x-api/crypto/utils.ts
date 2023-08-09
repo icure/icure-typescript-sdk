@@ -16,7 +16,7 @@ import { IccPatientApi } from '../../icc-api'
 
 /**
  * @internal this function is meant only for internal use and may be changed without notice.
- * Get the public keys of a data owner, same as {@link dataOwnerApi.getHexPublicKeysOf}.
+ * Get the public keys of a data owner, same as {@link IccDataOwnerXApi.getHexPublicKeysOf}.
  * @param dataOwner
  */
 export function hexPublicKeysOf(dataOwner: DataOwnerOrStub) {
