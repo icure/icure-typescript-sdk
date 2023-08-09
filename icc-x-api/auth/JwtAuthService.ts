@@ -7,6 +7,9 @@ import { a2b } from '../utils'
 import { AuthenticationResponse } from '../../icc-api/model/AuthenticationResponse'
 import XHRError = XHR.XHRError
 
+/**
+ * Differs from JwtBridgedAuthService in that it cannot create new refresh tokens
+ */
 export class JwtAuthService implements AuthService {
   private _error: Error | null = null
   private _currentPromise: Promise<{ authJwt: string; refreshJwt: string } | undefined> = Promise.resolve(undefined as any)
@@ -17,12 +20,12 @@ export class JwtAuthService implements AuthService {
     }
   }
 
-  getIcureTokens(): Promise<{ token: string; refreshToken: string } | undefined> {
-    return this._currentPromise.then((x) => (x ? { token: x.authJwt, refreshToken: x.refreshJwt } : undefined))
-  }
-
   get refreshToken(): Promise<string | undefined> {
     return this._currentPromise.then((x) => x?.refreshJwt as any)
+  }
+
+  getIcureTokens(): Promise<{ token: string; refreshToken: string } | undefined> {
+    return this._currentPromise.then((x) => (x ? { token: x.authJwt, refreshToken: x.refreshJwt } : undefined))
   }
 
   async getAuthHeaders(): Promise<Array<Header>> {
