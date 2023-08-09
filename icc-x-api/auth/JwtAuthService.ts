@@ -44,8 +44,8 @@ export class JwtAuthService implements AuthService {
 
             return updatedTokens
           })
-        } else {
-          throw this._error ?? 'Expired JWT refresh token in pure JwtAuthService incapable of relogging'
+        } else if (!!this._error) {
+          throw this._error
         }
         return this._currentPromise
       })
