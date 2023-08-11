@@ -3,7 +3,7 @@ import {Device} from '../icc-api/model/Device'
 import {AuthenticationProvider, NoAuthenticationProvider} from './auth/AuthenticationProvider'
 import {AbstractFilter} from "./filters/filters"
 import {Connection, ConnectionImpl} from "../icc-api/model/Connection"
-import {subscribeToEntityEvents} from "./utils/websocket"
+import {subscribeToEntityEvents, SubscriptionOptions} from "./utils/websocket"
 import {IccUserXApi} from "./icc-user-x-api"
 
 // noinspection JSUnusedGlobalSymbols
@@ -33,7 +33,7 @@ export class IccDeviceXApi extends IccDeviceApi {
     eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
     filter: AbstractFilter<Device> | undefined,
     eventFired: (dataSample: Device) => Promise<void>,
-    options: { connectionMaxRetry?: number; connectionRetryIntervalMs?: number } = {}
+    options: SubscriptionOptions = {}
   ): Promise<Connection> {
     return subscribeToEntityEvents(
       this.host,

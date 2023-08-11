@@ -697,6 +697,7 @@ describe('Subscription API', () => {
       const loggedUser = await api!!.userApi.getCurrentUser()
 
       await sleep(2000)
+      await sleep(2000)
 
       const events: User[] = []
       const statuses: string[] = []
