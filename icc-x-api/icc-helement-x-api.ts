@@ -10,7 +10,7 @@ import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
-import { EncryptedFieldsManifest, parseEncryptedFields } from './utils'
+import {EncryptedFieldsManifest, parseEncryptedFields, SubscriptionOptions} from './utils'
 import {AbstractFilter} from "./filters/filters"
 import {Connection, ConnectionImpl} from "../icc-api/model/Connection"
 import {subscribeToEntityEvents} from "./utils/websocket"
@@ -443,7 +443,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
     filter: AbstractFilter<HealthElement> | undefined,
     eventFired: (dataSample: HealthElement) => Promise<void>,
-    options: { connectionMaxRetry?: number; connectionRetryIntervalMs?: number } = {}
+    options: SubscriptionOptions = {}
   ): Promise<Connection> {
     const currentUser = await this.userApi.getCurrentUser()
 
