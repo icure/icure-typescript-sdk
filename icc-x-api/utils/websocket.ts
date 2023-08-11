@@ -1,9 +1,8 @@
 import * as WebSocketNode from 'ws'
-import log, {LogLevelDesc} from 'loglevel'
 import {Patient} from "../../icc-api/model/Patient"
 import {AbstractFilter} from "../filters/filters"
 import {User} from "../../icc-api/model/User"
-import {isBrowser, isNode} from "browser-or-node"
+import {isNode} from "browser-or-node"
 import {IccAuthApi} from "../../icc-api"
 import {Service} from "../../icc-api/model/Service"
 import {HealthElement} from "../../icc-api/model/HealthElement"
@@ -15,12 +14,11 @@ import {Contact} from "../../icc-api/model/Contact"
 export type EventTypes = 'CREATE' | 'UPDATE' | 'DELETE'
 type Subscribable = 'Patient' | 'Service' | 'User' | 'HealthElement' | 'MaintenanceTask' | 'HealthcareParty' | 'Device' | 'Contact'
 type SubscribableEntity = Patient | Service | User | HealthElement | MaintenanceTask | HealthcareParty | Device | Contact
-type SubscriptionOptions = {
+export type SubscriptionOptions = {
   connectionMaxRetry?: number
   connectionRetryIntervalMs?: number
+  debug?: boolean
 }
-
-log.setLevel((process.env.WEBSOCKET_LOG_LEVEL as LogLevelDesc) ?? 'info')
 
 export function subscribeToEntityEvents(
   basePath: string,
@@ -171,9 +169,10 @@ export function subscribeToEntityEvents<T extends SubscribableEntity>(
       try {
         await config[entityClass].decryptor(data).then((o) => eventFired(o))
       } catch (e) {
-        log.error(e)
+        console.error(e)
       }
-    }
+    },
+    options.debug,
   )
 }
 
@@ -203,9 +202,9 @@ export class WebSocketWrapper {
     private readonly maxRetries = 3,
     private readonly retryDelay = 1000,
     private readonly statusCallbacks: ConnectionStatusFunctions = {},
-    private readonly messageCallback: WebSocketWrapperMessageCallback = () => {
-    }
-  ) {
+    private readonly messageCallback: WebSocketWrapperMessageCallback = () => {},
+    private readonly debug: boolean = false
+) {
     this.methodPath = new URL(url).pathname
   }
 
@@ -215,9 +214,10 @@ export class WebSocketWrapper {
     maxRetries?: number,
     retryDelay?: number,
     statusCallbacks?: ConnectionStatusFunctions,
-    messageCallback?: WebSocketWrapperMessageCallback
+    messageCallback?: WebSocketWrapperMessageCallback,
+    debug?: boolean,
   ): Promise<WebSocketWrapper> {
-    const ws = new WebSocketWrapper(url, authProvider, maxRetries, retryDelay, statusCallbacks, messageCallback)
+    const ws = new WebSocketWrapper(url, authProvider, maxRetries, retryDelay, statusCallbacks, messageCallback, debug)
     await ws.connect()
     return ws
   }
@@ -268,7 +268,7 @@ export class WebSocketWrapper {
     this.socket = new WebsocketAdapter(socket)
 
     this.socket.on('open', async () => {
-      log.debug('WebSocket connection opened')
+      if (this.debug) console.debug('WebSocket connection opened')
 
       this.intervalIds.push(
         setTimeout(() => {
@@ -280,11 +280,11 @@ export class WebSocketWrapper {
     })
 
     this.socket.on('message', (event: string) => {
-      log.debug('WebSocket message received', event)
+      if (this.debug) console.debug('WebSocket message received', event)
 
       // Handle ping messages
       if (event === 'ping') {
-        log.debug('Received ping, sending pong')
+        if (this.debug) console.debug('Received ping, sending pong')
 
         this.send('pong')
         this.lastPingReceived = Date.now()
@@ -292,7 +292,7 @@ export class WebSocketWrapper {
         this.intervalIds.push(
           setTimeout(() => {
             if (Date.now() - this.lastPingReceived > this.pingLifetime) {
-              log.error(`No ping received in the last ${this.pingLifetime} ms`)
+              console.error(`No ping received in the last ${this.pingLifetime} ms`)
               this.socket?.close()
             }
           }, this.pingLifetime)
@@ -306,12 +306,12 @@ export class WebSocketWrapper {
         const data = JSON.parse(event)
         this.messageCallback(data)
       } catch (error) {
-        log.error('Failed to parse WebSocket message', error)
+        console.error('Failed to parse WebSocket message', error)
       }
     })
 
     this.socket.on('close', ({code, reason}) => {
-      log.debug('WebSocket connection closed', code, reason?.toString())
+      if (this.debug) console.debug('WebSocket connection closed', code, reason?.toString())
 
       this.callStatusCallbacks('CLOSED')
 
@@ -329,7 +329,7 @@ export class WebSocketWrapper {
     })
 
     this.socket.on('error', async (err) => {
-      log.error('WebSocket error', err)
+      console.error('WebSocket error', err)
 
       this.callStatusCallbacks('ERROR', err)
 
@@ -447,9 +447,9 @@ class WebsocketAdapter {
           let dataAsString: string | undefined
           if (event.type === 'message') {
             dataAsString = event.data
-          } else log.error("Unexpected event type: " + event.type)
+          } else console.error("Unexpected event type: " + event.type)
           if (!dataAsString) {
-            log.error("Failed to parse WebSocket message")
+            console.error("Failed to parse WebSocket message")
             return
           }
 
@@ -458,7 +458,7 @@ class WebsocketAdapter {
       }
     }
     else {
-      log.error("Websocket is not defined")
+      console.error("Websocket is not defined")
       throw new Error('Websocket is not defined')
     }
   }

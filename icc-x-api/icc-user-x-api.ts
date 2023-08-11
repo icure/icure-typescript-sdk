@@ -3,7 +3,7 @@ import { AuthenticationProvider, NoAuthenticationProvider } from './auth/Authent
 import { AbstractFilter } from './filters/filters'
 import { User } from '../icc-api/model/User'
 import { Connection, ConnectionImpl } from '../icc-api/model/Connection'
-import { subscribeToEntityEvents } from './utils'
+import { subscribeToEntityEvents , SubscriptionOptions} from './utils'
 import { IccAuthApi } from '../icc-api'
 
 export class IccUserXApi extends IccUserApi {
@@ -45,12 +45,13 @@ export class IccUserXApi extends IccUserApi {
     } else return super.modifyUser(body)
   }
 
-  subscribeToUserEvents(
+  async subscribeToUserEvents(
     eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
     filter: AbstractFilter<User> | undefined,
     eventFired: (user: User) => Promise<void>,
-    options: { connectionMaxRetry?: number; connectionRetryIntervalMs?: number } = {}
+    options: SubscriptionOptions = {}
   ): Promise<Connection> {
-    return subscribeToEntityEvents(this.host, this.authApi, 'User', eventTypes, filter, eventFired, options).then((rs) => new ConnectionImpl(rs))
+    const rs = await subscribeToEntityEvents(this.host, this.authApi, 'User', eventTypes, filter, eventFired, options)
+    return new ConnectionImpl(rs)
   }
 }

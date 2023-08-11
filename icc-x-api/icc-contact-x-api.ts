@@ -11,7 +11,7 @@ import { PaginatedListContact } from '../icc-api/model/PaginatedListContact'
 import { utf8_2ua } from './utils/binary-utils'
 import { ServiceByIdsFilter } from './filters/ServiceByIdsFilter'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
-import { before, encryptObject, decryptObject, EncryptedFieldsManifest, parseEncryptedFields } from './utils'
+import {before, encryptObject, decryptObject, EncryptedFieldsManifest, parseEncryptedFields, SubscriptionOptions} from './utils'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
@@ -1022,7 +1022,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
     filter: AbstractFilter<Service> | undefined,
     eventFired: (dataSample: Service) => Promise<void>,
-    options: { connectionMaxRetry?: number; connectionRetryIntervalMs?: number } = {}
+    options: SubscriptionOptions = {}
   ): Promise<Connection> {
     const currentUser = await this.userApi.getCurrentUser()
     return subscribeToEntityEvents(
@@ -1041,7 +1041,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
     filter: AbstractFilter<Contact> | undefined,
     eventFired: (dataSample: Contact) => Promise<void>,
-    options: { connectionMaxRetry?: number; connectionRetryIntervalMs?: number } = {}
+    options: SubscriptionOptions = {}
   ): Promise<Connection> {
     const currentUser = await this.userApi.getCurrentUser()
     return subscribeToEntityEvents(

@@ -5,7 +5,7 @@ import { findName, garnishPersonWithName, hasName } from './utils/person-util'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import {AbstractFilter} from "./filters/filters"
 import {Connection, ConnectionImpl} from "../icc-api/model/Connection"
-import {subscribeToEntityEvents} from "./utils/websocket"
+import {subscribeToEntityEvents, SubscriptionOptions} from "./utils/websocket"
 import {IccUserXApi} from "./icc-user-x-api"
 
 // noinspection JSUnusedGlobalSymbols
@@ -160,7 +160,7 @@ export class IccHcpartyXApi extends IccHcpartyApi {
     eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
     filter: AbstractFilter<HealthcareParty> | undefined,
     eventFired: (dataSample: HealthcareParty) => Promise<void>,
-    options: { connectionMaxRetry?: number; connectionRetryIntervalMs?: number } = {}
+    options: SubscriptionOptions = {}
   ): Promise<Connection> {
     return subscribeToEntityEvents(
       this.host,

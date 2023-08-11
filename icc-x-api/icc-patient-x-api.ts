@@ -14,7 +14,7 @@ import { CalendarItem, Classification, Document, IcureStub, Invoice, ListOfIds, 
 import { IccCalendarItemXApi } from './icc-calendar-item-x-api'
 import { b64_2ab } from '../icc-api/model/ModelHelper'
 import { findName, garnishPersonWithName, hasName } from './utils/person-util'
-import { EncryptedFieldsManifest, parseEncryptedFields, retry } from './utils'
+import {EncryptedFieldsManifest, parseEncryptedFields, retry, SubscriptionOptions} from './utils'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
@@ -1294,7 +1294,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
     filter: AbstractFilter<Patient> | undefined,
     eventFired: (patient: Patient) => Promise<void>,
-    options: { connectionMaxRetry?: number; connectionRetryIntervalMs?: number } = {}
+    options: SubscriptionOptions = {}
   ): Promise<Connection> {
     const currentUser = await this.userApi.getCurrentUser()
     return subscribeToEntityEvents(
