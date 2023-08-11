@@ -8,7 +8,6 @@
     "date-fns": "^2.23.0",
     "libphonenumber-js": "^1.7.18",
     "lodash": "^4.17.21",
-    "loglevel": "^1.8.1",
     "moment": "^2.22.1",
     "text-encoding": "^0.7.0",
     "uuid": "^8.3.2",
