@@ -466,7 +466,7 @@ export async function encryptObject(
  */
 function isPojo(value: any): boolean {
   // This break if for some reason we have object versions of String/Number/Boolean
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
+  return value !== null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof ArrayBuffer) && !ArrayBuffer.isView(value)
 }
 
 /**
