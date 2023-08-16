@@ -504,8 +504,8 @@ export class EntitiesEncryption {
             // TODO should encoding of binary data should probably be applied to everything?
             const json = encodeBinaryData
               ? JSON.stringify(obj, (k, v) => {
-                  return v instanceof ArrayBuffer || v instanceof Uint8Array
-                    ? b2a(new Uint8Array(v).reduce((d, b) => d + String.fromCharCode(b), ''))
+                  return v instanceof ArrayBuffer || ArrayBuffer.isView(v)
+                    ? b2a(new Uint8Array(v as ArrayBufferLike).reduce((d, b) => d + String.fromCharCode(b), ''))
                     : v
                 })
               : JSON.stringify(obj)
