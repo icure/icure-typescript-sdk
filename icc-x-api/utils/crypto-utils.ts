@@ -490,6 +490,8 @@ export async function decryptObject(
         // Note: nested arrays (and primitives) are returned as is and not they are not recursively decrypted. This is because we currently do not
         // support encryption of elements from arrays in arrays (we only support arrays in objects in arrays). In future this may change.
         copy[key] = await Promise.all(value.map((v) => (isPojo(v) ? decryptObject(v, decryptor) : v)))
+      } else if (value instanceof ArrayBuffer || ArrayBuffer.isView(value)) {
+        copy[key] = value // No direct decryption of array buffer data. Array buffer should be converted to b64 string and encrypted as json data.
       } else {
         copy[key] = await decryptObject(value, decryptor)
       }

@@ -30,7 +30,17 @@ import { Annotation } from './Annotation'
 import { b64_2ab } from './ModelHelper'
 export class Patient {
   constructor(json: JSON | any) {
-    Object.assign(this as Patient, json, json?.picture ? { picture: b64_2ab(json.picture) } : {})
+    let pictureData: { picture?: ArrayBuffer } = {}
+    if (!!json.picture) {
+      if (typeof json.picture === 'string') {
+        pictureData.picture = b64_2ab(json.picture)
+      } else if (json.picture instanceof ArrayBuffer || ArrayBuffer.isView(json.picture)) {
+        pictureData.picture = json.picture
+      } else {
+        throw new Error(`Invalid type for picture: ${typeof json.picture}`)
+      }
+    }
+    Object.assign(this as Patient, json, pictureData)
   }
 
   /**
