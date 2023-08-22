@@ -9,6 +9,7 @@
 - `<{AB}>_{A}` is the encryption key `{AB}` encrypted with the public key of hcParty `A`
 
 The encryption keys are stored in the hcParty document that gives delegation to other user, since only the user can modify his hcParty document in CouchDB.
+
 The hcParty `B` needs to access the hcParty `A` document to decrypt (with his private key) the encryption key `{AB}` stored in the field hcPartyKeys.
 
 ```
