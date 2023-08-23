@@ -9,14 +9,14 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
-import { DatabaseInfo } from './DatabaseInfo'
 
-export class GroupDatabasesInfo {
+export class OperationToken {
   constructor(json: JSON | any) {
-    Object.assign(this as GroupDatabasesInfo, json)
+    Object.assign(this as OperationToken, json)
   }
 
-  groupId?: string
-  databasesInfo?: Array<DatabaseInfo>
-  gcpStorageSize?: number
+  tokenHash?: string
+  creationTime?: number
+  validity?: number
+  operation?: string
 }
