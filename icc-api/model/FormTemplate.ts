@@ -14,19 +14,21 @@ import { DocumentGroup } from './DocumentGroup'
 import { FormLayout } from './FormLayout'
 import { FormTemplateLayout } from './FormTemplateLayout'
 
+import { b64_2ab } from './ModelHelper'
 export class FormTemplate {
   constructor(json: JSON | any) {
-    Object.assign(this as FormTemplate, json)
+    Object.assign(this as FormTemplate, json, json.rawTemplateLayout ? { rawTemplateLayout: b64_2ab(json.rawTemplateLayout) } : {})
   }
 
   id?: string
   rev?: string
   /**
-   * hard delete (unix epoch in ms) timestamp of the object. Filled automatically when deletePatient is called.
+   * hard delete (unix epoch in ms) timestamp of the object
    */
   deletionDate?: number
   layout?: FormLayout
   templateLayout?: FormTemplateLayout
+  rawTemplateLayout?: ArrayBuffer
   name?: string
   guid?: string
   group?: DocumentGroup
