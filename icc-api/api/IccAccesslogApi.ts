@@ -213,6 +213,42 @@ export class IccAccesslogApi {
 
   /**
    *
+   * @summary Get paginated list of Access Logs for a group
+   * @param groupId
+   * @param fromEpoch
+   * @param toEpoch
+   * @param startKey
+   * @param startDocumentId
+   * @param limit
+   */
+  listAccessLogsInGroup(
+    groupId: string,
+    fromEpoch?: number,
+    toEpoch?: number,
+    startKey?: number,
+    startDocumentId?: string,
+    limit?: number
+  ): Promise<PaginatedListAccessLog> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/accesslog/inGroup/${encodeURIComponent(String(groupId))}` +
+      '?ts=' +
+      new Date().getTime() +
+      (fromEpoch ? '&fromEpoch=' + encodeURIComponent(String(fromEpoch)) : '') +
+      (toEpoch ? '&toEpoch=' + encodeURIComponent(String(toEpoch)) : '') +
+      (startKey ? '&startKey=' + encodeURIComponent(String(startKey)) : '') +
+      (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
+      (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListAccessLog(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
    * @summary Modifies an access log
    * @param body
    */
