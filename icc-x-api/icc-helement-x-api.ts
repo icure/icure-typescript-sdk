@@ -68,6 +68,7 @@ export class IccHelementXApi extends IccHelementApi {
 
     return this.crypto.extractPreferredSfk(patient, dataOwnerId!, confidential).then(async (key) => {
       if (!key) {
+        await this.crypto.reportError('Get sfk for HealthElement creation (confidential: ' + confidential + ')', [patient], dataOwnerId!)
         console.error(`SFK cannot be found for Health element ${key}. The healthElement will not be reachable from the patient side`)
         throw new Error("Could not find secret foreign key for patient '" + patient.id + "'")
       }

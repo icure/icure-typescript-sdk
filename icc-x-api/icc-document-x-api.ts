@@ -613,9 +613,12 @@ export class IccDocumentXApi extends IccDocumentApi {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerOf(user)
     return this.crypto
       .extractDelegationsSFKs(message || null, dataOwnerId)
-      .then((secretForeignKeys) => {
+      .then(async (secretForeignKeys) => {
         const sfk = secretForeignKeys.extractedKeys[0]
-        if (!!message && !sfk) throw new Error("Could not find secret foreign key for message '" + message.id + "'")
+        if (!!message && !sfk) {
+          await this.crypto.reportError('Get sfk for Document creation', [message], dataOwnerId!)
+          throw new Error("Could not find secret foreign key for message '" + message.id + "'")
+        }
         return Promise.all([
           this.crypto.initObjectDelegations(document, message, dataOwnerId!, secretForeignKeys.extractedKeys[0]),
           this.crypto.initEncryptionKeys(document, dataOwnerId!),
