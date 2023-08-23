@@ -10,6 +10,7 @@
  * Do not edit the class manually.
  */
 import { CodeStub } from './CodeStub'
+import { OperationToken } from './OperationToken'
 import { PropertyStub } from './PropertyStub'
 
 /**
@@ -56,6 +57,10 @@ export class Group {
    * Extra properties for the user. Those properties are typed (see class Property)
    */
   properties?: Array<PropertyStub>
+  /**
+   * Single-used token to perform specific operations
+   */
+  operationTokens?: { [key: string]: OperationToken }
   /**
    * List of entities that have to be collected from a shared database. Only Code and tarification can be set at this point.
    */
