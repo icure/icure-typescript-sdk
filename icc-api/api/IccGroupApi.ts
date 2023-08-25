@@ -262,7 +262,7 @@ export class IccGroupApi {
    * @param operation The operation that the token will allow
    * @param duration The duration of the token in seconds (default 3600)
    */
-  getOperationToken(operation: string, duration?: number): Promise<string> {
+  createOperationToken(operation: string, duration?: number, description?: null): Promise<string> {
     let _body = null
 
     const _url =
@@ -271,7 +271,8 @@ export class IccGroupApi {
       '?ts=' +
       new Date().getTime() +
       (operation ? '&operation=' + encodeURIComponent(String(operation)) : '') +
-      (duration ? '&duration=' + encodeURIComponent(String(duration)) : '')
+      (duration ? '&duration=' + encodeURIComponent(String(duration)) : '') +
+      (description ? '&description=' + encodeURIComponent(String(description)) : '')
     let headers = this.headers
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => JSON.parse(JSON.stringify(doc.body)))
