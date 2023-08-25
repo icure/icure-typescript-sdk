@@ -261,8 +261,9 @@ export class IccGroupApi {
    * @summary Creates an operation token for the current group
    * @param operation The operation that the token will allow
    * @param duration The duration of the token in seconds (default 3600)
+   * @param description A human readable description for the token.
    */
-  createOperationToken(operation: string, duration?: number, description?: null): Promise<string> {
+  createOperationToken(operation: string, duration?: number, description?: string): Promise<string> {
     let _body = null
 
     const _url =
