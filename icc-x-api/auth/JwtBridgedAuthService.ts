@@ -7,16 +7,19 @@ import { a2b } from '../utils'
 import { AuthenticationResponse } from '../../icc-api/model/AuthenticationResponse'
 import XHRError = XHR.XHRError
 
-export class JwtAuthService implements AuthService {
+export class JwtBridgedAuthService implements AuthService {
   private _error: Error | null = null
-  private _currentPromise: Promise<{ authJwt: string; refreshJwt: string }>
+  private _currentPromise: Promise<{ authJwt?: string; refreshJwt?: string }> = Promise.resolve({})
 
-  constructor(private authApi: IccAuthApi, token: string, refreshToken: string) {
-    this._currentPromise = Promise.resolve({ authJwt: token, refreshJwt: refreshToken })
-  }
+  constructor(
+    private authApi: IccAuthApi,
+    private username: string,
+    private password: string,
+    private thirdPartyTokens: { [thirdParty: string]: string } = {}
+  ) {}
 
   getIcureTokens(): Promise<{ token: string; refreshToken: string } | undefined> {
-    return this._currentPromise.then(({ authJwt, refreshJwt }) => ({ token: authJwt, refreshToken: refreshJwt }))
+    return this.getAuthHeaders().then(() => this._currentPromise.then(({ authJwt, refreshJwt }) => ({ token: authJwt!, refreshToken: refreshJwt! })))
   }
 
   async getAuthHeaders(): Promise<Array<Header>> {
@@ -45,16 +48,59 @@ export class JwtAuthService implements AuthService {
       })
   }
 
-  private async _refreshAuthJwt(refreshJwt: string): Promise<{ authJwt: string; refreshJwt: string }> {
+  private async _refreshAuthJwt(refreshJwt: string | undefined): Promise<{ authJwt?: string; refreshJwt?: string }> {
     // If I do not have a refresh JWT or the refresh JWT is expired,
     // I have to log in again
-    if (this._isJwtInvalidOrExpired(refreshJwt)) {
-      throw Error('Missing or expired refresh token: please log in again')
+    if (!refreshJwt || this._isJwtInvalidOrExpired(refreshJwt)) {
+      return this._loginAndGetTokens()
     } else {
       return this.authApi.refreshAuthenticationJWT(refreshJwt).then((refreshResponse) => ({
-        authJwt: refreshResponse.token!,
+        authJwt: refreshResponse.token,
         refreshJwt: refreshJwt,
       }))
+    }
+  }
+
+  private async _loginAndGetTokens(): Promise<{ authJwt?: string; refreshJwt?: string }> {
+    let authResponse: AuthenticationResponse | undefined
+    let firstError: XHRError | undefined
+    if (this.username && this.password) {
+      try {
+        authResponse = await this.authApi.login(
+          new LoginCredentials({
+            username: this.username,
+            password: this.password,
+          })
+        )
+      } catch (e) {
+        firstError = e as XHRError
+      }
+    }
+    if (!authResponse) {
+      authResponse = await (Object.entries(this.thirdPartyTokens) as [OAuthThirdParty, string][]).reduce(async (acc, [thirdParty, token]) => {
+        const prev = await acc
+        return (
+          prev ??
+          (token
+            ? this.authApi.loginWithThirdPartyToken(thirdParty, token).catch((e) => {
+                if (!firstError) {
+                  firstError = e as XHRError
+                }
+                return Promise.resolve() as Promise<undefined>
+              })
+            : undefined)
+        )
+      }, Promise.resolve() as Promise<AuthenticationResponse | undefined>)
+    }
+
+    if (!authResponse) {
+      if (firstError) throw firstError
+      throw new XHRError('', 'Unknown error', 401, 'Unauthorized', new Headers())
+    }
+
+    return {
+      authJwt: authResponse.token,
+      refreshJwt: authResponse.refreshToken,
     }
   }
 

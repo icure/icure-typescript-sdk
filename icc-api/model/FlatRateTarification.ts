@@ -26,11 +26,14 @@ export class FlatRateTarification {
   encryptedSelf?: string
 }
 export namespace FlatRateTarification {
-  export type FlatRateTypeEnum = 'physician' | 'physiotherapist' | 'nurse' | 'ptd'
+  export type FlatRateTypeEnum = 'physician' | 'physiotherapist' | 'nurse' | 'ptd' | 'ivgFlatRate1' | 'ivgFlatRate2' | 'ivgPersonalIntervention'
   export const FlatRateTypeEnum = {
     Physician: 'physician' as FlatRateTypeEnum,
     Physiotherapist: 'physiotherapist' as FlatRateTypeEnum,
     Nurse: 'nurse' as FlatRateTypeEnum,
     Ptd: 'ptd' as FlatRateTypeEnum,
+    IvgFlatRate1: 'ivgFlatRate1' as FlatRateTypeEnum,
+    IvgFlatRate2: 'ivgFlatRate2' as FlatRateTypeEnum,
+    IvgPersonalIntervention: 'ivgPersonalIntervention' as FlatRateTypeEnum,
   }
 }
