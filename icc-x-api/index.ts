@@ -8,6 +8,7 @@ import {
   IccMedicallocationApi,
   IccPatientApi,
   IccPermissionApi,
+  OAuthThirdParty,
 } from '../icc-api'
 import { IccUserXApi } from './icc-user-x-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
@@ -24,7 +25,7 @@ import { IccMessageXApi } from './icc-message-x-api'
 import { IccReceiptXApi } from './icc-receipt-x-api'
 import { IccAccesslogXApi } from './icc-accesslog-x-api'
 import { IccTimeTableXApi } from './icc-time-table-x-api'
-import { IccDeviceApi } from '../icc-api/api/IccDeviceApi'
+import { IccDeviceApi } from '../icc-api'
 import { IccCodeXApi } from './icc-code-x-api'
 import { IccMaintenanceTaskXApi } from './icc-maintenance-task-x-api'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
@@ -33,7 +34,12 @@ import { StorageFacade } from './storage/StorageFacade'
 import { KeyStorageFacade } from './storage/KeyStorageFacade'
 import { LocalStorageImpl } from './storage/LocalStorageImpl'
 import { KeyStorageImpl } from './storage/KeyStorageImpl'
-import { BasicAuthenticationProvider, EnsembleAuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import {
+  BasicAuthenticationProvider,
+  EnsembleAuthenticationProvider,
+  JwtAuthenticationProvider,
+  NoAuthenticationProvider,
+} from './auth/AuthenticationProvider'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -102,7 +108,9 @@ export const Api = async function (
   forceBasic = false,
   autoLogin = false,
   storage?: StorageFacade<string>,
-  keyStorage?: KeyStorageFacade
+  keyStorage?: KeyStorageFacade,
+  icureTokens?: { token: string; refreshToken: string },
+  thirdPartyTokens: { [thirdParty: string]: string } = {}
 ): Promise<Apis> {
   const _storage = storage || new LocalStorageImpl()
   const _keyStorage = keyStorage || new KeyStorageImpl(_storage)
@@ -111,7 +119,15 @@ export const Api = async function (
   const headers = {}
   const authenticationProvider = forceBasic
     ? new BasicAuthenticationProvider(username, password)
-    : new EnsembleAuthenticationProvider(new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl), username, password)
+    : icureTokens
+    ? new JwtAuthenticationProvider(new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl), undefined, undefined, icureTokens)
+    : new EnsembleAuthenticationProvider(
+        new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl),
+        username,
+        password,
+        3600,
+        thirdPartyTokens
+      )
 
   // Here I instantiate a separate instance of the AuthApi that can call also login-protected methods (logout)
   const authApi = new IccAuthApi(host, headers, authenticationProvider, fetchImpl)
