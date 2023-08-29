@@ -113,7 +113,7 @@ export class JwtBridgedAuthService implements AuthService {
   private _isJwtInvalidOrExpired(jwt: string): boolean {
     const parts = jwt.split('.')
     if (parts.length !== 3) {
-      return false
+      return true
     }
     const payload = this._base64Decode(parts[1])
     // Using the 'exp' string is safe to use as it is part of the JWT RFC and cannot be modified by us.
