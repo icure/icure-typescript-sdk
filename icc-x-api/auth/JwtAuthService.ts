@@ -34,7 +34,7 @@ export class JwtAuthService implements AuthService {
         const authJwt = x?.authJwt
         const refreshJwt = x?.refreshJwt
 
-        if ((!authJwt || this._isJwtExpired(authJwt)) && refreshJwt) {
+        if ((!authJwt || this._isJwtInvalidOrExpired(authJwt)) && refreshJwt) {
           // If it does not have the JWT, tries to get it
           // If the JWT is expired, tries to refresh it
 
@@ -60,7 +60,7 @@ export class JwtAuthService implements AuthService {
   private async _refreshAuthJwt(refreshJwt: string): Promise<{ authJwt: string; refreshJwt: string }> {
     // If I do not have a refresh JWT or the refresh JWT is expired,
     // I have to log in again
-    if (this._isJwtExpired(refreshJwt)) {
+    if (this._isJwtInvalidOrExpired(refreshJwt)) {
       throw Error('Missing or expired refresh token: please log in again')
     } else {
       return this.authApi.refreshAuthenticationJWT(refreshJwt).then((refreshResponse) => ({
@@ -70,12 +70,13 @@ export class JwtAuthService implements AuthService {
     }
   }
 
-  private _isJwtExpired(jwt: string): boolean {
+  private _isJwtInvalidOrExpired(jwt: string): boolean {
     const parts = jwt.split('.')
     if (parts.length !== 3) {
       return false
     }
     const payload = this._base64Decode(parts[1])
+    // Using the 'exp' string is safe to use as it is part of the JWT RFC and cannot be modified by us.
     return !('exp' in payload) || payload['exp'] * 1000 < new Date().getTime()
   }
 
