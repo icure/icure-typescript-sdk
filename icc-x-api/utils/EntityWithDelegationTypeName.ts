@@ -35,6 +35,7 @@ export type EntityWithDelegationTypeName =
   | 'Patient'
   | 'Receipt'
   | 'TimeTable'
+  | 'Topic'
 /**
  * Type containing information on an entity and its type. If the entity is a stub (EncryptedEntityStub or IcureStub) the type should refer to the
  * original entity from which the stub was extracted.

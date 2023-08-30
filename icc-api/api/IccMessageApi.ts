@@ -21,6 +21,7 @@ import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-ap
 import { iccRestApiPath } from './IccRestApiPath'
 import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
+import {FilterChainMessage} from "../model/FilterChainMessage";
 
 export class IccMessageApi {
   host: string
@@ -495,5 +496,27 @@ export class IccMessageApi {
     return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((x) => new EntityBulkShareResult<Message>(x, Message)))
       .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Returns a list of messages along with next start keys and Document ID. If the nextStartKey is Null it means that this is the last page.
+   * @summary List messages for the current user (HcParty) or the given hcparty in the filter
+   * @param body
+   * @param startDocumentId A Message document ID
+   * @param limit Number of rows
+   */
+  async filterMessagesBy(body: FilterChainMessage, startDocumentId?: string, limit?: number): Promise<PaginatedListMessage> {
+    const _url =
+        this.host +
+        `/message/filter` +
+        '?ts=' +
+        new Date().getTime() +
+        (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
+        (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+        .then((doc) => new PaginatedListMessage(doc.body as JSON))
+        .catch((err) => this.handleError(err))
   }
 }
