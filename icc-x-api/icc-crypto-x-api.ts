@@ -166,6 +166,26 @@ export class IccCryptoXApi {
   }
 
   /**
+   * Get all key pairs available for the current data owner and his parents.
+   * @return an object with:
+   * - `self` an object containing the current data owner id and the list of key pairs available for the current data owner with verification details.
+   * - `parents` the list of parents to the current data owner with the list of key pairs available for each parent. The list is ordered from the
+   *   topmost ancestor (at index 0) to the direct parent of the current data owner (at the last index, may be 0).
+   */
+  getEncryptionDecryptionKeypairsForDataOwnerHierarchy(): Promise<{
+    self: {
+      dataOwnerId: string
+      keys: { pair: KeyPair<CryptoKey>; verified: boolean }[]
+    }
+    parents: {
+      dataOwnerId: string
+      keys: { pair: KeyPair<CryptoKey> }[]
+    }[]
+  }> {
+    return this.keyManager.getCurrentUserHierarchyAvailableKeypairs()
+  }
+
+  /**
    * Get a key pair with the provided fingerprint if present.
    * @param fingerprint a key-pair/public-key fingerprint
    * @return the pair associated to the fingerprint and a boolean indicating if the pair is verified, if present, else undefined
