@@ -56,6 +56,41 @@ export class KeyManager {
   ) {}
 
   /**
+   * @internal
+   * Get all key pairs available for the current data owner and his parents.
+   * @return an object with:
+   * - `self` an object containing the current data owner id and the list of key pairs available for the current data owner with verification details.
+   * - `parents` the list of parents to the current data owner with the list of key pairs available for each parent. The list is ordered from the
+   *   topmost ancestor (at index 0) to the direct parent of the current data owner (at the last index, may be 0).
+   */
+  async getCurrentUserHierarchyAvailableKeypairs(): Promise<{
+    self: {
+      dataOwnerId: string
+      keys: { pair: KeyPair<CryptoKey>; verified: boolean }[]
+    }
+    parents: {
+      dataOwnerId: string
+      keys: { pair: KeyPair<CryptoKey> }[]
+    }[]
+  }> {
+    this.ensureInitialised()
+    const hierarchy = await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
+    const selfId = hierarchy[hierarchy.length - 1]
+    const selfKeys = Object.values(this.keysCache![selfId]).map(({ pair, isVerified, isDevice }) => ({ pair, verified: isVerified || isDevice }))
+    const remainingHierarchy = hierarchy.slice(0, hierarchy.length - 1)
+    return {
+      self: {
+        dataOwnerId: selfId,
+        keys: selfKeys,
+      },
+      parents: remainingHierarchy.map((x) => ({
+        dataOwnerId: x,
+        keys: Object.values(this.keysCache![x]).map(({ pair }) => ({ pair })),
+      })),
+    }
+  }
+
+  /**
    * Get the public keys of available key pairs for the current user in hex-encoded spki representation (uses cached keys: no request is done to the
    * server).
    * By setting {@link verifiedOnly} to true only the public keys for verified key pairs will be returned: these will include only key pairs created
