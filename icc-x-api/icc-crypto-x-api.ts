@@ -166,7 +166,8 @@ export class IccCryptoXApi {
   }
 
   /**
-   * Get all key pairs available for the current data owner and his parents.
+   * Get all key pairs available for the decrpytion and encryption of data to the current data owner. These include the key pairs from the data owner
+   * and his parents.
    * @return an object with:
    * - `self` an object containing the current data owner id and the list of key pairs available for the current data owner with verification details.
    * - `parents` the list of parents to the current data owner with the list of key pairs available for each parent. The list is ordered from the
