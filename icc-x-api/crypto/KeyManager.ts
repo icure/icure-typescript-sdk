@@ -237,12 +237,12 @@ export class KeyManager {
     const keysData = []
     for (const dowt of this.initialiseParentKeys ? hierarchy : [self]) {
       const availableKeys = await this.loadAndRecoverKeysFor(dowt)
+      const availableKeysFpSet = new Set(Object.keys(availableKeys))
       const verifiedKeysMap = await this.icureStorage.loadSelfVerifiedKeys(dowt.dataOwner.id!)
       const allPublicKeys = this.dataOwnerApi.getHexPublicKeysOf(dowt.dataOwner)
       const fpToFullMap = fingerprintToPublicKeysMapOf(dowt.dataOwner)
-      const unavailableKeys = Object.keys(availableKeys).flatMap((fp) => {
-        const fullPublicKey = fpToFullMap[fp]
-        return allPublicKeys.has(fullPublicKey) ? [] : [fullPublicKey]
+      const unavailableKeys = Array.from(allPublicKeys).flatMap((key) => {
+        return availableKeysFpSet.has(key.slice(-32)) ? [] : [key]
       })
       const unknownKeys = Array.from(allPublicKeys).filter(
         (x) => !(x.slice(-32) in verifiedKeysMap) && !(availableKeys?.[x.slice(-32)]?.isDevice === true)
