@@ -23,6 +23,18 @@ type KeyRecovererAndVerifier = (
     keyAuthenticity: { [keyPairFingerprint: string]: boolean }
   }
 }>
+const nothingKeyRecovererAndVerifier: KeyRecovererAndVerifier = (x) =>
+  Promise.resolve(
+    x.reduce(
+      (acc, { dataOwner }) => ({ ...acc, [dataOwner.dataOwner.id!]: { recoveredKeys: {}, keyAuthenticity: {} } }),
+      {} as {
+        [dataOwnerId: string]: {
+          recoveredKeys: { [keyPairFingerprint: string]: KeyPair<CryptoKey> }
+          keyAuthenticity: { [keyPairFingerprint: string]: boolean }
+        }
+      }
+    )
+  )
 type CurrentOwnerKeyGenerator = (self: DataOwnerWithType) => Promise<KeyPair<CryptoKey> | boolean>
 
 /**
@@ -109,23 +121,9 @@ export class KeyManager {
    * This method will complete only after keys have been reloaded successfully.
    */
   async reloadKeys(): Promise<void> {
-    await this.doLoadKeys(
-      (x) =>
-        Promise.resolve(
-          x.reduce(
-            (acc, { dataOwner }) => ({ ...acc, [dataOwner.dataOwner.id!]: { recoveredKeys: {}, keyAuthenticity: {} } }),
-            {} as {
-              [dataOwnerId: string]: {
-                recoveredKeys: { [keyPairFingerprint: string]: KeyPair<CryptoKey> }
-                keyAuthenticity: { [keyPairFingerprint: string]: boolean }
-              }
-            }
-          )
-        ),
-      (x) => {
-        throw new Error("Can't create new keys at reload time: it should have already been created on initialisation")
-      }
-    )
+    await this.doLoadKeys(nothingKeyRecovererAndVerifier, (x) => {
+      throw new Error("Can't create new keys at reload time: it should have already been created on initialisation")
+    })
   }
 
   /**
@@ -216,9 +214,10 @@ export class KeyManager {
       )
       keysData.push({ dowt, availableKeys, unavailableKeys, unknownKeys })
     }
-    const recoveryAndVerificationResult = await keyRecovererAndVerifier(
-      keysData.map(({ dowt, unavailableKeys, unknownKeys }) => ({ dataOwner: dowt, unavailableKeys, unknownKeys }))
-    )
+    const recoveryInfo = keysData.map(({ dowt, unavailableKeys, unknownKeys }) => ({ dataOwner: dowt, unavailableKeys, unknownKeys }))
+    const recoveryAndVerificationResult = recoveryInfo.some((x) => x.unavailableKeys.length > 0 || x.unknownKeys.length > 0)
+      ? await keyRecovererAndVerifier(recoveryInfo)
+      : await nothingKeyRecovererAndVerifier(recoveryInfo)
     const keysCache: { [dataOwnerId: string]: { [fp: string]: KeyPairData } } = {}
     for (const keyData of keysData) {
       const currAuthenticity = this.ensureFingerprintKeys(recoveryAndVerificationResult[keyData.dowt.dataOwner.id!].keyAuthenticity)
