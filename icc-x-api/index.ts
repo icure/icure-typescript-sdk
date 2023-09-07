@@ -572,7 +572,8 @@ async function initialiseCryptoWithProvider(
     params.keyStorage,
     icureStorage,
     healthcarePartyApi,
-    confidentialEntitites
+    confidentialEntitites,
+    basePatientApi
   )
   const maintenanceTaskApi = new IccMaintenanceTaskXApi(
     host,
