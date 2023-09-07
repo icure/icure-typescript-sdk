@@ -9,15 +9,17 @@ import { IccPatientApi } from '../../../icc-api'
 import { expect } from 'chai'
 
 import { BasicAuthenticationProvider } from '../../../icc-x-api/auth/AuthenticationProvider'
-import { createHcpHierarchyApis, getEnvironmentInitializer, setLocalStorage } from '../../utils/test_utils'
+import { createHcpHierarchyApis, createNewHcpWithoutKeyAndParentWithKey, getEnvironmentInitializer, setLocalStorage } from '../../utils/test_utils'
 import { TestKeyStorage, TestStorage, testStorageWithKeys } from '../../utils/TestStorage'
 import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
 import { getEnvVariables, TestVars, UserDetails } from '@icure/test-setup/types'
-import { IcureApi, KeyPair } from '../../../icc-x-api'
+import { CryptoPrimitives, CryptoStrategies, hex2ua, IcureApi, KeyPair } from '../../../icc-x-api'
 import exp = require('constants')
 import { KeyManager } from '../../../icc-x-api/crypto/KeyManager'
 import { TestApi } from '../../utils/TestApi'
 import { ua2hex } from '@icure/apiV6'
+import { DataOwnerWithType } from '../../../icc-api/model/DataOwnerWithType'
+import { CryptoActorStubWithType } from '../../../icc-api/model/CryptoActorStub'
 
 setLocalStorage(fetch)
 
@@ -128,5 +130,142 @@ describe('Key manager', async function () {
     expect(keysData.parents[1].dataOwnerId).to.equal(apis.parentCredentials.dataOwnerId)
     expect(keysData.parents[1].keys).to.have.length(1)
     await checkKey(apis.parentCredentials, keysData.parents[1].keys[0].pair)
+  })
+
+  it('If a HCP has no key yet, but the parent does the crypto strategies should first ask to recover the keys for the parent then ask for the generation of a new key to the data owner', async () => {
+    const hcpsInfo = await createNewHcpWithoutKeyAndParentWithKey(env)
+    const cryptoStrats = new (class implements CryptoStrategies {
+      generateNewKeyCalled: boolean = false
+      recoverCalled: boolean = false
+      generatedKeyPair: KeyPair<CryptoKey> | undefined = undefined
+
+      async generateNewKeyForDataOwner(self: DataOwnerWithType, cryptoPrimitives: CryptoPrimitives): Promise<KeyPair<CryptoKey> | boolean> {
+        if (this.generateNewKeyCalled) throw new Error('generateNewKeyForDataOwner called twice')
+        if (!this.recoverCalled) throw new Error('generateNewKeyForDataOwner called before recoverAndVerifySelfHierarchyKeys')
+        this.generateNewKeyCalled = true
+        expect(self.dataOwner.id).to.equal(hcpsInfo.childDataOwnerId)
+        return (this.generatedKeyPair = await cryptoPrimitives.RSA.generateKeyPair())
+      }
+
+      async recoverAndVerifySelfHierarchyKeys(
+        keysData: {
+          dataOwner: DataOwnerWithType
+          unknownKeys: string[]
+          unavailableKeys: string[]
+        }[],
+        cryptoPrimitives: CryptoPrimitives
+      ): Promise<{
+        [p: string]: { recoveredKeys: { [p: string]: KeyPair<CryptoKey> }; keyAuthenticity: { [p: string]: boolean } }
+      }> {
+        if (this.recoverCalled) throw new Error('recoverAndVerifySelfHierarchyKeys called twice')
+        this.recoverCalled = true
+        expect(keysData).to.have.length(2)
+        expect(keysData[0].dataOwner.dataOwner.id).to.equal(hcpsInfo.parentCredentials.dataOwnerId)
+        expect(keysData[0].unknownKeys).to.have.members([hcpsInfo.parentCredentials.publicKey])
+        expect(keysData[0].unavailableKeys).to.have.members([hcpsInfo.parentCredentials.publicKey])
+        expect(keysData[1].dataOwner.dataOwner.id).to.equal(hcpsInfo.childDataOwnerId)
+        expect(keysData[1].unknownKeys).to.be.empty
+        expect(keysData[1].unavailableKeys).to.be.empty
+        return {
+          [hcpsInfo.parentCredentials.dataOwnerId]: {
+            recoveredKeys: {
+              [hcpsInfo.parentCredentials.publicKey.slice(-32)]: await cryptoPrimitives.RSA.importKeyPair(
+                'pkcs8',
+                hex2ua(hcpsInfo.parentCredentials.privateKey),
+                'spki',
+                hex2ua(hcpsInfo.parentCredentials.publicKey)
+              ),
+            },
+            keyAuthenticity: {},
+          },
+          [hcpsInfo.childDataOwnerId]: {
+            recoveredKeys: {},
+            keyAuthenticity: {},
+          },
+        }
+      }
+
+      verifyDelegatePublicKeys(delegate: CryptoActorStubWithType, publicKeys: string[], cryptoPrimitives: CryptoPrimitives): Promise<string[]> {
+        throw new Error('This method should not be called by this test')
+      }
+    })()
+    const childApi = await IcureApi.initialise(
+      env.iCureUrl,
+      { username: hcpsInfo.childUser, password: hcpsInfo.childPassword },
+      cryptoStrats,
+      webcrypto as any,
+      fetch,
+      {
+        storage: new TestStorage(),
+        keyStorage: new TestKeyStorage(),
+      }
+    )
+    expect(cryptoStrats.generateNewKeyCalled).to.be.true
+    expect(cryptoStrats.recoverCalled).to.be.true
+    const keys = Array.from(childApi.dataOwnerApi.getHexPublicKeysOf((await childApi.dataOwnerApi.getCurrentDataOwner()).dataOwner))
+    expect(keys).to.have.length(1)
+    expect(Array.from(keys)[0]).to.equal(ua2hex(await childApi.cryptoApi.primitives.RSA.exportKey(cryptoStrats.generatedKeyPair!.publicKey, 'spki')))
+  })
+
+  it('If a HCP has no key yet, but the parent does and the key is available the crypto strategies should ask for the generation of a new key to the data owner', async () => {
+    async function doTest(initialiseEmptyKeyForChild: boolean) {
+      const hcpsInfo = await createNewHcpWithoutKeyAndParentWithKey(env, { initialiseEmptyKeyForChild })
+      const cryptoStrats = new (class implements CryptoStrategies {
+        generateNewKeyCalled: boolean = false
+        generatedKeyPair: KeyPair<CryptoKey> | undefined = undefined
+
+        async generateNewKeyForDataOwner(self: DataOwnerWithType, cryptoPrimitives: CryptoPrimitives): Promise<KeyPair<CryptoKey> | boolean> {
+          if (this.generateNewKeyCalled) throw new Error('generateNewKeyForDataOwner called twice')
+          this.generateNewKeyCalled = true
+          expect(self.dataOwner.id).to.equal(hcpsInfo.childDataOwnerId)
+          return (this.generatedKeyPair = await cryptoPrimitives.RSA.generateKeyPair())
+        }
+
+        async recoverAndVerifySelfHierarchyKeys(
+          keysData: {
+            dataOwner: DataOwnerWithType
+            unknownKeys: string[]
+            unavailableKeys: string[]
+          }[],
+          cryptoPrimitives: CryptoPrimitives
+        ): Promise<{
+          [p: string]: { recoveredKeys: { [p: string]: KeyPair<CryptoKey> }; keyAuthenticity: { [p: string]: boolean } }
+        }> {
+          throw new Error('This method should not be called by this test')
+        }
+
+        verifyDelegatePublicKeys(delegate: CryptoActorStubWithType, publicKeys: string[], cryptoPrimitives: CryptoPrimitives): Promise<string[]> {
+          throw new Error('This method should not be called by this test')
+        }
+      })()
+      const storages = await testStorageWithKeys([
+        {
+          dataOwnerId: hcpsInfo.parentCredentials.dataOwnerId,
+          pairs: [{ privateKey: hcpsInfo.parentCredentials.privateKey, publicKey: hcpsInfo.parentCredentials.publicKey }],
+        },
+      ])
+      const childApi = await IcureApi.initialise(
+        env.iCureUrl,
+        { username: hcpsInfo.childUser, password: hcpsInfo.childPassword },
+        cryptoStrats,
+        webcrypto as any,
+        fetch,
+        {
+          storage: storages.storage,
+          keyStorage: storages.keyStorage,
+          entryKeysFactory: storages.keyFactory,
+        }
+      )
+      expect(cryptoStrats.generateNewKeyCalled).to.be.true
+      const initialisedHcp = (await childApi.dataOwnerApi.getCurrentDataOwner()).dataOwner
+      const keys = Array.from(childApi.dataOwnerApi.getHexPublicKeysOf(initialisedHcp))
+      expect(keys).to.have.length(1)
+      expect(keys[0]).to.equal(ua2hex(await childApi.cryptoApi.primitives.RSA.exportKey(cryptoStrats.generatedKeyPair!.publicKey, 'spki')))
+      // V7 ONLY: the new key should be saved in `publicKey`
+      expect(initialisedHcp.publicKey).to.equal(keys[0])
+    }
+    await doTest(false)
+    // V7 ONLY
+    await doTest(true)
   })
 })
