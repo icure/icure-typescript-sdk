@@ -277,3 +277,58 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
     child2Credentials,
   }
 }
+
+/**
+ * Create a parent HCP with a key and a child HCP without any initialised key
+ */
+export async function createNewHcpWithoutKeyAndParentWithKey(
+  env: TestVars,
+  props: {
+    initialiseEmptyKeyForChild?: boolean
+  } = {}
+): Promise<{
+  parentCredentials: UserDetails
+  childUser: string
+  childDataOwnerId: string
+  childPassword: string
+}> {
+  const initialisationApi = await TestSetupApi(
+    env.iCureUrl + '/rest/v1',
+    env.masterHcp!.user,
+    env.masterHcp!.password,
+    webcrypto as any,
+    fetch,
+    true,
+    false
+  )
+  const primitives = new CryptoPrimitives(webcrypto as any)
+  const parentCredentials = await createHealthcarePartyUser(initialisationApi, `parent-${primitives.randomUuid()}`, primitives.randomUuid())
+  const childUser = uuid() + '@email.com'
+  const childPassword = uuid()
+  const childHcp = new HealthcareParty({
+    id: uuid(),
+    firstName: uuid().substring(0, 6),
+    lastName: uuid().substring(0, 6),
+    parentId: parentCredentials.dataOwnerId,
+  })
+  if (props.initialiseEmptyKeyForChild) {
+    childHcp.publicKey = ''
+  }
+  await initialisationApi.healthcarePartyApi.createHealthcareParty(childHcp)
+  await initialisationApi.userApi.createUser(
+    new User({
+      id: uuid(),
+      name: childUser,
+      login: childUser,
+      email: childUser,
+      passwordHash: childPassword,
+      healthcarePartyId: childHcp.id,
+    })
+  )
+  return {
+    parentCredentials,
+    childUser,
+    childPassword,
+    childDataOwnerId: childHcp.id!,
+  }
+}

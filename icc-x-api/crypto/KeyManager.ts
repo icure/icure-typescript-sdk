@@ -231,7 +231,17 @@ export class KeyManager {
     currentOwnerKeyGenerator: CurrentOwnerKeyGenerator
   ): Promise<{ pair: KeyPair<CryptoKey>; fingerprint: string } | undefined> {
     // Load all keys for self from key store
-    const hierarchy = await this.dataOwnerApi.getCurrentDataOwnerHierarchy()
+    const hierarchy = (await this.dataOwnerApi.getCurrentDataOwnerHierarchy()).map(({ dataOwner, type }) => {
+      if (dataOwner.publicKey == '') {
+        if (Object.entries(dataOwner.hcPartyKeys ?? {}).length > 0)
+          throw new Error(`Data owner ${dataOwner.id} has "" as public key but has non-empty hcPartyKeys`)
+        delete dataOwner.publicKey
+      }
+      return {
+        dataOwner,
+        type,
+      } as DataOwnerWithType
+    })
     const self = hierarchy[hierarchy.length - 1]
     this.selfId = self.dataOwner.id!
     const keysData = []
@@ -240,7 +250,6 @@ export class KeyManager {
       const availableKeysFpSet = new Set(Object.keys(availableKeys))
       const verifiedKeysMap = await this.icureStorage.loadSelfVerifiedKeys(dowt.dataOwner.id!)
       const allPublicKeys = this.dataOwnerApi.getHexPublicKeysOf(dowt.dataOwner)
-      const fpToFullMap = fingerprintToPublicKeysMapOf(dowt.dataOwner)
       const unavailableKeys = Array.from(allPublicKeys).flatMap((key) => {
         return availableKeysFpSet.has(key.slice(-32)) ? [] : [key]
       })
