@@ -15,7 +15,7 @@ import { DataOwner, IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { EntitiesEncryption } from './crypto/EntitiesEncryption'
 import { IcureStorageFacade } from './storage/IcureStorageFacade'
 import { ShamirKeysManager } from './crypto/ShamirKeysManager'
-import { IccHcpartyApi } from '../icc-api'
+import { IccHcpartyApi, IccPatientApi } from '../icc-api'
 import { StorageEntryKeysFactory } from './storage/StorageEntryKeysFactory'
 import { ConfidentialEntities } from './crypto/ConfidentialEntities'
 
@@ -139,7 +139,8 @@ export class IccCryptoXApi {
     keyStorage: KeyStorageFacade,
     icureStorageFacade: IcureStorageFacade,
     hcPartyBaseApi: IccHcpartyApi,
-    confidentialEntities: ConfidentialEntities
+    confidentialEntities: ConfidentialEntities,
+    private readonly basePatientApi: IccPatientApi
   ) {
     this.exchangeKeysManager = exchangeKeysManager
     this.cryptoPrimitives = cryptoPrimitives
@@ -953,5 +954,46 @@ export class IccCryptoXApi {
    */
   storeKeyPair(id: string, keyPair: { publicKey: any; privateKey: any }) {
     this._storage.setItem(this.rsaLocalStoreIdPrefix + id, JSON.stringify(keyPair))
+  }
+
+  /**
+   * @deprecated This method is not safe as it allows any data owner to add a public key to other data owners. The method will be removed in future,
+   * additionally the user calling this method will require a special permission when calling it for another data owner.
+   * @param ownerId the id of the data owner which will have a new key.
+   */
+  async generateAndAddNewKeyPairForOwner(
+    ownerId: string
+  ): Promise<{ dataOwner: HealthcareParty | Patient | Device; publicKey: string; privateKey: string }> {
+    const { dataOwner, type } = await this.dataOwnerApi.getDataOwner(ownerId)
+    if (type === 'device') throw new Error('Cannot add a key pair to a device')
+    const newPair = await this.primitives.RSA.generateKeyPair()
+    const exportedPub: string = ua2hex(await this.primitives.RSA.exportKey(newPair.publicKey, 'spki'))
+    const exportedPriv: string = ua2hex(await this.primitives.RSA.exportKey(newPair.privateKey, 'pkcs8'))
+    let updatedPub: string
+    if (dataOwner.publicKey == '') {
+      if (Object.keys(dataOwner.hcPartyKeys ?? {}).length > 0) throw new Error(`Data owner ${ownerId} has empty public key but non-empty hcPartyKeys`)
+      updatedPub = exportedPub
+    } else {
+      updatedPub = dataOwner.publicKey ?? exportedPub
+    }
+    const updatedDataOwner = {
+      ...dataOwner,
+      publicKey: updatedPub,
+      aesExchangeKeys: {
+        ...dataOwner.aesExchangeKeys,
+        [exportedPub]: {},
+      },
+    }
+    let savedDataOwner: HealthcareParty | Patient
+    if (type === 'patient') {
+      savedDataOwner = await this.basePatientApi.modifyPatient(updatedDataOwner as Patient)
+    } else if (type === 'hcp') {
+      savedDataOwner = await this.hcpartyBaseApi.modifyHealthcareParty(updatedDataOwner as HealthcareParty)
+    } else throw new Error(`Unknown data owner type ${type}`)
+    return {
+      dataOwner: savedDataOwner,
+      publicKey: exportedPub,
+      privateKey: exportedPriv,
+    }
   }
 }
