@@ -1,34 +1,35 @@
 import 'mocha'
 import 'isomorphic-fetch'
 
-import {sleep} from '@icure/api'
+import { sleep } from '@icure/api'
 
-import {assert} from 'chai'
-import {getEnvVariables, TestVars} from '@icure/test-setup/types'
-import {getEnvironmentInitializer, hcp1Username, hcp3Username, setLocalStorage, TestUtils} from "../utils/test_utils"
-import {IcureApi} from "../../icc-x-api"
-import {User} from "../../icc-api/model/User"
-import {Connection} from "../../icc-api/model/Connection"
-import {Service} from "../../icc-api/model/Service"
-import {Patient} from "../../icc-api/model/Patient"
-import {Content} from "../../icc-api/model/Content"
-import {CodeStub} from "../../icc-api/model/CodeStub"
-import {Contact} from "../../icc-api/model/Contact"
-import {ServiceByHcPartyFilter} from "../../icc-x-api/filters/ServiceByHcPartyFilter"
-import {MaintenanceTaskByHcPartyAndTypeFilter} from "../../icc-x-api/filters/MaintenanceTaskByHcPartyAndTypeFilter"
-import {MaintenanceTask} from "../../icc-api/model/MaintenanceTask"
-import {v4 as uuid} from "uuid"
-import {HealthElement} from "../../icc-api/model/HealthElement"
-import {HealthElementByHcPartyTagCodeFilter} from "../../icc-x-api/filters/HealthElementByHcPartyTagCodeFilter"
-import {PatientByHcPartyNameContainsFuzzyFilter} from "../../icc-x-api/filters/PatientByHcPartyNameContainsFuzzyFilter"
-import {WebSocketWrapper} from "../../icc-x-api/utils/websocket"
-import {AllUsersFilter} from "../../icc-x-api/filters/AllUsersFilter"
-import {ContactByHcPartyFilter} from "../../icc-x-api/filters/ContactByHcPartyFilter"
-import {HealthcareParty} from "../../icc-api/model/HealthcareParty"
-import {Device} from "../../icc-api/model/Device"
-import {AllHealthcarePartiesFilter} from "../../icc-x-api/filters/AllHealthcarePartiesFilter"
-import {AllDevicesFilter} from "../../icc-x-api/filters/AllDevicesFilter"
+import { assert } from 'chai'
+import { getEnvVariables, TestVars } from '@icure/test-setup/types'
+import { getEnvironmentInitializer, hcp1Username, hcp3Username, setLocalStorage, TestUtils } from '../utils/test_utils'
+import { IcureApi } from '../../icc-x-api'
+import { User } from '../../icc-api/model/User'
+import { Connection } from '../../icc-api/model/Connection'
+import { Service } from '../../icc-api/model/Service'
+import { Patient } from '../../icc-api/model/Patient'
+import { Content } from '../../icc-api/model/Content'
+import { CodeStub } from '../../icc-api/model/CodeStub'
+import { Contact } from '../../icc-api/model/Contact'
+import { ServiceByHcPartyFilter } from '../../icc-x-api/filters/ServiceByHcPartyFilter'
+import { MaintenanceTaskByHcPartyAndTypeFilter } from '../../icc-x-api/filters/MaintenanceTaskByHcPartyAndTypeFilter'
+import { MaintenanceTask } from '../../icc-api/model/MaintenanceTask'
+import { v4 as uuid } from 'uuid'
+import { HealthElement } from '../../icc-api/model/HealthElement'
+import { HealthElementByHcPartyTagCodeFilter } from '../../icc-x-api/filters/HealthElementByHcPartyTagCodeFilter'
+import { PatientByHcPartyNameContainsFuzzyFilter } from '../../icc-x-api/filters/PatientByHcPartyNameContainsFuzzyFilter'
+import { WebSocketWrapper } from '../../icc-x-api/utils/websocket'
+import { AllUsersFilter } from '../../icc-x-api/filters/AllUsersFilter'
+import { ContactByHcPartyFilter } from '../../icc-x-api/filters/ContactByHcPartyFilter'
+import { HealthcareParty } from '../../icc-api/model/HealthcareParty'
+import { Device } from '../../icc-api/model/Device'
+import { AllHealthcarePartiesFilter } from '../../icc-x-api/filters/AllHealthcarePartiesFilter'
+import { AllDevicesFilter } from '../../icc-x-api/filters/AllDevicesFilter'
 import initApi = TestUtils.initApi
+import initMasterApi = TestUtils.initMasterApi
 
 setLocalStorage(fetch)
 
@@ -36,9 +37,10 @@ let env: TestVars
 const testType = 'IC-TEST'
 const testCode = 'TEST'
 
-let api: IcureApi | undefined = undefined
-let hcp1Api: IcureApi | undefined = undefined
-let hcp1User: User | undefined = undefined
+let api: IcureApi
+let hcp1Api: IcureApi
+let hcp1User: User
+let masterApi: IcureApi
 
 describe('Subscription API', () => {
   before(async function () {
@@ -52,6 +54,7 @@ describe('Subscription API', () => {
 
     hcp1Api = await initApi(env, hcp1Username)
     hcp1User = await hcp1Api.userApi.getCurrentUser()
+    masterApi = await initMasterApi(env)
   })
 
   async function doXOnYAndSubscribe<Y>(
@@ -75,8 +78,7 @@ describe('Subscription API', () => {
       })
 
     const timeout = setTimeout(eventReceivedPromiseReject, 20_000)
-    await eventReceivedPromise.then(() => clearTimeout(timeout)).catch(() => {
-    })
+    await eventReceivedPromise.then(() => clearTimeout(timeout)).catch(() => {})
 
     connection.close()
 
@@ -97,22 +99,23 @@ describe('Subscription API', () => {
         dataOwnerId: string,
         eventListener: (ds: Service | Contact) => Promise<void>
       ) =>
-        target === 'service' ?
-          subscriptionApi!.contactApi.subscribeToServiceEvents(
-            eventTypes,
-            new ServiceByHcPartyFilter({
-              hcpId: dataOwnerId,
-            }),
-            eventListener,
-            options
-          ) : subscriptionApi!.contactApi.subscribeToContactEvents(
-            eventTypes,
-            new ContactByHcPartyFilter({
-              hcpId: dataOwnerId,
-            }),
-            eventListener,
-            options
-          )
+        target === 'service'
+          ? subscriptionApi!.contactApi.subscribeToServiceEvents(
+              eventTypes,
+              new ServiceByHcPartyFilter({
+                hcpId: dataOwnerId,
+              }),
+              eventListener,
+              options
+            )
+          : subscriptionApi!.contactApi.subscribeToContactEvents(
+              eventTypes,
+              new ContactByHcPartyFilter({
+                hcpId: dataOwnerId,
+              }),
+              eventListener,
+              options
+            )
 
       const loggedUser = await creationApi!!.userApi.getCurrentUser()
       const events: Service[] = []
@@ -145,7 +148,10 @@ describe('Subscription API', () => {
 
       assert(events.length === 1, 'The events have not been recorded')
       assert(statuses.length === 2, 'The statuses have not been recorded')
-      assert(events.every((event) => target === 'service' && event satisfies Service || target === 'contact' && event satisfies Contact), 'The events are not of type ' + target)
+      assert(
+        events.every((event) => (target === 'service' && event) || (target === 'contact' && event)),
+        'The events are not of type ' + target
+      )
     }
 
     const createService = async () => {
@@ -157,37 +163,24 @@ describe('Subscription API', () => {
         note: 'Winter is coming',
       })
 
-      const newInstanceOfPatient = await api!!.patientApi.newInstance(
-        user,
-        newPatient
-      )
+      const newInstanceOfPatient = await api!!.patientApi.newInstance(user, newPatient)
 
-      const patient = await api!!.patientApi.createPatientWithUser(
-        user,
-        newInstanceOfPatient
-      )
+      const patient = await api!!.patientApi.createPatientWithUser(user, newInstanceOfPatient)
 
       const newContact = new Contact({
         id: uuid(),
         services: [
           new Service({
             id: uuid(),
-            labels: new Set([new CodeStub({type: testType, code: testCode})]),
-            content: {en: new Content({stringValue: 'Hello world'})},
-          })
-        ]
+            labels: new Set([new CodeStub({ type: testType, code: testCode })]),
+            content: { en: new Content({ stringValue: 'Hello world' }) },
+          }),
+        ],
       })
 
-      const newInstanceOfContact = await api!!.contactApi.newInstance(
-        user,
-        patient,
-        newContact
-      )
+      const newInstanceOfContact = await api!!.contactApi.newInstance(user, patient, newContact)
 
-      const createdContact = await api!!.contactApi.createContactWithUser(
-        user,
-        newInstanceOfContact
-      )
+      const createdContact = await api!!.contactApi.createContactWithUser(user, newInstanceOfContact)
 
       return {
         contact: createdContact,
@@ -197,34 +190,39 @@ describe('Subscription API', () => {
     }
 
     const deleteService = async () => {
-      const {service, patient} = await createService()
+      const { service, patient } = await createService()
       const user = await api!!.userApi.getCurrentUser()
 
-      const contactToDeleteServices = await api!.contactApi
-        .newInstance(
-          user,
-          patient,
-          new Contact({
-            id: uuid(),
-            services: [new Service({
+      const contactToDeleteServices = await api!.contactApi.newInstance(
+        user,
+        patient,
+        new Contact({
+          id: uuid(),
+          services: [
+            new Service({
               id: service.id,
               created: service.created,
               modified: +new Date(),
               endOfLife: +new Date(),
-            })]
-          })
-        )
-
-      const contactToDelete = await api!.contactApi.createContactWithUser(
-        user,
-        contactToDeleteServices
+            }),
+          ],
+        })
       )
+
+      const contactToDelete = await api!.contactApi.createContactWithUser(user, contactToDeleteServices)
     }
 
     it('CREATE Service without options', async () => {
-      await subscribeAndCreateContactOrService({}, ['CREATE'], api!!, api!!, async () => {
-        await createService()
-      }, 'service')
+      await subscribeAndCreateContactOrService(
+        {},
+        ['CREATE'],
+        api!!,
+        api!!,
+        async () => {
+          await createService()
+        },
+        'service'
+      )
     }).timeout(60000)
 
     it('CREATE Service with options', async () => {
@@ -246,9 +244,16 @@ describe('Subscription API', () => {
     it('CREATE Service without options with another instance of api', async () => {
       const subscriptionApi = await initApi(env, hcp3Username)
 
-      await subscribeAndCreateContactOrService({}, ['CREATE'], api!!, subscriptionApi!!, async () => {
-        await createService()
-      }, 'service')
+      await subscribeAndCreateContactOrService(
+        {},
+        ['CREATE'],
+        api!!,
+        subscriptionApi!!,
+        async () => {
+          await createService()
+        },
+        'service'
+      )
     }).timeout(60000)
 
     it('CREATE Service with options with another instance of api', async () => {
@@ -272,9 +277,16 @@ describe('Subscription API', () => {
     it('CREATE Contact without options with another instance of api', async () => {
       const subscriptionApi = await initApi(env, hcp3Username)
 
-      await subscribeAndCreateContactOrService({}, ['CREATE'], api!!, subscriptionApi!!, async () => {
-        await createService()
-      }, 'contact')
+      await subscribeAndCreateContactOrService(
+        {},
+        ['CREATE'],
+        api!!,
+        subscriptionApi!!,
+        async () => {
+          await createService()
+        },
+        'contact'
+      )
     }).timeout(60000)
 
     it('CREATE Contact with options with another instance of api', async () => {
@@ -309,14 +321,13 @@ describe('Subscription API', () => {
         api!!,
         api!!,
         async () => deleteService(),
-        "service"
+        'service'
       )
     }).timeout(60000)
   })
 
   describe('Can subscribe to MaintenanceTasks', async () => {
     const subscribeAndCreateMaintenanceTask = async (options: {}, eventTypes: ('CREATE' | 'DELETE' | 'UPDATE')[]) => {
-
       const loggedUser = await api!.userApi.getCurrentUser()
 
       const connectionPromise = async (options: {}, dataOwnerId: string, eventListener: (notification: MaintenanceTask) => Promise<void>) =>
@@ -372,7 +383,10 @@ describe('Subscription API', () => {
 
       assert(events.length === 1, 'The events have not been recorded')
       assert(statuses.length === 2, 'The statuses have not been recorded')
-      assert(events.every((event) => event instanceof MaintenanceTask), 'The events are not of type MaintenanceTask')
+      assert(
+        events.every((event) => event instanceof MaintenanceTask),
+        'The events are not of type MaintenanceTask'
+      )
     }
 
     it('CREATE MaintenanceTask without options', async () => {
@@ -444,7 +458,7 @@ describe('Subscription API', () => {
               patient,
               new HealthElement({
                 note: 'Hero Syndrome',
-                tags: [new CodeStub({id: 'id', code: testCode, type: testType})],
+                tags: [new CodeStub({ id: 'id', code: testCode, type: testType })],
               })
             )
           )
@@ -461,7 +475,10 @@ describe('Subscription API', () => {
 
       assert(events.length === 1, 'The events have not been recorded')
       assert(statuses.length === 2, 'The statuses have not been recorded')
-      assert(events.every((event) => event instanceof HealthElement), 'The events are not of type HealthElement')
+      assert(
+        events.every((event) => event instanceof HealthElement),
+        'The events are not of type HealthElement'
+      )
     }
 
     it('CREATE HealthElement without options', async () => {
@@ -539,7 +556,10 @@ describe('Subscription API', () => {
 
       assert(events.length === 1, 'The events have not been recorded')
       assert(statuses.length === 2, 'The statuses have not been recorded')
-      assert(events.every((event) => event instanceof Patient), 'The events are not of type Patient')
+      assert(
+        events.every((event) => event instanceof Patient),
+        'The events are not of type Patient'
+      )
     }
 
     it('CREATE Patient without option', async () => {
@@ -561,15 +581,10 @@ describe('Subscription API', () => {
     const subscribeAndCreateHealthcareParty = async (options: {}, eventTypes: ('CREATE' | 'DELETE' | 'UPDATE')[]) => {
       const connectionPromise = async (options: {}, dataOwnerId: string, eventListener: (patient: HealthcareParty) => Promise<void>) => {
         await sleep(2000)
-        return api!.healthcarePartyApi.subscribeToHealthcarePartyEvents(
-          eventTypes,
-          new AllHealthcarePartiesFilter({}),
-          eventListener,
-          options
-        )
+        return api!.healthcarePartyApi.subscribeToHealthcarePartyEvents(eventTypes, new AllHealthcarePartiesFilter({}), eventListener, options)
       }
 
-      const loggedUser = await api!.userApi.getCurrentUser()
+      const loggedUser = await masterApi.userApi.getCurrentUser()
 
       const events: HealthcareParty[] = []
       const statuses: string[] = []
@@ -582,15 +597,15 @@ describe('Subscription API', () => {
       })
 
       await doXOnYAndSubscribe(
-        api!!,
+        masterApi,
         options,
         connectionPromise(options, loggedUser.healthcarePartyId!, async (patient) => {
           events.push(patient)
           eventReceivedPromiseResolve()
         }),
         async () => {
-          await api!!.healthcarePartyApi.createHealthcareParty(
-            new HealthcareParty({id: uuid(), firstName: 'Homer', lastName: 'Simpson', parentId: loggedUser.healthcarePartyId})
+          await masterApi.healthcarePartyApi.createHealthcareParty(
+            new HealthcareParty({ id: uuid(), firstName: 'Homer', lastName: 'Simpson', parentId: loggedUser.healthcarePartyId })
           )
         },
         (status) => {
@@ -626,12 +641,7 @@ describe('Subscription API', () => {
     const subscribeAndCreateDevice = async (options: {}, eventTypes: ('CREATE' | 'DELETE' | 'UPDATE')[]) => {
       const connectionPromise = async (options: {}, dataOwnerId: string, eventListener: (patient: Device) => Promise<void>) => {
         await sleep(2000)
-        return api!.deviceApi.subscribeToDeviceEvents(
-          eventTypes,
-          new AllDevicesFilter({}),
-          eventListener,
-          options
-        )
+        return api!.deviceApi.subscribeToDeviceEvents(eventTypes, new AllDevicesFilter({}), eventListener, options)
       }
       const loggedUser = await api!!.userApi.getCurrentUser()
 
@@ -653,9 +663,7 @@ describe('Subscription API', () => {
           eventReceivedPromiseResolve()
         }),
         async () => {
-          await api!!.deviceApi.createDevice(
-            new Device({id: uuid(), brand: 'Apple', model: 'iPod Shuffle'})
-          )
+          await api!!.deviceApi.createDevice(new Device({ id: uuid(), brand: 'Apple', model: 'iPod Shuffle' }))
         },
         (status) => {
           statuses.push(status)
@@ -669,7 +677,10 @@ describe('Subscription API', () => {
 
       assert(events.length === 1, 'The events have not been recorded')
       assert(statuses.length === 2, 'The statuses have not been recorded')
-      assert(events.every((event) => event instanceof Device), 'The events are not of type Device')
+      assert(
+        events.every((event) => event instanceof Device),
+        'The events are not of type Device'
+      )
     }
 
     it('CREATE Device without option', async () => {
@@ -717,13 +728,12 @@ describe('Subscription API', () => {
           eventReceivedPromiseResolve()
         }),
         async () => {
-
           const user = await api!.userApi.createUser(
             new User({
               id: uuid(),
               login: `${uuid()}`,
               status: 'ACTIVE',
-              patientId: uuid()
+              patientId: uuid(),
             })
           )
         },
@@ -739,7 +749,10 @@ describe('Subscription API', () => {
 
       assert(events.length === 1, 'The events have not been recorded')
       assert(statuses.length === 2, 'The statuses have not been recorded')
-      assert(events.every((event) => event instanceof User), 'The events are not of type User')
+      assert(
+        events.every((event) => event instanceof User),
+        'The events are not of type User'
+      )
     }
 
     it('CREATE User without options', async () => {

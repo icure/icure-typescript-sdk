@@ -129,11 +129,7 @@ export namespace XHR {
           message: string
           status: number
         } = { error: response.statusText, message: await response.text(), status: response.status }
-        console.warn(`XHR Error: ${error.status} - ${error.error}`, error.message)
-        console.warn(method)
-        console.warn(url)
-        console.warn(authHeaders)
-        console.warn(data ? JSON.stringify(data) : 'no data')
+        console.warn(`XHR Error: ${method} ${url} - ${error.status} - ${error.error}`, error.message)
         throw new XHRError(url, error.message, error.status, error.error, response.headers)
       } else {
         const ct = contentTypeOverride || response.headers.get('content-type') || 'text/plain'

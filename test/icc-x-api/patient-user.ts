@@ -83,33 +83,27 @@ describe('Patient', () => {
   }).timeout(60000)
 
   it('should be capable of logging in and encryption', async () => {
-    const { userApi } = await initApi(env, patUsername)
-    const rawPatientApi = new IccPatientApi(
-      env.iCureUrl,
-      {},
-      new BasicAuthenticationProvider(env.dataOwnerDetails[patUsername].user, env.dataOwnerDetails[patUsername].password)
-    )
+    const { userApi, calendarItemApi, patientApi } = await initApi(env, patUsername)
 
     const user = await userApi.getCurrentUser()
-    const patient = await rawPatientApi.getPatient(user.patientId!)
-
-    const { calendarItemApi, patientApi, cryptoApi } = await initApi(env, patUsername)
 
     const patNote = 'Secret note'
+    const retrievedPat = await patientApi.getPatientWithUser(user, user.patientId!)
     const pat = await patientApi.modifyPatientWithUser(user, {
-      ...(await patientApi.getPatientWithUser(user, user.patientId!)),
+      ...retrievedPat,
       note: patNote,
     })
+    expect(pat!.note).to.equal(patNote)
     const ciTitle = 'Secret title'
     const ciDetails = 'Important and private information'
     const ci = await calendarItemApi.createCalendarItemWithHcParty(
       user,
-      await calendarItemApi.newInstancePatient(user, patient, { patientId: patient.id, title: ciTitle, details: ciDetails })
+      await calendarItemApi.newInstancePatient(user, pat, { patientId: pat!.id, title: ciTitle, details: ciDetails })
     )
 
     let failed = false
     try {
-      await api.patientApi.getPatientWithUser(hcpUser, patient.id!)
+      await api.patientApi.getPatientWithUser(hcpUser, pat!.id!)
     } catch {
       failed = true
     }
@@ -125,7 +119,7 @@ describe('Patient', () => {
     await patientApi.shareWith(hcpUser.healthcarePartyId!, pat!, await patientApi.decryptSecretIdsOf(pat!))
     await calendarItemApi.shareWith(hcpUser.healthcarePartyId!, ci!)
     await api.cryptoApi.forceReload()
-    const pat3 = await api.patientApi.getPatientWithUser(hcpUser, patient.id!)
+    const pat3 = await api.patientApi.getPatientWithUser(hcpUser, pat!.id!)
     const ci3 = await api.calendarItemApi.getCalendarItemWithUser(hcpUser, ci.id)
     expect(pat3).to.not.be.null
     expect(pat3.note).to.equal(patNote)
