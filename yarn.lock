@@ -197,11 +197,12 @@
   dependencies:
     "@jridgewell/trace-mapping" "0.3.9"
 
-"@icure/api@^6.3.1":
-  version "6.3.1"
-  resolved "https://registry.yarnpkg.com/@icure/api/-/api-6.3.1.tgz#9b21ea5569f92adc6001bbab2d30ca517cc42119"
-  integrity sha512-S9lOXDkQQSy1nAheuz5QkvfjyovPxNfy8RsLNkHgli0K5B/QgTjWcuMyRmz//oeYxxn+hUloNiwtigQ3kKkCVQ==
+"@icure/api@7.1.13":
+  version "7.1.13"
+  resolved "https://registry.yarnpkg.com/@icure/api/-/api-7.1.13.tgz#fbe6977f5dadaeb137b95c68378c695d35b9ce4d"
+  integrity sha512-xljOi9ZsnA/+FZLqal99j/e/0+4oAZFrDeFvqnUBY3BIsxEjM0y8HqerMEWJra2zd5256h7PXcRvMKiO6CzoLQ==
   dependencies:
+    browser-or-node "^2.1.1"
     date-fns "^2.23.0"
     libphonenumber-js "^1.7.18"
     lodash "^4.17.21"
@@ -209,6 +210,7 @@
     text-encoding "^0.7.0"
     uuid "^8.3.2"
     uuid-encoder "^1.1.0"
+    ws "^8.13.0"
 
 "@icure/apiV6@npm:@icure/api@6.4.0":
   version "6.4.0"
@@ -223,12 +225,12 @@
     uuid "^8.3.2"
     uuid-encoder "^1.1.0"
 
-"@icure/test-setup@^0.0.50":
-  version "0.0.50"
-  resolved "https://registry.yarnpkg.com/@icure/test-setup/-/test-setup-0.0.50.tgz#199304023ce0dec9de0510b55a9f0868e23b8f3c"
-  integrity sha512-p2ITYTR1ZzFjC3VhB5gZ1b8lPt3nvjVBjnC+gRLlU+2KQkCiQJtFlDhKSX2l3ibeYa0zhkZ5oN6Hl9vhuh0ijg==
+"@icure/test-setup@^0.0.53":
+  version "0.0.53"
+  resolved "https://registry.yarnpkg.com/@icure/test-setup/-/test-setup-0.0.53.tgz#26816bd04e51515d5228b413d4261d7c343d516e"
+  integrity sha512-t7isQYMlhjJc3bEFL6xvMTmam6tHR3secWiRGdr7BQyLsJm7DqGentmKtpu1Vf4sIlOkLmrjNClXiAwQx1h0Iw==
   dependencies:
-    "@icure/api" "^6.3.1"
+    "@icure/api" "7.1.13"
     "@types/react-dom" "^18.0.6"
     date-fns "^2.3.0"
     isomorphic-fetch "^3.0.0"
