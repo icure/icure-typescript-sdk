@@ -28,7 +28,7 @@ export class IccTopicApi {
     fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
 
     get headers(): Promise<Array<XHR.Header>> {
-        return Promise.resolve(this.headers)
+        return Promise.resolve(this._headers)
     }
 
     constructor(

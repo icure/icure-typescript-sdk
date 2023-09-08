@@ -69,7 +69,7 @@ export class Topic {
      *
      * This should not be used directly, in the future the format may change. Make sure to only edit this through methods of {@link IccTopicXApi}.
      */
-    activeParticipants?: Map<string, TopicRole>
+    activeParticipants?: { [key: string]: TopicRole }
     securityMetadata?: SecurityMetadata
     /**
      * The secretForeignKeys are filled at the to many end of a one to many relationship (for example inside Contact for the Patient -> Contacts relationship). Used when we want to find all contacts for a specific patient. These keys are in clear. You can have several to partition the medical document space.
@@ -95,7 +95,7 @@ export class Topic {
 }
 
 export enum TopicRole {
-    PARTICIPANT,
-    ADMIN,
-    OWNER,
+    PARTICIPANT = 'PARTICIPANT',
+    ADMIN = 'ADMIN',
+    OWNER = 'OWNER',
 }

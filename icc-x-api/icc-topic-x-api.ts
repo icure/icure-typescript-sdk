@@ -1,7 +1,7 @@
 import {IccTopicApi} from '../icc-api'
 import {IccCryptoXApi} from './icc-crypto-x-api'
 
-import _ from 'lodash'
+import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
 import {ListOfIds, Topic, TopicRole} from '../icc-api/model/models'
 import {IccDataOwnerXApi} from './icc-data-owner-x-api'
@@ -326,5 +326,16 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
         )
 
         return await super.addParticipant(body, updatedTopic.id!);
+    }
+
+    /**
+     * Remove the participant with the given data owner id from the topic with the given id.
+     * @param body data owner id of the participant to remove.
+     * @param topicId Id of the topic from which the participant should be removed.
+     * @return the updated decrypted topic.
+     */
+    async removeParticipant(body: { dataOwnerId: string }, topicId: string): Promise<Topic> {
+        const updatedTopic = await super.removeParticipant(body, topicId)
+        return (await this.decrypt([updatedTopic]))[0]
     }
 }
