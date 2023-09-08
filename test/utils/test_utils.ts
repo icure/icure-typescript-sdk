@@ -64,7 +64,7 @@ export namespace TestUtils {
     return await getApiAndAddPrivateKeysForUser(envVars.iCureUrl, envVars.dataOwnerDetails[userName])
   }
 
-  export async function initMasterApi(envVars: TestVars): Promise<Apis> {
+  export async function initMasterApi(envVars: TestVars): Promise<IcureApi> {
     return await getApiAndAddPrivateKeysForUser(envVars.iCureUrl, envVars.masterHcp!)
   }
 }
