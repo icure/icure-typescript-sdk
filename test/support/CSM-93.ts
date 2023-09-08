@@ -14,6 +14,7 @@ import { TestApi } from '../utils/TestApi'
 import { TestCryptoStrategies } from '../utils/TestCryptoStrategies'
 import { IccIcureMaintenanceXApi } from '../../icc-x-api/icc-icure-maintenance-x-api'
 import { KeyPairUpdateRequest } from '../../icc-x-api/maintenance/KeyPairUpdateRequest'
+import { TestKeyStorage, TestStorage } from '../utils/TestStorage'
 setLocalStorage(fetch)
 
 let env: TestVars
@@ -90,7 +91,11 @@ describe('CSM-93', async function () {
       new TestCryptoStrategies(newPair),
       webcrypto as any,
       fetch,
-      { createMaintenanceTasksOnNewKey: true }
+      {
+        createMaintenanceTasksOnNewKey: true,
+        storage: new TestStorage(),
+        keyStorage: new TestKeyStorage(),
+      }
     )
     const retrievedPatientLost = await patApisLost.patientApi.getPatientWithUser(patUser, p2.id!)
     const retrievedHeLost = await patApisLost.healthcareElementApi.getHealthElementWithUser(patUser, he.id!)
