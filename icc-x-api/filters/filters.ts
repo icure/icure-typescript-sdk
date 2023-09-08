@@ -17,7 +17,7 @@ import {PatientByHcPartyDateOfBirthFilter} from './PatientByHcPartyDateOfBirthFi
 
 import {add, format} from 'date-fns'
 import {PatientByHcPartyFilter} from './PatientByHcPartyFilter'
-import {PatientByHcPartyGenderEducationProfession} from './PatientByHcPartyGenderEducationProfession'
+import {PatientByHcPartyGenderEducationProfessionFilter} from './PatientByHcPartyGenderEducationProfessionFilter'
 import {PatientByIdsFilter} from './PatientByIdsFilter'
 import {PatientByHcPartyNameContainsFuzzyFilter} from './PatientByHcPartyNameContainsFuzzyFilter'
 
@@ -71,7 +71,7 @@ export * from './PatientByHcPartyAndSsinsFilter'
 export * from './PatientByHcPartyDateOfBirthBetweenFilter'
 export * from './PatientByHcPartyDateOfBirthFilter'
 export * from './PatientByHcPartyFilter'
-export * from './PatientByHcPartyGenderEducationProfession'
+export * from './PatientByHcPartyGenderEducationProfessionFilter'
 export * from './PatientByHcPartyNameContainsFuzzyFilter'
 export * from './PatientByHcPartyNameFilter'
 export * from './PatientByIdsFilter'
@@ -365,7 +365,7 @@ class PatientFilterBuilder extends FilterBuilder<Patient> {
       this,
       new PatientFilterBuilder(
         () =>
-          new PatientByHcPartyGenderEducationProfession({
+          new PatientByHcPartyGenderEducationProfessionFilter({
             healthcarePartyId: this.hcpId,
             gender: gender,
             education: education,
