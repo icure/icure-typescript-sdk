@@ -723,6 +723,7 @@ describe('Subscription API', () => {
               id: uuid(),
               login: `${uuid()}`,
               status: 'ACTIVE',
+              patientId: uuid()
             })
           )
         },
