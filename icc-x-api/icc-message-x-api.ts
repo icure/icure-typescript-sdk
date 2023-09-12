@@ -1,7 +1,7 @@
 import {IccMessageApi} from '../icc-api'
 import {IccCryptoXApi} from './icc-crypto-x-api'
 
-import _ from 'lodash'
+import * as _ from 'lodash'
 
 import * as models from '../icc-api/model/models'
 import {Message, PaginatedListMessage, Patient, User} from '../icc-api/model/models'
@@ -30,7 +30,7 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     private readonly crypto: IccCryptoXApi,
     private readonly dataOwnerApi: IccDataOwnerXApi,
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
-    encryptedKeys: Array<string> = [],
+    encryptedKeys: Array<string>,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
@@ -104,7 +104,7 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
   }
 
   decrypt(messages: Array<models.Message>) {
-    return Promise.all(messages.map((message) => this.crypto.xapi.decryptEntity(message, 'Message', (x) => new models.Message(x)).then(({entity}) => entity)))
+    return Promise.all(messages.map((message) => this.crypto.xapi.decryptEntity(message, 'Message', (x) => new models.Message(x))))
   }
 
   encrypt(messages: Array<models.Message>): Promise<Array<models.Message>> {
@@ -257,15 +257,23 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
   override async filterMessagesBy(body: FilterChainMessage, startDocumentId?: string, limit?: number): Promise<PaginatedListMessage> {
     const page = await super.filterMessagesBy(body, startDocumentId, limit)
     const decryptedMessages = await this.decrypt(page.rows ?? [])
+    if (decryptedMessages.some((m) => !m.decrypted)) throw new Error('Some messages could not be decrypted')
     return {
       ...page,
-      rows: decryptedMessages,
+      rows: decryptedMessages.map((m) => m.entity),
     }
   }
 
-  override async createMessage(body: Message): Promise<Message> {
+  async createEncryptedMessage(body: Message): Promise<Message> {
     const encryptedMessage = await this.encrypt([body])
-    const createdTopic = await super.createMessage(encryptedMessage[0])
-    return (await this.decrypt([createdTopic]))[0]
+    const createdMessage = await super.createMessage(encryptedMessage[0])
+    return (await this.decrypt([createdMessage]))[0].entity
+  }
+
+  async getDecryptedMessage(messageId: string): Promise<Message> {
+    const encryptedMessage = await super.getMessage(messageId)
+    const decryptedMessage = await this.decrypt([encryptedMessage])
+    if (!decryptedMessage[0].decrypted) throw new Error('Message could not be decrypted')
+    return decryptedMessage[0].entity
   }
 }
