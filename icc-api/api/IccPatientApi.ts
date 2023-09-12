@@ -470,13 +470,7 @@ export class IccPatientApi {
    * @param startDocumentId A patient document ID
    * @param limit Number of rows
    */
-  async listDeletedPatients(
-    startDate?: number,
-    endDate?: number,
-    desc?: boolean,
-    startDocumentId?: string,
-    limit?: number
-  ): Promise<PaginatedListPatient> {
+  async listDeletedPatients(startDate?: number, endDate?: number, desc?: boolean, startDocumentId?: string, limit?: number): Promise<PaginatedListPatient> {
     let _body = null
 
     const _url =

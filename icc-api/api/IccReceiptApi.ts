@@ -106,6 +106,7 @@ export class IccReceiptApi {
       throw new Error('Server-side encryption is not supported anymore.')
     }
     let _body = null
+
     const _url =
       this.host +
       `/receipt/${encodeURIComponent(String(receiptId))}/attachment/${encodeURIComponent(String(attachmentId))}` +
