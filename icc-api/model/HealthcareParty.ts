@@ -24,7 +24,7 @@ import { PropertyStub } from './PropertyStub'
 import { b64_2ab } from './ModelHelper'
 export class HealthcareParty {
   constructor(json: JSON | any) {
-    Object.assign(this as HealthcareParty, json, json.picture ? { picture: b64_2ab(json.picture) } : {})
+    Object.assign(this as HealthcareParty, json, json?.picture ? { picture: b64_2ab(json.picture) } : {})
   }
 
   /**

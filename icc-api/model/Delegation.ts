@@ -21,5 +21,8 @@ export class Delegation {
   owner?: string
   delegatedTo?: string
   key?: string
+  /**
+   * @deprecated replaced by access control
+   */
   tags?: Array<string>
 }

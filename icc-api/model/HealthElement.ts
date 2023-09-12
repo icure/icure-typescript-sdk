@@ -15,6 +15,7 @@ import { Delegation } from './Delegation'
 import { Episode } from './Episode'
 import { Identifier } from './Identifier'
 import { PlanOfAction } from './PlanOfAction'
+import { Annotation } from './Annotation'
 import { SecurityMetadata } from './SecurityMetadata'
 import { EntityWithDelegationTypeName } from '../../icc-x-api/utils/EntityWithDelegationTypeName'
 
@@ -93,8 +94,15 @@ export class HealthElement {
   descr?: string
   /**
    * A text note (can be confidential, encrypted by default).
+   * @deprecated Use notes instead
    */
   note?: string
+
+  /**
+   * Localized text notes (can be confidential, encrypted by default).
+   */
+  notes?: Annotation[]
+
   /**
    * If the healthcare element is relevant or not (Set relevant by default).
    */
