@@ -20,7 +20,7 @@ import { TimeSeries } from './TimeSeries'
 import { b64_2ab } from './ModelHelper'
 export class Content {
   constructor(json: JSON | any) {
-    Object.assign(this as Content, json, json.binaryValue ? { binaryValue: b64_2ab(json.binaryValue) } : {})
+    Object.assign(this as Content, json, !!json?.binaryValue ? { binaryValue: b64_2ab(json.binaryValue) } : {})
   }
 
   stringValue?: string
