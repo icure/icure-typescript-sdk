@@ -1,20 +1,40 @@
 import { AuthService } from './AuthService'
 import { XHR } from '../../icc-api/api/XHR'
-import { IccAuthApi } from '../../icc-api'
+import { IccAuthApi, OAuthThirdParty } from '../../icc-api'
 import { LoginCredentials } from '../../icc-api/model/LoginCredentials'
 import Header = XHR.Header
 import { a2b } from '../utils'
+import { AuthenticationResponse } from '../../icc-api/model/AuthenticationResponse'
+import XHRError = XHR.XHRError
 
+/**
+ * Differs from JwtBridgedAuthService in that it cannot create new refresh tokens
+ */
 export class JwtAuthService implements AuthService {
   private _error: Error | null = null
-  private _currentPromise: Promise<{ authJwt?: string; refreshJwt?: string }> = Promise.resolve({})
+  private _currentPromise: Promise<{ authJwt: string; refreshJwt: string } | undefined> = Promise.resolve(undefined as any)
 
-  constructor(private authApi: IccAuthApi, private username: string, private password: string) {}
+  constructor(private readonly authApi: IccAuthApi, initialJwt?: { authJwt: string; refreshJwt: string }) {
+    if (!!initialJwt) {
+      this._currentPromise = Promise.resolve(initialJwt)
+    }
+  }
+
+  get refreshToken(): Promise<string | undefined> {
+    return this._currentPromise.then((x) => x?.refreshJwt as any)
+  }
+
+  getIcureTokens(): Promise<{ token: string; refreshToken: string } | undefined> {
+    return this._currentPromise.then((x) => (x ? { token: x.authJwt, refreshToken: x.refreshJwt } : undefined))
+  }
 
   async getAuthHeaders(): Promise<Array<Header>> {
     return this._currentPromise
-      .then(({ authJwt, refreshJwt }) => {
-        if (!authJwt || this._isJwtInvalidOrExpired(authJwt)) {
+      .then((x) => {
+        const authJwt = x?.authJwt
+        const refreshJwt = x?.refreshJwt
+
+        if ((!authJwt || this._isJwtInvalidOrExpired(authJwt)) && refreshJwt) {
           // If it does not have the JWT, tries to get it
           // If the JWT is expired, tries to refresh it
 
@@ -32,36 +52,22 @@ export class JwtAuthService implements AuthService {
         }
         return this._currentPromise
       })
-      .then(({ authJwt }) => {
-        return [new XHR.Header('Authorization', `Bearer ${authJwt}`)]
+      .then((x) => {
+        return x?.authJwt ? [new XHR.Header('Authorization', `Bearer ${x.authJwt}`)] : Promise.reject('Cannot provide auth: No JWT')
       })
   }
 
-  private async _refreshAuthJwt(refreshJwt: string | undefined): Promise<{ authJwt?: string; refreshJwt?: string }> {
+  private async _refreshAuthJwt(refreshJwt: string): Promise<{ authJwt: string; refreshJwt: string }> {
     // If I do not have a refresh JWT or the refresh JWT is expired,
     // I have to log in again
-    if (!refreshJwt || this._isJwtInvalidOrExpired(refreshJwt)) {
-      return this._loginAndGetTokens()
+    if (this._isJwtInvalidOrExpired(refreshJwt)) {
+      throw Error('Missing or expired refresh token: please log in again')
     } else {
       return this.authApi.refreshAuthenticationJWT(refreshJwt).then((refreshResponse) => ({
-        authJwt: refreshResponse.token,
+        authJwt: refreshResponse.token!,
         refreshJwt: refreshJwt,
       }))
     }
-  }
-
-  private async _loginAndGetTokens(): Promise<{ authJwt?: string; refreshJwt?: string }> {
-    return this.authApi
-      .login(
-        new LoginCredentials({
-          username: this.username,
-          password: this.password,
-        })
-      )
-      .then((authResponse) => ({
-        authJwt: authResponse.token,
-        refreshJwt: authResponse.refreshToken,
-      }))
   }
 
   private _isJwtInvalidOrExpired(jwt: string): boolean {
