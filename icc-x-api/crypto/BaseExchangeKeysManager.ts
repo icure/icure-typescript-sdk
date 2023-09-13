@@ -81,10 +81,18 @@ export class BaseExchangeKeysManager {
         [mainDelegatorKeyPairPubHex.slice(-32)]: delegatorMainKeyPair.publicKey,
       }
       const encryptedKeyInfo = await this.encryptExchangeKey(exchangeKey, allPublicKeys)
+      let updatedDelegatorPublicKey: string
+      if (delegator.stub.publicKey == '') {
+        if (Object.entries(delegator.stub.hcPartyKeys ?? {}).length > 0)
+          throw new Error(`Data owner ${delegator.stub.id} has "" as public key but has non-empty hcPartyKeys`)
+        updatedDelegatorPublicKey = mainDelegatorKeyPairPubHex
+      } else {
+        updatedDelegatorPublicKey = delegator.stub.publicKey ?? mainDelegatorKeyPairPubHex
+      }
       const updatedStub: CryptoActorStub = {
         ...delegator.stub,
         aesExchangeKeys: await this.updateExchangeKeys(delegator, delegate, mainDelegatorKeyPairPubHex, encryptedKeyInfo.encryptedExchangeKey),
-        publicKey: delegator.stub.publicKey ?? mainDelegatorKeyPairPubHex,
+        publicKey: updatedDelegatorPublicKey,
       }
       if (delegator.stub.publicKey === mainDelegatorKeyPairPubHex) {
         updatedStub.hcPartyKeys = this.updateLegacyExchangeKeys(delegator, delegate, encryptedKeyInfo.encryptedExchangeKey)
@@ -387,8 +395,8 @@ export class BaseExchangeKeysManager {
 
   // Copy all legacy hcp exchange keys into the new aes exchange keys
   private async combineLegacyHcpKeysWithAesExchangeKeys(
-    owner: DataOwner,
-    delegate: DataOwner | undefined
+    owner: CryptoActorStub,
+    delegate: CryptoActorStub | undefined
   ): Promise<{ [ownerPublicKey: string]: { [delegateId: string]: { [fingerprint: string]: string } } }> {
     const ownerLegacyPublicKey = owner.publicKey
     if (ownerLegacyPublicKey && !(owner.aesExchangeKeys ?? {})[ownerLegacyPublicKey]) {
@@ -405,7 +413,7 @@ export class BaseExchangeKeysManager {
       ].reduce((acc, dataOwner) => {
         acc[dataOwner.id!] = dataOwner
         return acc
-      }, {} as { [id: string]: DataOwner })
+      }, {} as { [id: string]: CryptoActorStub })
       return {
         [ownerLegacyPublicKey]: Object.entries(owner.hcPartyKeys ?? {}).reduce((acc, [hcpId, keys]) => {
           acc[hcpId] = { [ownerLegacyPublicKey.slice(-32)]: keys[0], [counterPartsById[hcpId]?.publicKey?.slice(-32) ?? '']: keys[1] }

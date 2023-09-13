@@ -71,6 +71,7 @@ export class KeyRecovery {
         }
       }
     }
+
     return Object.fromEntries(Object.entries(allPrivateKeys).filter(([keyFp]) => !knownKeysFpSet.has(keyFp)))
   }
 
