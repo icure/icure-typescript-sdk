@@ -18,12 +18,6 @@ import { CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
  * - Automatically retrieves the private keys to use during decryption.
  */
 export class ExchangeKeysManager {
-  private readonly keyManager: UserEncryptionKeysManager
-  private readonly baseExchangeKeysManager: BaseExchangeKeysManager
-  private readonly dataOwnerApi: IccDataOwnerXApi
-  private readonly cryptoStrategies: CryptoStrategies
-  private readonly primitives: CryptoPrimitives
-  private readonly icureStorage: IcureStorageFacade
   /*
    * Exchange keys cache where the current user is the delegator. The keys where the delegator is the current user should never change without
    * an action from the delegator (unless he does this action from another device), so it should be safe to store them without expiration. However,
@@ -46,23 +40,18 @@ export class ExchangeKeysManager {
     delegatedKeysCacheSize: number,
     delegatedKeysCacheLifetimeMsBase: number,
     delegatedKeysCacheLifetimeMsNoKeys: number,
-    cryptoStrategies: CryptoStrategies,
-    primitives: CryptoPrimitives,
-    keyManager: UserEncryptionKeysManager,
-    baseExchangeKeysManager: BaseExchangeKeysManager,
-    dataOwnerApi: IccDataOwnerXApi,
-    icureStorage: IcureStorageFacade
+    private readonly cryptoStrategies: CryptoStrategies,
+    private readonly primitives: CryptoPrimitives,
+    private readonly keyManager: UserEncryptionKeysManager,
+    private readonly baseExchangeKeysManager: BaseExchangeKeysManager,
+    private readonly dataOwnerApi: IccDataOwnerXApi,
+    private readonly useParentKeys: boolean,
+    private readonly icureStorage: IcureStorageFacade
   ) {
-    this.primitives = primitives
-    this.cryptoStrategies = cryptoStrategies
-    this.keyManager = keyManager
-    this.baseExchangeKeysManager = baseExchangeKeysManager
-    this.dataOwnerApi = dataOwnerApi
     this.delegatedExchangeKeysCache = new LruTemporisedAsyncCache(delegatedKeysCacheSize, (keys) =>
       keys.length > 0 ? delegatedKeysCacheLifetimeMsBase : delegatedKeysCacheLifetimeMsNoKeys
     )
     this.delegatorExchangeKeysCache = new LruTemporisedAsyncCache(delegatorKeysCacheSize, () => -1)
-    this.icureStorage = icureStorage
   }
 
   /**
@@ -159,7 +148,7 @@ export class ExchangeKeysManager {
         ...this.dataOwnerApi.getHexPublicKeysWithSha256Of(delegate.stub),
       ])
       let verifiedDelegatePublicKeys: string[]
-      if ((await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()).includes(delegateId)) {
+      if (this.useParentKeys && (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()).includes(delegateId)) {
         verifiedDelegatePublicKeys = await this.keyManager.getVerifiedPublicKeysFor(delegate)
       } else {
         verifiedDelegatePublicKeys = await this.cryptoStrategies.verifyDelegatePublicKeys(delegate, delegatePublicKeys, this.primitives)

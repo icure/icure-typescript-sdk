@@ -22,6 +22,18 @@ type KeyRecovererAndVerifier = (
     keyAuthenticity: { [keyPairFingerprint: string]: boolean }
   }
 }>
+const nothingKeyRecovererAndVerifier: KeyRecovererAndVerifier = (x) =>
+  Promise.resolve(
+    x.reduce(
+      (acc, { dataOwner }) => ({ ...acc, [dataOwner.dataOwner.id!]: { recoveredKeys: {}, keyAuthenticity: {} } }),
+      {} as {
+        [dataOwnerId: string]: {
+          recoveredKeys: { [keyPairFingerprint: string]: KeyPair<CryptoKey> }
+          keyAuthenticity: { [keyPairFingerprint: string]: boolean }
+        }
+      }
+    )
+  )
 type CurrentOwnerKeyGenerator = (self: DataOwnerWithType) => Promise<KeyPair<CryptoKey> | boolean>
 
 /**
@@ -39,17 +51,48 @@ export class UserEncryptionKeysManager {
   private keysCache: { [selfOrParentId: string]: { [pubKeyFingerprint: string]: KeyPairData } } | undefined = undefined
 
   constructor(
-    primitives: CryptoPrimitives,
-    dataOwnerApi: IccDataOwnerXApi,
-    icureStorage: IcureStorageFacade,
-    keyRecovery: KeyRecovery,
-    strategies: CryptoStrategies
-  ) {
-    this.primitives = primitives
-    this.icureStorage = icureStorage
-    this.dataOwnerApi = dataOwnerApi
-    this.keyRecovery = keyRecovery
-    this.strategies = strategies
+    private readonly primitives: CryptoPrimitives,
+    private readonly dataOwnerApi: IccDataOwnerXApi,
+    private readonly icureStorage: IcureStorageFacade,
+    private readonly keyRecovery: KeyRecovery,
+    private readonly baseExchangeKeyManager: BaseExchangeKeysManager,
+    private readonly strategies: CryptoStrategies,
+    private readonly initialiseParentKeys: boolean
+  ) {}
+
+  /**
+   * @internal
+   * Get all key pairs available for the current data owner and his parents.
+   * @return an object with:
+   * - `self` an object containing the current data owner id and the list of key pairs available for the current data owner with verification details.
+   * - `parents` the list of parents to the current data owner with the list of key pairs available for each parent. The list is ordered from the
+   *   topmost ancestor (at index 0) to the direct parent of the current data owner (at the last index, may be 0).
+   */
+  async getCurrentUserHierarchyAvailableKeypairs(): Promise<{
+    self: {
+      dataOwnerId: string
+      keys: { pair: KeyPair<CryptoKey>; verified: boolean }[]
+    }
+    parents: {
+      dataOwnerId: string
+      keys: { pair: KeyPair<CryptoKey> }[]
+    }[]
+  }> {
+    this.ensureInitialised()
+    const hierarchy = await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
+    const selfId = hierarchy[hierarchy.length - 1]
+    const selfKeys = Object.values(this.keysCache![selfId]).map(({ pair, isVerified, isDevice }) => ({ pair, verified: isVerified || isDevice }))
+    const remainingHierarchy = hierarchy.slice(0, hierarchy.length - 1)
+    return {
+      self: {
+        dataOwnerId: selfId,
+        keys: selfKeys,
+      },
+      parents: remainingHierarchy.map((x) => ({
+        dataOwnerId: x,
+        keys: Object.values(this.keysCache![x]).map(({ pair }) => ({ pair })),
+      })),
+    }
   }
 
   /**
@@ -141,6 +184,10 @@ export class UserEncryptionKeysManager {
    * @internal This method is intended for internal use only and may be changed without notice.
    * Get all verified key pairs for the current data owner which can safely be used for encryption. This includes all key pairs created on the current
    * device and all recovered key pairs which have been verified.
+   * The keys returned by this method will be in the following order:
+   * 1. Legacy key pair if it is verified
+   * 2. All device key pais, in alphabetical order according to the fingerprint
+   * 3. Other verified key pairs, in alphabetical order according to the fingerprint
    * @return all verified keys, in order.
    */
   getSelfVerifiedKeys(): { fingerprint: string; pair: KeyPair<CryptoKey> }[] {
@@ -206,11 +253,21 @@ export class UserEncryptionKeysManager {
     currentOwnerKeyGenerator: CurrentOwnerKeyGenerator
   ): Promise<{ pair: KeyPair<CryptoKey>; fingerprint: string } | undefined> {
     // Load all keys for self from key store
-    const hierarchy = await this.dataOwnerApi.getCurrentDataOwnerHierarchy()
+    const hierarchy = (await this.dataOwnerApi.getCurrentDataOwnerHierarchy()).map(({ dataOwner, type }) => {
+      if (dataOwner.publicKey == '') {
+        if (Object.entries(dataOwner.hcPartyKeys ?? {}).length > 0)
+          throw new Error(`Data owner ${dataOwner.id} has "" as public key but has non-empty hcPartyKeys`)
+        delete dataOwner.publicKey
+      }
+      return {
+        dataOwner,
+        type,
+      } as DataOwnerWithType
+    })
     const self = hierarchy[hierarchy.length - 1]
     this.selfId = self.dataOwner.id!
     const keysData = []
-    for (const dowt of hierarchy) {
+    for (const dowt of this.initialiseParentKeys ? hierarchy : [self]) {
       const availableKeys = await this.loadAndRecoverKeysFor(dowt)
       const verifiedKeysMap = await this.icureStorage.loadSelfVerifiedKeys(dowt.dataOwner.id!)
       const allPublicKeys = new Set([

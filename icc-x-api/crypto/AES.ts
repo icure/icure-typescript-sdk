@@ -181,7 +181,15 @@ export class AESUtils {
     return new Promise((resolve: (value: CryptoKey) => any, reject: (reason: any) => any) => {
       const extractable = true
       const keyUsages: KeyUsage[] = ['decrypt', 'encrypt']
-      return this.crypto.subtle.importKey(format as any, aesKey as any, this.aesKeyGenParams, extractable, keyUsages).then(resolve, reject)
+      return this.crypto.subtle
+        .importKey(format as any, aesKey as any, this.aesKeyGenParams, extractable, keyUsages)
+        .catch((err) => {
+          if (format == 'raw' && (aesKey instanceof ArrayBuffer || ArrayBuffer.isView(aesKey))) {
+            console.warn(`Import of key ${ua2hex(aesKey)} failed`)
+          }
+          throw err
+        })
+        .then(resolve, reject)
     })
   }
 }
