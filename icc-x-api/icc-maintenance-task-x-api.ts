@@ -13,14 +13,17 @@ import { ShareResult } from './utils/ShareResult'
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
-import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
+import {EncryptedFieldsManifest, parseEncryptedFields, subscribeToEntityEvents, SubscriptionOptions} from "./utils";
+import {IccUserXApi} from "@icure/apiV6";
+import {IccAuthApi} from "../icc-api";
+import {EncryptedEntityXApi} from "./basexapi/EncryptedEntityXApi";
+import {AbstractFilter} from "./filters/filters";
+import {Connection, ConnectionImpl} from "../icc-api/model/Connection";
 
 export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements EncryptedEntityXApi<models.MaintenanceTask> {
-  crypto: IccCryptoXApi
-  hcPartyApi: IccHcpartyXApi
-  dataOwnerApi: IccDataOwnerXApi
 
-  private readonly encryptedKeys: Array<string>
+
+  private readonly encryptedFields: EncryptedFieldsManifest
 
   get headers(): Promise<Array<XHR.Header>> {
     return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, 'MaintenanceTask'))
@@ -29,9 +32,11 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
   constructor(
     host: string,
     headers: { [key: string]: string },
-    crypto: IccCryptoXApi,
-    hcPartyApi: IccHcpartyXApi,
-    dataOwnerApi: IccDataOwnerXApi,
+    private readonly crypto: IccCryptoXApi,
+    private readonly hcPartyApi: IccHcpartyXApi,
+    private readonly dataOwnerApi: IccDataOwnerXApi,
+    private readonly userApi: IccUserXApi,
+    private readonly authApi: IccAuthApi,
     encryptedKeys: Array<string> = [],
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
@@ -41,10 +46,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
       : fetch
   ) {
     super(host, headers, authenticationProvider, fetchImpl)
-    this.crypto = crypto
-    this.hcPartyApi = hcPartyApi
-    this.dataOwnerApi = dataOwnerApi
-    this.encryptedKeys = encryptedKeys
+    this.encryptedFields = parseEncryptedFields(encryptedKeys, 'MaintenanceTask.')
   }
 
   /**
@@ -66,24 +68,22 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
     } = {}
   ) {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
-    const maintenanceTask = _.assign(
-      {
-        id: this.crypto.primitives.randomUuid(),
-        _type: 'org.taktik.icure.entities.MaintenanceTask',
-        created: new Date().getTime(),
-        modified: new Date().getTime(),
-        responsible: dataOwnerId,
-        author: user.id,
-      },
-      m || {}
-    )
+    const maintenanceTask = {
+      ...(m ?? {}),
+      _type: 'org.taktik.icure.entities.MaintenanceTask',
+      id: m?.id ?? this.crypto.primitives.randomUuid(),
+      created: m?.created ?? new Date().getTime(),
+      modified: m?.modified ?? new Date().getTime(),
+      responsible: m?.responsible ?? dataOwnerId,
+      author: m?.author ?? user.id,
+    }
 
     const extraDelegations = {
       ...Object.fromEntries((user.autoDelegations?.all ?? []).map((d) => [d, AccessLevelEnum.WRITE])),
       ...(options?.additionalDelegates ?? {}),
     }
     return new models.MaintenanceTask(
-      await this.crypto.xapi
+      await this.crypto.entities
         .entityWithInitialisedEncryptedMetadata(maintenanceTask, 'MaintenanceTask', undefined, undefined, true, false, extraDelegations)
         .then((x) => x.updatedEntity)
     )
@@ -159,7 +159,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
   private encryptAs(dataOwner: string, maintenanceTasks: Array<models.MaintenanceTask>): Promise<Array<models.MaintenanceTask>> {
     return Promise.all(
       maintenanceTasks.map((m) =>
-        this.crypto.xapi.tryEncryptEntity(m, 'MaintenanceTask', this.encryptedKeys, true, false, (x) => new models.MaintenanceTask(x))
+        this.crypto.entities.tryEncryptEntity(m, 'MaintenanceTask', this.encryptedFields, true, false, (x) => new models.MaintenanceTask(x))
       )
     )
   }
@@ -172,7 +172,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
   private decryptAs(dataOwner: string, maintenanceTasks: Array<models.MaintenanceTask>): Promise<Array<models.MaintenanceTask>> {
     return Promise.all(
       maintenanceTasks.map(async (mT) =>
-        this.crypto.xapi.decryptEntity(mT, 'MaintenanceTask', (x) => new MaintenanceTask(x)).then(({ entity }) => entity)
+        this.crypto.entities.decryptEntity(mT, 'MaintenanceTask', (x) => new MaintenanceTask(x)).then(({ entity }) => entity)
       )
     )
   }
@@ -181,7 +181,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
    * @return if the logged data owner has write access to the content of the given maintenance task
    */
   async hasWriteAccess(maintenanceTask: models.MaintenanceTask): Promise<boolean> {
-    return this.crypto.xapi.hasWriteAccess({ entity: maintenanceTask, type: 'MaintenanceTask' })
+    return this.crypto.entities.hasWriteAccess({ entity: maintenanceTask, type: 'MaintenanceTask' })
   }
 
   /**
@@ -253,9 +253,9 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
   ): Promise<ShareResult<models.MaintenanceTask>> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
-    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(maintenanceTask, 'MaintenanceTask')
+    const entityWithEncryptionKey = await this.crypto.entities.ensureEncryptionKeysInitialised(maintenanceTask, 'MaintenanceTask')
     const updatedEntity = entityWithEncryptionKey ? await this.modifyMaintenanceTaskAs(self, entityWithEncryptionKey) : maintenanceTask
-    return this.crypto.xapi
+    return this.crypto.entities
       .simpleShareOrUpdateEncryptedEntityMetadata(
         { entity: updatedEntity, type: 'MaintenanceTask' },
         true,
@@ -278,10 +278,30 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
   getDataOwnersWithAccessTo(
     entity: models.MaintenanceTask
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'MaintenanceTask' })
+    return this.crypto.entities.getDataOwnersWithAccessTo({ entity, type: 'MaintenanceTask' })
   }
 
   getEncryptionKeysOf(entity: models.MaintenanceTask): Promise<string[]> {
-    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'MaintenanceTask' }, undefined)
+    return this.crypto.entities.encryptionKeysOf({ entity, type: 'MaintenanceTask' }, undefined)
+  }
+
+  async subscribeToMaintenanceTaskEvents(
+      eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
+      filter: AbstractFilter<MaintenanceTask>,
+      eventFired: (dataSample: MaintenanceTask) => Promise<void>,
+      options: SubscriptionOptions = {}
+  ): Promise<Connection> {
+    const currentUser = await this.userApi.getCurrentUser()
+
+    return subscribeToEntityEvents(
+        this.host,
+        this.authApi,
+        'MaintenanceTask',
+        eventTypes,
+        filter,
+        eventFired,
+        options,
+        async (encrypted) => (await this.decrypt(currentUser, [encrypted]))[0]
+    ).then((rs) => new ConnectionImpl(rs))
   }
 }

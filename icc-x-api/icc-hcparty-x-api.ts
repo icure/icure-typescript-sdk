@@ -1,8 +1,11 @@
-import { IccHcpartyApi } from '../icc-api'
+import {IccAuthApi, IccHcpartyApi} from '../icc-api'
 import { HealthcareParty } from '../icc-api/model/HealthcareParty'
 import * as models from '../icc-api/model/models'
 import { findName, garnishPersonWithName, hasName } from './utils/person-util'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import {AbstractFilter} from "./filters/filters";
+import {subscribeToEntityEvents, SubscriptionOptions} from "./utils";
+import {Connection, ConnectionImpl} from "../icc-api/model/Connection";
 
 // noinspection JSUnusedGlobalSymbols
 export class IccHcpartyXApi extends IccHcpartyApi {
@@ -14,6 +17,7 @@ export class IccHcpartyXApi extends IccHcpartyApi {
     host: string,
     headers: { [key: string]: string },
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
+    private readonly authApi: IccAuthApi,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
@@ -146,5 +150,22 @@ export class IccHcpartyXApi extends IccHcpartyApi {
     cbe = cbe.length == 9 ? '0' + cbe : cbe
 
     return 97 - (Number(cbe.substring(0, 8)) % 97) === Number(cbe.substring(8, 2))
+  }
+
+  async subscribeToHealthcarePartyEvents(
+    eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
+    filter: AbstractFilter<HealthcareParty> | undefined,
+    eventFired: (dataSample: HealthcareParty) => Promise<void>,
+    options: SubscriptionOptions = {}
+  ): Promise<Connection> {
+    return subscribeToEntityEvents(
+      this.host,
+      this.authApi,
+      'HealthcareParty',
+      eventTypes,
+      filter,
+      eventFired,
+      options,
+    ).then((rs) => new ConnectionImpl(rs))
   }
 }

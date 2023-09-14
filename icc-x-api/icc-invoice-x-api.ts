@@ -13,12 +13,9 @@ import { ShareResult } from './utils/ShareResult'
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
-import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
+import {EncryptedEntityXApi} from "./basexapi/EncryptedEntityXApi";
 
 export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi<models.Invoice> {
-  crypto: IccCryptoXApi
-  entityrefApi: IccEntityrefApi
-  dataOwnerApi: IccDataOwnerXApi
 
   get headers(): Promise<Array<XHR.Header>> {
     return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, 'Invoice'))
@@ -27,9 +24,9 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
   constructor(
     host: string,
     headers: { [key: string]: string },
-    crypto: IccCryptoXApi,
-    entityrefApi: IccEntityrefApi,
-    dataOwnerApi: IccDataOwnerXApi,
+    private readonly crypto: IccCryptoXApi,
+    private readonly entityrefApi: IccEntityrefApi,
+    private readonly dataOwnerApi: IccDataOwnerXApi,
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
@@ -38,9 +35,6 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
       : fetch
   ) {
     super(host, headers, authenticationProvider, fetchImpl)
-    this.crypto = crypto
-    this.entityrefApi = entityrefApi
-    this.dataOwnerApi = dataOwnerApi
   }
 
   /**
@@ -66,23 +60,19 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
       preferredSfk?: string
     } = {}
   ): Promise<models.Invoice> {
-    const invoice = new models.Invoice(
-      _.extend(
-        {
-          id: this.crypto.primitives.randomUuid(),
-          groupId: this.crypto.primitives.randomUuid(),
-          _type: 'org.taktik.icure.entities.Invoice',
-          created: new Date().getTime(),
-          modified: new Date().getTime(),
-          responsible: this.dataOwnerApi.getDataOwnerIdOf(user),
-          author: user.id,
-          codes: [],
-          tags: [],
-          invoicingCodes: [],
-        },
-        inv || {}
-      )
-    )
+    const invoice = new models.Invoice({
+      ...(inv ?? {}),
+      _type: 'org.taktik.icure.entities.Invoice',
+      id: inv?.id ?? this.crypto.primitives.randomUuid(),
+      groupId: inv?.groupId ?? this.crypto.primitives.randomUuid(),
+      created: inv?.created ?? new Date().getTime(),
+      modified: inv?.modified ?? new Date().getTime(),
+      responsible: inv?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
+      author: inv?.author ?? user.id,
+      codes: inv?.codes ?? [],
+      tags: inv?.tags ?? [],
+      invoicingCodes: inv?.invoicingCodes ?? [],
+    })
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
@@ -95,7 +85,7 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
       ...(options?.additionalDelegates ?? {}),
     }
     return new models.Invoice(
-      await this.crypto.xapi
+      await this.crypto.entities
         .entityWithInitialisedEncryptedMetadata(invoice, 'Invoice', patient.id, sfk, true, false, extraDelegations)
         .then((x) => x.updatedEntity)
     )
@@ -163,7 +153,7 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
    * @param usingPost
    */
   async findBy(hcpartyId: string, patient: models.Patient, usingPost: boolean = false): Promise<Array<models.Invoice>> {
-    const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: 'Patient' }, hcpartyId)
+    const extractedKeys = await this.crypto.entities.secretIdsOf({ entity: patient, type: 'Patient' }, hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     let invoices: Array<Invoice> = usingPost
       ? await this.findInvoicesByHCPartyPatientForeignKeysUsingPost(hcpartyId!, _.uniq(extractedKeys))
@@ -185,14 +175,14 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
    * in the returned array, but in case of entity merges there could be multiple values.
    */
   async decryptPatientIdOf(invoice: models.Invoice): Promise<string[]> {
-    return this.crypto.xapi.owningEntityIdsOf({ entity: invoice, type: 'Invoice' }, undefined)
+    return this.crypto.entities.owningEntityIdsOf({ entity: invoice, type: 'Invoice' }, undefined)
   }
 
   /**
    * @return if the logged data owner has write access to the content of the given invoice
    */
   async hasWriteAccess(invoice: models.Invoice): Promise<boolean> {
-    return this.crypto.xapi.hasWriteAccess({ entity: invoice, type: 'Invoice' })
+    return this.crypto.entities.hasWriteAccess({ entity: invoice, type: 'Invoice' })
   }
 
   /**
@@ -273,9 +263,9 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
   ): Promise<ShareResult<models.Invoice>> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
-    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(invoice, 'Invoice')
+    const entityWithEncryptionKey = await this.crypto.entities.ensureEncryptionKeysInitialised(invoice, 'Invoice')
     const updatedEntity = entityWithEncryptionKey ? await this.modifyInvoice(entityWithEncryptionKey) : invoice
-    return this.crypto.xapi
+    return this.crypto.entities
       .simpleShareOrUpdateEncryptedEntityMetadata(
         { entity: updatedEntity, type: 'Invoice' },
         true,
@@ -298,10 +288,10 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
   getDataOwnersWithAccessTo(
     entity: models.Invoice
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Invoice' })
+    return this.crypto.entities.getDataOwnersWithAccessTo({ entity, type: 'Invoice' })
   }
 
   getEncryptionKeysOf(entity: models.Invoice): Promise<string[]> {
-    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'Invoice' }, undefined)
+    return this.crypto.entities.encryptionKeysOf({ entity, type: 'Invoice' }, undefined)
   }
 }

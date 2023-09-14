@@ -19,8 +19,6 @@ import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
 export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntityXApi<models.TimeTable> {
   i18n: any = i18n
-  crypto: IccCryptoXApi
-  dataOwnerApi: IccDataOwnerXApi
 
   get headers(): Promise<Array<XHR.Header>> {
     return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, 'TimeTable'))
@@ -29,8 +27,8 @@ export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntity
   constructor(
     host: string,
     headers: { [key: string]: string },
-    crypto: IccCryptoXApi,
-    dataOwnerApi: IccDataOwnerXApi,
+    private readonly crypto: IccCryptoXApi,
+    private readonly dataOwnerApi: IccDataOwnerXApi,
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
@@ -62,27 +60,27 @@ export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntity
       preferredSfk?: string
     } = {}
   ) {
-    const timeTable = _.extend(
-      {
-        id: this.crypto.primitives.randomUuid(),
-        _type: 'org.taktik.icure.entities.TimeTable',
-        created: new Date().getTime(),
-        modified: new Date().getTime(),
-        responsible: this.dataOwnerApi.getDataOwnerIdOf(user),
-        author: user.id,
-        codes: [],
-        tags: [],
-      },
-      tt || {}
-    )
+    const timeTable: TimeTable = {
+      ...(tt ?? {}),
+      _type: 'TimeTable',
+      id: tt?.id ?? this.crypto.primitives.randomUuid(),
+      created: tt?.created ?? new Date().getTime(),
+      modified: tt?.modified ?? new Date().getTime(),
+      responsible: tt?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
+      author: tt?.author ?? user.id,
+      codes: tt?.codes ?? [],
+      tags: tt?.tags ?? [],
+    }
+
     const extraDelegations = {
       ...Object.fromEntries(
-        [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.administrativeData ?? [])].map((d) => [d, AccessLevelEnum.WRITE])
+          [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.administrativeData ?? [])].map((d) => [d, AccessLevelEnum.WRITE])
       ),
       ...(options?.additionalDelegates ?? {}),
     }
+
     return new models.TimeTable(
-      await this.crypto.xapi
+      await this.crypto.entities
         .entityWithInitialisedEncryptedMetadata(timeTable, 'TimeTable', undefined, undefined, true, false, extraDelegations)
         .then((x) => x.updatedEntity)
     )
@@ -92,7 +90,7 @@ export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntity
    * @return if the logged data owner has write access to the content of the given time table
    */
   async hasWriteAccess(timeTable: models.TimeTable): Promise<boolean> {
-    return this.crypto.xapi.hasWriteAccess({ entity: timeTable, type: 'TimeTable' })
+    return this.crypto.entities.hasWriteAccess({ entity: timeTable, type: 'TimeTable' })
   }
 
   /**
@@ -163,9 +161,9 @@ export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntity
     }
   ): Promise<ShareResult<models.TimeTable>> {
     // All entities should have an encryption key.
-    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(timeTable, 'TimeTable')
+    const entityWithEncryptionKey = await this.crypto.entities.ensureEncryptionKeysInitialised(timeTable, 'TimeTable')
     const updatedEntity = entityWithEncryptionKey ? await this.modifyTimeTable(entityWithEncryptionKey) : timeTable
-    return this.crypto.xapi.simpleShareOrUpdateEncryptedEntityMetadata(
+    return this.crypto.entities.simpleShareOrUpdateEncryptedEntityMetadata(
       { entity: updatedEntity, type: 'TimeTable' },
       true,
       Object.fromEntries(
@@ -186,10 +184,10 @@ export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntity
   getDataOwnersWithAccessTo(
     entity: models.TimeTable
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'TimeTable' })
+    return this.crypto.entities.getDataOwnersWithAccessTo({ entity, type: 'TimeTable' })
   }
 
   getEncryptionKeysOf(entity: models.TimeTable): Promise<string[]> {
-    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'TimeTable' }, undefined)
+    return this.crypto.entities.encryptionKeysOf({ entity, type: 'TimeTable' }, undefined)
   }
 }

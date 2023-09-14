@@ -17,7 +17,6 @@ import { XHR } from '../icc-api/api/XHR'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
 export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi<models.Message> {
-  dataOwnerApi: IccDataOwnerXApi
 
   get headers(): Promise<Array<XHR.Header>> {
     return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, 'Message'))
@@ -26,8 +25,8 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
   constructor(
     host: string,
     headers: { [key: string]: string },
-    private crypto: IccCryptoXApi,
-    dataOwnerApi: IccDataOwnerXApi,
+    private readonly crypto: IccCryptoXApi,
+    private readonly dataOwnerApi: IccDataOwnerXApi,
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
@@ -68,20 +67,18 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
       preferredSfk?: string
     } = {}
   ) {
-    if (!patient && options.preferredSfk) throw new Error('preferredSfk can only be specified if patient is specified.')
-    const message = _.extend(
-      {
-        id: this.crypto.primitives.randomUuid(),
-        _type: 'org.taktik.icure.entities.Message',
-        created: new Date().getTime(),
-        modified: new Date().getTime(),
-        responsible: this.dataOwnerApi.getDataOwnerIdOf(user),
-        author: user.id,
-        codes: [],
-        tags: [],
-      },
-      m || {}
-    )
+    if (!patient && options.preferredSfk) throw new Error('You need to specify parent patient in order to use secret foreign keys.')
+    const message = {
+      ...(m ?? {}),
+      _type: 'org.taktik.icure.entities.Message',
+      id: m?.id ?? this.crypto.primitives.randomUuid(),
+      created: m?.created ?? new Date().getTime(),
+      modified: m?.modified ?? new Date().getTime(),
+      responsible: m?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
+      author: m?.author ?? user.id,
+      codes: m?.codes ?? [],
+      tags: m?.tags ?? [],
+    }
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
@@ -96,7 +93,7 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
       ...(options?.additionalDelegates ?? {}),
     }
     return new models.Message(
-      await this.crypto.xapi
+      await this.crypto.entities
         .entityWithInitialisedEncryptedMetadata(message, 'Message', patient?.id, sfk, true, true, extraDelegations)
         .then((x) => x.updatedEntity)
     )
@@ -108,14 +105,14 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
    * in the returned array, but in case of entity merges there could be multiple values.
    */
   async decryptPatientIdOf(message: models.Message): Promise<string[]> {
-    return this.crypto.xapi.owningEntityIdsOf({ entity: message, type: 'Message' }, undefined)
+    return this.crypto.entities.owningEntityIdsOf({ entity: message, type: 'Message' }, undefined)
   }
 
   /**
    * @return if the logged data owner has write access to the content of the given message
    */
   async hasWriteAccess(message: models.Message): Promise<boolean> {
-    return this.crypto.xapi.hasWriteAccess({ entity: message, type: 'Message' })
+    return this.crypto.entities.hasWriteAccess({ entity: message, type: 'Message' })
   }
 
   /**
@@ -204,9 +201,9 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     }
   ): Promise<ShareResult<models.Message>> {
     // All entities should have an encryption key.
-    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(message, 'Message')
+    const entityWithEncryptionKey = await this.crypto.entities.ensureEncryptionKeysInitialised(message, 'Message')
     const updatedEntity = entityWithEncryptionKey ? await this.modifyMessage(entityWithEncryptionKey) : message
-    return this.crypto.xapi.simpleShareOrUpdateEncryptedEntityMetadata(
+    return this.crypto.entities.simpleShareOrUpdateEncryptedEntityMetadata(
       { entity: updatedEntity, type: 'Message' },
       false,
       Object.fromEntries(
@@ -230,16 +227,16 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
    * the 'owning entity', or in the {@link shareWith} method in order to share it with other data owners.
    */
   decryptSecretIdsOf(message: models.Message): Promise<string[]> {
-    return this.crypto.xapi.secretIdsOf({ entity: message, type: 'Message' }, undefined)
+    return this.crypto.entities.secretIdsOf({ entity: message, type: 'Message' }, undefined)
   }
 
   getDataOwnersWithAccessTo(
     entity: models.Message
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Message' })
+    return this.crypto.entities.getDataOwnersWithAccessTo({ entity, type: 'Message' })
   }
 
   getEncryptionKeysOf(entity: models.Message): Promise<string[]> {
-    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'Message' }, undefined)
+    return this.crypto.entities.encryptionKeysOf({ entity, type: 'Message' }, undefined)
   }
 }

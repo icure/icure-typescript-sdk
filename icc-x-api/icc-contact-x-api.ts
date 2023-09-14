@@ -1,4 +1,4 @@
-import { IccContactApi } from '../icc-api'
+import {IccAuthApi, IccContactApi} from '../icc-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 
 import i18n from './rsrc/contact.i18n'
@@ -11,7 +11,15 @@ import { PaginatedListContact } from '../icc-api/model/PaginatedListContact'
 import { a2b, b2a, string2ua, ua2string, utf8_2ua } from './utils/binary-utils'
 import { ServiceByIdsFilter } from './filters/ServiceByIdsFilter'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
-import { before } from './utils'
+import {
+  before,
+  encryptObject,
+  decryptObject,
+  EncryptedFieldsManifest,
+  parseEncryptedFields,
+  SubscriptionOptions,
+  subscribeToEntityEvents
+} from './utils'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
@@ -20,12 +28,16 @@ import { ShareResult } from './utils/ShareResult'
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
-import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
+import {IccUserXApi} from "./icc-user-x-api";
+import {EncryptedEntityXApi} from "./basexapi/EncryptedEntityXApi";
+import {AbstractFilter} from "./filters/filters";
+import {Connection, ConnectionImpl} from "../icc-api/model/Connection";
 
 export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi<models.Contact> {
   i18n: any = i18n
-  crypto: IccCryptoXApi
-  dataOwnerApi: IccDataOwnerXApi
+  private readonly contactEncryptedFields: EncryptedFieldsManifest
+  private readonly serviceEncryptedFieldsNoContent: EncryptedFieldsManifest | undefined
+  private readonly serviceEncryptedFieldsWithContent: EncryptedFieldsManifest
 
   get headers(): Promise<Array<XHR.Header>> {
     return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, 'Contact'))
@@ -34,18 +46,39 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
   constructor(
     host: string,
     headers: { [key: string]: string },
-    crypto: IccCryptoXApi,
-    dataOwnerApi: IccDataOwnerXApi,
+    private readonly crypto: IccCryptoXApi,
+    private readonly dataOwnerApi: IccDataOwnerXApi,
+    private readonly userApi: IccUserXApi,
+    private readonly authApi: IccAuthApi,
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
       ? self.fetch
-      : fetch
+      : fetch,
+    contactEncryptedKeys: string[] = ['descr'],
+    serviceEncryptedKeys: string[] = []
   ) {
     super(host, headers, authenticationProvider, fetchImpl)
+    if (contactEncryptedKeys.some((key) => key.startsWith('services'))) {
+      throw new Error("You can't customise encryption of the `services` field of Contact. Use the serviceEncryptedKeys parameter instead.")
+    }
+    if (serviceEncryptedKeys.some((key) => key.startsWith('content'))) {
+      throw new Error("You can't customise encryption of the `content` of a Service. The content values for services is automatically encrypted.")
+    }
     this.crypto = crypto
     this.dataOwnerApi = dataOwnerApi
+    this.userApi = userApi
+    this.authApi = authApi
+    this.contactEncryptedFields = parseEncryptedFields(contactEncryptedKeys, 'Contact.')
+    const customServiceEncryptedFields = parseEncryptedFields(serviceEncryptedKeys, 'Service.')
+    if (serviceEncryptedKeys.length > 0) {
+      this.serviceEncryptedFieldsNoContent = customServiceEncryptedFields
+    }
+    this.serviceEncryptedFieldsWithContent = {
+      ...customServiceEncryptedFields,
+      topLevelFields: [...customServiceEncryptedFields.topLevelFields, { fieldName: 'content', fieldPath: 'Service.content' }],
+    }
   }
 
   /**
@@ -75,25 +108,21 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       confidential?: boolean
     } = {}
   ): Promise<models.Contact> {
-    const contact = new models.Contact(
-      _.extend(
-        {
-          id: this.crypto.primitives.randomUuid(),
-          _type: 'org.taktik.icure.entities.Contact',
-          created: new Date().getTime(),
-          modified: new Date().getTime(),
-          responsible: this.dataOwnerApi.getDataOwnerIdOf(user),
-          author: user.id,
-          codes: [],
-          tags: [],
-          groupId: this.crypto.primitives.randomUuid(),
-          subContacts: [],
-          services: [],
-          openingDate: parseInt(moment().format('YYYYMMDDHHmmss')),
-        },
-        c || {}
-      )
-    )
+    const contact = new models.Contact({
+      ...(c ?? {}),
+      _type: 'org.taktik.icure.entities.Contact',
+      id: c?.id ?? this.crypto.primitives.randomUuid(),
+      created: c?.created ?? new Date().getTime(),
+      modified: c?.modified ?? new Date().getTime(),
+      responsible: c?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
+      author: c?.author ?? user.id,
+      codes: c?.codes ?? [],
+      tags: c?.tags ?? [],
+      groupId: c?.groupId ?? this.crypto.primitives.randomUuid(),
+      subContacts: c?.subContacts ?? [],
+      services: c?.services ?? [],
+      openingDate: c?.openingDate ?? parseInt(moment().format('YYYYMMDDHHmmss')),
+    })
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
@@ -111,7 +140,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
           )),
       ...(options?.additionalDelegates ?? {}),
     }
-    const initialisationInfo = await this.crypto.xapi.entityWithInitialisedEncryptedMetadata(
+    const initialisationInfo = await this.crypto.entities.entityWithInitialisedEncryptedMetadata(
       contact,
       'Contact',
       patient.id,
@@ -140,7 +169,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
    * @param usingPost
    */
   async findBy(hcpartyId: string, patient: models.Patient, usingPost: boolean = false) {
-    return await this.crypto.xapi.secretIdsForHcpHierarchyOf({ entity: patient, type: 'Patient' }).then((keysHierarchy) =>
+    return await this.crypto.entities.secretIdsForHcpHierarchyOf({ entity: patient, type: 'Patient' }).then((keysHierarchy) =>
       keysHierarchy && keysHierarchy.length > 0
         ? Promise.all(
             keysHierarchy
@@ -166,7 +195,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
   async findByPatientSFKs(hcpartyId: string, patients: Array<models.Patient>): Promise<Array<models.Contact>> {
     const perHcpId: { [key: string]: string[] } = {}
     for (const patient of patients) {
-      ;(await this.crypto.xapi.secretIdsForHcpHierarchyOf({ entity: patient, type: 'Patient' }))
+      ;(await this.crypto.entities.secretIdsForHcpHierarchyOf({ entity: patient, type: 'Patient' }))
         .reduce((acc, level) => {
           return acc.concat([
             {
@@ -365,11 +394,8 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
   encryptServices(key: CryptoKey, rawKey: string, services: Service[]): PromiseLike<Service[]> {
     return Promise.all(
       services.map(async (svc) => {
-        if (!svc.content) {
-          return svc
-        }
-
         if (
+          svc.content &&
           Object.values(svc.content).every(
             (c) =>
               c.compoundValue &&
@@ -384,54 +410,72 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
               !c.binaryValue
           )
         ) {
-          svc.content = _.fromPairs(
+          const recursivelyEncryptedContent = Object.fromEntries(
             await Promise.all(
-              _.toPairs(svc.content).map(async (p) => {
+              Object.entries(svc.content).map(async (p) => {
                 if (p[1].compoundValue?.length) {
-                  p[1].compoundValue = await this.encryptServices(key, rawKey, p[1].compoundValue!)
-                }
-                return p
+                  return [p[0], { ...p[1], compoundValue: await this.encryptServices(key, rawKey, p[1].compoundValue!) }]
+                } else return p
               })
             )
           )
+          const copyWithEncryptedContent = { ...svc, content: recursivelyEncryptedContent }
+          return this.serviceEncryptedFieldsNoContent
+            ? encryptObject(
+                copyWithEncryptedContent,
+                (obj) => {
+                  return this.crypto.primitives.AES.encrypt(key, utf8_2ua(JSON.stringify(obj)), rawKey)
+                },
+                this.serviceEncryptedFieldsNoContent,
+                'service'
+              )
+            : copyWithEncryptedContent
         } else {
-          svc.encryptedSelf = b2a(
-            ua2string(await this.crypto.primitives.AES.encrypt(key, utf8_2ua(JSON.stringify({ content: svc.content })), rawKey))
+          return encryptObject(
+            svc,
+            (obj) => {
+              return this.crypto.primitives.AES.encrypt(key, utf8_2ua(JSON.stringify(obj)), rawKey)
+            },
+            this.serviceEncryptedFieldsWithContent,
+            'service'
           )
-          delete svc.content
         }
-        return svc
       })
     )
   }
 
   encrypt(user: models.User, ctcs: Array<models.Contact>) {
-    const hcpartyId = this.dataOwnerApi.getDataOwnerIdOf(user)!
-
-    return this.encryptAs(hcpartyId, ctcs)
+    return this.encryptAs(this.dataOwnerApi.getDataOwnerIdOf(user)!, ctcs)
   }
 
   private encryptAs(dataOwner: string, ctcs: Array<models.Contact>): Promise<Array<models.Contact>> {
     const bypassEncryption = false //Used for debug
+
     return Promise.all(
       ctcs.map(async (ctc) => {
         let initialisedCtc = ctc
         if (!bypassEncryption) {
-          const contactWithKeys = await this.crypto.xapi.ensureEncryptionKeysInitialised(ctc, 'Contact')
+          const contactWithKeys = await this.crypto.entities.ensureEncryptionKeysInitialised(ctc, 'Contact')
           if (contactWithKeys) {
             initialisedCtc = contactWithKeys
           }
         }
 
-        const encryptionKey = await this.crypto.xapi.decryptAndImportAnyEncryptionKey({ entity: initialisedCtc, type: 'Contact' })
+        const encryptionKey = await this.crypto.entities.decryptAndImportAnyEncryptionKey({ entity: initialisedCtc, type: 'Contact' })
 
-        initialisedCtc.services = await this.encryptServices(encryptionKey.key, encryptionKey.raw, ctc.services || [])
-        initialisedCtc.encryptedSelf = b2a(
-          ua2string(await this.crypto.primitives.AES.encrypt(encryptionKey.key, utf8_2ua(JSON.stringify({ descr: ctc.descr })), encryptionKey.raw))
+        return new Contact(
+          await encryptObject(
+            {
+              ...initialisedCtc,
+              services: initialisedCtc.services ? await this.encryptServices(encryptionKey.key, encryptionKey.raw, initialisedCtc.services) : [],
+            },
+            (obj) => {
+              return this.crypto.primitives.AES.encrypt(encryptionKey.key, utf8_2ua(JSON.stringify(obj)), encryptionKey.raw)
+            },
+            this.contactEncryptedFields,
+            'contact'
+          )
         )
-        delete initialisedCtc.descr
-
-        return initialisedCtc
       })
     )
   }
@@ -439,7 +483,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
   decrypt(hcpartyId: string, ctcs: Array<models.Contact>): Promise<Array<models.Contact>> {
     return Promise.all(
       ctcs.map(async (ctc) => {
-        const keys = await this.crypto.xapi.decryptAndImportAllDecryptionKeys({ entity: ctc, type: 'Contact' })
+        const keys = await this.crypto.entities.decryptAndImportAllDecryptionKeys({ entity: ctc, type: 'Contact' })
         if (!keys || !keys.length) {
           console.log('Cannot decrypt contact', ctc.id)
           return ctc
@@ -447,7 +491,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
         ctc.services = await this.decryptServices(hcpartyId, ctc.services || [], keys)
         if (ctc.encryptedSelf) {
           try {
-            const json = await this.crypto.xapi.tryDecryptJson(keys, string2ua(a2b(ctc.encryptedSelf!)), false)
+            const json = await this.crypto.entities.tryDecryptJson(keys, string2ua(a2b(ctc.encryptedSelf!)), false)
             if (json) {
               _.assign(ctc, json)
             } else {
@@ -468,7 +512,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       svcs.map(async (svc) => {
         let currentKeys = keys ?? (svc.contactId ? contactKeysCache[svc.contactId!] : undefined)
         if (!currentKeys) {
-          const decryptedKeys = await this.crypto.xapi.decryptAndImportAllDecryptionKeys({ entity: svc, type: 'Contact' })
+          const decryptedKeys = await this.crypto.entities.decryptAndImportAllDecryptionKeys({ entity: svc, type: 'Contact' })
           if (svc.contactId) {
             contactKeysCache[svc.contactId!] = decryptedKeys
           }
@@ -477,7 +521,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
 
         if (svc.encryptedContent) {
           try {
-            const json = await this.crypto.xapi.tryDecryptJson(currentKeys, string2ua(a2b(svc.encryptedContent!)), true)
+            const json = await this.crypto.entities.tryDecryptJson(currentKeys, string2ua(a2b(svc.encryptedContent!)), true)
             if (json) {
               Object.assign(svc, { content: json })
             } else {
@@ -488,7 +532,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
           }
         } else if (svc.encryptedSelf) {
           try {
-            const json = await this.crypto.xapi.tryDecryptJson(currentKeys, string2ua(a2b(svc.encryptedSelf!)), true)
+            const json = await this.crypto.entities.tryDecryptJson(currentKeys, string2ua(a2b(svc.encryptedSelf!)), true)
             if (json) {
               Object.assign(svc, json)
             } else {
@@ -959,14 +1003,14 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
    * in the returned array, but in case of entity merges there could be multiple values.
    */
   async decryptPatientIdOf(contact: models.Contact): Promise<string[]> {
-    return this.crypto.xapi.owningEntityIdsOf({ entity: contact, type: 'Contact' }, undefined)
+    return this.crypto.entities.owningEntityIdsOf({ entity: contact, type: 'Contact' }, undefined)
   }
 
   /**
    * @return if the logged data owner has write access to the content of the given contact
    */
   async hasWriteAccess(contact: models.Contact): Promise<boolean> {
-    return this.crypto.xapi.hasWriteAccess({ entity: contact, type: 'Contact' })
+    return this.crypto.entities.hasWriteAccess({ entity: contact, type: 'Contact' })
   }
 
   /**
@@ -1047,9 +1091,9 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
   ): Promise<ShareResult<models.Contact>> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
-    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(contact, 'Contact')
+    const entityWithEncryptionKey = await this.crypto.entities.ensureEncryptionKeysInitialised(contact, 'Contact')
     const updatedEntity = entityWithEncryptionKey ? await this.modifyContactAs(self, entityWithEncryptionKey) : contact
-    return this.crypto.xapi
+    return this.crypto.entities
       .simpleShareOrUpdateEncryptedEntityMetadata(
         { entity: updatedEntity, type: 'Contact' },
         true,
@@ -1072,10 +1116,48 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
   getDataOwnersWithAccessTo(
     entity: models.Contact
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Contact' })
+    return this.crypto.entities.getDataOwnersWithAccessTo({ entity, type: 'Contact' })
   }
 
   getEncryptionKeysOf(entity: models.Contact): Promise<string[]> {
-    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'Contact' }, undefined)
+    return this.crypto.entities.encryptionKeysOf({ entity, type: 'Contact' }, undefined)
+  }
+
+  async subscribeToServiceEvents(
+      eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
+      filter: AbstractFilter<Service> | undefined,
+      eventFired: (dataSample: Service) => Promise<void>,
+      options: SubscriptionOptions = {}
+  ): Promise<Connection> {
+    const currentUser = await this.userApi.getCurrentUser()
+    return subscribeToEntityEvents(
+        this.host,
+        this.authApi,
+        'Service',
+        eventTypes,
+        filter,
+        eventFired,
+        options,
+        async (encrypted: Service) => (await this.decryptServices(currentUser.healthcarePartyId!, [encrypted]))[0]
+    ).then((ws) => new ConnectionImpl(ws))
+  }
+
+  async subscribeToContactEvents(
+      eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
+      filter: AbstractFilter<Contact> | undefined,
+      eventFired: (dataSample: Contact) => Promise<void>,
+      options: SubscriptionOptions = {}
+  ): Promise<Connection> {
+    const currentUser = await this.userApi.getCurrentUser()
+    return subscribeToEntityEvents(
+        this.host,
+        this.authApi,
+        'Contact',
+        eventTypes,
+        filter,
+        eventFired,
+        options,
+        async (encrypted: Contact) => (await this.decrypt(currentUser.healthcarePartyId!, [encrypted]))[0]
+    ).then((ws) => new ConnectionImpl(ws))
   }
 }

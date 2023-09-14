@@ -1,4 +1,4 @@
-import { IccPatientApi } from '../icc-api'
+import {IccAuthApi, IccPatientApi} from '../icc-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 import { IccContactXApi } from './icc-contact-x-api'
 import { IccFormXApi } from './icc-form-x-api'
@@ -14,7 +14,13 @@ import { Document, IcureStub, ListOfIds, Patient } from '../icc-api/model/models
 import { IccCalendarItemXApi } from './icc-calendar-item-x-api'
 import { b64_2ab } from '../icc-api/model/ModelHelper'
 import { findName, garnishPersonWithName, hasName } from './utils/person-util'
-import { retry } from './utils'
+import {
+  EncryptedFieldsManifest,
+  parseEncryptedFields,
+  retry,
+  subscribeToEntityEvents,
+  SubscriptionOptions
+} from './utils'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { EntityWithDelegationTypeName } from './utils/EntityWithDelegationTypeName'
@@ -28,21 +34,13 @@ import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
+import {IccUserXApi} from "./icc-user-x-api";
+import {AbstractFilter} from "./filters/filters";
+import {Connection, ConnectionImpl} from "../icc-api/model/Connection";
 
 // noinspection JSUnusedGlobalSymbols
 export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi<models.Patient> {
-  crypto: IccCryptoXApi
-  contactApi: IccContactXApi
-  formApi: IccFormXApi
-  helementApi: IccHelementXApi
-  invoiceApi: IccInvoiceXApi
-  hcpartyApi: IccHcpartyXApi
-  documentApi: IccDocumentXApi
-  classificationApi: IccClassificationXApi
-  calendarItemApi: IccCalendarItemXApi
-  dataOwnerApi: IccDataOwnerXApi
-
-  private readonly encryptedKeys: Array<string>
+  private readonly encryptedFields: EncryptedFieldsManifest
 
   get headers(): Promise<Array<XHR.Header>> {
     return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, 'Patient'))
@@ -51,16 +49,18 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
   constructor(
     host: string,
     headers: { [key: string]: string },
-    crypto: IccCryptoXApi,
-    contactApi: IccContactXApi,
-    formApi: IccFormXApi,
-    helementApi: IccHelementXApi,
-    invoiceApi: IccInvoiceXApi,
-    documentApi: IccDocumentXApi,
-    hcpartyApi: IccHcpartyXApi,
-    classificationApi: IccClassificationXApi,
-    dataOwnerApi: IccDataOwnerXApi,
-    calendarItemaApi: IccCalendarItemXApi,
+    private readonly crypto: IccCryptoXApi,
+    private readonly contactApi: IccContactXApi,
+    private readonly formApi: IccFormXApi,
+    private readonly helementApi: IccHelementXApi,
+    private readonly invoiceApi: IccInvoiceXApi,
+    private readonly documentApi: IccDocumentXApi,
+    private readonly hcpartyApi: IccHcpartyXApi,
+    private readonly classificationApi: IccClassificationXApi,
+    private readonly dataOwnerApi: IccDataOwnerXApi,
+    private readonly calendarItemApi: IccCalendarItemXApi,
+    private readonly userApi: IccUserXApi,
+    private readonly authApi: IccAuthApi,
     encryptedKeys: Array<string> = ['note'],
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
@@ -70,18 +70,8 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
       : fetch
   ) {
     super(host, headers, authenticationProvider, fetchImpl)
-    this.crypto = crypto
-    this.contactApi = contactApi
-    this.formApi = formApi
-    this.helementApi = helementApi
-    this.invoiceApi = invoiceApi
-    this.hcpartyApi = hcpartyApi
-    this.documentApi = documentApi
-    this.classificationApi = classificationApi
-    this.calendarItemApi = calendarItemaApi
-    this.dataOwnerApi = dataOwnerApi
 
-    this.encryptedKeys = encryptedKeys
+    this.encryptedFields = parseEncryptedFields(encryptedKeys, 'Patient.')
   }
 
   /**
@@ -102,19 +92,17 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
       additionalDelegates?: { [dataOwnerId: string]: AccessLevelEnum }
     } = {}
   ) {
-    const patient = _.extend(
-      {
-        id: this.crypto.primitives.randomUuid(),
-        _type: 'org.taktik.icure.entities.Patient',
-        created: new Date().getTime(),
-        modified: new Date().getTime(),
-        responsible: this.dataOwnerApi.getDataOwnerIdOf(user),
-        author: user.id,
-        codes: [],
-        tags: [],
-      },
-      p || {}
-    )
+    const patient = {
+      ...(p ?? {}),
+      _type: 'org.taktik.icure.entities.Patient',
+      id: p?.id ?? this.crypto.primitives.randomUuid(),
+      created: p?.created ?? new Date().getTime(),
+      modified: p?.modified ?? new Date().getTime(),
+      responsible: p?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
+      author: p?.author ?? user.id,
+      codes: p?.codes ?? [],
+      tags: p?.tags ?? [],
+    }
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
@@ -124,7 +112,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
       ),
       ...(options?.additionalDelegates ?? {}),
     }
-    const initialisationInfo = await this.crypto.xapi.entityWithInitialisedEncryptedMetadata(
+    const initialisationInfo = await this.crypto.entities.entityWithInitialisedEncryptedMetadata(
       patient,
       'Patient',
       undefined,
@@ -521,7 +509,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
 
   private encryptAs(dataOwner: string, pats: Array<models.Patient>): Promise<Array<models.Patient>> {
     return Promise.all(
-      pats.map((p) => this.crypto.xapi.tryEncryptEntity(p, 'Patient', this.encryptedKeys, true, false, (x) => new models.Patient(x)))
+      pats.map((p) => this.crypto.entities.tryEncryptEntity(p, 'Patient', this.encryptedFields, true, false, (x) => new models.Patient(x)))
     )
   }
 
@@ -538,7 +526,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     return Promise.all(
       patients.map(
         async (p) =>
-          await this.crypto.xapi
+          await this.crypto.entities
             .decryptEntity(p, 'Patient', (x) => new models.Patient(x))
             .then((p) => {
               if (p.entity.picture && !(p.entity.picture instanceof ArrayBuffer)) {
@@ -628,7 +616,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     const hcp = await this.hcpartyApi.getHealthcareParty(ownerId)
     const parentId = hcp.parentId
     let patient = await retry(() => this.getPatientWithUser(user, patId))
-    const patientWithInitialisedEncryption = await this.crypto.xapi.ensureEncryptionKeysInitialised(patient, 'Patient')
+    const patientWithInitialisedEncryption = await this.crypto.entities.ensureEncryptionKeysInitialised(patient, 'Patient')
     if (patientWithInitialisedEncryption) {
       patient = await this.modifyPatientWithUser(user, patientWithInitialisedEncryption)
     }
@@ -641,8 +629,8 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
       return { patient: patient, statuses: status }
     }
 
-    const delSfks = await this.crypto.xapi.secretIdsOf({ entity: patient, type: 'Patient' }, ownerId)
-    const ecKeys = await this.crypto.xapi.encryptionKeysOf({ entity: patient, type: 'Patient' }, ownerId)
+    const delSfks = await this.crypto.entities.secretIdsOf({ entity: patient, type: 'Patient' }, ownerId)
+    const ecKeys = await this.crypto.entities.encryptionKeysOf({ entity: patient, type: 'Patient' }, ownerId)
 
     if (delSfks.length) {
       const retrievedHealthElements = await retry(() =>
@@ -757,8 +745,8 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
                 requestedPermissions: RequestedPermissionEnum
               }
             } = {}
-            const secretIds = await this.crypto.xapi.secretIdsOf({ entity, type: entitiesType }, undefined)
-            const encryptionKeys = await this.crypto.xapi.encryptionKeysOf({ entity, type: entitiesType }, undefined)
+            const secretIds = await this.crypto.entities.secretIdsOf({ entity, type: entitiesType }, undefined)
+            const encryptionKeys = await this.crypto.entities.encryptionKeysOf({ entity, type: entitiesType }, undefined)
             const request = {
               shareSecretIds: secretIds,
               shareEncryptionKeys: encryptionKeys,
@@ -770,7 +758,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
             }
             requests.push({ dataForDelegates: currentEntityRequests, entity })
           }
-          await this.crypto.xapi
+          await this.crypto.entities
             .bulkShareOrUpdateEncryptedEntityMetadataNoEntities(entitiesType, requests, (x) => doShareMinimal(x))
             .then((shareResult) => {
               status.modified = new Set(shareResult.successfulUpdates.map((x) => x.entityId)).size
@@ -818,7 +806,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
       entity: patient,
       dataForDelegates: Object.fromEntries(delegateIds.map((delegateId) => [delegateId, sharePatientDataRequest])),
     }
-    return await this.crypto.xapi
+    return await this.crypto.entities
       .bulkShareOrUpdateEncryptedEntityMetadata('Patient', [sharePatientRequest], (x) => this.bulkSharePatients(x))
       .then((shareResult) => {
         if (shareResult.updatedEntities.length && !shareResult.updateErrors.length) {
@@ -845,7 +833,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
 
       return retry(() => this.getPatientWithUser(user, patId))
         .then(async (patient: models.Patient) => {
-          const initialised = await this.crypto.xapi.ensureEncryptionKeysInitialised(patient, 'Patient')
+          const initialised = await this.crypto.entities.ensureEncryptionKeysInitialised(patient, 'Patient')
           if (!initialised) {
             return patient
           } else {
@@ -856,7 +844,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
           if (!patient) {
             return Promise.resolve({ id: patId })
           }
-          const delSfks = await this.crypto.xapi.secretIdsOf({ entity: patient, type: 'Patient' }, ownerId)
+          const delSfks = await this.crypto.entities.secretIdsOf({ entity: patient, type: 'Patient' }, ownerId)
           return delSfks.length
             ? Promise.all([
                 retry(() =>
@@ -1023,7 +1011,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     hcpId: string,
     childDocumentType: EntityWithDelegationTypeName
   ): Promise<string> {
-    const parentIdsArray = await this.crypto.xapi.owningEntityIdsOf({ entity: childDocument, type: childDocumentType }, hcpId)
+    const parentIdsArray = await this.crypto.entities.owningEntityIdsOf({ entity: childDocument, type: childDocumentType }, hcpId)
 
     const multipleParentIds = _.uniq(parentIdsArray).length > 1
 
@@ -1057,7 +1045,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
    * @return if the logged data owner has write access to the content of the given patient
    */
   async hasWriteAccess(patient: models.Patient): Promise<boolean> {
-    return this.crypto.xapi.hasWriteAccess({ entity: patient, type: 'Patient' })
+    return this.crypto.entities.hasWriteAccess({ entity: patient, type: 'Patient' })
   }
 
   /**
@@ -1141,9 +1129,9 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
   ): Promise<ShareResult<models.Patient>> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
-    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(patient, 'Patient')
+    const entityWithEncryptionKey = await this.crypto.entities.ensureEncryptionKeysInitialised(patient, 'Patient')
     const updatedEntity = entityWithEncryptionKey ? await this.modifyPatientAs(self, entityWithEncryptionKey) : patient
-    return this.crypto.xapi
+    return this.crypto.entities
       .simpleShareOrUpdateEncryptedEntityMetadata(
         { entity: updatedEntity, type: 'Patient' },
         false,
@@ -1169,7 +1157,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
    * patient is the 'owning entity', or in the {@link shareWith} method in order to share it with other data owners.
    */
   decryptSecretIdsOf(patient: models.Patient): Promise<string[]> {
-    return this.crypto.xapi.secretIdsOf({ entity: patient, type: 'Patient' }, undefined)
+    return this.crypto.entities.secretIdsOf({ entity: patient, type: 'Patient' }, undefined)
   }
 
   /**
@@ -1193,11 +1181,11 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
   getDataOwnersWithAccessTo(
     entity: models.Patient
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Patient' })
+    return this.crypto.entities.getDataOwnersWithAccessTo({ entity, type: 'Patient' })
   }
 
   getEncryptionKeysOf(entity: models.Patient): Promise<string[]> {
-    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'Patient' }, undefined)
+    return this.crypto.entities.encryptionKeysOf({ entity, type: 'Patient' }, undefined)
   }
 
   /**
@@ -1241,5 +1229,26 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     const encryptedMerged = (await this.encryptAs(await this.dataOwnerApi.getCurrentDataOwnerId(), [mergedInto]))[0]
     const merged = await super.baseMergePatients(from.id!, from.rev!, encryptedMerged)
     return (await this.tryDecryptOrReturnOriginal([merged]))[0].entity
+  }
+
+
+  async subscribeToPatientEvents(
+      eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
+      filter: AbstractFilter<Patient> | undefined,
+      eventFired: (patient: Patient) => Promise<void>,
+      options: SubscriptionOptions = {}
+  ): Promise<Connection> {
+    const currentUser = await this.userApi.getCurrentUser()
+    return subscribeToEntityEvents(
+        this.host,
+        this.authApi,
+        'Patient',
+        eventTypes,
+        filter,
+        eventFired,
+        options,
+        async (encrypted) => (await this.decrypt(currentUser, [encrypted]))[0]
+    )
+        .then((rs) => new ConnectionImpl(rs))
   }
 }
