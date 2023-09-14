@@ -105,9 +105,9 @@ export class IccAccesslogXApi extends IccAccesslogApi {
       .extractDelegationsSFKs(patient, hcpartyId)
       .then((secretForeignKeys) =>
         secretForeignKeys && secretForeignKeys.extractedKeys && secretForeignKeys.extractedKeys.length > 0
-          ? (usingPost ?
-            this.findByHCPartyPatientSecretFKeysArray(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys)) :
-            this.findByHCPartyPatientSecretFKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(',')))
+          ? usingPost
+            ? this.findByHCPartyPatientSecretFKeysArray(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys))
+            : this.findByHCPartyPatientSecretFKeys(secretForeignKeys.hcpartyId!, _.uniq(secretForeignKeys.extractedKeys).join(','))
           : Promise.resolve([])
       )
   }
@@ -133,6 +133,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
                 _.size(accessLog.encryptionKeys) ? accessLog.encryptionKeys! : accessLog.delegations!
               )
               .then(({ extractedKeys: sfks }) => {
+                sfks = this.crypto.filterAndFixValidEntityEncryptionKeyStrings(sfks)
                 if (!sfks || !sfks.length) {
                   //console.log("Cannot decrypt contact", ctc.id)
                   return Promise.resolve(accessLog)
@@ -190,11 +191,12 @@ export class IccAccesslogXApi extends IccAccesslogApi {
             this.crypto.extractKeysFromDelegationsForHcpHierarchy(this.dataOwnerApi.getDataOwnerOf(user)!, accessLog.id!, accessLog.encryptionKeys!)
           )
           .then(async (eks: { extractedKeys: Array<string>; hcpartyId: string }) => {
-            const rawKey = eks.extractedKeys[0].replace(/-/g, '')
-            const key = await this.crypto.AES.importKey('raw', hex2ua(rawKey))
+            const keys = this.crypto.filterAndFixValidEntityEncryptionKeyStrings(eks.extractedKeys)
+            if (!keys.length) throw new Error('No valid keys found for access log encryption')
+            const key = await this.crypto.AES.importKey('raw', hex2ua(keys[0]))
             return crypt(
               accessLog,
-              (obj: { [key: string]: string }) => this.crypto.AES.encrypt(key, utf8_2ua(JSON.stringify(obj)), rawKey),
+              (obj: { [key: string]: string }) => this.crypto.AES.encrypt(key, utf8_2ua(JSON.stringify(obj)), keys[0]),
               this.cryptedKeys
             )
           })

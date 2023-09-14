@@ -436,11 +436,12 @@ export class IccContactXApi extends IccContactApi {
           extractedKeys: Array<string>
           hcpartyId: string
         } = await this.crypto.extractKeysFromDelegationsForHcpHierarchy(hcpartyId, initialisedCtc.id!, initialisedCtc.encryptionKeys!)
-        const rawKey = sfks.extractedKeys[0].replace(/-/g, '')
-        const key = await this.crypto.AES.importKey('raw', hex2ua(rawKey))
+        const keys = this.crypto.filterAndFixValidEntityEncryptionKeyStrings(sfks.extractedKeys)
+        if (!keys.length) throw new Error('No valid keys found for contact encryption')
+        const key = await this.crypto.AES.importKey('raw', hex2ua(keys[0]))
 
-        initialisedCtc.services = await this.encryptServices(key, rawKey, ctc.services || [])
-        initialisedCtc.encryptedSelf = b2a(ua2string(await this.crypto.AES.encrypt(key, utf8_2ua(JSON.stringify({ descr: ctc.descr })), rawKey)))
+        initialisedCtc.services = await this.encryptServices(key, keys[0], ctc.services || [])
+        initialisedCtc.encryptedSelf = b2a(ua2string(await this.crypto.AES.encrypt(key, utf8_2ua(JSON.stringify({ descr: ctc.descr })), keys[0])))
         delete initialisedCtc.descr
 
         return initialisedCtc
@@ -451,11 +452,12 @@ export class IccContactXApi extends IccContactApi {
   decrypt(hcpartyId: string, ctcs: Array<models.Contact>): Promise<Array<models.Contact>> {
     return Promise.all(
       ctcs.map(async (ctc) => {
-        const { extractedKeys: sfks } = await this.crypto.extractKeysFromDelegationsForHcpHierarchy(
+        let { extractedKeys: sfks } = await this.crypto.extractKeysFromDelegationsForHcpHierarchy(
           hcpartyId,
           ctc.id!,
           _.size(ctc.encryptionKeys) ? ctc.encryptionKeys! : ctc.delegations!
         )
+        sfks = this.crypto.filterAndFixValidEntityEncryptionKeyStrings(sfks)
         if (!sfks || !sfks.length) {
           console.log('Cannot decrypt contact', ctc.id)
           return ctc
@@ -487,12 +489,13 @@ export class IccContactXApi extends IccContactApi {
     return Promise.all(
       svcs.map(async (svc) => {
         if (!key) {
-          const { extractedKeys: sfks } = await this.crypto.extractKeysFromDelegationsForHcpHierarchy(
+          let { extractedKeys: sfks } = await this.crypto.extractKeysFromDelegationsForHcpHierarchy(
             hcpartyId,
             svc.id!,
             _.size(svc.encryptionKeys) ? svc.encryptionKeys! : svc.delegations!
           )
-          key = await this.crypto.AES.importKey('raw', hex2ua(sfks[0].replace(/-/g, '')))
+          sfks = this.crypto.filterAndFixValidEntityEncryptionKeyStrings(sfks)
+          key = await this.crypto.AES.importKey('raw', hex2ua(sfks[0]))
         }
 
         if (svc.encryptedContent) {

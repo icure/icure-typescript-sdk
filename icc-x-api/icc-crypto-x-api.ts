@@ -2347,4 +2347,20 @@ export class IccCryptoXApi {
       }
     }
   }
+
+  /**
+   * @internal
+   * Keep only strings which match the format of a valid entity encryption key: hex string potentially with dashes.
+   * Additionally, this method automatically removes the dashes from the key (from uuid-formatted to standard).
+   */
+  filterAndFixValidEntityEncryptionKeyStrings(aesKeys: string[]): string[] {
+    return aesKeys.flatMap((x) => {
+      const undashed = x.length === 36 ? x.replace(/-/g, '') : x
+      if ((undashed.length === 32 || undashed.length === 64) && undashed.match(/^[0-9a-fA-F]+$/)) {
+        return [undashed]
+      } else {
+        return []
+      }
+    })
+  }
 }
