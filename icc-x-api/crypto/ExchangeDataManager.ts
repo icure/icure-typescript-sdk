@@ -29,6 +29,7 @@ export async function initialiseExchangeDataManagerForCurrentDataOwner(
   cryptoStrategies: CryptoStrategies,
   dataOwnerApi: IccDataOwnerXApi,
   primitives: CryptoPrimitives,
+  useParentKeys: boolean,
   optionalParameters: ExchangeDataManagerOptionalParameters = {}
 ): Promise<ExchangeDataManager> {
   const currentOwner = CryptoActorStubWithType.fromDataOwner(await dataOwnerApi.getCurrentDataOwner())
@@ -40,7 +41,8 @@ export async function initialiseExchangeDataManagerForCurrentDataOwner(
       accessControlSecret,
       cryptoStrategies,
       dataOwnerApi,
-      primitives
+      primitives,
+      useParentKeys
     )
     await res.clearOrRepopulateCache()
     return res
@@ -53,6 +55,7 @@ export async function initialiseExchangeDataManagerForCurrentDataOwner(
       cryptoStrategies,
       dataOwnerApi,
       primitives,
+      useParentKeys,
       optionalParameters
     )
   }
@@ -162,7 +165,8 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
     protected readonly accessControlSecret: AccessControlSecretUtils,
     protected readonly cryptoStrategies: CryptoStrategies,
     protected readonly dataOwnerApi: IccDataOwnerXApi,
-    protected readonly primitives: CryptoPrimitives
+    protected readonly primitives: CryptoPrimitives,
+    private readonly useParentKeys: boolean
   ) {}
 
   protected async decryptData(data: ExchangeData): Promise<
@@ -189,26 +193,33 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
     delegateId: string,
     newDataId?: string
   ): Promise<{ exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey }> {
-    const delegate = await this.dataOwnerApi.getCryptoActorStub(delegateId)
-    const sha256KeysOfDelegate = hexPublicKeysWithSha256Of(delegate.stub)
-    const sha1KeysOfDelegate = hexPublicKeysWithSha1Of(delegate.stub)
-    const allVerifiedDelegateKeys = await this.cryptoStrategies.verifyDelegatePublicKeys(
-      delegate,
-      [...Array.from(sha256KeysOfDelegate), ...Array.from(sha1KeysOfDelegate)],
-      this.primitives
-    )
-    if (!allVerifiedDelegateKeys.length)
-      throw new Error(`Could not create exchange data to ${delegateId} as no public key for the delegate could be verified.`)
     const encryptionKeys: { [fp: string]: CryptoKey } = {}
     this.encryptionKeys.getSelfVerifiedKeys().forEach(({ fingerprint, pair }) => {
       encryptionKeys[fingerprint] = pair.publicKey
     })
-    for (const delegateKey of allVerifiedDelegateKeys) {
-      if (sha1KeysOfDelegate.has(delegateKey)) {
-        encryptionKeys[fingerprintV1(delegateKey)] = await this.primitives.RSA.importKey('spki', hex2ua(delegateKey), ['encrypt'], 'sha-1')
-      } else if (sha256KeysOfDelegate.has(delegateKey)) {
-        encryptionKeys[fingerprintV1(delegateKey)] = await this.primitives.RSA.importKey('spki', hex2ua(delegateKey), ['encrypt'], 'sha-256')
-      } else throw new Error('Illegal state: verified keys should contain only keys for OAPE-SHA1 or OAPE-SHA256.')
+    if (delegateId != (await this.dataOwnerApi.getCurrentDataOwnerId())) {
+      const delegate = await this.dataOwnerApi.getCryptoActorStub(delegateId)
+      const sha256KeysOfDelegate = hexPublicKeysWithSha256Of(delegate.stub)
+      const sha1KeysOfDelegate = hexPublicKeysWithSha1Of(delegate.stub)
+      let allVerifiedDelegateKeys: string[]
+      if (this.useParentKeys && (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()).includes(delegateId)) {
+        allVerifiedDelegateKeys = await this.encryptionKeys.getVerifiedPublicKeysFor(delegate)
+      } else {
+        allVerifiedDelegateKeys = await this.cryptoStrategies.verifyDelegatePublicKeys(
+          delegate,
+          [...Array.from(sha256KeysOfDelegate), ...Array.from(sha1KeysOfDelegate)],
+          this.primitives
+        )
+      }
+      if (!allVerifiedDelegateKeys.length)
+        throw new Error(`Could not create exchange data to ${delegateId} as no public key for the delegate could be verified.`)
+      for (const delegateKey of allVerifiedDelegateKeys) {
+        if (sha1KeysOfDelegate.has(delegateKey)) {
+          encryptionKeys[fingerprintV1(delegateKey)] = await this.primitives.RSA.importKey('spki', hex2ua(delegateKey), ['encrypt'], 'sha-1')
+        } else if (sha256KeysOfDelegate.has(delegateKey)) {
+          encryptionKeys[fingerprintV1(delegateKey)] = await this.primitives.RSA.importKey('spki', hex2ua(delegateKey), ['encrypt'], 'sha-256')
+        } else throw new Error('Illegal state: verified keys should contain only keys for OAPE-SHA1 or OAPE-SHA256.')
+      }
     }
     const signatureKey = await this.signatureKeys.getOrCreateSignatureKeyPair()
     const newData = await this.base.createExchangeData(
@@ -482,11 +493,12 @@ class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
     cryptoStrategies: CryptoStrategies,
     dataOwnerApi: IccDataOwnerXApi,
     primitives: CryptoPrimitives,
+    useParentKeys: boolean,
     optionalParameters: {
       lruCacheSize?: number
     }
   ) {
-    super(base, encryptionKeys, signatureKeys, accessControlSecret, cryptoStrategies, dataOwnerApi, primitives)
+    super(base, encryptionKeys, signatureKeys, accessControlSecret, cryptoStrategies, dataOwnerApi, primitives, useParentKeys)
     this.idToDataCache = new LruTemporisedAsyncCache(optionalParameters.lruCacheSize ?? 2000, () => -1)
   }
 
