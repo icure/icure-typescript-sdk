@@ -197,11 +197,12 @@
   dependencies:
     "@jridgewell/trace-mapping" "0.3.9"
 
-"@icure/api@^6.3.1":
-  version "6.3.1"
-  resolved "https://registry.yarnpkg.com/@icure/api/-/api-6.3.1.tgz#9b21ea5569f92adc6001bbab2d30ca517cc42119"
-  integrity sha512-S9lOXDkQQSy1nAheuz5QkvfjyovPxNfy8RsLNkHgli0K5B/QgTjWcuMyRmz//oeYxxn+hUloNiwtigQ3kKkCVQ==
+"@icure/api@7.1.13":
+  version "7.1.13"
+  resolved "https://registry.yarnpkg.com/@icure/api/-/api-7.1.13.tgz#fbe6977f5dadaeb137b95c68378c695d35b9ce4d"
+  integrity sha512-xljOi9ZsnA/+FZLqal99j/e/0+4oAZFrDeFvqnUBY3BIsxEjM0y8HqerMEWJra2zd5256h7PXcRvMKiO6CzoLQ==
   dependencies:
+    browser-or-node "^2.1.1"
     date-fns "^2.23.0"
     libphonenumber-js "^1.7.18"
     lodash "^4.17.21"
@@ -209,6 +210,7 @@
     text-encoding "^0.7.0"
     uuid "^8.3.2"
     uuid-encoder "^1.1.0"
+    ws "^8.13.0"
 
 "@icure/apiV6@npm:@icure/api@6.4.0":
   version "6.4.0"
@@ -223,12 +225,12 @@
     uuid "^8.3.2"
     uuid-encoder "^1.1.0"
 
-"@icure/test-setup@0.0.50":
-  version "0.0.50"
-  resolved "https://registry.yarnpkg.com/@icure/test-setup/-/test-setup-0.0.50.tgz#199304023ce0dec9de0510b55a9f0868e23b8f3c"
-  integrity sha512-p2ITYTR1ZzFjC3VhB5gZ1b8lPt3nvjVBjnC+gRLlU+2KQkCiQJtFlDhKSX2l3ibeYa0zhkZ5oN6Hl9vhuh0ijg==
+"@icure/test-setup@0.0.61":
+  version "0.0.61"
+  resolved "https://registry.yarnpkg.com/@icure/test-setup/-/test-setup-0.0.61.tgz#d272615dab5ac9de4ca6bdfd22e5ff0d4b57dac3"
+  integrity sha512-MkJuqeXxmyEt+lSWzbWnCCeYcckoobgHFIvCbfebUJYx6IBK+J7H4s/YRWToANc7SIkWrSM+97NjuxtJjoJHuw==
   dependencies:
-    "@icure/api" "^6.3.1"
+    "@icure/api" "7.1.13"
     "@types/react-dom" "^18.0.6"
     date-fns "^2.3.0"
     isomorphic-fetch "^3.0.0"
@@ -589,6 +591,11 @@ braces@~3.0.2:
   integrity sha512-b8um+L1RzM3WDSzvhm6gIz1yfTbBt6YTlcEKAvsmqCZZFw46z626lVj9j1yEPW33H5H+lBQpZMP1k8l+78Ha0A==
   dependencies:
     fill-range "^7.0.1"
+
+browser-or-node@^2.1.1:
+  version "2.1.1"
+  resolved "https://registry.yarnpkg.com/browser-or-node/-/browser-or-node-2.1.1.tgz#738790b3a86a8fc020193fa581273fbe65eaea0f"
+  integrity sha512-8CVjaLJGuSKMVTxJ2DpBl5XnlNDiT4cQFeuCJJrvJmts9YrTZDizTX7PjC2s6W4x+MBGZeEY6dGMrF04/6Hgqg==
 
 browser-stdout@1.3.1:
   version "1.3.1"
@@ -1975,6 +1982,11 @@ write-file-atomic@^3.0.0:
     is-typedarray "^1.0.0"
     signal-exit "^3.0.2"
     typedarray-to-buffer "^3.1.5"
+
+ws@^8.13.0:
+  version "8.14.1"
+  resolved "https://registry.yarnpkg.com/ws/-/ws-8.14.1.tgz#4b9586b4f70f9e6534c7bb1d3dc0baa8b8cf01e0"
+  integrity sha512-4OOseMUq8AzRBI/7SLMUwO+FEDnguetSk7KMb1sHwvF2w2Wv5Hoj0nlifx8vtGsftE/jWHojPy8sMMzYLJ2G/A==
 
 y18n@^4.0.0:
   version "4.0.3"
