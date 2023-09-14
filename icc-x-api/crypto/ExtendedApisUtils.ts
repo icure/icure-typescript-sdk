@@ -9,6 +9,7 @@ import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { ShareMetadataBehaviour } from './ShareMetadataBehaviour'
 import { ShareResult } from '../utils/ShareResult'
 import { MinimalEntityBulkShareResult } from '../../icc-api/model/requests/MinimalEntityBulkShareResult'
+import { EncryptedFieldsManifest } from '../utils'
 
 /**
  * @internal this interface is meant only for internal use and may be changed without notice.
@@ -270,11 +271,18 @@ export interface ExtendedApisUtils {
    * Note: you should not use this method to encrypt the `encryptedSelf` of iCure entities, since that will be automatically handled by the extended
    * apis. You should use this method only to encrypt additional data, such as document attachments.
    * @param entity an entity.
+   * @param type type of the entity.
    * @param content data of the entity which you want to encrypt.
-   * @return the encrypted data.
+   * @param saveEntity a function which saves the entity to the cloud/DB. Used only if a new encryption key needed to be initialised for the entity.
+   * @return the encrypted data and, if a new encryption key was initialised for the entity, the updated entity.
    * @throws if the provided data owner can't access any encryption keys for the entity.
    */
-  encryptDataOf(entity: EncryptedEntityWithType, content: ArrayBuffer | Uint8Array): Promise<ArrayBuffer>
+  encryptDataOf<T extends EncryptedEntityStub>(
+    entity: T,
+    type: EntityWithDelegationTypeName,
+    content: ArrayBuffer | Uint8Array,
+    saveEntity: (entity: T) => Promise<T>
+  ): Promise<{ encryptedData: ArrayBuffer; updatedEntity: T | undefined }>
 
   /**
    * Decrypts data using a key of the entity that the provided data owner can access (current data owner by default). If the provided data owner can
@@ -326,7 +334,7 @@ export interface ExtendedApisUtils {
   tryEncryptEntity<T extends EncryptedEntity>(
     entity: T,
     entityType: EntityWithDelegationTypeName,
-    cryptedKeys: string[],
+    fieldsToEncrypt: EncryptedFieldsManifest,
     encodeBinaryData: boolean,
     requireEncryption: boolean,
     constructor: (json: any) => T

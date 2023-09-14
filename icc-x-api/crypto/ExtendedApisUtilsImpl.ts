@@ -1,7 +1,6 @@
 import { EncryptedEntity, EncryptedEntityStub } from '../../icc-api/model/models'
 import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
-import { b2a, crypt, decrypt, hex2ua, truncateTrailingNulls, ua2utf8, utf8_2ua } from '../utils'
-import * as _ from 'lodash'
+import { b2a, encryptObject, decryptObject, hex2ua, truncateTrailingNulls, ua2utf8, utf8_2ua, EncryptedFieldsManifest } from '../utils'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { asyncGeneratorToArray } from '../utils/collection-utils'
 import { SecurityMetadataDecryptor, SecurityMetadataDecryptorChain } from './SecurityMetadataDecryptor'
@@ -36,7 +35,8 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     private readonly legacyDelMetadataDecryptor: LegacyDelegationSecurityMetadataDecryptor,
     private readonly secDelMetadataDecryptor: SecureDelegationsSecurityMetadataDecryptor,
     private readonly secureDelegationsManager: SecureDelegationsManager,
-    private readonly userApi: IccUserXApi
+    private readonly userApi: IccUserXApi,
+    private readonly useParentKeys: boolean
   ) {
     this.allSecurityMetadataDecryptor = new SecurityMetadataDecryptorChain([legacyDelMetadataDecryptor, secDelMetadataDecryptor])
   }
@@ -562,12 +562,24 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     return { data: content, wasDecrypted: false }
   }
 
-  async encryptDataOf(entity: EncryptedEntityWithType, content: ArrayBuffer | Uint8Array): Promise<ArrayBuffer> {
-    const decryptedKeys = this.allSecurityMetadataDecryptor.decryptEncryptionKeysOf(entity, [await this.dataOwnerApi.getCurrentDataOwnerId()])
+  async encryptDataOf<T extends EncryptedEntityStub>(
+    entity: T,
+    type: EntityWithDelegationTypeName,
+    content: ArrayBuffer | Uint8Array,
+    saveEntity: (entity: T) => Promise<T>
+  ): Promise<{ encryptedData: ArrayBuffer; updatedEntity: T | undefined }> {
+    const ensureInitialisedKeysResult = await this.ensureEncryptionKeysInitialised(entity, type)
+    let updatedEntity: T | undefined
+    if (!!ensureInitialisedKeysResult) {
+      updatedEntity = await saveEntity(ensureInitialisedKeysResult)
+    }
+    const decryptedKeys = this.allSecurityMetadataDecryptor.decryptEncryptionKeysOf({ entity: updatedEntity ?? entity, type }, [
+      await this.dataOwnerApi.getCurrentDataOwnerId(),
+    ])
     let latest = await decryptedKeys.next()
     while (!latest.done) {
       try {
-        return this.primitives.AES.encryptWithRawKey(latest.value.decrypted, content)
+        return { encryptedData: await this.primitives.AES.encryptWithRawKey(latest.value.decrypted, content), updatedEntity: updatedEntity }
       } catch (e) {
         console.warn(`Error while encrypting with raw key ${latest.value}: ${e}`)
       }
@@ -586,7 +598,7 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     if (!encryptionKeys.length) return { entity, decrypted: false }
     return {
       entity: constructor(
-        await decrypt(entity, async (encrypted) => {
+        await decryptObject(entity, async (encrypted) => {
           return (await this.tryDecryptJson(encryptionKeys, encrypted, false)) ?? {}
         })
       ),
@@ -611,7 +623,7 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
   async tryEncryptEntity<T extends EncryptedEntity>(
     entity: T,
     entityType: EntityWithDelegationTypeName,
-    cryptedKeys: string[],
+    fieldsToEncrypt: EncryptedFieldsManifest,
     encodeBinaryData: boolean,
     requireEncryption: boolean,
     constructor: (json: any) => T
@@ -621,37 +633,44 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     const encryptionKey = await this.tryImportFirstValidKey({ entity, type: entityType })
     if (!!encryptionKey) {
       return constructor(
-        await crypt(
+        await encryptObject(
           updatedEntity,
           (obj) => {
+            // TODO should encoding of binary data should probably be applied to everything?
             const json = encodeBinaryData
               ? JSON.stringify(obj, (k, v) => {
-                  return v instanceof ArrayBuffer || v instanceof Uint8Array
-                    ? b2a(new Uint8Array(v).reduce((d, b) => d + String.fromCharCode(b), ''))
+                  return v instanceof ArrayBuffer || ArrayBuffer.isView(v)
+                    ? b2a(new Uint8Array(v as ArrayBufferLike).reduce((d, b) => d + String.fromCharCode(b), ''))
                     : v
                 })
               : JSON.stringify(obj)
             return this.primitives.AES.encrypt(encryptionKey.key, utf8_2ua(json), encryptionKey.raw)
           },
-          cryptedKeys
+          fieldsToEncrypt,
+          entityType
         )
       )
     } else if (requireEncryption) {
       throw new Error(`No key found for encryption of entity ${entity}`)
     } else {
-      const cryptedCopyWithRandomKey = await crypt(
-        _.cloneDeep(entity),
-        async (_: { [key: string]: string }) => Promise.resolve(new ArrayBuffer(1)),
-        cryptedKeys
+      await encryptObject(
+        entity,
+        async (obj: { [key: string]: any }) => {
+          const hasNonEmptyValues = Object.values(obj).some(
+            (v) => v !== undefined && (typeof v !== 'object' || (Array.isArray(v) && v.length > 0) || Object.keys(v).length > 0)
+          )
+          if (hasNonEmptyValues) {
+            throw new Error(
+              `Impossible to modify encrypted content of an entity if no encryption key is known.\nEntity: ${JSON.stringify(
+                entity
+              )}\nTo encrypt: ${JSON.stringify(obj)}`
+            )
+          }
+          return Promise.resolve(new ArrayBuffer(1))
+        },
+        fieldsToEncrypt,
+        'entity'
       )
-      if (
-        !_.isEqual(
-          _.omitBy({ ...cryptedCopyWithRandomKey, encryptedSelf: undefined }, _.isNil),
-          _.omitBy({ ...entity, encryptedSelf: undefined }, _.isNil)
-        )
-      ) {
-        throw new Error(`Impossible to modify encrypted value of an entity if no encryption key is known.\n${JSON.stringify(entity)}`)
-      }
       return entity
     }
   }
@@ -695,9 +714,11 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
       dataOwners: string[]
     ) => AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never>
   ): Promise<{ ownerId: string; extracted: string[] }[]> {
-    const hierarchy = await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
-    const decryptedData = await asyncGeneratorToArray(decryptedDataGeneratorProvider(entity, hierarchy))
-    return hierarchy.map((ownerId) => {
+    const canDecryptOwnerIds = this.useParentKeys
+      ? await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
+      : [await this.dataOwnerApi.getCurrentDataOwnerId()]
+    const decryptedData = await asyncGeneratorToArray(decryptedDataGeneratorProvider(entity, canDecryptOwnerIds))
+    return canDecryptOwnerIds.map((ownerId) => {
       const extracted = this.deduplicate(decryptedData.filter((x) => x.dataOwnersWithAccess.some((o) => o === ownerId)).map((x) => x.decrypted))
       return { ownerId, extracted }
     })
@@ -711,9 +732,11 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
       dataOwners: string[]
     ) => AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never>
   ): Promise<string[]> {
-    const hierarchy = dataOwnerId
-      ? await this.dataOwnerApi.getCurrentDataOwnerHierarchyIdsFrom(dataOwnerId)
-      : await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
+    const hierarchy = this.useParentKeys
+      ? dataOwnerId
+        ? await this.dataOwnerApi.getCurrentDataOwnerHierarchyIdsFrom(dataOwnerId)
+        : await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
+      : [dataOwnerId ?? (await this.dataOwnerApi.getCurrentDataOwnerId())]
     const decryptedData = await asyncGeneratorToArray(decryptedDataGeneratorProvider(entity, hierarchy))
     return this.deduplicate(decryptedData.map((x) => x.decrypted))
   }
@@ -773,7 +796,7 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     if (methodArgs) {
       try {
         const argsArray = [...methodArgs]
-        _.each(argsArray, (arg, index) => (details += '\n[' + index + ']: ' + JSON.stringify(arg)))
+        argsArray.forEach((arg, index) => (details += '\n[' + index + ']: ' + JSON.stringify(arg)))
       } catch (ex) {
         details += '; a problem occured while logging arguments details: ' + ex
       }

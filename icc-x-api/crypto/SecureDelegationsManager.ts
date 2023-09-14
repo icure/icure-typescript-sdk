@@ -43,6 +43,7 @@ export class SecureDelegationsManager {
   > = new LruTemporisedAsyncCache(100, () => 30 * 60 * 1000)
 
   /**
+   * Note: this method does not save the updated entity.
    * @param entity an entity, must already have secret foreign keys initialised.
    * @param entityType the type of the entity
    * @param secretIds the initial secret ids to include and share with the auto-delegations
