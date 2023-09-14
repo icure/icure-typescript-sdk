@@ -1,4 +1,4 @@
-import { IccHelementApi } from '../icc-api'
+import {IccAuthApi, IccHelementApi} from '../icc-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 
 import * as models from '../icc-api/model/models'
@@ -16,13 +16,14 @@ import { ShareResult } from './utils/ShareResult'
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
-import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
+import {IccUserXApi} from "./icc-user-x-api";
+import {EncryptedFieldsManifest, parseEncryptedFields, subscribeToEntityEvents, SubscriptionOptions} from "./utils";
+import {EncryptedEntityXApi} from "./basexapi/EncryptedEntityXApi";
+import {AbstractFilter} from "./filters/filters";
+import {Connection, ConnectionImpl} from "../icc-api/model/Connection";
 
 export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXApi<models.HealthElement> {
-  crypto: IccCryptoXApi
-  dataOwnerApi: IccDataOwnerXApi
-
-  private readonly encryptedKeys: Array<string>
+  private readonly encryptedFields: EncryptedFieldsManifest
 
   get headers(): Promise<Array<XHR.Header>> {
     return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, 'HealthElement'))
@@ -31,8 +32,10 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
   constructor(
     host: string,
     headers: { [key: string]: string },
-    crypto: IccCryptoXApi,
-    dataOwnerApi: IccDataOwnerXApi,
+    private readonly crypto: IccCryptoXApi,
+    private readonly dataOwnerApi: IccDataOwnerXApi,
+    private readonly userApi: IccUserXApi,
+    private readonly authApi: IccAuthApi,
     encryptedKeys: Array<string> = ['descr', 'note'],
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
@@ -44,7 +47,9 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     super(host, headers, authenticationProvider, fetchImpl)
     this.crypto = crypto
     this.dataOwnerApi = dataOwnerApi
-    this.encryptedKeys = encryptedKeys
+    this.userApi = userApi
+    this.authApi = authApi
+    this.encryptedFields = parseEncryptedFields(encryptedKeys, 'HealthElement.')
   }
 
   /**
@@ -75,21 +80,19 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     } = {}
   ) {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
-    const helement = _.assign(
-      {
-        id: this.crypto.primitives.randomUuid(),
-        _type: 'org.taktik.icure.entities.HealthElement',
-        created: new Date().getTime(),
-        modified: new Date().getTime(),
-        responsible: dataOwnerId,
-        author: user.id,
-        codes: [],
-        tags: [],
-        healthElementId: this.crypto.primitives.randomUuid(),
-        openingDate: parseInt(moment().format('YYYYMMDDHHmmss')),
-      },
-      h || {}
-    )
+    const helement = {
+      ...(h ?? {}),
+      _type: 'org.taktik.icure.entities.HealthElement',
+      id: h?.id ?? this.crypto.primitives.randomUuid(),
+      created: h?.created ?? new Date().getTime(),
+      modified: h?.modified ?? new Date().getTime(),
+      responsible: h?.responsible ?? dataOwnerId,
+      author: h?.author ?? user.id,
+      codes: h?.codes ?? [],
+      tags: h?.tags ?? [],
+      healthElementId: h?.healthElementId ?? this.crypto.primitives.randomUuid(),
+      openingDate: h?.openingDate ?? parseInt(moment().format('YYYYMMDDHHmmss')),
+    }
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
@@ -107,7 +110,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
           )),
       ...(options?.additionalDelegates ?? {}),
     }
-    const initialisationInfo = await this.crypto.xapi.entityWithInitialisedEncryptedMetadata(
+    const initialisationInfo = await this.crypto.entities.entityWithInitialisedEncryptedMetadata(
       helement,
       'HealthElement',
       patient.id,
@@ -195,7 +198,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     patient: models.Patient,
     usingPost: boolean = false
   ): Promise<models.HealthElement[]> {
-    let keysAndHcPartyId = await this.crypto.xapi.secretIdsForHcpHierarchyOf({ entity: patient, type: 'Patient' })
+    let keysAndHcPartyId = await this.crypto.entities.secretIdsForHcpHierarchyOf({ entity: patient, type: 'Patient' })
     const keys = keysAndHcPartyId.find((secretForeignKeys) => secretForeignKeys.ownerId == hcPartyId)?.extracted
     if (keys == undefined) {
       throw Error('No delegation for user')
@@ -254,7 +257,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
    */
 
   findBy(hcpartyId: string, patient: models.Patient, keepObsoleteVersions = false, usingPost = false) {
-    return this.crypto.xapi
+    return this.crypto.entities
       .secretIdsForHcpHierarchyOf({ entity: patient, type: 'Patient' })
       .then((secretForeignKeys) =>
         secretForeignKeys && secretForeignKeys.length > 0
@@ -307,14 +310,13 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
   }
 
   encrypt(user: models.User, healthElements: Array<models.HealthElement>): Promise<Array<models.HealthElement>> {
-    const owner = this.dataOwnerApi.getDataOwnerIdOf(user)
-    return this.encryptAs(owner, healthElements)
+    return this.encryptAs(this.dataOwnerApi.getDataOwnerIdOf(user), healthElements)
   }
 
   private encryptAs(owner: string, healthElements: Array<models.HealthElement>): Promise<Array<models.HealthElement>> {
     return Promise.all(
       healthElements.map((he) =>
-        this.crypto.xapi.tryEncryptEntity(he, 'HealthElement', this.encryptedKeys, false, false, (x) => new models.HealthElement(x))
+        this.crypto.entities.tryEncryptEntity(he, 'HealthElement', this.encryptedFields, false, false, (x) => new models.HealthElement(x))
       )
     )
   }
@@ -325,7 +327,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
 
   decrypt(dataOwnerId: string, hes: Array<models.HealthElement>): Promise<Array<models.HealthElement>> {
     return Promise.all(
-      hes.map((he) => this.crypto.xapi.decryptEntity(he, 'HealthElement', (x) => new models.HealthElement(x)).then(({ entity }) => entity))
+      hes.map((he) => this.crypto.entities.decryptEntity(he, 'HealthElement', (x) => new models.HealthElement(x)).then(({ entity }) => entity))
     )
   }
 
@@ -379,14 +381,14 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
    * in the returned array, but in case of entity merges there could be multiple values.
    */
   async decryptPatientIdOf(healthElement: models.HealthElement): Promise<string[]> {
-    return this.crypto.xapi.owningEntityIdsOf({ entity: healthElement, type: 'HealthElement' }, undefined)
+    return this.crypto.entities.owningEntityIdsOf({ entity: healthElement, type: 'HealthElement' }, undefined)
   }
 
   /**
    * @return if the logged data owner has write access to the content of the given health element
    */
   async hasWriteAccess(healthElement: models.HealthElement): Promise<boolean> {
-    return this.crypto.xapi.hasWriteAccess({ entity: healthElement, type: 'HealthElement' })
+    return this.crypto.entities.hasWriteAccess({ entity: healthElement, type: 'HealthElement' })
   }
 
   /**
@@ -466,9 +468,9 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
   ): Promise<ShareResult<models.HealthElement>> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
-    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(healthElement, 'HealthElement')
+    const entityWithEncryptionKey = await this.crypto.entities.ensureEncryptionKeysInitialised(healthElement, 'HealthElement')
     const updatedEntity = entityWithEncryptionKey ? await this.modifyHealthElementAs(self, entityWithEncryptionKey) : healthElement
-    return this.crypto.xapi
+    return this.crypto.entities
       .simpleShareOrUpdateEncryptedEntityMetadata(
         { entity: updatedEntity, type: 'HealthElement' },
         true,
@@ -491,10 +493,30 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
   getDataOwnersWithAccessTo(
     entity: models.HealthElement
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'HealthElement' })
+    return this.crypto.entities.getDataOwnersWithAccessTo({ entity, type: 'HealthElement' })
   }
 
   getEncryptionKeysOf(entity: models.HealthElement): Promise<string[]> {
-    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'HealthElement' }, undefined)
+    return this.crypto.entities.encryptionKeysOf({ entity, type: 'HealthElement' }, undefined)
+  }
+
+  async subscribeToHealthElementEvents(
+      eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
+      filter: AbstractFilter<HealthElement> | undefined,
+      eventFired: (dataSample: HealthElement) => Promise<void>,
+      options: SubscriptionOptions = {}
+  ): Promise<Connection> {
+    const currentUser = await this.userApi.getCurrentUser()
+
+    return subscribeToEntityEvents(
+        this.host,
+        this.authApi,
+        'HealthElement',
+        eventTypes,
+        filter,
+        eventFired,
+        options,
+        async (encrypted) => (await this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(currentUser), [encrypted]))[0]
+    ).then((rs) => new ConnectionImpl(rs))
   }
 }

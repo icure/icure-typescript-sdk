@@ -13,7 +13,7 @@ import { ShareResult } from './utils/ShareResult'
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
-import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
+import {EncryptedEntityXApi} from "./basexapi/EncryptedEntityXApi";
 
 // noinspection JSUnusedGlobalSymbols
 export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<models.Form> {
@@ -64,19 +64,17 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
       preferredSfk?: string
     } = {}
   ) {
-    const form = _.extend(
-      {
-        id: this.crypto.primitives.randomUuid(),
-        _type: 'org.taktik.icure.entities.Form',
-        created: new Date().getTime(),
-        modified: new Date().getTime(),
-        responsible: this.dataOwnerApi.getDataOwnerIdOf(user),
-        author: user.id,
-        codes: [],
-        tags: [],
-      },
-      c || {}
-    )
+    const form = {
+      ...(c ?? {}),
+      _type: 'org.taktik.icure.entities.Form',
+      id: c?.id ?? this.crypto.primitives.randomUuid(),
+      created: c?.created ?? new Date().getTime(),
+      modified: c?.modified ?? new Date().getTime(),
+      responsible: c?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
+      author: c?.author ?? user.id,
+      codes: c?.codes ?? [],
+      tags: c?.tags ?? [],
+    }
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
@@ -89,7 +87,7 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
       ...(options?.additionalDelegates ?? {}),
     }
     return new models.Form(
-      await this.crypto.xapi
+      await this.crypto.entities
         .entityWithInitialisedEncryptedMetadata(form, 'Form', patient.id, sfk, true, false, extraDelegations)
         .then((x) => x.updatedEntity)
     )
@@ -113,7 +111,7 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
    * @param usingPost (Promise)
    */
   async findBy(hcpartyId: string, patient: models.Patient, usingPost: boolean = false) {
-    const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: 'Patient' }, hcpartyId)
+    const extractedKeys = await this.crypto.entities.secretIdsOf({ entity: patient, type: 'Patient' }, hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     let forms: Array<models.Form> = await (usingPost
       ? this.findFormsByHCPartyPatientForeignKeysUsingPost(hcpartyId!, undefined, undefined, undefined, _.uniq(extractedKeys))
@@ -122,7 +120,7 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
   }
 
   decrypt(hcpartyId: string, forms: Array<models.Form>) {
-    return Promise.all(forms.map((form) => this.crypto.xapi.decryptEntity(form, 'Form', (x) => new models.Form(x)).then(({ entity }) => entity)))
+    return Promise.all(forms.map((form) => this.crypto.entities.decryptEntity(form, 'Form', (x) => new models.Form(x)).then(({ entity }) => entity)))
   }
 
   /**
@@ -131,14 +129,14 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
    * in the returned array, but in case of entity merges there could be multiple values.
    */
   async decryptPatientIdOf(form: models.Form): Promise<string[]> {
-    return this.crypto.xapi.owningEntityIdsOf({ entity: form, type: 'Form' }, undefined)
+    return this.crypto.entities.owningEntityIdsOf({ entity: form, type: 'Form' }, undefined)
   }
 
   /**
    * @return if the logged data owner has write access to the content of the given form
    */
   async hasWriteAccess(form: models.Form): Promise<boolean> {
-    return this.crypto.xapi.hasWriteAccess({ entity: form, type: 'Form' })
+    return this.crypto.entities.hasWriteAccess({ entity: form, type: 'Form' })
   }
 
   /**
@@ -219,9 +217,9 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
   ): Promise<ShareResult<models.Form>> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
-    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(form, 'Form')
+    const entityWithEncryptionKey = await this.crypto.entities.ensureEncryptionKeysInitialised(form, 'Form')
     const updatedEntity = entityWithEncryptionKey ? await this.modifyForm(entityWithEncryptionKey) : form
-    return this.crypto.xapi
+    return this.crypto.entities
       .simpleShareOrUpdateEncryptedEntityMetadata(
         { entity: updatedEntity, type: 'Form' },
         true,
@@ -244,10 +242,10 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
   getDataOwnersWithAccessTo(
     entity: models.Form
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Form' })
+    return this.crypto.entities.getDataOwnersWithAccessTo({ entity, type: 'Form' })
   }
 
   getEncryptionKeysOf(entity: models.Form): Promise<string[]> {
-    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'Form' }, undefined)
+    return this.crypto.entities.encryptionKeysOf({ entity, type: 'Form' }, undefined)
   }
 }
