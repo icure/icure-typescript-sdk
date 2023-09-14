@@ -9,7 +9,7 @@ import { ShamirKeysManager } from './crypto/ShamirKeysManager'
 import { ConfidentialEntities } from './crypto/ConfidentialEntities'
 import { ExchangeDataManager } from './crypto/ExchangeDataManager'
 import { AccessControlKeysHeadersProvider } from './crypto/AccessControlKeysHeadersProvider'
-import {KeyPair} from "./crypto/RSA";
+import { KeyPair } from './crypto/RSA'
 
 export class IccCryptoXApi {
   /**
@@ -43,8 +43,8 @@ export class IccCryptoXApi {
   /**
    * @internal this is for internal use only and may be changed without notice.
    */
-  get entities(): ExtendedApisUtils {
-    return this._entitiesEncrypiton
+  get xapi(): ExtendedApisUtils {
+    return this.xapiUtils
   }
 
   /**
@@ -90,15 +90,14 @@ export class IccCryptoXApi {
     private readonly _cryptoPrimitives: CryptoPrimitives,
     private readonly _keyManager: UserEncryptionKeysManager,
     private readonly _dataOwnerApi: IccDataOwnerXApi,
-    private readonly _entitiesEncrypiton: ExtendedApisUtils,
+    private readonly xapiUtils: ExtendedApisUtils,
     private readonly _shamirManager: ShamirKeysManager,
     private readonly _storage: StorageFacade<string>,
     private readonly _keyStorage: KeyStorageFacade,
     private readonly _confidentialEntities: ConfidentialEntities,
     private readonly _exchangeDataManager: ExchangeDataManager,
     private readonly _accessControlKeysHeaders: AccessControlKeysHeadersProvider
-  ) {
-  }
+  ) {}
 
   /**
    * Deletes values cached by the crypto api, to allow to detect changes in stored key pairs, exchange keys and/or current data owner details.
@@ -163,5 +162,4 @@ export class IccCryptoXApi {
   async getCurrentUserAvailablePublicKeysHex(verifiedOnly: boolean): Promise<string[]> {
     return this._keyManager.getCurrentUserAvailablePublicKeysHex(verifiedOnly)
   }
-
 }

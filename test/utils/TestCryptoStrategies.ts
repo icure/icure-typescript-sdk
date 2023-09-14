@@ -23,21 +23,21 @@ export class TestCryptoStrategies implements CryptoStrategies {
   }
 
   async recoverAndVerifySelfHierarchyKeys(
-    keysData: { dataOwnerInfo: DataOwnerWithType; unknownKeys: string[]; unavailableKeys: string[] }[]
+    keysData: { dataOwner: DataOwnerWithType; unknownKeys: string[]; unavailableKeys: string[] }[]
   ): Promise<{ [p: string]: { recoveredKeys: { [p: string]: KeyPair<CryptoKey> }; keyAuthenticity: { [p: string]: boolean } } }> {
-    const self = keysData[keysData.length - 1].dataOwnerInfo
+    const self = keysData[keysData.length - 1].dataOwner
     const knownKeys = new Set([...hexPublicKeysWithSha1Of(self.dataOwner), ...hexPublicKeysWithSha256Of(self.dataOwner)])
     const publicKey = this.keyPair ? ua2hex(await this.RSA.exportKey(this.keyPair.publicKey, 'spki')) : undefined
     return Object.fromEntries(
       await Promise.all(
         keysData.map(async (currData) => {
-          if (currData.dataOwnerInfo.dataOwner.id! !== self.dataOwner.id!) {
-            return [currData.dataOwnerInfo.dataOwner.id!, { recoveredKeys: {}, keyAuthenticity: {} }]
+          if (currData.dataOwner.dataOwner.id! !== self.dataOwner.id!) {
+            return [currData.dataOwner.dataOwner.id!, { recoveredKeys: {}, keyAuthenticity: {} }]
           } else if (publicKey === undefined || !knownKeys.has(publicKey)) {
-            return [currData.dataOwnerInfo.dataOwner.id!, { recoveredKeys: {}, keyAuthenticity: this.verifiedSelfKeys }]
+            return [currData.dataOwner.dataOwner.id!, { recoveredKeys: {}, keyAuthenticity: this.verifiedSelfKeys }]
           } else {
             return [
-              currData.dataOwnerInfo.dataOwner.id!,
+              currData.dataOwner.dataOwner.id!,
               { recoveredKeys: { [publicKey.slice(-32)]: this.keyPair }, keyAuthenticity: this.verifiedSelfKeys },
             ]
           }

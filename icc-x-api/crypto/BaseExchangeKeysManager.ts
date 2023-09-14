@@ -35,80 +35,6 @@ export class BaseExchangeKeysManager {
   }
 
   /**
-   * Creates a new exchange key from the current data owner to a delegate, or updates an existing one allowing additional public keys to access it.
-   * @param delegateId the delegate data owner id.
-   * @param delegatorMainKeyPair main key pair for the delegator. The private key will be used for the decryption of the existing key in case of
-   * update, and the public key will be used as entry key of the aesExchangeKey map
-   * @param additionalPublicKeys all public keys of key pairs other than {@link delegatorMainKeyPair} that need to have access to the exchange key.
-   * Can be a mix of crypto keys and full hex-encoded spki format (no fingerprints).
-   * @return the exchange key for the delegator-delegate-delegatorKey triple (new or existing) and the updated delegator.
-   */
-  async createOrUpdateEncryptedExchangeKeyTo(
-    delegateId: string,
-    delegatorMainKeyPair: KeyPair<CryptoKey>,
-    additionalPublicKeys: { [keyFingerprint: string]: CryptoKey }
-  ): Promise<{
-    updatedDelegator: CryptoActorStubWithType
-    key: CryptoKey
-  }> {
-    const delegatorId = await this.dataOwnerApi.getCurrentDataOwnerId()
-    return await notConcurrent(this.generateKeyConcurrencyMap, delegatorId, async () => {
-      const delegator = CryptoActorStubWithType.fromDataOwner(await this.dataOwnerApi.getCurrentDataOwner())
-      const delegate = delegatorId === delegateId ? delegator : await this.dataOwnerApi.getCryptoActorStub(delegateId)
-      const mainDelegatorKeyPairPubHex = ua2hex(await this.primitives.RSA.exportKey(delegatorMainKeyPair.publicKey, 'spki'))
-      let exchangeKey: { raw: string; key: CryptoKey } | undefined = undefined
-      const existingExchangeKey =
-        delegator.stub.aesExchangeKeys?.[mainDelegatorKeyPairPubHex]?.[delegateId]?.[mainDelegatorKeyPairPubHex.slice(-32)] ??
-        (mainDelegatorKeyPairPubHex === delegator.stub.publicKey ? delegator.stub.hcPartyKeys?.[delegateId]?.[0] : undefined)
-      if (existingExchangeKey) {
-        exchangeKey = await this.tryDecryptExchangeKeyWith(existingExchangeKey, delegatorMainKeyPair, undefined)
-        if (!exchangeKey)
-          throw new Error(
-            `Failed to decrypt existing exchange key for update of ${mainDelegatorKeyPairPubHex.slice(-32)}@${delegatorId}->${delegateId}`
-          )
-        const existingAesExchangeKey = delegator.stub.aesExchangeKeys?.[mainDelegatorKeyPairPubHex]?.[delegateId]
-        if (existingAesExchangeKey) {
-          const existingPublicKeysSet = new Set(existingExchangeKey)
-          if (Object.keys(additionalPublicKeys).every((fp) => existingPublicKeysSet.has(fp)))
-            return {
-              updatedDelegator: delegator,
-              key: exchangeKey.key,
-            }
-        }
-      }
-      const allPublicKeys = {
-        ...additionalPublicKeys,
-        [mainDelegatorKeyPairPubHex.slice(-32)]: delegatorMainKeyPair.publicKey,
-      }
-      const encryptedKeyInfo = await this.encryptExchangeKey(exchangeKey, allPublicKeys)
-      let updatedDelegatorPublicKey: string
-      if (delegator.stub.publicKey == '') {
-        if (Object.entries(delegator.stub.hcPartyKeys ?? {}).length > 0)
-          throw new Error(`Data owner ${delegator.stub.id} has "" as public key but has non-empty hcPartyKeys`)
-        updatedDelegatorPublicKey = mainDelegatorKeyPairPubHex
-      } else {
-        updatedDelegatorPublicKey = delegator.stub.publicKey ?? mainDelegatorKeyPairPubHex
-      }
-      const updatedStub: CryptoActorStub = {
-        ...delegator.stub,
-        aesExchangeKeys: await this.updateExchangeKeys(delegator, delegate, mainDelegatorKeyPairPubHex, encryptedKeyInfo.encryptedExchangeKey),
-        publicKey: updatedDelegatorPublicKey,
-      }
-      if (delegator.stub.publicKey === mainDelegatorKeyPairPubHex) {
-        updatedStub.hcPartyKeys = this.updateLegacyExchangeKeys(delegator, delegate, encryptedKeyInfo.encryptedExchangeKey)
-      }
-      const updatedDelegator = await this.dataOwnerApi.modifyCryptoActorStub({
-        type: delegator.type,
-        stub: updatedStub,
-      })
-      return {
-        key: encryptedKeyInfo.exchangeKey,
-        updatedDelegator,
-      }
-    })
-  }
-
-  /**
    * Updates the aes exchange keys between the current data owner and another data owner to allow the other data owner to access the exchange key
    * using his new public key. Note that this will make existing exchange keys from the other data owner to the current data owner invalid for
    * encryption.
@@ -374,25 +300,6 @@ export class BaseExchangeKeysManager {
     } else return delegator.stub.hcPartyKeys
   }
 
-  private async updateExchangeKeys(
-    delegator: CryptoActorStubWithType,
-    delegate: CryptoActorStubWithType,
-    mainDelegatorKeyPairPubHex: string,
-    encryptedKeyMap: { [fp: string]: string }
-  ): Promise<{ [ownerPublicKey: string]: { [delegateId: string]: { [fingerprint: string]: string } } }> {
-    const combinedAesExchangeKeys = await this.combineLegacyHcpKeysWithAesExchangeKeys(delegator.stub, delegate.stub)
-    return this.fixAesExchangeKeyEntriesToFingerprints({
-      ...combinedAesExchangeKeys,
-      [mainDelegatorKeyPairPubHex]: {
-        ...(combinedAesExchangeKeys[mainDelegatorKeyPairPubHex] ?? {}),
-        [delegate.stub.id!]: {
-          ...(combinedAesExchangeKeys[mainDelegatorKeyPairPubHex]?.[delegate.stub.id!] ?? {}),
-          ...encryptedKeyMap,
-        },
-      },
-    })
-  }
-
   // Copy all legacy hcp exchange keys into the new aes exchange keys
   private async combineLegacyHcpKeysWithAesExchangeKeys(
     owner: CryptoActorStub,
@@ -422,21 +329,5 @@ export class BaseExchangeKeysManager {
         ...(owner.aesExchangeKeys ?? {}),
       }
     } else return owner.aesExchangeKeys ?? {}
-  }
-
-  private fixAesExchangeKeyEntriesToFingerprints(aesExchangeKeys: {
-    [delegatorPubKey: string]: { [delegateId: string]: { [pubKeyFp: string]: string } }
-  }): { [delegatorPubKey: string]: { [delegateId: string]: { [pubKeyFp: string]: string } } } {
-    return Object.fromEntries(
-      Object.entries(aesExchangeKeys).map(([delegatorPubKey, allDelegates]) => [
-        delegatorPubKey,
-        Object.fromEntries(
-          Object.entries(allDelegates).map(([delegateId, keyEntries]) => [
-            delegateId,
-            Object.fromEntries(Object.entries(keyEntries).map(([publicKey, encryptedValue]) => [publicKey.slice(-32), encryptedValue])),
-          ])
-        ),
-      ])
-    )
   }
 }
