@@ -155,7 +155,8 @@ export class IccFormXApi extends IccFormApi {
           .extractKeysFromDelegationsForHcpHierarchy(hcpartyId, form.id!, _.size(form.encryptionKeys) ? form.encryptionKeys! : form.delegations!)
           .then(({ extractedKeys: sfks }) => {
             if (form.encryptedSelf) {
-              return this.crypto.AES.importKey('raw', hex2ua(sfks[0].replace(/-/g, '')))
+              sfks = this.crypto.filterAndFixValidEntityEncryptionKeyStrings(sfks)
+              return this.crypto.AES.importKey('raw', hex2ua(sfks[0]))
                 .then(
                   (key) =>
                     new Promise((resolve: (value: any) => any) => {
