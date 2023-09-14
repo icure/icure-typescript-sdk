@@ -41,7 +41,7 @@ export interface CryptoStrategies {
    */
   recoverAndVerifySelfHierarchyKeys(
     keysData: {
-      dataOwnerInfo: DataOwnerWithType
+      dataOwner: DataOwnerWithType
       unknownKeys: string[]
       unavailableKeys: string[]
     }[],

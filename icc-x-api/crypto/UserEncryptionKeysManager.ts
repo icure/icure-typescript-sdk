@@ -8,12 +8,12 @@ import { KeyRecovery } from './KeyRecovery'
 import { CryptoStrategies } from './CryptoStrategies'
 import { DataOwnerWithType } from '../../icc-api/model/DataOwnerWithType'
 import { CryptoActorStub, CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
-import {BaseExchangeKeysManager} from "./BaseExchangeKeysManager"
+import { BaseExchangeKeysManager } from './BaseExchangeKeysManager'
 
 type KeyPairData = { pair: KeyPair<CryptoKey>; isVerified: boolean; isDevice: boolean }
 type KeyRecovererAndVerifier = (
   keysData: {
-    dataOwnerInfo: DataOwnerWithType
+    dataOwner: DataOwnerWithType
     unknownKeys: string[]
     unavailableKeys: string[]
   }[]
@@ -26,7 +26,7 @@ type KeyRecovererAndVerifier = (
 const nothingKeyRecovererAndVerifier: KeyRecovererAndVerifier = (x) =>
   Promise.resolve(
     x.reduce(
-      (acc, { dataOwnerInfo }) => ({ ...acc, [dataOwnerInfo.dataOwner.id!]: { recoveredKeys: {}, keyAuthenticity: {} } }),
+      (acc, { dataOwner }) => ({ ...acc, [dataOwner.dataOwner.id!]: { recoveredKeys: {}, keyAuthenticity: {} } }),
       {} as {
         [dataOwnerId: string]: {
           recoveredKeys: { [keyPairFingerprint: string]: KeyPair<CryptoKey> }
@@ -41,7 +41,6 @@ type CurrentOwnerKeyGenerator = (self: DataOwnerWithType) => Promise<KeyPair<Cry
  * Allows to manage public and private keys for the current user and his parent hierarchy.
  */
 export class UserEncryptionKeysManager {
-
   private selfId: string | undefined
   private selfLegacyPublicKey: string | undefined
   private keysCache: { [selfOrParentId: string]: { [pubKeyFingerprint: string]: KeyPairData } } | undefined = undefined
@@ -251,27 +250,24 @@ export class UserEncryptionKeysManager {
     const keysData = []
     for (const dowt of this.initialiseParentKeys ? hierarchy : [self]) {
       const availableKeys = await this.loadAndRecoverKeysFor(dowt)
+      const availableKeysFpSet = new Set(Object.keys(availableKeys))
       const verifiedKeysMap = await this.icureStorage.loadSelfVerifiedKeys(dowt.dataOwner.id!)
       const allPublicKeys = new Set([
         ...this.dataOwnerApi.getHexPublicKeysWithSha1Of(dowt.dataOwner),
         ...this.dataOwnerApi.getHexPublicKeysWithSha256Of(dowt.dataOwner),
       ])
-      const fpToFullMap = {
-        ...fingerprintToPublicKeysMapOf(dowt.dataOwner, 'sha-1'),
-        ...fingerprintToPublicKeysMapOf(dowt.dataOwner, 'sha-256'),
-      }
-      const unavailableKeys = Object.keys(availableKeys).flatMap((fp) => {
-        const fullPublicKey = fpToFullMap[fp]
-        return allPublicKeys.has(fullPublicKey) ? [] : [fullPublicKey]
+      const unavailableKeys = Array.from(allPublicKeys).flatMap((key) => {
+        return availableKeysFpSet.has(key.slice(-32)) ? [] : [key]
       })
       const unknownKeys = Array.from(allPublicKeys).filter(
         (x) => !(fingerprintV1(x) in verifiedKeysMap) && !(availableKeys?.[fingerprintV1(x)]?.isDevice === true)
       )
       keysData.push({ dowt, availableKeys, unavailableKeys, unknownKeys })
     }
-    const recoveryAndVerificationResult = await keyRecovererAndVerifier(
-      keysData.map(({ dowt, unavailableKeys, unknownKeys }) => ({ dataOwnerInfo: dowt, unavailableKeys, unknownKeys }))
-    )
+    const recoveryInfo = keysData.map(({ dowt, unavailableKeys, unknownKeys }) => ({ dataOwner: dowt, unavailableKeys, unknownKeys }))
+    const recoveryAndVerificationResult = recoveryInfo.some((x) => x.unavailableKeys.length > 0 || x.unknownKeys.length > 0)
+      ? await keyRecovererAndVerifier(recoveryInfo)
+      : await nothingKeyRecovererAndVerifier(recoveryInfo)
     const keysCache: { [dataOwnerId: string]: { [fp: string]: KeyPairData } } = {}
     for (const keyData of keysData) {
       const currAuthenticity = this.ensureFingerprintKeys(recoveryAndVerificationResult[keyData.dowt.dataOwner.id!].keyAuthenticity)

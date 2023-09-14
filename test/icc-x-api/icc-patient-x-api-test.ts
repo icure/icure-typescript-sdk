@@ -4,10 +4,11 @@ import 'isomorphic-fetch'
 
 import { Patient } from '../../icc-api/model/Patient'
 import { assert, expect } from 'chai'
-import { randomUUID } from 'crypto'
+import { randomBytes, randomUUID } from 'crypto'
 import { getEnvironmentInitializer, hcp1Username, hcp2Username, hcp3Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import initApi = TestUtils.initApi
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
+import { ua2b64 } from '../../icc-x-api'
 
 setLocalStorage(fetch)
 let env: TestVars
@@ -145,5 +146,47 @@ describe('icc-x-patient-api Tests', () => {
     expect(retrievedByDelegateWithAccessToFrom.alias).to.equal(mergedAlias)
     expect(retrievedByDelegateWithAccessToFrom.note).to.be.undefined // No access to new encryption key yet
     expect(await api2.patientApi.decryptSecretIdsOf(retrievedByDelegateWithAccessToFrom)).to.have.members(patientFromSecretIds)
+  })
+
+  it('Patient picture should be automatically decoded from base64 on initialisation.', async () => {
+    const pictureAB = randomBytes(100)
+    const pictureBase64 = ua2b64(pictureAB)
+    const patient = new Patient({ picture: pictureBase64 })
+    expect(patient.picture).to.not.be.undefined
+    expect(patient.picture instanceof ArrayBuffer || ArrayBuffer.isView(patient.picture)).to.be.true
+    const decodedPicture = new Uint8Array(patient.picture!)
+    expect(decodedPicture).to.have.length(pictureAB.length)
+    for (let i = 0; i < pictureAB.length; i++) {
+      expect(decodedPicture[i]).to.equal(pictureAB[i])
+    }
+  })
+
+  it('Creating a new Patient instance using a patient with decoded picture should not lose the picture data', async () => {
+    const pictureAB = randomBytes(100)
+    const patient = new Patient({ picture: new Uint8Array(pictureAB) })
+    expect(patient.picture).to.not.be.undefined
+    expect(patient.picture instanceof ArrayBuffer || ArrayBuffer.isView(patient.picture)).to.be.true
+    const decodedPicture = new Uint8Array(patient.picture!)
+    expect(decodedPicture).to.have.length(pictureAB.length)
+    for (let i = 0; i < pictureAB.length; i++) {
+      expect(decodedPicture[i]).to.equal(pictureAB[i])
+    }
+  })
+
+  it('A Patient with picture data should be created and retrieved correctly', async () => {
+    const pictureAB = randomBytes(100)
+    const api = await initApi(env!, hcp1Username)
+    const user = await api.userApi.getCurrentUser()
+    const patient = await api.patientApi.createPatientWithUser(
+      user,
+      await api.patientApi.newInstance(user, { firstName: 'Giovanni', lastName: 'Giorgio', picture: new Uint8Array(pictureAB) })
+    )
+    expect(patient.picture).to.not.be.undefined
+    expect(patient.picture instanceof ArrayBuffer || ArrayBuffer.isView(patient.picture)).to.be.true
+    const decodedPicture = new Uint8Array(patient.picture!)
+    expect(decodedPicture).to.have.length(pictureAB.length)
+    for (let i = 0; i < pictureAB.length; i++) {
+      expect(decodedPicture[i]).to.equal(pictureAB[i])
+    }
   })
 })

@@ -55,45 +55,6 @@ export class ExchangeKeysManager {
   }
 
   /**
-   * Get exchange keys from the current data owner to the provided delegate which are safe for encryption according to the locally verified keys.
-   * If currently there is no exchange key towards the provided delegate which is safe for encryption a new one will be automatically created.
-   * @param delegateId a delegate
-   * @return an object with the following fields:
-   *  - keys: all available exchange keys which are safe for encryption.
-   *  - updatedDelegator (optional): if a new key creation job was started when the function was invoked the updated delegator, else undefined.
-   */
-  async getOrCreateEncryptionExchangeKeysTo(delegateId: string): Promise<{ updatedDelegator?: CryptoActorStubWithType; keys: CryptoKey[] }> {
-    const currentKeys = await this.getSelfExchangeKeysTo(delegateId)
-    if (currentKeys.length > 0) {
-      return { keys: currentKeys }
-    } else {
-      while (true) {
-        let updatedDelegatorJob: Promise<CryptoActorStubWithType> | undefined = undefined
-        const keysWithNew = await this.delegatorExchangeKeysCache.get(
-          delegateId,
-          async (previous) => {
-            const fullJob = this.forceCreateVerifiedExchangeKeyTo(delegateId)
-            updatedDelegatorJob = fullJob.then(({ updatedDelegator }) => updatedDelegator)
-            let existingKeys = previous ? previous : await this.forceGetSelfExchangeKeysTo(delegateId)
-            return fullJob.then(({ key }) => ({ item: [...existingKeys, key] }))
-          },
-          (v) => !v.length
-        )
-        if (keysWithNew.length > 0) {
-          const updatedDelegator = updatedDelegatorJob ? await updatedDelegatorJob : undefined
-          return updatedDelegator ? { keys: keysWithNew, updatedDelegator } : { keys: keysWithNew }
-        }
-      }
-      /*NOTE:
-       * in case of two concurrent calls to `getOrCreateEncryptionExchangeKeysTo` only one of the calls will receive the updated delegator. This could
-       * be a problem if one of the callers would want to update the delegator for other reasons as well, as the request would result in a database
-       * conflict. This situation however should be very rare and will be fully resolved in the near future when delegations will be moved out of the
-       * data owner objects and into a specific database.
-       */
-    }
-  }
-
-  /**
    * Get all keys currently available for a delegator-delegate pair. At least one of the two data owners must be part of the hierarchy for the current
    * data owner.
    * @param delegatorId id of a delegator
@@ -136,39 +97,5 @@ export class ExchangeKeysManager {
     const encKeys = await this.baseExchangeKeysManager.getEncryptedExchangeKeysFor(await this.dataOwnerApi.getCurrentDataOwnerId(), delegateId)
     const { successfulDecryptions } = await this.baseExchangeKeysManager.tryDecryptExchangeKeys(encKeys, this.keyManager.getDecryptionKeys())
     return successfulDecryptions
-  }
-
-  private async forceCreateVerifiedExchangeKeyTo(delegateId: string): Promise<{ updatedDelegator: CryptoActorStubWithType; key: CryptoKey }> {
-    const [mainKey, ...otherSelfKeys] = this.keyManager.getSelfVerifiedKeys()
-    let otherPublicKeys = Object.fromEntries(otherSelfKeys.map((x) => [x.fingerprint, x.pair.publicKey]))
-    if (delegateId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) {
-      const delegate = await this.dataOwnerApi.getCryptoActorStub(delegateId)
-      const delegatePublicKeys = Array.from([
-        ...this.dataOwnerApi.getHexPublicKeysWithSha1Of(delegate.stub),
-        ...this.dataOwnerApi.getHexPublicKeysWithSha256Of(delegate.stub),
-      ])
-      let verifiedDelegatePublicKeys: string[]
-      if (this.useParentKeys && (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()).includes(delegateId)) {
-        verifiedDelegatePublicKeys = await this.keyManager.getVerifiedPublicKeysFor(delegate)
-      } else {
-        verifiedDelegatePublicKeys = await this.cryptoStrategies.verifyDelegatePublicKeys(delegate, delegatePublicKeys, this.primitives)
-      }
-      if (!verifiedDelegatePublicKeys || verifiedDelegatePublicKeys.length == 0)
-        throw new Error(`No verified public keys for delegate ${delegateId}: impossible to create new exchange key.`)
-      const delegateDataOwner = await this.dataOwnerApi.getCryptoActorStub(delegateId)
-      const keysWithShaVersion = verifiedDelegatePublicKeys.reduce(
-        (previous, key) => {
-          const shaVersion = getShaVersionForKey(delegateDataOwner.stub, key)
-          return !!shaVersion ? { ...previous, [shaVersion]: [...previous[shaVersion], key] } : previous
-        },
-        { 'sha-1': [], 'sha-256': [] } as { [key: string]: string[] }
-      )
-      otherPublicKeys = {
-        ...otherPublicKeys,
-        ...(await loadPublicKeys(this.primitives.RSA, keysWithShaVersion['sha-1'], 'sha-1')),
-        ...(await loadPublicKeys(this.primitives.RSA, keysWithShaVersion['sha-256'], 'sha-256')),
-      }
-    }
-    return await this.baseExchangeKeysManager.createOrUpdateEncryptedExchangeKeyTo(delegateId, mainKey.pair, otherPublicKeys)
   }
 }

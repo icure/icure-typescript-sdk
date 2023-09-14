@@ -20,12 +20,10 @@ export class LegacyCryptoStrategies implements CryptoStrategies {
   }
 
   recoverAndVerifySelfHierarchyKeys(
-    keysData: { dataOwnerInfo: DataOwnerWithType; unknownKeys: string[]; unavailableKeys: string[] }[],
+    keysData: { dataOwner: DataOwnerWithType; unknownKeys: string[]; unavailableKeys: string[] }[],
     cryptoPrimitives: CryptoPrimitives
   ): Promise<{ [p: string]: { recoveredKeys: { [p: string]: KeyPair<CryptoKey> }; keyAuthenticity: { [p: string]: boolean } } }> {
-    return Promise.resolve(
-      Object.fromEntries(keysData.map(({ dataOwnerInfo }) => [dataOwnerInfo.dataOwner.id, { recoveredKeys: {}, keyAuthenticity: {} }]))
-    )
+    return Promise.resolve(Object.fromEntries(keysData.map(({ dataOwner }) => [dataOwner.dataOwner.id, { recoveredKeys: {}, keyAuthenticity: {} }])))
   }
 
   verifyDelegatePublicKeys(delegate: CryptoActorStubWithType, publicKeys: string[], cryptoPrimitives: CryptoPrimitives): Promise<string[]> {
