@@ -435,7 +435,7 @@ export class IccContactXApi extends IccContactApi {
           hcpartyId: string
         } = await this.crypto.extractKeysFromDelegationsForHcpHierarchy(hcpartyId, initialisedCtc.id!, initialisedCtc.encryptionKeys!)
         const keys = this.crypto.filterAndFixValidEntityEncryptionKeyStrings(sfks.extractedKeys)
-        if (!keys.length) throw new Error('No valid keys found for calendar item encryption')
+        if (!keys.length) throw new Error('No valid keys found for contact encryption')
         const key = await this.crypto.AES.importKey('raw', hex2ua(keys[0]))
 
         initialisedCtc.services = await this.encryptServices(key, keys[0], ctc.services || [])
@@ -487,12 +487,13 @@ export class IccContactXApi extends IccContactApi {
     return Promise.all(
       svcs.map(async (svc) => {
         if (!key) {
-          const { extractedKeys: sfks } = await this.crypto.extractKeysFromDelegationsForHcpHierarchy(
+          let { extractedKeys: sfks } = await this.crypto.extractKeysFromDelegationsForHcpHierarchy(
             hcpartyId,
             svc.id!,
             _.size(svc.encryptionKeys) ? svc.encryptionKeys! : svc.delegations!
           )
-          key = await this.crypto.AES.importKey('raw', hex2ua(sfks[0].replace(/-/g, '')))
+          sfks = this.crypto.filterAndFixValidEntityEncryptionKeyStrings(sfks)
+          key = await this.crypto.AES.importKey('raw', hex2ua(sfks[0]))
         }
 
         if (svc.encryptedContent) {

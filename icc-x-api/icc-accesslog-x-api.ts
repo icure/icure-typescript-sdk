@@ -192,7 +192,7 @@ export class IccAccesslogXApi extends IccAccesslogApi {
           )
           .then(async (eks: { extractedKeys: Array<string>; hcpartyId: string }) => {
             const keys = this.crypto.filterAndFixValidEntityEncryptionKeyStrings(eks.extractedKeys)
-            if (!keys.length) throw new Error('No valid keys found for calendar item encryption')
+            if (!keys.length) throw new Error('No valid keys found for access log encryption')
             const key = await this.crypto.AES.importKey('raw', hex2ua(keys[0]))
             return crypt(
               accessLog,

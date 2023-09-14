@@ -306,7 +306,7 @@ export class IccHelementXApi extends IccHelementApi {
           )
           .then((sfks: { extractedKeys: Array<string>; hcpartyId: string }) => {
             const keys = this.crypto.filterAndFixValidEntityEncryptionKeyStrings(sfks.extractedKeys)
-            if (!keys.length) throw new Error('No valid keys found for calendar item encryption')
+            if (!keys.length) throw new Error('No valid keys found for health element encryption')
             return this.crypto.AES.importKey('raw', hex2ua(keys[0]))
           })
           .then((key: CryptoKey) =>
