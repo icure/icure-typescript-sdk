@@ -8,6 +8,7 @@ import { KeyRecovery } from './KeyRecovery'
 import { CryptoStrategies } from './CryptoStrategies'
 import { DataOwnerWithType } from '../../icc-api/model/DataOwnerWithType'
 import { CryptoActorStub, CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
+import {BaseExchangeKeysManager} from "./BaseExchangeKeysManager"
 
 type KeyPairData = { pair: KeyPair<CryptoKey>; isVerified: boolean; isDevice: boolean }
 type KeyRecovererAndVerifier = (
@@ -25,7 +26,7 @@ type KeyRecovererAndVerifier = (
 const nothingKeyRecovererAndVerifier: KeyRecovererAndVerifier = (x) =>
   Promise.resolve(
     x.reduce(
-      (acc, { dataOwner }) => ({ ...acc, [dataOwner.dataOwner.id!]: { recoveredKeys: {}, keyAuthenticity: {} } }),
+      (acc, { dataOwnerInfo }) => ({ ...acc, [dataOwnerInfo.dataOwner.id!]: { recoveredKeys: {}, keyAuthenticity: {} } }),
       {} as {
         [dataOwnerId: string]: {
           recoveredKeys: { [keyPairFingerprint: string]: KeyPair<CryptoKey> }
@@ -40,11 +41,6 @@ type CurrentOwnerKeyGenerator = (self: DataOwnerWithType) => Promise<KeyPair<Cry
  * Allows to manage public and private keys for the current user and his parent hierarchy.
  */
 export class UserEncryptionKeysManager {
-  private readonly primitives: CryptoPrimitives
-  private readonly dataOwnerApi: IccDataOwnerXApi
-  private readonly keyRecovery: KeyRecovery
-  private readonly icureStorage: IcureStorageFacade
-  private readonly strategies: CryptoStrategies
 
   private selfId: string | undefined
   private selfLegacyPublicKey: string | undefined
@@ -161,23 +157,9 @@ export class UserEncryptionKeysManager {
    * This method will complete only after keys have been reloaded successfully.
    */
   async reloadKeys(): Promise<void> {
-    await this.doLoadKeys(
-      (x) =>
-        Promise.resolve(
-          x.reduce(
-            (acc, { dataOwnerInfo }) => ({ ...acc, [dataOwnerInfo.dataOwner.id!]: { recoveredKeys: {}, keyAuthenticity: {} } }),
-            {} as {
-              [dataOwnerId: string]: {
-                recoveredKeys: { [keyPairFingerprint: string]: KeyPair<CryptoKey> }
-                keyAuthenticity: { [keyPairFingerprint: string]: boolean }
-              }
-            }
-          )
-        ),
-      (_) => {
-        throw new Error("Can't create new keys at reload time: it should have already been created on initialisation")
-      }
-    )
+    await this.doLoadKeys(nothingKeyRecovererAndVerifier, (x) => {
+      throw new Error("Can't create new keys at reload time: it should have already been created on initialisation")
+    })
   }
 
   /**
