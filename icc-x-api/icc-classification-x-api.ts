@@ -14,7 +14,7 @@ import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
-import {EncryptedEntityXApi} from "./basexapi/EncryptedEntityXApi";
+import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
 export class IccClassificationXApi extends IccClassificationApi implements EncryptedEntityXApi<models.Classification> {
   crypto: IccCryptoXApi
@@ -89,14 +89,14 @@ export class IccClassificationXApi extends IccClassificationApi implements Encry
       ...(options?.additionalDelegates ?? {}),
     }
     return new models.Classification(
-      await this.crypto.entities
+      await this.crypto.xapi
         .entityWithInitialisedEncryptedMetadata(classification, 'Classification', patient?.id, sfk, true, false, extraDelegations)
         .then((x) => x.updatedEntity)
     )
   }
 
   async findBy(hcpartyId: string, patient: models.Patient) {
-    const extractedKeys = await this.crypto.entities.secretIdsOf({ entity: patient, type: 'Patient' }, hcpartyId)
+    const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: 'Patient' }, hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     return extractedKeys && extractedKeys.length > 0
       ? this.findClassificationsByHCPartyPatientForeignKeys(topmostParentId, _.uniq(extractedKeys).join(','))
@@ -109,14 +109,14 @@ export class IccClassificationXApi extends IccClassificationApi implements Encry
    * in the returned array, but in case of entity merges there could be multiple values.
    */
   async decryptPatientIdOf(classification: models.Classification): Promise<string[]> {
-    return this.crypto.entities.owningEntityIdsOf({ entity: classification, type: 'Classification' }, undefined)
+    return this.crypto.xapi.owningEntityIdsOf({ entity: classification, type: 'Classification' }, undefined)
   }
 
   /**
    * @return if the logged data owner has write access to the content of the given classification
    */
   async hasWriteAccess(classification: models.Classification): Promise<boolean> {
-    return this.crypto.entities.hasWriteAccess({ entity: classification, type: 'Classification' })
+    return this.crypto.xapi.hasWriteAccess({ entity: classification, type: 'Classification' })
   }
 
   /**
@@ -196,9 +196,9 @@ export class IccClassificationXApi extends IccClassificationApi implements Encry
     }
   ): Promise<ShareResult<models.Classification>> {
     // All entities should have an encryption key.
-    const entityWithEncryptionKey = await this.crypto.entities.ensureEncryptionKeysInitialised(classification, 'Classification')
+    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(classification, 'Classification')
     const updatedEntity = entityWithEncryptionKey ? await this.modifyClassification(entityWithEncryptionKey) : classification
-    return this.crypto.entities.simpleShareOrUpdateEncryptedEntityMetadata(
+    return this.crypto.xapi.simpleShareOrUpdateEncryptedEntityMetadata(
       { entity: updatedEntity, type: 'Classification' },
       true,
       Object.fromEntries(
@@ -219,10 +219,10 @@ export class IccClassificationXApi extends IccClassificationApi implements Encry
   getDataOwnersWithAccessTo(
     entity: models.Classification
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.entities.getDataOwnersWithAccessTo({ entity, type: 'Classification' })
+    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Classification' })
   }
 
   getEncryptionKeysOf(entity: models.Classification): Promise<string[]> {
-    return this.crypto.entities.encryptionKeysOf({ entity, type: 'Classification' }, undefined)
+    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'Classification' }, undefined)
   }
 }

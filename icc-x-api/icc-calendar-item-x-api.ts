@@ -14,8 +14,8 @@ import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import { XHR } from '../icc-api/api/XHR'
-import {EncryptedFieldsManifest, parseEncryptedFields} from "./utils";
-import {EncryptedEntityXApi} from "./basexapi/EncryptedEntityXApi";
+import { EncryptedFieldsManifest, parseEncryptedFields } from './utils'
+import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
 export class IccCalendarItemXApi extends IccCalendarItemApi implements EncryptedEntityXApi<models.CalendarItem> {
   i18n: any = i18n
@@ -105,14 +105,14 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
       ...(options?.additionalDelegates ?? {}),
     }
     return new CalendarItem(
-      await this.crypto.entities
+      await this.crypto.xapi
         .entityWithInitialisedEncryptedMetadata(calendarItem, 'CalendarItem', patient?.id, sfk, true, false, extraDelegations)
         .then((x) => x.updatedEntity)
     )
   }
 
   async findBy(hcpartyId: string, patient: models.Patient, usingPost: boolean = false) {
-    const extractedKeys = await this.crypto.entities.secretIdsOf({ entity: patient, type: 'Patient' }, hcpartyId)
+    const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: 'Patient' }, hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     return extractedKeys && extractedKeys.length > 0
       ? usingPost
@@ -240,14 +240,14 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
   private encryptAs(dataOwner: string, calendarItems: Array<models.CalendarItem>): Promise<Array<models.CalendarItem>> {
     return Promise.all(
       calendarItems.map((x) =>
-        this.crypto.entities.tryEncryptEntity(x, 'CalendarItem', this.encryptedFields, false, false, (json) => new CalendarItem(json))
+        this.crypto.xapi.tryEncryptEntity(x, 'CalendarItem', this.encryptedFields, false, false, (json) => new CalendarItem(json))
       )
     )
   }
 
   decrypt(hcpId: string, calendarItems: Array<models.CalendarItem>): Promise<Array<models.CalendarItem>> {
     return Promise.all(
-      calendarItems.map((x) => this.crypto.entities.decryptEntity(x, 'CalendarItem', (json) => new CalendarItem(json)).then(({ entity }) => entity))
+      calendarItems.map((x) => this.crypto.xapi.decryptEntity(x, 'CalendarItem', (json) => new CalendarItem(json)).then(({ entity }) => entity))
     )
   }
 
@@ -257,14 +257,14 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
    * in the returned array, but in case of entity merges there could be multiple values.
    */
   async decryptPatientIdOf(calendarItem: models.CalendarItem): Promise<string[]> {
-    return this.crypto.entities.owningEntityIdsOf({ entity: calendarItem, type: 'CalendarItem' }, undefined)
+    return this.crypto.xapi.owningEntityIdsOf({ entity: calendarItem, type: 'CalendarItem' }, undefined)
   }
 
   /**
    * @return if the logged data owner has write access to the content of the given calendar item
    */
   async hasWriteAccess(calendarItem: models.CalendarItem): Promise<boolean> {
-    return this.crypto.entities.hasWriteAccess({ entity: calendarItem, type: 'CalendarItem' })
+    return this.crypto.xapi.hasWriteAccess({ entity: calendarItem, type: 'CalendarItem' })
   }
 
   /**
@@ -345,9 +345,9 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
   ): Promise<ShareResult<models.CalendarItem>> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
-    const entityWithEncryptionKey = await this.crypto.entities.ensureEncryptionKeysInitialised(calendarItem, 'CalendarItem')
+    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(calendarItem, 'CalendarItem')
     const updatedEntity = entityWithEncryptionKey ? await this.modifyAs(self, entityWithEncryptionKey) : calendarItem
-    return this.crypto.entities
+    return this.crypto.xapi
       .simpleShareOrUpdateEncryptedEntityMetadata(
         { entity: updatedEntity, type: 'CalendarItem' },
         true,
@@ -370,11 +370,11 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
   getDataOwnersWithAccessTo(
     entity: CalendarItem
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.entities.getDataOwnersWithAccessTo({ entity, type: 'CalendarItem' })
+    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'CalendarItem' })
   }
 
   getEncryptionKeysOf(entity: CalendarItem): Promise<string[]> {
-    return this.crypto.entities.encryptionKeysOf({ entity, type: 'CalendarItem' }, undefined)
+    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'CalendarItem' }, undefined)
   }
 
   /**
@@ -399,7 +399,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
       shareOwningEntityIds: [patient.id!],
       requestedPermissions: RequestedPermissionEnum.FULL_READ,
     }
-    const shared = await this.crypto.entities.bulkShareOrUpdateEncryptedEntityMetadata(
+    const shared = await this.crypto.xapi.bulkShareOrUpdateEncryptedEntityMetadata(
       'CalendarItem',
       [
         {
