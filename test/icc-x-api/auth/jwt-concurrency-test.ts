@@ -87,7 +87,13 @@ describe('Jwt authentication concurrency test', () => {
   })
 
   it('Can instantiate a x-api without provider and get a 401', async () => {
-    const xUserApi = new IccUserXApi(env.iCureUrl, {})
+    const authApi = new IccAuthApi(env.iCureUrl, {})
+    const xUserApi = new IccUserXApi(
+      env.iCureUrl,
+      {},
+      new JwtAuthenticationProvider(authApi, env.dataOwnerDetails[hcp1Username].user, env.dataOwnerDetails[hcp1Username].password),
+      authApi
+    )
     xUserApi
       .getCurrentUser()
       .then(() => {
@@ -103,7 +109,8 @@ describe('Jwt authentication concurrency test', () => {
     const xUserApi = new IccUserXApi(
       env.iCureUrl,
       {},
-      new JwtAuthenticationProvider(authApi, env.dataOwnerDetails[hcp1Username].user, env.dataOwnerDetails[hcp1Username].password)
+      new JwtAuthenticationProvider(authApi, env.dataOwnerDetails[hcp1Username].user, env.dataOwnerDetails[hcp1Username].password),
+      authApi
     )
 
     const users = await Promise.all(
@@ -118,12 +125,15 @@ describe('Jwt authentication concurrency test', () => {
 
   it('Can instantiate a user-x-api with Basic provider and make requests', async () => {
     const a = new BasicAuthenticationProvider(env.dataOwnerDetails[hcp1Username].user, env.dataOwnerDetails[hcp1Username].password)
+    const authApi = new IccAuthApi(env.iCureUrl, {}, a)
     const headers = await a.getAuthService().getAuthHeaders()
     const xUserApi = new IccUserXApi(
       env.iCureUrl,
       headers.reduce((prev, h) => {
         return { ...prev, [h.header]: h.data }
-      }, {})
+      }, {}),
+      a,
+      authApi
     )
 
     const currentUser = await xUserApi.getCurrentUser()
