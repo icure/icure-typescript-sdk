@@ -1,15 +1,15 @@
 import * as WebSocketNode from 'ws'
-import {Patient} from "../../icc-api/model/Patient"
-import {AbstractFilter} from "../filters/filters"
-import {User} from "../../icc-api/model/User"
-import {isNode} from "browser-or-node"
-import {IccAuthApi} from "../../icc-api"
-import {Service} from "../../icc-api/model/Service"
-import {HealthElement} from "../../icc-api/model/HealthElement"
-import {MaintenanceTask} from "../../icc-api/model/MaintenanceTask"
-import {HealthcareParty} from "../../icc-api/model/HealthcareParty"
-import {Device} from "../../icc-api/model/Device"
-import {Contact} from "../../icc-api/model/Contact"
+import { Patient } from '../../icc-api/model/Patient'
+import { AbstractFilter } from '../filters/filters'
+import { User } from '../../icc-api/model/User'
+import { isNode } from 'browser-or-node'
+import { IccAuthApi } from '../../icc-api'
+import { Service } from '../../icc-api/model/Service'
+import { HealthElement } from '../../icc-api/model/HealthElement'
+import { MaintenanceTask } from '../../icc-api/model/MaintenanceTask'
+import { HealthcareParty } from '../../icc-api/model/HealthcareParty'
+import { Device } from '../../icc-api/model/Device'
+import { Contact } from '../../icc-api/model/Contact'
 
 export type EventTypes = 'CREATE' | 'UPDATE' | 'DELETE'
 type Subscribable = 'Patient' | 'Service' | 'User' | 'HealthElement' | 'MaintenanceTask' | 'HealthcareParty' | 'Device' | 'Contact'
@@ -86,7 +86,7 @@ export function subscribeToEntityEvents(
   eventTypes: EventTypes[],
   filter: AbstractFilter<HealthcareParty> | undefined,
   eventFired: (entity: HealthcareParty) => Promise<void>,
-  options: SubscriptionOptions,
+  options: SubscriptionOptions
 ): Promise<WebSocketWrapper>
 export function subscribeToEntityEvents(
   basePath: string,
@@ -95,7 +95,7 @@ export function subscribeToEntityEvents(
   eventTypes: EventTypes[],
   filter: AbstractFilter<Device> | undefined,
   eventFired: (entity: Device) => Promise<void>,
-  options: SubscriptionOptions,
+  options: SubscriptionOptions
 ): Promise<WebSocketWrapper>
 
 export function subscribeToEntityEvents<T extends SubscribableEntity>(
@@ -111,7 +111,7 @@ export function subscribeToEntityEvents<T extends SubscribableEntity>(
   const config = {
     User: {
       qualifiedName: 'org.taktik.icure.entities.User',
-      decryptor: (data: User) => Promise.resolve(new User({...data}) as T),
+      decryptor: (data: User) => Promise.resolve(new User({ ...data }) as T),
     },
     Patient: {
       qualifiedName: 'org.taktik.icure.entities.Patient',
@@ -123,23 +123,19 @@ export function subscribeToEntityEvents<T extends SubscribableEntity>(
     },
     HealthElement: {
       qualifiedName: 'org.taktik.icure.entities.HealthElement',
-      decryptor: (data: HealthElement) =>
-        decryptor!(data as HealthElement as T),
+      decryptor: (data: HealthElement) => decryptor!(data as HealthElement as T),
     },
     MaintenanceTask: {
       qualifiedName: 'org.taktik.icure.entities.MaintenanceTask',
-      decryptor: (data: MaintenanceTask) =>
-        decryptor!(data as MaintenanceTask as T),
+      decryptor: (data: MaintenanceTask) => decryptor!(data as MaintenanceTask as T),
     },
     HealthcareParty: {
       qualifiedName: 'org.taktik.icure.entities.HealthcareParty',
-      decryptor: (data: HealthcareParty) =>
-        Promise.resolve(new HealthcareParty({...data}) as HealthcareParty as T),
+      decryptor: (data: HealthcareParty) => Promise.resolve(new HealthcareParty({ ...data }) as HealthcareParty as T),
     },
     Device: {
       qualifiedName: 'org.taktik.icure.entities.Device',
-      decryptor: (data: Device) =>
-        Promise.resolve(new Device({...data}) as Device as T),
+      decryptor: (data: Device) => Promise.resolve(new Device({ ...data }) as Device as T),
     },
     Contact: {
       qualifiedName: 'org.taktik.icure.entities.Contact',
@@ -158,7 +154,7 @@ export function subscribeToEntityEvents<T extends SubscribableEntity>(
           const subscription = {
             eventTypes,
             entityClass: config[entityClass].qualifiedName,
-            filter: {filter}
+            filter: { filter },
           }
 
           ws.send(JSON.stringify(subscription))
@@ -172,7 +168,7 @@ export function subscribeToEntityEvents<T extends SubscribableEntity>(
         console.error(e)
       }
     },
-    options.debug,
+    options.debug
   )
 }
 
@@ -204,7 +200,7 @@ export class WebSocketWrapper {
     private readonly statusCallbacks: ConnectionStatusFunctions = {},
     private readonly messageCallback: WebSocketWrapperMessageCallback = () => {},
     private readonly debug: boolean = false
-) {
+  ) {
     this.methodPath = new URL(url).pathname
   }
 
@@ -215,7 +211,7 @@ export class WebSocketWrapper {
     retryDelay?: number,
     statusCallbacks?: ConnectionStatusFunctions,
     messageCallback?: WebSocketWrapperMessageCallback,
-    debug?: boolean,
+    debug?: boolean
   ): Promise<WebSocketWrapper> {
     const ws = new WebSocketWrapper(url, authProvider, maxRetries, retryDelay, statusCallbacks, messageCallback, debug)
     await ws.connect()
@@ -255,15 +251,17 @@ export class WebSocketWrapper {
 
     const bearerToken = await this.authProvider.getBearerToken()
 
-    const socket = isNode && !!bearerToken ? new WebSocketNode(this.url, {
-        headers: {
-          Authorization: bearerToken,
-        },
-      })
-      : await this.authProvider.getIcureOtt(this.methodPath).then((icureOttToken) => {
-        const address = `${this.url};tokenid=${icureOttToken}`
-        return isNode ? new WebSocketNode(address) : new WebSocket(address)
-      })
+    const socket =
+      isNode && !!bearerToken
+        ? new WebSocketNode(this.url, {
+            headers: {
+              Authorization: bearerToken,
+            },
+          })
+        : await this.authProvider.getIcureOtt(this.methodPath).then((icureOttToken) => {
+            const address = `${this.url};tokenid=${icureOttToken}`
+            return isNode ? new WebSocketNode(address) : new WebSocket(address)
+          })
 
     this.socket = new WebsocketAdapter(socket)
 
@@ -310,7 +308,7 @@ export class WebSocketWrapper {
       }
     })
 
-    this.socket.on('close', ({code, reason}) => {
+    this.socket.on('close', ({ code, reason }) => {
       if (this.debug) console.debug('WebSocket connection closed', code, reason?.toString())
 
       this.callStatusCallbacks('CLOSED')
@@ -359,8 +357,7 @@ interface WebSocketAuthProvider {
 }
 
 class WebSocketAuthProviderImpl {
-  constructor(private readonly authApi: IccAuthApi) {
-  }
+  constructor(private readonly authApi: IccAuthApi) {}
 
   async getBearerToken(): Promise<string | undefined> {
     const headers = await this.authApi.authenticationProvider.getAuthService().getAuthHeaders()
@@ -373,9 +370,9 @@ class WebSocketAuthProviderImpl {
 }
 
 type EventCallback = {
-  open: (event: any) => void,
-  message: (event: string) => void,
-  close: (event: {code: number, reason: string}) => void,
+  open: (event: any) => void
+  message: (event: string) => void
+  close: (event: { code: number; reason: string }) => void
   error: (error: any) => void
 }
 
@@ -383,14 +380,11 @@ enum ReadyState {
   CONNECTING = 0,
   OPEN = 1,
   CLOSING = 2,
-  CLOSED = 3
+  CLOSED = 3,
 }
 
 class WebsocketAdapter {
-  constructor(
-    private readonly websocket: WebSocketNode | WebSocket,
-  ) {
-  }
+  constructor(private readonly websocket: WebSocketNode | WebSocket) {}
 
   public get readyState(): number {
     if (this.websocket) {
@@ -438,27 +432,26 @@ class WebsocketAdapter {
     }
   }
 
-   private onMessage(callback: (event: string) => void) {
+  private onMessage(callback: (event: string) => void) {
     if (this.websocket) {
       if (isNode) {
-        (this.websocket as WebSocketNode).on('message', (x) => callback(x.toString('utf8')))
+        ;(this.websocket as WebSocketNode).on('message', (x) => callback(x.toString('utf8')))
       } else {
-        (this.websocket as WebSocket).addEventListener('message', async (event) => {
+        ;(this.websocket as WebSocket).addEventListener('message', async (event) => {
           let dataAsString: string | undefined
           if (event.type === 'message') {
             dataAsString = event.data
-          } else console.error("Unexpected event type: " + event.type)
+          } else console.error('Unexpected event type: ' + event.type)
           if (!dataAsString) {
-            console.error("Failed to parse WebSocket message")
+            console.error('Failed to parse WebSocket message')
             return
           }
 
           callback(dataAsString)
         })
       }
-    }
-    else {
-      console.error("Websocket is not defined")
+    } else {
+      console.error('Websocket is not defined')
       throw new Error('Websocket is not defined')
     }
   }
@@ -466,19 +459,19 @@ class WebsocketAdapter {
   private onOpen(callback: (event: any) => void) {
     if (this.websocket) {
       if (isNode) {
-        (this.websocket as WebSocketNode).on('open', callback)
+        ;(this.websocket as WebSocketNode).on('open', callback)
       } else {
-        (this.websocket as WebSocket).addEventListener('open', callback)
+        ;(this.websocket as WebSocket).addEventListener('open', callback)
       }
     }
   }
 
-  private onClose(callback: (event: {code: number, reason: string}) => void) {
+  private onClose(callback: (event: { code: number; reason: string }) => void) {
     if (this.websocket) {
       if (isNode) {
-        (this.websocket as WebSocketNode).on('close', callback)
+        ;(this.websocket as WebSocketNode).on('close', callback)
       } else {
-        (this.websocket as WebSocket).addEventListener('close', callback)
+        ;(this.websocket as WebSocket).addEventListener('close', callback)
       }
     }
   }
@@ -486,13 +479,12 @@ class WebsocketAdapter {
   private onError(callback: (error: any) => void) {
     if (this.websocket) {
       if (isNode) {
-        (this.websocket as WebSocketNode).on('error', callback)
+        ;(this.websocket as WebSocketNode).on('error', callback)
       } else {
-        (this.websocket as WebSocket).addEventListener('error', callback)
+        ;(this.websocket as WebSocket).addEventListener('error', callback)
       }
     }
   }
-
 
   public on<K extends keyof EventCallback>(event: K, callback: EventCallback[K]) {
     if (this.websocket) {
