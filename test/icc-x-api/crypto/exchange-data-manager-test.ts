@@ -78,6 +78,7 @@ describe('Exchange data manager', async function () {
       cryptoStrategies,
       dataOwnerApi,
       primitives,
+      true,
       optionalParameters
     )
   }
@@ -606,7 +607,8 @@ describe('Exchange data manager', async function () {
       accessControlSecretUtils,
       new TestCryptoStrategies(),
       dataOwnerApi,
-      primitives
+      primitives,
+      true
     )
     const apiCallsAfterCreation = exchangeDataApi.callCount
     await checkDataEqual(
