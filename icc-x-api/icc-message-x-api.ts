@@ -17,7 +17,6 @@ import { XHR } from '../icc-api/api/XHR'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
 export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi<models.Message> {
-
   get headers(): Promise<Array<XHR.Header>> {
     return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, 'Message'))
   }
@@ -93,7 +92,7 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
       ...(options?.additionalDelegates ?? {}),
     }
     return new models.Message(
-      await this.crypto.entities
+      await this.crypto.xapi
         .entityWithInitialisedEncryptedMetadata(message, 'Message', patient?.id, sfk, true, true, extraDelegations)
         .then((x) => x.updatedEntity)
     )
@@ -105,14 +104,14 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
    * in the returned array, but in case of entity merges there could be multiple values.
    */
   async decryptPatientIdOf(message: models.Message): Promise<string[]> {
-    return this.crypto.entities.owningEntityIdsOf({ entity: message, type: 'Message' }, undefined)
+    return this.crypto.xapi.owningEntityIdsOf({ entity: message, type: 'Message' }, undefined)
   }
 
   /**
    * @return if the logged data owner has write access to the content of the given message
    */
   async hasWriteAccess(message: models.Message): Promise<boolean> {
-    return this.crypto.entities.hasWriteAccess({ entity: message, type: 'Message' })
+    return this.crypto.xapi.hasWriteAccess({ entity: message, type: 'Message' })
   }
 
   /**
@@ -201,9 +200,9 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     }
   ): Promise<ShareResult<models.Message>> {
     // All entities should have an encryption key.
-    const entityWithEncryptionKey = await this.crypto.entities.ensureEncryptionKeysInitialised(message, 'Message')
+    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(message, 'Message')
     const updatedEntity = entityWithEncryptionKey ? await this.modifyMessage(entityWithEncryptionKey) : message
-    return this.crypto.entities.simpleShareOrUpdateEncryptedEntityMetadata(
+    return this.crypto.xapi.simpleShareOrUpdateEncryptedEntityMetadata(
       { entity: updatedEntity, type: 'Message' },
       false,
       Object.fromEntries(
@@ -227,16 +226,16 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
    * the 'owning entity', or in the {@link shareWith} method in order to share it with other data owners.
    */
   decryptSecretIdsOf(message: models.Message): Promise<string[]> {
-    return this.crypto.entities.secretIdsOf({ entity: message, type: 'Message' }, undefined)
+    return this.crypto.xapi.secretIdsOf({ entity: message, type: 'Message' }, undefined)
   }
 
   getDataOwnersWithAccessTo(
     entity: models.Message
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.entities.getDataOwnersWithAccessTo({ entity, type: 'Message' })
+    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Message' })
   }
 
   getEncryptionKeysOf(entity: models.Message): Promise<string[]> {
-    return this.crypto.entities.encryptionKeysOf({ entity, type: 'Message' }, undefined)
+    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'Message' }, undefined)
   }
 }

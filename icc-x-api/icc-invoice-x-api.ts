@@ -13,10 +13,9 @@ import { ShareResult } from './utils/ShareResult'
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
-import {EncryptedEntityXApi} from "./basexapi/EncryptedEntityXApi";
+import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
 export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi<models.Invoice> {
-
   get headers(): Promise<Array<XHR.Header>> {
     return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, 'Invoice'))
   }
@@ -85,7 +84,7 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
       ...(options?.additionalDelegates ?? {}),
     }
     return new models.Invoice(
-      await this.crypto.entities
+      await this.crypto.xapi
         .entityWithInitialisedEncryptedMetadata(invoice, 'Invoice', patient.id, sfk, true, false, extraDelegations)
         .then((x) => x.updatedEntity)
     )
@@ -153,7 +152,7 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
    * @param usingPost
    */
   async findBy(hcpartyId: string, patient: models.Patient, usingPost: boolean = false): Promise<Array<models.Invoice>> {
-    const extractedKeys = await this.crypto.entities.secretIdsOf({ entity: patient, type: 'Patient' }, hcpartyId)
+    const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: 'Patient' }, hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     let invoices: Array<Invoice> = usingPost
       ? await this.findInvoicesByHCPartyPatientForeignKeysUsingPost(hcpartyId!, _.uniq(extractedKeys))
@@ -175,14 +174,14 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
    * in the returned array, but in case of entity merges there could be multiple values.
    */
   async decryptPatientIdOf(invoice: models.Invoice): Promise<string[]> {
-    return this.crypto.entities.owningEntityIdsOf({ entity: invoice, type: 'Invoice' }, undefined)
+    return this.crypto.xapi.owningEntityIdsOf({ entity: invoice, type: 'Invoice' }, undefined)
   }
 
   /**
    * @return if the logged data owner has write access to the content of the given invoice
    */
   async hasWriteAccess(invoice: models.Invoice): Promise<boolean> {
-    return this.crypto.entities.hasWriteAccess({ entity: invoice, type: 'Invoice' })
+    return this.crypto.xapi.hasWriteAccess({ entity: invoice, type: 'Invoice' })
   }
 
   /**
@@ -263,9 +262,9 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
   ): Promise<ShareResult<models.Invoice>> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
-    const entityWithEncryptionKey = await this.crypto.entities.ensureEncryptionKeysInitialised(invoice, 'Invoice')
+    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(invoice, 'Invoice')
     const updatedEntity = entityWithEncryptionKey ? await this.modifyInvoice(entityWithEncryptionKey) : invoice
-    return this.crypto.entities
+    return this.crypto.xapi
       .simpleShareOrUpdateEncryptedEntityMetadata(
         { entity: updatedEntity, type: 'Invoice' },
         true,
@@ -288,10 +287,10 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
   getDataOwnersWithAccessTo(
     entity: models.Invoice
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.entities.getDataOwnersWithAccessTo({ entity, type: 'Invoice' })
+    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Invoice' })
   }
 
   getEncryptionKeysOf(entity: models.Invoice): Promise<string[]> {
-    return this.crypto.entities.encryptionKeysOf({ entity, type: 'Invoice' }, undefined)
+    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'Invoice' }, undefined)
   }
 }

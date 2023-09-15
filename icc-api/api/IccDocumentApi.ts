@@ -25,8 +25,8 @@ export class IccDocumentApi {
   authenticationProvider: AuthenticationProvider
   fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
 
-  get headers(): Array<XHR.Header> {
-    return this._headers
+  get headers(): Promise<Array<XHR.Header>> {
+    return Promise.resolve(this._headers)
   }
 
   constructor(
@@ -54,12 +54,12 @@ export class IccDocumentApi {
    * @summary Create a document
    * @param body
    */
-  createDocument(body?: Document): Promise<Document> {
+  async createDocument(body?: Document): Promise<Document> {
     let _body = null
     _body = body
 
     const _url = this.host + `/document` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Document(doc.body as JSON))
@@ -71,11 +71,11 @@ export class IccDocumentApi {
    * @summary Delete a document's attachment
    * @param documentId
    */
-  deleteAttachment(documentId: string): Promise<Document> {
+  async deleteAttachment(documentId: string): Promise<Document> {
     let _body = null
 
     const _url = this.host + `/document/${encodeURIComponent(String(documentId))}/attachment` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Document(doc.body as JSON))
       .catch((err) => this.handleError(err))
@@ -86,11 +86,11 @@ export class IccDocumentApi {
    * @summary Delete a document
    * @param documentIds
    */
-  deleteDocument(documentIds: string): Promise<Array<DocIdentifier>> {
+  async deleteDocument(documentIds: string): Promise<Array<DocIdentifier>> {
     let _body = null
 
     const _url = this.host + `/document/${encodeURIComponent(String(documentIds))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
       .catch((err) => this.handleError(err))
@@ -103,7 +103,7 @@ export class IccDocumentApi {
    * @param hcPartyId
    * @param secretFKeys
    */
-  findByTypeHCPartyMessageSecretFKeys(documentTypeCode: string, hcPartyId: string, secretFKeys: string): Promise<Array<Document>> {
+  async findByTypeHCPartyMessageSecretFKeys(documentTypeCode: string, hcPartyId: string, secretFKeys: string): Promise<Array<Document>> {
     let _body = null
 
     const _url =
@@ -114,7 +114,7 @@ export class IccDocumentApi {
       (documentTypeCode ? '&documentTypeCode=' + encodeURIComponent(String(documentTypeCode)) : '') +
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
       (secretFKeys ? '&secretFKeys=' + encodeURIComponent(String(secretFKeys)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Document(it)))
       .catch((err) => this.handleError(err))
@@ -126,7 +126,7 @@ export class IccDocumentApi {
    * @param hcPartyId
    * @param secretFKeys
    */
-  findDocumentsByHCPartyPatientForeignKeys(hcPartyId: string, secretFKeys: string): Promise<Array<Document>> {
+  async findDocumentsByHCPartyPatientForeignKeys(hcPartyId: string, secretFKeys: string): Promise<Array<Document>> {
     let _body = null
 
     const _url =
@@ -136,7 +136,7 @@ export class IccDocumentApi {
       new Date().getTime() +
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
       (secretFKeys ? '&secretFKeys=' + encodeURIComponent(String(secretFKeys)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Document(it)))
       .catch((err) => this.handleError(err))
@@ -147,11 +147,11 @@ export class IccDocumentApi {
    * @summary List documents with no delegation
    * @param limit
    */
-  findWithoutDelegation(limit?: number): Promise<Array<Document>> {
+  async findWithoutDelegation(limit?: number): Promise<Array<Document>> {
     let _body = null
 
     const _url = this.host + `/document/woDelegation` + '?ts=' + new Date().getTime() + (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Document(it)))
       .catch((err) => this.handleError(err))
@@ -162,35 +162,36 @@ export class IccDocumentApi {
    * @summary Get a document
    * @param documentId
    */
-  getDocument(documentId: string): Promise<Document> {
+  async getDocument(documentId: string): Promise<Document> {
     let _body = null
 
     const _url = this.host + `/document/${encodeURIComponent(String(documentId))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Document(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 
   /**
-   *
-   * @summary Load document's attachment
-   * @param documentId
-   * @param attachmentId
-   * @param enckeys
-   * @param fileName
+   * @deprecated use getMainDocumentAttachment instead
    */
-  getDocumentAttachment(documentId: string, attachmentId: string, enckeys?: string, fileName?: string): Promise<ArrayBuffer> {
+  async getDocumentAttachment(documentId: string, attachmentId: string, enckeys?: string, fileName?: string): Promise<ArrayBuffer> {
+    if (enckeys) {
+      throw new Error('Server-side encryption of attachment is not allowed anymore')
+    }
+    return this.getMainDocumentAttachment(documentId)
+  }
+
+  /**
+   * Get the main attachment of a document
+   * @param documentId id of the document
+   * @return the content of the main attachment for the document (if any)
+   */
+  async getMainDocumentAttachment(documentId: string): Promise<ArrayBuffer> {
     let _body = null
 
-    const _url =
-      this.host +
-      `/document/${encodeURIComponent(String(documentId))}/attachment/${encodeURIComponent(String(attachmentId))}` +
-      '?ts=' +
-      new Date().getTime() +
-      (enckeys ? '&enckeys=' + encodeURIComponent(String(enckeys)) : '') +
-      (fileName ? '&fileName=' + encodeURIComponent(String(fileName)) : '')
-    let headers = this.headers
+    const _url = this.host + `/document/${encodeURIComponent(String(documentId))}/attachment` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
@@ -201,11 +202,11 @@ export class IccDocumentApi {
    * @summary Get a document
    * @param externalUuid
    */
-  getDocumentByExternalUuid(externalUuid: string): Promise<Document> {
+  async getDocumentByExternalUuid(externalUuid: string): Promise<Document> {
     let _body = null
 
     const _url = this.host + `/document/externaluuid/${encodeURIComponent(String(externalUuid))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Document(doc.body as JSON))
       .catch((err) => this.handleError(err))
@@ -216,12 +217,12 @@ export class IccDocumentApi {
    * @summary Get a batch of document
    * @param body
    */
-  getDocuments(body?: ListOfIds): Promise<Array<Document>> {
+  async getDocuments(body?: ListOfIds): Promise<Array<Document>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/document/byIds` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Document(it)))
@@ -233,11 +234,11 @@ export class IccDocumentApi {
    * @summary Get all documents with externalUuid
    * @param externalUuid
    */
-  getDocumentsByExternalUuid(externalUuid: string): Promise<Array<Document>> {
+  async getDocumentsByExternalUuid(externalUuid: string): Promise<Array<Document>> {
     let _body = null
 
     const _url = this.host + `/document/externaluuid/${encodeURIComponent(String(externalUuid))}/all` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Document(it)))
       .catch((err) => this.handleError(err))
@@ -248,12 +249,12 @@ export class IccDocumentApi {
    * @summary Update a document
    * @param body
    */
-  modifyDocument(body?: Document): Promise<Document> {
+  async modifyDocument(body?: Document): Promise<Document> {
     let _body = null
     _body = body
 
     const _url = this.host + `/document` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Document(doc.body as JSON))
@@ -265,12 +266,12 @@ export class IccDocumentApi {
    * @summary Update a batch of documents
    * @param body
    */
-  modifyDocuments(body?: Array<Document>): Promise<Array<Document>> {
+  async modifyDocuments(body?: Array<Document>): Promise<Array<Document>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/document/batch` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Document(it)))
@@ -278,26 +279,26 @@ export class IccDocumentApi {
   }
 
   /**
-   * Creates or updates a document's attachment and returns the modified document instance afterward
-   * @summary Create a document's attachment
-   * @param body
-   * @param documentId
-   * @param enckeys
+   * Creates or updates a main attachment for a document and returns the modified document instance afterward
+   * @param documentId id of the document
+   * @param documentRev revision of the document
+   * @param body content of the attachment (must be compatible with XHR body)
    * @param utis an array of UTIs for the attachment. The first element will be considered as the main UTI for the document. If provided and non-empty
    * overrides existing values.
    */
-  setDocumentAttachment(documentId: string, enckeys?: string, body?: Object, utis?: Array<string>): Promise<Document> {
-    let _body = null
-    _body = body
+  async setMainDocumentAttachment(documentId: string, documentRev: string, body: Object, utis?: Array<string>): Promise<Document> {
+    if (!documentRev) throw new Error('Document rev is required')
+    let _body = body
 
     const _url =
       this.host +
       `/document/${encodeURIComponent(String(documentId))}/attachment` +
       '?ts=' +
       new Date().getTime() +
-      (enckeys ? '&enckeys=' + encodeURIComponent(String(enckeys)) : '') +
+      '&rev=' +
+      encodeURIComponent(String(documentRev)) +
       (utis ? utis.map((x) => '&utis=' + encodeURIComponent(String(x))).join('') : '')
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Document(doc.body as JSON))
@@ -305,57 +306,39 @@ export class IccDocumentApi {
   }
 
   /**
-   * Creates a document attachment and returns the modified document instance afterward
-   * @summary Create a document's attachment
-   * @param body
-   * @param documentId
-   * @param enckeys
+   * @deprecated use setMainDocumentAttachment instead
    */
-  setDocumentAttachmentBody(documentId: string, enckeys?: string, body?: Object): Promise<Document> {
-    let _body = null
-    _body = body
-
-    const _url =
-      this.host +
-      `/document/attachment` +
-      '?ts=' +
-      new Date().getTime() +
-      (documentId ? '&documentId=' + encodeURIComponent(String(documentId)) : '') +
-      (enckeys ? '&enckeys=' + encodeURIComponent(String(enckeys)) : '')
-    let headers = this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new Document(doc.body as JSON))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
-   *
-   * @summary Creates a document's attachment
-   * @param attachment
-   * @param documentId
-   * @param enckeys
-   */
-  setDocumentAttachmentMulti(attachment: ArrayBuffer, documentId: string, enckeys?: string): Promise<Document> {
-    let _body = null
-    if (attachment && !_body) {
-      const parts = Array.isArray(attachment) ? (attachment as any[]) : [attachment as ArrayBuffer]
-      const _blob = new Blob(parts, { type: 'application/octet-stream' })
-      _body = new FormData()
-      _body.append('attachment', _blob)
+  setDocumentAttachmentBody(documentId: string, documentRev: string, enckeys?: null, body?: Object, utis?: string[]): Promise<Document> {
+    if (enckeys) {
+      throw new Error('Server-side encryption of attachment is not allowed anymore')
     }
+    if (!body) {
+      throw new Error('body is now required.')
+    }
+    return this.setMainDocumentAttachment(documentId, documentRev, body, utis)
+  }
 
-    const _url =
-      this.host +
-      `/document/${encodeURIComponent(String(documentId))}/attachment/multipart` +
-      '?ts=' +
-      new Date().getTime() +
-      (enckeys ? '&enckeys=' + encodeURIComponent(String(enckeys)) : '')
-    let headers = this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'multipart/form-data'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new Document(doc.body as JSON))
-      .catch((err) => this.handleError(err))
+  /**
+   * @deprecated use setMainDocumentAttachment instead
+   */
+  setDocumentAttachment(documentId: string, documentRev: string, enckeys?: null, body?: Object, utis?: string[]): Promise<Document> {
+    if (enckeys) {
+      throw new Error('Server-side encryption of attachment is not allowed anymore')
+    }
+    if (!body) {
+      throw new Error('body is now required.')
+    }
+    return this.setMainDocumentAttachment(documentId, documentRev, body, utis)
+  }
+
+  /**
+   * @deprecated use setMainDocumentAttachment instead
+   */
+  setDocumentAttachmentMulti(attachment: ArrayBuffer, documentRev: string, documentId: string, enckeys?: null): Promise<Document> {
+    if (enckeys) {
+      throw new Error('Server-side encryption of attachment is not allowed anymore')
+    }
+    return this.setMainDocumentAttachment(documentId, documentRev, attachment)
   }
 
   /**
@@ -363,12 +346,12 @@ export class IccDocumentApi {
    * @summary Update delegations in healthElements.
    * @param body
    */
-  setDocumentsDelegations(body?: Array<IcureStub>): Promise<Array<IcureStub>> {
+  async setDocumentsDelegations(body?: Array<IcureStub>): Promise<Array<IcureStub>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/document/delegations` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
@@ -386,7 +369,7 @@ export class IccDocumentApi {
    * @param utis an array of UTIs for the attachment. If provided and non-empty overrides existing values.
    * @return the updated document
    */
-  setSecondaryAttachment(documentId: string, key: string, rev: string, attachment: Object, utis?: Array<string>): Promise<Document> {
+  async setSecondaryAttachment(documentId: string, key: string, rev: string, attachment: Object, utis?: Array<string>): Promise<Document> {
     const _url =
       this.host +
       `/document/` +
@@ -397,7 +380,7 @@ export class IccDocumentApi {
       new Date().getTime() +
       (rev ? '&rev=' + encodeURIComponent(String(rev)) : '') +
       (utis ? utis.map((x) => '&utis=' + encodeURIComponent(String(x))).join('') : '')
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
     return XHR.sendCommand('PUT', _url, headers, attachment, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Document(doc.body as JSON))
@@ -412,7 +395,7 @@ export class IccDocumentApi {
    * @param fileName
    * @return the content of the attachment
    */
-  getSecondaryAttachment(documentId: string, key: string, fileName?: string): Promise<ArrayBuffer> {
+  async getSecondaryAttachment(documentId: string, key: string, fileName?: string): Promise<ArrayBuffer> {
     let _body = null
 
     const _url =
@@ -421,7 +404,7 @@ export class IccDocumentApi {
       '?ts=' +
       new Date().getTime() +
       (fileName ? '&fileName=' + encodeURIComponent(String(fileName)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
@@ -435,7 +418,7 @@ export class IccDocumentApi {
    * @param rev Revision of the latest known version of the document. If the revision does not match the current version of the document the method will fail with CONFLICT status
    * @return the updated document
    */
-  deleteSecondaryAttachment(documentId: string, key: string, rev: string): Promise<Document> {
+  async deleteSecondaryAttachment(documentId: string, key: string, rev: string): Promise<Document> {
     let _body = null
 
     const _url =
@@ -444,7 +427,7 @@ export class IccDocumentApi {
       '?ts=' +
       new Date().getTime() +
       (rev ? '&rev=' + encodeURIComponent(String(rev)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Document(doc.body as JSON))
       .catch((err) => this.handleError(err))
@@ -455,11 +438,11 @@ export class IccDocumentApi {
   /**
    * @internal this method is for internal use only and may be changed without notice
    */
-  bulkShareDocument(request: {
+  async bulkShareDocument(request: {
     [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
   }): Promise<EntityBulkShareResult<Document>[]> {
     const _url = this.host + '/document/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((x) => new EntityBulkShareResult<Document>(x, Document)))

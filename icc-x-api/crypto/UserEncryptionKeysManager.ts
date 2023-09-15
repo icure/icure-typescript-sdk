@@ -50,7 +50,6 @@ export class UserEncryptionKeysManager {
     private readonly dataOwnerApi: IccDataOwnerXApi,
     private readonly icureStorage: IcureStorageFacade,
     private readonly keyRecovery: KeyRecovery,
-    private readonly baseExchangeKeyManager: BaseExchangeKeysManager,
     private readonly strategies: CryptoStrategies,
     private readonly initialiseParentKeys: boolean
   ) {}
