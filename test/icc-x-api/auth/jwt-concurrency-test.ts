@@ -8,7 +8,7 @@ import { expect } from 'chai'
 import { XHR } from '../../../icc-api/api/XHR'
 import XHRError = XHR.XHRError
 import { IccAuthApi } from '../../../icc-api'
-import { BasicAuthenticationProvider, JwtAuthenticationProvider } from '../../../icc-x-api/auth/AuthenticationProvider'
+import { BasicAuthenticationProvider, JwtAuthenticationProvider, NoAuthenticationProvider } from '../../../icc-x-api/auth/AuthenticationProvider'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
 setLocalStorage(fetch)
@@ -87,13 +87,7 @@ describe('Jwt authentication concurrency test', () => {
   })
 
   it('Can instantiate a x-api without provider and get a 401', async () => {
-    const authApi = new IccAuthApi(env.iCureUrl, {})
-    const xUserApi = new IccUserXApi(
-      env.iCureUrl,
-      {},
-      new JwtAuthenticationProvider(authApi, env.dataOwnerDetails[hcp1Username].user, env.dataOwnerDetails[hcp1Username].password),
-      authApi
-    )
+    const xUserApi = new IccUserXApi(env.iCureUrl, {}, new NoAuthenticationProvider(), null as any)
     xUserApi
       .getCurrentUser()
       .then(() => {
@@ -106,12 +100,8 @@ describe('Jwt authentication concurrency test', () => {
 
   it('Can instantiate a user-x-api with JWT provider and make requests', async () => {
     const authApi = new IccAuthApi(env.iCureUrl, {})
-    const xUserApi = new IccUserXApi(
-      env.iCureUrl,
-      {},
-      new JwtAuthenticationProvider(authApi, env.dataOwnerDetails[hcp1Username].user, env.dataOwnerDetails[hcp1Username].password),
-      authApi
-    )
+    const provider = new JwtAuthenticationProvider(authApi, env.dataOwnerDetails[hcp1Username].user, env.dataOwnerDetails[hcp1Username].password)
+    const xUserApi = new IccUserXApi(env.iCureUrl, {}, provider, null as any)
 
     const users = await Promise.all(
       [...Array<number>(5)].map(async () => {
@@ -121,20 +111,25 @@ describe('Jwt authentication concurrency test', () => {
     users.forEach((u) => {
       expect(u.login).to.be.equal(env.dataOwnerDetails[hcp1Username].user)
     })
+
+    const tokens = await provider.getIcureTokens()
+    expect(tokens).to.not.be.undefined
+    const tokenOnlyProvider = new JwtAuthenticationProvider(authApi, undefined, undefined, undefined, tokens)
+    const xUserApiTokenOnly = new IccUserXApi(env.iCureUrl, {}, tokenOnlyProvider, null as any)
+
+    const usersTokenOnly = await Promise.all(
+      [...Array<number>(5)].map(async () => {
+        return await xUserApiTokenOnly.getCurrentUser()
+      })
+    )
+    usersTokenOnly.forEach((u) => {
+      expect(u.login).to.be.equal(env.dataOwnerDetails[hcp1Username].user)
+    })
   })
 
   it('Can instantiate a user-x-api with Basic provider and make requests', async () => {
     const a = new BasicAuthenticationProvider(env.dataOwnerDetails[hcp1Username].user, env.dataOwnerDetails[hcp1Username].password)
-    const authApi = new IccAuthApi(env.iCureUrl, {}, a)
-    const headers = await a.getAuthService().getAuthHeaders()
-    const xUserApi = new IccUserXApi(
-      env.iCureUrl,
-      headers.reduce((prev, h) => {
-        return { ...prev, [h.header]: h.data }
-      }, {}),
-      a,
-      authApi
-    )
+    const xUserApi = new IccUserXApi(env.iCureUrl, {}, a, null as any)
 
     const currentUser = await xUserApi.getCurrentUser()
     expect(currentUser.login).to.be.equal(env.dataOwnerDetails[hcp1Username].user)

@@ -1,7 +1,7 @@
 import 'isomorphic-fetch'
 import { getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { before } from 'mocha'
-import { Api, IccAccesslogXApi, IccPatientXApi, IccUserXApi } from '../../icc-x-api'
+import { IccPatientXApi, IccUserXApi } from '../../icc-x-api'
 import { BasicAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { IccAccesslogApi } from '../../icc-api'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
@@ -46,7 +46,7 @@ describe('icc-x-accesslog-api Tests', () => {
 
     const authProvider = new BasicAuthenticationProvider(username, password)
 
-    const userApi = new IccUserXApi(env.iCureUrl, {}, authProvider, fetch)
+    const userApi = new IccUserXApi(env.iCureUrl, {}, authProvider, null as any, fetch)
     const accessLogApi = new IccAccesslogApi(env.iCureUrl, {}, authProvider, fetch)
 
     const currentUser = await userApi.getCurrentUser()
