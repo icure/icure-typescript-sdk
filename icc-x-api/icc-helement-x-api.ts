@@ -45,10 +45,6 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
       : fetch
   ) {
     super(host, headers, authenticationProvider, fetchImpl)
-    this.crypto = crypto
-    this.dataOwnerApi = dataOwnerApi
-    this.userApi = userApi
-    this.authApi = authApi
     this.encryptedFields = parseEncryptedFields(encryptedKeys, 'HealthElement.')
   }
 
@@ -503,12 +499,12 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
   async subscribeToHealthElementEvents(
     eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
     filter: AbstractFilter<HealthElement> | undefined,
-    eventFired: (dataSample: HealthElement) => Promise<void>,
+    eventFired: (healthElement: HealthElement) => Promise<void>,
     options: SubscriptionOptions = {}
   ): Promise<Connection> {
     const currentUser = await this.userApi.getCurrentUser()
 
-    return subscribeToEntityEvents(
+    return await subscribeToEntityEvents(
       this.host,
       this.authApi,
       'HealthElement',

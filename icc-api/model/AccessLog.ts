@@ -108,5 +108,5 @@ export class AccessLog {
    */
   encryptedSelf?: string
   securityMetadata?: SecurityMetadata
-  readonly _type?: EntityWithDelegationTypeName = 'AccessLog'
+  
 }

@@ -165,7 +165,7 @@ export class Document {
    */
   encryptedSelf?: string
   securityMetadata?: SecurityMetadata
-  readonly _type?: EntityWithDelegationTypeName = 'Document'
+  
 }
 export namespace Document {
   export type DocumentLocationEnum = 'annex' | 'body'

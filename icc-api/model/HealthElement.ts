@@ -160,7 +160,7 @@ export class HealthElement {
    */
   encryptedSelf?: string
   securityMetadata?: SecurityMetadata
-  readonly _type?: EntityWithDelegationTypeName = 'HealthElement'
+  
 }
 export namespace HealthElement {
   export type LateralityEnum = 'left' | 'right'
