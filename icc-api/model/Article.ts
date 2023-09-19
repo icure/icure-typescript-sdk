@@ -82,5 +82,5 @@ export class Article {
    */
   encryptedSelf?: string
   securityMetadata?: SecurityMetadata
-  readonly _type?: EntityWithDelegationTypeName = 'Article'
+  
 }

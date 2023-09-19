@@ -104,5 +104,5 @@ export class CalendarItem {
    */
   encryptedSelf?: string
   securityMetadata?: SecurityMetadata
-  readonly _type?: EntityWithDelegationTypeName = 'CalendarItem'
+  
 }

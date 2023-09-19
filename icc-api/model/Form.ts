@@ -116,5 +116,5 @@ export class Form {
    */
   encryptedSelf?: string
   securityMetadata?: SecurityMetadata
-  readonly _type?: EntityWithDelegationTypeName = 'Form'
+  
 }

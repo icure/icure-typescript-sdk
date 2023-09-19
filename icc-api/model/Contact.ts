@@ -129,5 +129,5 @@ export class Contact {
    */
   encryptedSelf?: string
   securityMetadata?: SecurityMetadata
-  readonly _type?: EntityWithDelegationTypeName = 'Contact'
+  
 }
