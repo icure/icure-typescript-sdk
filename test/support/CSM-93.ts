@@ -1,5 +1,5 @@
 import { getEnvironmentInitializer, hcp1Username, patUsername, setLocalStorage, TestUtils } from '../utils/test_utils'
-import { Api, hex2ua, pkcs8ToJwk, ua2hex } from '../../icc-x-api'
+import { IcureApi, ua2hex } from '../../icc-x-api'
 import { webcrypto } from 'crypto'
 import { expect, use as chaiUse } from 'chai'
 import 'isomorphic-fetch'
@@ -14,6 +14,7 @@ import { TestCryptoStrategies } from '../utils/TestCryptoStrategies'
 import { KeyPairUpdateRequest } from '../../icc-x-api/maintenance/KeyPairUpdateRequest'
 setLocalStorage(fetch)
 import * as chaiAsPromised from 'chai-as-promised'
+import { TestKeyStorage, TestStorage } from '../utils/TestStorage'
 chaiUse(chaiAsPromised)
 
 let env: TestVars
@@ -85,13 +86,17 @@ describe('CSM-93', async function () {
     checkContactDecrypted(await patApis.contactApi.getContactWithUser(patUser, ctc!.id!))
     const startTimestamp = new Date().getTime()
     const newPair = await patApis.cryptoApi.primitives.RSA.generateKeyPair('sha-256')
-    const patApisLost = await Api(
+    const patApisLost = await IcureApi.initialise(
       env.iCureUrl,
       { username: env.dataOwnerDetails[patUsername].user, password: env.dataOwnerDetails[patUsername].password },
       new TestCryptoStrategies(newPair),
       webcrypto as any,
       fetch,
-      { createMaintenanceTasksOnNewKey: true }
+      {
+        createMaintenanceTasksOnNewKey: true,
+        storage: new TestStorage(),
+        keyStorage: new TestKeyStorage(),
+      }
     )
     await expect(patApisLost.patientApi.getPatientWithUser(patUser, p2.id!)).to.be.rejected
     await expect(patApisLost.healthcareElementApi.getHealthElementWithUser(patUser, he.id!)).to.be.rejected
