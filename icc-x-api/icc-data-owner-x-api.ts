@@ -38,7 +38,7 @@ export class IccDataOwnerXApi extends IccDataownerApi {
   }
 
   /**
-   * Gets the public keys of a data owner, generated with SHA-1, in hex format.
+   * Gets the public keys of a data owner to be used for encryption with RSA-OAEP+SHA-1, in hex format.
    * @param dataOwner a data owner.
    * @return the public keys for the data owner in hex format.
    */
@@ -47,12 +47,20 @@ export class IccDataOwnerXApi extends IccDataownerApi {
   }
 
   /**
-   * Gets the public keys of a data owner, generated with SHA-256, in hex format.
+   * Gets the public keys of a data owner to be used for encryption with RSA-OAEP+SHA-256, in hex format.
    * @param dataOwner a data owner.
    * @return the public keys for the data owner in hex format.
    */
   getHexPublicKeysWithSha256Of(dataOwner: DataOwnerOrStub): Set<string> {
     return hexPublicKeysWithSha256Of(dataOwner)
+  }
+
+  /**
+   * Gets all public keys of a data owner to be used for encryption, in hex format. Note that this may include keys that should be used for different
+   * encryption algorithms.
+   */
+  getHexPublicKeysOf(dataOwner: DataOwnerOrStub): Set<string> {
+    return new Set([...this.getHexPublicKeysWithSha1Of(dataOwner), ...this.getHexPublicKeysWithSha256Of(dataOwner)])
   }
 
   async getCurrentDataOwnerStub(): Promise<CryptoActorStubWithType> {
