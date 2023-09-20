@@ -144,7 +144,6 @@ describe('Shamir key recovery', async function () {
     )
     const lostUser = await lostKeyApi.userApi.getCurrentUser()
     const lostPatient = await lostKeyApi.patientApi.getPatientWithUser(lostUser, pat.id!)
-    await lostKeyApi.icureMaintenanceTaskApi.createMaintenanceTasksForNewKeypair(lostUser, newKey)
 
     async function checkNotRecovered() {
       await lostKeyApi.cryptoApi.forceReload()

@@ -10,6 +10,7 @@ import { TestKeyStorage, TestStorage } from '../utils/TestStorage'
 import { expect, use as chaiUse } from 'chai'
 import 'isomorphic-fetch'
 import { KeyPair } from '../../icc-x-api/crypto/RSA'
+import initMasterApi = TestUtils.initMasterApi
 chaiUse(require('chai-as-promised'))
 
 setLocalStorage(fetch)
@@ -24,7 +25,7 @@ describe('A user without access to parent data', () => {
     this.timeout(600000)
     const initializer = await getEnvironmentInitializer()
     env = await initializer.execute(getEnvVariables())
-    const initialisationApi = await initApi(env, hcp1Username)
+    const initialisationApi = await initMasterApi(env)
     const initialisationUser = await initialisationApi.userApi.getCurrentUser()
     const childHcp = await initialisationApi.healthcarePartyApi.createHealthcareParty({
       id: initialisationApi.cryptoApi.primitives.randomUuid(),
