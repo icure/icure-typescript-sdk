@@ -203,7 +203,7 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
       const sha1KeysOfDelegate = hexPublicKeysWithSha1Of(delegate.stub)
       let allVerifiedDelegateKeys: string[]
       if (this.useParentKeys && (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()).includes(delegateId)) {
-        allVerifiedDelegateKeys = await this.encryptionKeys.getVerifiedPublicKeysFor(delegate)
+        allVerifiedDelegateKeys = await this.encryptionKeys.getVerifiedPublicKeysFor(delegate.stub)
       } else {
         allVerifiedDelegateKeys = await this.cryptoStrategies.verifyDelegatePublicKeys(
           delegate,

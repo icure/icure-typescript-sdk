@@ -91,8 +91,11 @@ describe('Anonymous delegations', () => {
   }
 
   async function loseKeyAndGiveAccessBack(userThatLosesKey: UserInfo, apiToGiveAccessBack: Apis, userGivingAccessBack: UserInfo): Promise<Apis> {
+    const timeBeforeNewKey = new Date().getTime()
     const newKeyPair = await primitives.RSA.generateKeyPair('sha-256')
-    const newApi = await TestApi(env.iCureUrl, userThatLosesKey.user.login!, userThatLosesKey.pw, webcrypto as any, newKeyPair)
+    const newApi = await TestApi(env.iCureUrl, userThatLosesKey.user.login!, userThatLosesKey.pw, webcrypto as any, newKeyPair, {
+      createMaintenanceTasksOnNewKey: false,
+    })
     await newApi.icureMaintenanceTaskApi.createMaintenanceTasksForNewKeypair(userThatLosesKey.user, newKeyPair, [
       DataOwnerTypeEnum.Patient,
       DataOwnerTypeEnum.Hcp,
@@ -108,7 +111,7 @@ describe('Anonymous delegations', () => {
           undefined,
           new FilterChainMaintenanceTask({
             filter: new MaintenanceTaskAfterDateFilter({
-              date: new Date().getTime() - 100000,
+              date: timeBeforeNewKey,
               healthcarePartyId: searchId,
             }),
           })

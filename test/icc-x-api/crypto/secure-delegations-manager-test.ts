@@ -78,7 +78,8 @@ describe('Secure delegations manager', async function () {
       accessControlSecretUtils,
       cryptoStrategies,
       dataOwnerApi,
-      primitives
+      primitives,
+      true
     )
     exchangeDataMapManager = new FakeExchangeDataMapManager()
     secureDelegationsEncryption = new SecureDelegationsEncryption(encryptionKeysManager, primitives)

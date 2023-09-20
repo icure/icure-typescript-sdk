@@ -193,7 +193,9 @@ export interface IcureApiOptions {
    */
   readonly entryKeysFactory?: StorageEntryKeysFactory
   /**
-   * Specifies if iCure should create maintenance tasks for requesting access back when a new key is generated at initialisation time.
+   * Specifies if iCure should automatically create maintenance tasks for requesting access back when a new key is generated at initialisation time.
+   * Note that the maintenance task will be created only towards HCP data owners: if you want to create a maintenance task also to other types of data
+   * owners you should disable this and call {@link IccIcureMaintenanceXApi.createMaintenanceTasksForNewKeypair} yourself.
    * @default true
    */
   readonly createMaintenanceTasksOnNewKey?: boolean

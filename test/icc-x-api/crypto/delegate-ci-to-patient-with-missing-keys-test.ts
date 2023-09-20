@@ -1,4 +1,4 @@
-import {Apis, IcureApi, ua2hex} from '../../../icc-x-api'
+import { Apis, IcureApi, ua2hex } from '../../../icc-x-api'
 import { CalendarItem } from '../../../icc-api/model/CalendarItem'
 import { FilterChainMaintenanceTask, MaintenanceTask, PaginatedListMaintenanceTask } from '../../../icc-api/model/models'
 import { before, describe, it } from 'mocha'
