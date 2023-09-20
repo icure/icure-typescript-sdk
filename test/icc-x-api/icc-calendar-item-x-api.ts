@@ -1,13 +1,12 @@
 import 'isomorphic-fetch'
 import { getEnvironmentInitializer, hcp1Username, hcp2Username, hcp3Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { before } from 'mocha'
-import { Api, IccCalendarItemXApi, IccPatientXApi, IccUserXApi } from '../../icc-x-api'
+import { IccPatientXApi, IccUserXApi } from '../../icc-x-api'
 import { BasicAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { IccCalendarItemApi } from '../../icc-api'
 import { Patient } from '../../icc-api/model/Patient'
 import { User } from '../../icc-api/model/User'
 import { randomUUID } from 'crypto'
-import { crypto } from '../../node-compat'
 import { CalendarItem } from '../../icc-api/model/CalendarItem'
 import { assert, expect } from 'chai'
 import initApi = TestUtils.initApi
@@ -47,7 +46,7 @@ describe('icc-calendar-item-x-api Tests', () => {
 
     const authProvider = new BasicAuthenticationProvider(username, password)
 
-    const userApi = new IccUserXApi(env.iCureUrl, {}, authProvider, fetch)
+    const userApi = new IccUserXApi(env.iCureUrl, {}, authProvider, null as any, fetch)
     const calenderItemApi = new IccCalendarItemApi(env.iCureUrl, {}, authProvider, fetch)
 
     const currentUser = await userApi.getCurrentUser()

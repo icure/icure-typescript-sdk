@@ -1,4 +1,4 @@
-import { Api, Apis, ua2hex } from '../../../icc-x-api'
+import { Apis, IcureApi, ua2hex } from '../../../icc-x-api'
 import { v4 as uuid } from 'uuid'
 import { Patient } from '../../../icc-api/model/Patient'
 import { Contact } from '../../../icc-api/model/Contact'
@@ -142,7 +142,7 @@ const entities: EntityCreators = {
 const userDefinitions: Record<string, (user: User, password: string, pair: KeyPair<CryptoKey>) => Promise<{ user: User; apis: Apis }>> = {
   'one available key and one lost key recoverable through transfer keys': async (user, password, originalKey) => {
     const newKey = await primitives.RSA.generateKeyPair('sha-256')
-    const apiWithOnlyNewKey = await Api(
+    const apiWithOnlyNewKey = await IcureApi.initialise(
       env!.iCureUrl,
       {
         username: user.login!,
@@ -158,7 +158,7 @@ const userDefinitions: Record<string, (user: User, password: string, pair: KeyPa
         keyStorage: new TestKeyStorage(),
       }
     )
-    const apis = await Api(
+    const apis = await IcureApi.initialise(
       env!.iCureUrl,
       {
         username: user.login!,
@@ -181,7 +181,7 @@ const userDefinitions: Record<string, (user: User, password: string, pair: KeyPa
   },
   'two available keys': async (user, password, originalKey) => {
     const newKey = await primitives.RSA.generateKeyPair('sha-256')
-    const apiWithOnlyNewKey = await Api(
+    const apiWithOnlyNewKey = await IcureApi.initialise(
       env!.iCureUrl,
       { username: user.login!, password },
       new TestCryptoStrategies(newKey),
@@ -206,7 +206,7 @@ const userDefinitions: Record<string, (user: User, password: string, pair: KeyPa
         }),
       },
     ])
-    const apis = await Api(env!.iCureUrl, { username: user.login!, password }, new TestCryptoStrategies(), webcrypto as any, fetch, {
+    const apis = await IcureApi.initialise(env!.iCureUrl, { username: user.login!, password }, new TestCryptoStrategies(), webcrypto as any, fetch, {
       entryKeysFactory: storage.keyFactory,
       keyStorage: storage.keyStorage,
       storage: storage.storage,

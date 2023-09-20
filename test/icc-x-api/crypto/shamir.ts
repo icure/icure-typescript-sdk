@@ -2,7 +2,7 @@ import 'isomorphic-fetch'
 import { ShamirClass } from '../../../icc-x-api/crypto/shamir'
 import { expect } from 'chai'
 import 'mocha'
-import { Api, ua2hex } from '../../../icc-x-api'
+import { IcureApi, ua2hex } from '../../../icc-x-api'
 import {
   createHcpHierarchyApis,
   getEnvironmentInitializer,
@@ -127,7 +127,7 @@ describe('Shamir key recovery', async function () {
       },
     ])
     const newKey = await api.cryptoApi.primitives.RSA.generateKeyPair('sha-256')
-    const lostKeyApi = await Api(
+    const lostKeyApi = await IcureApi.initialise(
       env.iCureUrl,
       {
         username: hierarchyApis.childCredentials.user,
