@@ -212,10 +212,10 @@
     uuid-encoder "^1.1.0"
     ws "^8.13.0"
 
-"@icure/apiV6@npm:@icure/api@6.4.0":
-  version "6.4.0"
-  resolved "https://registry.yarnpkg.com/@icure/api/-/api-6.4.0.tgz#9462583669ebfeb177c494b79f137bca09e8d039"
-  integrity sha512-ZalZ9z2uRkFi1n23z/2QJn2TobvskM0PYefhybSSU09yK74YR9Xhc6F3NQ/UA/F2Uz96tBVWVdI+hZswCNnS/Q==
+"@icure/apiV6@npm:@icure/api@6.4.4":
+  version "6.4.4"
+  resolved "https://registry.yarnpkg.com/@icure/api/-/api-6.4.4.tgz#f12e894e0adf43de374b76203f3176e4b8c9f515"
+  integrity sha512-/PGeBKbjOl4B5UIAua9hAuPB4MIFSHT/24HexkBsIi5DrWcXvi15vp6SsrAo8mU2qNcK0ftYy64dQ3QkwR7dVA==
   dependencies:
     date-fns "^2.23.0"
     libphonenumber-js "^1.7.18"
