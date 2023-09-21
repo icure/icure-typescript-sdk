@@ -88,6 +88,7 @@ import { IccDeviceXApi } from './icc-device-x-api'
 import { IccBekmehrXApi } from './icc-bekmehr-x-api'
 import { IccDoctemplateXApi } from './icc-doctemplate-x-api'
 import { UserGroup } from '../icc-api/model/UserGroup'
+import { IccTopicXApi } from './icc-topic-x-api'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -171,6 +172,7 @@ export interface Apis {
   readonly replicationApi: IccReplicationApi
   readonly tarificationApi: IccTarificationApi
   readonly tmpApi: IccTmpApi
+  readonly topicApi: IccTopicXApi
 }
 
 /**
@@ -398,6 +400,18 @@ export interface EncryptedFieldsConfig {
    * @default ['note', 'notes[].markdown']
    */
   readonly patient?: string[]
+
+  /**
+   * Fields to encrypt for entities of type {@link Message}
+   * @default []
+   */
+  readonly message?: string[]
+
+  /**
+   * Fields to encrypt for entities of type {@link Topic}
+   * @default ['description']
+   */
+  readonly topic?: string[]
 }
 
 export namespace EncryptedFieldsConfig {
@@ -409,6 +423,8 @@ export namespace EncryptedFieldsConfig {
     healthElement: ['descr', 'note', 'notes[].markdown'],
     maintenanceTask: ['properties'],
     patient: ['note', 'notes[].markdown'],
+    message: [],
+    topic: ['description'],
   }
 }
 
@@ -960,7 +976,27 @@ class IcureApiImpl implements IcureApi {
         this.params.headers,
         this.cryptoApi,
         this.dataOwnerApi,
+        this.authApi,
         this.groupSpecificAuthenticationProvider,
+        this.params.encryptedFieldsConfig.message ?? EncryptedFieldsConfig.Defaults.message,
+        this.fetch
+      ))
+    )
+  }
+
+  private _topicApi: IccTopicXApi | undefined
+
+  get topicApi(): IccTopicXApi {
+    return (
+      this._topicApi ??
+      (this._topicApi = new IccTopicXApi(
+        this.host,
+        this.params.headers,
+        this.cryptoApi,
+        this.dataOwnerApi,
+        this.authApi,
+        this.groupSpecificAuthenticationProvider,
+        this.params.encryptedFieldsConfig.topic ?? EncryptedFieldsConfig.Defaults.topic,
         this.fetch
       ))
     )
