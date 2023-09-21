@@ -448,7 +448,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     return this.encryptAs(this.dataOwnerApi.getDataOwnerIdOf(user)!, ctcs)
   }
 
-  private encryptAs(dataOwner: string, ctcs: Array<models.Contact>): Promise<Array<models.Contact>> {
+  private encryptAs(hcpartyId: string, ctcs: Array<models.Contact>) {
     const bypassEncryption = false //Used for debug
 
     return Promise.all(
@@ -488,20 +488,11 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
           console.log('Cannot decrypt contact', ctc.id)
           return ctc
         }
-        ctc.services = await this.decryptServices(hcpartyId, ctc.services || [], keys)
-        if (ctc.encryptedSelf) {
-          try {
-            const json = await this.crypto.xapi.tryDecryptJson(keys, string2ua(a2b(ctc.encryptedSelf!)), false)
-            if (json) {
-              _.assign(ctc, json)
-            } else {
-              console.log('Cannot decrypt ctc: no valid key could produce valid json', ctc.id)
-            }
-          } catch (e) {
-            console.log('Failed to decrypt ctc', ctc.id, e)
-          }
-        }
-        return ctc
+        return new Contact(
+          await decryptObject(ctc, async (encrypted) => {
+            return (await this.crypto.xapi.tryDecryptJson(keys, encrypted, false)) ?? {}
+          })
+        )
       })
     )
   }
@@ -519,41 +510,11 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
           currentKeys = decryptedKeys
         }
 
-        if (svc.encryptedContent) {
-          try {
-            const json = await this.crypto.xapi.tryDecryptJson(currentKeys, string2ua(a2b(svc.encryptedContent!)), true)
-            if (json) {
-              Object.assign(svc, { content: json })
-            } else {
-              console.log('Cannot decrypt service: no valid key could produce valid json', svc.id)
-            }
-          } catch (e) {
-            console.log('Cannot decrypt service', svc.id, e)
-          }
-        } else if (svc.encryptedSelf) {
-          try {
-            const json = await this.crypto.xapi.tryDecryptJson(currentKeys, string2ua(a2b(svc.encryptedSelf!)), true)
-            if (json) {
-              Object.assign(svc, json)
-            } else {
-              console.log('Cannot decrypt service: no valid key could produce valid json', svc.id)
-            }
-          } catch (e) {
-            console.log('Cannot decrypt service', svc.id, e)
-          }
-        } else {
-          svc.content = _.fromPairs(
-            await Promise.all(
-              _.toPairs(svc.content).map(async (p) => {
-                if (p[1].compoundValue) {
-                  p[1].compoundValue = await this.decryptServices(hcpartyId, p[1].compoundValue, keys)
-                }
-                return p
-              })
-            )
-          )
-        }
-        return svc
+        return new Service(
+          await decryptObject(svc, async (encrypted) => {
+            return (await this.crypto.xapi.tryDecryptJson(keys!, encrypted, false)) ?? {}
+          })
+        )
       })
     )
   }

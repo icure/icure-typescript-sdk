@@ -137,12 +137,18 @@ export class IccFormApi {
    *
    * @summary Gets all form templates for current user
    * @param loadLayout
+   * @param raw
    */
-  async findFormTemplates(loadLayout?: boolean): Promise<Array<FormTemplate>> {
+  async findFormTemplates(loadLayout?: boolean, raw?: boolean): Promise<Array<FormTemplate>> {
     let _body = null
 
     const _url =
-      this.host + `/form/template` + '?ts=' + new Date().getTime() + (loadLayout ? '&loadLayout=' + encodeURIComponent(String(loadLayout)) : '')
+      this.host +
+      `/form/template` +
+      '?ts=' +
+      new Date().getTime() +
+      (loadLayout ? '&loadLayout=' + encodeURIComponent(String(loadLayout)) : '') +
+      (raw ? '&raw=' + encodeURIComponent(String(raw)) : '')
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new FormTemplate(it)))
@@ -155,7 +161,7 @@ export class IccFormApi {
    * @param specialityCode
    * @param loadLayout
    */
-  async findFormTemplatesBySpeciality(specialityCode: string, loadLayout?: boolean): Promise<Array<FormTemplate>> {
+  async findFormTemplatesBySpeciality(specialityCode: string, loadLayout?: boolean, raw?: boolean): Promise<Array<FormTemplate>> {
     let _body = null
 
     const _url =
@@ -163,7 +169,8 @@ export class IccFormApi {
       `/form/template/bySpecialty/${encodeURIComponent(String(specialityCode))}` +
       '?ts=' +
       new Date().getTime() +
-      (loadLayout ? '&loadLayout=' + encodeURIComponent(String(loadLayout)) : '')
+      (loadLayout ? '&loadLayout=' + encodeURIComponent(String(loadLayout)) : '') +
+      (raw ? '&raw=' + encodeURIComponent(String(raw)) : '')
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new FormTemplate(it)))
@@ -350,11 +357,17 @@ export class IccFormApi {
    *
    * @summary Gets a form template by guid
    * @param formTemplateId
+   * @param raw
    */
-  async getFormTemplate(formTemplateId: string): Promise<FormTemplate> {
+  async getFormTemplate(formTemplateId: string, raw?: boolean): Promise<FormTemplate> {
     let _body = null
 
-    const _url = this.host + `/form/template/${encodeURIComponent(String(formTemplateId))}` + '?ts=' + new Date().getTime()
+    const _url =
+      this.host +
+      `/form/template/${encodeURIComponent(String(formTemplateId))}` +
+      '?ts=' +
+      new Date().getTime() +
+      (raw ? '&raw=' + encodeURIComponent(String(raw)) : '')
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new FormTemplate(doc.body as JSON))
@@ -366,15 +379,17 @@ export class IccFormApi {
    * @summary Gets a form template
    * @param formTemplateGuid
    * @param specialityCode
+   * @param raw
    */
-  async getFormTemplatesByGuid(formTemplateGuid: string, specialityCode: string): Promise<Array<FormTemplate>> {
+  async getFormTemplatesByGuid(formTemplateGuid: string, specialityCode: string, raw?: boolean): Promise<Array<FormTemplate>> {
     let _body = null
 
     const _url =
       this.host +
       `/form/template/${encodeURIComponent(String(specialityCode))}/guid/${encodeURIComponent(String(formTemplateGuid))}` +
       '?ts=' +
-      new Date().getTime()
+      new Date().getTime() +
+      (raw ? '&raw=' + encodeURIComponent(String(raw)) : '')
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new FormTemplate(it)))

@@ -73,13 +73,14 @@ export class CalendarItem {
   startTime?: number
   endTime?: number
   confirmationTime?: number
-  cancellationTimestamp?: number
   confirmationId?: string
+  cancellationTimestamp?: number
   duration?: number
   allDay?: boolean
   details?: string
   wasMigrated?: boolean
   agendaId?: string
+  hcpId?: string
   recurrenceId?: string
   meetingTags?: Array<CalendarItemTag>
   flowItem?: FlowItem

@@ -4,19 +4,12 @@ import { before, describe, it } from 'mocha'
 
 import { webcrypto } from 'crypto'
 import 'isomorphic-fetch'
-
-import { IccPatientApi } from '../../../icc-api'
 import { expect } from 'chai'
-
-import { BasicAuthenticationProvider } from '../../../icc-x-api/auth/AuthenticationProvider'
 import { createHcpHierarchyApis, createNewHcpWithoutKeyAndParentWithKey, getEnvironmentInitializer, setLocalStorage } from '../../utils/test_utils'
 import { TestKeyStorage, TestStorage, testStorageWithKeys } from '../../utils/TestStorage'
 import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
 import { getEnvVariables, TestVars, UserDetails } from '@icure/test-setup/types'
 import { CryptoPrimitives, CryptoStrategies, hex2ua, IcureApi, KeyPair } from '../../../icc-x-api'
-import exp = require('constants')
-import { KeyManager } from '../../../icc-x-api/crypto/KeyManager'
-import { TestApi } from '../../utils/TestApi'
 import { ua2hex } from '@icure/apiV6'
 import { DataOwnerWithType } from '../../../icc-api/model/DataOwnerWithType'
 import { CryptoActorStubWithType } from '../../../icc-api/model/CryptoActorStub'
@@ -38,20 +31,19 @@ describe('Key manager', async function () {
     const storageWithoutParentKey = await testStorageWithKeys([
       {
         dataOwnerId: apis.grandCredentials.dataOwnerId,
-        pairs: [{ privateKey: apis.grandCredentials.privateKey, publicKey: apis.grandCredentials.publicKey }],
+        pairs: [{ keyPair: { privateKey: apis.grandCredentials.privateKey, publicKey: apis.grandCredentials.publicKey }, shaVersion: 'sha-1' }],
       },
       {
         dataOwnerId: apis.childCredentials.dataOwnerId,
-        pairs: [{ privateKey: apis.childCredentials.privateKey, publicKey: apis.childCredentials.publicKey }],
+        pairs: [{ keyPair: { privateKey: apis.childCredentials.privateKey, publicKey: apis.childCredentials.publicKey }, shaVersion: 'sha-1' }],
       },
     ])
-    const cryptoStrats = new TestCryptoStrategies(
-      undefined,
-      {},
-      {
-        [apis.parentCredentials.dataOwnerId]: { privateKey: apis.parentCredentials.privateKey, publicKey: apis.parentCredentials.publicKey },
-      }
-    )
+    const cryptoStrats = new TestCryptoStrategies(undefined, {}, undefined, {
+      [apis.parentCredentials.dataOwnerId]: {
+        pair: { privateKey: apis.parentCredentials.privateKey, publicKey: apis.parentCredentials.publicKey },
+        shaVersion: 'sha-1',
+      },
+    })
     await IcureApi.initialise(
       env.iCureUrl,
       { username: apis.childCredentials.user, password: apis.childCredentials.password },
@@ -83,15 +75,15 @@ describe('Key manager', async function () {
     const storageWithoutParentKey = await testStorageWithKeys([
       {
         dataOwnerId: apis.grandCredentials.dataOwnerId,
-        pairs: [{ privateKey: apis.grandCredentials.privateKey, publicKey: apis.grandCredentials.publicKey }],
+        pairs: [{ keyPair: { privateKey: apis.grandCredentials.privateKey, publicKey: apis.grandCredentials.publicKey }, shaVersion: 'sha-1' }],
       },
       {
         dataOwnerId: apis.parentCredentials.dataOwnerId,
-        pairs: [{ privateKey: apis.parentCredentials.privateKey, publicKey: apis.parentCredentials.publicKey }],
+        pairs: [{ keyPair: { privateKey: apis.parentCredentials.privateKey, publicKey: apis.parentCredentials.publicKey }, shaVersion: 'sha-1' }],
       },
       {
         dataOwnerId: apis.childCredentials.dataOwnerId,
-        pairs: [{ privateKey: apis.childCredentials.privateKey, publicKey: apis.childCredentials.publicKey }],
+        pairs: [{ keyPair: { privateKey: apis.childCredentials.privateKey, publicKey: apis.childCredentials.publicKey }, shaVersion: 'sha-1' }],
       },
     ])
     const cryptoStrats = new TestCryptoStrategies()
@@ -144,7 +136,7 @@ describe('Key manager', async function () {
         if (!this.recoverCalled) throw new Error('generateNewKeyForDataOwner called before recoverAndVerifySelfHierarchyKeys')
         this.generateNewKeyCalled = true
         expect(self.dataOwner.id).to.equal(hcpsInfo.childDataOwnerId)
-        return (this.generatedKeyPair = await cryptoPrimitives.RSA.generateKeyPair())
+        return (this.generatedKeyPair = await cryptoPrimitives.RSA.generateKeyPair('sha-256'))
       }
 
       async recoverAndVerifySelfHierarchyKeys(
@@ -173,7 +165,8 @@ describe('Key manager', async function () {
                 'pkcs8',
                 hex2ua(hcpsInfo.parentCredentials.privateKey),
                 'spki',
-                hex2ua(hcpsInfo.parentCredentials.publicKey)
+                hex2ua(hcpsInfo.parentCredentials.publicKey),
+                'sha-1'
               ),
             },
             keyAuthenticity: {},
@@ -187,6 +180,10 @@ describe('Key manager', async function () {
 
       verifyDelegatePublicKeys(delegate: CryptoActorStubWithType, publicKeys: string[], cryptoPrimitives: CryptoPrimitives): Promise<string[]> {
         throw new Error('This method should not be called by this test')
+      }
+
+      dataOwnerRequiresAnonymousDelegation(dataOwner: CryptoActorStubWithType): boolean {
+        return false
       }
     })()
     const childApi = await IcureApi.initialise(
@@ -218,7 +215,7 @@ describe('Key manager', async function () {
           if (this.generateNewKeyCalled) throw new Error('generateNewKeyForDataOwner called twice')
           this.generateNewKeyCalled = true
           expect(self.dataOwner.id).to.equal(hcpsInfo.childDataOwnerId)
-          return (this.generatedKeyPair = await cryptoPrimitives.RSA.generateKeyPair())
+          return (this.generatedKeyPair = await cryptoPrimitives.RSA.generateKeyPair('sha-256'))
         }
 
         async recoverAndVerifySelfHierarchyKeys(
@@ -234,6 +231,10 @@ describe('Key manager', async function () {
           throw new Error('This method should not be called by this test')
         }
 
+        dataOwnerRequiresAnonymousDelegation(dataOwner: CryptoActorStubWithType): boolean {
+          return false
+        }
+
         verifyDelegatePublicKeys(delegate: CryptoActorStubWithType, publicKeys: string[], cryptoPrimitives: CryptoPrimitives): Promise<string[]> {
           throw new Error('This method should not be called by this test')
         }
@@ -241,7 +242,9 @@ describe('Key manager', async function () {
       const storages = await testStorageWithKeys([
         {
           dataOwnerId: hcpsInfo.parentCredentials.dataOwnerId,
-          pairs: [{ privateKey: hcpsInfo.parentCredentials.privateKey, publicKey: hcpsInfo.parentCredentials.publicKey }],
+          pairs: [
+            { keyPair: { privateKey: hcpsInfo.parentCredentials.privateKey, publicKey: hcpsInfo.parentCredentials.publicKey }, shaVersion: 'sha-1' },
+          ],
         },
       ])
       const childApi = await IcureApi.initialise(
@@ -261,11 +264,8 @@ describe('Key manager', async function () {
       const keys = Array.from(childApi.dataOwnerApi.getHexPublicKeysOf(initialisedHcp))
       expect(keys).to.have.length(1)
       expect(keys[0]).to.equal(ua2hex(await childApi.cryptoApi.primitives.RSA.exportKey(cryptoStrats.generatedKeyPair!.publicKey, 'spki')))
-      // V7 ONLY: the new key should be saved in `publicKey`
-      expect(initialisedHcp.publicKey).to.equal(keys[0])
     }
     await doTest(false)
-    // V7 ONLY
     await doTest(true)
   })
 })
