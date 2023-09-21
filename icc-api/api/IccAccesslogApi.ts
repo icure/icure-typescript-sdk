@@ -227,7 +227,7 @@ export class IccAccesslogApi {
    * @param startDocumentId
    * @param limit
    */
-  listAccessLogsInGroup(
+  async listAccessLogsInGroup(
     groupId: string,
     fromEpoch?: number,
     toEpoch?: number,
@@ -247,7 +247,7 @@ export class IccAccesslogApi {
       (startKey ? '&startKey=' + encodeURIComponent(String(startKey)) : '') +
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListAccessLog(doc.body as JSON))
       .catch((err) => this.handleError(err))
