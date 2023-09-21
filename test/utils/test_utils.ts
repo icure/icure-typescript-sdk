@@ -42,13 +42,12 @@ export async function getEnvironmentInitializer(): Promise<EnvInitializer> {
     const baseEnvironment =
       env.testEnvironment === 'docker' ? new TestEnvironmentBuilder().setUpDockerEnvironment(scratchDir, ['mock']) : new TestEnvironmentBuilder()
     cachedInitializer = await baseEnvironment
-      // .withGroup(fetch, {
-      //   patient: ['BASIC_USER', 'BASIC_DATA_OWNER'],
-      //   hcp: ['BASIC_USER', 'BASIC_DATA_OWNER', 'PATIENT_USER_MANAGER', 'HIERARCHICAL_DATA_OWNER'],
-      //   device: ['BASIC_USER', 'BASIC_DATA_OWNER'],
-      //   user: ['BASIC_USER'],
-      // })
-      .withGroup(fetch)
+      .withGroup(fetch, {
+        patient: ['BASIC_USER', 'BASIC_DATA_OWNER'],
+        hcp: ['BASIC_USER', 'BASIC_DATA_OWNER', 'PATIENT_USER_MANAGER', 'HIERARCHICAL_DATA_OWNER'],
+        device: ['BASIC_USER', 'BASIC_DATA_OWNER'],
+        user: ['BASIC_USER'],
+      })
       .withMasterUser(fetch)
       .addHcp({ login: hcp1Username })
       .addHcp({ login: hcp2Username })
