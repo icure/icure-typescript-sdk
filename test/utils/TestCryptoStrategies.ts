@@ -54,9 +54,6 @@ export class TestCryptoStrategies implements CryptoStrategies {
                 keyAuthenticity: {},
               },
             ]
-          }
-          if (currData.dataOwner.dataOwner.id! !== self.dataOwner.id!) {
-            return [currData.dataOwner.dataOwner.id!, { recoveredKeys: {}, keyAuthenticity: {} }]
           } else if (publicKey === undefined || !knownKeys.has(publicKey)) {
             return [currData.dataOwner.dataOwner.id!, { recoveredKeys: {}, keyAuthenticity: this.verifiedSelfKeys }]
           } else {
