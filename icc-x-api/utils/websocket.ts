@@ -10,10 +10,22 @@ import { MaintenanceTask } from '../../icc-api/model/MaintenanceTask'
 import { HealthcareParty } from '../../icc-api/model/HealthcareParty'
 import { Device } from '../../icc-api/model/Device'
 import { Contact } from '../../icc-api/model/Contact'
+import { Message } from '../../icc-api/model/Message'
+import { Topic } from '../../icc-api/model/Topic'
 
 export type EventTypes = 'CREATE' | 'UPDATE' | 'DELETE'
-type Subscribable = 'Patient' | 'Service' | 'User' | 'HealthElement' | 'MaintenanceTask' | 'HealthcareParty' | 'Device' | 'Contact'
-type SubscribableEntity = Patient | Service | User | HealthElement | MaintenanceTask | HealthcareParty | Device | Contact
+type Subscribable =
+  | 'Patient'
+  | 'Service'
+  | 'User'
+  | 'HealthElement'
+  | 'MaintenanceTask'
+  | 'HealthcareParty'
+  | 'Device'
+  | 'Contact'
+  | 'Message'
+  | 'Topic'
+type SubscribableEntity = Patient | Service | User | HealthElement | MaintenanceTask | HealthcareParty | Device | Contact | Message | Topic
 export type SubscriptionOptions = {
   connectionMaxRetry?: number
   connectionRetryIntervalMs?: number
@@ -59,6 +71,26 @@ export function subscribeToEntityEvents(
   eventFired: (entity: HealthElement) => Promise<void>,
   options: SubscriptionOptions,
   decryptor: (encrypted: HealthElement) => Promise<HealthElement>
+): Promise<WebSocketWrapper>
+export function subscribeToEntityEvents(
+  basePath: string,
+  authApi: IccAuthApi,
+  entityClass: 'Message',
+  eventTypes: EventTypes[],
+  filter: AbstractFilter<Message> | undefined,
+  eventFired: (entity: Message) => Promise<void>,
+  options: SubscriptionOptions,
+  decryptor: (encrypted: Message) => Promise<Message>
+): Promise<WebSocketWrapper>
+export function subscribeToEntityEvents(
+  basePath: string,
+  authApi: IccAuthApi,
+  entityClass: 'Topic',
+  eventTypes: EventTypes[],
+  filter: AbstractFilter<Topic> | undefined,
+  eventFired: (entity: Topic) => Promise<void>,
+  options: SubscriptionOptions,
+  decryptor: (encrypted: Topic) => Promise<Topic>
 ): Promise<WebSocketWrapper>
 export function subscribeToEntityEvents(
   basePath: string,
@@ -124,6 +156,14 @@ export function subscribeToEntityEvents<T extends SubscribableEntity>(
     HealthElement: {
       qualifiedName: 'org.taktik.icure.entities.HealthElement',
       decryptor: (data: HealthElement) => decryptor!(data as HealthElement as T),
+    },
+    Message: {
+      qualifiedName: 'org.taktik.icure.entities.Message',
+      decryptor: (data: Message) => decryptor!(data as Message as T),
+    },
+    Topic: {
+      qualifiedName: 'org.taktik.icure.entities.Topic',
+      decryptor: (data: Topic) => decryptor!(data as Topic as T),
     },
     MaintenanceTask: {
       qualifiedName: 'org.taktik.icure.entities.MaintenanceTask',

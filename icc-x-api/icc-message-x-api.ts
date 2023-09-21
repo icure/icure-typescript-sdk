@@ -1,24 +1,25 @@
-import {IccMessageApi} from '../icc-api'
-import {IccCryptoXApi} from './icc-crypto-x-api'
-
-import * as _ from 'lodash'
+import { IccAuthApi, IccMessageApi } from '../icc-api'
+import { IccCryptoXApi } from './icc-crypto-x-api'
 
 import * as models from '../icc-api/model/models'
-import {Message, PaginatedListMessage, Patient, User} from '../icc-api/model/models'
-import {IccDataOwnerXApi} from './icc-data-owner-x-api'
-import {AuthenticationProvider, NoAuthenticationProvider} from './auth/AuthenticationProvider'
-import {SecureDelegation} from '../icc-api/model/SecureDelegation'
-import {ShareMetadataBehaviour} from './crypto/ShareMetadataBehaviour'
-import {ShareResult} from './utils/ShareResult'
-import {EntityShareRequest} from '../icc-api/model/requests/EntityShareRequest'
-import {XHR} from '../icc-api/api/XHR'
-import {EncryptedEntityXApi} from './basexapi/EncryptedEntityXApi'
-import {FilterChainMessage} from "../icc-api/model/FilterChainMessage"
+import { Message, PaginatedListMessage, Patient, User } from '../icc-api/model/models'
+import { IccDataOwnerXApi } from './icc-data-owner-x-api'
+import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import { SecureDelegation } from '../icc-api/model/SecureDelegation'
+import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
+import { ShareResult } from './utils/ShareResult'
+import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
+import { XHR } from '../icc-api/api/XHR'
+import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
+import { FilterChainMessage } from '../icc-api/model/FilterChainMessage'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
+import { AbstractFilter } from './filters/filters'
+import { EncryptedFieldsManifest, parseEncryptedFields, subscribeToEntityEvents, SubscriptionOptions } from './utils'
+import { Connection, ConnectionImpl } from '../icc-api/model/Connection'
 
 export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi<models.Message> {
-  private readonly encryptedKeys: Array<string>
+  private readonly encryptedFields: EncryptedFieldsManifest
 
   get headers(): Promise<Array<XHR.Header>> {
     return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, 'Message'))
@@ -29,8 +30,9 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     headers: { [key: string]: string },
     private readonly crypto: IccCryptoXApi,
     private readonly dataOwnerApi: IccDataOwnerXApi,
+    private readonly authApi: IccAuthApi,
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
-    encryptedKeys: Array<string>,
+    encryptedKeys: Array<string> = [],
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
@@ -38,9 +40,7 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
       : fetch
   ) {
     super(host, headers, authenticationProvider, fetchImpl)
-    this.crypto = crypto
-    this.dataOwnerApi = dataOwnerApi
-    this.encryptedKeys = encryptedKeys
+    this.encryptedFields = parseEncryptedFields(encryptedKeys, 'Message.')
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -68,7 +68,7 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     m: any = {},
     options: {
       additionalDelegates?: { [dataOwnerId: string]: AccessLevelEnum }
-      preferredSfk?: string,
+      preferredSfk?: string
     } = {}
   ) {
     if (!patient && options.preferredSfk) throw new Error('You need to specify parent patient in order to use secret foreign keys.')
@@ -109,7 +109,7 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
 
   encrypt(messages: Array<models.Message>): Promise<Array<models.Message>> {
     return Promise.all(
-        messages.map((p) => this.crypto.xapi.tryEncryptEntity(p, 'Message', this.encryptedKeys, true, false, (x) => new models.Message(x)))
+      messages.map((p) => this.crypto.xapi.tryEncryptEntity(p, 'Message', this.encryptedFields, true, false, (x) => new models.Message(x)))
     )
   }
 
@@ -275,5 +275,23 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     const decryptedMessage = await this.decrypt([encryptedMessage])
     if (!decryptedMessage[0].decrypted) throw new Error('Message could not be decrypted')
     return decryptedMessage[0].entity
+  }
+
+  async subscribeToMessageEvents(
+    eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
+    filter: AbstractFilter<Message> | undefined,
+    eventFired: (message: Message) => Promise<void>,
+    options: SubscriptionOptions = {}
+  ): Promise<Connection> {
+    return await subscribeToEntityEvents(
+      this.host,
+      this.authApi,
+      'Message',
+      eventTypes,
+      filter,
+      eventFired,
+      options,
+      async (encrypted) => (await this.decrypt([encrypted]))[0].entity
+    ).then((rs) => new ConnectionImpl(rs))
   }
 }
