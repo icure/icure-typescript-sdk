@@ -222,16 +222,17 @@ class ApiFactoryV7 implements ApiFactory {
       },
       createEncryptedData: async () => {
         const note = `v7 note ${uuid}`
-        const secretId = uuid()
         const patient = await apis.patientApi.createPatientWithUser(user, await apis.patientApi.newInstance(user))
         const healthdata = await apis.healthcareElementApi.createHealthElementWithUser(
           user,
-          await apis.healthcareElementApi.newInstance(user, patient, { note }, { preferredSfk: secretId })
+          await apis.healthcareElementApi.newInstance(user, patient, { note })
         )
+        const secretIds = await apis.cryptoApi.entities.secretIdsOf(healthdata)
+        expect(secretIds).to.have.length(1)
         return {
           id: healthdata.id,
           secretContent: note,
-          secretIds: [secretId],
+          secretIds,
           owningEntityIds: [patient.id! as string],
         }
       },
