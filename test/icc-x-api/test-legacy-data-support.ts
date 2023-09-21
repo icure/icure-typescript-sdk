@@ -1,8 +1,8 @@
 import 'isomorphic-fetch'
-import { Api as ApiV6 } from '@icure/apiV6'
-import { User as UserV6 } from '@icure/apiV6'
-import { Api as ApiV7, ua2hex, hex2ua } from '../../icc-x-api'
-import { User } from '../../icc-api/model/User'
+import { Api as ApiV6, User as UserV6 } from '@icure/apiV6'
+import { IcureApi as ApiV7, User as UserV7, CryptoStrategies as CryptoStrategiesV7, DataOwnerWithType as DataOwnerWithTypeV7 } from '@icure/apiV7'
+import { IcureApi as ApiV8, ua2hex, hex2ua, RSAUtils } from '../../icc-x-api'
+import { User as UserV8 } from '../../icc-api/model/User'
 import { getEnvironmentInitializer, setLocalStorage } from '../utils/test_utils'
 import { KeyPair } from '../../icc-x-api/crypto/RSA'
 import { expect } from 'chai'
@@ -15,6 +15,7 @@ import { TestCryptoStrategies } from '../utils/TestCryptoStrategies'
 import { EntityShareRequest } from '../../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
+import { hexPublicKeysWithSha1Of, hexPublicKeysWithSha256Of } from '../../icc-x-api/crypto/utils'
 
 type UserCredentials = {
   login: string
@@ -154,6 +155,54 @@ class ApiFactoryV6 implements ApiFactory {
   }
 }
 
+class TestCryptoStrategiesV7 implements CryptoStrategiesV7 {
+  private readonly RSA = new RSAUtils(webcrypto as any)
+  constructor(private readonly key: KeyPair<CryptoKey> | undefined) {}
+
+  async generateNewKeyForDataOwner(self: DataOwnerWithTypeV7): Promise<KeyPair<CryptoKey> | boolean> {
+    if (!this.key) return false
+    const knownKeys = new Set(...hexPublicKeysWithSha1Of(self))
+    if (knownKeys.size <= 0) return this.key
+    return false
+  }
+
+  async recoverAndVerifySelfHierarchyKeys(
+    keysData: {
+      dataOwner: DataOwnerWithTypeV7
+      unknownKeys: string[]
+      unavailableKeys: string[]
+    }[]
+  ): Promise<{
+    [p: string]: { recoveredKeys: { [p: string]: KeyPair<CryptoKey> }; keyAuthenticity: { [p: string]: boolean } }
+  }> {
+    const self = keysData[keysData.length - 1].dataOwner
+    const knownKeys = new Set([...hexPublicKeysWithSha1Of(self.dataOwner), ...hexPublicKeysWithSha256Of(self.dataOwner)])
+    const publicKey = this.key ? ua2hex(await this.RSA.exportKey(this.key.publicKey, 'spki')) : undefined
+    return Object.fromEntries(
+      await Promise.all(
+        keysData.map(async (currData) => {
+          if (currData.dataOwner.dataOwner.id! !== self.dataOwner.id!) {
+            return [
+              currData.dataOwner.dataOwner.id!,
+              {
+                recoveredKeys: {},
+                keyAuthenticity: {},
+              },
+            ]
+          } else if (publicKey === undefined || !knownKeys.has(publicKey)) {
+            return [currData.dataOwner.dataOwner.id!, { recoveredKeys: {}, keyAuthenticity: {} }]
+          } else {
+            return [currData.dataOwner.dataOwner.id!, { recoveredKeys: { [publicKey.slice(-32)]: this.key }, keyAuthenticity: {} }]
+          }
+        })
+      )
+    )
+  }
+
+  verifyDelegatePublicKeys(delegate: any, publicKeys: string[]): Promise<string[]> {
+    return Promise.resolve(publicKeys)
+  }
+}
 class ApiFactoryV7 implements ApiFactory {
   readonly version: string = 'apiV7.x'
 
@@ -162,10 +211,10 @@ class ApiFactoryV7 implements ApiFactory {
       privateKey: await cryptoPrimitives.RSA.importKey('pkcs8', hex2ua(env.masterHcp!.privateKey), ['decrypt'], 'sha-1'),
       publicKey: await cryptoPrimitives.RSA.importKey('spki', hex2ua(env.masterHcp!.publicKey), ['encrypt'], 'sha-1'),
     }
-    const apis = await ApiV7(
+    const apis = await ApiV7.initialise(
       env.iCureUrl,
       { username: env.masterHcp!.user, password: env.masterHcp!.password },
-      new TestCryptoStrategies(key),
+      new TestCryptoStrategiesV7(key),
       webcrypto as any,
       fetch,
       {
@@ -175,10 +224,10 @@ class ApiFactoryV7 implements ApiFactory {
     )
     return <UniformizedMasterApi>{
       createUser: async () => {
-        const pair = await cryptoPrimitives.RSA.generateKeyPair('sha-256')
+        const pair = await cryptoPrimitives.RSA.generateKeyPair('sha-1')
         const hcp = await apis.healthcarePartyApi.createHealthcareParty(new HealthcareParty({ id: uuid(), firstName: `name`, lastName: 'v7' }))
         const user = await apis.userApi.createUser(
-          new User({
+          new UserV7({
             id: uuid(),
             login: `v7-${uuid()}`,
             status: 'ACTIVE',
@@ -210,7 +259,121 @@ class ApiFactoryV7 implements ApiFactory {
         ],
       },
     ])
-    const apis = await ApiV7(
+    const apis = await ApiV7.initialise(
+      env.iCureUrl,
+      {
+        username: credentials.login,
+        password: credentials.password,
+      },
+      new TestCryptoStrategiesV7(credentials.key),
+      webcrypto as any,
+      fetch,
+      {
+        storage: testStorage.storage,
+        keyStorage: testStorage.keyStorage,
+        entryKeysFactory: testStorage.keyFactory,
+      }
+    )
+    const user = await apis.userApi.getCurrentUser()
+    return {
+      userDetails: async () => {
+        return { userId: user.id!, dataOwnerId: credentials.ownerId }
+      },
+      createEncryptedData: async () => {
+        const note = `v7 note ${uuid}`
+        const patient = await apis.patientApi.createPatientWithUser(user, await apis.patientApi.newInstance(user))
+        const healthdata = await apis.healthcareElementApi.createHealthElementWithUser(
+          user,
+          await apis.healthcareElementApi.newInstance(user, patient, { note })
+        )
+        const secretIds = await apis.cryptoApi.entities.secretIdsOf(healthdata)
+        expect(secretIds).to.have.length(1)
+        return {
+          id: healthdata.id,
+          secretContent: note,
+          secretIds,
+          owningEntityIds: [patient.id! as string],
+        }
+      },
+      getDecryptedData: async (id) => {
+        const healthdata = await apis.healthcareElementApi.getHealthElementWithUser(user, id)
+        return {
+          secretContent: healthdata.note!,
+          secretIds: await apis.cryptoApi.entities.secretIdsOf(healthdata),
+          owningEntityIds: await apis.cryptoApi.entities.owningEntityIdsOf(healthdata),
+        }
+      },
+      shareEncryptedData: async (dataId, delegateId) => {
+        const healthElement = await apis.healthcareElementApi.getHealthElementWithUser(user, dataId)
+        const encryptionKeys = await apis.cryptoApi.entities.encryptionKeysOf(healthElement)
+        const secretIds = await apis.cryptoApi.entities.secretIdsOf(healthElement)
+        const owningEntityIds = await apis.cryptoApi.entities.owningEntityIdsOf(healthElement)
+        await apis.healthcareElementApi.modifyHealthElementWithUser(
+          user,
+          await apis.cryptoApi.entities.entityWithExtendedEncryptedMetadata(healthElement, delegateId, secretIds, encryptionKeys, owningEntityIds, [])
+        )
+      },
+    }
+  }
+}
+
+class ApiFactoryV8 implements ApiFactory {
+  readonly version: string = 'apiV8.x'
+
+  async masterApi(env: TestVars): Promise<UniformizedMasterApi> {
+    const key = {
+      privateKey: await cryptoPrimitives.RSA.importKey('pkcs8', hex2ua(env.masterHcp!.privateKey), ['decrypt'], 'sha-1'),
+      publicKey: await cryptoPrimitives.RSA.importKey('spki', hex2ua(env.masterHcp!.publicKey), ['encrypt'], 'sha-1'),
+    }
+    const apis = await ApiV8.initialise(
+      env.iCureUrl,
+      { username: env.masterHcp!.user, password: env.masterHcp!.password },
+      new TestCryptoStrategies(key),
+      webcrypto as any,
+      fetch,
+      {
+        storage: new TestStorage(),
+        keyStorage: new TestKeyStorage(),
+      }
+    )
+    return <UniformizedMasterApi>{
+      createUser: async () => {
+        const pair = await cryptoPrimitives.RSA.generateKeyPair('sha-256')
+        const hcp = await apis.healthcarePartyApi.createHealthcareParty(new HealthcareParty({ id: uuid(), firstName: `name`, lastName: 'v7' }))
+        const user = await apis.userApi.createUser(
+          new UserV7({
+            id: uuid(),
+            login: `v7-${uuid()}`,
+            status: 'ACTIVE',
+            healthcarePartyId: hcp.id,
+          })
+        )
+        return {
+          login: user.login,
+          password: await apis.userApi.getToken(user.id!, uuid()),
+          key: pair,
+          ownerId: hcp.id,
+        }
+      },
+    }
+  }
+
+  async testApi(credentials: UserCredentials): Promise<UniformizedTestApi> {
+    const testStorage = await testStorageWithKeys([
+      {
+        dataOwnerId: credentials.ownerId,
+        pairs: [
+          {
+            keyPair: {
+              publicKey: ua2hex(await cryptoPrimitives.RSA.exportKey(credentials.key.publicKey, 'spki')),
+              privateKey: ua2hex(await cryptoPrimitives.RSA.exportKey(credentials.key.privateKey, 'pkcs8')),
+            },
+            shaVersion: 'sha-1',
+          },
+        ],
+      },
+    ])
+    const apis = await ApiV8.initialise(
       env.iCureUrl,
       {
         username: credentials.login,
@@ -231,7 +394,7 @@ class ApiFactoryV7 implements ApiFactory {
         return { userId: user.id!, dataOwnerId: credentials.ownerId }
       },
       createEncryptedData: async () => {
-        const note = `v7 note ${uuid()}`
+        const note = `v8 note ${uuid()}`
         const patient = await apis.patientApi.createPatientWithUser(user, await apis.patientApi.newInstance(user))
         const healthdata = await apis.healthcareElementApi.createHealthElementWithUser(
           user,
@@ -261,7 +424,7 @@ class ApiFactoryV7 implements ApiFactory {
 }
 
 // Api factories in chronological version order
-let chronologicalApiFactories: ApiFactory[] = [new ApiFactoryV6(), new ApiFactoryV7()]
+let chronologicalApiFactories: ApiFactory[] = [new ApiFactoryV6(), new ApiFactoryV7(), new ApiFactoryV8()]
 
 describe('All apis versions', async function () {
   before(async function () {
