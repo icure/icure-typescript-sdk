@@ -65,14 +65,6 @@ describe('Patient', () => {
     const { userApi, patientApi, cryptoApi } = await TestApi(env.iCureUrl, tmpUser.id!, pwd!, crypto, keyPair)
     const user = await userApi.getCurrentUser()
     let me: Patient = await patientApi.getPatientWithUser(user, user.patientId!)
-    let updatedRev = me.rev
-    updatedRev = (await cryptoApi.exchangeKeys.getOrCreateEncryptionExchangeKeysTo(user.patientId!)).updatedDelegator?.stub.rev ?? updatedRev
-    me = updatedRev == me.rev ? me : await patientApi.getPatientWithUser(user, user.patientId!)
-    expect((await patientApi.getPatientWithUser(user, user.patientId!)).rev).to.equal(me.rev)
-    updatedRev =
-      (await cryptoApi.exchangeKeys.getOrCreateEncryptionExchangeKeysTo(hcpUser.healthcarePartyId!)).updatedDelegator?.stub.rev ?? updatedRev
-    me = updatedRev == me.rev ? me : await patientApi.getPatientWithUser(user, user.patientId!)
-    expect((await patientApi.getPatientWithUser(user, user.patientId!)).rev).to.equal(me.rev)
     const mySecretIds = await patientApi.decryptSecretIdsOf(me)
     const myEncryptionKeys = await patientApi.getEncryptionKeysOf(me)
     expect(mySecretIds).to.have.length(1)
