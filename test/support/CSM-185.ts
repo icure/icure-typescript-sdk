@@ -1,22 +1,16 @@
 import { getEnvironmentInitializer, hcp1Username, patUsername, setLocalStorage, TestUtils } from '../utils/test_utils'
-import {hex2ua, IcureApi, pkcs8ToJwk, sleep, ua2hex} from '../../icc-x-api'
+import { IcureApi, sleep } from '../../icc-x-api'
 import { webcrypto } from 'crypto'
 import { expect } from 'chai'
 import 'isomorphic-fetch'
-import { FilterChainMaintenanceTask } from '../../icc-api/model/FilterChainMaintenanceTask'
 import { MaintenanceTask } from '../../icc-api/model/MaintenanceTask'
-import { MaintenanceTaskAfterDateFilter } from '../../icc-x-api/filters/MaintenanceTaskAfterDateFilter'
 import { Service } from '../../icc-api/model/Service'
 import { Contact } from '../../icc-api/model/Contact'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import initApi = TestUtils.initApi
-import { TestApi } from '../utils/TestApi'
 import { TestCryptoStrategies } from '../utils/TestCryptoStrategies'
-import { IccIcureMaintenanceXApi } from '../../icc-x-api/icc-icure-maintenance-x-api'
-import { KeyPairUpdateRequest } from '../../icc-x-api/maintenance/KeyPairUpdateRequest'
 import { TestKeyStorage, TestStorage } from '../utils/TestStorage'
-import {MaintenanceTaskByHcPartyAndTypeFilter} from "../../icc-x-api/filters/MaintenanceTaskByHcPartyAndTypeFilter";
-import {Connection} from "../../icc-api/model/Connection";
+import { MaintenanceTaskByHcPartyAndTypeFilter } from '../../icc-x-api/filters/MaintenanceTaskByHcPartyAndTypeFilter'
 setLocalStorage(fetch)
 
 let env: TestVars
@@ -97,36 +91,37 @@ describe('CSM-185', async function () {
     })
 
     const connection = await hcpApis.maintenanceTaskApi.subscribeToMaintenanceTaskEvents(
-        ["CREATE"],
-        new MaintenanceTaskByHcPartyAndTypeFilter({
-          healthcarePartyId: hcpUser!.healthcarePartyId!,
-          type: MaintenanceTask.TaskTypeEnum.KeyPairUpdate,
-        }),
-        async (task) => {
-            events.push(task)
-            eventReceivedPromiseResolve()
-        },
-        {
-          debug: true,
-        }
+      ['CREATE'],
+      new MaintenanceTaskByHcPartyAndTypeFilter({
+        healthcarePartyId: hcpUser!.healthcarePartyId!,
+        type: MaintenanceTask.TaskTypeEnum.KeyPairUpdate,
+      }),
+      async (task) => {
+        events.push(task)
+        eventReceivedPromiseResolve()
+      },
+      {
+        debug: true,
+      }
     )
 
-    connection.onConnected(async () => {
+    connection
+      .onConnected(async () => {
         statuses.push('connected')
         await sleep(2_000)
 
-        const newPair = await patApis.cryptoApi.primitives.RSA.generateKeyPair()
+        const newPair = await patApis.cryptoApi.primitives.RSA.generateKeyPair('sha-256')
         const patApisLost = await IcureApi.initialise(
-            env.iCureUrl,
-            { username: env.dataOwnerDetails[patUsername].user, password: env.dataOwnerDetails[patUsername].password },
-            new TestCryptoStrategies(newPair),
-            webcrypto as any,
-            fetch,
-            {
-              createMaintenanceTasksOnNewKey: true,
-              storage: new TestStorage(),
-              keyStorage: new TestKeyStorage(),
-            }
+          env.iCureUrl,
+          { username: env.dataOwnerDetails[patUsername].user, password: env.dataOwnerDetails[patUsername].password },
+          new TestCryptoStrategies(newPair),
+          webcrypto as any,
+          fetch,
+          {
+            createMaintenanceTasksOnNewKey: true,
+            storage: new TestStorage(),
+            keyStorage: new TestKeyStorage(),
+          }
         )
         const retrievedPatientLost = await patApisLost.patientApi.getPatientWithUser(patUser, p2.id!)
         const retrievedHeLost = await patApisLost.healthcareElementApi.getHealthElementWithUser(patUser, he.id!)
@@ -136,10 +131,11 @@ describe('CSM-185', async function () {
         expect(retrievedHeLost.note).to.be.undefined
 
         await sleep(2_000)
-    }).onClosed(async () => {
+      })
+      .onClosed(async () => {
         statuses.push('closed')
         await sleep(2_000)
-    })
+      })
 
     const timeout = setTimeout(eventReceivedPromiseReject, 20_000)
     await eventReceivedPromise.then(() => clearTimeout(timeout)).catch(() => {})
@@ -151,6 +147,5 @@ describe('CSM-185', async function () {
     expect(statuses).to.deep.equal(['connected', 'closed'])
     expect(events.length).to.be.equal(1)
     expect(events[0].taskType).to.equal(MaintenanceTask.TaskTypeEnum.KeyPairUpdate)
-
   }).timeout(60_000)
 })
