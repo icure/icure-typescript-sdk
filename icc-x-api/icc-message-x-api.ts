@@ -264,13 +264,13 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     }
   }
 
-  async createEncryptedMessage(body: Message): Promise<Message> {
+  async encryptAndCreateMessage(body: Message): Promise<Message> {
     const encryptedMessage = await this.encrypt([body])
     const createdMessage = await super.createMessage(encryptedMessage[0])
     return (await this.decrypt([createdMessage]))[0].entity
   }
 
-  async getDecryptedMessage(messageId: string): Promise<Message> {
+  async getAndDecryptMessage(messageId: string): Promise<Message> {
     const encryptedMessage = await super.getMessage(messageId)
     const decryptedMessage = await this.decrypt([encryptedMessage])
     if (!decryptedMessage[0].decrypted) throw new Error('Message could not be decrypted')

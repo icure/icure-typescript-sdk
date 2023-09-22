@@ -33,7 +33,7 @@ describe('icc-message-x-api Tests', () => {
   })
 
   async function createMessage(messageApi: IccMessageXApi, hcpUser: User, patient: Patient, topic: Topic) {
-    return messageApi.createEncryptedMessage(
+    return messageApi.encryptAndCreateMessage(
       await messageApi.newInstanceWithPatient(
         hcpUser,
         patient,
@@ -111,8 +111,8 @@ describe('icc-message-x-api Tests', () => {
 
     const createdMessage = await createMessage(messageApiForHcp, hcpUser, samplePatient, createdTopic)
 
-    const message = await messageApiForHcp.getDecryptedMessage(createdMessage.id!)
-    const message2 = await messageApiForHcp2.getDecryptedMessage(createdMessage.id!)
+    const message = await messageApiForHcp.getAndDecryptMessage(createdMessage.id!)
+    const message2 = await messageApiForHcp2.getAndDecryptMessage(createdMessage.id!)
 
     expect(message).to.deep.equal(createdMessage)
     expect(message).to.deep.equal(message2)
@@ -138,10 +138,10 @@ describe('icc-message-x-api Tests', () => {
 
     const createdMessage = await createMessage(messageApiForHcp, hcpUser, samplePatient, createdTopic)
 
-    const message = await messageApiForHcp.getDecryptedMessage(createdMessage.id!)
+    const message = await messageApiForHcp.getAndDecryptMessage(createdMessage.id!)
     expect(message).to.not.be.null
 
-    await messageApiForHcp3.getDecryptedMessage(createdMessage.id!).then(
+    await messageApiForHcp3.getAndDecryptMessage(createdMessage.id!).then(
       () => expect.fail('Should not be able to read the message'),
       (e) => {
         expect(e).to.be.instanceOf(XHR.XHRError)
@@ -168,7 +168,7 @@ describe('icc-message-x-api Tests', () => {
 
     const createdMessage = await createMessage(messageApiForHcp, hcpUser, samplePatient, createdTopic)
 
-    const message = await messageApiForHcp.getDecryptedMessage(createdMessage.id!)
+    const message = await messageApiForHcp.getAndDecryptMessage(createdMessage.id!)
 
     const filterChain = (hcpId: string) =>
       new FilterChainMessage({
@@ -208,7 +208,7 @@ describe('icc-message-x-api Tests', () => {
 
     const createdMessage = await createMessage(messageApiForHcp, hcpUser, samplePatient, createdTopic)
 
-    const message = await messageApiForHcp.getDecryptedMessage(createdMessage.id!)
+    const message = await messageApiForHcp.getAndDecryptMessage(createdMessage.id!)
 
     const filterChain = (hcpId: string) =>
       new FilterChainMessage({
@@ -247,7 +247,7 @@ describe('icc-message-x-api Tests', () => {
 
     const createdMessage = await createMessage(messageApiForHcp, hcpUser, samplePatient, createdTopic)
 
-    const message = await messageApiForHcp.getDecryptedMessage(createdMessage.id!)
+    const message = await messageApiForHcp.getAndDecryptMessage(createdMessage.id!)
 
     const filterChain = (hcpId: string, transportGuid: string) =>
       new FilterChainMessage({
@@ -287,7 +287,7 @@ describe('icc-message-x-api Tests', () => {
 
     const createdMessage = await createMessage(messageApiForHcp, hcpUser, samplePatient, createdTopic)
 
-    const message = await messageApiForHcp.getDecryptedMessage(createdMessage.id!)
+    const message = await messageApiForHcp.getAndDecryptMessage(createdMessage.id!)
 
     const filterChain = (hcpId: string, transportGuid: string) =>
       new FilterChainMessage({
@@ -429,7 +429,7 @@ describe('icc-message-x-api Tests', () => {
           )
         )
 
-        await messageApiForHcp.createEncryptedMessage(
+        await messageApiForHcp.encryptAndCreateMessage(
           await messageApiForHcp.newInstanceWithPatient(
             loggedUser,
             patient,
