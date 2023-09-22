@@ -1,7 +1,7 @@
 import 'isomorphic-fetch'
 import { getEnvironmentInitializer, hcp1Username, hcp2Username, hcp3Username, setLocalStorage, TestUtils } from '../utils/test_utils'
-import { before, it } from 'mocha'
-import { IccMessageXApi, IccPatientXApi, IcureApi, sleep, SubscriptionOptions } from '../../icc-x-api'
+import { before, it, describe } from 'mocha'
+import { IccMessageXApi, IccPatientXApi, sleep, SubscriptionOptions } from '../../icc-x-api'
 import { Patient } from '../../icc-api/model/Patient'
 import { User } from '../../icc-api/model/User'
 import { randomUUID } from 'crypto'
@@ -20,6 +20,7 @@ import { LatestMessageByHcPartyTransportGuidFilter } from '../../icc-x-api/filte
 import { Connection } from '../../icc-api/model/Connection'
 import { expect, use as chaiUse } from 'chai'
 import * as chaiAsPromised from 'chai-as-promised'
+import { IccMessageApi } from '../../icc-api'
 
 chaiUse(chaiAsPromised)
 setLocalStorage(fetch)
@@ -116,6 +117,36 @@ describe('icc-message-x-api Tests', () => {
 
     expect(message).to.deep.equal(createdMessage)
     expect(message).to.deep.equal(message2)
+  })
+
+  it('An HCP should be able to publish an encrypted message on a topic', async () => {
+    const {
+      userApi: userApiForHcp,
+      topicApi: topicApiForHcp,
+      patientApi: patientApiForHcp,
+      messageApi: messageApiForHcp,
+    } = await initApi(env!, hcp1Username, {
+      encryptedFieldsConfig: {
+        message: ['subject'],
+      },
+    })
+
+    const baseMessageApi = new IccMessageApi(env!.iCureUrl, messageApiForHcp._headers, messageApiForHcp.authenticationProvider, messageApiForHcp.fetchImpl)
+
+    const hcpUser = await userApiForHcp.getCurrentUser()
+
+    const samplePatient = await createPatient(patientApiForHcp, hcpUser)
+    const createdTopic = await createTopic(topicApiForHcp, hcpUser, samplePatient)
+
+    const createdMessage = await createMessage(messageApiForHcp, hcpUser, samplePatient, createdTopic)
+
+    const message = await messageApiForHcp.getAndDecryptMessage(createdMessage.id!)
+    expect(message).to.deep.equal(createdMessage)
+    expect(message.subject).to.not.be.undefined
+
+    const notDecryptedMessage = await baseMessageApi.getMessage(createdMessage.id!)
+    expect(notDecryptedMessage).to.not.deep.equal(createdMessage)
+    expect(notDecryptedMessage.subject).to.be.undefined
   })
 
   it('An HCP should be able to publish a message on a topic and a non-participant cannot read it', async () => {

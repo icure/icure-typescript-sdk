@@ -1,6 +1,6 @@
 import 'isomorphic-fetch'
 import { getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils } from '../utils/test_utils'
-import { before, it } from 'mocha'
+import { before, it, describe } from 'mocha'
 import { IccPatientXApi, sleep, SubscriptionOptions } from '../../icc-x-api'
 import { Patient } from '../../icc-api/model/Patient'
 import { User } from '../../icc-api/model/User'
@@ -18,7 +18,7 @@ import { TopicByHcPartyFilter } from '../../icc-x-api/filters/TopicByHcPartyFilt
 import { TopicByParticipantFilter } from '../../icc-x-api/filters/TopicByParticipantFilter'
 import { Connection } from '../../icc-api/model/Connection'
 import { Message } from '../../icc-api/model/Message'
-import { MessageByHcPartyFilter } from '../../icc-x-api/filters/MessageByHcPartyFilter'
+import { IccTopicApi } from '../../icc-api'
 
 setLocalStorage(fetch)
 let env: TestVars
@@ -81,6 +81,26 @@ describe('icc-topic-x-api Tests', () => {
 
     const retrievedByHcp2 = await topicApiForHcp2.getTopic(createdTopic.id!)
     expect(retrievedByHcp2).to.deep.equal(createdTopic)
+  })
+
+  it('An HCP should be able to create an encrypted topic', async () => {
+    const { userApi: userApiForHcp, topicApi: topicApiForHcp, patientApi: patientApiForHcp } = await initApi(env!, hcp1Username)
+
+    const baseTopicApi = new IccTopicApi(env!.iCureUrl, topicApiForHcp._headers, topicApiForHcp.authenticationProvider, topicApiForHcp.fetchImpl)
+
+    const hcpUser = await userApiForHcp.getCurrentUser()
+
+    const samplePatient = await createPatient(patientApiForHcp, hcpUser)
+    const createdTopic = await createTopic(topicApiForHcp, hcpUser, samplePatient)
+
+    const retrievedByHcp = await topicApiForHcp.getTopic(createdTopic.id!)
+    expect(retrievedByHcp).to.deep.equal(createdTopic)
+    expect(retrievedByHcp.description).to.not.be.undefined
+    
+    const notDecryptedTopic = await baseTopicApi.getTopic(createdTopic.id!)
+    expect(notDecryptedTopic).to.not.deep.equal(createdTopic)
+    expect(notDecryptedTopic.description).to.be.undefined
+    expect(notDecryptedTopic.encryptedSelf).to.not.be.undefined
   })
 
   it('An HCP should be able to create a topic with no participants and add participants later', async () => {
