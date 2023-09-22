@@ -538,7 +538,7 @@ export class IccCryptoXApi {
 
   /**
    * @deprecated You should use:
-   * - {@link IccPatientXApi.decryptSecretIdsOf} or {@link IccMessageXApi.decryptSecretIdsOf} to get the delegation sfks (now caleld secret ids).
+   * - {@link IccPatientXApi.decryptSecretIdsOf} or {@link IccMessageXApi.decryptSecretIdsOf} to get the delegation sfks (now called secret ids).
    * - {@link IccDataOwnerXApi.getCurrentDataOwnerHierarchyIds} to get the full hierarchy for the current data owner (cached). The first element is
    *   the id of the topmost parent, while the last is the current data owner.
    * Note that the behaviour of this method has some subtle changes compared to the past:
