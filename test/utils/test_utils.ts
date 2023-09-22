@@ -1,4 +1,4 @@
-import { IcureApi, hex2ua, ua2hex } from '../../icc-x-api'
+import { IcureApi, IcureApiOptions, hex2ua, ua2hex } from '../../icc-x-api'
 import { tmpdir } from 'os'
 import { TextDecoder, TextEncoder } from 'util'
 import { v4 as uuid } from 'uuid'
@@ -61,22 +61,22 @@ export async function getEnvironmentInitializer(): Promise<EnvInitializer> {
 }
 
 export namespace TestUtils {
-  export async function initApi(envVars: TestVars, userName: string = hcp1Username): Promise<IcureApi> {
-    return await getApiAndAddPrivateKeysForUser(envVars.iCureUrl, envVars.dataOwnerDetails[userName])
+  export async function initApi(envVars: TestVars, userName: string = hcp1Username, options?: IcureApiOptions): Promise<IcureApi> {
+    return await getApiAndAddPrivateKeysForUser(envVars.iCureUrl, envVars.dataOwnerDetails[userName], options)
   }
 
-  export async function initMasterApi(envVars: TestVars): Promise<IcureApi> {
-    return await getApiAndAddPrivateKeysForUser(envVars.iCureUrl, envVars.masterHcp!)
+  export async function initMasterApi(envVars: TestVars, options?: IcureApiOptions): Promise<IcureApi> {
+    return await getApiAndAddPrivateKeysForUser(envVars.iCureUrl, envVars.masterHcp!, options)
   }
 }
 
-export async function getApiAndAddPrivateKeysForUser(iCureUrl: string, details: UserDetails) {
+export async function getApiAndAddPrivateKeysForUser(iCureUrl: string, details: UserDetails, options: IcureApiOptions | undefined) {
   const RSA = new RSAUtils(webcrypto as any)
   const keys = {
     publicKey: await RSA.importKey('spki', hex2ua(details.publicKey), ['encrypt'], 'sha-1'),
     privateKey: await RSA.importKey('pkcs8', hex2ua(details.privateKey), ['decrypt'], 'sha-1'),
   }
-  return await TestApi(iCureUrl, details.user, details.password, webcrypto as any, keys)
+  return await TestApi(iCureUrl, details.user, details.password, webcrypto as any, keys, options)
 }
 
 async function createHealthcarePartyUser(

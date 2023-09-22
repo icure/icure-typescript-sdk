@@ -5,3 +5,6 @@ scratchDir/
 coverage/
 .nyc_output/
 /test/scratch/
+custom-docker-compose-cloud.yaml
+.DS_Store
+.vscode/launch.json

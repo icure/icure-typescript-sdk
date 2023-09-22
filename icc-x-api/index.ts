@@ -257,7 +257,7 @@ namespace IcureApiOptions {
       this.storage = custom.storage ?? new LocalStorageImpl()
       this.keyStorage = custom.keyStorage ?? new KeyStorageImpl(this.storage)
       this.headers = custom.headers ?? Defaults.headers
-      this.encryptedFieldsConfig = custom.encryptedFieldsConfig ?? EncryptedFieldsConfig.Defaults
+      this.encryptedFieldsConfig = custom.encryptedFieldsConfig ?? {}
       this.groupSelector = custom.groupSelector ?? ((groups) => Promise.resolve(groups[0].groupId!))
       this.disableParentKeysInitialisation = custom.disableParentKeysInitialisation ?? false
     }
