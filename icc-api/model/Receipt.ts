@@ -83,5 +83,5 @@ export class Receipt {
    */
   encryptedSelf?: string
   securityMetadata?: SecurityMetadata
-  readonly _type?: EntityWithDelegationTypeName = 'Receipt'
+  
 }

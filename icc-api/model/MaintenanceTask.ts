@@ -84,7 +84,7 @@ export class MaintenanceTask {
    */
   encryptedSelf?: string
   securityMetadata?: SecurityMetadata
-  readonly _type?: EntityWithDelegationTypeName = 'MaintenanceTask'
+  
 }
 export namespace MaintenanceTask {
   export type StatusEnum = 'pending' | 'ongoing' | 'cancelled' | 'completed'
