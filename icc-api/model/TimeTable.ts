@@ -84,5 +84,5 @@ export class TimeTable {
    */
   encryptedSelf?: string
   securityMetadata?: SecurityMetadata
-  readonly _type?: EntityWithDelegationTypeName = 'TimeTable'
+  
 }

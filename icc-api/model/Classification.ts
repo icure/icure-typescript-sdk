@@ -81,5 +81,5 @@ export class Classification {
    */
   encryptedSelf?: string
   securityMetadata?: SecurityMetadata
-  readonly _type?: EntityWithDelegationTypeName = 'Classification'
+  
 }

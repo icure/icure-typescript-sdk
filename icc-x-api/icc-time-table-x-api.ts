@@ -62,7 +62,6 @@ export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntity
   ) {
     const timeTable: TimeTable = {
       ...(tt ?? {}),
-      _type: 'TimeTable',
       id: tt?.id ?? this.crypto.primitives.randomUuid(),
       created: tt?.created ?? new Date().getTime(),
       modified: tt?.modified ?? new Date().getTime(),

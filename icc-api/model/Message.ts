@@ -145,5 +145,5 @@ export class Message {
    */
   encryptedSelf?: string
   securityMetadata?: SecurityMetadata
-  readonly _type?: EntityWithDelegationTypeName = 'Message'
+  
 }

@@ -168,7 +168,7 @@ export class Invoice {
    */
   encryptedSelf?: string
   securityMetadata?: SecurityMetadata
-  readonly _type?: EntityWithDelegationTypeName = 'Invoice'
+  
 }
 export namespace Invoice {
   export type InvoiceTypeEnum = 'patient' | 'mutualfund' | 'payingagency' | 'insurance' | 'efact' | 'other'

@@ -14,6 +14,7 @@ import { Patient } from './Patient'
 import { Delegation } from './Delegation'
 import { SecurityMetadata } from './SecurityMetadata'
 import { IcureStub } from './IcureStub'
+import {Topic} from "./Topic";
 
 export * from './AbstractFilterCode'
 export * from './AbstractFilterContact'
@@ -275,6 +276,9 @@ export * from './Wada'
 export * from './Weekday'
 export * from './SecurityMetadata'
 export * from './SecureDelegation'
+export * from './Topic'
+export * from './Connection'
+export * from './ISO639_1'
 
 export type EncryptedEntity =
   | AccessLog
@@ -290,6 +294,7 @@ export type EncryptedEntity =
   | Message
   | Patient
   | Receipt
+  | Topic
 
 export type EncryptedEntityStub =
   | {
