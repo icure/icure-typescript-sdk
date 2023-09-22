@@ -277,6 +277,8 @@ export * from './Weekday'
 export * from './SecurityMetadata'
 export * from './SecureDelegation'
 export * from './Topic'
+export * from './Connection'
+export * from './ISO639_1'
 
 export type EncryptedEntity =
   | AccessLog
