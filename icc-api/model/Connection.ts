@@ -1,4 +1,4 @@
-import {ConnectionStatus, WebSocketWrapper} from "../../icc-x-api/utils/websocket"
+import {ConnectionStatus, WebSocketWrapper} from "../../icc-x-api"
 
 export interface Connection {
   close(): void
