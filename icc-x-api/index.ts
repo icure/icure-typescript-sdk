@@ -114,6 +114,7 @@ export * from './utils'
 
 export * from './crypto/RSA'
 export * from './crypto/CryptoPrimitives'
+export * from './crypto/ShareMetadataBehaviour'
 export * from './auth/AuthenticationProvider'
 
 export { KeyStorageFacade } from './storage/KeyStorageFacade'
