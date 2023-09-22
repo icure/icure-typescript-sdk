@@ -95,7 +95,7 @@ export namespace MaintenanceTask {
     Completed: 'completed',
   }
   export type TaskTypeEnum = 'KEY_PAIR_UPDATE' | 'NEW_USER_OWN_DATA_ACCESS' | 'OTHER'
-  export const TaskTypeEnum: { [key: string]: MaintenanceTask.TaskTypeEnum } = {
+  export const TaskTypeEnum = {
     KeyPairUpdate: 'KEY_PAIR_UPDATE',
     NewUserOwnDataAccess: 'NEW_USER_OWN_DATA_ACCESS',
     Other: 'OTHER',
