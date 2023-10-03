@@ -512,7 +512,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
 
         return new Service(
           await decryptObject(svc, async (encrypted) => {
-            return (await this.crypto.xapi.tryDecryptJson(keys!, encrypted, false)) ?? {}
+            return (await this.crypto.xapi.tryDecryptJson(currentKeys!, encrypted, false)) ?? {}
           })
         )
       })
