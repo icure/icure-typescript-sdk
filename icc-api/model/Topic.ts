@@ -25,14 +25,6 @@ export class Topic {
      */
     modified?: number
     /**
-     * Id of the healthcare element that is linked
-     */
-    healthElementId?: string
-    /**
-     * Id of the contact that is linked
-     */
-    contactId?: string
-    /**
      * Name/basic description of the topic
      */
     description?: string
