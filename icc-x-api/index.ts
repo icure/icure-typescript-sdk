@@ -425,7 +425,7 @@ export namespace EncryptedFieldsConfig {
     maintenanceTask: ['properties'],
     patient: ['note', 'notes[].markdown'],
     message: [],
-    topic: ['description'],
+    topic: ['description', 'linkedServices', 'linkedHealthElements'],
   }
 }
 
