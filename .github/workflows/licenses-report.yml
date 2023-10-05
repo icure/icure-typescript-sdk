@@ -16,6 +16,7 @@ jobs:
     - name: Creating licenses report
       run: |
         yarn licenses list --prod --json --no-progress | jq -r '.data.body[] | select(length >= 5) | [.[3], .[2], .[0]] | @csv' > ./icure-typescript-sdk.csv
+        cat ./icure-typescript-sdk.csv | jq .
         
     - name: Checkout repo
       uses: actions/checkout@v2
