@@ -1,0 +1,41 @@
+on:
+  push:
+    tags:
+      - '*'
+  workflow_dispatch:
+
+jobs:
+  licenses_report:
+    name: Generating licenses report
+    runs-on: ubuntu-latest
+    steps:
+    - name: Use Node.js 18
+    - uses: actions/checkout@v3
+    - uses: actions/setup-node@v3
+      with:
+        node-version: 18
+    - name: Creating licenses report
+      run: |
+        yarn licenses list --prod --json --no-progress | jq -r '.data.body[] | select(length >= 5) | [.[3], .[2], .[0]] | @csv' > ./icure-typescript-sdk.csv
+        
+    - name: Checkout repo
+      uses: actions/checkout@v2
+    
+    - name: Setup Git
+      run: |
+        git config user.name "icure-dev"
+        git config user.email "dev@icure.com"
+    
+    - name: Publish file to licenses-report
+      run: |
+        git init
+        git remote add licenses-report https://x-access-token:${{ secrets.REPO_ACCESS_TOKEN }}@github.com/icure/licenses-report.git
+        git pull licenses-report main
+        git add ./icure-typescript-sdk.csv
+        STATUS=$(git status --porcelain)
+        if [ -n "$STATUS" ]; then
+          git commit -m "Update file.txt"
+          git push licenses-report HEAD:main
+        fi
+
+      
