@@ -42,7 +42,7 @@ jobs:
         chmod 0600 deployKey.txt
         git clone git@github.com:icure/licenses-report.git
         cd licenses-report
-        mv ./${{ github.event.repository.name }}.csv ./js_ts/${{ github.event.repository.name }}.csv
+        mv ../${{ github.event.repository.name }}.csv ./js_ts/${{ github.event.repository.name }}.csv
         git add ./js_ts/${{ github.event.repository.name }}.csv
         STATUS=$(git status --porcelain)
         if [ -n "$STATUS" ]; then
