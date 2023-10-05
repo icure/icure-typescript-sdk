@@ -9,7 +9,6 @@ jobs:
     name: Generating licenses report
     runs-on: ubuntu-latest
     steps:
-    - name: Use Node.js 18
     - uses: actions/checkout@v3
     - uses: actions/setup-node@v3
       with:
