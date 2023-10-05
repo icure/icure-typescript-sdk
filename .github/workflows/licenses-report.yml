@@ -1,3 +1,4 @@
+name: Licenses report
 on:
   push:
     tags:
@@ -16,30 +17,35 @@ jobs:
         
     - name: Creating licenses report
       run: |
-        yarn licenses list --prod --json --no-progress | jq -r '.data.body[] | select(length >= 5) | [.[3], .[2], .[0], .[1]] | @csv' > ./icure-typescript-sdk.csv
-        
-    - name: Echo
-      run: |
-        cat ./icure-typescript-sdk.csv
+        yarn licenses list --prod --json --no-progress | jq -r '.data.body[] | select(length >= 5) | [.[3], .[2], .[0], .[1]] | @csv' > ./{{ github.event.repository.name }}.csv
         
     - name: Checkout repo
       uses: actions/checkout@v2
     
     - name: Setup Git
       run: |
-        git config user.name "icure-dev"
-        git config user.email "dev@icure.com"
-    
-    - name: Publish file to licenses-report
+        git config --global user.name "icure-dev"
+        git config --global user.email "dev@icure.com"
+
+    - name: Setup SSH Keys and known_hosts
+      env:
+        SSH_AUTH_SOCK: /tmp/ssh_agent.sock
       run: |
-        git init
-        git remote add licenses-report https://x-access-token:${{ secrets.REPO_ACCESS_TOKEN }}@github.com/icure/licenses-report.git
-        git pull licenses-report main
-        git add ./icure-typescript-sdk.csv
+        ssh-agent -a $SSH_AUTH_SOCK > /dev/null
+        ssh-add - <<< "${{ secrets.REPO_DEPLOY_KEY }}"
+
+    - name: Publish file to licenses-report
+      env:
+        SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+      run: |
+        echo "${{ secrets.REPO_DEPLOY_KEY }}" >> deployKey.txt
+        chmod 0600 deployKey.txt
+        git clone git@github.com:icure/licenses-report.git
+        cd licenses-report
+        mv ../${{ github.event.repository.name }}.csv ./js_ts/${{ github.event.repository.name }}.csv
+        git add ./js_ts/${{ github.event.repository.name }}.csv
         STATUS=$(git status --porcelain)
         if [ -n "$STATUS" ]; then
-          git commit -m "Update file.txt"
-          git push licenses-report HEAD:main
+          git commit -m "Update ${{ github.event.repository.name }}.csv"
+          git push
         fi
-
-      
