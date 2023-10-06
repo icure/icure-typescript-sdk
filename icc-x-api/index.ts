@@ -30,7 +30,6 @@ import {
   NoAuthenticationProvider,
 } from './auth/AuthenticationProvider'
 import { IccRoleApi } from '../icc-api/api/IccRoleApi'
-import { he } from 'date-fns/locale'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
