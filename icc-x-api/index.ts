@@ -27,7 +27,6 @@ import {
   IccTarificationApi,
   IccTmpApi,
   IccUserApi,
-  OAuthThirdParty,
 } from '../icc-api'
 import { IccUserXApi } from './icc-user-x-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
@@ -44,7 +43,6 @@ import { IccMessageXApi } from './icc-message-x-api'
 import { IccReceiptXApi } from './icc-receipt-x-api'
 import { IccAccesslogXApi } from './icc-accesslog-x-api'
 import { IccTimeTableXApi } from './icc-time-table-x-api'
-import { IccDeviceApi } from '../icc-api'
 import { IccCodeXApi } from './icc-code-x-api'
 import { IccMaintenanceTaskXApi } from './icc-maintenance-task-x-api'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
@@ -79,6 +77,7 @@ import { IccBekmehrXApi } from './icc-bekmehr-x-api'
 import { IccDoctemplateXApi } from './icc-doctemplate-x-api'
 import { UserGroup } from '../icc-api/model/UserGroup'
 import { IccDeviceXApi } from './icc-device-x-api'
+import { IccRoleApi } from '../icc-api/api/IccRoleApi'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -163,6 +162,7 @@ export interface Apis {
   readonly replicationApi: IccReplicationApi
   readonly tarificationApi: IccTarificationApi
   readonly tmpApi: IccTmpApi
+  readonly roleApi: IccRoleApi
 }
 
 /**
@@ -646,6 +646,7 @@ class IcureApiImpl implements IcureApi {
   private _replicationApi: IccReplicationApi | undefined
   private _tarificationApi: IccTarificationApi | undefined
   private _tmpApi: IccTmpApi | undefined
+  private _roleApi: IccRoleApi | undefined
 
   get cryptoApi(): IccCryptoXApi {
     return this.cryptoInitApis.cryptoApi
@@ -674,6 +675,11 @@ class IcureApiImpl implements IcureApi {
       this._agendaApi ?? (this._agendaApi = new IccAgendaApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
     )
   }
+
+  get roleApi(): IccRoleApi {
+    return this._roleApi ?? (this._roleApi = new IccRoleApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+  }
+
   get anonymousAccessApi(): IccAnonymousAccessApi {
     return (
       this._anonymousAccessApi ??
