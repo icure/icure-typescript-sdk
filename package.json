@@ -1,6 +1,6 @@
 {
   "name": "@icure/api",
-  "version": "5.3.8",
+  "version": "5.3.9",
   "description": "Typescript version of iCure standalone API client",
   "types": "dist/index.d.ts",
   "dependencies": {
