@@ -5,6 +5,7 @@ import initApi = TestUtils.initApi
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import 'isomorphic-fetch'
 import initMasterApi = TestUtils.initMasterApi
+import { DatabaseInitialisation } from '@icure/apiV6'
 setLocalStorage(fetch)
 
 let env: TestVars
@@ -42,6 +43,46 @@ describe('User', () => {
     expect(userWithRole.roles![0]).to.be.equal(role)
 
     const userWithoutRole = await userApi.removeRoles(user.id!, [role])
+    expect(userWithoutRole.roles?.length ?? 0).to.be.equal(0)
+  })
+
+  it('should be able to add and remove a role to a user in group', async () => {
+    const { userApi, roleApi, groupApi } = await initMasterApi(env)
+
+    const role = (await roleApi.getRoles())[0].id!
+
+    const groupId = randomUUID()
+    const groupName = groupId.substring(0, 5)
+    const groupPwd = randomUUID()
+    await groupApi.createGroup(
+      groupId,
+      groupName,
+      groupPwd,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      new DatabaseInitialisation({
+        users: [],
+        healthcareParties: [],
+      })
+    )
+
+    const login = `${randomUUID().substring(0, 6)}-test-user@icure.com`
+    const user = await userApi.createUserInGroup(groupId, {
+      id: randomUUID(),
+      name: randomUUID(),
+      login: login,
+      email: login,
+    })
+    expect(user.roles?.length ?? 0).to.be.equal(0)
+
+    const userWithRole = await userApi.addRolesInGroup(user.id!, groupId, [role])
+    expect(userWithRole.roles?.length ?? 0).to.be.equal(1)
+    expect(userWithRole.roles![0]).to.be.equal(role)
+
+    const userWithoutRole = await userApi.removeRolesInGroup(user.id!, groupId, [role])
     expect(userWithoutRole.roles?.length ?? 0).to.be.equal(0)
   })
 })
