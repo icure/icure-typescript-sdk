@@ -29,6 +29,8 @@ import {
   JwtAuthenticationProvider,
   NoAuthenticationProvider,
 } from './auth/AuthenticationProvider'
+import { IccRoleApi } from '../icc-api/api/IccRoleApi'
+import { he } from 'date-fns/locale'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -80,6 +82,7 @@ export interface Apis {
   messageApi: IccMessageXApi
   maintenanceTaskApi: IccMaintenanceTaskXApi
   dataOwnerApi: IccDataOwnerXApi
+  roleApi: IccRoleApi
 }
 
 export const Api = async function (
@@ -184,6 +187,7 @@ export const Api = async function (
     authenticationProvider,
     fetchImpl
   )
+  const roleApi = new IccRoleApi(host, headers, authenticationProvider, fetchImpl)
 
   if (autoLogin) {
     if (username != undefined && password != undefined) {
@@ -223,5 +227,6 @@ export const Api = async function (
     groupApi,
     maintenanceTaskApi,
     dataOwnerApi,
+    roleApi,
   }
 }
