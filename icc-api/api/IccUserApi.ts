@@ -385,6 +385,7 @@ export class IccUserApi {
 
     const _url = this.host + `/user/${encodeURIComponent(userId)}/roles/add?ts=${new Date().getTime()}'`
     let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => JSON.parse(JSON.stringify(doc.body)))
       .catch((err) => this.handleError(err))
@@ -402,6 +403,7 @@ export class IccUserApi {
 
     const _url = this.host + `/user/${encodeURIComponent(userId)}/inGroup/${encodeURIComponent(groupId)}/roles/add?ts=${new Date().getTime()}'`
     let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => JSON.parse(JSON.stringify(doc.body)))
       .catch((err) => this.handleError(err))
@@ -418,6 +420,7 @@ export class IccUserApi {
 
     const _url = this.host + `/user/${encodeURIComponent(userId)}/roles/remove?ts=${new Date().getTime()}'`
     let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => JSON.parse(JSON.stringify(doc.body)))
       .catch((err) => this.handleError(err))
@@ -435,6 +438,7 @@ export class IccUserApi {
 
     const _url = this.host + `/user/${encodeURIComponent(userId)}/inGroup/${encodeURIComponent(groupId)}/roles/remove?ts=${new Date().getTime()}'`
     let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => JSON.parse(JSON.stringify(doc.body)))
       .catch((err) => this.handleError(err))
