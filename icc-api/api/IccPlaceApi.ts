@@ -75,7 +75,7 @@ export class IccPlaceApi {
 
   /**
    *
-   * @summary Gets an place
+   * @summary Gets a place
    * @param placeId
    */
   getPlace(placeId: string): Promise<Place> {

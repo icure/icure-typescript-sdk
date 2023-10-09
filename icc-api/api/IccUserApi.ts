@@ -21,6 +21,7 @@ import { User } from '../model/User'
 import { UserGroup } from '../model/UserGroup'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
+import { ListOfIds } from '../model/ListOfIds'
 
 export class IccUserApi {
   host: string
@@ -385,6 +386,76 @@ export class IccUserApi {
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new User(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Adds one or more roles to a user.
+   *
+   * @param userId the Id of the user to update.
+   * @param roleIds the ids of the roles to add to the user.
+   */
+  addRoles(userId: string, roleIds: string[]): Promise<User> {
+    const _body = new ListOfIds({ ids: roleIds })
+
+    const _url = this.host + `/user/${encodeURIComponent(userId)}/roles/add?ts=${new Date().getTime()}'`
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => JSON.parse(JSON.stringify(doc.body)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Adds one or more roles to a user in a group.
+   *
+   * @param userId the Id of the user to update.
+   * @param groupId the Id of the group the user belongs to.
+   * @param roleIds the ids of the roles to add to the user.
+   */
+  addRolesInGroup(userId: string, groupId: string, roleIds: string[]): Promise<User> {
+    const _body = new ListOfIds({ ids: roleIds })
+
+    const _url = this.host + `/user/${encodeURIComponent(userId)}/inGroup/${encodeURIComponent(groupId)}/roles/add?ts=${new Date().getTime()}'`
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => JSON.parse(JSON.stringify(doc.body)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Removed one or more roles from a user.
+   *
+   * @param userId the Id of the user to update.
+   * @param roleIds the ids of the roles to remove from the user.
+   */
+  removeRoles(userId: string, roleIds: string[]): Promise<User> {
+    const _body = new ListOfIds({ ids: roleIds })
+
+    const _url = this.host + `/user/${encodeURIComponent(userId)}/roles/remove?ts=${new Date().getTime()}'`
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => JSON.parse(JSON.stringify(doc.body)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Removes one or more roles from a user in a group.
+   *
+   * @param userId the Id of the user to update.
+   * @param groupId the Id of the group the user belongs to.
+   * @param roleIds the ids of the roles to remove from the user.
+   */
+  removeRolesInGroup(userId: string, groupId: string, roleIds: string[]): Promise<User> {
+    const _body = new ListOfIds({ ids: roleIds })
+
+    const _url = this.host + `/user/${encodeURIComponent(userId)}/inGroup/${encodeURIComponent(groupId)}/roles/remove?ts=${new Date().getTime()}'`
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => JSON.parse(JSON.stringify(doc.body)))
       .catch((err) => this.handleError(err))
   }
 
