@@ -12,6 +12,7 @@
 import { CodeStub } from './CodeStub'
 import { OperationToken } from './OperationToken'
 import { PropertyStub } from './PropertyStub'
+import { UserTypeEnum } from './UserTypeEnum'
 
 /**
  * This entity represents a group
@@ -66,4 +67,5 @@ export class Group {
    */
   sharedEntities?: { [key: string]: string }
   superGroup?: string
+  defaultUserRoles?: { [key in UserTypeEnum]: Array<String> }
 }
