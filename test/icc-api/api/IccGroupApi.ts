@@ -47,8 +47,8 @@ describe('Group', () => {
     expect(updatedGroup.defaultUserRoles!![userType][0]).to.be.equal(role)
 
     const retrievedRoles = await groupApi.getDefaultRoles(groupId)
-    expect(retrievedRoles[userType].source).to.be.equal(RoleSourceEnum.Configuration)
-    expect(retrievedRoles[userType].roles!![0]).to.be.equal(role)
-    expect(retrievedRoles[UserTypeEnum.Hcp].source).to.be.equal(RoleSourceEnum.Inherited)
+    expect(retrievedRoles[userType].length).to.be.greaterThan(1)
+    expect(retrievedRoles[userType][0].roles!![0]).to.be.equal(role)
+    expect(retrievedRoles[UserTypeEnum.Hcp][0].source).to.be.equal(RoleSourceEnum.Inherited)
   })
 })
