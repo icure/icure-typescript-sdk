@@ -431,7 +431,7 @@ export class IccGroupApi {
       .catch((err) => this.handleError(err))
   }
 
-  getDefaultRoles(groupId: string): Promise<{ [key in UserTypeEnum]: RoleConfiguration }> {
+  getDefaultRoles(groupId: string): Promise<{ [key in UserTypeEnum]: RoleConfiguration[] }> {
     const _body = null
 
     const _url = this.host + `/group/${encodeURIComponent(groupId)}/defaultRoles?ts=${new Date().getTime()}`
