@@ -1,11 +1,8 @@
 import { AuthService } from './AuthService'
 import { XHR } from '../../icc-api/api/XHR'
-import { IccAuthApi, OAuthThirdParty } from '../../icc-api'
-import { LoginCredentials } from '../../icc-api/model/LoginCredentials'
+import { IccAuthApi } from '../../icc-api'
 import Header = XHR.Header
 import { a2b } from '../utils'
-import { AuthenticationResponse } from '../../icc-api/model/AuthenticationResponse'
-import XHRError = XHR.XHRError
 
 /**
  * Differs from JwtBridgedAuthService in that it cannot create new refresh tokens
@@ -77,7 +74,7 @@ export class JwtAuthService implements AuthService {
     }
     const payload = this._base64Decode(parts[1])
     // Using the 'exp' string is safe to use as it is part of the JWT RFC and cannot be modified by us.
-    return !('exp' in payload) || payload['exp'] * 1000 < new Date().getTime()
+    return !('exp' in payload) || payload['exp'] * 1000 < new Date().getTime() - 10000
   }
 
   private _base64Decode(encodedString: string): any {
