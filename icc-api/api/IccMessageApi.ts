@@ -22,6 +22,8 @@ import { iccRestApiPath } from './IccRestApiPath'
 import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import {FilterChainMessage} from "../model/FilterChainMessage";
+import {AbstractFilterTopic} from "../model/AbstractFilterTopic"
+import {AbstractFilterMessage} from "../model/AbstractFilterMessage"
 
 export class IccMessageApi {
   host: string
@@ -518,5 +520,19 @@ export class IccMessageApi {
     return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
         .then((doc) => new PaginatedListMessage(doc.body as JSON))
         .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
+   * @summary Get ids of messages matching the provided filter for the current user (HcParty)
+   * @param body
+   */
+  async matchMessagesBy(body: AbstractFilterMessage): Promise<Array<string>> {
+    const _url = this.host + `/message/match` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
+      .catch((err) => this.handleError(err))
   }
 }
