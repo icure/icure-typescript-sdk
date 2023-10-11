@@ -72,12 +72,13 @@ export class IccAuthApi {
    * Login using username and password
    * @summary login
    * @param body
+   * @param duration the duration of the returned JWT authentication token, in seconds.
    */
-  login(body?: LoginCredentials): Promise<AuthenticationResponse> {
+  login(body?: LoginCredentials, duration?: number): Promise<AuthenticationResponse> {
     let _body = null
     _body = body
 
-    const _url = this.host + `/auth/login` + '?ts=' + new Date().getTime()
+    const _url = this.host + `/auth/login` + '?ts=' + new Date().getTime() + (!!duration ? `duration=${duration}` : '')
     let headers = this.headers
     headers = headers
       .filter((h) => h.header !== 'Content-Type' && h.header?.toLowerCase() !== 'authorization')
