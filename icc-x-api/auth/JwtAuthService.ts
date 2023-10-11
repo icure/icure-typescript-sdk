@@ -1,7 +1,6 @@
 import { AuthService } from './AuthService'
 import { XHR } from '../../icc-api/api/XHR'
-import { IccAuthApi, OAuthThirdParty } from '../../icc-api'
-import { LoginCredentials } from '../../icc-api/model/LoginCredentials'
+import { IccAuthApi } from '../../icc-api'
 import Header = XHR.Header
 import { a2b } from '../utils'
 import { AuthenticationResponse } from '../../icc-api/model/AuthenticationResponse'
