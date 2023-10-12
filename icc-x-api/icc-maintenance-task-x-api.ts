@@ -35,6 +35,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
     private readonly dataOwnerApi: IccDataOwnerXApi,
     private readonly userApi: IccUserXApi,
     private readonly authApi: IccAuthApi,
+    private readonly autofillAuthor: boolean,
     encryptedKeys: Array<string> = [],
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
@@ -72,8 +73,8 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
       id: m?.id ?? this.crypto.primitives.randomUuid(),
       created: m?.created ?? new Date().getTime(),
       modified: m?.modified ?? new Date().getTime(),
-      responsible: m?.responsible ?? dataOwnerId,
-      author: m?.author ?? user.id,
+      responsible: m?.responsible ?? (this.autofillAuthor ? dataOwnerId : undefined),
+      author: m?.author ?? (this.autofillAuthor ? user.id : undefined),
     }
 
     const extraDelegations = {

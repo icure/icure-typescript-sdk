@@ -30,6 +30,7 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
     private readonly crypto: IccCryptoXApi,
     private readonly dataOwnerApi: IccDataOwnerXApi,
     private readonly authApi: IccAuthApi,
+    private readonly autofillAuthor: boolean,
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     encryptedKeys: Array<string> = ['description'],
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
@@ -78,8 +79,8 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
       _type: 'org.taktik.icure.entities.Topic',
       created: c?.created ?? new Date().getTime(),
       modified: c?.modified ?? new Date().getTime(),
-      responsible: c?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
-      author: c?.author ?? user.id,
+      responsible: c?.responsible ?? (this.autofillAuthor ? this.dataOwnerApi.getDataOwnerIdOf(user) : undefined),
+      author: c?.author ?? (this.autofillAuthor ? user.id : undefined),
       codes: c?.codes ?? [],
       tags: c?.tags ?? [],
     }

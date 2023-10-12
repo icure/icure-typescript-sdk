@@ -29,6 +29,7 @@ export class IccClassificationXApi extends IccClassificationApi implements Encry
     headers: { [key: string]: string },
     crypto: IccCryptoXApi,
     dataOwnerApi: IccDataOwnerXApi,
+    private readonly autofillAuthor: boolean,
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
@@ -70,8 +71,8 @@ export class IccClassificationXApi extends IccClassificationApi implements Encry
       id: c?.id ?? this.crypto.primitives.randomUuid(),
       created: c?.created ?? new Date().getTime(),
       modified: c?.modified ?? new Date().getTime(),
-      responsible: c?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
-      author: c?.author ?? user.id,
+      responsible: c?.responsible ?? (this.autofillAuthor ? this.dataOwnerApi.getDataOwnerIdOf(user) : undefined),
+      author: c?.author ?? (this.autofillAuthor ? user.id : undefined),
       codes: c?.codes ?? [],
       tags: c?.tags ?? [],
       healthElementId: c?.healthElementId ?? this.crypto.primitives.randomUuid(),
