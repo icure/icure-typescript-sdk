@@ -29,6 +29,7 @@ export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntity
     headers: { [key: string]: string },
     private readonly crypto: IccCryptoXApi,
     private readonly dataOwnerApi: IccDataOwnerXApi,
+    private readonly autofillAuthor: boolean,
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
@@ -65,8 +66,8 @@ export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntity
       id: tt?.id ?? this.crypto.primitives.randomUuid(),
       created: tt?.created ?? new Date().getTime(),
       modified: tt?.modified ?? new Date().getTime(),
-      responsible: tt?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
-      author: tt?.author ?? user.id,
+      responsible: tt?.responsible ?? (this.autofillAuthor ? this.dataOwnerApi.getDataOwnerIdOf(user) : undefined),
+      author: tt?.author ?? (this.autofillAuthor ? user.id : undefined),
       codes: tt?.codes ?? [],
       tags: tt?.tags ?? [],
     }

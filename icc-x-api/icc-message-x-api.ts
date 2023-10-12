@@ -31,6 +31,7 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     private readonly crypto: IccCryptoXApi,
     private readonly dataOwnerApi: IccDataOwnerXApi,
     private readonly authApi: IccAuthApi,
+    private readonly autofillAuthor: boolean,
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     encryptedKeys: Array<string> = [],
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
@@ -78,8 +79,8 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
       id: m?.id ?? this.crypto.primitives.randomUuid(),
       created: m?.created ?? new Date().getTime(),
       modified: m?.modified ?? new Date().getTime(),
-      responsible: m?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
-      author: m?.author ?? user.id,
+      responsible: m?.responsible ?? (this.autofillAuthor ? this.dataOwnerApi.getDataOwnerIdOf(user) : undefined),
+      author: m?.author ?? (this.autofillAuthor ? user.id : undefined),
       codes: m?.codes ?? [],
       tags: m?.tags ?? [],
     }
