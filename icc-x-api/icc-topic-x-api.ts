@@ -321,7 +321,7 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
       requestedPermissions: RequestedPermissionEnum.FULL_WRITE,
     })
 
-    return await super.addParticipant(body, updatedTopic.id!)
+    return (await this.decrypt([await super.addParticipant(body, updatedTopic.id!)]))[0]
   }
 
   /**
