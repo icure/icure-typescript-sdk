@@ -10,7 +10,6 @@ import initApi = TestUtils.initApi
 import { Patient } from '../../icc-api/model/Patient'
 import { User } from '../../icc-api/model/User'
 import { randomUUID } from 'crypto'
-import { crypto } from '../../node-compat'
 import { AccessLog } from '../../icc-api/model/AccessLog'
 import { assert } from 'chai'
 
