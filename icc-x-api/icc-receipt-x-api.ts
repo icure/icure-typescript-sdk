@@ -23,6 +23,7 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
     headers: { [key: string]: string },
     private readonly crypto: IccCryptoXApi,
     private readonly dataOwnerApi: IccDataOwnerXApi,
+    private readonly autofillAuthor: boolean,
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
@@ -58,8 +59,8 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
       id: r?.id ?? this.crypto.primitives.randomUuid(),
       created: r?.created ?? new Date().getTime(),
       modified: r?.modified ?? new Date().getTime(),
-      responsible: r?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
-      author: r?.author ?? user.id,
+      responsible: r?.responsible ?? (this.autofillAuthor ? this.dataOwnerApi.getDataOwnerIdOf(user) : undefined),
+      author: r?.author ?? (this.autofillAuthor ? user.id : undefined),
       codes: r?.codes ?? [],
       tags: r?.tags ?? [],
     })

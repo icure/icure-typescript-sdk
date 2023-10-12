@@ -55,6 +55,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     private readonly calendarItemApi: IccCalendarItemXApi,
     private readonly userApi: IccUserXApi,
     private readonly authApi: IccAuthApi,
+    private readonly autofillAuthor: boolean,
     encryptedKeys: Array<string> = ['note'],
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
@@ -92,8 +93,8 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
       id: p?.id ?? this.crypto.primitives.randomUuid(),
       created: p?.created ?? new Date().getTime(),
       modified: p?.modified ?? new Date().getTime(),
-      responsible: p?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
-      author: p?.author ?? user.id,
+      responsible: p?.responsible ?? (this.autofillAuthor ? this.dataOwnerApi.getDataOwnerIdOf(user) : undefined),
+      author: p?.author ?? (this.autofillAuthor ? user.id : undefined),
       codes: p?.codes ?? [],
       tags: p?.tags ?? [],
     }

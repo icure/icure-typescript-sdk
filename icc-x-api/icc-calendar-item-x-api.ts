@@ -32,6 +32,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
     headers: { [key: string]: string },
     crypto: IccCryptoXApi,
     dataOwnerApi: IccDataOwnerXApi,
+    private readonly autofillAuthor: boolean,
     encryptedKeys: Array<string> = ['details', 'title', 'patientId'],
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
@@ -86,8 +87,8 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
       id: ci?.id ?? this.crypto.primitives.randomUuid(),
       created: ci?.created ?? new Date().getTime(),
       modified: ci?.modified ?? new Date().getTime(),
-      responsible: ci?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
-      author: ci?.author ?? user.id,
+      responsible: ci?.responsible ?? (this.autofillAuthor ? this.dataOwnerApi.getDataOwnerIdOf(user) : undefined),
+      author: ci?.author ?? (this.autofillAuthor ? user.id : undefined),
       codes: ci?.codes ?? [],
       tags: ci?.tags ?? [],
     }

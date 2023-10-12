@@ -33,6 +33,7 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
     headers: { [key: string]: string },
     crypto: IccCryptoXApi,
     dataOwnerApi: IccDataOwnerXApi,
+    private readonly autofillAuthor: boolean,
     cryptedKeys = ['detail', 'objectId'],
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
@@ -79,8 +80,8 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
       created: h?.created ?? new Date().getTime(),
       modified: h?.modified ?? new Date().getTime(),
       date: h?.date ?? new Date().getTime(),
-      responsible: h?.responsible ?? dataOwnerId,
-      author: h?.author ?? user.id,
+      responsible: h?.responsible ?? (this.autofillAuthor ? dataOwnerId : undefined),
+      author: h?.author ?? (this.autofillAuthor ? user.id : undefined),
       codes: h?.codes ?? [],
       tags: h?.tags ?? [],
       user: h?.user ?? user.id,
