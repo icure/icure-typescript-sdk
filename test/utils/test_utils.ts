@@ -153,7 +153,11 @@ export async function createNewHcpApi(env: TestVars): Promise<{
   return { api, credentials, user: await api.userApi.getCurrentUser() }
 }
 
-export async function createHcpHierarchyApis(env: TestVars): Promise<{
+export async function createHcpHierarchyApis(
+  env: TestVars,
+  setupAutodelegations: boolean = true,
+  disableParentKeysInitialisation: boolean = false
+): Promise<{
   grandApi: IcureApi
   grandUser: User
   grandCredentials: UserDetails
@@ -210,6 +214,7 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
       storage: grandStorage.storage,
       keyStorage: grandStorage.keyStorage,
       entryKeysFactory: grandStorage.keyFactory,
+      disableParentKeysInitialisation,
     }
   )
   const parentStorage = await testStorageWithKeys([
@@ -232,12 +237,15 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
       storage: parentStorage.storage,
       keyStorage: parentStorage.keyStorage,
       entryKeysFactory: parentStorage.keyFactory,
+      disableParentKeysInitialisation,
     }
   )
-  const parentUser = await parentApi.userApi.modifyUser({
-    ...(await parentApi.userApi.getCurrentUser()),
-    autoDelegations: { all: [grandCredentials.dataOwnerId] },
-  })
+  const parentUser = setupAutodelegations
+    ? await parentApi.userApi.modifyUser({
+        ...(await parentApi.userApi.getCurrentUser()),
+        autoDelegations: { all: [grandCredentials.dataOwnerId] },
+      })
+    : await parentApi.userApi.getCurrentUser()
   const childStorage = await testStorageWithKeys([
     {
       dataOwnerId: grandCredentials.dataOwnerId,
@@ -262,12 +270,15 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
       storage: childStorage.storage,
       keyStorage: childStorage.keyStorage,
       entryKeysFactory: childStorage.keyFactory,
+      disableParentKeysInitialisation,
     }
   )
-  const childUser = await childApi.userApi.modifyUser({
-    ...(await childApi.userApi.getCurrentUser()),
-    autoDelegations: { all: [grandCredentials.dataOwnerId, parentCredentials.dataOwnerId] },
-  })
+  const childUser = setupAutodelegations
+    ? await childApi.userApi.modifyUser({
+        ...(await childApi.userApi.getCurrentUser()),
+        autoDelegations: { all: [grandCredentials.dataOwnerId, parentCredentials.dataOwnerId] },
+      })
+    : await childApi.userApi.getCurrentUser()
   const child2Storage = await testStorageWithKeys([
     {
       dataOwnerId: grandCredentials.dataOwnerId,
@@ -288,12 +299,15 @@ export async function createHcpHierarchyApis(env: TestVars): Promise<{
       storage: child2Storage.storage,
       keyStorage: child2Storage.keyStorage,
       entryKeysFactory: child2Storage.keyFactory,
+      disableParentKeysInitialisation,
     }
   )
-  const child2User = await child2Api.userApi.modifyUser({
-    ...(await child2Api.userApi.getCurrentUser()),
-    autoDelegations: { all: [grandCredentials.dataOwnerId] },
-  })
+  const child2User = setupAutodelegations
+    ? await child2Api.userApi.modifyUser({
+        ...(await child2Api.userApi.getCurrentUser()),
+        autoDelegations: { all: [grandCredentials.dataOwnerId] },
+      })
+    : await child2Api.userApi.getCurrentUser()
   return {
     grandApi,
     grandUser: await grandApi.userApi.getCurrentUser(),
