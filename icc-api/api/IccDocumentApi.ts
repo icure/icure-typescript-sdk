@@ -198,6 +198,21 @@ export class IccDocumentApi {
   }
 
   /**
+   * Get the main attachment of a document forcing usage of `application/octet-stream` in Content-Type
+   * @param documentId id of the document
+   * @return the content of the main attachment for the document (if any)
+   */
+  async getRawMainDocumentAttachment(documentId: string): Promise<ArrayBuffer> {
+    let _body = null
+
+    const _url = this.host + `/document/${encodeURIComponent(String(documentId))}/attachment` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, "application/octet-stream", this.authenticationProvider.getAuthService())
+      .then((doc) => doc.body)
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    * Returns the first document corresponding to the externalUuid passed in the request
    * @summary Get a document
    * @param externalUuid

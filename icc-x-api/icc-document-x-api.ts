@@ -848,7 +848,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     document: models.Document,
     validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<{ data: ArrayBuffer; wasDecrypted: boolean }> {
-    return await this.crypto.xapi.tryDecryptDataOf({ entity: document, type: 'Document' }, await this.getMainDocumentAttachment(document.id!), (x) =>
+    return await this.crypto.xapi.tryDecryptDataOf({ entity: document, type: 'Document' }, await this.getRawMainDocumentAttachment(document.id!), (x) =>
       validator(x)
     )
   }
