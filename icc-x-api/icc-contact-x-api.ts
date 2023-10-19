@@ -1078,7 +1078,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
   getDataOwnersWithAccessTo(
     entity: models.Contact
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Contact' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'Contact' })
   }
 
   getEncryptionKeysOf(entity: models.Contact): Promise<string[]> {

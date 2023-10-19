@@ -245,7 +245,7 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
   getDataOwnersWithAccessTo(
     entity: models.Receipt
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Receipt' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'Receipt' })
   }
 
   getEncryptionKeysOf(entity: models.Receipt): Promise<string[]> {

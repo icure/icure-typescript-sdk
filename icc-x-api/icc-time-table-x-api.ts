@@ -184,7 +184,7 @@ export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntity
   getDataOwnersWithAccessTo(
     entity: models.TimeTable
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'TimeTable' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'TimeTable' })
   }
 
   getEncryptionKeysOf(entity: models.TimeTable): Promise<string[]> {

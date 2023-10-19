@@ -90,6 +90,7 @@ import { IccDoctemplateXApi } from './icc-doctemplate-x-api'
 import { UserGroup } from '../icc-api/model/UserGroup'
 import { IccTopicXApi } from './icc-topic-x-api'
 import { DataOwnerTypeEnum } from '../icc-api/model/DataOwnerTypeEnum'
+import { DelegationsDeAnonymization } from './crypto/DelegationsDeAnonymization'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -637,11 +638,17 @@ async function initialiseCryptoWithProvider(
     new IccExchangeDataMapApi(host, updatedHeaders, groupSpecificAuthenticationProvider, fetchImpl)
   )
   const secureDelegationsEncryption = new SecureDelegationsEncryption(userEncryptionKeysManager, cryptoPrimitives)
+  const secureDelegationsSecurityMetadataEncryption = new SecureDelegationsSecurityMetadataDecryptor(
+    exchangeDataManager,
+    exchangeDataMapManager,
+    secureDelegationsEncryption,
+    dataOwnerApi
+  )
   const xApiUtils = new ExtendedApisUtilsImpl(
     cryptoPrimitives,
     dataOwnerApi,
     new LegacyDelegationSecurityMetadataDecryptor(exchangeKeysManager, cryptoPrimitives),
-    new SecureDelegationsSecurityMetadataDecryptor(exchangeDataManager, exchangeDataMapManager, secureDelegationsEncryption, dataOwnerApi),
+    secureDelegationsSecurityMetadataEncryption,
     new SecureDelegationsManager(
       exchangeDataManager,
       exchangeDataMapManager,
@@ -659,6 +666,18 @@ async function initialiseCryptoWithProvider(
   const shamirManager = new ShamirKeysManager(cryptoPrimitives, dataOwnerApi, userEncryptionKeysManager, exchangeDataManager)
   const confidentialEntitites = new ConfidentialEntities(xApiUtils, cryptoPrimitives, dataOwnerApi)
   await ensureDelegationForSelf(dataOwnerApi, xApiUtils, basePatientApi, cryptoPrimitives)
+  const accessControlKeysHeadersProvider = new AccessControlKeysHeadersProvider(exchangeDataManager)
+  const delegationsDeAnonymisation = new DelegationsDeAnonymization(
+    secureDelegationsSecurityMetadataEncryption,
+    xApiUtils,
+    cryptoPrimitives,
+    accessControlSecretUtils,
+    host,
+    updatedHeaders,
+    groupSpecificAuthenticationProvider,
+    fetchImpl,
+    accessControlKeysHeadersProvider
+  )
   const cryptoApi = new IccCryptoXApi(
     exchangeKeysManager,
     cryptoPrimitives,
@@ -670,7 +689,8 @@ async function initialiseCryptoWithProvider(
     params.keyStorage,
     confidentialEntitites,
     exchangeDataManager,
-    new AccessControlKeysHeadersProvider(exchangeDataManager)
+    accessControlKeysHeadersProvider,
+    delegationsDeAnonymisation
   )
   const maintenanceTaskApi = new IccMaintenanceTaskXApi(
     host,

@@ -490,7 +490,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
   getDataOwnersWithAccessTo(
     entity: models.HealthElement
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'HealthElement' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'HealthElement' })
   }
 
   getEncryptionKeysOf(entity: models.HealthElement): Promise<string[]> {

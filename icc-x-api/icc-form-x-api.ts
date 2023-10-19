@@ -243,7 +243,7 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
   getDataOwnersWithAccessTo(
     entity: models.Form
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Form' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'Form' })
   }
 
   getEncryptionKeysOf(entity: models.Form): Promise<string[]> {

@@ -5,7 +5,7 @@ import AccessLevelEnum = SecureDelegation.AccessLevelEnum
  * Interface of common methods for XApis of any encryptable entities.
  */
 export interface EncryptedEntityXApi<T extends EncryptedEntity> {
-  /**
+  /**TODO update documentation
    * Get the ids of all data owners with access to the provided entity, including their permissions on the entity. This method also uses the
    * information available to the current user to attempt to identify the anonymous data owners with access to this entity. Note however that
    * the user may not be capable of identifying all anonymous data owners with access to the entity. In cases where there is at least an anonymous

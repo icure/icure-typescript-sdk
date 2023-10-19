@@ -6,7 +6,7 @@ import { SecureDelegationsSecurityMetadataDecryptor } from '../../../icc-x-api/c
 import { SecureDelegationsEncryption } from '../../../icc-x-api/crypto/SecureDelegationsEncryption'
 import { FakeDecryptionExchangeDataManager } from '../../utils/FakeExchangeDataManager'
 import { EncryptedEntityWithType, EntityWithDelegationTypeName } from '../../../icc-x-api/utils/EntityWithDelegationTypeName'
-import { ExchangeData } from '../../../icc-api/model/ExchangeData'
+import { ExchangeData } from '../../../icc-api/model/internal/ExchangeData'
 import { expect } from 'chai'
 import { IcureStub } from '../../../icc-api/model/IcureStub'
 import { SecureDelegation } from '../../../icc-api/model/SecureDelegation'

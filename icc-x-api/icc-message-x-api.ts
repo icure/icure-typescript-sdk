@@ -248,7 +248,7 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
   getDataOwnersWithAccessTo(
     entity: models.Message
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Message' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'Message' })
   }
 
   getEncryptionKeysOf(entity: models.Message): Promise<string[]> {

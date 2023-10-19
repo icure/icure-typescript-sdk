@@ -1008,7 +1008,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
   getDataOwnersWithAccessTo(
     entity: models.Document
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Document' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'Document' })
   }
 
   getEncryptionKeysOf(entity: models.Document): Promise<string[]> {

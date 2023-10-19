@@ -181,6 +181,8 @@ describe('Anonymous delegations', () => {
     }
   }
 
+  // TODO IMPORTANT test also with parent hcps!!!
+  // TODO IMPORTANT Also test that delegation key metadata is properly encrypted.ß
   it('should be properly identified by participants', async () => {
     const apiA = await createUserAndApi('explicit')
     const apiB = await createUserAndApi('explicit')

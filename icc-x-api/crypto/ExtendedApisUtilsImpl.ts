@@ -183,7 +183,7 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
         })
       }
     }
-    // TODO implement auto-retry for failed requests if the shouldRetry flag is set to true
+    // TODO implement auto-retry for failed requests if the shouldRetry flag in result.rejectedRequests is set to true
     return {
       updatedEntities,
       updateErrors,
@@ -829,11 +829,5 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
       } else return false
     }
     return true
-  }
-
-  getDataOwnersWithAccessTo(
-    entity: EncryptedEntityWithType
-  ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.allSecurityMetadataDecryptor.getDataOwnersWithAccessTo(entity)
   }
 }

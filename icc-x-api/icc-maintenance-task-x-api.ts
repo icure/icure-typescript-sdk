@@ -277,7 +277,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
   getDataOwnersWithAccessTo(
     entity: models.MaintenanceTask
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'MaintenanceTask' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'MaintenanceTask' })
   }
 
   getEncryptionKeysOf(entity: models.MaintenanceTask): Promise<string[]> {

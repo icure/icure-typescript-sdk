@@ -220,7 +220,7 @@ export class IccClassificationXApi extends IccClassificationApi implements Encry
   getDataOwnersWithAccessTo(
     entity: models.Classification
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Classification' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'Classification' })
   }
 
   getEncryptionKeysOf(entity: models.Classification): Promise<string[]> {

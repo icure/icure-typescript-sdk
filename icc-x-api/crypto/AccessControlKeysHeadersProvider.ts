@@ -2,7 +2,7 @@ import { ExchangeDataManager } from './ExchangeDataManager'
 import { XHR } from '../../icc-api/api/XHR'
 import { EntityWithDelegationTypeName } from '../utils/EntityWithDelegationTypeName'
 
-const ACCESS_CONTROL_KEYS_HEADER = 'Icure-Access-Control-Keys'
+export const ACCESS_CONTROL_KEYS_HEADER = 'Icure-Access-Control-Keys'
 
 /**
  * @internal this class is intended for internal use only and may be changed without notice.

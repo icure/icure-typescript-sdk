@@ -288,7 +288,7 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
   getDataOwnersWithAccessTo(
     entity: models.Invoice
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Invoice' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'Invoice' })
   }
 
   getEncryptionKeysOf(entity: models.Invoice): Promise<string[]> {

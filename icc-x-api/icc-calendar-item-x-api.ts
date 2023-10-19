@@ -371,7 +371,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
   getDataOwnersWithAccessTo(
     entity: CalendarItem
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'CalendarItem' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'CalendarItem' })
   }
 
   getEncryptionKeysOf(entity: CalendarItem): Promise<string[]> {

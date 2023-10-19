@@ -1,6 +1,6 @@
 import { ExchangeDataManager } from '../../icc-x-api/crypto/ExchangeDataManager'
 import { EntityWithDelegationTypeName } from '../../icc-x-api/utils/EntityWithDelegationTypeName'
-import { ExchangeData } from '../../icc-api/model/ExchangeData'
+import { ExchangeData } from '../../icc-api/model/internal/ExchangeData'
 import { expect } from 'chai'
 import { BaseExchangeDataManager } from '../../icc-x-api/crypto/BaseExchangeDataManager'
 

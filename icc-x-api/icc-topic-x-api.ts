@@ -246,7 +246,7 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
   getDataOwnersWithAccessTo(
     entity: models.Topic
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Topic' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'Topic' })
   }
 
   getEncryptionKeysOf(entity: models.Topic): Promise<string[]> {

@@ -1176,7 +1176,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
   getDataOwnersWithAccessTo(
     entity: models.Patient
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Patient' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'Patient' })
   }
 
   getEncryptionKeysOf(entity: models.Patient): Promise<string[]> {
