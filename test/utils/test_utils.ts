@@ -4,7 +4,7 @@ import { TextDecoder, TextEncoder } from 'util'
 import { v4 as uuid } from 'uuid'
 import { webcrypto } from 'crypto'
 import { TestApi } from './TestApi'
-import { Api as TestSetupApi, Apis as TestSetupApis } from '@icure/apiV6'
+import { IcureApi as TestSetupApi } from '@icure/api'
 import { testStorageWithKeys } from './TestStorage'
 import { TestCryptoStrategies } from './TestCryptoStrategies'
 import { User } from '../../icc-api/model/User'
@@ -12,6 +12,8 @@ import { TestEnvironmentBuilder } from '@icure/test-setup/builder'
 import { getEnvVariables, TestVars, UserDetails } from '@icure/test-setup/types'
 import { EnvInitializer } from '@icure/test-setup/decorators'
 import 'isomorphic-fetch'
+import { createPatientUser } from '@icure/test-setup/creation'
+
 export function getTempEmail(): string {
   return `${uuid().substring(0, 8)}@icure.com`
 }
@@ -70,7 +72,7 @@ export namespace TestUtils {
   }
 }
 
-export async function getApiAndAddPrivateKeysForUser(iCureUrl: string, details: UserDetails, options: IcureApiOptions | undefined) {
+export async function getApiAndAddPrivateKeysForUser(iCureUrl: string, details: UserDetails, options?: IcureApiOptions) {
   const RSA = new RSAUtils(webcrypto as any)
   const keys = {
     publicKey: await RSA.importKey('spki', hex2ua(details.publicKey), ['encrypt'], 'sha-1'),
@@ -80,7 +82,7 @@ export async function getApiAndAddPrivateKeysForUser(iCureUrl: string, details: 
 }
 
 async function createHealthcarePartyUser(
-  api: TestSetupApis,
+  api: TestSetupApi,
   userLogin: string,
   userToken: string,
   publicKey?: string,
@@ -121,17 +123,38 @@ export async function createNewHcpApi(env: TestVars): Promise<{
   credentials: UserDetails
   user: User
 }> {
-  const initialisationApi = await TestSetupApi(
-    env.iCureUrl + '/rest/v1',
-    env.masterHcp!.user,
-    env.masterHcp!.password,
-    webcrypto as any,
-    fetch,
-    true,
-    false
-  )
+  const initialisationApi = await testSetupMasterApi(env)
   const primitives = new CryptoPrimitives(webcrypto as any)
   const credentials = await createHealthcarePartyUser(initialisationApi, `user-${primitives.randomUuid()}`, primitives.randomUuid())
+  const storage = await testStorageWithKeys([
+    {
+      dataOwnerId: credentials.dataOwnerId,
+      pairs: [{ keyPair: { privateKey: credentials.privateKey, publicKey: credentials.publicKey }, shaVersion: 'sha-1' }],
+    },
+  ])
+  const api = await IcureApi.initialise(
+    env.iCureUrl,
+    { username: credentials.user, password: credentials.password },
+    new TestCryptoStrategies(),
+    webcrypto as any,
+    fetch,
+    {
+      storage: storage.storage,
+      keyStorage: storage.keyStorage,
+      entryKeysFactory: storage.keyFactory,
+    }
+  )
+  return { api, credentials, user: await api.userApi.getCurrentUser() }
+}
+
+export async function createNewPatientApi(env: TestVars): Promise<{
+  api: IcureApi
+  credentials: UserDetails
+  user: User
+}> {
+  const initialisationApi = await testSetupMasterApi(env)
+  const primitives = new CryptoPrimitives(webcrypto as any)
+  const credentials = await createPatientUser(initialisationApi, `user-${primitives.randomUuid()}`, primitives.randomUuid())
   const storage = await testStorageWithKeys([
     {
       dataOwnerId: credentials.dataOwnerId,
@@ -172,15 +195,7 @@ export async function createHcpHierarchyApis(
   child2Credentials: UserDetails
 }> {
   const shaVersion = 'sha-1'
-  const initialisationApi = await TestSetupApi(
-    env.iCureUrl + '/rest/v1',
-    env.masterHcp!.user,
-    env.masterHcp!.password,
-    webcrypto as any,
-    fetch,
-    true,
-    false
-  )
+  const initialisationApi = await testSetupMasterApi(env)
   const primitives = new CryptoPrimitives(webcrypto as any)
   const grandCredentials = await createHealthcarePartyUser(initialisationApi, `grand-${primitives.randomUuid()}`, primitives.randomUuid())
   const parentCredentials = await createHealthcarePartyUser(initialisationApi, `parent-${primitives.randomUuid()}`, primitives.randomUuid())
@@ -338,15 +353,7 @@ export async function createNewHcpWithoutKeyAndParentWithKey(
   childDataOwnerId: string
   childPassword: string
 }> {
-  const initialisationApi = await TestSetupApi(
-    env.iCureUrl + '/rest/v1',
-    env.masterHcp!.user,
-    env.masterHcp!.password,
-    webcrypto as any,
-    fetch,
-    true,
-    false
-  )
+  const initialisationApi = await testSetupMasterApi(env)
   const primitives = new CryptoPrimitives(webcrypto as any)
   const parentCredentials = await createHealthcarePartyUser(initialisationApi, `parent-${primitives.randomUuid()}`, primitives.randomUuid())
   const childUser = uuid() + '@email.com'
@@ -378,4 +385,24 @@ export async function createNewHcpWithoutKeyAndParentWithKey(
     childPassword,
     childDataOwnerId: childHcp.id!,
   }
+}
+
+function testSetupMasterApi(env: TestVars): Promise<TestSetupApi> {
+  return TestSetupApi.initialise(
+    env.iCureUrl,
+    { username: env.masterHcp!.user, password: env.masterHcp!.password },
+    {
+      generateNewKeyForDataOwner(): Promise<boolean> {
+        return Promise.resolve(true)
+      },
+      recoverAndVerifySelfHierarchyKeys(): never {
+        throw new Error('Unsupported')
+      },
+      verifyDelegatePublicKeys(delegate: any, publicKeys: string[]): Promise<string[]> {
+        return Promise.resolve(publicKeys)
+      },
+    },
+    webcrypto as any,
+    fetch
+  )
 }

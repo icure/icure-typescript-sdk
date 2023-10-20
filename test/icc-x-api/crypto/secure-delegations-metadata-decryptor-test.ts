@@ -48,7 +48,7 @@ describe('Secure delegations security metadata decryptor', async function () {
 
   async function initialiseComponents() {
     encryptionKeysManager = await FakeEncryptionKeysManager.create(primitives, [], [await primitives.RSA.generateKeyPair('sha-256')])
-    exchangeData = new FakeDecryptionExchangeDataManager(expectedType, expectedSfks)
+    exchangeData = new FakeDecryptionExchangeDataManager(expectedType, expectedSfks, new CryptoPrimitives(webcrypto as any))
     exchangeDataMap = new FakeExchangeDataMapManager()
     secureDelegationsEncryption = new SecureDelegationsEncryption(encryptionKeysManager, primitives)
     decryptor = new SecureDelegationsSecurityMetadataDecryptor(exchangeData, exchangeDataMap, secureDelegationsEncryption, undefined as any) // data owner api not used in these tests
