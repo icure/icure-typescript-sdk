@@ -176,6 +176,12 @@ export async function createNewPatientApi(env: TestVars): Promise<{
   return { api, credentials, user: await api.userApi.getCurrentUser() }
 }
 
+/**
+ * Creates a hierarchy of HCPs with the following structure:
+ * grand HCP -+-> parent HCP ---> child HCP
+ *            |
+ *            +-> child2 HCP
+ */
 export async function createHcpHierarchyApis(
   env: TestVars,
   setupAutodelegations: boolean = true,

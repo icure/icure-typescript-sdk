@@ -395,10 +395,18 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     } = {}
     for (const [delegateId, delegateRequests] of Object.entries(delegates)) {
       if (!availableEncryptionKeys.length && delegateRequests.shareEncryptionKeys === ShareMetadataBehaviour.REQUIRED) {
-        throw new Error(`Entity ${JSON.stringify(entity)} has no encryption keys or the current data owner can't access any encryption keys.`)
+        throw new Error(
+          `Entity ${JSON.stringify(
+            entity
+          )} has no encryption keys or the current data owner can't access any encryption keys, but sharing is required.`
+        )
       }
-      if (!availableOwningEntityIds.length && delegateRequests.shareEncryptionKeys === ShareMetadataBehaviour.REQUIRED) {
-        throw new Error(`Entity ${JSON.stringify(entity)} has no encryption keys or the current data owner can't access any encryption keys.`)
+      if (!availableOwningEntityIds.length && delegateRequests.shareOwningEntityIds === ShareMetadataBehaviour.REQUIRED) {
+        throw new Error(
+          `Entity ${JSON.stringify(
+            entity
+          )} has no owning entity ids or the current data owner can't access any owning entity ids, but sharing is required.`
+        )
       }
       if (!delegateRequests.shareSecretIds && !unusedSecretIds) {
         throw new Error(`Share secret ids parameter is mandatory for entities of type ${entity.type}.`)

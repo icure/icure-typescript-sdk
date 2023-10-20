@@ -668,6 +668,7 @@ async function initialiseCryptoWithProvider(
   await ensureDelegationForSelf(dataOwnerApi, xApiUtils, basePatientApi, cryptoPrimitives)
   const accessControlKeysHeadersProvider = new AccessControlKeysHeadersProvider(exchangeDataManager)
   const delegationsDeAnonymisation = new DelegationsDeAnonymization(
+    dataOwnerApi,
     secureDelegationsSecurityMetadataEncryption,
     xApiUtils,
     cryptoPrimitives,

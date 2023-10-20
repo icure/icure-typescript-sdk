@@ -14,13 +14,15 @@ import { XHR } from '../../icc-api/api/XHR'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../auth/AuthenticationProvider'
 import { ACCESS_CONTROL_KEYS_HEADER, AccessControlKeysHeadersProvider } from './AccessControlKeysHeadersProvider'
 import { AccessControlSecretUtils } from './AccessControlSecretUtils'
+import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
 
 // TODO could be optimised using bulk methods
 export class DelegationsDeAnonymization {
   private readonly delegationKeyMapFieldsToEncrypt: EncryptedFieldsManifest
-  private readonly delegationKeyMapApi: SecureDelegationKeyMapXApi
+  private readonly delegationKeyMapApi: IccSecureDelegationKeyMapApi
 
   constructor(
+    private readonly dataOwnerApi: IccDataOwnerXApi,
     private readonly secureDelegationsMetadataDecryptor: SecureDelegationsSecurityMetadataDecryptor,
     private readonly xapis: ExtendedApisUtils,
     private readonly cryptoPrimitives: CryptoPrimitives,
@@ -33,10 +35,10 @@ export class DelegationsDeAnonymization {
       : typeof self !== 'undefined'
       ? self.fetch
       : fetch,
-    accessControlKeysHeadersProvider: AccessControlKeysHeadersProvider
+    private readonly accessControlKeysHeadersProvider: AccessControlKeysHeadersProvider
   ) {
     this.delegationKeyMapFieldsToEncrypt = parseEncryptedFields(['delegate', 'delegator'], 'SecureDelegationKeyMap')
-    this.delegationKeyMapApi = new SecureDelegationKeyMapXApi(host, headers, authenticationProvider, fetchImpl, accessControlKeysHeadersProvider)
+    this.delegationKeyMapApi = new IccSecureDelegationKeyMapApi(host, headers, authenticationProvider, fetchImpl)
   }
 
   /**
@@ -66,7 +68,10 @@ export class DelegationsDeAnonymization {
       // Drop those for which we don't have the full information needed for the creation of new data.
       return !!delegationInfo.delegate && !!delegationInfo.delegator && !!delegationInfo.accessControlSecret
     })
-    const existingDelegationsMap = await this.getDecryptedSecureDelegationKeyMaps(Object.keys(delegationsForDeanonInfoSharing), entityWithType.type)
+    const existingDelegationsMap = await this.getDecryptedSecureDelegationKeyMaps(
+      delegationsForDeanonInfoSharing.map((x) => x[0]),
+      entityWithType.type
+    )
     for (const delMapToShare of existingDelegationsMap) {
       await this.ensureDelegationKeyMapSharedWith(entityWithType.type, delMapToShare, shareWithDataOwners)
     }
@@ -178,7 +183,10 @@ export class DelegationsDeAnonymization {
     entityType: EntityWithDelegationTypeName
   ): Promise<SecureDelegationKeyMap[]> {
     if (delegationIds.length) {
-      const encryptedMaps = await this.delegationKeyMapApi.getByDelegationKeys({ ids: delegationIds })
+      const encryptedMaps = await this.delegationKeyMapApi.getByDelegationKeys(
+        { ids: delegationIds },
+        await this.accessControlKeysHeadersProvider.getAccessControlKeysHeaders(entityType)
+      )
       const res: SecureDelegationKeyMap[] = []
       for (const encryptedMap of encryptedMaps) {
         // Use the original entity type
@@ -203,27 +211,33 @@ export class DelegationsDeAnonymization {
     )
       .flatMap((x) => [x.delegate, x.delegator])
       .filter((x) => !!x) as string[]
+    // Delegator and delegate got access to the entity when it was first created: no need to share with them ever.
     const dataOwnersWithAccessToMap = new Set([keyMap.delegate, keyMap.delegator, ...dataOwnersWithAccessToMapThroughDelegation])
     const dataOwnersNeedingShare = delegates.filter((x) => !dataOwnersWithAccessToMap.has(x))
-    if (!dataOwnersNeedingShare.length) return
-    ;(
-      await this.xapis.simpleShareOrUpdateEncryptedEntityMetadata(
-        { entity: keyMap, type: entityType },
-        false,
-        Object.fromEntries(
-          dataOwnersNeedingShare.map((x) => [
-            x,
-            {
-              shareSecretIds: [],
-              shareEncryptionKeys: ShareMetadataBehaviour.REQUIRED,
-              shareOwningEntityIds: ShareMetadataBehaviour.NEVER,
-              requestedPermissions: RequestedPermissionEnum.FULL_READ,
-            },
-          ])
-        ),
-        this.delegationKeyMapApi.bulkShareSecureDelegationKeyMap
-      )
-    ).updatedEntityOrThrow
+    if (dataOwnersNeedingShare.length) {
+      ;(
+        await this.xapis.simpleShareOrUpdateEncryptedEntityMetadata(
+          { entity: keyMap, type: entityType },
+          false,
+          Object.fromEntries(
+            dataOwnersNeedingShare.map((x) => [
+              x,
+              {
+                shareSecretIds: [],
+                shareEncryptionKeys: ShareMetadataBehaviour.REQUIRED,
+                shareOwningEntityIds: ShareMetadataBehaviour.NEVER,
+                requestedPermissions: RequestedPermissionEnum.FULL_READ,
+              },
+            ])
+          ),
+          async (request) =>
+            this.delegationKeyMapApi.bulkShareSecureDelegationKeyMap(
+              request,
+              await this.accessControlKeysHeadersProvider.getAccessControlKeysHeaders(entityType)
+            )
+        )
+      ).updatedEntityOrThrow
+    }
   }
 
   // Important: to avoid potentially leaking links between entities of different types the key map calculates the secure delegation keys using the
@@ -236,6 +250,10 @@ export class DelegationsDeAnonymization {
   ) {
     if (!delegationMembersDetails.delegate || !delegationMembersDetails.delegator || !delegationMembersDetails.accessControlSecret)
       throw new Error('Illegal state: delegation members details are missing delegate, delegator or access control secret info.')
+    const selfDoId = await this.dataOwnerApi.getCurrentDataOwnerId()
+    // Ensure that both the delegator and delegate of the delegation this map refers tho can share it later on, even if they did not create it.
+    // Usually either the delegator or delegate are the current data owner, but sometimes also the child of the delegator or delegate can do it.
+    const initialDelegates = [delegationMembersDetails.delegate, delegationMembersDetails.delegator, ...delegates].filter((x) => x != selfDoId)
     const initalisedMapInfo = await this.xapis.entityWithInitialisedEncryptedMetadata<SecureDelegationKeyMap>(
       {
         id: this.cryptoPrimitives.crypto.randomUUID(),
@@ -248,11 +266,7 @@ export class DelegationsDeAnonymization {
       undefined,
       true,
       false,
-      Object.fromEntries(
-        delegates
-          .filter((x) => x !== delegationMembersDetails.delegate && x !== delegationMembersDetails.delegator)
-          .map((x) => [x, AccessLevelEnum.READ])
-      )
+      Object.fromEntries(initialDelegates.map((x) => [x, AccessLevelEnum.READ]))
     )
     const encryptedKeyMap = await this.xapis.tryEncryptEntity(
       initalisedMapInfo.updatedEntity,
@@ -269,25 +283,5 @@ export class DelegationsDeAnonymization {
         await this.accessControlSecretUtils.getEncodedAccessControlKeys([delegationMembersDetails.accessControlSecret], entityType)
       )
     )
-  }
-}
-
-class SecureDelegationKeyMapXApi extends IccSecureDelegationKeyMapApi {
-  constructor(
-    host: string,
-    headers: { [key: string]: string },
-    authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
-    fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
-      ? window.fetch
-      : typeof self !== 'undefined'
-      ? self.fetch
-      : fetch,
-    private readonly accessControlKeysHeadersProvider: AccessControlKeysHeadersProvider
-  ) {
-    super(host, headers, authenticationProvider, fetchImpl)
-  }
-
-  get headers(): Promise<Array<XHR.Header>> {
-    return super.headers.then((h) => this.accessControlKeysHeadersProvider.addAccessControlKeysHeaders(h, 'HealthElement'))
   }
 }

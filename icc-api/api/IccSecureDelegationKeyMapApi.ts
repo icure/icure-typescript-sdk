@@ -41,11 +41,11 @@ export class IccSecureDelegationKeyMapApi {
     throw e
   }
 
-  async getByDelegationKeys(delegationKeys: ListOfIds): Promise<SecureDelegationKeyMap[]> {
+  async getByDelegationKeys(delegationKeys: ListOfIds, proofOfAccessHeaders: XHR.Header[]): Promise<SecureDelegationKeyMap[]> {
     let _body = delegationKeys
 
     const _url = this.host + `/securedelegationkeymap/bydelegationkeys` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
+    let headers = [...(await this.headers), ...proofOfAccessHeaders]
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new SecureDelegationKeyMap(it)))
@@ -63,11 +63,14 @@ export class IccSecureDelegationKeyMapApi {
       .catch((err) => this.handleError(err))
   }
 
-  async bulkShareSecureDelegationKeyMap(request: {
-    [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
-  }): Promise<EntityBulkShareResult<SecureDelegationKeyMap>[]> {
+  async bulkShareSecureDelegationKeyMap(
+    request: {
+      [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
+    },
+    proofOfAccessHeaders: XHR.Header[]
+  ): Promise<EntityBulkShareResult<SecureDelegationKeyMap>[]> {
     const _url = this.host + '/securedelegationkeymap/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
-    let headers = await this.headers
+    let headers = [...(await this.headers), ...proofOfAccessHeaders]
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((x) => new EntityBulkShareResult<SecureDelegationKeyMap>(x, SecureDelegationKeyMap)))
