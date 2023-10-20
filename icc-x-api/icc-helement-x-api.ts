@@ -516,4 +516,8 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
       async (encrypted) => (await this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(currentUser), [encrypted]))[0]
     ).then((rs) => new ConnectionImpl(rs))
   }
+
+  createDelegationDeAnonymizationMetadata(entity: HealthElement, delegates: string[]): Promise<void> {
+    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'HealthElement' }, delegates)
+  }
 }

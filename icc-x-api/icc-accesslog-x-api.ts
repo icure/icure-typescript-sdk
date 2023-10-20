@@ -426,4 +426,8 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
   getEncryptionKeysOf(entity: AccessLog): Promise<string[]> {
     return this.crypto.xapi.encryptionKeysOf({ entity, type: 'AccessLog' }, undefined)
   }
+
+  createDelegationDeAnonymizationMetadata(entity: AccessLog, delegates: string[]): Promise<void> {
+    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'AccessLog' }, delegates)
+  }
 }

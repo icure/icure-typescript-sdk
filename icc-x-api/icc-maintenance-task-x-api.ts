@@ -303,4 +303,8 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
       async (encrypted) => (await this.decrypt(currentUser, [encrypted]))[0]
     ).then((rs) => new ConnectionImpl(rs))
   }
+
+  createDelegationDeAnonymizationMetadata(entity: MaintenanceTask, delegates: string[]): Promise<void> {
+    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'MaintenanceTask' }, delegates)
+  }
 }

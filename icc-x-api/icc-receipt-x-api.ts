@@ -12,6 +12,7 @@ import { SecureDelegation } from '../icc-api/model/SecureDelegation'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import { XHR } from '../icc-api/api/XHR'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
+import { MaintenanceTask } from '../icc-api/model/models'
 
 export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi<models.Receipt> {
   get headers(): Promise<Array<XHR.Header>> {
@@ -250,5 +251,9 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
 
   getEncryptionKeysOf(entity: models.Receipt): Promise<string[]> {
     return this.crypto.xapi.encryptionKeysOf({ entity, type: 'Receipt' }, undefined)
+  }
+
+  createDelegationDeAnonymizationMetadata(entity: models.Receipt, delegates: string[]): Promise<void> {
+    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'Receipt' }, delegates)
   }
 }

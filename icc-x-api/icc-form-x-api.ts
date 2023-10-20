@@ -14,6 +14,7 @@ import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
+import { AccessLog } from '../icc-api/model/models'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<models.Form> {
@@ -248,5 +249,9 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
 
   getEncryptionKeysOf(entity: models.Form): Promise<string[]> {
     return this.crypto.xapi.encryptionKeysOf({ entity, type: 'Form' }, undefined)
+  }
+
+  createDelegationDeAnonymizationMetadata(entity: models.Form, delegates: string[]): Promise<void> {
+    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'Form' }, delegates)
   }
 }
