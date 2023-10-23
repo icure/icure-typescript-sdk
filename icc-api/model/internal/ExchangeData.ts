@@ -1,3 +1,6 @@
+/**
+ * @internal this entity is meant for internal use only
+ */
 export class ExchangeData {
   constructor(json: JSON | any) {
     if (!json.delegator || !json.delegate || !json.exchangeKey || !json.accessControlSecret || !json.signature)

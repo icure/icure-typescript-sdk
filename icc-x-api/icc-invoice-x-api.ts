@@ -3,7 +3,7 @@ import { IccCryptoXApi } from './icc-crypto-x-api'
 
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import { Invoice } from '../icc-api/model/models'
+import { HealthElement, Invoice } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
@@ -288,10 +288,14 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
   getDataOwnersWithAccessTo(
     entity: models.Invoice
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Invoice' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'Invoice' })
   }
 
   getEncryptionKeysOf(entity: models.Invoice): Promise<string[]> {
     return this.crypto.xapi.encryptionKeysOf({ entity, type: 'Invoice' }, undefined)
+  }
+
+  createDelegationDeAnonymizationMetadata(entity: models.Invoice, delegates: string[]): Promise<void> {
+    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'Invoice' }, delegates)
   }
 }

@@ -15,6 +15,7 @@ import { ShareResult } from './utils/ShareResult'
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
+import { AccessLog } from '../icc-api/model/models'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXApi<models.Document> {
@@ -1008,10 +1009,14 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
   getDataOwnersWithAccessTo(
     entity: models.Document
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Document' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'Document' })
   }
 
   getEncryptionKeysOf(entity: models.Document): Promise<string[]> {
     return this.crypto.xapi.encryptionKeysOf({ entity, type: 'Document' }, undefined)
+  }
+
+  createDelegationDeAnonymizationMetadata(entity: models.Document, delegates: string[]): Promise<void> {
+    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'Document' }, delegates)
   }
 }

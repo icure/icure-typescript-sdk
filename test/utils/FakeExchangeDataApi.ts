@@ -1,5 +1,5 @@
 import { IccExchangeDataApi } from '../../icc-api/api/IccExchangeDataApi'
-import { ExchangeData } from '../../icc-api/model/ExchangeData'
+import { ExchangeData } from '../../icc-api/model/internal/ExchangeData'
 import { PaginatedListExchangeData } from '../../icc-api/model/PaginatedListExchangeData'
 import { FakeGenericApi } from './FakeGenericApi'
 import { PaginatedDocumentKeyIdPairObject } from '../../icc-api/model/PaginatedDocumentKeyIdPairObject'

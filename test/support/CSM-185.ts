@@ -41,6 +41,7 @@ describe('CSM-185', async function () {
       )
     )
     const heNote = 'Another secret note'
+    await patApis.cryptoApi.forceReload()
     const he = await patApis.healthcareElementApi.createHealthElementWithUser(
       patUser,
       await patApis.healthcareElementApi.newInstance(

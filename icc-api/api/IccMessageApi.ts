@@ -21,9 +21,9 @@ import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-ap
 import { iccRestApiPath } from './IccRestApiPath'
 import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
-import {FilterChainMessage} from "../model/FilterChainMessage";
-import {AbstractFilterTopic} from "../model/AbstractFilterTopic"
-import {AbstractFilterMessage} from "../model/AbstractFilterMessage"
+import { FilterChainMessage } from '../model/FilterChainMessage'
+import { AbstractFilterTopic } from '../model/AbstractFilterTopic'
+import { AbstractFilterMessage } from '../model/AbstractFilterMessage'
 
 export class IccMessageApi {
   host: string
@@ -492,7 +492,7 @@ export class IccMessageApi {
   async bulkShareMessages(request: {
     [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
   }): Promise<EntityBulkShareResult<Message>[]> {
-    const _url = this.host + '/classification/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
+    const _url = this.host + '/message/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
@@ -509,17 +509,17 @@ export class IccMessageApi {
    */
   async filterMessagesBy(body: FilterChainMessage, startDocumentId?: string, limit?: number): Promise<PaginatedListMessage> {
     const _url =
-        this.host +
-        `/message/filter` +
-        '?ts=' +
-        new Date().getTime() +
-        (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
-        (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
+      this.host +
+      `/message/filter` +
+      '?ts=' +
+      new Date().getTime() +
+      (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
+      (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-        .then((doc) => new PaginatedListMessage(doc.body as JSON))
-        .catch((err) => this.handleError(err))
+      .then((doc) => new PaginatedListMessage(doc.body as JSON))
+      .catch((err) => this.handleError(err))
   }
 
   /**

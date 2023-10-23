@@ -1,6 +1,6 @@
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { EntityWithDelegationTypeName } from '../utils/EntityWithDelegationTypeName'
-import { ua2hex, utf8_2ua } from '../utils'
+import { ua2b64, ua2hex, utf8_2ua } from '../utils'
 
 const ACCESS_CONTROL_KEY_LENGTH_BYTES = 16
 
@@ -76,6 +76,16 @@ export class AccessControlSecretUtils {
     secretForeignKeys: string[]
   ): Promise<string[]> {
     return await this.getKeys(accessControlSecret, entityTypeName, secretForeignKeys, (a, b, c) => this.secureDelegationKeyFor(a, b, c))
+  }
+
+  async getEncodedAccessControlKeys(accessControlSecrets: string[], entityTypeName: EntityWithDelegationTypeName): Promise<string> {
+    const fullBuffer = new Uint8Array(accessControlSecrets.length * this.accessControlKeyLengthBytes)
+    for (let i = 0; i < accessControlSecrets.length; i++) {
+      const accessControlSecret = accessControlSecrets[i]
+      const key = await this.accessControlKeyFor(accessControlSecret, entityTypeName, undefined)
+      fullBuffer.set(new Uint8Array(key), i * this.accessControlKeyLengthBytes)
+    }
+    return ua2b64(fullBuffer)
   }
 
   private async getKeys<T>(

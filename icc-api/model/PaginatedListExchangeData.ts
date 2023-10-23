@@ -1,4 +1,4 @@
-import { ExchangeData } from './ExchangeData'
+import { ExchangeData } from './internal/ExchangeData'
 import { PaginatedDocumentKeyIdPairObject } from './PaginatedDocumentKeyIdPairObject'
 
 export class PaginatedListExchangeData {

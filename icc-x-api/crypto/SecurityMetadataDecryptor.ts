@@ -1,7 +1,6 @@
 import { EncryptedEntity, EncryptedEntityStub } from '../../icc-api/model/models'
 import { EncryptedEntityWithType } from '../utils/EntityWithDelegationTypeName'
 import { SecureDelegation } from '../../icc-api/model/SecureDelegation'
-import AccessLevel = SecureDelegation.AccessLevelEnum
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 
 /**
@@ -70,16 +69,7 @@ export interface SecurityMetadataDecryptor {
    * access level. This array should contain only data owners from the current data owner hierarchy.
    * @return the access level to the entity or undefined if none of the data owners has full access to the entity.
    */
-  getEntityAccessLevel(typedEntity: EncryptedEntityWithType, dataOwnersHierarchySubset: string[]): Promise<AccessLevel | undefined>
-
-  /**
-   * Get the access level of each data owner with access to the entity according to the metadata supported by this decryptor.
-   * See {@link EncryptedEntityXApi.getDataOwnersWithAccessTo} for details on the expected behaviour.
-   */
-  getDataOwnersWithAccessTo(typedEntity: EncryptedEntityWithType): Promise<{
-    permissionsByDataOwnerId: { [dataOwnerId: string]: AccessLevelEnum }
-    hasUnknownAnonymousDataOwners: boolean
-  }>
+  getEntityAccessLevel(typedEntity: EncryptedEntityWithType, dataOwnersHierarchySubset: string[]): Promise<AccessLevelEnum | undefined>
 
   /**
    * Verifies if there is at least one (encrypted) encryption key in the metadata supported by this decryptor, even if it can't be decrypted by the
@@ -123,11 +113,11 @@ export class SecurityMetadataDecryptorChain implements SecurityMetadataDecryptor
     let currMaxLevel: SecureDelegation.AccessLevelEnum | undefined = undefined
     for (const d of this.decryptors) {
       const currLevel = await d.getEntityAccessLevel(typedEntity, dataOwnersHierarchySubset)
-      if (currLevel === AccessLevel.WRITE) {
+      if (currLevel === AccessLevelEnum.WRITE) {
         return currLevel
       }
-      if (currLevel === AccessLevel.READ) {
-        currMaxLevel = AccessLevel.READ
+      if (currLevel === AccessLevelEnum.READ) {
+        currMaxLevel = AccessLevelEnum.READ
       }
     }
     return currMaxLevel
@@ -135,27 +125,6 @@ export class SecurityMetadataDecryptorChain implements SecurityMetadataDecryptor
 
   hasAnyEncryptionKeys(entity: EncryptedEntity | EncryptedEntityStub): boolean {
     return this.decryptors.some((d) => d.hasAnyEncryptionKeys(entity))
-  }
-
-  async getDataOwnersWithAccessTo(typedEntity: EncryptedEntityWithType): Promise<{
-    permissionsByDataOwnerId: { [dataOwnerId: string]: AccessLevelEnum }
-    hasUnknownAnonymousDataOwners: boolean
-  }> {
-    const accumulatedPermissions: { [dataOwnerId: string]: AccessLevelEnum } = {}
-    let hasUnknownAnonymousDataOwners = false
-    for (const d of this.decryptors) {
-      const currAccess = await d.getDataOwnersWithAccessTo(typedEntity)
-      hasUnknownAnonymousDataOwners = hasUnknownAnonymousDataOwners || currAccess.hasUnknownAnonymousDataOwners
-      for (const [dataOwnerId, level] of Object.entries(currAccess.permissionsByDataOwnerId)) {
-        if (accumulatedPermissions[dataOwnerId] !== AccessLevel.WRITE) {
-          accumulatedPermissions[dataOwnerId] = level
-        }
-      }
-    }
-    return {
-      permissionsByDataOwnerId: accumulatedPermissions,
-      hasUnknownAnonymousDataOwners,
-    }
   }
 
   private concatenate<T>(getGenerator: (d: SecurityMetadataDecryptor) => AsyncGenerator<T, void, never>): AsyncGenerator<T, void, never> {
