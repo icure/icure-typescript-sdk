@@ -15,6 +15,7 @@ import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
+import { AccessLog } from '../icc-api/model/models'
 
 export class IccClassificationXApi extends IccClassificationApi implements EncryptedEntityXApi<models.Classification> {
   crypto: IccCryptoXApi
@@ -220,10 +221,14 @@ export class IccClassificationXApi extends IccClassificationApi implements Encry
   getDataOwnersWithAccessTo(
     entity: models.Classification
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Classification' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'Classification' })
   }
 
   getEncryptionKeysOf(entity: models.Classification): Promise<string[]> {
     return this.crypto.xapi.encryptionKeysOf({ entity, type: 'Classification' }, undefined)
+  }
+
+  createDelegationDeAnonymizationMetadata(entity: models.Classification, delegates: string[]): Promise<void> {
+    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'Classification' }, delegates)
   }
 }

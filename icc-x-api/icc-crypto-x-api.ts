@@ -10,6 +10,7 @@ import { ConfidentialEntities } from './crypto/ConfidentialEntities'
 import { ExchangeDataManager } from './crypto/ExchangeDataManager'
 import { AccessControlKeysHeadersProvider } from './crypto/AccessControlKeysHeadersProvider'
 import { KeyPair } from './crypto/RSA'
+import { DelegationsDeAnonymization } from './crypto/DelegationsDeAnonymization'
 
 export class IccCryptoXApi {
   /**
@@ -83,6 +84,13 @@ export class IccCryptoXApi {
   }
 
   /**
+   * @internal this is for internal use only and may be changed without notice.
+   */
+  get delegationsDeAnonymization(): DelegationsDeAnonymization {
+    return this._delegationsDeAnonymisation
+  }
+
+  /**
    * @internal
    */
   constructor(
@@ -96,7 +104,8 @@ export class IccCryptoXApi {
     private readonly _keyStorage: KeyStorageFacade,
     private readonly _confidentialEntities: ConfidentialEntities,
     private readonly _exchangeDataManager: ExchangeDataManager,
-    private readonly _accessControlKeysHeaders: AccessControlKeysHeadersProvider
+    private readonly _accessControlKeysHeaders: AccessControlKeysHeadersProvider,
+    private readonly _delegationsDeAnonymisation: DelegationsDeAnonymization
   ) {}
 
   /**

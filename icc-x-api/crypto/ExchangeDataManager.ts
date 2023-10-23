@@ -1,4 +1,4 @@
-import { ExchangeData } from '../../icc-api/model/ExchangeData'
+import { ExchangeData } from '../../icc-api/model/internal/ExchangeData'
 import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { BaseExchangeDataManager } from './BaseExchangeDataManager'
 import { UserEncryptionKeysManager } from './UserEncryptionKeysManager'
@@ -114,7 +114,7 @@ export interface ExchangeDataManager {
     hashes: string[],
     entityType: EntityWithDelegationTypeName,
     entitySecretForeignKeys: string[]
-  ): Promise<{ [hash: string]: { exchangeData: ExchangeData; exchangeKey: CryptoKey } }>
+  ): Promise<{ [hash: string]: { exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey } }>
 
   /**
    * Retrieves the exchange data with the provided id (from the cache if available or from the server otherwise if allowed by
@@ -136,7 +136,7 @@ export interface ExchangeDataManager {
     entityType: EntityWithDelegationTypeName | undefined,
     entitySecretForeignKeys: string[] | undefined,
     retrieveIfNotCached: boolean
-  ): Promise<{ exchangeKey: CryptoKey | undefined; exchangeData: ExchangeData } | undefined>
+  ): Promise<{ exchangeKey: CryptoKey | undefined; accessControlSecret: string | undefined; exchangeData: ExchangeData } | undefined>
 
   /**
    * Clears the cache or fully repopulates the cache if the current data owner can retrieve all of his exchange data according to the crypto
@@ -283,7 +283,7 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
     hashes: string[],
     entityType: EntityWithDelegationTypeName,
     entitySecretForeignKeys: string[]
-  ): Promise<{ [p: string]: { exchangeData: ExchangeData; exchangeKey: CryptoKey } }> {
+  ): Promise<{ [p: string]: { exchangeData: ExchangeData; exchangeKey: CryptoKey; accessControlSecret: string } }> {
     throw new Error('Implemented by concrete class')
   }
 
@@ -292,7 +292,7 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
     entityType: EntityWithDelegationTypeName | undefined,
     entitySecretForeignKeys: string[] | undefined,
     retrieveIfNotCached: boolean
-  ): Promise<{ exchangeData: ExchangeData; exchangeKey: CryptoKey | undefined } | undefined> {
+  ): Promise<{ exchangeData: ExchangeData; exchangeKey: CryptoKey | undefined; accessControlSecret: string | undefined } | undefined> {
     throw new Error('Implemented by concrete class')
   }
 
@@ -322,22 +322,26 @@ class FullyCachedExchangeDataManager extends AbstractExchangeDataManager {
     hashes: string[],
     entityType: EntityWithDelegationTypeName,
     entitySecretForeignKeys: string[]
-  ): Promise<{ [hash: string]: { exchangeData: ExchangeData; exchangeKey: CryptoKey } }> {
+  ): Promise<{ [hash: string]: { exchangeData: ExchangeData; exchangeKey: CryptoKey; accessControlSecret: string } }> {
     function retrieveByHashesFromCaches(caches: {
       dataById: { [id: string]: CachedExchangeData }
       hashToId: Map<string, string>
       delegateToVerifiedEncryptionDataId: { [delegate: string]: string }
-    }): { [hash: string]: { exchangeData: ExchangeData; exchangeKey: CryptoKey } } {
+    }): { [hash: string]: { exchangeData: ExchangeData; exchangeKey: CryptoKey; accessControlSecret: string } } {
       return hashes.reduce((res, hash) => {
         const id = caches.hashToId.get(hash)
         if (id) {
           const cached = caches.dataById[id]
-          if (cached?.decrypted?.exchangeKey) {
-            res[hash] = { exchangeData: cached.exchangeData, exchangeKey: cached.decrypted.exchangeKey }
+          if (cached?.decrypted) {
+            res[hash] = {
+              exchangeData: cached.exchangeData,
+              exchangeKey: cached.decrypted.exchangeKey,
+              accessControlSecret: cached.decrypted.accessControlSecret,
+            }
           }
         }
         return res
-      }, {} as { [hash: string]: { exchangeData: ExchangeData; exchangeKey: CryptoKey } })
+      }, {} as { [hash: string]: { exchangeData: ExchangeData; exchangeKey: CryptoKey; accessControlSecret: string } })
     }
 
     const retrievedFromHashesCache = retrieveByHashesFromCaches(await this.caches)
@@ -391,17 +395,21 @@ class FullyCachedExchangeDataManager extends AbstractExchangeDataManager {
     entityType: EntityWithDelegationTypeName | undefined,
     entitySecretForeignKeys: string[] | undefined,
     retrieveIfNotCached: boolean
-  ): Promise<{ exchangeData: ExchangeData; exchangeKey: CryptoKey | undefined } | undefined> {
+  ): Promise<{ exchangeData: ExchangeData; exchangeKey: CryptoKey | undefined; accessControlSecret: string | undefined } | undefined> {
     const caches = await this.caches
     const cachedData = caches.dataById[id]
     if (cachedData) {
-      return { exchangeData: cachedData.exchangeData, exchangeKey: cachedData.decrypted?.exchangeKey }
+      return {
+        exchangeData: cachedData.exchangeData,
+        exchangeKey: cachedData.decrypted?.exchangeKey,
+        accessControlSecret: cachedData.decrypted?.accessControlSecret,
+      }
     } else if (retrieveIfNotCached) {
       const data = await this.base.getExchangeDataById(id)
       if (!data) throw new Error(`Could not find exchange data with id ${id}`)
       const decrypted = await this.decryptData(data)
       this.cacheData(data, decrypted, entityType, entitySecretForeignKeys)
-      return { exchangeData: data, exchangeKey: decrypted?.exchangeKey }
+      return { exchangeData: data, exchangeKey: decrypted?.exchangeKey, accessControlSecret: decrypted?.accessControlSecret }
     } else return undefined
   }
 
@@ -457,13 +465,7 @@ class FullyCachedExchangeDataManager extends AbstractExchangeDataManager {
     const cached = caches.entityTypeToAccessControlKeysValue[entityType]
     if (cached) return cached
     const accessControlSecrets = Object.values(caches.dataById).flatMap((x) => (x.decrypted ? [x.decrypted.accessControlSecret] : []))
-    const fullBuffer = new Uint8Array(accessControlSecrets.length * this.accessControlSecret.accessControlKeyLengthBytes)
-    for (let i = 0; i < accessControlSecrets.length; i++) {
-      const accessControlSecret = accessControlSecrets[i]
-      const key = await this.accessControlSecret.accessControlKeyFor(accessControlSecret, entityType, undefined)
-      fullBuffer.set(new Uint8Array(key), i * this.accessControlSecret.accessControlKeyLengthBytes)
-    }
-    const fullData = ua2b64(fullBuffer)
+    const fullData = await this.accessControlSecret.getEncodedAccessControlKeys(accessControlSecrets, entityType)
     caches.entityTypeToAccessControlKeysValue[entityType] = fullData
     return fullData
   }
@@ -512,16 +514,20 @@ class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
     hashes: string[],
     entityType: EntityWithDelegationTypeName,
     entitySecretForeignKeys: string[]
-  ): Promise<{ [p: string]: { exchangeData: ExchangeData; exchangeKey: CryptoKey } }> {
-    const res: { [p: string]: { exchangeData: ExchangeData; exchangeKey: CryptoKey } } = {}
+  ): Promise<{ [p: string]: { exchangeData: ExchangeData; exchangeKey: CryptoKey; accessControlSecret: string } }> {
+    const res: { [p: string]: { exchangeData: ExchangeData; exchangeKey: CryptoKey; accessControlSecret: string } } = {}
     for (const hash of hashes) {
       const dataId = this.hashToId.get(hash)
       if (dataId) {
         const retrieved = await this.idToDataCache.get(dataId, () => {
           throw new Error(`Data with id ${dataId} should have been already cached.`)
         })
-        if (retrieved?.decrypted?.exchangeKey) {
-          res[hash] = { exchangeData: retrieved.exchangeData, exchangeKey: retrieved.decrypted.exchangeKey }
+        if (retrieved.decrypted) {
+          res[hash] = {
+            exchangeData: retrieved.exchangeData,
+            exchangeKey: retrieved.decrypted.exchangeKey,
+            accessControlSecret: retrieved.decrypted.accessControlSecret,
+          }
         }
       }
     }
@@ -553,7 +559,7 @@ class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
     entityType: EntityWithDelegationTypeName | undefined,
     entitySecretForeignKeys: string[] | undefined,
     retrieveIfNotCached: boolean
-  ): Promise<{ exchangeData: ExchangeData; exchangeKey: CryptoKey | undefined } | undefined> {
+  ): Promise<{ exchangeData: ExchangeData; exchangeKey: CryptoKey | undefined; accessControlSecret: string | undefined } | undefined> {
     const cached = await this.idToDataCache.getIfCachedJob(id)
     if (cached) {
       const updated = await this.idToDataCache.get(
@@ -579,7 +585,11 @@ class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
         },
         () => true
       )
-      return { exchangeData: updated.exchangeData, exchangeKey: updated.decrypted?.exchangeKey }
+      return {
+        exchangeData: updated.exchangeData,
+        exchangeKey: updated.decrypted?.exchangeKey,
+        accessControlSecret: updated.decrypted?.accessControlSecret,
+      }
     } else if (retrieveIfNotCached) {
       return await this.idToDataCache
         .get(id, async () =>
@@ -599,7 +609,7 @@ class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
             }
           })
         )
-        .then((x) => ({ exchangeData: x.exchangeData, exchangeKey: x.decrypted?.exchangeKey }))
+        .then((x) => ({ exchangeData: x.exchangeData, exchangeKey: x.decrypted?.exchangeKey, accessControlSecret: x.decrypted?.accessControlSecret }))
     } else return undefined
   }
 

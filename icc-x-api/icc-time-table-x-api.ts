@@ -16,6 +16,7 @@ import { SecureDelegation } from '../icc-api/model/SecureDelegation'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import { XHR } from '../icc-api/api/XHR'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
+import { MaintenanceTask } from '../icc-api/model/models'
 
 export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntityXApi<models.TimeTable> {
   i18n: any = i18n
@@ -184,10 +185,14 @@ export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntity
   getDataOwnersWithAccessTo(
     entity: models.TimeTable
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'TimeTable' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'TimeTable' })
   }
 
   getEncryptionKeysOf(entity: models.TimeTable): Promise<string[]> {
     return this.crypto.xapi.encryptionKeysOf({ entity, type: 'TimeTable' }, undefined)
+  }
+
+  createDelegationDeAnonymizationMetadata(entity: models.TimeTable, delegates: string[]): Promise<void> {
+    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'TimeTable' }, delegates)
   }
 }

@@ -420,10 +420,14 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
   getDataOwnersWithAccessTo(
     entity: AccessLog
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'AccessLog' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'AccessLog' })
   }
 
   getEncryptionKeysOf(entity: AccessLog): Promise<string[]> {
     return this.crypto.xapi.encryptionKeysOf({ entity, type: 'AccessLog' }, undefined)
+  }
+
+  createDelegationDeAnonymizationMetadata(entity: AccessLog, delegates: string[]): Promise<void> {
+    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'AccessLog' }, delegates)
   }
 }

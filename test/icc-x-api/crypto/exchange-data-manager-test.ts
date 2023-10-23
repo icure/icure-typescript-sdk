@@ -14,7 +14,7 @@ import { ua2b64, ua2hex } from '../../../icc-x-api'
 import { FakeEncryptionKeysManager } from '../../utils/FakeEncryptionKeysManager'
 import { FakeSignatureKeysManager } from '../../utils/FakeSignatureKeysManager'
 import { AccessControlSecretUtils } from '../../../icc-x-api/crypto/AccessControlSecretUtils'
-import { ExchangeData } from '../../../icc-api/model/ExchangeData'
+import { ExchangeData } from '../../../icc-api/model/internal/ExchangeData'
 import { expect } from 'chai'
 import { setEquals } from '../../../icc-x-api/utils/collection-utils'
 import { KeyPair } from '../../../icc-x-api/crypto/RSA'
@@ -407,14 +407,8 @@ describe('Exchange data manager', async function () {
       const createdData2 = await createDataFromRandomToSelf()
       signatureKeysManager.clearKeys()
       await exchangeData.clearOrRepopulateCache()
-      await checkDataEqual(
-        await exchangeData.getDecryptionDataKeyById(createdData1.exchangeData.id!, 'Contact', [sfk], true),
-        _.omit(createdData1, 'accessControlSecret')
-      )
-      await checkDataEqual(
-        await exchangeData.getDecryptionDataKeyById(createdData2.exchangeData.id!, 'Contact', [sfk], true),
-        _.omit(createdData2, 'accessControlSecret')
-      )
+      await checkDataEqual(await exchangeData.getDecryptionDataKeyById(createdData1.exchangeData.id!, 'Contact', [sfk], true), createdData1)
+      await checkDataEqual(await exchangeData.getDecryptionDataKeyById(createdData2.exchangeData.id!, 'Contact', [sfk], true), createdData2)
     }
     await doTest(true)
     await doTest(false)
@@ -431,15 +425,15 @@ describe('Exchange data manager', async function () {
       const hashes2 = await accessControlSecretUtils.secureDelegationKeysFor(createdData2.accessControlSecret, 'HealthElement', [sfk1, sfk2])
       await checkDataEqual(
         await exchangeData.getDecryptionDataKeyById(createdData2.exchangeData.id!, 'HealthElement', [sfk1, sfk2], true),
-        _.omit(createdData2, 'accessControlSecret')
+        createdData2
       )
       const retrievedKeys = await exchangeData.getCachedDecryptionDataKeyByAccessControlHash([...hashes1, ...hashes2], 'Message', []) // Entity type and entity sfk should be irrelevant in this case
       expect(Object.keys(retrievedKeys)).to.have.length(hashes1.length + hashes2.length)
       for (const hash of hashes1) {
-        await checkDataEqual(retrievedKeys[hash], _.omit(createdData1, 'accessControlSecret'))
+        await checkDataEqual(retrievedKeys[hash], createdData1)
       }
       for (const hash of hashes2) {
-        await checkDataEqual(retrievedKeys[hash], _.omit(createdData2, 'accessControlSecret'))
+        await checkDataEqual(retrievedKeys[hash], createdData2)
       }
       const unknownAccessControlSecret = primitives.randomUuid()
       const unknownHashes = [
@@ -487,14 +481,8 @@ describe('Exchange data manager', async function () {
       const createdByOther = await createDataFromRandomToSelf()
       await encryptionKeysManager.addOrUpdateKey(primitives, selfKeypair, false)
       await exchangeData.clearOrRepopulateCache()
-      await checkDataEqual(
-        await exchangeData.getDecryptionDataKeyById(createdBySelf.exchangeData.id!, 'Patient', [], true),
-        _.omit(createdBySelf, 'accessControlSecret')
-      )
-      await checkDataEqual(
-        await exchangeData.getDecryptionDataKeyById(createdByOther.exchangeData.id!, 'Patient', [], true),
-        _.omit(createdByOther, 'accessControlSecret')
-      )
+      await checkDataEqual(await exchangeData.getDecryptionDataKeyById(createdBySelf.exchangeData.id!, 'Patient', [], true), createdBySelf)
+      await checkDataEqual(await exchangeData.getDecryptionDataKeyById(createdByOther.exchangeData.id!, 'Patient', [], true), createdByOther)
     }
     await doTest(true)
     await doTest(false)
@@ -509,20 +497,12 @@ describe('Exchange data manager', async function () {
       const apiCallsBaseline = exchangeDataApi.callCount
       const hashes = await accessControlSecretUtils.secureDelegationKeysFor(data.accessControlSecret, entityType, sfks)
       for (const hash of hashes) {
-        await checkDataEqual(
-          (
-            await exchangeData.getCachedDecryptionDataKeyByAccessControlHash([hash], entityType, sfks)
-          )[hash],
-          _.omit(data, 'accessControlSecret')
-        )
+        await checkDataEqual((await exchangeData.getCachedDecryptionDataKeyByAccessControlHash([hash], entityType, sfks))[hash], data)
       }
       if (data.exchangeData.delegator === selfId) {
         await checkDataEqual(await exchangeData.getOrCreateEncryptionDataTo(data.exchangeData.delegate, entityType, sfks), data)
       }
-      await checkDataEqual(
-        await exchangeData.getDecryptionDataKeyById(data.exchangeData.id!, entityType, sfks, true),
-        _.omit(data, 'accessControlSecret')
-      )
+      await checkDataEqual(await exchangeData.getDecryptionDataKeyById(data.exchangeData.id!, entityType, sfks, true), data)
       exchangeDataApi.compareCallCountFromBaseline(apiCallsBaseline, {
         getExchangeDataById: 0,
         createExchangeData: 0,
@@ -548,10 +528,7 @@ describe('Exchange data manager', async function () {
           getExchangeDataByDelegatorDelegate: 1,
         })
       } else {
-        await checkDataEqual(
-          await exchangeData.getDecryptionDataKeyById(data.exchangeData.id!, entityType, sfks, true),
-          _.omit(data, 'accessControlSecret')
-        )
+        await checkDataEqual(await exchangeData.getDecryptionDataKeyById(data.exchangeData.id!, entityType, sfks, true), data)
         exchangeDataApi.compareCallCountFromBaseline(apiCallsBaseline, {
           getExchangeDataById: 1,
           createExchangeData: 0,
@@ -611,14 +588,8 @@ describe('Exchange data manager', async function () {
       true
     )
     const apiCallsAfterCreation = exchangeDataApi.callCount
-    await checkDataEqual(
-      await recreatedExchangeData.getDecryptionDataKeyById(createdBySelf.exchangeData.id!, 'Patient', [], false),
-      _.omit(createdBySelf, 'accessControlSecret')
-    )
-    await checkDataEqual(
-      await recreatedExchangeData.getDecryptionDataKeyById(createdByOther.exchangeData.id!, 'Patient', [], false),
-      _.omit(createdByOther, 'accessControlSecret')
-    )
+    await checkDataEqual(await recreatedExchangeData.getDecryptionDataKeyById(createdBySelf.exchangeData.id!, 'Patient', [], false), createdBySelf)
+    await checkDataEqual(await recreatedExchangeData.getDecryptionDataKeyById(createdByOther.exchangeData.id!, 'Patient', [], false), createdByOther)
     exchangeDataApi.compareCallCountFromBaseline(apiCallsAfterCreation, {
       getExchangeDataById: 0,
       createExchangeData: 0,

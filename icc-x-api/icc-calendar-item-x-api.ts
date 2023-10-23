@@ -2,7 +2,7 @@ import * as i18n from './rsrc/contact.i18n'
 
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import { CalendarItem, EncryptedEntityStub, User } from '../icc-api/model/models'
+import { AccessLog, CalendarItem, EncryptedEntityStub, User } from '../icc-api/model/models'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 import { IccCalendarItemApi } from '../icc-api'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
@@ -371,7 +371,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
   getDataOwnersWithAccessTo(
     entity: CalendarItem
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'CalendarItem' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'CalendarItem' })
   }
 
   getEncryptionKeysOf(entity: CalendarItem): Promise<string[]> {
@@ -422,5 +422,9 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
     const sharedDecrypted = (await this.decrypt(self, [shared.updatedEntities[0]]))[0]
     const withSfk = await this.modifyAs(self, { ...sharedDecrypted, secretForeignKeys: [sfk] })
     return (await this.decrypt(self, [withSfk]))[0]
+  }
+
+  createDelegationDeAnonymizationMetadata(entity: CalendarItem, delegates: string[]): Promise<void> {
+    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'CalendarItem' }, delegates)
   }
 }
