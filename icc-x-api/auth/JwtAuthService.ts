@@ -29,6 +29,13 @@ export class JwtAuthService implements AuthService {
   }
 
   async getAuthHeaders(): Promise<Array<Header>> {
+    return this.getJWT()
+      .then((authJwt) => {
+        return [new XHR.Header('Authorization', `Bearer ${authJwt}`)]
+      })
+  }
+
+  async getJWT(): Promise<string | undefined> {
     return this._currentPromise
       .then((x) => {
         const authJwt = x?.authJwt
@@ -53,7 +60,7 @@ export class JwtAuthService implements AuthService {
         return this._currentPromise
       })
       .then((x) => {
-        return x?.authJwt ? [new XHR.Header('Authorization', `Bearer ${x.authJwt}`)] : Promise.reject('Cannot provide auth: No JWT')
+        return x?.authJwt
       })
   }
 
