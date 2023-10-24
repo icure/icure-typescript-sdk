@@ -13,7 +13,7 @@ import { CodeStub } from './CodeStub'
 import { Delegation } from './Delegation'
 import { MessageReadStatus } from './MessageReadStatus'
 import { SecurityMetadata } from './SecurityMetadata'
-import { EntityWithDelegationTypeName } from '../../icc-x-api/utils/EntityWithDelegationTypeName'
+import {MessageAttachment} from "./MessageAttachment"
 
 /**
  * This entity is a root level object. It represents a Message. It is serialized in JSON and saved in the underlying CouchDB database.
@@ -105,6 +105,10 @@ export class Message {
    * Status showing whether the message is read or not and the time of reading
    */
   readStatus?: { [key: string]: MessageReadStatus }
+  /**
+   * Attachments of the message
+   */
+  messageAttachments?: MessageAttachment[]
   transportGuid?: string
   remark?: string
   conversationGuid?: string
