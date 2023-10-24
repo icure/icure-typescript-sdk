@@ -53,7 +53,7 @@ export class UserSignatureKeysManager {
   /**
    * Get all available keys which can be used to verify the authenticity of a signature which should have been created
    * by the current data owner.
-   * @param fingerprint
+   * @param fingerprint v1 fingerprint of the key to retrieve.
    * @return all available verification keys by fingerprint.
    */
   async getSignatureVerificationKey(fingerprint: string): Promise<CryptoKey | undefined> {
@@ -61,7 +61,7 @@ export class UserSignatureKeysManager {
     if (cached) return cached
     const loaded = await this.iCureStorage.loadSignatureVerificationKey(await this.dataOwnerApi.getCurrentDataOwnerId(), fingerprint)
     if (loaded) {
-      const imported = await this.primitives.RSA.importKey('jwk', loaded, ['verify'], 'sha-256')
+      const imported = await this.primitives.RSA.importVerificationKey('jwk', loaded)
       this.verificationKeysCache.set(fingerprint, imported)
       return imported
     }
