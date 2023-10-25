@@ -15,6 +15,7 @@ import { ShareResult } from './utils/ShareResult'
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
+import { AccessLog } from '../icc-api/model/models'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXApi<models.Document> {
@@ -558,6 +559,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     private crypto: IccCryptoXApi,
     private authApi: IccAuthApi,
     dataOwnerApi: IccDataOwnerXApi,
+    private readonly autofillAuthor: boolean,
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
@@ -605,8 +607,8 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
       id: c?.id ?? this.crypto.primitives.randomUuid(),
       created: c?.created ?? new Date().getTime(),
       modified: c?.modified ?? new Date().getTime(),
-      responsible: c?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
-      author: c?.author ?? user.id,
+      responsible: c?.responsible ?? (this.autofillAuthor ? this.dataOwnerApi.getDataOwnerIdOf(user) : undefined),
+      author: c?.author ?? (this.autofillAuthor ? user.id : undefined),
       codes: c?.codes ?? [],
       tags: c?.tags ?? [],
     }
@@ -847,7 +849,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     document: models.Document,
     validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<{ data: ArrayBuffer; wasDecrypted: boolean }> {
-    return await this.crypto.xapi.tryDecryptDataOf({ entity: document, type: 'Document' }, await this.getMainDocumentAttachment(document.id!), (x) =>
+    return await this.crypto.xapi.tryDecryptDataOf({ entity: document, type: 'Document' }, await this.getRawMainDocumentAttachment(document.id!), (x) =>
       validator(x)
     )
   }
@@ -1007,10 +1009,14 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
   getDataOwnersWithAccessTo(
     entity: models.Document
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Document' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'Document' })
   }
 
   getEncryptionKeysOf(entity: models.Document): Promise<string[]> {
     return this.crypto.xapi.encryptionKeysOf({ entity, type: 'Document' }, undefined)
+  }
+
+  createDelegationDeAnonymizationMetadata(entity: models.Document, delegates: string[]): Promise<void> {
+    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'Document' }, delegates)
   }
 }

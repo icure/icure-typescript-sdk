@@ -1,7 +1,7 @@
 import { XHR } from './XHR'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
-import { ExchangeDataMap } from '../model/ExchangeDataMap'
+import { ExchangeDataMap } from '../model/internal/ExchangeDataMap'
 import { ExchangeDataMapCreationBatch } from '../model/ExchangeDataMapCreationBatch'
 import { ListOfIds } from '../model/ListOfIds'
 

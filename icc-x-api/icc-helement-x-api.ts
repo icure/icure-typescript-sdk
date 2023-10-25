@@ -36,6 +36,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     private readonly dataOwnerApi: IccDataOwnerXApi,
     private readonly userApi: IccUserXApi,
     private readonly authApi: IccAuthApi,
+    private readonly autofillAuthor: boolean,
     encryptedKeys: Array<string> = ['descr', 'note'],
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
@@ -82,8 +83,8 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
       id: h?.id ?? this.crypto.primitives.randomUuid(),
       created: h?.created ?? new Date().getTime(),
       modified: h?.modified ?? new Date().getTime(),
-      responsible: h?.responsible ?? dataOwnerId,
-      author: h?.author ?? user.id,
+      responsible: h?.responsible ?? (this.autofillAuthor ? dataOwnerId : undefined),
+      author: h?.author ?? (this.autofillAuthor ? user.id : undefined),
       codes: h?.codes ?? [],
       tags: h?.tags ?? [],
       healthElementId: h?.healthElementId ?? this.crypto.primitives.randomUuid(),
@@ -489,7 +490,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
   getDataOwnersWithAccessTo(
     entity: models.HealthElement
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'HealthElement' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'HealthElement' })
   }
 
   getEncryptionKeysOf(entity: models.HealthElement): Promise<string[]> {
@@ -514,5 +515,9 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
       options,
       async (encrypted) => (await this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(currentUser), [encrypted]))[0]
     ).then((rs) => new ConnectionImpl(rs))
+  }
+
+  createDelegationDeAnonymizationMetadata(entity: HealthElement, delegates: string[]): Promise<void> {
+    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'HealthElement' }, delegates)
   }
 }

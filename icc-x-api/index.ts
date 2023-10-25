@@ -90,6 +90,8 @@ import { IccDoctemplateXApi } from './icc-doctemplate-x-api'
 import { UserGroup } from '../icc-api/model/UserGroup'
 import { IccTopicXApi } from './icc-topic-x-api'
 import { IccRoleApi } from '../icc-api/api/IccRoleApi'
+import { DataOwnerTypeEnum } from '../icc-api/model/DataOwnerTypeEnum'
+import { DelegationsDeAnonymization } from './crypto/DelegationsDeAnonymization'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -427,7 +429,7 @@ export namespace EncryptedFieldsConfig {
     maintenanceTask: ['properties'],
     patient: ['note', 'notes[].markdown'],
     message: [],
-    topic: ['description'],
+    topic: ['description', 'linkedServices', 'linkedHealthElements'],
   }
 }
 
@@ -519,9 +521,9 @@ export namespace IcureApi {
      */
     const groupSpecificAuthenticationProvider =
       matches.length > 1 ? await grouplessAuthenticationProvider.switchGroup(chosenGroupId, matches) : grouplessAuthenticationProvider
-    const cryptoApis = await initialiseCryptoWithProvider(host, fetchImpl, groupSpecificAuthenticationProvider, params, cryptoStrategies, crypto)
+    const cryptoInitInfo = await initialiseCryptoWithProvider(host, fetchImpl, groupSpecificAuthenticationProvider, params, cryptoStrategies, crypto)
     return new IcureApiImpl(
-      cryptoApis,
+      cryptoInitInfo,
       host,
       groupSpecificAuthenticationProvider,
       fetch,
@@ -535,7 +537,7 @@ export namespace IcureApi {
 }
 
 // Apis which are used during crypto api initialisation, to avoid re-instantiating them later
-type CryptoInitialisationApis = {
+type CryptoInitialisationInfo = {
   cryptoApi: IccCryptoXApi
   healthcarePartyApi: IccHcpartyXApi
   deviceApi: IccDeviceXApi
@@ -544,7 +546,11 @@ type CryptoInitialisationApis = {
   userApi: IccUserXApi
   icureMaintenanceTaskApi: IccIcureMaintenanceXApi
   maintenanceTaskApi: IccMaintenanceTaskXApi
+  headers: { [headerName: string]: string }
+  dataOwnerRequiresAnonymousDelegation: boolean
 }
+
+const REQUEST_AUTOFIX_ANONYMITY_HEADER = 'Icure-Request-Autofix-Anonymity'
 
 async function initialiseCryptoWithProvider(
   host: string,
@@ -553,25 +559,39 @@ async function initialiseCryptoWithProvider(
   params: IcureApiOptions.WithDefaults,
   cryptoStrategies: CryptoStrategies,
   crypto: Crypto
-): Promise<CryptoInitialisationApis> {
-  // Here I instantiate a separate instance of the AuthApi that can call also login-protected methods (logout)
-  const authApi = new IccAuthApi(host, params.headers, groupSpecificAuthenticationProvider, fetchImpl)
-  const userApi = new IccUserXApi(host, params.headers, groupSpecificAuthenticationProvider, authApi, fetchImpl)
-  const healthcarePartyApi = new IccHcpartyXApi(host, params.headers, groupSpecificAuthenticationProvider, authApi, fetchImpl)
-  const deviceApi = new IccDeviceXApi(host, params.headers, groupSpecificAuthenticationProvider, userApi, authApi, fetchImpl)
-  const basePatientApi = new IccPatientApi(host, params.headers, groupSpecificAuthenticationProvider, fetchImpl)
-  const dataOwnerApi = new IccDataOwnerXApi(host, params.headers, groupSpecificAuthenticationProvider, fetchImpl)
-  const exchangeDataApi = new IccExchangeDataApi(host, params.headers, groupSpecificAuthenticationProvider, fetchImpl)
+): Promise<CryptoInitialisationInfo> {
+  const initialDataOwnerStub = await new IccDataOwnerXApi(
+    host,
+    params.headers,
+    groupSpecificAuthenticationProvider,
+    fetchImpl
+  ).getCurrentDataOwnerStub()
+  const dataOwnerRequiresAnonymousDelegation = cryptoStrategies.dataOwnerRequiresAnonymousDelegation(initialDataOwnerStub)
+  let updatedHeaders = params.headers
+  if (!Object.keys(updatedHeaders).includes(REQUEST_AUTOFIX_ANONYMITY_HEADER)) {
+    if (initialDataOwnerStub.type == DataOwnerTypeEnum.Patient || initialDataOwnerStub.type == DataOwnerTypeEnum.Device) {
+      if (!dataOwnerRequiresAnonymousDelegation) {
+        updatedHeaders = { ...updatedHeaders, [REQUEST_AUTOFIX_ANONYMITY_HEADER]: 'false' }
+      }
+    } else {
+      if (dataOwnerRequiresAnonymousDelegation) {
+        updatedHeaders = { ...updatedHeaders, [REQUEST_AUTOFIX_ANONYMITY_HEADER]: 'true' }
+      }
+    }
+  }
+
+  const authApi = new IccAuthApi(host, updatedHeaders, groupSpecificAuthenticationProvider, fetchImpl)
+  const userApi = new IccUserXApi(host, updatedHeaders, groupSpecificAuthenticationProvider, authApi, fetchImpl)
+  const healthcarePartyApi = new IccHcpartyXApi(host, updatedHeaders, groupSpecificAuthenticationProvider, authApi, fetchImpl)
+  const deviceApi = new IccDeviceXApi(host, updatedHeaders, groupSpecificAuthenticationProvider, userApi, authApi, fetchImpl)
+  const basePatientApi = new IccPatientApi(host, updatedHeaders, groupSpecificAuthenticationProvider, fetchImpl)
+  const dataOwnerApi = new IccDataOwnerXApi(host, updatedHeaders, groupSpecificAuthenticationProvider, fetchImpl)
+  const exchangeDataApi = new IccExchangeDataApi(host, updatedHeaders, groupSpecificAuthenticationProvider, fetchImpl)
   // Crypto initialisation
   const icureStorage = new IcureStorageFacade(params.keyStorage, params.storage, params.entryKeysFactory)
   const cryptoPrimitives = new CryptoPrimitives(crypto)
   const baseExchangeKeysManager = new BaseExchangeKeysManager(cryptoPrimitives, dataOwnerApi, healthcarePartyApi, basePatientApi, deviceApi)
-  const baseExchangeDataManager = new BaseExchangeDataManager(
-    exchangeDataApi,
-    dataOwnerApi,
-    cryptoPrimitives,
-    cryptoStrategies.dataOwnerRequiresAnonymousDelegation(await dataOwnerApi.getCurrentDataOwnerStub())
-  )
+  const baseExchangeDataManager = new BaseExchangeDataManager(exchangeDataApi, dataOwnerApi, cryptoPrimitives, dataOwnerRequiresAnonymousDelegation)
   const keyRecovery = new KeyRecovery(cryptoPrimitives, dataOwnerApi, baseExchangeKeysManager, baseExchangeDataManager)
   const userEncryptionKeysManager = new UserEncryptionKeysManager(
     cryptoPrimitives,
@@ -617,14 +637,20 @@ async function initialiseCryptoWithProvider(
     !params.disableParentKeysInitialisation
   )
   const exchangeDataMapManager = new ExchangeDataMapManager(
-    new IccExchangeDataMapApi(host, params.headers, groupSpecificAuthenticationProvider, fetchImpl)
+    new IccExchangeDataMapApi(host, updatedHeaders, groupSpecificAuthenticationProvider, fetchImpl)
   )
   const secureDelegationsEncryption = new SecureDelegationsEncryption(userEncryptionKeysManager, cryptoPrimitives)
+  const secureDelegationsSecurityMetadataEncryption = new SecureDelegationsSecurityMetadataDecryptor(
+    exchangeDataManager,
+    exchangeDataMapManager,
+    secureDelegationsEncryption,
+    dataOwnerApi
+  )
   const xApiUtils = new ExtendedApisUtilsImpl(
     cryptoPrimitives,
     dataOwnerApi,
     new LegacyDelegationSecurityMetadataDecryptor(exchangeKeysManager, cryptoPrimitives),
-    new SecureDelegationsSecurityMetadataDecryptor(exchangeDataManager, exchangeDataMapManager, secureDelegationsEncryption, dataOwnerApi),
+    secureDelegationsSecurityMetadataEncryption,
     new SecureDelegationsManager(
       exchangeDataManager,
       exchangeDataMapManager,
@@ -634,7 +660,7 @@ async function initialiseCryptoWithProvider(
       cryptoPrimitives,
       dataOwnerApi,
       cryptoStrategies,
-      cryptoStrategies.dataOwnerRequiresAnonymousDelegation(await dataOwnerApi.getCurrentDataOwnerStub())
+      dataOwnerRequiresAnonymousDelegation
     ),
     userApi,
     !params.disableParentKeysInitialisation
@@ -642,6 +668,19 @@ async function initialiseCryptoWithProvider(
   const shamirManager = new ShamirKeysManager(cryptoPrimitives, dataOwnerApi, userEncryptionKeysManager, exchangeDataManager)
   const confidentialEntitites = new ConfidentialEntities(xApiUtils, cryptoPrimitives, dataOwnerApi)
   await ensureDelegationForSelf(dataOwnerApi, xApiUtils, basePatientApi, cryptoPrimitives)
+  const accessControlKeysHeadersProvider = new AccessControlKeysHeadersProvider(exchangeDataManager)
+  const delegationsDeAnonymisation = new DelegationsDeAnonymization(
+    dataOwnerApi,
+    secureDelegationsSecurityMetadataEncryption,
+    xApiUtils,
+    cryptoPrimitives,
+    accessControlSecretUtils,
+    host,
+    updatedHeaders,
+    groupSpecificAuthenticationProvider,
+    fetchImpl,
+    accessControlKeysHeadersProvider
+  )
   const cryptoApi = new IccCryptoXApi(
     exchangeKeysManager,
     cryptoPrimitives,
@@ -653,16 +692,18 @@ async function initialiseCryptoWithProvider(
     params.keyStorage,
     confidentialEntitites,
     exchangeDataManager,
-    new AccessControlKeysHeadersProvider(exchangeDataManager)
+    accessControlKeysHeadersProvider,
+    delegationsDeAnonymisation
   )
   const maintenanceTaskApi = new IccMaintenanceTaskXApi(
     host,
-    params.headers,
+    updatedHeaders,
     cryptoApi,
     healthcarePartyApi,
     dataOwnerApi,
     userApi,
     authApi,
+    !dataOwnerRequiresAnonymousDelegation,
     params.encryptedFieldsConfig.maintenanceTask ?? EncryptedFieldsConfig.Defaults.maintenanceTask,
     groupSpecificAuthenticationProvider,
     fetchImpl
@@ -680,6 +721,8 @@ async function initialiseCryptoWithProvider(
     maintenanceTaskApi,
     dataOwnerApi,
     icureMaintenanceTaskApi,
+    headers: updatedHeaders,
+    dataOwnerRequiresAnonymousDelegation,
   }
 }
 
@@ -687,12 +730,12 @@ class IcureApiImpl implements IcureApi {
   private latestGroupsRequest: Promise<UserGroup[]>
 
   constructor(
-    private readonly cryptoInitApis: CryptoInitialisationApis,
+    private readonly cryptoInitInfos: CryptoInitialisationInfo,
     private readonly host: string,
     private readonly groupSpecificAuthenticationProvider: AuthenticationProvider,
     private readonly fetch: (input: RequestInfo, init?: RequestInit) => Promise<Response>,
     private readonly grouplessUserApi: IccUserApi,
-    private readonly latestMatches: UserGroup[],
+    latestMatches: UserGroup[],
     private readonly currentGroupInfo: UserGroup,
     private readonly params: IcureApiOptions.WithDefaults,
     private readonly cryptoStrategies: CryptoStrategies
@@ -703,13 +746,18 @@ class IcureApiImpl implements IcureApi {
   private _authApi: IccAuthApi | undefined
 
   get authApi(): IccAuthApi {
-    return this._authApi ?? (this._authApi = new IccAuthApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    return (
+      this._authApi ?? (this._authApi = new IccAuthApi(this.host, this.cryptoInitInfos.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
   }
 
   private _codeApi: IccCodeXApi | undefined
 
   get codeApi(): IccCodeXApi {
-    return this._codeApi ?? (this._codeApi = new IccCodeXApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    return (
+      this._codeApi ??
+      (this._codeApi = new IccCodeXApi(this.host, this.cryptoInitInfos.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
   }
 
   private _calendarItemTypeApi: IccCalendarItemTypeApi | undefined
@@ -717,7 +765,12 @@ class IcureApiImpl implements IcureApi {
   get calendarItemTypeApi(): IccCalendarItemTypeApi {
     return (
       this._calendarItemTypeApi ??
-      (this._calendarItemTypeApi = new IccCalendarItemTypeApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+      (this._calendarItemTypeApi = new IccCalendarItemTypeApi(
+        this.host,
+        this.cryptoInitInfos.headers,
+        this.groupSpecificAuthenticationProvider,
+        this.fetch
+      ))
     )
   }
 
@@ -726,7 +779,12 @@ class IcureApiImpl implements IcureApi {
   get medicalLocationApi(): IccMedicallocationApi {
     return (
       this._medicalLocationApi ??
-      (this._medicalLocationApi = new IccMedicallocationApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+      (this._medicalLocationApi = new IccMedicallocationApi(
+        this.host,
+        this.cryptoInitInfos.headers,
+        this.groupSpecificAuthenticationProvider,
+        this.fetch
+      ))
     )
   }
 
@@ -741,7 +799,7 @@ class IcureApiImpl implements IcureApi {
   get entityReferenceApi(): IccEntityrefApi {
     return (
       this._entityReferenceApi ??
-      (this._entityReferenceApi = new IccEntityrefApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+      (this._entityReferenceApi = new IccEntityrefApi(this.host, this.cryptoInitInfos.headers, this.groupSpecificAuthenticationProvider, this.fetch))
     )
   }
 
@@ -750,7 +808,7 @@ class IcureApiImpl implements IcureApi {
   get permissionApi(): IccPermissionApi {
     return (
       this._permissionApi ??
-      (this._permissionApi = new IccPermissionApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+      (this._permissionApi = new IccPermissionApi(this.host, this.cryptoInitInfos.headers, this.groupSpecificAuthenticationProvider, this.fetch))
     )
   }
 
@@ -761,9 +819,10 @@ class IcureApiImpl implements IcureApi {
       this._accessLogApi ??
       (this._accessLogApi = new IccAccesslogXApi(
         this.host,
-        this.params.headers,
+        this.cryptoInitInfos.headers,
         this.cryptoApi,
         this.dataOwnerApi,
+        !this.cryptoInitInfos.dataOwnerRequiresAnonymousDelegation,
         this.params.encryptedFieldsConfig.accessLog ?? EncryptedFieldsConfig.Defaults.accessLog,
         this.groupSpecificAuthenticationProvider,
         this.fetch
@@ -775,7 +834,8 @@ class IcureApiImpl implements IcureApi {
 
   get agendaApi(): IccAgendaApi {
     return (
-      this._agendaApi ?? (this._agendaApi = new IccAgendaApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+      this._agendaApi ??
+      (this._agendaApi = new IccAgendaApi(this.host, this.cryptoInitInfos.headers, this.groupSpecificAuthenticationProvider, this.fetch))
     )
   }
 
@@ -786,11 +846,12 @@ class IcureApiImpl implements IcureApi {
       this._contactApi ??
       (this._contactApi = new IccContactXApi(
         this.host,
-        this.params.headers,
+        this.cryptoInitInfos.headers,
         this.cryptoApi,
         this.dataOwnerApi,
         this.userApi,
         this.authApi,
+        !this.cryptoInitInfos.dataOwnerRequiresAnonymousDelegation,
         this.groupSpecificAuthenticationProvider,
         this.fetch,
         this.params.encryptedFieldsConfig.contact ?? EncryptedFieldsConfig.Defaults.contact,
@@ -806,9 +867,10 @@ class IcureApiImpl implements IcureApi {
       this._formApi ??
       (this._formApi = new IccFormXApi(
         this.host,
-        this.params.headers,
+        this.cryptoInitInfos.headers,
         this.cryptoApi,
         this.dataOwnerApi,
+        !this.cryptoInitInfos.dataOwnerRequiresAnonymousDelegation,
         this.groupSpecificAuthenticationProvider,
         this.fetch
       ))
@@ -818,7 +880,10 @@ class IcureApiImpl implements IcureApi {
   private _groupApi: IccGroupApi | undefined
 
   get groupApi(): IccGroupApi {
-    return this._groupApi ?? (this._groupApi = new IccGroupApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    return (
+      this._groupApi ??
+      (this._groupApi = new IccGroupApi(this.host, this.cryptoInitInfos.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
   }
 
   private _invoiceApi: IccInvoiceXApi | undefined
@@ -828,10 +893,11 @@ class IcureApiImpl implements IcureApi {
       this._invoiceApi ??
       (this._invoiceApi = new IccInvoiceXApi(
         this.host,
-        this.params.headers,
+        this.cryptoInitInfos.headers,
         this.cryptoApi,
         this.entityReferenceApi,
         this.dataOwnerApi,
+        !this.cryptoInitInfos.dataOwnerRequiresAnonymousDelegation,
         this.groupSpecificAuthenticationProvider,
         this.fetch
       ))
@@ -843,7 +909,7 @@ class IcureApiImpl implements IcureApi {
   get insuranceApi(): IccInsuranceApi {
     return (
       this._insuranceApi ??
-      (this._insuranceApi = new IccInsuranceApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+      (this._insuranceApi = new IccInsuranceApi(this.host, this.cryptoInitInfos.headers, this.groupSpecificAuthenticationProvider, this.fetch))
     )
   }
 
@@ -854,10 +920,11 @@ class IcureApiImpl implements IcureApi {
       this._documentApi ??
       (this._documentApi = new IccDocumentXApi(
         this.host,
-        this.params.headers,
+        this.cryptoInitInfos.headers,
         this.cryptoApi,
         this.authApi,
         this.dataOwnerApi,
+        !this.cryptoInitInfos.dataOwnerRequiresAnonymousDelegation,
         this.groupSpecificAuthenticationProvider,
         this.fetch
       ))
@@ -871,11 +938,12 @@ class IcureApiImpl implements IcureApi {
       this._healthcareElementApi ??
       (this._healthcareElementApi = new IccHelementXApi(
         this.host,
-        this.params.headers,
+        this.cryptoInitInfos.headers,
         this.cryptoApi,
         this.dataOwnerApi,
         this.userApi,
         this.authApi,
+        !this.cryptoInitInfos.dataOwnerRequiresAnonymousDelegation,
         this.params.encryptedFieldsConfig.healthElement ?? EncryptedFieldsConfig.Defaults.healthElement,
         this.groupSpecificAuthenticationProvider,
         this.fetch
@@ -890,9 +958,10 @@ class IcureApiImpl implements IcureApi {
       this._classificationApi ??
       (this._classificationApi = new IccClassificationXApi(
         this.host,
-        this.params.headers,
+        this.cryptoInitInfos.headers,
         this.cryptoApi,
         this.dataOwnerApi,
+        !this.cryptoInitInfos.dataOwnerRequiresAnonymousDelegation,
         this.groupSpecificAuthenticationProvider,
         this.fetch
       ))
@@ -906,9 +975,10 @@ class IcureApiImpl implements IcureApi {
       this._calendarItemApi ??
       (this._calendarItemApi = new IccCalendarItemXApi(
         this.host,
-        this.params.headers,
+        this.cryptoInitInfos.headers,
         this.cryptoApi,
         this.dataOwnerApi,
+        !this.cryptoInitInfos.dataOwnerRequiresAnonymousDelegation,
         this.params.encryptedFieldsConfig.calendarItem ?? EncryptedFieldsConfig.Defaults.calendarItem,
         this.groupSpecificAuthenticationProvider,
         this.fetch
@@ -923,9 +993,10 @@ class IcureApiImpl implements IcureApi {
       this._receiptApi ??
       (this._receiptApi = new IccReceiptXApi(
         this.host,
-        this.params.headers,
+        this.cryptoInitInfos.headers,
         this.cryptoApi,
         this.dataOwnerApi,
+        !this.cryptoInitInfos.dataOwnerRequiresAnonymousDelegation,
         this.groupSpecificAuthenticationProvider,
         this.fetch
       ))
@@ -939,9 +1010,10 @@ class IcureApiImpl implements IcureApi {
       this._timetableApi ??
       (this._timetableApi = new IccTimeTableXApi(
         this.host,
-        this.params.headers,
+        this.cryptoInitInfos.headers,
         this.cryptoApi,
         this.dataOwnerApi,
+        !this.cryptoInitInfos.dataOwnerRequiresAnonymousDelegation,
         this.groupSpecificAuthenticationProvider,
         this.fetch
       ))
@@ -955,7 +1027,7 @@ class IcureApiImpl implements IcureApi {
       this._patientApi ??
       (this._patientApi = new IccPatientXApi(
         this.host,
-        this.params.headers,
+        this.cryptoInitInfos.headers,
         this.cryptoApi,
         this.contactApi,
         this.formApi,
@@ -968,6 +1040,7 @@ class IcureApiImpl implements IcureApi {
         this.calendarItemApi,
         this.userApi,
         this.authApi,
+        !this.cryptoInitInfos.dataOwnerRequiresAnonymousDelegation,
         this.params.encryptedFieldsConfig.patient ?? EncryptedFieldsConfig.Defaults.patient,
         this.groupSpecificAuthenticationProvider,
         this.fetch
@@ -982,10 +1055,11 @@ class IcureApiImpl implements IcureApi {
       this._messageApi ??
       (this._messageApi = new IccMessageXApi(
         this.host,
-        this.params.headers,
+        this.cryptoInitInfos.headers,
         this.cryptoApi,
         this.dataOwnerApi,
         this.authApi,
+        !this.cryptoInitInfos.dataOwnerRequiresAnonymousDelegation,
         this.groupSpecificAuthenticationProvider,
         this.params.encryptedFieldsConfig.message ?? EncryptedFieldsConfig.Defaults.message,
         this.fetch
@@ -1000,10 +1074,11 @@ class IcureApiImpl implements IcureApi {
       this._topicApi ??
       (this._topicApi = new IccTopicXApi(
         this.host,
-        this.params.headers,
+        this.cryptoInitInfos.headers,
         this.cryptoApi,
         this.dataOwnerApi,
         this.authApi,
+        !this.cryptoInitInfos.dataOwnerRequiresAnonymousDelegation,
         this.groupSpecificAuthenticationProvider,
         this.params.encryptedFieldsConfig.topic ?? EncryptedFieldsConfig.Defaults.topic,
         this.fetch
@@ -1016,7 +1091,12 @@ class IcureApiImpl implements IcureApi {
   get anonymousAccessApi(): IccAnonymousAccessApi {
     return (
       this._anonymousAccessApi ??
-      (this._anonymousAccessApi = new IccAnonymousAccessApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+      (this._anonymousAccessApi = new IccAnonymousAccessApi(
+        this.host,
+        this.cryptoInitInfos.headers,
+        this.groupSpecificAuthenticationProvider,
+        this.fetch
+      ))
     )
   }
 
@@ -1027,7 +1107,7 @@ class IcureApiImpl implements IcureApi {
       this._applicationSettingsApi ??
       (this._applicationSettingsApi = new IccApplicationsettingsApi(
         this.host,
-        this.params.headers,
+        this.cryptoInitInfos.headers,
         this.groupSpecificAuthenticationProvider,
         this.fetch
       ))
@@ -1038,7 +1118,8 @@ class IcureApiImpl implements IcureApi {
 
   get articleApi(): IccArticleApi {
     return (
-      this._articleApi ?? (this._articleApi = new IccArticleApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+      this._articleApi ??
+      (this._articleApi = new IccArticleApi(this.host, this.cryptoInitInfos.headers, this.groupSpecificAuthenticationProvider, this.fetch))
     )
   }
 
@@ -1049,7 +1130,7 @@ class IcureApiImpl implements IcureApi {
       this._bekmehrApi ??
       (this._bekmehrApi = new IccBekmehrXApi(
         this.host,
-        this.params.headers,
+        this.cryptoInitInfos.headers,
         this.authApi,
         this.contactApi,
         this.healthcareElementApi,
@@ -1064,7 +1145,8 @@ class IcureApiImpl implements IcureApi {
 
   get beefactApi(): IccBeefactApi {
     return (
-      this._beefactApi ?? (this._beefactApi = new IccBeefactApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+      this._beefactApi ??
+      (this._beefactApi = new IccBeefactApi(this.host, this.cryptoInitInfos.headers, this.groupSpecificAuthenticationProvider, this.fetch))
     )
   }
 
@@ -1073,7 +1155,12 @@ class IcureApiImpl implements IcureApi {
   get beresultexportApi(): IccBeresultexportApi {
     return (
       this._beresultexportApi ??
-      (this._beresultexportApi = new IccBeresultexportApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+      (this._beresultexportApi = new IccBeresultexportApi(
+        this.host,
+        this.cryptoInitInfos.headers,
+        this.groupSpecificAuthenticationProvider,
+        this.fetch
+      ))
     )
   }
 
@@ -1082,7 +1169,12 @@ class IcureApiImpl implements IcureApi {
   get beresultimportApi(): IccBeresultimportApi {
     return (
       this._beresultimportApi ??
-      (this._beresultimportApi = new IccBeresultimportApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+      (this._beresultimportApi = new IccBeresultimportApi(
+        this.host,
+        this.cryptoInitInfos.headers,
+        this.groupSpecificAuthenticationProvider,
+        this.fetch
+      ))
     )
   }
 
@@ -1090,7 +1182,8 @@ class IcureApiImpl implements IcureApi {
 
   get besamv2Api(): IccBesamv2Api {
     return (
-      this._besamv2Api ?? (this._besamv2Api = new IccBesamv2Api(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+      this._besamv2Api ??
+      (this._besamv2Api = new IccBesamv2Api(this.host, this.cryptoInitInfos.headers, this.groupSpecificAuthenticationProvider, this.fetch))
     )
   }
 
@@ -1101,7 +1194,7 @@ class IcureApiImpl implements IcureApi {
       this._classificationTemplateApi ??
       (this._classificationTemplateApi = new IccClassificationTemplateApi(
         this.host,
-        this.params.headers,
+        this.cryptoInitInfos.headers,
         this.groupSpecificAuthenticationProvider,
         this.fetch
       ))
@@ -1115,7 +1208,7 @@ class IcureApiImpl implements IcureApi {
       this._doctemplateApi ??
       (this._doctemplateApi = new IccDoctemplateXApi(
         this.host,
-        this.params.headers,
+        this.cryptoInitInfos.headers,
         this.cryptoApi,
         this.groupSpecificAuthenticationProvider,
         this.fetch
@@ -1128,7 +1221,12 @@ class IcureApiImpl implements IcureApi {
   get entitytemplateApi(): IccEntitytemplateApi {
     return (
       this._entitytemplateApi ??
-      (this._entitytemplateApi = new IccEntitytemplateApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+      (this._entitytemplateApi = new IccEntitytemplateApi(
+        this.host,
+        this.cryptoInitInfos.headers,
+        this.groupSpecificAuthenticationProvider,
+        this.fetch
+      ))
     )
   }
 
@@ -1137,41 +1235,57 @@ class IcureApiImpl implements IcureApi {
   get frontendmigrationApi(): IccFrontendmigrationApi {
     return (
       this._frontendmigrationApi ??
-      (this._frontendmigrationApi = new IccFrontendmigrationApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+      (this._frontendmigrationApi = new IccFrontendmigrationApi(
+        this.host,
+        this.cryptoInitInfos.headers,
+        this.groupSpecificAuthenticationProvider,
+        this.fetch
+      ))
     )
   }
 
   private _icureApi: IccIcureApi | undefined
 
   get icureApi(): IccIcureApi {
-    return this._icureApi ?? (this._icureApi = new IccIcureApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    return (
+      this._icureApi ??
+      (this._icureApi = new IccIcureApi(this.host, this.cryptoInitInfos.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
   }
 
   private _keywordApi: IccKeywordApi | undefined
 
   get keywordApi(): IccKeywordApi {
     return (
-      this._keywordApi ?? (this._keywordApi = new IccKeywordApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+      this._keywordApi ??
+      (this._keywordApi = new IccKeywordApi(this.host, this.cryptoInitInfos.headers, this.groupSpecificAuthenticationProvider, this.fetch))
     )
   }
 
   private _medexApi: IccMedexApi | undefined
 
   get medexApi(): IccMedexApi {
-    return this._medexApi ?? (this._medexApi = new IccMedexApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    return (
+      this._medexApi ??
+      (this._medexApi = new IccMedexApi(this.host, this.cryptoInitInfos.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
   }
 
   private _placeApi: IccPlaceApi | undefined
 
   get placeApi(): IccPlaceApi {
-    return this._placeApi ?? (this._placeApi = new IccPlaceApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    return (
+      this._placeApi ??
+      (this._placeApi = new IccPlaceApi(this.host, this.cryptoInitInfos.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
   }
 
   private _pubsubApi: IccPubsubApi | undefined
 
   get pubsubApi(): IccPubsubApi {
     return (
-      this._pubsubApi ?? (this._pubsubApi = new IccPubsubApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+      this._pubsubApi ??
+      (this._pubsubApi = new IccPubsubApi(this.host, this.cryptoInitInfos.headers, this.groupSpecificAuthenticationProvider, this.fetch))
     )
   }
 
@@ -1180,7 +1294,7 @@ class IcureApiImpl implements IcureApi {
   get replicationApi(): IccReplicationApi {
     return (
       this._replicationApi ??
-      (this._replicationApi = new IccReplicationApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+      (this._replicationApi = new IccReplicationApi(this.host, this.cryptoInitInfos.headers, this.groupSpecificAuthenticationProvider, this.fetch))
     )
   }
 
@@ -1189,42 +1303,44 @@ class IcureApiImpl implements IcureApi {
   get tarificationApi(): IccTarificationApi {
     return (
       this._tarificationApi ??
-      (this._tarificationApi = new IccTarificationApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+      (this._tarificationApi = new IccTarificationApi(this.host, this.cryptoInitInfos.headers, this.groupSpecificAuthenticationProvider, this.fetch))
     )
   }
 
   private _tmpApi: IccTmpApi | undefined
 
   get tmpApi(): IccTmpApi {
-    return this._tmpApi ?? (this._tmpApi = new IccTmpApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    return (
+      this._tmpApi ?? (this._tmpApi = new IccTmpApi(this.host, this.cryptoInitInfos.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
   }
 
   get cryptoApi(): IccCryptoXApi {
-    return this.cryptoInitApis.cryptoApi
+    return this.cryptoInitInfos.cryptoApi
   }
 
   get dataOwnerApi(): IccDataOwnerXApi {
-    return this.cryptoInitApis.dataOwnerApi
+    return this.cryptoInitInfos.dataOwnerApi
   }
 
   get deviceApi(): IccDeviceXApi {
-    return this.cryptoInitApis.deviceApi
+    return this.cryptoInitInfos.deviceApi
   }
 
   get healthcarePartyApi(): IccHcpartyXApi {
-    return this.cryptoInitApis.healthcarePartyApi
+    return this.cryptoInitInfos.healthcarePartyApi
   }
 
   get icureMaintenanceTaskApi(): IccIcureMaintenanceXApi {
-    return this.cryptoInitApis.icureMaintenanceTaskApi
+    return this.cryptoInitInfos.icureMaintenanceTaskApi
   }
 
   get maintenanceTaskApi(): IccMaintenanceTaskXApi {
-    return this.cryptoInitApis.maintenanceTaskApi
+    return this.cryptoInitInfos.maintenanceTaskApi
   }
 
   get userApi(): IccUserXApi {
-    return this.cryptoInitApis.userApi
+    return this.cryptoInitInfos.userApi
   }
 
   async getGroupsInfo(): Promise<{ currentGroup: UserGroup; availableGroups: UserGroup[] }> {
@@ -1235,7 +1351,7 @@ class IcureApiImpl implements IcureApi {
   async switchGroup(newGroupId: string): Promise<IcureApi> {
     const availableGroups = await this.latestGroupsRequest
     const switchedProvider = await this.groupSpecificAuthenticationProvider.switchGroup(newGroupId, availableGroups)
-    const cryptoInitApis = await initialiseCryptoWithProvider(
+    const cryptoInitInfos = await initialiseCryptoWithProvider(
       this.host,
       this.fetch,
       switchedProvider,
@@ -1244,7 +1360,7 @@ class IcureApiImpl implements IcureApi {
       this.cryptoApi.primitives.crypto
     )
     return new IcureApiImpl(
-      cryptoInitApis,
+      cryptoInitInfos,
       this.host,
       switchedProvider,
       this.fetch,

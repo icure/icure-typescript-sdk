@@ -88,6 +88,11 @@ export * from './MaintenanceTaskByHcPartyAndIdentifiersFilter'
 export * from './MaintenanceTaskByHcPartyAndTypeFilter'
 export * from './MaintenanceTaskByIdsFilter'
 export * from './MaintenanceTaskAfterDateFilter'
+export * from './TopicByHcPartyFilter'
+export * from './TopicByParticipantFilter'
+export * from './MessageByHcPartyFilter'
+export * from './MessageByHcPartyTransportGuidFilter'
+export * from './LatestMessageByHcPartyTransportGuidFilter'
 
 export class Filter {
   public static patient(): PatientFilterBuilder {

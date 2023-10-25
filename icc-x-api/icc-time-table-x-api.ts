@@ -16,6 +16,7 @@ import { SecureDelegation } from '../icc-api/model/SecureDelegation'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import { XHR } from '../icc-api/api/XHR'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
+import { MaintenanceTask } from '../icc-api/model/models'
 
 export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntityXApi<models.TimeTable> {
   i18n: any = i18n
@@ -29,6 +30,7 @@ export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntity
     headers: { [key: string]: string },
     private readonly crypto: IccCryptoXApi,
     private readonly dataOwnerApi: IccDataOwnerXApi,
+    private readonly autofillAuthor: boolean,
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
@@ -65,8 +67,8 @@ export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntity
       id: tt?.id ?? this.crypto.primitives.randomUuid(),
       created: tt?.created ?? new Date().getTime(),
       modified: tt?.modified ?? new Date().getTime(),
-      responsible: tt?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
-      author: tt?.author ?? user.id,
+      responsible: tt?.responsible ?? (this.autofillAuthor ? this.dataOwnerApi.getDataOwnerIdOf(user) : undefined),
+      author: tt?.author ?? (this.autofillAuthor ? user.id : undefined),
       codes: tt?.codes ?? [],
       tags: tt?.tags ?? [],
     }
@@ -183,10 +185,14 @@ export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntity
   getDataOwnersWithAccessTo(
     entity: models.TimeTable
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'TimeTable' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'TimeTable' })
   }
 
   getEncryptionKeysOf(entity: models.TimeTable): Promise<string[]> {
     return this.crypto.xapi.encryptionKeysOf({ entity, type: 'TimeTable' }, undefined)
+  }
+
+  createDelegationDeAnonymizationMetadata(entity: models.TimeTable, delegates: string[]): Promise<void> {
+    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'TimeTable' }, delegates)
   }
 }

@@ -6,7 +6,7 @@ import i18n from './rsrc/contact.i18n'
 import * as moment from 'moment'
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import { Contact, FilterChainService, ListOfIds, Service } from '../icc-api/model/models'
+import { AccessLog, Contact, FilterChainService, ListOfIds, Service } from '../icc-api/model/models'
 import { PaginatedListContact } from '../icc-api/model/PaginatedListContact'
 import { a2b, b2a, string2ua, ua2string, utf8_2ua } from './utils/binary-utils'
 import { ServiceByIdsFilter } from './filters/ServiceByIdsFilter'
@@ -50,6 +50,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     private readonly dataOwnerApi: IccDataOwnerXApi,
     private readonly userApi: IccUserXApi,
     private readonly authApi: IccAuthApi,
+    private readonly autofillAuthor: boolean,
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
@@ -114,8 +115,8 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       id: c?.id ?? this.crypto.primitives.randomUuid(),
       created: c?.created ?? new Date().getTime(),
       modified: c?.modified ?? new Date().getTime(),
-      responsible: c?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
-      author: c?.author ?? user.id,
+      responsible: c?.responsible ?? (this.autofillAuthor ? this.dataOwnerApi.getDataOwnerIdOf(user) : undefined),
+      author: c?.author ?? (this.autofillAuthor ? user.id : undefined),
       codes: c?.codes ?? [],
       tags: c?.tags ?? [],
       groupId: c?.groupId ?? this.crypto.primitives.randomUuid(),
@@ -512,7 +513,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
 
         return new Service(
           await decryptObject(svc, async (encrypted) => {
-            return (await this.crypto.xapi.tryDecryptJson(keys!, encrypted, false)) ?? {}
+            return (await this.crypto.xapi.tryDecryptJson(currentKeys!, encrypted, false)) ?? {}
           })
         )
       })
@@ -1077,7 +1078,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
   getDataOwnersWithAccessTo(
     entity: models.Contact
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Contact' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'Contact' })
   }
 
   getEncryptionKeysOf(entity: models.Contact): Promise<string[]> {
@@ -1120,5 +1121,9 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       options,
       async (encrypted: Contact) => (await this.decrypt(currentUser.healthcarePartyId!, [encrypted]))[0]
     ).then((ws) => new ConnectionImpl(ws))
+  }
+
+  createDelegationDeAnonymizationMetadata(entity: Contact, delegates: string[]): Promise<void> {
+    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'Contact' }, delegates)
   }
 }

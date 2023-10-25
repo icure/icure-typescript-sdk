@@ -10,7 +10,7 @@ import { IccClassificationXApi } from './icc-classification-x-api'
 
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import { Document, IcureStub, ListOfIds, Patient } from '../icc-api/model/models'
+import { Document, IcureStub, ListOfIds, MaintenanceTask, Patient } from '../icc-api/model/models'
 import { IccCalendarItemXApi } from './icc-calendar-item-x-api'
 import { b64_2ab } from '../icc-api/model/ModelHelper'
 import { findName, garnishPersonWithName, hasName } from './utils/person-util'
@@ -55,6 +55,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     private readonly calendarItemApi: IccCalendarItemXApi,
     private readonly userApi: IccUserXApi,
     private readonly authApi: IccAuthApi,
+    private readonly autofillAuthor: boolean,
     encryptedKeys: Array<string> = ['note'],
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
@@ -92,8 +93,8 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
       id: p?.id ?? this.crypto.primitives.randomUuid(),
       created: p?.created ?? new Date().getTime(),
       modified: p?.modified ?? new Date().getTime(),
-      responsible: p?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
-      author: p?.author ?? user.id,
+      responsible: p?.responsible ?? (this.autofillAuthor ? this.dataOwnerApi.getDataOwnerIdOf(user) : undefined),
+      author: p?.author ?? (this.autofillAuthor ? user.id : undefined),
       codes: p?.codes ?? [],
       tags: p?.tags ?? [],
     }
@@ -1175,7 +1176,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
   getDataOwnersWithAccessTo(
     entity: models.Patient
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Patient' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'Patient' })
   }
 
   getEncryptionKeysOf(entity: models.Patient): Promise<string[]> {
@@ -1242,5 +1243,9 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
       options,
       async (encrypted) => (await this.decrypt(currentUser, [encrypted]))[0]
     ).then((rs) => new ConnectionImpl(rs))
+  }
+
+  createDelegationDeAnonymizationMetadata(entity: Patient, delegates: string[]): Promise<void> {
+    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'Patient' }, delegates)
   }
 }

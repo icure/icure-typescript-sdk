@@ -1,3 +1,6 @@
+/**
+ * @internal this entity is meant for internal use only
+ */
 export class ExchangeDataMap {
   constructor(json: JSON | any) {
     Object.assign(this as ExchangeDataMap, json)

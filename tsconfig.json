@@ -10,7 +10,7 @@
     "noImplicitThis": true,
     "allowSyntheticDefaultImports": true,
     "preserveConstEnums": true,
-    "lib": ["es2017", "es6", "es5", "dom"],
+    "lib": ["es2017", "es6", "es5", "DOM"],
     "sourceMap": true,
     "inlineSources": true,
     "declaration": true,

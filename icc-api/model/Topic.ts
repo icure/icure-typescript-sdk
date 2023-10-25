@@ -25,14 +25,6 @@ export class Topic {
      */
     modified?: number
     /**
-     * Id of the healthcare element that is linked
-     */
-    healthElementId?: string
-    /**
-     * Id of the contact that is linked
-     */
-    contactId?: string
-    /**
      * Name/basic description of the topic
      */
     description?: string
@@ -70,6 +62,11 @@ export class Topic {
      * This should not be used directly, in the future the format may change. Make sure to only edit this through methods of {@link IccTopicXApi}.
      */
     activeParticipants?: { [key: string]: TopicRole }
+
+    linkedServices?: string[]
+
+    linkedHealthElements?: string[]
+
     securityMetadata?: SecurityMetadata
     /**
      * The secretForeignKeys are filled at the to many end of a one to many relationship (for example inside Contact for the Patient -> Contacts relationship). Used when we want to find all contacts for a specific patient. These keys are in clear. You can have several to partition the medical document space.

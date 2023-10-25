@@ -14,6 +14,7 @@ import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
+import { AccessLog } from '../icc-api/model/models'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<models.Form> {
@@ -29,6 +30,7 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
     headers: { [key: string]: string },
     crypto: IccCryptoXApi,
     dataOwnerApi: IccDataOwnerXApi,
+    private readonly autofillAuthor: boolean,
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
@@ -70,8 +72,8 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
       id: c?.id ?? this.crypto.primitives.randomUuid(),
       created: c?.created ?? new Date().getTime(),
       modified: c?.modified ?? new Date().getTime(),
-      responsible: c?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
-      author: c?.author ?? user.id,
+      responsible: c?.responsible ?? (this.autofillAuthor ? this.dataOwnerApi.getDataOwnerIdOf(user) : undefined),
+      author: c?.author ?? (this.autofillAuthor ? user.id : undefined),
       codes: c?.codes ?? [],
       tags: c?.tags ?? [],
     }
@@ -242,10 +244,14 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
   getDataOwnersWithAccessTo(
     entity: models.Form
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Form' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'Form' })
   }
 
   getEncryptionKeysOf(entity: models.Form): Promise<string[]> {
     return this.crypto.xapi.encryptionKeysOf({ entity, type: 'Form' }, undefined)
+  }
+
+  createDelegationDeAnonymizationMetadata(entity: models.Form, delegates: string[]): Promise<void> {
+    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'Form' }, delegates)
   }
 }

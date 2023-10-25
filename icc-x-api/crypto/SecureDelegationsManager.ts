@@ -6,7 +6,7 @@ import { EncryptedEntityWithType, EntityWithDelegationTypeName } from '../utils/
 import { LruTemporisedAsyncCache } from '../utils/lru-temporised-async-cache'
 import { fingerprintV2, hexPublicKeysWithSha1Of, hexPublicKeysWithSha256Of } from './utils'
 import { ExchangeDataManager } from './ExchangeDataManager'
-import { ExchangeData } from '../../icc-api/model/ExchangeData'
+import { ExchangeData } from '../../icc-api/model/internal/ExchangeData'
 import { SecureDelegationsEncryption } from './SecureDelegationsEncryption'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { hex2ua, ua2hex } from '../utils'

@@ -3,7 +3,7 @@ import { IccCryptoXApi } from './icc-crypto-x-api'
 
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import { ListOfIds, Topic, TopicRole } from '../icc-api/model/models'
+import { ListOfIds, MaintenanceTask, Topic, TopicRole } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
@@ -30,6 +30,7 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
     private readonly crypto: IccCryptoXApi,
     private readonly dataOwnerApi: IccDataOwnerXApi,
     private readonly authApi: IccAuthApi,
+    private readonly autofillAuthor: boolean,
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     encryptedKeys: Array<string> = ['description'],
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
@@ -78,8 +79,8 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
       _type: 'org.taktik.icure.entities.Topic',
       created: c?.created ?? new Date().getTime(),
       modified: c?.modified ?? new Date().getTime(),
-      responsible: c?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
-      author: c?.author ?? user.id,
+      responsible: c?.responsible ?? (this.autofillAuthor ? this.dataOwnerApi.getDataOwnerIdOf(user) : undefined),
+      author: c?.author ?? (this.autofillAuthor ? user.id : undefined),
       codes: c?.codes ?? [],
       tags: c?.tags ?? [],
     }
@@ -245,7 +246,7 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
   getDataOwnersWithAccessTo(
     entity: models.Topic
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Topic' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'Topic' })
   }
 
   getEncryptionKeysOf(entity: models.Topic): Promise<string[]> {
@@ -321,7 +322,7 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
       requestedPermissions: RequestedPermissionEnum.FULL_WRITE,
     })
 
-    return await super.addParticipant(body, updatedTopic.id!)
+    return (await this.decrypt([await super.addParticipant(body, updatedTopic.id!)]))[0]
   }
 
   /**
@@ -351,5 +352,9 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
       options,
       async (encrypted) => (await this.decrypt([encrypted]))[0]
     ).then((rs) => new ConnectionImpl(rs))
+  }
+
+  createDelegationDeAnonymizationMetadata(entity: Topic, delegates: string[]): Promise<void> {
+    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'Topic' }, delegates)
   }
 }

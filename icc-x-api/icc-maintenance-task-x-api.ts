@@ -35,6 +35,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
     private readonly dataOwnerApi: IccDataOwnerXApi,
     private readonly userApi: IccUserXApi,
     private readonly authApi: IccAuthApi,
+    private readonly autofillAuthor: boolean,
     encryptedKeys: Array<string> = [],
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
@@ -72,8 +73,8 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
       id: m?.id ?? this.crypto.primitives.randomUuid(),
       created: m?.created ?? new Date().getTime(),
       modified: m?.modified ?? new Date().getTime(),
-      responsible: m?.responsible ?? dataOwnerId,
-      author: m?.author ?? user.id,
+      responsible: m?.responsible ?? (this.autofillAuthor ? dataOwnerId : undefined),
+      author: m?.author ?? (this.autofillAuthor ? user.id : undefined),
     }
 
     const extraDelegations = {
@@ -276,7 +277,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
   getDataOwnersWithAccessTo(
     entity: models.MaintenanceTask
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'MaintenanceTask' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'MaintenanceTask' })
   }
 
   getEncryptionKeysOf(entity: models.MaintenanceTask): Promise<string[]> {
@@ -301,5 +302,9 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
       options,
       async (encrypted) => (await this.decrypt(currentUser, [encrypted]))[0]
     ).then((rs) => new ConnectionImpl(rs))
+  }
+
+  createDelegationDeAnonymizationMetadata(entity: MaintenanceTask, delegates: string[]): Promise<void> {
+    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'MaintenanceTask' }, delegates)
   }
 }

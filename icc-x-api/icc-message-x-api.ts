@@ -2,7 +2,7 @@ import { IccAuthApi, IccMessageApi } from '../icc-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 
 import * as models from '../icc-api/model/models'
-import { Message, PaginatedListMessage, Patient, User } from '../icc-api/model/models'
+import {MaintenanceTask, Message, MessagesReadStatusUpdate, PaginatedListMessage, Patient, User} from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
@@ -31,6 +31,7 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     private readonly crypto: IccCryptoXApi,
     private readonly dataOwnerApi: IccDataOwnerXApi,
     private readonly authApi: IccAuthApi,
+    private readonly autofillAuthor: boolean,
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     encryptedKeys: Array<string> = [],
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
@@ -78,8 +79,8 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
       id: m?.id ?? this.crypto.primitives.randomUuid(),
       created: m?.created ?? new Date().getTime(),
       modified: m?.modified ?? new Date().getTime(),
-      responsible: m?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
-      author: m?.author ?? user.id,
+      responsible: m?.responsible ?? (this.autofillAuthor ? this.dataOwnerApi.getDataOwnerIdOf(user) : undefined),
+      author: m?.author ?? (this.autofillAuthor ? user.id : undefined),
       codes: m?.codes ?? [],
       tags: m?.tags ?? [],
     }
@@ -247,7 +248,7 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
   getDataOwnersWithAccessTo(
     entity: models.Message
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Message' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'Message' })
   }
 
   getEncryptionKeysOf(entity: models.Message): Promise<string[]> {
@@ -268,6 +269,10 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     const encryptedMessage = await this.encrypt([body])
     const createdMessage = await super.createMessage(encryptedMessage[0])
     return (await this.decrypt([createdMessage]))[0].entity
+  }
+
+  async setMessagesReadStatus(body?: MessagesReadStatusUpdate): Promise<Array<Message>> {
+    return (await this.decrypt(await super.setMessagesReadStatus(body))).map((m) => m.entity)
   }
 
   async getAndDecryptMessage(messageId: string): Promise<Message> {
@@ -293,5 +298,9 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
       options,
       async (encrypted) => (await this.decrypt([encrypted]))[0].entity
     ).then((rs) => new ConnectionImpl(rs))
+  }
+
+  createDelegationDeAnonymizationMetadata(entity: Message, delegates: string[]): Promise<void> {
+    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'Message' }, delegates)
   }
 }

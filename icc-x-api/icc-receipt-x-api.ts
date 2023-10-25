@@ -12,6 +12,7 @@ import { SecureDelegation } from '../icc-api/model/SecureDelegation'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import { XHR } from '../icc-api/api/XHR'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
+import { MaintenanceTask } from '../icc-api/model/models'
 
 export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi<models.Receipt> {
   get headers(): Promise<Array<XHR.Header>> {
@@ -23,6 +24,7 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
     headers: { [key: string]: string },
     private readonly crypto: IccCryptoXApi,
     private readonly dataOwnerApi: IccDataOwnerXApi,
+    private readonly autofillAuthor: boolean,
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
@@ -58,8 +60,8 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
       id: r?.id ?? this.crypto.primitives.randomUuid(),
       created: r?.created ?? new Date().getTime(),
       modified: r?.modified ?? new Date().getTime(),
-      responsible: r?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
-      author: r?.author ?? user.id,
+      responsible: r?.responsible ?? (this.autofillAuthor ? this.dataOwnerApi.getDataOwnerIdOf(user) : undefined),
+      author: r?.author ?? (this.autofillAuthor ? user.id : undefined),
       codes: r?.codes ?? [],
       tags: r?.tags ?? [],
     })
@@ -244,10 +246,14 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
   getDataOwnersWithAccessTo(
     entity: models.Receipt
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.xapi.getDataOwnersWithAccessTo({ entity, type: 'Receipt' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'Receipt' })
   }
 
   getEncryptionKeysOf(entity: models.Receipt): Promise<string[]> {
     return this.crypto.xapi.encryptionKeysOf({ entity, type: 'Receipt' }, undefined)
+  }
+
+  createDelegationDeAnonymizationMetadata(entity: models.Receipt, delegates: string[]): Promise<void> {
+    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'Receipt' }, delegates)
   }
 }
