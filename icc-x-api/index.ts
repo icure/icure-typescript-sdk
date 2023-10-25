@@ -89,6 +89,7 @@ import { IccBekmehrXApi } from './icc-bekmehr-x-api'
 import { IccDoctemplateXApi } from './icc-doctemplate-x-api'
 import { UserGroup } from '../icc-api/model/UserGroup'
 import { IccTopicXApi } from './icc-topic-x-api'
+import { IccRoleApi } from '../icc-api/api/IccRoleApi'
 import { DataOwnerTypeEnum } from '../icc-api/model/DataOwnerTypeEnum'
 import { DelegationsDeAnonymization } from './crypto/DelegationsDeAnonymization'
 
@@ -176,6 +177,7 @@ export interface Apis {
   readonly tarificationApi: IccTarificationApi
   readonly tmpApi: IccTmpApi
   readonly topicApi: IccTopicXApi
+  readonly roleApi: IccRoleApi
 }
 
 /**
@@ -784,6 +786,12 @@ class IcureApiImpl implements IcureApi {
         this.fetch
       ))
     )
+  }
+
+  private _roleApi: IccRoleApi | undefined
+
+  get roleApi(): IccRoleApi {
+    return this._roleApi ?? (this._roleApi = new IccRoleApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
   }
 
   private _entityReferenceApi: IccEntityrefApi | undefined
