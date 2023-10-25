@@ -25,6 +25,8 @@ import { ReplicationInfo } from '../model/ReplicationInfo'
 import { Unit } from '../model/Unit'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
+import { RoleConfiguration } from '../model/RoleConfiguration'
+import { UserTypeEnum } from '../model/UserTypeEnum'
 
 export class IccGroupApi {
   host: string
@@ -411,10 +413,39 @@ export class IccGroupApi {
   }
 
   /**
+   * Sets the default roles to assign to a certain category of users in a group.
+   *
+   * @param groupId the group to update.
+   * @param userType the type of user.
+   * @param roleIds the ids of the roles to assign by default to that type of user.
+   * @return the updated group
+   */
+  setDefaultRoles(groupId: string, userType: UserTypeEnum, roleIds: string[]): Promise<Group> {
+    const _body = new ListOfIds({ ids: roleIds })
+
+    const _url = this.host + `/group/${encodeURIComponent(groupId)}/defaultRoles?userType=${userType}&ts=${new Date().getTime()}`
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => JSON.parse(JSON.stringify(doc.body)))
+      .catch((err) => this.handleError(err))
+  }
+
+  getDefaultRoles(groupId: string): Promise<{ [key in UserTypeEnum]: RoleConfiguration[] }> {
+    const _body = null
+
+    const _url = this.host + `/group/${encodeURIComponent(groupId)}/defaultRoles?ts=${new Date().getTime()}`
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => JSON.parse(JSON.stringify(doc.body)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    * Create a new group and associated dbs.  The created group will be manageable by the users that belong to the same group as the one that called createGroup. Several tasks can be executed during the group creation like DB replications towards the created DBs, users creation and healthcare parties creation
    * @summary Create a group
    * @param body
-   * @param type The tyoe of the group (default: root)
+   * @param type The type of the group (default: root)
    * @param role The role of the user (default: admin)
    */
   registerNewGroupAdministrator(type?: string, role?: string, body?: RegistrationInformation): Promise<RegistrationSuccess> {
