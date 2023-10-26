@@ -114,11 +114,11 @@ export class IccTopicApi {
    * @param topicId the id of the topic to delete
    * @return a Promise that will resolve in the DocIdentifier of the deleted topic.
    */
-  async deleteTopic(topicId: string): Promise<Array<DocIdentifier>> {
+  async deleteTopic(topicId: string): Promise<DocIdentifier> {
     const _url = this.host + `/topic/${encodeURIComponent(topicId)}` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     return XHR.sendCommand('DELETE', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
+      .then((doc) => new DocIdentifier(doc.body))
       .catch((err) => this.handleError(err))
   }
 

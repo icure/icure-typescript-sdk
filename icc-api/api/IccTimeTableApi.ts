@@ -68,16 +68,16 @@ export class IccTimeTableApi {
   /**
    * @summary Deletes a batch of timeTables.
    *
-   * @param timeTableIds an array containing the ids of the timeTables to delete.
+   * @param timeTableIds a ListOfIds containing the ids of the timeTables to delete.
    * @return a Promise that will resolve in an array of DocIdentifiers of the successfully deleted timeTables.
    */
-  async deleteTimeTables(timeTableIds: string[]): Promise<Array<DocIdentifier>> {
+  async deleteTimeTables(timeTableIds: ListOfIds): Promise<Array<DocIdentifier>> {
     const headers = (await this.headers).filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand(
       'POST',
       this.host + `/timeTable/delete/batch` + '?ts=' + new Date().getTime(),
       headers,
-      new ListOfIds({ ids: timeTableIds }),
+      timeTableIds,
       this.fetchImpl,
       undefined,
       this.authenticationProvider.getAuthService()
@@ -102,7 +102,7 @@ export class IccTimeTableApi {
       undefined,
       this.authenticationProvider.getAuthService()
     )
-      .then((doc) => new DocIdentifier(doc))
+      .then((doc) => new DocIdentifier(doc.body))
       .catch((err) => this.handleError(err))
   }
 

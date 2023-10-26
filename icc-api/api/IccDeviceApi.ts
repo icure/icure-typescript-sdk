@@ -51,14 +51,11 @@ export class IccDeviceApi {
    * @summary Create a device
    * @param body
    */
-  createDevice(body?: Device): Promise<Device> {
-    let _body = null
-    _body = body
-
+  async createDevice(body?: Device): Promise<Device> {
     const _url = this.host + `/device` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Device(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -69,14 +66,11 @@ export class IccDeviceApi {
    * @param body
    * @param groupId
    */
-  createDeviceInGroup(groupId: string, body?: Device): Promise<Device> {
-    let _body = null
-    _body = body
-
+  async createDeviceInGroup(groupId: string, body?: Device): Promise<Device> {
     const _url = this.host + `/device/inGroup/${encodeURIComponent(String(groupId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Device(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }

@@ -115,7 +115,7 @@ export class IccDocumentApi {
       undefined,
       this.authenticationProvider.getAuthService()
     )
-      .then((doc) => new DocIdentifier(doc))
+      .then((doc) => new DocIdentifier(doc.body))
       .catch((err) => this.handleError(err))
   }
 

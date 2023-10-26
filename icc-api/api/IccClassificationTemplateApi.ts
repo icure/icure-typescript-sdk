@@ -87,7 +87,7 @@ export class IccClassificationTemplateApi {
    * @param classificationTemplateId the id of the classification template to delete.
    * @return a Promise that will resolve in the DocIdentifier of the deleted classification template.
    */
-  async deleteClassification(classificationTemplateId: string): Promise<DocIdentifier> {
+  async deleteClassificationTemplate(classificationTemplateId: string): Promise<DocIdentifier> {
     return XHR.sendCommand(
       'DELETE',
       this.host + `/classificationTemplate/${encodeURIComponent(classificationTemplateId)}` + '?ts=' + new Date().getTime(),
@@ -97,7 +97,7 @@ export class IccClassificationTemplateApi {
       undefined,
       this.authenticationProvider.getAuthService()
     )
-      .then((doc) => new DocIdentifier(doc))
+      .then((doc) => new DocIdentifier(doc.body))
       .catch((err) => this.handleError(err))
   }
 

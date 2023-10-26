@@ -47,14 +47,11 @@ export class IccAgendaApi {
    * @summary Creates a agenda
    * @param body
    */
-  createAgenda(body?: Agenda): Promise<Agenda> {
-    let _body = null
-    _body = body
-
+  async createAgenda(body?: Agenda): Promise<Agenda> {
     const _url = this.host + `/agenda` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Agenda(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -96,7 +93,7 @@ export class IccAgendaApi {
       undefined,
       this.authenticationProvider.getAuthService()
     )
-      .then((doc) => new DocIdentifier(doc))
+      .then((doc) => new DocIdentifier(doc.body))
       .catch((err) => this.handleError(err))
   }
 

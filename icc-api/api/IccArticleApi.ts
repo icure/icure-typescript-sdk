@@ -92,7 +92,7 @@ export class IccArticleApi {
       undefined,
       this.authenticationProvider.getAuthService()
     )
-      .then((doc) => new DocIdentifier(doc))
+      .then((doc) => new DocIdentifier(doc.body))
       .catch((err) => this.handleError(err))
   }
 
@@ -101,7 +101,7 @@ export class IccArticleApi {
    * @summary Gets an article
    * @param articleId
    */
-  getArticle(articleId: string): Promise<Article> {
+  async getArticle(articleId: string): Promise<Article> {
     let _body = null
 
     const _url = this.host + `/article/${encodeURIComponent(String(articleId))}` + '?ts=' + new Date().getTime()
@@ -115,7 +115,7 @@ export class IccArticleApi {
    *
    * @summary Gets all articles
    */
-  getArticles(): Promise<Array<Article>> {
+  async getArticles(): Promise<Array<Article>> {
     let _body = null
 
     const _url = this.host + `/article` + '?ts=' + new Date().getTime()
