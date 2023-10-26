@@ -18,8 +18,9 @@ import { HealthcareParty } from '../model/HealthcareParty'
 import { ListOfIds } from '../model/ListOfIds'
 import { PaginatedListHealthcareParty } from '../model/PaginatedListHealthcareParty'
 import { PublicKey } from '../model/PublicKey'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
+import { ApiVersion, getApiVersionFromUrl } from '../utils/api-version'
 
 export class IccHcpartyApi {
   host: string
@@ -83,37 +84,111 @@ export class IccHcpartyApi {
   }
 
   /**
-   * Deleting a healthcareParty. Response is an array containing the id of deleted healthcare party.
-   * @summary Delete a healthcare party
-   * @param healthcarePartyIds
+   * @summary Deletes a healthcare parties in batch.
+   * @param healthcarePartyIds an array containing the ids of the healthcare parties to delete.
+   * @return a Promise that will resolve in an Array of DocIdentifiers of the successfully deleted healthcare parties.
    */
-  deleteHealthcareParties(healthcarePartyIds: string): Promise<Array<DocIdentifier>> {
-    let _body = null
+  deleteHealthcareParties(healthcarePartyIds: string[]): Promise<Array<DocIdentifier>> {
+    const response =
+      getApiVersionFromUrl(this.host) == ApiVersion.V1
+        ? XHR.sendCommand(
+            'DELETE',
+            this.host + `/hcparty/${encodeURIComponent(healthcarePartyIds.join(','))}` + '?ts=' + new Date().getTime(),
+            this.headers,
+            null,
+            this.fetchImpl,
+            undefined,
+            this.authenticationProvider.getAuthService()
+          )
+        : XHR.sendCommand(
+            'POST',
+            this.host + `/hcparty/delete/batch` + '?ts=' + new Date().getTime(),
+            this.headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json')),
+            new ListOfIds({ ids: healthcarePartyIds }),
+            this.fetchImpl,
+            undefined,
+            this.authenticationProvider.getAuthService()
+          )
 
-    const _url = this.host + `/hcparty/${encodeURIComponent(String(healthcarePartyIds))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
+    return response.then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it))).catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Deletes a single healthcare party by id.
+   *
+   * @param healthcarePartyId the id of the healthcare party to delete.
+   * @return a Promise that will resolve in the DocIdentifier of the healthcare party.
+   */
+  deleteHealthcareParty(healthcarePartyId: string): Promise<DocIdentifier> {
+    return XHR.sendCommand(
+      'DELETE',
+      this.host + `/hcparty/${encodeURIComponent(healthcarePartyId)}` + '?ts=' + new Date().getTime(),
+      this.headers,
+      null,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
+      .then((doc) => new DocIdentifier(doc))
       .catch((err) => this.handleError(err))
   }
 
   /**
-   * Deleting a healthcareParty. Response is an array containing the id of deleted healthcare party.
-   * @summary Delete a healthcare party
-   * @param groupId
-   * @param healthcarePartyIds
+   * @summary Deletes a healthcare parties in batch in a specific group
+   * @param groupId the id of the group where to delete the healthcare parties.
+   * @param healthcarePartyIds an array containing the ids of the healthcare parties to delete.
+   * @return a Promise that will resolve in an Array of DocIdentifiers of the successfully deleted healthcare parties.
    */
-  deleteHealthcarePartiesInGroup(groupId: string, healthcarePartyIds: string): Promise<Array<DocIdentifier>> {
-    let _body = null
+  deleteHealthcarePartiesInGroup(groupId: string, healthcarePartyIds: string[]): Promise<Array<DocIdentifier>> {
+    const response =
+      getApiVersionFromUrl(this.host) == ApiVersion.V1
+        ? XHR.sendCommand(
+            'DELETE',
+            this.host +
+              `/hcparty/inGroup/${encodeURIComponent(groupId)}/${encodeURIComponent(healthcarePartyIds.join(','))}` +
+              '?ts=' +
+              new Date().getTime(),
+            this.headers,
+            null,
+            this.fetchImpl,
+            undefined,
+            this.authenticationProvider.getAuthService()
+          )
+        : XHR.sendCommand(
+            'POST',
+            this.host + `/hcparty/delete/batch/inGroup/${encodeURIComponent(groupId)}` + '?ts=' + new Date().getTime(),
+            this.headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json')),
+            new ListOfIds({ ids: healthcarePartyIds }),
+            this.fetchImpl,
+            undefined,
+            this.authenticationProvider.getAuthService()
+          )
 
-    const _url =
-      this.host +
-      `/hcparty/inGroup/${encodeURIComponent(String(groupId))}/${encodeURIComponent(String(healthcarePartyIds))}` +
-      '?ts=' +
-      new Date().getTime()
-    let headers = this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
+    return response.then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it))).catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Deletes a single healthcare party by id in a specific group.
+   *
+   * @param groupId the id of the group where to delete the healthcare party.
+   * @param healthcarePartyId the id of the healthcare party to delete.
+   * @return a Promise that will resolve in the DocIdentifier of the healthcare party.
+   */
+  deleteHealthcarePartyInGroup(groupId: string, healthcarePartyId: string): Promise<DocIdentifier> {
+    if (getApiVersionFromUrl(this.host) == ApiVersion.V1) {
+      throw new Error('This endpoint is not available on V1 api')
+    }
+
+    return XHR.sendCommand(
+      'DELETE',
+      this.host + `/hcparty/${encodeURIComponent(healthcarePartyId)}/inGroup/${encodeURIComponent(groupId)}` + '?ts=' + new Date().getTime(),
+      this.headers,
+      null,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
+      .then((doc) => new DocIdentifier(doc))
       .catch((err) => this.handleError(err))
   }
 

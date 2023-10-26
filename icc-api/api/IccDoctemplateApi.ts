@@ -12,8 +12,10 @@
 import { XHR } from './XHR'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { DocumentTemplate } from '../model/DocumentTemplate'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
+import { ApiVersion, getApiVersionFromUrl } from '../utils/api-version'
+import { ListOfIds } from '../model/ListOfIds'
 
 export class IccDoctemplateApi {
   host: string
@@ -59,18 +61,34 @@ export class IccDoctemplateApi {
   }
 
   /**
+   * @summary Deletes a batch of document templates.
    *
-   * @summary Deletes a document template
-   * @param documentTemplateIds
+   * @param documentTemplateIds an array containing the ids of the document templates to delete.
+   * @return a Promise that will resolve in an array of DocIdentifiers of the successfully deleted document templates.
    */
-  deleteDocumentTemplate(documentTemplateIds: string): Promise<Array<DocIdentifier>> {
-    let _body = null
+  deleteDocumentTemplates(documentTemplateIds: string[]): Promise<Array<DocIdentifier>> {
+    const response =
+      getApiVersionFromUrl(this.host) == ApiVersion.V1
+        ? XHR.sendCommand(
+            'DELETE',
+            this.host + `/doctemplate/${encodeURIComponent(documentTemplateIds.join(','))}` + '?ts=' + new Date().getTime(),
+            this.headers,
+            null,
+            this.fetchImpl,
+            undefined,
+            this.authenticationProvider.getAuthService()
+          )
+        : XHR.sendCommand(
+            'POST',
+            this.host + `/doctemplate/delete/batch` + '?ts=' + new Date().getTime(),
+            this.headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json')),
+            new ListOfIds({ ids: documentTemplateIds }),
+            this.fetchImpl,
+            undefined,
+            this.authenticationProvider.getAuthService()
+          )
 
-    const _url = this.host + `/doctemplate/${encodeURIComponent(String(documentTemplateIds))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
-      .catch((err) => this.handleError(err))
+    return response.then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it))).catch((err) => this.handleError(err))
   }
 
   /**

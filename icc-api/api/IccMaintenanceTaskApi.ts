@@ -14,10 +14,11 @@ import { DocIdentifier } from '../model/DocIdentifier'
 import { FilterChainMaintenanceTask } from '../model/FilterChainMaintenanceTask'
 import { MaintenanceTask } from '../model/MaintenanceTask'
 import { PaginatedListMaintenanceTask } from '../model/PaginatedListMaintenanceTask'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
 import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
+import { ListOfIds } from '../model/ListOfIds'
 
 export class IccMaintenanceTaskApi {
   host: string
@@ -67,17 +68,43 @@ export class IccMaintenanceTaskApi {
   }
 
   /**
+   * @summary Deletes a batch of maintenanceTasks.
    *
-   * @summary Delete maintenanceTasks
-   * @param maintenanceTaskIds
+   * @param maintenanceTaskIds an array containing the ids of the maintenanceTasks to delete.
+   * @return a Promise that will resolve in an array of DocIdentifiers of the successfully deleted maintenanceTasks.
    */
-  async deleteMaintenanceTask(maintenanceTaskIds: string): Promise<Array<DocIdentifier>> {
-    let _body = null
-
-    const _url = this.host + `/maintenancetask/${encodeURIComponent(String(maintenanceTaskIds))}` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+  async deleteMaintenanceTasks(maintenanceTaskIds: string[]): Promise<Array<DocIdentifier>> {
+    const headers = (await this.headers).filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand(
+      'POST',
+      this.host + `/maintenancetask/delete/batch` + '?ts=' + new Date().getTime(),
+      headers,
+      new ListOfIds({ ids: maintenanceTaskIds }),
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Deletes a single maintenanceTask by id.
+   *
+   * @param maintenanceTaskId the id of the maintenanceTask to delete.
+   * @return a Promise that will resolve in the DocIdentifier of the deleted maintenanceTask.
+   */
+  async deleteMaintenanceTask(maintenanceTaskId: string): Promise<DocIdentifier> {
+    return XHR.sendCommand(
+      'DELETE',
+      this.host + `/maintenancetask/${encodeURIComponent(maintenanceTaskId)}` + '?ts=' + new Date().getTime(),
+      await this.headers,
+      null,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
+      .then((doc) => new DocIdentifier(doc))
       .catch((err) => this.handleError(err))
   }
 

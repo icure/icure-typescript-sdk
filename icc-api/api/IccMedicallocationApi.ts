@@ -14,6 +14,8 @@ import { DocIdentifier } from '../model/DocIdentifier'
 import { MedicalLocation } from '../model/MedicalLocation'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
+import { ApiVersion, getApiVersionFromUrl } from '../utils/api-version'
+import { ListOfIds } from '../model/ListOfIds'
 
 export class IccMedicallocationApi {
   host: string
@@ -59,18 +61,34 @@ export class IccMedicallocationApi {
   }
 
   /**
+   * @summary Deletes a batch of medical locations.
    *
-   * @summary Deletes a medical location
-   * @param locationIds
+   * @param locationIds an array containing the ids of the medical locations to delete.
+   * @return a Promise that will resolve in an array of DocIdentifiers of the successfully deleted medical locations.
    */
-  deleteMedicalLocation(locationIds: string): Promise<Array<DocIdentifier>> {
-    let _body = null
+  deleteMedicalLocations(locationIds: string[]): Promise<Array<DocIdentifier>> {
+    const response =
+      getApiVersionFromUrl(this.host) == ApiVersion.V1
+        ? XHR.sendCommand(
+            'DELETE',
+            this.host + `/medicallocation/${encodeURIComponent(locationIds.join(','))}` + '?ts=' + new Date().getTime(),
+            this.headers,
+            null,
+            this.fetchImpl,
+            undefined,
+            this.authenticationProvider.getAuthService()
+          )
+        : XHR.sendCommand(
+            'POST',
+            this.host + `/medicallocation/delete/batch` + '?ts=' + new Date().getTime(),
+            this.headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json')),
+            new ListOfIds({ ids: locationIds }),
+            this.fetchImpl,
+            undefined,
+            this.authenticationProvider.getAuthService()
+          )
 
-    const _url = this.host + `/medicallocation/${encodeURIComponent(String(locationIds))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
-      .catch((err) => this.handleError(err))
+    return response.then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it))).catch((err) => this.handleError(err))
   }
 
   /**

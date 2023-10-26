@@ -119,17 +119,43 @@ export class IccFormApi {
   }
 
   /**
-   * Response is a set containing the ID's of deleted forms.
-   * @summary Delete forms.
-   * @param formIds
+   * @summary Delete forms by batch.
+   *
+   * @param formIds an array containing the ids of the Forms to delete.
+   * @return a Promise that will resolve in an array of DocIdentifiers related to the successfully deleted Forms.
    */
-  async deleteForms(formIds: string): Promise<Array<DocIdentifier>> {
-    let _body = null
-
-    const _url = this.host + `/form/${encodeURIComponent(String(formIds))}` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+  async deleteForms(formIds: string[]): Promise<Array<DocIdentifier>> {
+    const headers = (await this.headers).filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand(
+      'POST',
+      this.host + `/form/delete/batch` + '?ts=' + new Date().getTime(),
+      headers,
+      new ListOfIds({ ids: formIds }),
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Deletes a single form by id.
+   *
+   * @param formId the id of the document to delete.
+   * @return a Promise that will resolve in the DocIdentifier of the form.
+   */
+  async deleteForm(formId: string): Promise<DocIdentifier> {
+    return XHR.sendCommand(
+      'DELETE',
+      this.host + `/form/${encodeURIComponent(formId)}` + '?ts=' + new Date().getTime(),
+      await this.headers,
+      null,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
+      .then((doc) => new DocIdentifier(doc))
       .catch((err) => this.handleError(err))
   }
 

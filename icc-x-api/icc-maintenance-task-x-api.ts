@@ -105,12 +105,20 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
     throw new Error('Cannot call a method that returns maintenance tasks without providing a user for de/encryption')
   }
 
-  deleteMaintenanceTask(_maintenanceTaskIds: string): never {
+  deleteMaintenanceTask(_maintenanceTaskId: string): never {
     throw new Error('Cannot call a method that returns maintenance tasks without providing a user for de/encryption')
   }
 
-  deleteMaintenanceTaskWithUser(user: models.User, maintenanceTaskId: string): Promise<Array<DocIdentifier>> | never {
+  deleteMaintenanceTaskWithUser(user: models.User, maintenanceTaskId: string): Promise<DocIdentifier> | never {
     return super.deleteMaintenanceTask(maintenanceTaskId)
+  }
+
+  deleteMaintenanceTasks(_maintenanceTaskIds: string[]): never {
+    throw new Error('Cannot call a method that returns maintenance tasks without providing a user for de/encryption')
+  }
+
+  deleteMaintenanceTasksWithUser(user: models.User, maintenanceTaskIds: string[]): Promise<Array<DocIdentifier>> | never {
+    return super.deleteMaintenanceTasks(maintenanceTaskIds)
   }
 
   filterMaintenanceTasksByWithUser(

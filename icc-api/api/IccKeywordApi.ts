@@ -14,6 +14,8 @@ import { DocIdentifier } from '../model/DocIdentifier'
 import { Keyword } from '../model/Keyword'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
+import { ApiVersion, getApiVersionFromUrl } from '../utils/api-version'
+import { ListOfIds } from '../model/ListOfIds'
 
 export class IccKeywordApi {
   host: string
@@ -59,18 +61,33 @@ export class IccKeywordApi {
   }
 
   /**
-   * Response is a set containing the ID's of deleted keywords.
-   * @summary Delete keywords.
-   * @param keywordIds
+   * @summary Deletes a batch of keywords.
+   * @param keywordIds an array containing the ids of the keywords to delete.
+   * @return a Promise that will resolve in an array of DocIdentifiers of the successfully delete keywords.
    */
-  deleteKeywords(keywordIds: string): Promise<Array<DocIdentifier>> {
-    let _body = null
+  deleteKeywords(keywordIds: string[]): Promise<Array<DocIdentifier>> {
+    const response =
+      getApiVersionFromUrl(this.host) == ApiVersion.V1
+        ? XHR.sendCommand(
+            'DELETE',
+            this.host + `/keyword/${encodeURIComponent(keywordIds.join(','))}` + '?ts=' + new Date().getTime(),
+            this.headers,
+            null,
+            this.fetchImpl,
+            undefined,
+            this.authenticationProvider.getAuthService()
+          )
+        : XHR.sendCommand(
+            'POST',
+            this.host + `/keyword/delete/batch` + '?ts=' + new Date().getTime(),
+            this.headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json')),
+            new ListOfIds({ ids: keywordIds }),
+            this.fetchImpl,
+            undefined,
+            this.authenticationProvider.getAuthService()
+          )
 
-    const _url = this.host + `/keyword/${encodeURIComponent(String(keywordIds))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
-      .catch((err) => this.handleError(err))
+    return response.then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it))).catch((err) => this.handleError(err))
   }
 
   /**

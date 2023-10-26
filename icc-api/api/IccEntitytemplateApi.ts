@@ -12,8 +12,10 @@
 import { XHR } from './XHR'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { EntityTemplate } from '../model/EntityTemplate'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
+import { ApiVersion, getApiVersionFromUrl } from '../utils/api-version'
+import { ListOfIds } from '../model/ListOfIds'
 
 export class IccEntitytemplateApi {
   host: string
@@ -76,18 +78,34 @@ export class IccEntitytemplateApi {
   }
 
   /**
+   * @summary Deletes a batch of entity templates.
    *
-   * @summary Delete entity templates
-   * @param entityTemplateIds
+   * @param entityTemplateIds an array containing the ids of the entity templates to delete.
+   * @return a Promise that will resolve in an array of DocIdentifiers of the successfully deleted entity templates.
    */
-  deleteEntityTemplate(entityTemplateIds: string): Promise<Array<DocIdentifier>> {
-    let _body = null
+  deleteEntityTemplates(entityTemplateIds: string[]): Promise<Array<DocIdentifier>> {
+    const response =
+      getApiVersionFromUrl(this.host) == ApiVersion.V1
+        ? XHR.sendCommand(
+            'DELETE',
+            this.host + `/entitytemplate/${encodeURIComponent(entityTemplateIds.join(','))}` + '?ts=' + new Date().getTime(),
+            this.headers,
+            null,
+            this.fetchImpl,
+            undefined,
+            this.authenticationProvider.getAuthService()
+          )
+        : XHR.sendCommand(
+            'POST',
+            this.host + `/entitytemplate/delete/batch` + '?ts=' + new Date().getTime(),
+            this.headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json')),
+            new ListOfIds({ ids: entityTemplateIds }),
+            this.fetchImpl,
+            undefined,
+            this.authenticationProvider.getAuthService()
+          )
 
-    const _url = this.host + `/entitytemplate/${encodeURIComponent(String(entityTemplateIds))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
-      .catch((err) => this.handleError(err))
+    return response.then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it))).catch((err) => this.handleError(err))
   }
 
   /**

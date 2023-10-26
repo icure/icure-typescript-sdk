@@ -17,12 +17,11 @@ import { ListOfIds } from '../model/ListOfIds'
 import { Message } from '../model/Message'
 import { MessagesReadStatusUpdate } from '../model/MessagesReadStatusUpdate'
 import { PaginatedListMessage } from '../model/PaginatedListMessage'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
 import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { FilterChainMessage } from '../model/FilterChainMessage'
-import { AbstractFilterTopic } from '../model/AbstractFilterTopic'
 import { AbstractFilterMessage } from '../model/AbstractFilterMessage'
 
 export class IccMessageApi {
@@ -93,34 +92,43 @@ export class IccMessageApi {
   }
 
   /**
+   * @summary Deletes a batch of messages.
    *
-   * @summary Deletes multiple messages
-   * @param messageIds
+   * @param messageIds an array containing the ids of the messages to delete.
+   * @return a Promise that will resolve in an array of DocIdentifiers of the messages successfully deleted
    */
-  async deleteMessages(messageIds: string): Promise<Array<DocIdentifier>> {
-    let _body = null
-
-    const _url = this.host + `/message/${encodeURIComponent(String(messageIds))}` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+  async deleteMessages(messageIds: string[]): Promise<Array<DocIdentifier>> {
+    const headers = (await this.headers).filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand(
+      'POST',
+      this.host + `/message/delete/batch` + '?ts=' + new Date().getTime(),
+      headers,
+      new ListOfIds({ ids: messageIds }),
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
       .catch((err) => this.handleError(err))
   }
 
   /**
+   * @summary Deletes a single message by id.
    *
-   * @summary Deletes multiple messages
-   * @param body
+   * @param messageId the id of the message to delete.
+   * @return a Promise that will resolve in the DocIdentifier of the deleted message.
    */
-  async deleteMessagesBatch(body?: ListOfIds): Promise<Array<DocIdentifier>> {
-    let _body = null
-    _body = body
-
-    const _url = this.host + `/message/delete/byIds` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
+  async deleteMessage(messageId: string): Promise<DocIdentifier> {
+    return XHR.sendCommand(
+      'DELETE',
+      this.host + `/message/${encodeURIComponent(messageId)}` + '?ts=' + new Date().getTime(),
+      await this.headers,
+      null,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
+      .then((doc) => new DocIdentifier(doc))
       .catch((err) => this.handleError(err))
   }
 

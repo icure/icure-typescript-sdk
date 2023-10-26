@@ -13,10 +13,11 @@ import { XHR } from './XHR'
 import { AccessLog } from '../model/AccessLog'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { PaginatedListAccessLog } from '../model/PaginatedListAccessLog'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
 import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
+import { ListOfIds } from '../model/ListOfIds'
 
 export class IccAccesslogApi {
   host: string
@@ -66,17 +67,42 @@ export class IccAccesslogApi {
   }
 
   /**
+   * @summary Deletes a batch of access logs.
    *
-   * @summary Delete access logs by batch
-   * @param accessLogIds
+   * @param accessLogIds an array containing the ids of the access logs to delete.
+   * @return a Promise that will resolve in an array of DocIdentifiers of the successfully deleted access logs.
    */
-  async deleteAccessLog(accessLogIds: string): Promise<Array<DocIdentifier>> {
-    let _body = null
-
-    const _url = this.host + `/accesslog/${encodeURIComponent(String(accessLogIds))}` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+  async deleteAccessLogs(accessLogIds: string[]): Promise<Array<DocIdentifier>> {
+    const headers = await this.headers
+    return XHR.sendCommand(
+      'POST',
+      this.host + `/accesslog/delete/batch` + '?ts=' + new Date().getTime(),
+      headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json')),
+      new ListOfIds({ ids: accessLogIds }),
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Deletes a single access log by id.
+   *
+   * @param accessLogId the id of the access log.
+   */
+  async deleteAccessLog(accessLogId: string): Promise<DocIdentifier> {
+    return XHR.sendCommand(
+      'DELETE',
+      this.host + `/accesslog/${encodeURIComponent(accessLogId)}` + '?ts=' + new Date().getTime(),
+      await this.headers,
+      null,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
+      .then((doc) => new DocIdentifier(doc))
       .catch((err) => this.handleError(err))
   }
 
