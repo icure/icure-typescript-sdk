@@ -11,8 +11,8 @@
  */
 import { XHR } from './XHR'
 import { DataOwnerWithType } from '../model/DataOwnerWithType'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
-import { CryptoActorStub, CryptoActorStubWithType } from '../model/CryptoActorStub'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
+import { CryptoActorStubWithType } from '../model/CryptoActorStub'
 import { iccRestApiPath } from './IccRestApiPath'
 
 export class IccDataownerApi {
@@ -41,7 +41,7 @@ export class IccDataownerApi {
    * General information about the current data owner. Note that this does not decrpyt patient data owners.
    * @summary Get the data owner corresponding to the current user
    */
-  getCurrentDataOwner(): Promise<DataOwnerWithType> {
+  async getCurrentDataOwner(): Promise<DataOwnerWithType> {
     let _body = null
 
     const _url = this.host + `/dataowner/current` + '?ts=' + new Date().getTime()
@@ -56,7 +56,7 @@ export class IccDataownerApi {
    * @summary Get a data owner by his ID
    * @param dataOwnerId
    */
-  getDataOwner(dataOwnerId: string): Promise<DataOwnerWithType> {
+  async getDataOwner(dataOwnerId: string): Promise<DataOwnerWithType> {
     let _body = null
 
     const _url = this.host + `/dataowner/${encodeURIComponent(String(dataOwnerId))}` + '?ts=' + new Date().getTime()
@@ -71,7 +71,7 @@ export class IccDataownerApi {
    * @summary Get a data owner by his ID
    * @param dataOwnerId
    */
-  getCryptoActorStub(dataOwnerId: string): Promise<CryptoActorStubWithType> {
+  async getCryptoActorStub(dataOwnerId: string): Promise<CryptoActorStubWithType> {
     let _body = null
 
     const _url = this.host + `/dataowner/stub/${encodeURIComponent(String(dataOwnerId))}` + '?ts=' + new Date().getTime()
@@ -84,7 +84,7 @@ export class IccDataownerApi {
   /**
    * Updates the keys of a data owner
    */
-  modifyCryptoActorStub(stub: CryptoActorStubWithType): Promise<CryptoActorStubWithType> {
+  async modifyCryptoActorStub(stub: CryptoActorStubWithType): Promise<CryptoActorStubWithType> {
     let _body = stub
 
     const _url = this.host + `/dataowner/stub` + '?ts=' + new Date().getTime()

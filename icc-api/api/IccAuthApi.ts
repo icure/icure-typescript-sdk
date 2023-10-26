@@ -12,7 +12,7 @@
 import { XHR } from './XHR'
 import { AuthenticationResponse } from '../model/AuthenticationResponse'
 import { LoginCredentials } from '../model/LoginCredentials'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
 
 export enum OAuthThirdParty {

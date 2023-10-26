@@ -14,7 +14,7 @@ import { DocIdentifier } from '../model/DocIdentifier'
 import { Document } from '../model/Document'
 import { IcureStub } from '../model/IcureStub'
 import { ListOfIds } from '../model/ListOfIds'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
 import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
@@ -55,13 +55,10 @@ export class IccDocumentApi {
    * @param body
    */
   async createDocument(body?: Document): Promise<Document> {
-    let _body = null
-    _body = body
-
     const _url = this.host + `/document` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Document(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -84,16 +81,16 @@ export class IccDocumentApi {
   /**
    * @summary Deletes a batch of documents and returns the list of deleted document ids.
    *
-   * @param documentIds an array containing the ids of the documents to delete.
+   * @param documentIds a ListOfIds containing the ids of the documents to delete.
    * @return a Promise that will resolve in an array of DocIdentifier of the successfully deleted documents.
    */
-  async deleteDocuments(documentIds: string[]): Promise<Array<DocIdentifier>> {
+  async deleteDocuments(documentIds: ListOfIds): Promise<Array<DocIdentifier>> {
     const headers = (await this.headers).filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand(
       'POST',
       this.host + `/document/delete/batch` + '?ts=' + new Date().getTime(),
       headers,
-      new ListOfIds({ ids: documentIds }),
+      documentIds,
       this.fetchImpl,
       undefined,
       this.authenticationProvider.getAuthService()

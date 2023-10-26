@@ -55,13 +55,10 @@ export class IccAccesslogApi {
    * @param body
    */
   async createAccessLog(body?: AccessLog): Promise<AccessLog> {
-    let _body = null
-    _body = body
-
     const _url = this.host + `/accesslog` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new AccessLog(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -69,16 +66,16 @@ export class IccAccesslogApi {
   /**
    * @summary Deletes a batch of access logs.
    *
-   * @param accessLogIds an array containing the ids of the access logs to delete.
+   * @param accessLogIds a ListOfIds containing the ids of the access logs to delete.
    * @return a Promise that will resolve in an array of DocIdentifiers of the successfully deleted access logs.
    */
-  async deleteAccessLogs(accessLogIds: string[]): Promise<Array<DocIdentifier>> {
+  async deleteAccessLogs(accessLogIds: ListOfIds): Promise<Array<DocIdentifier>> {
     const headers = await this.headers
     return XHR.sendCommand(
       'POST',
       this.host + `/accesslog/delete/batch` + '?ts=' + new Date().getTime(),
       headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json')),
-      new ListOfIds({ ids: accessLogIds }),
+      accessLogIds,
       this.fetchImpl,
       undefined,
       this.authenticationProvider.getAuthService()
@@ -113,9 +110,6 @@ export class IccAccesslogApi {
    * @param hcPartyId
    */
   async findAccessLogsByHCPartyPatientForeignKeysUsingPost(hcPartyId: string, body?: Array<string>): Promise<Array<AccessLog>> {
-    let _body = null
-    _body = body
-
     const _url =
       this.host +
       `/accesslog/byHcPartySecretForeignKeys` +
@@ -124,7 +118,7 @@ export class IccAccesslogApi {
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '')
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new AccessLog(it)))
       .catch((err) => this.handleError(err))
   }
@@ -285,13 +279,10 @@ export class IccAccesslogApi {
    * @param body
    */
   async modifyAccessLog(body?: AccessLog): Promise<AccessLog> {
-    let _body = null
-    _body = body
-
     const _url = this.host + `/accesslog` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('PUT', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new AccessLog(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }

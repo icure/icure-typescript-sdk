@@ -56,13 +56,10 @@ export class IccMaintenanceTaskApi {
    * @param body
    */
   async createMaintenanceTask(body?: MaintenanceTask): Promise<MaintenanceTask> {
-    let _body = null
-    _body = body
-
     const _url = this.host + `/maintenancetask` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new MaintenanceTask(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -70,16 +67,16 @@ export class IccMaintenanceTaskApi {
   /**
    * @summary Deletes a batch of maintenanceTasks.
    *
-   * @param maintenanceTaskIds an array containing the ids of the maintenanceTasks to delete.
+   * @param maintenanceTaskIds a ListOfIds containing the ids of the maintenanceTasks to delete.
    * @return a Promise that will resolve in an array of DocIdentifiers of the successfully deleted maintenanceTasks.
    */
-  async deleteMaintenanceTasks(maintenanceTaskIds: string[]): Promise<Array<DocIdentifier>> {
+  async deleteMaintenanceTasks(maintenanceTaskIds: ListOfIds): Promise<Array<DocIdentifier>> {
     const headers = (await this.headers).filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand(
       'POST',
       this.host + `/maintenancetask/delete/batch` + '?ts=' + new Date().getTime(),
       headers,
-      new ListOfIds({ ids: maintenanceTaskIds }),
+      maintenanceTaskIds,
       this.fetchImpl,
       undefined,
       this.authenticationProvider.getAuthService()

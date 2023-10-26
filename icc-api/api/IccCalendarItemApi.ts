@@ -117,9 +117,6 @@ export class IccCalendarItemApi {
    * @param hcPartyId
    */
   async findCalendarItemsByHCPartyPatientForeignKeysUsingPost(hcPartyId: string, body?: Array<string>): Promise<Array<CalendarItem>> {
-    let _body = null
-    _body = body
-
     const _url =
       this.host +
       `/calendarItem/byHcPartySecretForeignKeys` +
@@ -128,7 +125,7 @@ export class IccCalendarItemApi {
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '')
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new CalendarItem(it)))
       .catch((err) => this.handleError(err))
   }
@@ -275,13 +272,10 @@ export class IccCalendarItemApi {
    * @param body
    */
   async modifyCalendarItem(body?: CalendarItem): Promise<CalendarItem> {
-    let _body = null
-    _body = body
-
     const _url = this.host + `/calendarItem` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('PUT', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new CalendarItem(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }

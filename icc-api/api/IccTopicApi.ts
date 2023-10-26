@@ -9,183 +9,197 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
-import {XHR} from './XHR'
-import {DocIdentifier} from '../model/DocIdentifier'
-import {Topic, TopicRole} from '../model/Topic'
-import {ListOfIds} from '../model/ListOfIds'
-import {AuthenticationProvider, NoAuthenticationProvider} from '../../icc-x-api/auth/AuthenticationProvider'
-import {iccRestApiPath} from './IccRestApiPath'
-import {EntityShareOrMetadataUpdateRequest} from "../model/requests/EntityShareOrMetadataUpdateRequest";
-import {EntityBulkShareResult} from "../model/requests/EntityBulkShareResult";
-import {FilterChainTopic} from "../model/FilterChainTopic";
-import {PaginatedListTopic} from "../model/PaginatedListTopic";
-import {AbstractFilterTopic} from "../model/AbstractFilterTopic";
+import { XHR } from './XHR'
+import { DocIdentifier } from '../model/DocIdentifier'
+import { Topic, TopicRole } from '../model/Topic'
+import { ListOfIds } from '../model/ListOfIds'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { iccRestApiPath } from './IccRestApiPath'
+import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
+import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
+import { FilterChainTopic } from '../model/FilterChainTopic'
+import { PaginatedListTopic } from '../model/PaginatedListTopic'
+import { AbstractFilterTopic } from '../model/AbstractFilterTopic'
 
 export class IccTopicApi {
-    host: string
-    _headers: Array<XHR.Header>
-    authenticationProvider: AuthenticationProvider
+  host: string
+  _headers: Array<XHR.Header>
+  authenticationProvider: AuthenticationProvider
+  fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
+
+  get headers(): Promise<Array<XHR.Header>> {
+    return Promise.resolve(this._headers)
+  }
+
+  constructor(
+    host: string,
+    headers: any,
+    authenticationProvider?: AuthenticationProvider,
     fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
+  ) {
+    this.host = iccRestApiPath(host)
+    this._headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
+    this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
+    this.fetchImpl = fetchImpl
+  }
 
-    get headers(): Promise<Array<XHR.Header>> {
-        return Promise.resolve(this._headers)
-    }
+  setHeaders(h: Array<XHR.Header>) {
+    this._headers = h
+  }
 
-    constructor(
-        host: string,
-        headers: any,
-        authenticationProvider?: AuthenticationProvider,
-        fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
-    ) {
-        this.host = iccRestApiPath(host)
-        this._headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
-        this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
-        this.fetchImpl = fetchImpl
-    }
+  handleError(e: XHR.XHRError): never {
+    throw e
+  }
 
-    setHeaders(h: Array<XHR.Header>) {
-        this._headers = h
-    }
+  /**
+   *
+   * @summary Gets a topic
+   * @param topicId
+   */
+  async getTopic(topicId: string): Promise<Topic> {
+    const _body = null
 
-    handleError(e: XHR.XHRError): never {
-        throw e
-    }
+    const _url = this.host + `/topic/${encodeURIComponent(String(topicId))}` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new Topic(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
 
-    /**
-     *
-     * @summary Gets a topic
-     * @param topicId
-     */
-    async getTopic(topicId: string): Promise<Topic> {
-        const _body = null
+  /**
+   * Keys must be delimited by coma
+   * @summary Get a list of topics by ids
+   * @param body
+   */
+  async getTopics(body: ListOfIds): Promise<Array<Topic>> {
+    const _url = this.host + `/topic/byIds` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Topic(it)))
+      .catch((err) => this.handleError(err))
+  }
 
-        const _url = this.host + `/topic/${encodeURIComponent(String(topicId))}` + '?ts=' + new Date().getTime()
-        let headers = await this.headers
-        return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-            .then((doc) => new Topic(doc.body as JSON))
-            .catch((err) => this.handleError(err))
-    }
+  /**
+   * Returns an instance of created topic.
+   * @summary Create a topic with the current user
+   * @param body
+   */
+  async createTopic(body: Topic): Promise<Topic> {
+    const _url = this.host + `/topic` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new Topic(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
 
-    /**
-     * Keys must be delimited by coma
-     * @summary Get a list of topics by ids
-     * @param body
-     */
-    async getTopics(body: ListOfIds): Promise<Array<Topic>> {
-        const _url = this.host + `/topic/byIds` + '?ts=' + new Date().getTime()
-        let headers = await this.headers
-        headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-        return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-            .then((doc) => (doc.body as Array<JSON>).map((it) => new Topic(it)))
-            .catch((err) => this.handleError(err))
-    }
+  /**
+   * Returns the modified topic.
+   * @summary Modify a topic
+   * @param body
+   */
+  async modifyTopic(body: Topic): Promise<Topic> {
+    const _url = this.host + `/topic` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('PUT', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new Topic(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
 
-    /**
-     * Returns an instance of created topic.
-     * @summary Create a topic with the current user
-     * @param body
-     */
-    async createTopic(body: Topic): Promise<Topic> {
-        const _url = this.host + `/topic` + '?ts=' + new Date().getTime()
-        let headers = await this.headers
-        headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-        return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-            .then((doc) => new Topic(doc.body as JSON))
-            .catch((err) => this.handleError(err))
-    }
+  /**
+   * @summary Deletes a topic by id.
+   *
+   * @param topicId the id of the topic to delete
+   * @return a Promise that will resolve in the DocIdentifier of the deleted topic.
+   */
+  async deleteTopic(topicId: string): Promise<Array<DocIdentifier>> {
+    const _url = this.host + `/topic/${encodeURIComponent(topicId)}` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('DELETE', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
+      .catch((err) => this.handleError(err))
+  }
 
-    /**
-     * Returns the modified topic.
-     * @summary Modify a topic
-     * @param body
-     */
-    async modifyTopic(body: Topic): Promise<Topic> {
-        const _url = this.host + `/topic` + '?ts=' + new Date().getTime()
-        let headers = await this.headers
-        headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-        return XHR.sendCommand('PUT', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-            .then((doc) => new Topic(doc.body as JSON))
-            .catch((err) => this.handleError(err))
-    }
+  /**
+   * Response is a set containing the ID's of deleted topics.
+   * @summary Delete topics.
+   * @param body
+   */
+  async deleteTopics(body: ListOfIds): Promise<Array<DocIdentifier>> {
+    const _url = this.host + `/topic/delete/batch` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
+      .catch((err) => this.handleError(err))
+  }
 
-    /**
-     * Response is a set containing the ID's of deleted topics.
-     * @summary Delete topics.
-     * @param body
-     */
-    async deleteTopics(body: ListOfIds): Promise<Array<DocIdentifier>> {
-        const _url = this.host + `/topic/delete/batch` + '?ts=' + new Date().getTime()
-        let headers = await this.headers
-        return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-            .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
-            .catch((err) => this.handleError(err))
-    }
+  /**
+   * @internal this method is for internal use only and may be changed without notice
+   */
+  async bulkShareTopics(request: {
+    [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
+  }): Promise<EntityBulkShareResult<Topic>[]> {
+    const _url = this.host + '/topic/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((x) => new EntityBulkShareResult<Topic>(x, Topic)))
+      .catch((err) => this.handleError(err))
+  }
 
-    /**
-     * @internal this method is for internal use only and may be changed without notice
-     */
-    async bulkShareTopics(request: {
-        [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
-    }): Promise<EntityBulkShareResult<Topic>[]> {
-        const _url = this.host + '/topic/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
-        let headers = await this.headers
-        headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-        return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-            .then((doc) => (doc.body as Array<JSON>).map((x) => new EntityBulkShareResult<Topic>(x, Topic)))
-            .catch((err) => this.handleError(err))
-    }
+  /**
+   * Returns a list of topics along with next start keys and Document ID. If the nextStartKey is Null it means that this is the last page.
+   * @summary List topics for the current user (HcParty) or the given hcparty in the filter
+   * @param body
+   * @param startDocumentId A Topic document ID
+   * @param limit Number of rows
+   */
+  async filterTopicsBy(body: FilterChainTopic, startDocumentId?: string, limit?: number): Promise<PaginatedListTopic> {
+    const _url =
+      this.host +
+      `/topic/filter` +
+      '?ts=' +
+      new Date().getTime() +
+      (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
+      (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListTopic(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
 
-    /**
-     * Returns a list of topics along with next start keys and Document ID. If the nextStartKey is Null it means that this is the last page.
-     * @summary List topics for the current user (HcParty) or the given hcparty in the filter
-     * @param body
-     * @param startDocumentId A Topic document ID
-     * @param limit Number of rows
-     */
-    async filterTopicsBy(body: FilterChainTopic, startDocumentId?: string, limit?: number): Promise<PaginatedListTopic> {
-        const _url =
-            this.host +
-            `/topic/filter` +
-            '?ts=' +
-            new Date().getTime() +
-            (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
-            (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
-        let headers = await this.headers
-        headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-        return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-            .then((doc) => new PaginatedListTopic(doc.body as JSON))
-            .catch((err) => this.handleError(err))
-    }
+  /**
+   *
+   * @summary Get ids of topics matching the provided filter for the current user (HcParty)
+   * @param body
+   */
+  async matchTopicsBy(body: AbstractFilterTopic): Promise<Array<string>> {
+    const _url = this.host + `/topic/match` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
+      .catch((err) => this.handleError(err))
+  }
 
-    /**
-     *
-     * @summary Get ids of topics matching the provided filter for the current user (HcParty)
-     * @param body
-     */
-    async matchTopicsBy(body: AbstractFilterTopic): Promise<Array<string>> {
-        const _url = this.host + `/topic/match` + '?ts=' + new Date().getTime()
-        let headers = await this.headers
-        headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-        return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-            .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
-            .catch((err) => this.handleError(err))
-    }
+  async addParticipant(body: { dataOwnerId: string; topicRole: TopicRole }, topicId: string): Promise<Topic> {
+    const _url = this.host + `/topic/${topicId}/addParticipant` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new Topic(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
 
-    async addParticipant(body: { dataOwnerId: string, topicRole: TopicRole}, topicId: string): Promise<Topic> {
-        const _url = this.host + `/topic/${topicId}/addParticipant` + '?ts=' + new Date().getTime()
-        let headers = await this.headers
-        headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-        return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-            .then((doc) => new Topic(doc.body as JSON))
-            .catch((err) => this.handleError(err))
-    }
-
-    async removeParticipant(body: { dataOwnerId: string }, topicId: string): Promise<Topic> {
-        const _url = this.host + `/topic/${topicId}/removeParticipant` + '?ts=' + new Date().getTime()
-        let headers = await this.headers
-        headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-        return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-            .then((doc) => new Topic(doc.body as JSON))
-            .catch((err) => this.handleError(err))
-    }
+  async removeParticipant(body: { dataOwnerId: string }, topicId: string): Promise<Topic> {
+    const _url = this.host + `/topic/${topicId}/removeParticipant` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new Topic(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
 }

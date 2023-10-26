@@ -60,13 +60,10 @@ export class IccMessageApi {
    * @param body
    */
   async createMessage(body?: Message): Promise<Message> {
-    let _body = null
-    _body = body
-
     const _url = this.host + `/message` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Message(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -94,16 +91,16 @@ export class IccMessageApi {
   /**
    * @summary Deletes a batch of messages.
    *
-   * @param messageIds an array containing the ids of the messages to delete.
+   * @param messageIds a ListOfIds containing the ids of the messages to delete.
    * @return a Promise that will resolve in an array of DocIdentifiers of the messages successfully deleted
    */
-  async deleteMessages(messageIds: string[]): Promise<Array<DocIdentifier>> {
+  async deleteMessages(messageIds: ListOfIds): Promise<Array<DocIdentifier>> {
     const headers = (await this.headers).filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand(
       'POST',
       this.host + `/message/delete/batch` + '?ts=' + new Date().getTime(),
       headers,
-      new ListOfIds({ ids: messageIds }),
+      messageIds,
       this.fetchImpl,
       undefined,
       this.authenticationProvider.getAuthService()

@@ -60,13 +60,10 @@ export class IccHelementApi {
    * @param body
    */
   async createHealthElement(body?: HealthElement): Promise<HealthElement> {
-    let _body = null
-    _body = body
-
     const _url = this.host + `/helement` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new HealthElement(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -77,13 +74,10 @@ export class IccHelementApi {
    * @param body
    */
   async createHealthElements(body?: Array<HealthElement>): Promise<Array<HealthElement>> {
-    let _body = null
-    _body = body
-
     const _url = this.host + `/helement/batch` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new HealthElement(it)))
       .catch((err) => this.handleError(err))
   }
@@ -91,16 +85,16 @@ export class IccHelementApi {
   /**
    * @summary Delete healthcare elements by batch.
    *
-   * @param healthElementIds an array containing the ids of the health elements to delete.
+   * @param healthElementIds a ListOfIds containing the ids of the health elements to delete.
    * @return a Promise that will resolve in an Array containing the DocIdentifiers of the successfully delete documents.
    */
-  async deleteHealthElements(healthElementIds: string[]): Promise<Array<DocIdentifier>> {
+  async deleteHealthElements(healthElementIds: ListOfIds): Promise<Array<DocIdentifier>> {
     const headers = (await this.headers).filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand(
       'POST',
       this.host + `/helement/delete/batch` + '?ts=' + new Date().getTime(),
       headers,
-      new ListOfIds({ ids: healthElementIds }),
+      healthElementIds,
       this.fetchImpl,
       undefined,
       this.authenticationProvider.getAuthService()
@@ -161,9 +155,6 @@ export class IccHelementApi {
    * @param hcPartyId
    */
   async findHealthElementsByHCPartyPatientForeignKeysUsingPost(hcPartyId: string, body?: Array<string>): Promise<Array<HealthElement>> {
-    let _body = null
-    _body = body
-
     const _url =
       this.host +
       `/helement/byHcPartySecretForeignKeys` +
@@ -172,7 +163,7 @@ export class IccHelementApi {
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '')
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new HealthElement(it)))
       .catch((err) => this.handleError(err))
   }
@@ -282,13 +273,10 @@ export class IccHelementApi {
    * @param body
    */
   async matchHealthElementsBy(body?: AbstractFilterHealthElement): Promise<Array<string>> {
-    let _body = null
-    _body = body
-
     const _url = this.host + `/helement/match` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
       .catch((err) => this.handleError(err))
   }

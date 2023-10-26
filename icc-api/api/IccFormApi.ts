@@ -16,7 +16,7 @@ import { Form } from '../model/Form'
 import { FormTemplate } from '../model/FormTemplate'
 import { IcureStub } from '../model/IcureStub'
 import { ListOfIds } from '../model/ListOfIds'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
 import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
@@ -58,13 +58,10 @@ export class IccFormApi {
    * @param body
    */
   async createForm(body?: Form): Promise<Form> {
-    let _body = null
-    _body = body
-
     const _url = this.host + `/form` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Form(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -75,13 +72,10 @@ export class IccFormApi {
    * @param body
    */
   async createFormTemplate(body?: FormTemplate): Promise<FormTemplate> {
-    let _body = null
-    _body = body
-
     const _url = this.host + `/form/template` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new FormTemplate(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -92,13 +86,10 @@ export class IccFormApi {
    * @param body
    */
   async createForms(body?: Array<Form>): Promise<Array<Form>> {
-    let _body = null
-    _body = body
-
     const _url = this.host + `/form/batch` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Form(it)))
       .catch((err) => this.handleError(err))
   }
@@ -121,16 +112,16 @@ export class IccFormApi {
   /**
    * @summary Delete forms by batch.
    *
-   * @param formIds an array containing the ids of the Forms to delete.
+   * @param formIds a ListOfIds containing the ids of the Forms to delete.
    * @return a Promise that will resolve in an array of DocIdentifiers related to the successfully deleted Forms.
    */
-  async deleteForms(formIds: string[]): Promise<Array<DocIdentifier>> {
+  async deleteForms(formIds: ListOfIds): Promise<Array<DocIdentifier>> {
     const headers = (await this.headers).filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand(
       'POST',
       this.host + `/form/delete/batch` + '?ts=' + new Date().getTime(),
       headers,
-      new ListOfIds({ ids: formIds }),
+      formIds,
       this.fetchImpl,
       undefined,
       this.authenticationProvider.getAuthService()

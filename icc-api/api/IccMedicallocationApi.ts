@@ -12,9 +12,8 @@
 import { XHR } from './XHR'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { MedicalLocation } from '../model/MedicalLocation'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
-import { ApiVersion, getApiVersionFromUrl } from '../utils/api-version'
 import { ListOfIds } from '../model/ListOfIds'
 
 export class IccMedicallocationApi {
@@ -48,14 +47,11 @@ export class IccMedicallocationApi {
    * @summary Creates a medical location
    * @param body
    */
-  createMedicalLocation(body?: MedicalLocation): Promise<MedicalLocation> {
-    let _body = null
-    _body = body
-
+  async createMedicalLocation(body?: MedicalLocation): Promise<MedicalLocation> {
     const _url = this.host + `/medicallocation` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new MedicalLocation(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -63,32 +59,21 @@ export class IccMedicallocationApi {
   /**
    * @summary Deletes a batch of medical locations.
    *
-   * @param locationIds an array containing the ids of the medical locations to delete.
+   * @param locationIds a ListOfIds containing the ids of the medical locations to delete.
    * @return a Promise that will resolve in an array of DocIdentifiers of the successfully deleted medical locations.
    */
-  deleteMedicalLocations(locationIds: string[]): Promise<Array<DocIdentifier>> {
-    const response =
-      getApiVersionFromUrl(this.host) == ApiVersion.V1
-        ? XHR.sendCommand(
-            'DELETE',
-            this.host + `/medicallocation/${encodeURIComponent(locationIds.join(','))}` + '?ts=' + new Date().getTime(),
-            this.headers,
-            null,
-            this.fetchImpl,
-            undefined,
-            this.authenticationProvider.getAuthService()
-          )
-        : XHR.sendCommand(
-            'POST',
-            this.host + `/medicallocation/delete/batch` + '?ts=' + new Date().getTime(),
-            this.headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json')),
-            new ListOfIds({ ids: locationIds }),
-            this.fetchImpl,
-            undefined,
-            this.authenticationProvider.getAuthService()
-          )
-
-    return response.then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it))).catch((err) => this.handleError(err))
+  async deleteMedicalLocations(locationIds: ListOfIds): Promise<Array<DocIdentifier>> {
+    return XHR.sendCommand(
+      'POST',
+      this.host + `/medicallocation/delete/batch` + '?ts=' + new Date().getTime(),
+      this.headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json')),
+      locationIds,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
+      .catch((err) => this.handleError(err))
   }
 
   /**
@@ -96,7 +81,7 @@ export class IccMedicallocationApi {
    * @summary Gets a medical location
    * @param locationId
    */
-  getMedicalLocation(locationId: string): Promise<MedicalLocation> {
+  async getMedicalLocation(locationId: string): Promise<MedicalLocation> {
     let _body = null
 
     const _url = this.host + `/medicallocation/${encodeURIComponent(String(locationId))}` + '?ts=' + new Date().getTime()
@@ -110,7 +95,7 @@ export class IccMedicallocationApi {
    *
    * @summary Gets all medical locations
    */
-  getMedicalLocations(): Promise<Array<MedicalLocation>> {
+  async getMedicalLocations(): Promise<Array<MedicalLocation>> {
     let _body = null
 
     const _url = this.host + `/medicallocation` + '?ts=' + new Date().getTime()
@@ -125,14 +110,11 @@ export class IccMedicallocationApi {
    * @summary Modifies a medical location
    * @param body
    */
-  modifyMedicalLocation(body?: MedicalLocation): Promise<MedicalLocation> {
-    let _body = null
-    _body = body
-
+  async modifyMedicalLocation(body?: MedicalLocation): Promise<MedicalLocation> {
     const _url = this.host + `/medicallocation` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('PUT', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new MedicalLocation(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }

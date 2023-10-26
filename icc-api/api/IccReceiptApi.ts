@@ -54,13 +54,10 @@ export class IccReceiptApi {
    * @param body
    */
   async createReceipt(body?: Receipt): Promise<Receipt> {
-    let _body = null
-    _body = body
-
     const _url = this.host + `/receipt` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Receipt(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -68,16 +65,16 @@ export class IccReceiptApi {
   /**
    * @summary Deletes a batch of receipts.
    *
-   * @param receiptIds an array containing the ids of the receipts to delete.
+   * @param receiptIds a ListOfIds containing the ids of the receipts to delete.
    * @return a Promise that will resolve in an array of DocIdentifiers of the successfully deleted receipts.
    */
-  async deleteReceipts(receiptIds: string[]): Promise<Array<DocIdentifier>> {
+  async deleteReceipts(receiptIds: ListOfIds): Promise<Array<DocIdentifier>> {
     const headers = (await this.headers).filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand(
       'POST',
       this.host + `/receipt/delete/batch` + '?ts=' + new Date().getTime(),
       headers,
-      new ListOfIds({ ids: receiptIds }),
+      receiptIds,
       this.fetchImpl,
       undefined,
       this.authenticationProvider.getAuthService()

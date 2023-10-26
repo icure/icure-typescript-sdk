@@ -19,7 +19,7 @@ import { InvoicingCode } from '../model/InvoicingCode'
 import { LabelledOccurence } from '../model/LabelledOccurence'
 import { ListOfIds } from '../model/ListOfIds'
 import { PaginatedListInvoice } from '../model/PaginatedListInvoice'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
 import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
@@ -104,13 +104,10 @@ export class IccInvoiceApi {
    * @param body
    */
   async createInvoice(body?: Invoice): Promise<Invoice> {
-    let _body = null
-    _body = body
-
     const _url = this.host + `/invoice` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Invoice(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -121,13 +118,10 @@ export class IccInvoiceApi {
    * @param body
    */
   async createInvoices(body?: Array<Invoice>): Promise<Array<Invoice>> {
-    let _body = null
-    _body = body
-
     const _url = this.host + `/invoice/batch` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
       .catch((err) => this.handleError(err))
   }
@@ -153,13 +147,10 @@ export class IccInvoiceApi {
    * @param body
    */
   async filterInvoicesBy(body?: FilterChainInvoice): Promise<Array<Invoice>> {
-    let _body = null
-    _body = body
-
     const _url = this.host + `/invoice/filter` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
       .catch((err) => this.handleError(err))
   }
