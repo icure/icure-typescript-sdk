@@ -20,7 +20,7 @@ import { Message } from '../model/Message'
 import { Patient } from '../model/Patient'
 import { ReplicationInfo } from '../model/ReplicationInfo'
 import { ReplicatorDocument } from '../model/ReplicatorDocument'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
 
 export class IccIcureApi {

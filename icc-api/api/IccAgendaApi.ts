@@ -12,8 +12,9 @@
 import { XHR } from './XHR'
 import { Agenda } from '../model/Agenda'
 import { DocIdentifier } from '../model/DocIdentifier'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
+import { ListOfIds } from '../model/ListOfIds'
 
 export class IccAgendaApi {
   host: string
@@ -46,30 +47,53 @@ export class IccAgendaApi {
    * @summary Creates a agenda
    * @param body
    */
-  createAgenda(body?: Agenda): Promise<Agenda> {
-    let _body = null
-    _body = body
-
+  async createAgenda(body?: Agenda): Promise<Agenda> {
     const _url = this.host + `/agenda` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Agenda(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 
   /**
+   * @summary Delete a batch of agendas by id.
    *
-   * @summary Delete agendas by id
-   * @param agendaIds
+   * @param agendaIds a ListOfIds containing the ids of the agendas to delete.
+   * @return a Promise that will resolve in an array of DocIdentifiers of the successfully deleted agendas.
    */
-  deleteAgenda(agendaIds: string): Promise<Array<DocIdentifier>> {
-    let _body = null
-
-    const _url = this.host + `/agenda/${encodeURIComponent(String(agendaIds))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+  async deleteAgendas(agendaIds: ListOfIds): Promise<Array<DocIdentifier>> {
+    const headers = this.headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand(
+      'POST',
+      this.host + `/agenda/delete/batch` + '?ts=' + new Date().getTime(),
+      headers,
+      agendaIds,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Deletes a single agenda by id.
+   *
+   * @param agendaId the id of the agenda to delete.
+   * @return a Promise that will resolve in the DocIdentifier of the deleted agenda.
+   */
+  async deleteAgenda(agendaId: string): Promise<DocIdentifier> {
+    return XHR.sendCommand(
+      'DELETE',
+      this.host + `/agenda/${encodeURIComponent(agendaId)}` + '?ts=' + new Date().getTime(),
+      this.headers,
+      null,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
+      .then((doc) => new DocIdentifier(doc.body))
       .catch((err) => this.handleError(err))
   }
 

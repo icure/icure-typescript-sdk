@@ -14,7 +14,7 @@ import { CalendarItem } from '../model/CalendarItem'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { IcureStub } from '../model/IcureStub'
 import { ListOfIds } from '../model/ListOfIds'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
 import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
@@ -68,33 +68,44 @@ export class IccCalendarItemApi {
   }
 
   /**
+   * @summary Deletes a calendarItem by id.
    *
    * @summary Deletes an calendarItem
-   * @param calendarItemIds
+   * @param calendarItemId the id of calendarItem to delete.
+   * @return a Promise that will resolve in the DocIdentifier of the deleted calendarItem.
    */
-  async deleteCalendarItem(calendarItemIds: string): Promise<Array<DocIdentifier>> {
-    let _body = null
-
-    const _url = this.host + `/calendarItem/${encodeURIComponent(String(calendarItemIds))}` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
+  async deleteCalendarItem(calendarItemId: string): Promise<DocIdentifier> {
+    return XHR.sendCommand(
+      'DELETE',
+      this.host + `/calendarItem/${encodeURIComponent(calendarItemId)}` + '?ts=' + new Date().getTime(),
+      await this.headers,
+      null,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
+      .then((doc) => new DocIdentifier(doc.body))
       .catch((err) => this.handleError(err))
   }
 
   /**
+   * @summary Deletes a batch of calendarItems by id.
    *
    * @summary Deletes calendarItems
-   * @param body
+   * @param body a ListOfIds containing the ids of the calendarItems to delete.
+   * @return a Promise that will resolve in an array of DocIdentifiers of the successfully deleted calendarItems.
    */
   async deleteCalendarItems(body?: ListOfIds): Promise<Array<DocIdentifier>> {
-    let _body = null
-    _body = body
-
-    const _url = this.host + `/calendarItem/delete/byIds` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    const headers = (await this.headers).filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand(
+      'POST',
+      this.host + `/calendarItem/delete/batch` + '?ts=' + new Date().getTime(),
+      headers,
+      body,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
       .catch((err) => this.handleError(err))
   }
@@ -106,9 +117,6 @@ export class IccCalendarItemApi {
    * @param hcPartyId
    */
   async findCalendarItemsByHCPartyPatientForeignKeysUsingPost(hcPartyId: string, body?: Array<string>): Promise<Array<CalendarItem>> {
-    let _body = null
-    _body = body
-
     const _url =
       this.host +
       `/calendarItem/byHcPartySecretForeignKeys` +
@@ -117,7 +125,7 @@ export class IccCalendarItemApi {
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '')
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new CalendarItem(it)))
       .catch((err) => this.handleError(err))
   }
@@ -264,13 +272,10 @@ export class IccCalendarItemApi {
    * @param body
    */
   async modifyCalendarItem(body?: CalendarItem): Promise<CalendarItem> {
-    let _body = null
-    _body = body
-
     const _url = this.host + `/calendarItem` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('PUT', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new CalendarItem(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }

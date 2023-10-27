@@ -14,8 +14,9 @@ import { ClassificationTemplate } from '../model/ClassificationTemplate'
 import { Delegation } from '../model/Delegation'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { PaginatedListClassificationTemplate } from '../model/PaginatedListClassificationTemplate'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
+import { ListOfIds } from '../model/ListOfIds'
 
 export class IccClassificationTemplateApi {
   host: string
@@ -48,7 +49,7 @@ export class IccClassificationTemplateApi {
    * @summary Create a classification Template with the current user
    * @param body
    */
-  createClassificationTemplate(body?: ClassificationTemplate): Promise<ClassificationTemplate> {
+  async createClassificationTemplate(body?: ClassificationTemplate): Promise<ClassificationTemplate> {
     let _body = null
     _body = body
 
@@ -61,17 +62,42 @@ export class IccClassificationTemplateApi {
   }
 
   /**
-   * Response is a set containing the ID's of deleted classification Templates.
-   * @summary Delete classification Templates.
-   * @param classificationTemplateIds
+   * @summary Deletes a batch of classification templates.
+   *
+   * @param classificationTemplateIds a ListOfIds containing the ids of the classification templates to delete.
+   * @return a Promise that will resolve in an array of DocIdentifiers of the successfully deleted classification templates
    */
-  deleteClassificationTemplates(classificationTemplateIds: string): Promise<Array<DocIdentifier>> {
-    let _body = null
-
-    const _url = this.host + `/classificationTemplate/${encodeURIComponent(String(classificationTemplateIds))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+  async deleteClassificationTemplates(classificationTemplateIds: ListOfIds): Promise<Array<DocIdentifier>> {
+    return XHR.sendCommand(
+      'POST',
+      this.host + `/classificationTemplate/delete/batch` + '?ts=' + new Date().getTime(),
+      this.headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json')),
+      classificationTemplateIds,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Deletes a single classification template by id.
+   *
+   * @param classificationTemplateId the id of the classification template to delete.
+   * @return a Promise that will resolve in the DocIdentifier of the deleted classification template.
+   */
+  async deleteClassificationTemplate(classificationTemplateId: string): Promise<DocIdentifier> {
+    return XHR.sendCommand(
+      'DELETE',
+      this.host + `/classificationTemplate/${encodeURIComponent(classificationTemplateId)}` + '?ts=' + new Date().getTime(),
+      this.headers,
+      null,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
+      .then((doc) => new DocIdentifier(doc.body))
       .catch((err) => this.handleError(err))
   }
 
@@ -81,7 +107,7 @@ export class IccClassificationTemplateApi {
    * @param hcPartyId
    * @param secretFKeys
    */
-  findClassificationTemplatesByHCPartyPatientForeignKeys(hcPartyId: string, secretFKeys: string): Promise<Array<ClassificationTemplate>> {
+  async findClassificationTemplatesByHCPartyPatientForeignKeys(hcPartyId: string, secretFKeys: string): Promise<Array<ClassificationTemplate>> {
     let _body = null
 
     const _url =
@@ -102,7 +128,7 @@ export class IccClassificationTemplateApi {
    * @summary Get a classification Template
    * @param classificationTemplateId
    */
-  getClassificationTemplate(classificationTemplateId: string): Promise<ClassificationTemplate> {
+  async getClassificationTemplate(classificationTemplateId: string): Promise<ClassificationTemplate> {
     let _body = null
 
     const _url = this.host + `/classificationTemplate/${encodeURIComponent(String(classificationTemplateId))}` + '?ts=' + new Date().getTime()
@@ -117,7 +143,7 @@ export class IccClassificationTemplateApi {
    * @summary Get a list of classifications Templates
    * @param ids
    */
-  getClassificationTemplateByIds(ids: string): Promise<Array<ClassificationTemplate>> {
+  async getClassificationTemplateByIds(ids: string): Promise<Array<ClassificationTemplate>> {
     let _body = null
 
     const _url = this.host + `/classificationTemplate/byIds/${encodeURIComponent(String(ids))}` + '?ts=' + new Date().getTime()
@@ -134,7 +160,7 @@ export class IccClassificationTemplateApi {
    * @param startDocumentId An classification template document ID
    * @param limit Number of rows
    */
-  listClassificationTemplates(startKey?: string, startDocumentId?: string, limit?: number): Promise<PaginatedListClassificationTemplate> {
+  async listClassificationTemplates(startKey?: string, startDocumentId?: string, limit?: number): Promise<PaginatedListClassificationTemplate> {
     let _body = null
 
     const _url =
@@ -156,14 +182,11 @@ export class IccClassificationTemplateApi {
    * @summary Modify a classification Template
    * @param body
    */
-  modifyClassificationTemplate(body?: ClassificationTemplate): Promise<ClassificationTemplate> {
-    let _body = null
-    _body = body
-
+  async modifyClassificationTemplate(body?: ClassificationTemplate): Promise<ClassificationTemplate> {
     const _url = this.host + `/classificationTemplate` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('PUT', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new ClassificationTemplate(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -174,15 +197,12 @@ export class IccClassificationTemplateApi {
    * @param body
    * @param classificationTemplateId
    */
-  newClassificationTemplateDelegations(classificationTemplateId: string, body?: Array<Delegation>): Promise<ClassificationTemplate> {
-    let _body = null
-    _body = body
-
+  async newClassificationTemplateDelegations(classificationTemplateId: string, body?: Array<Delegation>): Promise<ClassificationTemplate> {
     const _url =
       this.host + `/classificationTemplate/${encodeURIComponent(String(classificationTemplateId))}/delegate` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new ClassificationTemplate(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }

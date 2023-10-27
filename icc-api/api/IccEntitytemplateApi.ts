@@ -12,8 +12,9 @@
 import { XHR } from './XHR'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { EntityTemplate } from '../model/EntityTemplate'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
+import { ListOfIds } from '../model/ListOfIds'
 
 export class IccEntitytemplateApi {
   host: string
@@ -46,14 +47,11 @@ export class IccEntitytemplateApi {
    * @summary Create a EntityTemplate
    * @param body
    */
-  createEntityTemplate(body?: EntityTemplate): Promise<EntityTemplate> {
-    let _body = null
-    _body = body
-
+  async createEntityTemplate(body?: EntityTemplate): Promise<EntityTemplate> {
     const _url = this.host + `/entitytemplate` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new EntityTemplate(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -63,29 +61,31 @@ export class IccEntitytemplateApi {
    * @summary Create a batch of entityTemplates
    * @param body
    */
-  createEntityTemplates(body?: Array<EntityTemplate>): Promise<Array<EntityTemplate>> {
-    let _body = null
-    _body = body
-
+  async createEntityTemplates(body?: Array<EntityTemplate>): Promise<Array<EntityTemplate>> {
     const _url = this.host + `/entitytemplate/batch` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new EntityTemplate(it)))
       .catch((err) => this.handleError(err))
   }
 
   /**
+   * @summary Deletes a batch of entity templates.
    *
-   * @summary Delete entity templates
-   * @param entityTemplateIds
+   * @param entityTemplateIds a ListOfIds containing the ids of the entity templates to delete.
+   * @return a Promise that will resolve in an array of DocIdentifiers of the successfully deleted entity templates.
    */
-  deleteEntityTemplate(entityTemplateIds: string): Promise<Array<DocIdentifier>> {
-    let _body = null
-
-    const _url = this.host + `/entitytemplate/${encodeURIComponent(String(entityTemplateIds))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+  async deleteEntityTemplates(entityTemplateIds: ListOfIds): Promise<Array<DocIdentifier>> {
+    return XHR.sendCommand(
+      'POST',
+      this.host + `/entitytemplate/delete/batch` + '?ts=' + new Date().getTime(),
+      this.headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json')),
+      entityTemplateIds,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
       .catch((err) => this.handleError(err))
   }
@@ -97,7 +97,7 @@ export class IccEntitytemplateApi {
    * @param searchString
    * @param includeEntities
    */
-  findAllEntityTemplates(type: string, searchString?: string, includeEntities?: boolean): Promise<Array<EntityTemplate>> {
+  async findAllEntityTemplates(type: string, searchString?: string, includeEntities?: boolean): Promise<Array<EntityTemplate>> {
     let _body = null
 
     const _url =
@@ -120,7 +120,7 @@ export class IccEntitytemplateApi {
    * @param keyword
    * @param includeEntities
    */
-  findAllEntityTemplatesByKeyword(type: string, keyword: string, includeEntities?: boolean): Promise<Array<EntityTemplate>> {
+  async findAllEntityTemplatesByKeyword(type: string, keyword: string, includeEntities?: boolean): Promise<Array<EntityTemplate>> {
     let _body = null
 
     const _url =
@@ -143,7 +143,7 @@ export class IccEntitytemplateApi {
    * @param searchString
    * @param includeEntities
    */
-  findEntityTemplates(userId: string, type: string, searchString?: string, includeEntities?: boolean): Promise<Array<EntityTemplate>> {
+  async findEntityTemplates(userId: string, type: string, searchString?: string, includeEntities?: boolean): Promise<Array<EntityTemplate>> {
     let _body = null
 
     const _url =
@@ -167,7 +167,7 @@ export class IccEntitytemplateApi {
    * @param keyword
    * @param includeEntities
    */
-  findEntityTemplatesByKeyword(userId: string, type: string, keyword: string, includeEntities?: boolean): Promise<Array<EntityTemplate>> {
+  async findEntityTemplatesByKeyword(userId: string, type: string, keyword: string, includeEntities?: boolean): Promise<Array<EntityTemplate>> {
     let _body = null
 
     const _url =
@@ -189,7 +189,7 @@ export class IccEntitytemplateApi {
    * @summary Get a entityTemplate
    * @param entityTemplateId EntityTemplate id
    */
-  getEntityTemplate(entityTemplateId: string): Promise<EntityTemplate> {
+  async getEntityTemplate(entityTemplateId: string): Promise<EntityTemplate> {
     let _body = null
 
     const _url = this.host + `/entitytemplate/${encodeURIComponent(String(entityTemplateId))}` + '?ts=' + new Date().getTime()
@@ -204,7 +204,7 @@ export class IccEntitytemplateApi {
    * @summary Get a list of entityTemplates by ids
    * @param entityTemplateIds
    */
-  getEntityTemplates(entityTemplateIds: string): Promise<Array<EntityTemplate>> {
+  async getEntityTemplates(entityTemplateIds: string): Promise<Array<EntityTemplate>> {
     let _body = null
 
     const _url = this.host + `/entitytemplate/byIds/${encodeURIComponent(String(entityTemplateIds))}` + '?ts=' + new Date().getTime()
@@ -219,14 +219,11 @@ export class IccEntitytemplateApi {
    * @summary Modify a entityTemplate
    * @param body
    */
-  modifyEntityTemplate(body?: EntityTemplate): Promise<EntityTemplate> {
-    let _body = null
-    _body = body
-
+  async modifyEntityTemplate(body?: EntityTemplate): Promise<EntityTemplate> {
     const _url = this.host + `/entitytemplate` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('PUT', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new EntityTemplate(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -236,14 +233,11 @@ export class IccEntitytemplateApi {
    * @summary Modify a batch of entityTemplates
    * @param body
    */
-  modifyEntityTemplates(body?: Array<EntityTemplate>): Promise<Array<EntityTemplate>> {
-    let _body = null
-    _body = body
-
+  async modifyEntityTemplates(body?: Array<EntityTemplate>): Promise<Array<EntityTemplate>> {
     const _url = this.host + `/entitytemplate/batch` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('PUT', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new EntityTemplate(it)))
       .catch((err) => this.handleError(err))
   }

@@ -12,8 +12,9 @@
 import { XHR } from './XHR'
 import { Article } from '../model/Article'
 import { DocIdentifier } from '../model/DocIdentifier'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
+import { ListOfIds } from '../model/ListOfIds'
 
 export class IccArticleApi {
   host: string
@@ -47,29 +48,51 @@ export class IccArticleApi {
    * @param body
    */
   createArticle(body?: Article): Promise<Article> {
-    let _body = null
-    _body = body
-
     const _url = this.host + `/article` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Article(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 
   /**
+   * @summary Deletes a batch of articles by id.
    *
-   * @summary Deletes an article
-   * @param articleIds
+   * @param articleIds a ListOfIds containing the ids of the articles to delete.
+   * @return a Promise that will resolve in an array of DocIdentifiers of the successfully delete articles.
    */
-  deleteArticle(articleIds: string): Promise<Array<DocIdentifier>> {
-    let _body = null
-
-    const _url = this.host + `/article/${encodeURIComponent(String(articleIds))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+  async deleteArticles(articleIds: ListOfIds): Promise<Array<DocIdentifier>> {
+    return XHR.sendCommand(
+      'POST',
+      this.host + `/article/delete/batch` + '?ts=' + new Date().getTime(),
+      this.headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json')),
+      articleIds,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Deletes a single article by id.
+   *
+   * @param articleId the id of the article to delete.
+   * @return a Promise that will resolve in the DocIdentifier of the deleted article.
+   */
+  async deleteArticle(articleId: string): Promise<DocIdentifier> {
+    return XHR.sendCommand(
+      'DELETE',
+      this.host + `/article/${encodeURIComponent(articleId)}` + '?ts=' + new Date().getTime(),
+      this.headers,
+      null,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
+      .then((doc) => new DocIdentifier(doc.body))
       .catch((err) => this.handleError(err))
   }
 
@@ -78,7 +101,7 @@ export class IccArticleApi {
    * @summary Gets an article
    * @param articleId
    */
-  getArticle(articleId: string): Promise<Article> {
+  async getArticle(articleId: string): Promise<Article> {
     let _body = null
 
     const _url = this.host + `/article/${encodeURIComponent(String(articleId))}` + '?ts=' + new Date().getTime()
@@ -92,7 +115,7 @@ export class IccArticleApi {
    *
    * @summary Gets all articles
    */
-  getArticles(): Promise<Array<Article>> {
+  async getArticles(): Promise<Array<Article>> {
     let _body = null
 
     const _url = this.host + `/article` + '?ts=' + new Date().getTime()

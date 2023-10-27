@@ -11,7 +11,7 @@
  */
 import { XHR } from './XHR'
 import { Permission } from '../model/Permission'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
 
 export class IccPermissionApi {
@@ -46,14 +46,11 @@ export class IccPermissionApi {
    * @param body
    * @param userId
    */
-  modifyUserPermissions(userId: string, body?: Permission): Promise<Array<Permission>> {
-    let _body = null
-    _body = body
-
+  async modifyUserPermissions(userId: string, body?: Permission): Promise<Array<Permission>> {
     const _url = this.host + `/permissions/${encodeURIComponent(String(userId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('PUT', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Permission(it)))
       .catch((err) => this.handleError(err))
   }
