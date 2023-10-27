@@ -18,7 +18,7 @@ import { HealthcareParty } from '../model/HealthcareParty'
 import { ListOfIds } from '../model/ListOfIds'
 import { PaginatedListHealthcareParty } from '../model/PaginatedListHealthcareParty'
 import { PublicKey } from '../model/PublicKey'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
 
 export class IccHcpartyApi {
@@ -52,14 +52,11 @@ export class IccHcpartyApi {
    * @summary Create a healthcare party
    * @param body
    */
-  createHealthcareParty(body?: HealthcareParty): Promise<HealthcareParty> {
-    let _body = null
-    _body = body
-
+  async createHealthcareParty(body?: HealthcareParty): Promise<HealthcareParty> {
     const _url = this.host + `/hcparty` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new HealthcareParty(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -70,50 +67,92 @@ export class IccHcpartyApi {
    * @param body
    * @param groupId
    */
-  createHealthcarePartyInGroup(groupId: string, body?: HealthcareParty): Promise<HealthcareParty> {
-    let _body = null
-    _body = body
-
+  async createHealthcarePartyInGroup(groupId: string, body?: HealthcareParty): Promise<HealthcareParty> {
     const _url = this.host + `/hcparty/inGroup/${encodeURIComponent(String(groupId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new HealthcareParty(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 
   /**
-   * Deleting a healthcareParty. Response is an array containing the id of deleted healthcare party.
-   * @summary Delete a healthcare party
-   * @param healthcarePartyIds
+   * @summary Deletes a healthcare parties in batch.
+   * @param healthcarePartyIds a ListOfIds containing the ids of the healthcare parties to delete.
+   * @return a Promise that will resolve in an Array of DocIdentifiers of the successfully deleted healthcare parties.
    */
-  deleteHealthcareParties(healthcarePartyIds: string): Promise<Array<DocIdentifier>> {
-    let _body = null
-
-    const _url = this.host + `/hcparty/${encodeURIComponent(String(healthcarePartyIds))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+  async deleteHealthcareParties(healthcarePartyIds: ListOfIds): Promise<Array<DocIdentifier>> {
+    return XHR.sendCommand(
+      'POST',
+      this.host + `/hcparty/delete/batch` + '?ts=' + new Date().getTime(),
+      this.headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json')),
+      healthcarePartyIds,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
       .catch((err) => this.handleError(err))
   }
 
   /**
-   * Deleting a healthcareParty. Response is an array containing the id of deleted healthcare party.
-   * @summary Delete a healthcare party
-   * @param groupId
-   * @param healthcarePartyIds
+   * @summary Deletes a single healthcare party by id.
+   *
+   * @param healthcarePartyId the id of the healthcare party to delete.
+   * @return a Promise that will resolve in the DocIdentifier of the healthcare party.
    */
-  deleteHealthcarePartiesInGroup(groupId: string, healthcarePartyIds: string): Promise<Array<DocIdentifier>> {
-    let _body = null
+  async deleteHealthcareParty(healthcarePartyId: string): Promise<DocIdentifier> {
+    return XHR.sendCommand(
+      'DELETE',
+      this.host + `/hcparty/${encodeURIComponent(healthcarePartyId)}` + '?ts=' + new Date().getTime(),
+      this.headers,
+      null,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
+      .then((doc) => new DocIdentifier(doc.body))
+      .catch((err) => this.handleError(err))
+  }
 
-    const _url =
-      this.host +
-      `/hcparty/inGroup/${encodeURIComponent(String(groupId))}/${encodeURIComponent(String(healthcarePartyIds))}` +
-      '?ts=' +
-      new Date().getTime()
-    let headers = this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+  /**
+   * @summary Deletes a healthcare parties in batch in a specific group
+   * @param groupId the id of the group where to delete the healthcare parties.
+   * @param healthcarePartyIds a ListOfIds containing the ids of the healthcare parties to delete.
+   * @return a Promise that will resolve in an Array of DocIdentifiers of the successfully deleted healthcare parties.
+   */
+  async deleteHealthcarePartiesInGroup(groupId: string, healthcarePartyIds: ListOfIds): Promise<Array<DocIdentifier>> {
+    return XHR.sendCommand(
+      'POST',
+      this.host + `/hcparty/delete/batch/inGroup/${encodeURIComponent(groupId)}` + '?ts=' + new Date().getTime(),
+      this.headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json')),
+      healthcarePartyIds,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Deletes a single healthcare party by id in a specific group.
+   *
+   * @param groupId the id of the group where to delete the healthcare party.
+   * @param healthcarePartyId the id of the healthcare party to delete.
+   * @return a Promise that will resolve in the DocIdentifier of the healthcare party.
+   */
+  async deleteHealthcarePartyInGroup(groupId: string, healthcarePartyId: string): Promise<DocIdentifier> {
+    return XHR.sendCommand(
+      'DELETE',
+      this.host + `/hcparty/${encodeURIComponent(healthcarePartyId)}/inGroup/${encodeURIComponent(groupId)}` + '?ts=' + new Date().getTime(),
+      this.headers,
+      null,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
+      .then((doc) => new DocIdentifier(doc.body))
       .catch((err) => this.handleError(err))
   }
 
@@ -124,10 +163,7 @@ export class IccHcpartyApi {
    * @param startDocumentId A HealthcareParty document ID
    * @param limit Number of rows
    */
-  filterHealthPartiesBy(startDocumentId?: string, limit?: number, body?: FilterChainHealthcareParty): Promise<PaginatedListHealthcareParty> {
-    let _body = null
-    _body = body
-
+  async filterHealthPartiesBy(startDocumentId?: string, limit?: number, body?: FilterChainHealthcareParty): Promise<PaginatedListHealthcareParty> {
     const _url =
       this.host +
       `/hcparty/filter` +
@@ -137,7 +173,7 @@ export class IccHcpartyApi {
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListHealthcareParty(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }

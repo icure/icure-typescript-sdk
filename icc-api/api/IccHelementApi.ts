@@ -18,7 +18,7 @@ import { HealthElement } from '../model/HealthElement'
 import { IcureStub } from '../model/IcureStub'
 import { ListOfIds } from '../model/ListOfIds'
 import { PaginatedListHealthElement } from '../model/PaginatedListHealthElement'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
 import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
@@ -60,13 +60,10 @@ export class IccHelementApi {
    * @param body
    */
   async createHealthElement(body?: HealthElement): Promise<HealthElement> {
-    let _body = null
-    _body = body
-
     const _url = this.host + `/helement` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new HealthElement(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -77,29 +74,52 @@ export class IccHelementApi {
    * @param body
    */
   async createHealthElements(body?: Array<HealthElement>): Promise<Array<HealthElement>> {
-    let _body = null
-    _body = body
-
     const _url = this.host + `/helement/batch` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new HealthElement(it)))
       .catch((err) => this.handleError(err))
   }
 
   /**
-   * Response is a set containing the ID's of deleted healthcare elements.
-   * @summary Delete healthcare elements.
-   * @param healthElementIds
+   * @summary Delete healthcare elements by batch.
+   *
+   * @param healthElementIds a ListOfIds containing the ids of the health elements to delete.
+   * @return a Promise that will resolve in an Array containing the DocIdentifiers of the successfully delete documents.
    */
-  async deleteHealthElements(healthElementIds: string): Promise<Array<DocIdentifier>> {
-    let _body = null
-
-    const _url = this.host + `/helement/${encodeURIComponent(String(healthElementIds))}` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+  async deleteHealthElements(healthElementIds: ListOfIds): Promise<Array<DocIdentifier>> {
+    const headers = (await this.headers).filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand(
+      'POST',
+      this.host + `/helement/delete/batch` + '?ts=' + new Date().getTime(),
+      headers,
+      healthElementIds,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Deletes a single health element by id.
+   *
+   * @param healthElementId the id of the health element to delete.
+   * @return a Promise that will resolve in the DocIdentifier of the deleted health element.
+   */
+  async deleteHealthElement(healthElementId: string): Promise<DocIdentifier> {
+    return XHR.sendCommand(
+      'DELETE',
+      this.host + `/helement/${encodeURIComponent(healthElementId)}` + '?ts=' + new Date().getTime(),
+      await this.headers,
+      null,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
+      .then((doc) => new DocIdentifier(doc.body))
       .catch((err) => this.handleError(err))
   }
 
@@ -135,9 +155,6 @@ export class IccHelementApi {
    * @param hcPartyId
    */
   async findHealthElementsByHCPartyPatientForeignKeysUsingPost(hcPartyId: string, body?: Array<string>): Promise<Array<HealthElement>> {
-    let _body = null
-    _body = body
-
     const _url =
       this.host +
       `/helement/byHcPartySecretForeignKeys` +
@@ -146,7 +163,7 @@ export class IccHelementApi {
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '')
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new HealthElement(it)))
       .catch((err) => this.handleError(err))
   }
@@ -256,13 +273,10 @@ export class IccHelementApi {
    * @param body
    */
   async matchHealthElementsBy(body?: AbstractFilterHealthElement): Promise<Array<string>> {
-    let _body = null
-    _body = body
-
     const _url = this.host + `/helement/match` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
       .catch((err) => this.handleError(err))
   }

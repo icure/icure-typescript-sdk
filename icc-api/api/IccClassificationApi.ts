@@ -14,11 +14,12 @@ import { Classification } from '../model/Classification'
 import { Delegation } from '../model/Delegation'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { IcureStub } from '../model/IcureStub'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
 import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { MinimalEntityBulkShareResult } from '../model/requests/MinimalEntityBulkShareResult'
+import { ListOfIds } from '../model/ListOfIds'
 
 export class IccClassificationApi {
   host: string
@@ -56,29 +57,52 @@ export class IccClassificationApi {
    * @param body
    */
   async createClassification(body?: Classification): Promise<Classification> {
-    let _body = null
-    _body = body
-
     const _url = this.host + `/classification` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Classification(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 
   /**
-   * Response is a set containing the ID's of deleted classification Templates.
-   * @summary Delete classification Templates.
-   * @param classificationIds
+   * @summary Deletes a batch of classifications.
+   *
+   * @param classificationIds a ListOfIds containing the ids of the classification to delete.
+   * @return a Promise that will resolve in an array of DocIdentifiers of the successfully deleted classifications.
    */
-  async deleteClassifications(classificationIds: string): Promise<Array<DocIdentifier>> {
-    let _body = null
-
-    const _url = this.host + `/classification/${encodeURIComponent(String(classificationIds))}` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+  async deleteClassifications(classificationIds: ListOfIds): Promise<Array<DocIdentifier>> {
+    const headers = (await this.headers).filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand(
+      'POST',
+      this.host + `/classification/delete/batch` + '?ts=' + new Date().getTime(),
+      headers,
+      classificationIds,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Deletes a single classification by id.
+   *
+   * @param classificationId the id of the classification to delete.
+   * @return a Promise that will resolve in the DocIdentifier of the deleted classification.
+   */
+  async deleteClassification(classificationId: string): Promise<DocIdentifier> {
+    return XHR.sendCommand(
+      'DELETE',
+      this.host + `/classification/${encodeURIComponent(classificationId)}` + '?ts=' + new Date().getTime(),
+      await this.headers,
+      null,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
+      .then((doc) => new DocIdentifier(doc.body))
       .catch((err) => this.handleError(err))
   }
 

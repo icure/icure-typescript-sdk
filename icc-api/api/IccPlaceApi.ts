@@ -12,8 +12,9 @@
 import { XHR } from './XHR'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { Place } from '../model/Place'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
+import { ListOfIds } from '../model/ListOfIds'
 
 export class IccPlaceApi {
   host: string
@@ -46,29 +47,31 @@ export class IccPlaceApi {
    * @summary Creates a place
    * @param body
    */
-  createPlace(body?: Place): Promise<Place> {
-    let _body = null
-    _body = body
-
+  async createPlace(body?: Place): Promise<Place> {
     const _url = this.host + `/place` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Place(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 
   /**
+   * @summary Deletes a batch of places.
    *
-   * @summary Deletes an place
-   * @param placeIds
+   * @param placeIds a ListOfIds containing the ids of the places to delete.
+   * @return a Promise that will resolve in an array of DocIdentifiers of the successfully deleted places.
    */
-  deletePlace(placeIds: string): Promise<Array<DocIdentifier>> {
-    let _body = null
-
-    const _url = this.host + `/place/${encodeURIComponent(String(placeIds))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+  async deletePlaces(placeIds: ListOfIds): Promise<Array<DocIdentifier>> {
+    return XHR.sendCommand(
+      'POST',
+      this.host + `/place/delete/batch` + '?ts=' + new Date().getTime(),
+      this.headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json')),
+      placeIds,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
       .catch((err) => this.handleError(err))
   }
@@ -78,7 +81,7 @@ export class IccPlaceApi {
    * @summary Gets a place
    * @param placeId
    */
-  getPlace(placeId: string): Promise<Place> {
+  async getPlace(placeId: string): Promise<Place> {
     let _body = null
 
     const _url = this.host + `/place/${encodeURIComponent(String(placeId))}` + '?ts=' + new Date().getTime()
@@ -92,7 +95,7 @@ export class IccPlaceApi {
    *
    * @summary Gets all places
    */
-  getPlaces(): Promise<Array<Place>> {
+  async getPlaces(): Promise<Array<Place>> {
     let _body = null
 
     const _url = this.host + `/place` + '?ts=' + new Date().getTime()
@@ -107,14 +110,11 @@ export class IccPlaceApi {
    * @summary Modifies an place
    * @param body
    */
-  modifyPlace(body?: Place): Promise<Place> {
-    let _body = null
-    _body = body
-
+  async modifyPlace(body?: Place): Promise<Place> {
     const _url = this.host + `/place` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('PUT', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Place(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }

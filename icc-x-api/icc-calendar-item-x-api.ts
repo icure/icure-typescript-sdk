@@ -2,7 +2,7 @@ import * as i18n from './rsrc/contact.i18n'
 
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import { AccessLog, CalendarItem, EncryptedEntityStub, User } from '../icc-api/model/models'
+import { CalendarItem, User } from '../icc-api/model/models'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 import { IccCalendarItemApi } from '../icc-api'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'

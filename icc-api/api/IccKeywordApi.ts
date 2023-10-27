@@ -12,8 +12,9 @@
 import { XHR } from './XHR'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { Keyword } from '../model/Keyword'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
+import { ListOfIds } from '../model/ListOfIds'
 
 export class IccKeywordApi {
   host: string
@@ -46,29 +47,30 @@ export class IccKeywordApi {
    * @summary Create a keyword with the current user
    * @param body
    */
-  createKeyword(body?: Keyword): Promise<Keyword> {
-    let _body = null
-    _body = body
-
+  async createKeyword(body?: Keyword): Promise<Keyword> {
     const _url = this.host + `/keyword` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Keyword(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 
   /**
-   * Response is a set containing the ID's of deleted keywords.
-   * @summary Delete keywords.
-   * @param keywordIds
+   * @summary Deletes a batch of keywords.
+   * @param keywordIds a ListOfIds containing the ids of the keywords to delete.
+   * @return a Promise that will resolve in an array of DocIdentifiers of the successfully delete keywords.
    */
-  deleteKeywords(keywordIds: string): Promise<Array<DocIdentifier>> {
-    let _body = null
-
-    const _url = this.host + `/keyword/${encodeURIComponent(String(keywordIds))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+  async deleteKeywords(keywordIds: ListOfIds): Promise<Array<DocIdentifier>> {
+    return XHR.sendCommand(
+      'POST',
+      this.host + `/keyword/delete/batch` + '?ts=' + new Date().getTime(),
+      this.headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json')),
+      keywordIds,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
       .catch((err) => this.handleError(err))
   }
@@ -78,7 +80,7 @@ export class IccKeywordApi {
    * @summary Get a keyword
    * @param keywordId
    */
-  getKeyword(keywordId: string): Promise<Keyword> {
+  async getKeyword(keywordId: string): Promise<Keyword> {
     let _body = null
 
     const _url = this.host + `/keyword/${encodeURIComponent(String(keywordId))}` + '?ts=' + new Date().getTime()
@@ -92,7 +94,7 @@ export class IccKeywordApi {
    *
    * @summary Gets all keywords
    */
-  getKeywords(): Promise<Array<Keyword>> {
+  async getKeywords(): Promise<Array<Keyword>> {
     let _body = null
 
     const _url = this.host + `/keyword` + '?ts=' + new Date().getTime()
@@ -107,7 +109,7 @@ export class IccKeywordApi {
    * @summary Get keywords by user
    * @param userId
    */
-  getKeywordsByUser(userId: string): Promise<Array<Keyword>> {
+  async getKeywordsByUser(userId: string): Promise<Array<Keyword>> {
     let _body = null
 
     const _url = this.host + `/keyword/byUser/${encodeURIComponent(String(userId))}` + '?ts=' + new Date().getTime()
@@ -122,14 +124,11 @@ export class IccKeywordApi {
    * @summary Modify a keyword
    * @param body
    */
-  modifyKeyword(body?: Keyword): Promise<Keyword> {
-    let _body = null
-    _body = body
-
+  async modifyKeyword(body?: Keyword): Promise<Keyword> {
     const _url = this.host + `/keyword` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('PUT', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Keyword(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }

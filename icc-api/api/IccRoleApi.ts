@@ -29,12 +29,10 @@ export class IccRoleApi {
    *
    * @summary Gets all roles
    */
-  getRoles(): Promise<Array<Role>> {
-    let _body = null
-
+  async getRoles(): Promise<Array<Role>> {
     const _url = this.host + `/role` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Role(it)))
       .catch((err) => this.handleError(err))
   }

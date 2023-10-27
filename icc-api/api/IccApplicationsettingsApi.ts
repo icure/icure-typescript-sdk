@@ -11,7 +11,7 @@
  */
 import { XHR } from './XHR'
 import { ApplicationSettings } from '../model/ApplicationSettings'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
 
 export class IccApplicationsettingsApi {
