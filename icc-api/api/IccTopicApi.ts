@@ -13,7 +13,7 @@ import { XHR } from './XHR'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { Topic, TopicRole } from '../model/Topic'
 import { ListOfIds } from '../model/ListOfIds'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
 import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
@@ -129,7 +129,7 @@ export class IccTopicApi {
    */
   async deleteTopics(body: ListOfIds): Promise<Array<DocIdentifier>> {
     const _url = this.host + `/topic/delete/batch` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
+    const headers = (await this.headers).filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
       .catch((err) => this.handleError(err))

@@ -278,7 +278,7 @@ export const entities: { [key: string]: CRUDInterface } = {
   },
   MaintenanceTask: {
     encryptable: true,
-    create: async (api: IcureApi, patient: Patient) => {
+    create: async (api: IcureApi, _: Patient) => {
       const currentUser = await api.userApi.getCurrentUser()
       const item = await api.maintenanceTaskApi.newInstance(currentUser, {})
       return (await api.maintenanceTaskApi.createMaintenanceTaskWithUser(currentUser, item))!
@@ -316,7 +316,7 @@ export const entities: { [key: string]: CRUDInterface } = {
   },
   Message: {
     encryptable: true,
-    create: async (api: IcureApi, patient: Patient) => {
+    create: async (api: IcureApi, _: Patient) => {
       const currentUser = await api.userApi.getCurrentUser()
       const item = await api.messageApi.newInstance(currentUser, {})
       return api.messageApi.createMessage(item)
@@ -334,7 +334,7 @@ export const entities: { [key: string]: CRUDInterface } = {
   },
   Patient: {
     encryptable: true,
-    create: async (api: IcureApi, patient: Patient) => {
+    create: async (api: IcureApi, _: Patient) => {
       const currentUser = await api.userApi.getCurrentUser()
       const item = await api.patientApi.newInstance(currentUser, {})
       return api.patientApi.createPatientWithUser(currentUser, item)
@@ -364,7 +364,7 @@ export const entities: { [key: string]: CRUDInterface } = {
   },
   Receipt: {
     encryptable: true,
-    create: async (api: IcureApi, patient: Patient) => {
+    create: async (api: IcureApi, _: Patient) => {
       const currentUser = await api.userApi.getCurrentUser()
       const item = await api.receiptApi.newInstance(currentUser, {})
       return api.receiptApi.createReceipt(item)
@@ -382,7 +382,7 @@ export const entities: { [key: string]: CRUDInterface } = {
   },
   TimeTable: {
     encryptable: true,
-    create: async (api: IcureApi, patient: Patient) => {
+    create: async (api: IcureApi, _: Patient) => {
       const currentUser = await api.userApi.getCurrentUser()
       const item = await api.timetableApi.newInstance(currentUser, {})
       return api.timetableApi.createTimeTable(item)
@@ -402,7 +402,7 @@ export const entities: { [key: string]: CRUDInterface } = {
     encryptable: true,
     create: async (api: IcureApi, patient: Patient) => {
       const currentUser = await api.userApi.getCurrentUser()
-      const item = await api.topicApi.newInstance(currentUser, {})
+      const item = await api.topicApi.newInstance(currentUser, patient)
       return api.topicApi.createTopic(item)
     },
     share: async (delegatorApi: IcureApi, delegateApi: IcureApi, entity: any) => {
