@@ -115,6 +115,10 @@ export class User {
    * Encrypted and time-limited Authentication tokens used for inter-applications authentication
    */
   authenticationTokens?: { [key: string]: AuthenticationToken }
+  /**
+   * System metadata for the user: this configuration is read only, and defined only when using the cloud version of iCure.
+   */
+  systemMetadata?: User.SystemMetadata
 }
 export namespace User {
   export type TypeEnum = 'database' | 'ldap' | 'token'
@@ -169,5 +173,24 @@ export namespace User {
     cdItemMedication: 'cdItemMedication' as AutoDelegationTagEnum,
     cdItemTreatment: 'cdItemTreatment' as AutoDelegationTagEnum,
     cdItemVaccine: 'cdItemVaccine' as AutoDelegationTagEnum,
+  }
+
+  export class SystemMetadata {
+    constructor(json: JSON | any) {
+      Object.assign(this as User, json)
+    }
+
+    /**
+     * The roles of the user that the cloud environment recognizes
+     */
+    roles?: string[]
+    /**
+     * If the user is considered as an admin by the cloud environment
+     */
+    isAdmin?: boolean
+    /**
+     * True if the content of roles is inherited from the user's group configuration, false if the roles are defined specifically for the use
+     */
+    inheritsRoles?: boolean
   }
 }
