@@ -25,3 +25,26 @@ export class TestKeyStorage extends KeyStorageImpl {
     super(new TestStorage())
   }
 }
+
+export async function testStorageWithKeys(
+  data: { dataOwnerId: string; pairs: { keyPair: KeyPair<string>; shaVersion: ShaVersion }[] }[]
+): Promise<{ keyStorage: KeyStorageFacade; storage: StorageFacade<string>; keyFactory: StorageEntryKeysFactory }> {
+  const keyStorage = new TestKeyStorage()
+  const keyFactory = new DefaultStorageEntryKeysFactory()
+  const storage = new TestStorage()
+  const icureStorage = new IcureStorageFacade(keyStorage, storage, keyFactory)
+  for (const { dataOwnerId, pairs } of data) {
+    for (const pair of pairs) {
+      await icureStorage.saveKey(
+        dataOwnerId,
+        pair.keyPair.publicKey.slice(-32),
+        {
+          privateKey: pkcs8ToJwk(hex2ua(pair.keyPair.privateKey)),
+          publicKey: spkiToJwk(hex2ua(pair.keyPair.publicKey), pair.shaVersion),
+        },
+        true
+      )
+    }
+  }
+  return { keyFactory, keyStorage, storage }
+}
