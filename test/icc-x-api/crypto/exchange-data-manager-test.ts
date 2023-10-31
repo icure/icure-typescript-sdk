@@ -32,6 +32,9 @@ describe('Exchange data manager', async function () {
   let delegateId: string
   let delegateKeyFp: string
   let delegateKeypair: KeyPair<CryptoKey>
+  let delegate2Id: string
+  let delegate2KeyFp: string
+  let delegate2Keypair: KeyPair<CryptoKey>
   let dataOwnerApi: FakeDataOwnerApi
   let exchangeDataApi: FakeExchangeDataApi
   let baseExchangeData: BaseExchangeDataManager
@@ -51,6 +54,9 @@ describe('Exchange data manager', async function () {
     delegateId = primitives.randomUuid()
     delegateKeypair = await primitives.RSA.generateKeyPair('sha-256')
     delegateKeyFp = fingerprintV1(ua2hex(await primitives.RSA.exportKey(delegateKeypair.publicKey, 'spki')))
+    delegate2Id = primitives.randomUuid()
+    delegate2Keypair = await primitives.RSA.generateKeyPair('sha-256')
+    delegate2KeyFp = fingerprintV1(ua2hex(await primitives.RSA.exportKey(delegate2Keypair.publicKey, 'spki')))
     dataOwnerApi = new FakeDataOwnerApi(
       {
         id: selfId,
@@ -62,6 +68,11 @@ describe('Exchange data manager', async function () {
           id: delegateId,
           type: dataOwnerType,
           publicKeysForOaepWithSha256: [ua2hex(await primitives.RSA.exportKey(delegateKeypair.publicKey, 'spki'))],
+        },
+        {
+          id: delegate2Id,
+          type: dataOwnerType,
+          publicKeysForOaepWithSha256: [ua2hex(await primitives.RSA.exportKey(delegate2Keypair.publicKey, 'spki'))],
         },
       ]
     )
@@ -324,8 +335,7 @@ describe('Exchange data manager', async function () {
     await doTest(false)
   })
 
-  it('should create new exchange data for encryption when the existing data can not be verified due to tampering of the data', async function () {
-    // Test tampering by adding new key or changing value corresponding to a key in encryption data, access control data or both.
+  it('should create new exchange data for encryption when the existing data can not be verified due to tampering of the encrypted access control secret and/or encrypted exchange key', async function () {
     async function doTest(
       allowFullExchangeDataLoad: boolean,
       tamper: (exchangeData: ExchangeData, selfKeyPair: KeyPair<CryptoKey>, selfKeyFp: string) => Promise<ExchangeData>
@@ -334,7 +344,7 @@ describe('Exchange data manager', async function () {
       const sfk = primitives.randomUuid()
       const createdData = await exchangeData.getOrCreateEncryptionDataTo(delegateId, 'Contact', [sfk])
       // Tamper with exchange data
-      await exchangeDataApi.modifyExchangeData(await tamper(createdData.exchangeData, selfKeypair, selfKeyFpV1))
+      await exchangeDataApi.modifyExchangeData(await tamper(createdData.exchangeData, selfKeypair, selfKeyFpV2))
       await exchangeData.clearOrRepopulateCache()
       const countAfterCacheClear = exchangeDataApi.callCount
       const newData = await exchangeData.getOrCreateEncryptionDataTo(delegateId, 'Contact', [sfk])
@@ -345,40 +355,24 @@ describe('Exchange data manager', async function () {
         getExchangeDataById: 0,
         getExchangeDataByParticipant: 0,
       })
-      expect(_.isEqual(_.omit(createdData.exchangeData, ['rev']), _.omit(newData.exchangeData, ['rev']))).to.equal(
-        false,
+      expect(createdData.exchangeData.id).not.to.equal(
+        newData.exchangeData.id,
         'Exchange data manager should have created new exchange data for encryption'
       )
       expect(ua2hex(await primitives.AES.exportKey(createdData.exchangeKey, 'raw'))).to.not.equal(
         ua2hex(await primitives.AES.exportKey(newData.exchangeKey, 'raw'))
       )
       expect(createdData.accessControlSecret).to.not.equal(newData.accessControlSecret)
+      const updatedUnverifiedOldData = await exchangeData.getDecryptionDataKeyById(createdData.exchangeData.id!, 'Contact', [sfk], true)
+      expect(updatedUnverifiedOldData).to.not.be.undefined
     }
-    const extraKeyPair = await primitives.RSA.generateKeyPair('sha-256')
-    const extraKeyPairFp = ua2hex(await primitives.RSA.exportKey(extraKeyPair.publicKey, 'spki')).slice(-32)
     const fakeKey = primitives.randomBytes(16)
-    const tamperByAddingEncryptionKey = async (exchangeData: ExchangeData) =>
-      new ExchangeData({
-        ...exchangeData,
-        exchangeKey: {
-          ...exchangeData.exchangeKey,
-          [extraKeyPairFp]: ua2b64(await primitives.RSA.encrypt(extraKeyPair.publicKey, fakeKey)),
-        },
-      })
     const tamperByChangingEncryptionKey = async (exchangeData: ExchangeData, selfKeyPair: KeyPair<CryptoKey>, selfKeyFp: string) =>
       new ExchangeData({
         ...exchangeData,
         exchangeKey: {
           ...exchangeData.exchangeKey,
           [selfKeyFp]: ua2b64(await primitives.RSA.encrypt(selfKeyPair.publicKey, fakeKey)),
-        },
-      })
-    const tamperByAddingAccessControlSecret = async (exchangeData: ExchangeData) =>
-      new ExchangeData({
-        ...exchangeData,
-        accessControlSecret: {
-          ...exchangeData.accessControlSecret,
-          [extraKeyPairFp]: ua2b64(await primitives.RSA.encrypt(extraKeyPair.publicKey, fakeKey)),
         },
       })
     const tamperByChangingAccessControlSecret = async (exchangeData: ExchangeData, selfKeyPair: KeyPair<CryptoKey>, selfKeyFp: string) =>
@@ -389,14 +383,62 @@ describe('Exchange data manager', async function () {
           [selfKeyFp]: ua2b64(await primitives.RSA.encrypt(selfKeyPair.publicKey, fakeKey)),
         },
       })
-    await doTest(true, tamperByAddingEncryptionKey)
-    await doTest(false, tamperByAddingEncryptionKey)
+    const tamperByChangingBoth = async (exchangeData: ExchangeData, selfKeyPair: KeyPair<CryptoKey>, selfKeyFp: string) =>
+      tamperByChangingEncryptionKey(await tamperByChangingAccessControlSecret(exchangeData, selfKeyPair, selfKeyFp), selfKeyPair, selfKeyFp)
     await doTest(true, tamperByChangingEncryptionKey)
     await doTest(false, tamperByChangingEncryptionKey)
-    await doTest(true, tamperByAddingAccessControlSecret)
-    await doTest(false, tamperByAddingAccessControlSecret)
     await doTest(true, tamperByChangingAccessControlSecret)
     await doTest(false, tamperByChangingAccessControlSecret)
+    await doTest(true, tamperByChangingBoth)
+    await doTest(false, tamperByChangingBoth)
+  })
+
+  it('should create new exchange data for encryption when the existing data can not be verified due to tampering of the delegate id', async function () {
+    async function doTest(allowFullExchangeDataLoad: boolean) {
+      await initialiseComponents(allowFullExchangeDataLoad)
+      const sfk = primitives.randomUuid()
+      const createdData = await exchangeData.getOrCreateEncryptionDataTo(delegateId, 'Contact', [sfk])
+      // Tamper with exchange data
+      await exchangeDataApi.modifyExchangeData({
+        ...createdData.exchangeData,
+        delegate: delegate2Id,
+      })
+      await exchangeData.clearOrRepopulateCache()
+      const countAfterCacheClear = exchangeDataApi.callCount
+      const newDataToDelegate = await exchangeData.getOrCreateEncryptionDataTo(delegateId, 'Contact', [sfk])
+      const newDataToDelegate2 = await exchangeData.getOrCreateEncryptionDataTo(delegate2Id, 'Contact', [sfk])
+      exchangeDataApi.compareCallCountFromBaseline(countAfterCacheClear, {
+        createExchangeData: 2,
+        getExchangeDataByDelegatorDelegate: allowFullExchangeDataLoad ? 0 : 2,
+        modifyExchangeData: 0,
+        getExchangeDataById: 0,
+        getExchangeDataByParticipant: 0,
+      })
+      expect(createdData.exchangeData.id).to.not.equal(
+        newDataToDelegate.exchangeData.id,
+        'Exchange data manager should have created new exchange data for encryption to delegate'
+      )
+      expect(createdData.exchangeData.id).to.not.equal(
+        newDataToDelegate2.exchangeData.id,
+        'Exchange data manager should have created new exchange data for encryption to delegate 2'
+      )
+      expect(ua2hex(await primitives.AES.exportKey(createdData.exchangeKey, 'raw'))).to.not.equal(
+        ua2hex(await primitives.AES.exportKey(newDataToDelegate.exchangeKey, 'raw'))
+      )
+      expect(ua2hex(await primitives.AES.exportKey(createdData.exchangeKey, 'raw'))).to.not.equal(
+        ua2hex(await primitives.AES.exportKey(newDataToDelegate2.exchangeKey, 'raw'))
+      )
+      expect(createdData.accessControlSecret).to.not.equal(newDataToDelegate.accessControlSecret)
+      expect(createdData.accessControlSecret).to.not.equal(newDataToDelegate2.accessControlSecret)
+      const updatedUnverifiedOldData = await exchangeData.getDecryptionDataKeyById(createdData.exchangeData.id!, 'Contact', [sfk], true)
+      expect(updatedUnverifiedOldData).to.not.be.undefined
+      expect(ua2hex(await primitives.AES.exportKey(updatedUnverifiedOldData!.exchangeKey!, 'raw'))).to.equal(
+        ua2hex(await primitives.AES.exportKey(createdData.exchangeKey, 'raw'))
+      )
+      expect(updatedUnverifiedOldData!.accessControlSecret).to.equal(createdData.accessControlSecret)
+    }
+    await doTest(true)
+    await doTest(false)
   })
 
   it('should return existing exchange data keys for decryption even if the data authenticity could not be verified', async function () {
