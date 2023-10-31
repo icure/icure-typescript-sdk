@@ -65,42 +65,30 @@ export class BaseExchangeDataManager {
   }
 
   /**
-   * Filters exchange data returning only the instances that could be verified using their signature and the provided verification
-   * keys.
-   * Note that all exchange data created by data owners other than the current data owner (including members of his hierarchy)
-   * will always be unverified.
-   * @param exchangeData the exchange data to verify.
-   * @param getVerificationKey function to retrieve keys to use for verification by fingerprint.
-   * @return the exchange data which could be verified given his signature and the available verification keys.
-   * @throws if any of the provided exchange data has been created by a data owner other than the current data owner.
-   */
-  async filterVerifiedExchangeData(
-    exchangeData: ExchangeData[],
-    getVerificationKey: (publicKeyFingerprint: string) => Promise<CryptoKey | undefined>
-  ): Promise<ExchangeData[]> {
-    const verified: ExchangeData[] = []
-    for (const ed of exchangeData) {
-      if (await this.verifyExchangeData(ed, (x) => getVerificationKey(x))) verified.push(ed)
-    }
-    return verified
-  }
-
-  /**
    * Verifies the authenticity of the exchange data by checking the signature.
    * Note that all exchange data created by data owners other than the current data owner (including members of his hierarchy)
    * will always be unverified.
    * @param exchangeData the exchange data to verify.
+   * @param decryptedAccessControlSecret the access control secret decrypted from the exchange data.
+   * @param decryptedExchangeKey the exchange key decrypted from the exchange data.
    * @param getVerificationKey function to retrieve keys to use for verification by fingerprint.
    * @return the exchange data which could be verified given his signature and the available verification keys.
    * @throws if any of the provided exchange data has been created by a data owner other than the current data owner.
    */
   async verifyExchangeData(
     exchangeData: ExchangeData,
+    decryptedAccessControlSecret: string,
+    decryptedExchangeKey: CryptoKey,
     getVerificationKey: (publicKeyFingerprint: string) => Promise<CryptoKey | undefined>
   ): Promise<boolean> {
     const dataOwnerId = await this.dataOwnerApi.getCurrentDataOwnerId()
     if (exchangeData.delegator !== dataOwnerId) return false
-    const signatureData = await this.bytesToSign(exchangeData)
+    const signatureData = await this.bytesToSign({
+      decryptedAccessControlSecret,
+      decryptedExchangeKey,
+      delegator: exchangeData.delegator,
+      delegate: exchangeData.delegate,
+    })
     for (const [fp, signature] of Object.entries(exchangeData.signature)) {
       const verificationKey = await getVerificationKey(fp.slice(-32))
       if (verificationKey && (await this.primitives.RSA.verifySignature(verificationKey, b64_2ua(signature), signatureData))) return true
@@ -237,7 +225,15 @@ export class BaseExchangeDataManager {
       exchangeKey: encryptedExchangeKey,
       accessControlSecret: encryptedAccessControlSecret,
     }
-    const signature = await this.signDataWithKeys(await this.bytesToSign(baseExchangeData), signatureKeys)
+    const signature = await this.signDataWithKeys(
+      await this.bytesToSign({
+        delegate: baseExchangeData.delegate,
+        delegator: baseExchangeData.delegator,
+        decryptedAccessControlSecret: accessControlSecret.secret,
+        decryptedExchangeKey: exchangeKey.key,
+      }),
+      signatureKeys
+    )
     const exchangeData = new ExchangeData({ ...baseExchangeData, signature })
     return {
       exchangeData: await this.api.createExchangeData(exchangeData),
@@ -251,24 +247,16 @@ export class BaseExchangeDataManager {
    * where one of the data owners involved in the exchange data has lost one of his keys.
    * If the content of the exchange data could not be decrypted using the provided keys the method will not update anything and will return undefined.
    * This method assumes that the new encryption keys have been verified.
-   * If the current data owner is also the delegator of the provided exchange data and at least one of the verification keys can be used to
-   * validate the current exchange data then the signature will be updated using the signature keys.
-   * Instead, if the current data owner is not the delegator of the provided exchange data, or the exchange data could not be verified using
-   * the provided verification keys then the updated exchange data will become unverified, and won't ever be verifiable again.
    * @param exchangeData exchange data to update.
    * @param decryptionKeys keys to use to extract the content of the exchange data which will be shared with the new keys.
-   * @param signatureKeys keys to use for the new signature of the updated exchange data.
    * @param newEncryptionKeys new keys to add to the exchange data.
-   * @param getVerificationKey function to retrieve keys to use for verification by fingerprint.
    * @return the updated exchange data, and its decrypted exchange key and access control secret, or undefined if the exchange data content could not
    * be decrypted and the exchange data could not be updated.
    */
   async tryUpdateExchangeData(
     exchangeData: ExchangeData,
     decryptionKeys: { [publicKeyFingerprint: string]: KeyPair<CryptoKey> },
-    newEncryptionKeys: { [keyPairFingerprint: string]: CryptoKey },
-    signatureKeys: { [keyPairFingerprint: string]: CryptoKey },
-    getVerificationKey: (publicKeyFingerprint: string) => Promise<CryptoKey | undefined>
+    newEncryptionKeys: { [keyPairFingerprint: string]: CryptoKey }
   ): Promise<
     | {
         exchangeData: ExchangeData
@@ -291,7 +279,6 @@ export class BaseExchangeDataManager {
       obj[fp] = newEncryptionKeys[fp]
       return obj
     }, {} as { [keyPairFingerprint: string]: CryptoKey })
-    const isVerified = exchangeData.delegator == dataOwnerId && (await this.verifyExchangeData(exchangeData, (fp) => getVerificationKey(fp)))
     const updatedExchangeData = _.cloneDeep(exchangeData)
     updatedExchangeData.exchangeKey = {
       ...exchangeData.exchangeKey,
@@ -301,34 +288,22 @@ export class BaseExchangeDataManager {
       ...exchangeData.accessControlSecret,
       ...(await this.encryptDataWithKeys(rawAccessControlSecret, encryptionKeysForMissingEntries)),
     }
-    if (isVerified) {
-      const newDataToSign = await this.bytesToSign(updatedExchangeData)
-      updatedExchangeData.signature = await this.signDataWithKeys(newDataToSign, signatureKeys)
-    }
     return { exchangeData: await this.api.modifyExchangeData(new ExchangeData(updatedExchangeData)), exchangeKey, accessControlSecret }
   }
 
-  // Gets a byte representation of the parts of exchange data which should be included in the signature.
-  // Equivalent json representations of the exchange data should provide the same bytes (even if the order of entries
-  // is different).
-  private async bytesToSign(exchangeData: {
-    delegate: string
+  private async bytesToSign(data: {
     delegator: string
-    exchangeKey: { [k: string]: string }
-    accessControlSecret: { [k: string]: string }
+    delegate: string
+    decryptedAccessControlSecret: string
+    decryptedExchangeKey: CryptoKey
   }): Promise<ArrayBuffer> {
-    function sortObject(obj: { [k: string]: string }): [string, string][] {
-      return Object.keys(obj)
-        .sort()
-        .reduce((sorted, key) => {
-          return [...sorted, [key, obj[key]]]
-        }, [] as [string, string][])
-    }
+    // Use array of array to ensure that order is preserved regardless of how the specific js implementation orders
+    // the keys of an object
     const signObject = [
-      ['delegator', exchangeData.delegator],
-      ['delegate', exchangeData.delegate],
-      ['exchangeKey', sortObject(exchangeData.exchangeKey)],
-      ['accessControlSecret', sortObject(exchangeData.accessControlSecret)],
+      ['delegator', data.delegator],
+      ['delegate', data.delegate],
+      ['exchangeKey', ua2hex(await this.primitives.AES.exportKey(data.decryptedExchangeKey, 'raw'))],
+      ['accessControlSecret', data.decryptedAccessControlSecret],
     ]
     const signJson = JSON.stringify(signObject)
     return this.primitives.sha256(utf8_2ua(signJson))

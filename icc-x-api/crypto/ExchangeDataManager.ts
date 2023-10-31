@@ -185,7 +185,9 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
     return {
       accessControlSecret: decryptedAccessControlSecret,
       exchangeKey: decryptedKey,
-      verified: await this.base.verifyExchangeData(data, (fp) => this.signatureKeys.getSignatureVerificationKey(fp)),
+      verified: await this.base.verifyExchangeData(data, decryptedAccessControlSecret, decryptedKey, (fp) =>
+        this.signatureKeys.getSignatureVerificationKey(fp)
+      ),
     }
   }
 
@@ -253,13 +255,7 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
           ]
     for (const dataToUpdate of allExchangeDataToUpdate) {
       if (!Object.keys(dataToUpdate.exchangeKey).find((fp) => fp == newKeyFp)) {
-        const updated = await this.base.tryUpdateExchangeData(
-          dataToUpdate,
-          decryptionKeys,
-          { [newKeyFp]: importedNewKey },
-          { [signatureKey.fingerprint]: signatureKey.keyPair.privateKey },
-          (verificationFp) => this.signatureKeys.getSignatureVerificationKey(verificationFp)
-        )
+        const updated = await this.base.tryUpdateExchangeData(dataToUpdate, decryptionKeys, { [newKeyFp]: importedNewKey })
         if (!updated) {
           console.warn(`Failed to give access back to exchanged data ${JSON.stringify(dataToUpdate)}`)
         }
