@@ -1248,4 +1248,25 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
   createDelegationDeAnonymizationMetadata(entity: Patient, delegates: string[]): Promise<void> {
     return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'Patient' }, delegates)
   }
+
+  /**
+   * Initializes the exchange data towards a newly invited patient. This allows the doctor to share data with the
+   * patient even if the patient has not yet initialized a keypair for himself.
+   *
+   * This method should be used only if the patient has not yet initialized a keypair for himself. If the patient has
+   * already initialized a keypair this method does nothing and returns false. In this case the exchange data will be
+   * automatically created the first time you share data with the patient, and your implementation of the crypto
+   * strategies will be used to validate the public keys of the patient.
+   *
+   * Once exchange data is initialized you can use the {@link IccRecoveryXApi.createExchangeDataRecoveryInfo} to
+   * generate a key that the patient will be able to use on his first login to immediately gain access to the exchange
+   * data (through the {@link IccRecoveryXApi.recoverExchangeData} method).
+   *
+   * @param patientId the id of the newly invited patient.
+   * @return true if exchange data was initialized, false if the patient already has a key pair and the exchange data
+   * will be initialized in the standard way (automatically on the first time data is shared with the user).
+   */
+  initialiseExchangeDataToNewlyInvitedPatient(patientId: string): Promise<boolean> {
+    throw 'TODO'
+  }
 }
