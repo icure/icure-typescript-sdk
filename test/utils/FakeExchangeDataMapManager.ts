@@ -1,5 +1,5 @@
 import { ExchangeDataMapManager } from '../../icc-x-api/crypto/ExchangeDataMapManager'
-import { IccExchangeDataMapApi } from '../../icc-api/api/IccExchangeDataMapApi'
+import { IccExchangeDataMapApi } from '../../icc-api/api/internal/IccExchangeDataMapApi'
 import { ExchangeDataMap } from '../../icc-api/model/internal/ExchangeDataMap'
 import { FakeGenericApi } from './FakeGenericApi'
 

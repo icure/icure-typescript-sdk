@@ -1,4 +1,4 @@
-import { IccExchangeDataApi } from '../../icc-api/api/IccExchangeDataApi'
+import { IccExchangeDataApi } from '../../icc-api/api/internal/IccExchangeDataApi'
 import { ExchangeData } from '../../icc-api/model/internal/ExchangeData'
 import { PaginatedListExchangeData } from '../../icc-api/model/PaginatedListExchangeData'
 import { FakeGenericApi } from './FakeGenericApi'

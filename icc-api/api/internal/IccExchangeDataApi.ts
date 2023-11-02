@@ -1,8 +1,8 @@
-import { XHR } from './XHR'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
-import { ExchangeData } from '../model/internal/ExchangeData'
-import { PaginatedListExchangeData } from '../model/PaginatedListExchangeData'
-import { iccRestApiPath } from './IccRestApiPath'
+import { XHR } from '../XHR'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../../icc-x-api'
+import { ExchangeData } from '../../model/internal/ExchangeData'
+import { PaginatedListExchangeData } from '../../model/PaginatedListExchangeData'
+import { iccRestApiPath } from '../IccRestApiPath'
 
 export class IccExchangeDataApi {
   host: string

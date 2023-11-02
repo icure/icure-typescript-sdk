@@ -10,7 +10,7 @@ import { KeyPairUpdateRequest } from './maintenance/KeyPairUpdateRequest'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { User } from '../icc-api/model/User'
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
-import { IccExchangeDataApi } from '../icc-api/api/IccExchangeDataApi'
+import { IccExchangeDataApi } from '../icc-api/api/internal/IccExchangeDataApi'
 import { DataOwnerTypeEnum } from '../icc-api/model/DataOwnerTypeEnum'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 

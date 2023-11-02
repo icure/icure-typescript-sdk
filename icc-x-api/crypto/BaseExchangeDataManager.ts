@@ -1,7 +1,7 @@
 import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { KeyPair } from './RSA'
 import { ExchangeData } from '../../icc-api/model/internal/ExchangeData'
-import { IccExchangeDataApi } from '../../icc-api/api/IccExchangeDataApi'
+import { IccExchangeDataApi } from '../../icc-api/api/internal/IccExchangeDataApi'
 import { XHR } from '../../icc-api/api/XHR'
 import XHRError = XHR.XHRError
 import { CryptoPrimitives } from './CryptoPrimitives'
