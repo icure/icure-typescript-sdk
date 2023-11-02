@@ -14,6 +14,7 @@ import { DocIdentifier } from '../model/DocIdentifier'
 import { Insurance } from '../model/Insurance'
 import { ListOfIds } from '../model/ListOfIds'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { PaginatedListInsurance } from '../model/PaginatedListInsurance'
 
 export class IccInsuranceApi {
   host: string
@@ -149,6 +150,20 @@ export class IccInsuranceApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Insurance(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  getAllInsurances(startDocumentId?: string, limit?: number): Promise<PaginatedListInsurance> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/insurance?startDocumentId=${encodeURIComponent(String(startDocumentId))}&limit=${encodeURIComponent(String(limit))}` +
+      '&ts=' +
+      new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListInsurance(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 }
