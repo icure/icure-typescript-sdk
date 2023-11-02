@@ -1,4 +1,4 @@
-import { IccExchangeDataMapApi } from '../../icc-api/api/IccExchangeDataMapApi'
+import { IccExchangeDataMapApi } from '../../icc-api/api/internal/IccExchangeDataMapApi'
 import { LruTemporisedAsyncCache } from '../utils/lru-temporised-async-cache'
 import { ExchangeDataMap } from '../../icc-api/model/internal/ExchangeDataMap'
 import { ExchangeDataMapCreationBatch } from '../../icc-api/model/ExchangeDataMapCreationBatch'

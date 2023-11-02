@@ -26,7 +26,7 @@ import initMasterApi = TestUtils.initMasterApi
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import { Message } from '../../../icc-api/model/Message'
-import { IccSecureDelegationKeyMapApi } from '../../../icc-api/api/IccSecureDelegationKeyMapApi'
+import { IccSecureDelegationKeyMapApi } from '../../../icc-api/api/internal/IccSecureDelegationKeyMapApi'
 
 const FULL_WRITE = RequestedPermissionEnum.FULL_WRITE
 const FULL_READ = RequestedPermissionEnum.FULL_READ

@@ -1,9 +1,9 @@
-import { XHR } from './XHR'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
-import { iccRestApiPath } from './IccRestApiPath'
-import { ExchangeDataMap } from '../model/internal/ExchangeDataMap'
-import { ExchangeDataMapCreationBatch } from '../model/ExchangeDataMapCreationBatch'
-import { ListOfIds } from '../model/ListOfIds'
+import { XHR } from '../XHR'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../../icc-x-api'
+import { iccRestApiPath } from '../IccRestApiPath'
+import { ExchangeDataMap } from '../../model/internal/ExchangeDataMap'
+import { ExchangeDataMapCreationBatch } from '../../model/ExchangeDataMapCreationBatch'
+import { ListOfIds } from '../../model/ListOfIds'
 
 export class IccExchangeDataMapApi {
   host: string
