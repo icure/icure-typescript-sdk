@@ -3,8 +3,16 @@
  */
 export class ExchangeData {
   constructor(json: JSON | any) {
-    if (!json.delegator || !json.delegate || !json.exchangeKey || !json.accessControlSecret || !json.signature)
-      throw new Error(`Exchange data json is missing required properties.\n${JSON.stringify(json)}`)
+    if (
+      !json.delegator ||
+      !json.delegate ||
+      !json.exchangeKey ||
+      !json.accessControlSecret ||
+      !json.sharedSignatureKey ||
+      !json.sharedSignature ||
+      !json.delegatorSignature
+    )
+      throw new Error(`Exchange data json is missing required properties.\n${JSON.stringify(json, undefined, 2)}`)
     Object.assign(this as ExchangeData, json)
   }
 
@@ -51,11 +59,25 @@ export class ExchangeData {
    */
   accessControlSecret!: { [keyPairFingerprint: string]: string }
   /**
-   * Signature to ensure the key data has not been tampered with: when creating new exchange data the delegator will hash
-   * the content of [exchangeKey] and [accessControlSecret] then use his trusted private keys to sign this hash. This field
-   * will contain the signature by fingerprint of the public key to use for verification.
+   * Encrypted signature key (hmac-sha256) shared between delegate and delegator, to allow either of them to modify
+   * the exchange data, without voiding the authenticity guarantee.
    */
-  signature!: { [keyPairFingerprint: string]: string }
+  sharedSignatureKey!: { [keyPairFingerprint: string]: string }
+  /**
+   * Signature to ensure the key data has not been tampered with by third parties (any actor without access to the
+   * keypair of the delegator/delegate): when creating new exchange data the delegator will create a new hmac key and
+   * sign it with his own private key.
+   * This field will contain the signature by fingerprint of the public key to use for verification.
+   */
+  delegatorSignature!: { [keyPairFingerprint: string]: string }
+  /**
+   * Base 64 signature of the exchange data, to ensure it was not tampered by third parties. This signature validates:
+   * - The (decrypted) exchange key
+   * - The (decrypted) access control secret
+   * - The delegator and delegates being part of the exchange data
+   * - The public keys used in the exchange data (allows to consider them as verified in a second moment).
+   */
+  sharedSignature!: string
   /**
    * hard delete (unix epoch in ms) timestamp of the object. Filled automatically when the delete method is called.
    */
