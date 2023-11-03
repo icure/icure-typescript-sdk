@@ -1,6 +1,7 @@
 import { RSAUtils } from './RSA'
 import { AESUtils } from './AES'
 import { ShamirClass } from './shamir'
+import { HMACUtils } from './HMACUtils'
 
 /**
  * Gives access to cryptographic primitives.
@@ -10,6 +11,7 @@ export class CryptoPrimitives {
   private readonly _aes: AESUtils
   private readonly _shamir: ShamirClass
   private readonly _crypto: Crypto
+  private readonly _hmac: HMACUtils
 
   get crypto(): Crypto {
     return this._crypto
@@ -27,11 +29,16 @@ export class CryptoPrimitives {
     return this._aes
   }
 
+  get HMAC(): HMACUtils {
+    return this._hmac
+  }
+
   constructor(crypto: Crypto = typeof window !== 'undefined' ? window.crypto : typeof self !== 'undefined' ? self.crypto : ({} as Crypto)) {
     this._crypto = crypto
     this._rsa = new RSAUtils(crypto)
     this._aes = new AESUtils(crypto)
     this._shamir = new ShamirClass(crypto)
+    this._hmac = new HMACUtils(crypto)
   }
 
   /**

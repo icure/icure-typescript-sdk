@@ -178,15 +178,26 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
     | undefined
   > {
     const decryptionKeys = this.encryptionKeys.getDecryptionKeys()
-    const decryptedKey = (await this.base.tryDecryptExchangeKeys([data], decryptionKeys)).successfulDecryptions[0]
-    if (!decryptedKey) return undefined
+    const decryptedExchangeKey = (await this.base.tryDecryptExchangeKeys([data], decryptionKeys)).successfulDecryptions[0]
+    if (!decryptedExchangeKey) return undefined
     const decryptedAccessControlSecret = (await this.base.tryDecryptAccessControlSecret([data], decryptionKeys)).successfulDecryptions[0]
-    if (!decryptedAccessControlSecret) throw new Error(`Decryption key could be decrypted but access control secret could not for data ${data}`)
+    if (!decryptedAccessControlSecret)
+      throw new Error(`Decryption key could be decrypted but access control secret could not for data ${JSON.stringify(data)}`)
+    const decryptedSharedSignatureKey = (await this.base.tryDecryptSharedSignatureKeys([data], decryptionKeys)).successfulDecryptions[0]
+    if (!decryptedSharedSignatureKey)
+      throw new Error(`Decryption key could be decrypted but shared signature key could not for data ${JSON.stringify(data)}`)
     return {
       accessControlSecret: decryptedAccessControlSecret,
-      exchangeKey: decryptedKey,
-      verified: await this.base.verifyExchangeData(data, decryptedAccessControlSecret, decryptedKey, (fp) =>
-        this.signatureKeys.getSignatureVerificationKey(fp)
+      exchangeKey: decryptedExchangeKey,
+      verified: await this.base.verifyExchangeData(
+        {
+          exchangeData: data,
+          decryptedAccessControlSecret,
+          decryptedExchangeKey,
+          decryptedSharedSignatureKey,
+        },
+        (fp) => this.signatureKeys.getSignatureVerificationKey(fp),
+        true
       ),
     }
   }
