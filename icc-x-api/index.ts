@@ -52,7 +52,6 @@ import { LocalStorageImpl } from './storage/LocalStorageImpl'
 import { KeyStorageImpl } from './storage/KeyStorageImpl'
 import {
   AuthenticationProvider,
-  BasicAuthenticationProvider,
   EnsembleAuthenticationProvider,
   JwtAuthenticationProvider,
   NoAuthenticationProvider,
@@ -408,8 +407,11 @@ export namespace EncryptedFieldsConfig {
 export type AuthenticationDetails = {
   username: string
   password: string
-  icureTokens?: { token: string; refreshToken: string }
   thirdPartyTokens?: { [thirdParty: string]: string }
+} | {
+  icureTokens: { token: string; refreshToken: string }
+} | {
+  thirdPartyTokens: { [thirdParty: string]: string }
 }
 
 async function getAuthenticationProvider(
