@@ -44,7 +44,7 @@ export class EnsembleAuthenticationProvider implements AuthenticationProvider {
     basicAuth?: BasicAuthService,
     thirdPartyTokens: { [thirdParty: string]: string } = {}
   ) {
-    this.jwtAuth = jwtAuth ?? new JwtBridgedAuthService(this.authApi, this.username, this.password)
+    this.jwtAuth = jwtAuth ?? new JwtBridgedAuthService(this.authApi, this.username, this.password, thirdPartyTokens)
     this.basicAuth = basicAuth ?? new BasicAuthService(this.username, this.password)
   }
 
