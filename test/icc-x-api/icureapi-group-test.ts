@@ -37,7 +37,7 @@ describe('Icure api', function () {
     this.timeout(600000)
     const initializer = await getEnvironmentInitializer()
     env = await initializer.execute(getEnvVariables())
-    const api = await BasicApis(env.iCureUrl, 'john', 'LetMeIn', webcrypto as any, fetch)
+    const api = await BasicApis(env.iCureUrl, { username: 'john', password: 'LetMeIn'}, webcrypto as any, fetch)
     async function newGroupWithHcpUser(groupId: string, groupPrefix: string, userLogin: string, userPw: string, hcpId: string): Promise<string> {
       await api.groupApi.createGroup(
         groupId,
