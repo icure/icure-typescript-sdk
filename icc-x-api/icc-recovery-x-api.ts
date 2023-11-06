@@ -1,6 +1,6 @@
 import { KeyPair } from './crypto/RSA'
 
-export class IccRecoveryXApi {
+export interface KeyPairRecovery {
   /**
    * Create recovery data for a keypair and stores it encrypted on the iCure server. This allows the user that created
    * it to recover the keypair at a later time by just providing the string returned by this method to the
@@ -21,7 +21,7 @@ export class IccRecoveryXApi {
    *
    * A malicious user that can login as the creator of the recovery data or that can access directly the database
    * containing the recovery data will be able to get the private key of the data owner from the recovery key returned
-   * by this method. The result must be kept secret, just like a private key.
+   * by this method. Therefore, the resulting recovery key must be kept secret, just like a private key.
    *
    * @param keyPair The keypair that will be available through this recovery data.
    * @param lifetimeSeconds the amount of seconds the recovery data will be available. If not provided, the recovery
@@ -29,22 +29,20 @@ export class IccRecoveryXApi {
    * @return an hexadecimal string that is the `recoveryKey` which will allow the user to recover his keypair later or
    * from another device. This value must be kept secret from other users. You can use this value with {@link recoverKeyPair}
    */
-  async createKeyPairRecoveryData(keyPair: KeyPair<CryptoKey>, lifetimeSeconds?: number): Promise<string> {
-    throw 'TODO'
-  }
+  createKeyPairRecoveryInfo(keyPair: KeyPair<CryptoKey>, lifetimeSeconds?: number): Promise<string>
 
   /**
-   * Recover a keypair from a recovery key created in the past by the {@link createKeyPairRecoveryData} method.
-   * @param recoveryKey the result of a past call to {@link createKeyPairRecoveryData}.
+   * Recover a keypair from a recovery key created in the past by the {@link createKeyPairRecoveryInfo} method.
+   * @param recoveryKey the result of a past call to {@link createKeyPairRecoveryInfo}.
    * @param autoDelete if true, the recovery data will be deleted from the server after it could be used successfully.
    * This will prevent the recovery key from being used again.
-   * @return the keypair that was given as input to the call of {@link createKeyPairRecoveryData} which returned the
+   * @return the keypair that was given as input to the call of {@link createKeyPairRecoveryInfo} which returned the
    * provided {@link recoveryKey}.
    */
-  async recoverKeyPair(recoveryKey: string, autoDelete: boolean): Promise<KeyPair<CryptoKey>> {
-    throw 'TODO'
-  }
+  recoverKeyPair(recoveryKey: string, autoDelete: boolean): Promise<KeyPair<CryptoKey>>
+}
 
+export interface ExchangeDataRecovery {
   /**
    * Create recovery data that allows the delegate {@link delegateId} recover the content of exchange data from the
    * current data owner to the delegate.
@@ -68,10 +66,7 @@ export class IccRecoveryXApi {
    * This value must be kept secret from users other than the current data owner and the delegate.
    * You can use this value with {@link recoverExchangeData}
    */
-  async createExchangeDataRecoveryInfo(delegateId: string, lifetimeSeconds?: number): Promise<string> {
-    // TODO delegateId must not be current data owner
-    throw 'TODO'
-  }
+  createExchangeDataRecoveryInfo(delegateId: string, lifetimeSeconds?: number): Promise<string>
 
   /**
    * Recover the content of exchange data from the delegator that created the recovery data at the provided.
@@ -80,9 +75,36 @@ export class IccRecoveryXApi {
    *
    * @param recoveryKey the result of a call to {@link createExchangeDataRecoveryInfo} by a delegator.
    */
-  async recoverExchangeData(recoveryKey: string): Promise<void> {
-    throw 'TODO'
-  }
+  recoverExchangeData(recoveryKey: string): Promise<void>
+}
 
-  // TODO delete methods (by recovery key, by recipient) + decide what to do if user tries to delete already deleted recovery data
+export interface IccRecoveryXApi extends KeyPairRecovery, ExchangeDataRecovery {
+  /**
+   * Deletes the recovery information associated to a certain recovery key. You can use this method with the recovery key for any kind of data
+   * (whether it is obtained from the {@link createKeyPairRecoveryInfo} or {@link createExchangeDataRecoveryInfo} methods).
+   * If there is no data associated to the provided recovery key, this method will do nothing.
+   * @param recoveryKey the recovery key associated to the recovery information to delete.
+   */
+  deleteRecoveryInfo(recoveryKey: string): Promise<void>
+
+  /**
+   * Deletes the recovery information associated to a certain data owner, regardless of type.
+   * @param dataOwnerId the data owner for which to delete the recovery data.
+   * @return the number of deleted recovery information.
+   */
+  deleteAllRecoveryInfoFor(dataOwnerId: string): Promise<number>
+
+  /**
+   * Deletes all key pair recovery information for a certain data owner.
+   * @param dataOwnerId the data owner for which to delete the key pair recovery information.
+   * @return the number of deleted key pair recovery information.
+   */
+  deleteAllKeyPairRecoveryInfoFor(dataOwnerId: string): Promise<number>
+
+  /**
+   * Deletes all exchange data recovery information for a certain data owner.
+   * @param dataOwnerId the data owner for which to delete the exchange data recovery information.
+   * @return the number of deleted exchange data recovery information.
+   */
+  deleteAllExchangeDataRecoveryInfoFor(dataOwnerId: string): Promise<number>
 }
