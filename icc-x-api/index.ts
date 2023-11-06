@@ -78,6 +78,7 @@ import { IccDoctemplateXApi } from './icc-doctemplate-x-api'
 import { UserGroup } from '../icc-api/model/UserGroup'
 import { IccDeviceXApi } from './icc-device-x-api'
 import { IccRoleApi } from '../icc-api/api/IccRoleApi'
+import {JwtBridgedAuthService} from "./auth/JwtBridgedAuthService"
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -418,11 +419,11 @@ async function getAuthenticationProvider(
   headers: { [headerName: string]: string },
   fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response>
 ) {
-  let grouplessAuthenticationProvider: AuthenticationProvider
+  let authenticationProvider: AuthenticationProvider
   if ('getIcureTokens' in authenticationOptions && 'switchGroup' in authenticationOptions && 'getAuthService' in authenticationOptions) {
     const tokens = await authenticationOptions.getIcureTokens()
     if (!!tokens && !!tokens.token && !!tokens.refreshToken) {
-      grouplessAuthenticationProvider = new JwtAuthenticationProvider(
+      authenticationProvider = new JwtAuthenticationProvider(
         new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl),
         undefined,
         undefined,
@@ -430,15 +431,26 @@ async function getAuthenticationProvider(
         tokens
       )
     } else {
-      grouplessAuthenticationProvider = authenticationOptions
+      authenticationProvider = authenticationOptions
     }
+  } else if (
+    'icureTokens' in authenticationOptions &&
+    !!authenticationOptions.icureTokens
+  ) {
+    authenticationProvider = new JwtAuthenticationProvider(
+      new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl),
+      undefined,
+      undefined,
+      undefined,
+      authenticationOptions.icureTokens
+    )
   } else if (
     'username' in authenticationOptions &&
     'password' in authenticationOptions &&
     !!authenticationOptions.username &&
     !!authenticationOptions.password
   ) {
-    grouplessAuthenticationProvider = new EnsembleAuthenticationProvider(
+    authenticationProvider = new EnsembleAuthenticationProvider(
       new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl),
       authenticationOptions.username,
       authenticationOptions.password,
@@ -447,10 +459,20 @@ async function getAuthenticationProvider(
       undefined,
       authenticationOptions.thirdPartyTokens
     )
+  } else if (
+    'thirdPartyTokens' in authenticationOptions &&
+    !!authenticationOptions.thirdPartyTokens
+  ) {
+    authenticationProvider = new JwtAuthenticationProvider(
+      new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl),
+      undefined,
+      undefined,
+      new JwtBridgedAuthService(new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl), undefined, undefined, authenticationOptions.thirdPartyTokens)
+    )
   } else {
     throw new Error('Invalid authentication options provided')
   }
-  return grouplessAuthenticationProvider
+  return authenticationProvider
 }
 
 /**
