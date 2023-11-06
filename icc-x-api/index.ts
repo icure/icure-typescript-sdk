@@ -115,57 +115,57 @@ export { KeyStorageImpl } from './storage/KeyStorageImpl'
 export { CryptoStrategies } from './crypto/CryptoStrategies'
 
 export interface BasicApis {
-  readonly authApi: IccAuthApi;
-  readonly codeApi: IccCodeXApi;
-  readonly userApi: IccUserXApi;
-  readonly permissionApi: IccPermissionApi;
-  readonly insuranceApi: IccInsuranceApi;
-  readonly entityReferenceApi: IccEntityrefApi;
-  readonly agendaApi: IccAgendaApi;
-  readonly groupApi: IccGroupApi;
-  readonly healthcarePartyApi: IccHcpartyXApi;
-  readonly deviceApi: IccDeviceXApi;
+  readonly authApi: IccAuthApi
+  readonly codeApi: IccCodeXApi
+  readonly userApi: IccUserXApi
+  readonly permissionApi: IccPermissionApi
+  readonly insuranceApi: IccInsuranceApi
+  readonly entityReferenceApi: IccEntityrefApi
+  readonly agendaApi: IccAgendaApi
+  readonly groupApi: IccGroupApi
+  readonly healthcarePartyApi: IccHcpartyXApi
+  readonly deviceApi: IccDeviceXApi
 }
 export interface Apis extends BasicApis {
-  readonly calendarItemTypeApi: IccCalendarItemTypeApi;
-  readonly medicalLocationApi: IccMedicallocationApi;
-  readonly cryptoApi: IccCryptoXApi;
-  readonly accessLogApi: IccAccesslogXApi;
-  readonly contactApi: IccContactXApi;
-  readonly formApi: IccFormXApi;
-  readonly invoiceApi: IccInvoiceXApi;
-  readonly documentApi: IccDocumentXApi;
-  readonly healthcareElementApi: IccHelementXApi;
-  readonly classificationApi: IccClassificationXApi;
-  readonly calendarItemApi: IccCalendarItemXApi;
-  readonly receiptApi: IccReceiptXApi;
-  readonly timetableApi: IccTimeTableXApi;
-  readonly patientApi: IccPatientXApi;
-  readonly messageApi: IccMessageXApi;
-  readonly maintenanceTaskApi: IccMaintenanceTaskXApi;
-  readonly dataOwnerApi: IccDataOwnerXApi;
-  readonly icureMaintenanceTaskApi: IccIcureMaintenanceXApi;
-  readonly anonymousAccessApi: IccAnonymousAccessApi;
-  readonly applicationSettingsApi: IccApplicationsettingsApi;
-  readonly articleApi: IccArticleApi;
-  readonly bekmehrApi: IccBekmehrXApi;
-  readonly beefactApi: IccBeefactApi;
-  readonly beresultexportApi: IccBeresultexportApi;
-  readonly beresultimportApi: IccBeresultimportApi;
-  readonly besamv2Api: IccBesamv2Api;
-  readonly classificationTemplateApi: IccClassificationTemplateApi;
-  readonly doctemplateApi: IccDoctemplateXApi;
-  readonly entitytemplateApi: IccEntitytemplateApi;
-  readonly frontendmigrationApi: IccFrontendmigrationApi;
-  readonly icureApi: IccIcureApi;
-  readonly keywordApi: IccKeywordApi;
-  readonly medexApi: IccMedexApi;
-  readonly placeApi: IccPlaceApi;
-  readonly pubsubApi: IccPubsubApi;
-  readonly replicationApi: IccReplicationApi;
-  readonly tarificationApi: IccTarificationApi;
-  readonly tmpApi: IccTmpApi;
-  readonly roleApi: IccRoleApi;
+  readonly calendarItemTypeApi: IccCalendarItemTypeApi
+  readonly medicalLocationApi: IccMedicallocationApi
+  readonly cryptoApi: IccCryptoXApi
+  readonly accessLogApi: IccAccesslogXApi
+  readonly contactApi: IccContactXApi
+  readonly formApi: IccFormXApi
+  readonly invoiceApi: IccInvoiceXApi
+  readonly documentApi: IccDocumentXApi
+  readonly healthcareElementApi: IccHelementXApi
+  readonly classificationApi: IccClassificationXApi
+  readonly calendarItemApi: IccCalendarItemXApi
+  readonly receiptApi: IccReceiptXApi
+  readonly timetableApi: IccTimeTableXApi
+  readonly patientApi: IccPatientXApi
+  readonly messageApi: IccMessageXApi
+  readonly maintenanceTaskApi: IccMaintenanceTaskXApi
+  readonly dataOwnerApi: IccDataOwnerXApi
+  readonly icureMaintenanceTaskApi: IccIcureMaintenanceXApi
+  readonly anonymousAccessApi: IccAnonymousAccessApi
+  readonly applicationSettingsApi: IccApplicationsettingsApi
+  readonly articleApi: IccArticleApi
+  readonly bekmehrApi: IccBekmehrXApi
+  readonly beefactApi: IccBeefactApi
+  readonly beresultexportApi: IccBeresultexportApi
+  readonly beresultimportApi: IccBeresultimportApi
+  readonly besamv2Api: IccBesamv2Api
+  readonly classificationTemplateApi: IccClassificationTemplateApi
+  readonly doctemplateApi: IccDoctemplateXApi
+  readonly entitytemplateApi: IccEntitytemplateApi
+  readonly frontendmigrationApi: IccFrontendmigrationApi
+  readonly icureApi: IccIcureApi
+  readonly keywordApi: IccKeywordApi
+  readonly medexApi: IccMedexApi
+  readonly placeApi: IccPlaceApi
+  readonly pubsubApi: IccPubsubApi
+  readonly replicationApi: IccReplicationApi
+  readonly tarificationApi: IccTarificationApi
+  readonly tmpApi: IccTmpApi
+  readonly roleApi: IccRoleApi
 }
 
 /**
@@ -408,7 +408,6 @@ export namespace EncryptedFieldsConfig {
 export type AuthenticationDetails = {
   username: string
   password: string
-  forceBasic?: boolean // default false
   icureTokens?: { token: string; refreshToken: string }
   thirdPartyTokens?: { [thirdParty: string]: string }
 }
@@ -1118,20 +1117,20 @@ export const BasicApis = async function (
     ? window.fetch
     : typeof self !== 'undefined'
     ? self.fetch
-    : fetch
+    : fetch,
+  options: { headers?: { [headerName: string]: string }} = {}
 ) {
-  const headers = {}
-  const authenticationProvider = await getAuthenticationProvider(host, authenticationOptions, {}, fetchImpl)
-  const authApi = new IccAuthApi(host, headers, authenticationProvider, fetchImpl)
+  const authenticationProvider = await getAuthenticationProvider(host, authenticationOptions, options.headers ?? {}, fetchImpl)
+  const authApi = new IccAuthApi(host, options.headers ?? {}, authenticationProvider, fetchImpl)
 
-  const codeApi = new IccCodeXApi(host, headers, authenticationProvider, fetchImpl)
-  const entityReferenceApi = new IccEntityrefApi(host, headers, authenticationProvider, fetchImpl)
-  const userApi = new IccUserXApi(host, headers, authenticationProvider, authApi, fetchImpl)
-  const permissionApi = new IccPermissionApi(host, headers, authenticationProvider, fetchImpl)
-  const agendaApi = new IccAgendaApi(host, headers, authenticationProvider, fetchImpl)
-  const groupApi = new IccGroupApi(host, headers, authenticationProvider)
-  const insuranceApi = new IccInsuranceApi(host, headers, authenticationProvider, fetchImpl)
-  const healthcarePartyApi = new IccHcpartyXApi(host, headers, authenticationProvider, authApi, fetchImpl)
+  const codeApi = new IccCodeXApi(host, options.headers ?? {}, authenticationProvider, fetchImpl)
+  const entityReferenceApi = new IccEntityrefApi(host, options.headers ?? {}, authenticationProvider, fetchImpl)
+  const userApi = new IccUserXApi(host, options.headers ?? {}, authenticationProvider, authApi, fetchImpl)
+  const permissionApi = new IccPermissionApi(host, options.headers ?? {}, authenticationProvider, fetchImpl)
+  const agendaApi = new IccAgendaApi(host, options.headers ?? {}, authenticationProvider, fetchImpl)
+  const groupApi = new IccGroupApi(host, options.headers ?? {}, authenticationProvider)
+  const insuranceApi = new IccInsuranceApi(host, options.headers ?? {}, authenticationProvider, fetchImpl)
+  const healthcarePartyApi = new IccHcpartyXApi(host, options.headers ?? {}, authenticationProvider, authApi, fetchImpl)
 
   return {
     authApi,
