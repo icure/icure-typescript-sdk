@@ -405,10 +405,13 @@ export namespace EncryptedFieldsConfig {
  * Details for the authentication of a user
  */
 export type AuthenticationDetails = {
-  username?: string
-  password?: string
-  icureTokens?: { token: string; refreshToken: string }
+  username: string
+  password: string
   thirdPartyTokens?: { [thirdParty: string]: string }
+} | {
+  icureTokens: { token: string; refreshToken: string }
+} | {
+  thirdPartyTokens: { [thirdParty: string]: string }
 }
 
 async function getAuthenticationProvider(
