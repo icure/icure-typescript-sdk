@@ -113,56 +113,58 @@ export { StorageFacade } from './storage/StorageFacade'
 export { KeyStorageImpl } from './storage/KeyStorageImpl'
 export { CryptoStrategies } from './crypto/CryptoStrategies'
 
-export interface Apis {
-  readonly authApi: IccAuthApi
-  readonly codeApi: IccCodeXApi
-  readonly calendarItemTypeApi: IccCalendarItemTypeApi
-  readonly medicalLocationApi: IccMedicallocationApi
-  readonly entityReferenceApi: IccEntityrefApi
-  readonly userApi: IccUserXApi
-  readonly permissionApi: IccPermissionApi
-  readonly healthcarePartyApi: IccHcpartyXApi
-  readonly deviceApi: IccDeviceXApi
-  readonly cryptoApi: IccCryptoXApi
-  readonly accessLogApi: IccAccesslogXApi
-  readonly agendaApi: IccAgendaApi
-  readonly contactApi: IccContactXApi
-  readonly formApi: IccFormXApi
-  readonly groupApi: IccGroupApi
-  readonly invoiceApi: IccInvoiceXApi
-  readonly insuranceApi: IccInsuranceApi
-  readonly documentApi: IccDocumentXApi
-  readonly healthcareElementApi: IccHelementXApi
-  readonly classificationApi: IccClassificationXApi
-  readonly calendarItemApi: IccCalendarItemXApi
-  readonly receiptApi: IccReceiptXApi
-  readonly timetableApi: IccTimeTableXApi
-  readonly patientApi: IccPatientXApi
-  readonly messageApi: IccMessageXApi
-  readonly maintenanceTaskApi: IccMaintenanceTaskXApi
-  readonly dataOwnerApi: IccDataOwnerXApi
-  readonly icureMaintenanceTaskApi: IccIcureMaintenanceXApi
-  readonly anonymousAccessApi: IccAnonymousAccessApi
-  readonly applicationSettingsApi: IccApplicationsettingsApi
-  readonly articleApi: IccArticleApi
-  readonly bekmehrApi: IccBekmehrXApi
-  readonly beefactApi: IccBeefactApi
-  readonly beresultexportApi: IccBeresultexportApi
-  readonly beresultimportApi: IccBeresultimportApi
-  readonly besamv2Api: IccBesamv2Api
-  readonly classificationTemplateApi: IccClassificationTemplateApi
-  readonly doctemplateApi: IccDoctemplateXApi
-  readonly entitytemplateApi: IccEntitytemplateApi
-  readonly frontendmigrationApi: IccFrontendmigrationApi
-  readonly icureApi: IccIcureApi
-  readonly keywordApi: IccKeywordApi
-  readonly medexApi: IccMedexApi
-  readonly placeApi: IccPlaceApi
-  readonly pubsubApi: IccPubsubApi
-  readonly replicationApi: IccReplicationApi
-  readonly tarificationApi: IccTarificationApi
-  readonly tmpApi: IccTmpApi
-  readonly roleApi: IccRoleApi
+export interface BasicApis {
+  readonly authApi: IccAuthApi;
+  readonly codeApi: IccCodeXApi;
+  readonly userApi: IccUserXApi;
+  readonly permissionApi: IccPermissionApi;
+  readonly insuranceApi: IccInsuranceApi;
+  readonly entityReferenceApi: IccEntityrefApi;
+  readonly agendaApi: IccAgendaApi;
+  readonly groupApi: IccGroupApi;
+  readonly healthcarePartyApi: IccHcpartyXApi;
+  readonly deviceApi: IccDeviceXApi;
+}
+export interface Apis extends BasicApis {
+  readonly calendarItemTypeApi: IccCalendarItemTypeApi;
+  readonly medicalLocationApi: IccMedicallocationApi;
+  readonly cryptoApi: IccCryptoXApi;
+  readonly accessLogApi: IccAccesslogXApi;
+  readonly contactApi: IccContactXApi;
+  readonly formApi: IccFormXApi;
+  readonly invoiceApi: IccInvoiceXApi;
+  readonly documentApi: IccDocumentXApi;
+  readonly healthcareElementApi: IccHelementXApi;
+  readonly classificationApi: IccClassificationXApi;
+  readonly calendarItemApi: IccCalendarItemXApi;
+  readonly receiptApi: IccReceiptXApi;
+  readonly timetableApi: IccTimeTableXApi;
+  readonly patientApi: IccPatientXApi;
+  readonly messageApi: IccMessageXApi;
+  readonly maintenanceTaskApi: IccMaintenanceTaskXApi;
+  readonly dataOwnerApi: IccDataOwnerXApi;
+  readonly icureMaintenanceTaskApi: IccIcureMaintenanceXApi;
+  readonly anonymousAccessApi: IccAnonymousAccessApi;
+  readonly applicationSettingsApi: IccApplicationsettingsApi;
+  readonly articleApi: IccArticleApi;
+  readonly bekmehrApi: IccBekmehrXApi;
+  readonly beefactApi: IccBeefactApi;
+  readonly beresultexportApi: IccBeresultexportApi;
+  readonly beresultimportApi: IccBeresultimportApi;
+  readonly besamv2Api: IccBesamv2Api;
+  readonly classificationTemplateApi: IccClassificationTemplateApi;
+  readonly doctemplateApi: IccDoctemplateXApi;
+  readonly entitytemplateApi: IccEntitytemplateApi;
+  readonly frontendmigrationApi: IccFrontendmigrationApi;
+  readonly icureApi: IccIcureApi;
+  readonly keywordApi: IccKeywordApi;
+  readonly medexApi: IccMedexApi;
+  readonly placeApi: IccPlaceApi;
+  readonly pubsubApi: IccPubsubApi;
+  readonly replicationApi: IccReplicationApi;
+  readonly tarificationApi: IccTarificationApi;
+  readonly tmpApi: IccTmpApi;
+  readonly roleApi: IccRoleApi;
 }
 
 /**
@@ -410,6 +412,47 @@ export type AuthenticationDetails = {
   thirdPartyTokens?: { [thirdParty: string]: string }
 }
 
+async function getAuthenticationProvider(
+  host: string,
+  authenticationOptions: AuthenticationDetails | AuthenticationProvider,
+  headers: { [headerName: string]: string },
+  fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response>
+) {
+  let grouplessAuthenticationProvider: AuthenticationProvider
+  if ('getIcureTokens' in authenticationOptions && 'switchGroup' in authenticationOptions && 'getAuthService' in authenticationOptions) {
+    const tokens = await authenticationOptions.getIcureTokens()
+    if (!!tokens && !!tokens.token && !!tokens.refreshToken) {
+      grouplessAuthenticationProvider = new JwtAuthenticationProvider(
+        new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl),
+        undefined,
+        undefined,
+        undefined,
+        tokens
+      )
+    } else {
+      grouplessAuthenticationProvider = authenticationOptions
+    }
+  } else if (
+    'username' in authenticationOptions &&
+    'password' in authenticationOptions &&
+    !!authenticationOptions.username &&
+    !!authenticationOptions.password
+  ) {
+    grouplessAuthenticationProvider = new EnsembleAuthenticationProvider(
+      new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl),
+      authenticationOptions.username,
+      authenticationOptions.password,
+      3600,
+      undefined,
+      undefined,
+      authenticationOptions.thirdPartyTokens
+    )
+  } else {
+    throw new Error('Invalid authentication options provided')
+  }
+  return grouplessAuthenticationProvider
+}
+
 /**
  * Main entry point for the iCure API. Provides entity-specific sub-apis and some general methods which are not related to a specific entity.
  */
@@ -445,38 +488,8 @@ export namespace IcureApi {
     options: IcureApiOptions = {}
   ): Promise<IcureApi> {
     const params = new IcureApiOptions.WithDefaults(options)
-    let grouplessAuthenticationProvider: AuthenticationProvider
-    if ('getIcureTokens' in authenticationOptions && 'switchGroup' in authenticationOptions && 'getAuthService' in authenticationOptions) {
-      const tokens = await authenticationOptions.getIcureTokens()
-      if (!!tokens && !!tokens.token && !!tokens.refreshToken) {
-        grouplessAuthenticationProvider = new JwtAuthenticationProvider(
-          new IccAuthApi(host, params.headers, new NoAuthenticationProvider(), fetchImpl),
-          undefined,
-          undefined,
-          undefined,
-          tokens
-        )
-      } else {
-        grouplessAuthenticationProvider = authenticationOptions
-      }
-    } else if (
-      'username' in authenticationOptions &&
-      'password' in authenticationOptions &&
-      !!authenticationOptions.username &&
-      !!authenticationOptions.password
-    ) {
-      grouplessAuthenticationProvider = new EnsembleAuthenticationProvider(
-        new IccAuthApi(host, params.headers, new NoAuthenticationProvider(), fetchImpl),
-        authenticationOptions.username,
-        authenticationOptions.password,
-        3600,
-        undefined,
-        undefined,
-        authenticationOptions.thirdPartyTokens
-      )
-    } else {
-      throw new Error('Invalid authentication options provided')
-    }
+
+    let grouplessAuthenticationProvider = await getAuthenticationProvider(host, authenticationOptions, params.headers ?? {}, fetchImpl)
     const grouplessUserApi = new IccUserApi(host, params.headers, grouplessAuthenticationProvider, fetchImpl)
     const matches = await grouplessUserApi.getMatchingUsers()
     const chosenGroupId = matches.length > 1 ? await params.groupSelector(matches) : matches[0].groupId!
@@ -1077,20 +1090,16 @@ class IcureApiImpl implements IcureApi {
  */
 export const BasicApis = async function (
   host: string,
-  username: string,
-  password: string,
+  authenticationOptions: AuthenticationDetails | AuthenticationProvider,
   crypto: Crypto = typeof window !== 'undefined' ? window.crypto : typeof self !== 'undefined' ? self.crypto : ({} as Crypto),
   fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
     ? window.fetch
     : typeof self !== 'undefined'
     ? self.fetch
-    : fetch,
-  forceBasic: boolean = false
+    : fetch
 ) {
   const headers = {}
-  const authenticationProvider = forceBasic
-    ? new BasicAuthenticationProvider(username, password)
-    : new EnsembleAuthenticationProvider(new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl), username, password)
+  const authenticationProvider = await getAuthenticationProvider(host, authenticationOptions, {}, fetchImpl)
   const authApi = new IccAuthApi(host, headers, authenticationProvider, fetchImpl)
 
   const codeApi = new IccCodeXApi(host, headers, authenticationProvider, fetchImpl)
