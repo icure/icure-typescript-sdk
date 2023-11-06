@@ -36,7 +36,7 @@ describe('Authentication providers should be able to switch group', function () 
     const initializer = await getEnvironmentInitializer()
     const env = await initializer.execute(getEnvVariables())
     host = env.iCureUrl
-    const api = await BasicApis(env.iCureUrl, 'john', 'LetMeIn', webcrypto as any, fetch)
+    const api = await BasicApis(env.iCureUrl, { username: 'john', password: 'LetMeIn'}, webcrypto as any, fetch)
     await api.groupApi.createGroup(
       userGroup1Id,
       `test-group-1-${primitives.randomUuid()}`,
