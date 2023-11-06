@@ -52,7 +52,6 @@ import { LocalStorageImpl } from './storage/LocalStorageImpl'
 import { KeyStorageImpl } from './storage/KeyStorageImpl'
 import {
   AuthenticationProvider,
-  BasicAuthenticationProvider,
   EnsembleAuthenticationProvider,
   JwtAuthenticationProvider,
   NoAuthenticationProvider,
@@ -406,8 +405,8 @@ export namespace EncryptedFieldsConfig {
  * Details for the authentication of a user
  */
 export type AuthenticationDetails = {
-  username: string
-  password: string
+  username?: string
+  password?: string
   icureTokens?: { token: string; refreshToken: string }
   thirdPartyTokens?: { [thirdParty: string]: string }
 }
