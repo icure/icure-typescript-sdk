@@ -36,14 +36,14 @@ describe('User', () => {
       login: login,
       email: login,
     })
-    expect(user.roles?.length ?? 0).to.be.equal(0)
+    expect(user.systemMetadata?.roles?.length ?? 0).to.be.equal(0)
 
     const userWithRole = await userApi.addRoles(user.id!, [role])
-    expect(userWithRole.roles?.length ?? 0).to.be.equal(1)
-    expect(userWithRole.roles![0]).to.be.equal(role)
+    expect(userWithRole.systemMetadata?.roles?.length ?? 0).to.be.equal(1)
+    expect(userWithRole.systemMetadata?.roles![0]).to.be.equal(role)
 
     const userWithoutRole = await userApi.removeRoles(user.id!, [role])
-    expect(userWithoutRole.roles?.length ?? 0).to.be.equal(0)
+    expect(userWithoutRole.systemMetadata?.roles?.length ?? 0).to.be.equal(0)
   })
 
   it('should be able to add and remove a role to a user in group', async () => {
@@ -76,13 +76,13 @@ describe('User', () => {
       login: login,
       email: login,
     })
-    expect(user.roles?.length ?? 0).to.be.equal(0)
+    expect(user.systemMetadata?.roles?.length ?? 0).to.be.equal(0)
 
     const userWithRole = await userApi.addRolesInGroup(user.id!, groupId, [role])
-    expect(userWithRole.roles?.length ?? 0).to.be.equal(1)
-    expect(userWithRole.roles![0]).to.be.equal(role)
+    expect(userWithRole.systemMetadata?.roles?.length ?? 0).to.be.equal(1)
+    expect(userWithRole.systemMetadata?.roles![0]).to.be.equal(role)
 
     const userWithoutRole = await userApi.removeRolesInGroup(user.id!, groupId, [role])
-    expect(userWithoutRole.roles?.length ?? 0).to.be.equal(0)
+    expect(userWithoutRole.systemMetadata?.roles?.length ?? 0).to.be.equal(0)
   })
 })

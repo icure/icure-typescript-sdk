@@ -16,8 +16,8 @@ export class JwtBridgedAuthService implements AuthService {
 
   constructor(
     private authApi: IccAuthApi,
-    private username: string,
-    private password: string,
+    private username: string | undefined,
+    private password: string | undefined,
     private thirdPartyTokens: { [thirdParty: string]: string } = {}
   ) {}
 
