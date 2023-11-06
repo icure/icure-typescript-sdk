@@ -1121,13 +1121,14 @@ export const BasicApis = async function (
     ? self.fetch
     : fetch,
   options: { headers?: { [headerName: string]: string }} = {}
-) {
+) : Promise<BasicApis> {
   const authenticationProvider = await getAuthenticationProvider(host, authenticationOptions, options.headers ?? {}, fetchImpl)
   const authApi = new IccAuthApi(host, options.headers ?? {}, authenticationProvider, fetchImpl)
 
   const codeApi = new IccCodeXApi(host, options.headers ?? {}, authenticationProvider, fetchImpl)
   const entityReferenceApi = new IccEntityrefApi(host, options.headers ?? {}, authenticationProvider, fetchImpl)
   const userApi = new IccUserXApi(host, options.headers ?? {}, authenticationProvider, authApi, fetchImpl)
+  const deviceApi = new IccDeviceXApi(host, options.headers ?? {}, authenticationProvider, userApi, authApi, fetchImpl)
   const permissionApi = new IccPermissionApi(host, options.headers ?? {}, authenticationProvider, fetchImpl)
   const agendaApi = new IccAgendaApi(host, options.headers ?? {}, authenticationProvider, fetchImpl)
   const groupApi = new IccGroupApi(host, options.headers ?? {}, authenticationProvider)
@@ -1136,6 +1137,7 @@ export const BasicApis = async function (
 
   return {
     authApi,
+    deviceApi,
     codeApi,
     userApi,
     permissionApi,
