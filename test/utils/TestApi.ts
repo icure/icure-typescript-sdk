@@ -1,5 +1,5 @@
-import { IcureApi, Apis, IcureApiOptions } from '../../icc-x-api'
-import { KeyPair, RSAUtils } from '../../icc-x-api/crypto/RSA'
+import { IcureApi, IcureApiOptions } from '../../icc-x-api'
+import { KeyPair, RSAUtils } from '../../icc-x-api'
 import { TestKeyStorage, TestStorage } from './TestStorage'
 import { TestCryptoStrategies } from './TestCryptoStrategies'
 import 'isomorphic-fetch'

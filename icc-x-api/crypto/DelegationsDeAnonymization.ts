@@ -9,7 +9,7 @@ import { EntityShareRequest } from '../../icc-api/model/requests/EntityShareRequ
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { EncryptedFieldsManifest, parseEncryptedFields } from '../utils'
-import { IccSecureDelegationKeyMapApi } from '../../icc-api/api/IccSecureDelegationKeyMapApi'
+import { IccSecureDelegationKeyMapApi } from '../../icc-api/api/internal/IccSecureDelegationKeyMapApi'
 import { XHR } from '../../icc-api/api/XHR'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../auth/AuthenticationProvider'
 import { ACCESS_CONTROL_KEYS_HEADER, AccessControlKeysHeadersProvider } from './AccessControlKeysHeadersProvider'

@@ -11,7 +11,7 @@
  */
 import { XHR } from './XHR'
 import { MedexInfo } from '../model/MedexInfo'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
 
 export class IccMedexApi {
@@ -45,14 +45,11 @@ export class IccMedexApi {
    * @summary Generate a Medex XML String
    * @param body
    */
-  generateMedex(body?: MedexInfo): Promise<string> {
-    let _body = null
-    _body = body
-
+  async generateMedex(body?: MedexInfo): Promise<string> {
     const _url = this.host + `/medex/generate` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => JSON.parse(JSON.stringify(doc.body)))
       .catch((err) => this.handleError(err))
   }

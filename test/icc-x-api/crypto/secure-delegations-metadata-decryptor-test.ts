@@ -82,7 +82,9 @@ describe('Secure delegations security metadata decryptor', async function () {
       delegate: exchangeDataDelegate,
       exchangeKey: { ignored: 'in this test' },
       accessControlSecret: { ignored: 'in this test' },
-      signature: { ignored: 'in this test' },
+      sharedSignatureKey: { ignored: 'in this test' },
+      delegatorSignature: { ignored: 'in this test' },
+      sharedSignature: 'ignored in this test',
     })
     const expectedDecryptedData = {
       secretIds: [primitives.randomUuid(), primitives.randomUuid()],

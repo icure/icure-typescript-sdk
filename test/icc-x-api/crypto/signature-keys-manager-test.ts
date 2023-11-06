@@ -8,6 +8,7 @@ import { webcrypto } from 'crypto'
 import { DataOwnerTypeEnum } from '../../../icc-api/model/DataOwnerTypeEnum'
 import { ua2hex } from '../../../icc-x-api'
 import { expect } from 'chai'
+import { fingerprintV1 } from '../../../icc-x-api/crypto/utils'
 
 describe('SignatureKeysManager', () => {
   it('should be able to store a key pair in local storage and reload it', async () => {
@@ -24,5 +25,9 @@ describe('SignatureKeysManager', () => {
     const public1 = ua2hex(await primitives.RSA.exportKey(pair1.keyPair.publicKey, 'spki'))
     const public2 = ua2hex(await primitives.RSA.exportKey(pair2.keyPair.publicKey, 'spki'))
     expect(public1).to.equal(public2)
+    const verification1 = ua2hex(await primitives.RSA.exportKey((await manager1.getSignatureVerificationKey(fingerprintV1(public1)))!, 'spki'))
+    const verification2 = ua2hex(await primitives.RSA.exportKey((await manager2.getSignatureVerificationKey(fingerprintV1(public1)))!, 'spki'))
+    expect(verification1).to.equal(public1)
+    expect(verification2).to.equal(public1)
   })
 })

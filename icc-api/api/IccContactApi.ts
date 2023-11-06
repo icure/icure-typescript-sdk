@@ -84,13 +84,10 @@ export class IccContactApi {
    * @param body
    */
   async createContact(body?: Contact): Promise<Contact> {
-    let _body = null
-    _body = body
-
     const _url = this.host + `/contact` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Contact(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -101,29 +98,51 @@ export class IccContactApi {
    * @param body
    */
   async createContacts(body?: Array<Contact>): Promise<Array<Contact>> {
-    let _body = null
-    _body = body
-
     const _url = this.host + `/contact/batch` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Contact(it)))
       .catch((err) => this.handleError(err))
   }
 
   /**
-   * Response is a set containing the ID's of deleted contacts.
-   * @summary Delete contacts.
-   * @param contactIds
+   * @summary Deletes a batch of contacts.
+   *
+   * @param contactIds a ListOfIds containing the ids of the contacts to delete.
+   * @return a Promise that will resolve in an array of the DocIdentifiers of the successfully deleted contacts.
    */
-  async deleteContacts(contactIds: string): Promise<Array<DocIdentifier>> {
-    let _body = null
-
-    const _url = this.host + `/contact/${encodeURIComponent(String(contactIds))}` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+  async deleteContacts(contactIds: ListOfIds): Promise<Array<DocIdentifier>> {
+    const headers = (await this.headers).filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand(
+      'POST',
+      this.host + `/contact/delete/batch` + '?ts=' + new Date().getTime(),
+      headers,
+      contactIds,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Deletes a single contact by id.
+   *
+   * @param contactId the id of the contact to delete.
+   */
+  async deleteContact(contactId: string): Promise<DocIdentifier> {
+    return XHR.sendCommand(
+      'DELETE',
+      this.host + `/contact/${encodeURIComponent(contactId)}` + '?ts=' + new Date().getTime(),
+      await this.headers,
+      null,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
+      .then((doc) => new DocIdentifier(doc.body))
       .catch((err) => this.handleError(err))
   }
 

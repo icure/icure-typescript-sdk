@@ -1,12 +1,10 @@
-import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
-import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
-import { Patient } from '../model/Patient'
-import { XHR } from './XHR'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
-import { iccRestApiPath } from './IccRestApiPath'
-import { SecureDelegationKeyMap } from '../model/internal/SecureDelegationKeyMap'
-import { PaginatedListPatient } from '../model/PaginatedListPatient'
-import { ListOfIds } from '../model/ListOfIds'
+import { EntityShareOrMetadataUpdateRequest } from '../../model/requests/EntityShareOrMetadataUpdateRequest'
+import { EntityBulkShareResult } from '../../model/requests/EntityBulkShareResult'
+import { XHR } from '../XHR'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../../icc-x-api'
+import { iccRestApiPath } from '../IccRestApiPath'
+import { SecureDelegationKeyMap } from '../../model/internal/SecureDelegationKeyMap'
+import { ListOfIds } from '../../model/ListOfIds'
 
 /**
  * @internal this class is for internal use only and may be changed without notice.

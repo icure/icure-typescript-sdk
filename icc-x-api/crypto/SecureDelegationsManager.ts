@@ -356,6 +356,9 @@ export class SecureDelegationsManager {
         ),
       }
     } else if (!delegateInfo.requiresAnonymousDelegations && this.selfNeedsAnonymousDelegations) {
+      /**
+       * Important: this requires that the exchange data signature also validates the authenticity of the public keys included in there.
+       */
       const fingerprintsOfVerifiedExchangeData = new Set(Object.keys(exchangeData.exchangeKey))
       const delegateVerifiedKeys: { [fp: string]: CryptoKey } = {}
       for (const keyHex of [...delegateInfo.availablePublicKeysHexWithSha1, ...delegateInfo.availablePublicKeysHexWithSha256]) {

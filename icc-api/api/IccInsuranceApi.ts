@@ -13,8 +13,9 @@ import { XHR } from './XHR'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { Insurance } from '../model/Insurance'
 import { ListOfIds } from '../model/ListOfIds'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
+import { PaginatedListInsurance } from '../model/PaginatedListInsurance'
 
 export class IccInsuranceApi {
   host: string
@@ -47,14 +48,11 @@ export class IccInsuranceApi {
    * @summary Creates an insurance
    * @param body
    */
-  createInsurance(body?: Insurance): Promise<Insurance> {
-    let _body = null
-    _body = body
-
+  async createInsurance(body?: Insurance): Promise<Insurance> {
     const _url = this.host + `/insurance` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Insurance(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -64,10 +62,10 @@ export class IccInsuranceApi {
    * @summary Deletes an insurance
    * @param insuranceId
    */
-  deleteInsurance(insuranceId: string): Promise<DocIdentifier> {
+  async deleteInsurance(insuranceId: string): Promise<DocIdentifier> {
     let _body = null
 
-    const _url = this.host + `/insurance/${encodeURIComponent(String(insuranceId))}` + '?ts=' + new Date().getTime()
+    const _url = this.host + `/insurance/${encodeURIComponent(insuranceId)}` + '?ts=' + new Date().getTime()
     let headers = this.headers
     return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new DocIdentifier(doc.body as JSON))
@@ -79,7 +77,7 @@ export class IccInsuranceApi {
    * @summary Gets an insurance
    * @param insuranceId
    */
-  getInsurance(insuranceId: string): Promise<Insurance> {
+  async getInsurance(insuranceId: string): Promise<Insurance> {
     let _body = null
 
     const _url = this.host + `/insurance/${encodeURIComponent(String(insuranceId))}` + '?ts=' + new Date().getTime()
@@ -94,14 +92,11 @@ export class IccInsuranceApi {
    * @summary Gets insurances by id
    * @param body
    */
-  getInsurances(body?: ListOfIds): Promise<Array<Insurance>> {
-    let _body = null
-    _body = body
-
+  async getInsurances(body?: ListOfIds): Promise<Array<Insurance>> {
     const _url = this.host + `/insurance/byIds` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Insurance(it)))
       .catch((err) => this.handleError(err))
   }
@@ -111,7 +106,7 @@ export class IccInsuranceApi {
    * @summary Gets an insurance
    * @param insuranceCode
    */
-  listInsurancesByCode(insuranceCode: string): Promise<Array<Insurance>> {
+  async listInsurancesByCode(insuranceCode: string): Promise<Array<Insurance>> {
     let _body = null
 
     const _url = this.host + `/insurance/byCode/${encodeURIComponent(String(insuranceCode))}` + '?ts=' + new Date().getTime()
@@ -126,7 +121,7 @@ export class IccInsuranceApi {
    * @summary Gets an insurance
    * @param insuranceName
    */
-  listInsurancesByName(insuranceName: string): Promise<Array<Insurance>> {
+  async listInsurancesByName(insuranceName: string): Promise<Array<Insurance>> {
     let _body = null
 
     const _url = this.host + `/insurance/byName/${encodeURIComponent(String(insuranceName))}` + '?ts=' + new Date().getTime()
@@ -141,15 +136,26 @@ export class IccInsuranceApi {
    * @summary Modifies an insurance
    * @param body
    */
-  modifyInsurance(body?: Insurance): Promise<Insurance> {
-    let _body = null
-    _body = body
-
+  async modifyInsurance(body?: Insurance): Promise<Insurance> {
     const _url = this.host + `/insurance` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('PUT', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Insurance(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  getAllInsurances(startDocumentId?: string, limit?: number): Promise<PaginatedListInsurance> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/insurance?startDocumentId=${encodeURIComponent(String(startDocumentId))}&limit=${encodeURIComponent(String(limit))}` +
+      '&ts=' +
+      new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListInsurance(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 }

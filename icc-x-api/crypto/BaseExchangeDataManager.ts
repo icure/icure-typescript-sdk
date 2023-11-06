@@ -1,7 +1,7 @@
 import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { KeyPair } from './RSA'
 import { ExchangeData } from '../../icc-api/model/internal/ExchangeData'
-import { IccExchangeDataApi } from '../../icc-api/api/IccExchangeDataApi'
+import { IccExchangeDataApi } from '../../icc-api/api/internal/IccExchangeDataApi'
 import { XHR } from '../../icc-api/api/XHR'
 import XHRError = XHR.XHRError
 import { CryptoPrimitives } from './CryptoPrimitives'
@@ -65,47 +65,47 @@ export class BaseExchangeDataManager {
   }
 
   /**
-   * Filters exchange data returning only the instances that could be verified using their signature and the provided verification
-   * keys.
-   * Note that all exchange data created by data owners other than the current data owner (including members of his hierarchy)
-   * will always be unverified.
-   * @param exchangeData the exchange data to verify.
-   * @param getVerificationKey function to retrieve keys to use for verification by fingerprint.
-   * @return the exchange data which could be verified given his signature and the available verification keys.
-   * @throws if any of the provided exchange data has been created by a data owner other than the current data owner.
-   */
-  async filterVerifiedExchangeData(
-    exchangeData: ExchangeData[],
-    getVerificationKey: (publicKeyFingerprint: string) => Promise<CryptoKey | undefined>
-  ): Promise<ExchangeData[]> {
-    const verified: ExchangeData[] = []
-    for (const ed of exchangeData) {
-      if (await this.verifyExchangeData(ed, (x) => getVerificationKey(x))) verified.push(ed)
-    }
-    return verified
-  }
-
-  /**
    * Verifies the authenticity of the exchange data by checking the signature.
    * Note that all exchange data created by data owners other than the current data owner (including members of his hierarchy)
    * will always be unverified.
-   * @param exchangeData the exchange data to verify.
+   * @param data collects the following information about the exchange data being verified:
+   * - exchangeData the exchange data to verify.
+   * - decryptedAccessControlSecret the access control secret decrypted from the exchange data.
+   * - decryptedExchangeKey the exchange key decrypted from the exchange data.
+   * - decryptedSharedSignatureKey the shared signature key decrypted from the exchange data.
    * @param getVerificationKey function to retrieve keys to use for verification by fingerprint.
+   * @param verifyAsDelegator if true the method will also verify that the hmac key used for the signature was created by the delegator of the
+   * exchange data. If true and the data was not created by the current data owner this method will return false.
    * @return the exchange data which could be verified given his signature and the available verification keys.
    * @throws if any of the provided exchange data has been created by a data owner other than the current data owner.
    */
   async verifyExchangeData(
-    exchangeData: ExchangeData,
-    getVerificationKey: (publicKeyFingerprint: string) => Promise<CryptoKey | undefined>
+    data: {
+      exchangeData: ExchangeData
+      decryptedAccessControlSecret: string
+      decryptedExchangeKey: CryptoKey
+      decryptedSharedSignatureKey: CryptoKey
+    },
+    getVerificationKey: (publicKeyFingerprint: string) => Promise<CryptoKey | undefined>,
+    verifyAsDelegator: boolean
   ): Promise<boolean> {
-    const dataOwnerId = await this.dataOwnerApi.getCurrentDataOwnerId()
-    if (exchangeData.delegator !== dataOwnerId) return false
-    const signatureData = await this.bytesToSign(exchangeData)
-    for (const [fp, signature] of Object.entries(exchangeData.signature)) {
-      const verificationKey = await getVerificationKey(fp.slice(-32))
-      if (verificationKey && (await this.primitives.RSA.verifySignature(verificationKey, b64_2ua(signature), signatureData))) return true
-    }
-    return false
+    if (verifyAsDelegator && data.exchangeData.delegator !== (await this.dataOwnerApi.getCurrentDataOwnerId())) return false
+    if (verifyAsDelegator && !(await this.verifyDelegatorSignature(data.exchangeData, data.decryptedSharedSignatureKey, getVerificationKey)))
+      return false
+    const sharedSignatureData = await this.bytesToSignForSharedSignature({
+      decryptedAccessControlSecret: data.decryptedAccessControlSecret,
+      decryptedExchangeKey: data.decryptedExchangeKey,
+      delegator: data.exchangeData.delegator,
+      delegate: data.exchangeData.delegate,
+      publicKeysFingerprintsV2: [
+        ...new Set([
+          ...Object.keys(data.exchangeData.exchangeKey),
+          ...Object.keys(data.exchangeData.accessControlSecret),
+          ...Object.keys(data.exchangeData.sharedSignatureKey),
+        ]),
+      ],
+    })
+    return await this.verifyDataWithSharedKey(sharedSignatureData, data.decryptedSharedSignatureKey, data.exchangeData.sharedSignature)
   }
 
   /**
@@ -156,6 +156,29 @@ export class BaseExchangeDataManager {
     )
   }
 
+  /**
+   * Extract and decrypts the shared signature key from the provided exchange data.
+   * @param exchangeData the exchange data from which to extract exchange keys.
+   * @param decryptionKeys rsa key pairs to use for the decryption of the exchange keys.
+   * @return an object composed of:
+   * - successfulDecryptions: array containing the successfully decrypted exchange keys.
+   * - failedDecryptions: array containing all exchange data for which the access control key could not be decrypted (using the provided keys).
+   */
+  async tryDecryptSharedSignatureKeys(
+    exchangeData: ExchangeData[],
+    decryptionKeys: { [publicKeyFingerprint: string]: KeyPair<CryptoKey> }
+  ): Promise<{
+    successfulDecryptions: CryptoKey[]
+    failedDecryptions: ExchangeData[]
+  }> {
+    return await this.tryDecryptExchangeData(
+      exchangeData,
+      decryptionKeys,
+      (ed) => ed.sharedSignatureKey,
+      (d) => this.importSharedSignatureKey(new Uint8Array(d))
+    )
+  }
+
   private async tryDecryptExchangeData<T>(
     exchangeData: ExchangeData[],
     decryptionKeys: { [publicKeyFingerprint: string]: KeyPair<CryptoKey> },
@@ -195,7 +218,7 @@ export class BaseExchangeDataManager {
     for (const [fp, encrypted] of Object.entries(encryptedData)) {
       try {
         const key = decryptionKeysWithV2Fp[fp]?.privateKey
-        if (key) return hex2ua(ua2utf8(await this.primitives.RSA.decrypt(key, b64_2ua(encrypted))))
+        if (key) return await this.primitives.RSA.decrypt(key, b64_2ua(encrypted))
       } catch (e) {
         // Try with another key
       }
@@ -228,17 +251,35 @@ export class BaseExchangeDataManager {
     }
     const exchangeKey = await this.generateExchangeKey()
     const accessControlSecret = await this.generateAccessControlSecret()
+    const sharedSignatureKey = await this.generateSharedSignatureKey()
     const encryptedExchangeKey = await this.encryptDataWithKeys(exchangeKey.rawBytes, encryptionKeys)
     const encryptedAccessControlSecret = await this.encryptDataWithKeys(accessControlSecret.rawBytes, encryptionKeys)
+    const encryptedSharedSignatureKey = await this.encryptDataWithKeys(sharedSignatureKey.rawBytes, encryptionKeys)
     const baseExchangeData = {
       id: optionalAttributes.id ?? this.primitives.randomUuid(),
       delegator: await this.dataOwnerApi.getCurrentDataOwnerId(),
       delegate: delegateId,
       exchangeKey: encryptedExchangeKey,
       accessControlSecret: encryptedAccessControlSecret,
+      sharedSignatureKey: encryptedSharedSignatureKey,
     }
-    const signature = await this.signDataWithKeys(await this.bytesToSign(baseExchangeData), signatureKeys)
-    const exchangeData = new ExchangeData({ ...baseExchangeData, signature })
+    const sharedSignature = await this.signDataWithSharedKey(
+      await this.bytesToSignForSharedSignature({
+        delegate: baseExchangeData.delegate,
+        delegator: baseExchangeData.delegator,
+        decryptedAccessControlSecret: accessControlSecret.secret,
+        decryptedExchangeKey: exchangeKey.key,
+        publicKeysFingerprintsV2: Object.keys(encryptionKeys).map(fingerprintV1toV2),
+      }),
+      sharedSignatureKey.key
+    )
+    const delegatorSignature = await this.signDataWithDelegatorKeys(
+      await this.bytesToSignForDelegatorSignature({
+        sharedSignatureKey: sharedSignatureKey.key,
+      }),
+      signatureKeys
+    )
+    const exchangeData = new ExchangeData({ ...baseExchangeData, delegatorSignature, sharedSignature })
     return {
       exchangeData: await this.api.createExchangeData(exchangeData),
       exchangeKey: exchangeKey.key,
@@ -251,24 +292,16 @@ export class BaseExchangeDataManager {
    * where one of the data owners involved in the exchange data has lost one of his keys.
    * If the content of the exchange data could not be decrypted using the provided keys the method will not update anything and will return undefined.
    * This method assumes that the new encryption keys have been verified.
-   * If the current data owner is also the delegator of the provided exchange data and at least one of the verification keys can be used to
-   * validate the current exchange data then the signature will be updated using the signature keys.
-   * Instead, if the current data owner is not the delegator of the provided exchange data, or the exchange data could not be verified using
-   * the provided verification keys then the updated exchange data will become unverified, and won't ever be verifiable again.
    * @param exchangeData exchange data to update.
    * @param decryptionKeys keys to use to extract the content of the exchange data which will be shared with the new keys.
-   * @param signatureKeys keys to use for the new signature of the updated exchange data.
    * @param newEncryptionKeys new keys to add to the exchange data.
-   * @param getVerificationKey function to retrieve keys to use for verification by fingerprint.
    * @return the updated exchange data, and its decrypted exchange key and access control secret, or undefined if the exchange data content could not
    * be decrypted and the exchange data could not be updated.
    */
   async tryUpdateExchangeData(
     exchangeData: ExchangeData,
     decryptionKeys: { [publicKeyFingerprint: string]: KeyPair<CryptoKey> },
-    newEncryptionKeys: { [keyPairFingerprint: string]: CryptoKey },
-    signatureKeys: { [keyPairFingerprint: string]: CryptoKey },
-    getVerificationKey: (publicKeyFingerprint: string) => Promise<CryptoKey | undefined>
+    newEncryptionKeys: { [keyPairFingerprint: string]: CryptoKey }
   ): Promise<
     | {
         exchangeData: ExchangeData
@@ -280,18 +313,22 @@ export class BaseExchangeDataManager {
     const dataOwnerId = await this.dataOwnerApi.getCurrentDataOwnerId()
     const rawExchangeKey = await this.tryDecrypt(exchangeData.exchangeKey, decryptionKeys)
     const rawAccessControlSecret = await this.tryDecrypt(exchangeData.accessControlSecret, decryptionKeys)
-    if (!rawExchangeKey || !rawAccessControlSecret) return undefined
+    const rawSharedSignatureKey = await this.tryDecrypt(exchangeData.sharedSignatureKey, decryptionKeys)
+    if (!rawExchangeKey || !rawAccessControlSecret || !rawSharedSignatureKey) return undefined
     const exchangeKey = await this.importExchangeKey(new Uint8Array(rawExchangeKey))
     const accessControlSecret = await this.importAccessControlSecret(new Uint8Array(rawAccessControlSecret))
+    const sharedSignatureKey = await this.importSharedSignatureKey(new Uint8Array(rawSharedSignatureKey))
     const existingExchangeKeyEntries = new Set(Object.keys(exchangeData.exchangeKey))
     const existingAcsEntries = new Set(Object.keys(exchangeData.accessControlSecret))
-    const missingEntries = Object.keys(newEncryptionKeys).filter((fp) => !existingAcsEntries.has(fp) || !existingExchangeKeyEntries.has(fp))
+    const existingSharedSignatureKeyEntries = new Set(Object.keys(exchangeData.sharedSignatureKey))
+    const missingEntries = Object.keys(newEncryptionKeys).filter(
+      (fp) => !existingAcsEntries.has(fp) || !existingExchangeKeyEntries.has(fp) || !existingSharedSignatureKeyEntries.has(fp)
+    )
     if (!missingEntries.length) return { exchangeData, exchangeKey, accessControlSecret }
     const encryptionKeysForMissingEntries = missingEntries.reduce((obj, fp) => {
       obj[fp] = newEncryptionKeys[fp]
       return obj
     }, {} as { [keyPairFingerprint: string]: CryptoKey })
-    const isVerified = exchangeData.delegator == dataOwnerId && (await this.verifyExchangeData(exchangeData, (fp) => getVerificationKey(fp)))
     const updatedExchangeData = _.cloneDeep(exchangeData)
     updatedExchangeData.exchangeKey = {
       ...exchangeData.exchangeKey,
@@ -301,37 +338,57 @@ export class BaseExchangeDataManager {
       ...exchangeData.accessControlSecret,
       ...(await this.encryptDataWithKeys(rawAccessControlSecret, encryptionKeysForMissingEntries)),
     }
+    updatedExchangeData.sharedSignatureKey = {
+      ...exchangeData.sharedSignatureKey,
+      ...(await this.encryptDataWithKeys(rawSharedSignatureKey, encryptionKeysForMissingEntries)),
+    }
+    const isVerified = await this.verifyExchangeData(
+      {
+        exchangeData,
+        decryptedAccessControlSecret: accessControlSecret,
+        decryptedExchangeKey: exchangeKey,
+        decryptedSharedSignatureKey: sharedSignatureKey,
+      },
+      () => Promise.resolve(undefined),
+      false
+    )
     if (isVerified) {
-      const newDataToSign = await this.bytesToSign(updatedExchangeData)
-      updatedExchangeData.signature = await this.signDataWithKeys(newDataToSign, signatureKeys)
+      updatedExchangeData.sharedSignature = await this.signDataWithSharedKey(
+        await this.bytesToSignForSharedSignature({
+          delegate: updatedExchangeData.delegate,
+          delegator: updatedExchangeData.delegator,
+          decryptedAccessControlSecret: accessControlSecret,
+          decryptedExchangeKey: exchangeKey,
+          publicKeysFingerprintsV2: Object.keys(updatedExchangeData.exchangeKey),
+        }),
+        sharedSignatureKey
+      )
     }
     return { exchangeData: await this.api.modifyExchangeData(new ExchangeData(updatedExchangeData)), exchangeKey, accessControlSecret }
   }
 
-  // Gets a byte representation of the parts of exchange data which should be included in the signature.
-  // Equivalent json representations of the exchange data should provide the same bytes (even if the order of entries
-  // is different).
-  private async bytesToSign(exchangeData: {
-    delegate: string
+  private async bytesToSignForSharedSignature(data: {
     delegator: string
-    exchangeKey: { [k: string]: string }
-    accessControlSecret: { [k: string]: string }
+    delegate: string
+    decryptedAccessControlSecret: string
+    decryptedExchangeKey: CryptoKey
+    publicKeysFingerprintsV2: string[]
   }): Promise<ArrayBuffer> {
-    function sortObject(obj: { [k: string]: string }): [string, string][] {
-      return Object.keys(obj)
-        .sort()
-        .reduce((sorted, key) => {
-          return [...sorted, [key, obj[key]]]
-        }, [] as [string, string][])
-    }
+    // Use array of array to ensure that order is preserved regardless of how the specific js implementation orders
+    // the keys of an object
     const signObject = [
-      ['delegator', exchangeData.delegator],
-      ['delegate', exchangeData.delegate],
-      ['exchangeKey', sortObject(exchangeData.exchangeKey)],
-      ['accessControlSecret', sortObject(exchangeData.accessControlSecret)],
+      ['delegator', data.delegator],
+      ['delegate', data.delegate],
+      ['exchangeKey', ua2hex(await this.primitives.AES.exportKey(data.decryptedExchangeKey, 'raw'))],
+      ['accessControlSecret', data.decryptedAccessControlSecret],
+      ['publicKeysFingerprints', data.publicKeysFingerprintsV2.sort()],
     ]
     const signJson = JSON.stringify(signObject)
-    return this.primitives.sha256(utf8_2ua(signJson))
+    return utf8_2ua(signJson)
+  }
+
+  private async bytesToSignForDelegatorSignature(data: { sharedSignatureKey: CryptoKey }): Promise<ArrayBuffer> {
+    return this.primitives.sha256(await this.primitives.HMAC.exportKey(data.sharedSignatureKey))
   }
 
   // Generates a new exchange key
@@ -348,6 +405,18 @@ export class BaseExchangeDataManager {
 
   private async importExchangeKey(decryptedBytes: ArrayBuffer): Promise<CryptoKey> {
     return await this.primitives.AES.importKey('raw', decryptedBytes)
+  }
+
+  private async generateSharedSignatureKey(): Promise<{
+    key: CryptoKey // the imported key
+    rawBytes: ArrayBuffer // the bytes to encrypt for in the exchange data
+  }> {
+    const key = await this.primitives.HMAC.generateKey()
+    return { key, rawBytes: await this.primitives.HMAC.exportKey(key) }
+  }
+
+  private async importSharedSignatureKey(decryptedBytes: ArrayBuffer): Promise<CryptoKey> {
+    return await this.primitives.HMAC.importKey(decryptedBytes)
   }
 
   // Generates a new access control secret
@@ -372,12 +441,12 @@ export class BaseExchangeDataManager {
   ): Promise<{ [keyPairFingerprintV2: string]: string }> {
     const res: { [keyPairFingerprintV2: string]: string } = {}
     for (const [fp, key] of Object.entries(keys)) {
-      res[fingerprintIsV1(fp) ? fingerprintV1toV2(fp) : fp] = ua2b64(await this.primitives.RSA.encrypt(key, utf8_2ua(ua2hex(rawData))))
+      res[fingerprintIsV1(fp) ? fingerprintV1toV2(fp) : fp] = ua2b64(await this.primitives.RSA.encrypt(key, new Uint8Array(rawData)))
     }
     return res
   }
 
-  private async signDataWithKeys(
+  private async signDataWithDelegatorKeys(
     rawData: ArrayBuffer,
     keys: { [keyPairFingerprint: string]: CryptoKey }
   ): Promise<{ [keyPairFingerprint: string]: string }> {
@@ -386,5 +455,28 @@ export class BaseExchangeDataManager {
       res[fp] = ua2b64(await this.primitives.RSA.sign(key, new Uint8Array(rawData)))
     }
     return res
+  }
+
+  private async verifyDelegatorSignature(
+    exchangeData: ExchangeData,
+    decryptedSharedSignatureKey: CryptoKey,
+    getVerificationKey: (publicKeyFingerprint: string) => Promise<CryptoKey | undefined>
+  ): Promise<Boolean> {
+    const delegatorSignatureData = await this.bytesToSignForDelegatorSignature({
+      sharedSignatureKey: decryptedSharedSignatureKey,
+    })
+    for (const [fp, signature] of Object.entries(exchangeData.delegatorSignature)) {
+      const verificationKey = await getVerificationKey(fp.slice(-32))
+      if (verificationKey && (await this.primitives.RSA.verifySignature(verificationKey, b64_2ua(signature), delegatorSignatureData))) return true
+    }
+    return false
+  }
+
+  private async signDataWithSharedKey(rawData: ArrayBuffer, key: CryptoKey): Promise<string> {
+    return ua2b64(await this.primitives.HMAC.sign(key, new Uint8Array(rawData)))
+  }
+
+  private async verifyDataWithSharedKey(rawData: ArrayBuffer, key: CryptoKey, signature: string): Promise<boolean> {
+    return await this.primitives.HMAC.verify(key, new Uint8Array(rawData), b64_2ua(signature))
   }
 }

@@ -11,7 +11,7 @@
  */
 import { XHR } from './XHR'
 import { EntityReference } from '../model/EntityReference'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
 
 export class IccEntityrefApi {
@@ -45,14 +45,11 @@ export class IccEntityrefApi {
    * @summary Create an entity reference
    * @param body
    */
-  createEntityReference(body?: EntityReference): Promise<EntityReference> {
-    let _body = null
-    _body = body
-
+  async createEntityReference(body?: EntityReference): Promise<EntityReference> {
     const _url = this.host + `/entityref` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new EntityReference(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -62,7 +59,7 @@ export class IccEntityrefApi {
    * @summary Find latest reference for a prefix
    * @param prefix
    */
-  getLatest(prefix: string): Promise<EntityReference> {
+  async getLatest(prefix: string): Promise<EntityReference> {
     let _body = null
 
     const _url = this.host + `/entityref/latest/${encodeURIComponent(String(prefix))}` + '?ts=' + new Date().getTime()

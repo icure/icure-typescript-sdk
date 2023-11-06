@@ -21,7 +21,7 @@ import { ListOfIds } from '../model/ListOfIds'
 import { PaginatedListPatient } from '../model/PaginatedListPatient'
 import { PaginatedListString } from '../model/PaginatedListString'
 import { Patient } from '../model/Patient'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
 import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
@@ -144,29 +144,52 @@ export class IccPatientApi {
    * @param body
    */
   async createPatient(body?: Patient): Promise<Patient> {
-    let _body = null
-    _body = body
-
     const _url = this.host + `/patient` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Patient(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 
   /**
-   * Response is an array containing the ID of deleted patient..
-   * @summary Delete patients.
-   * @param patientIds
+   * @summary Deletes a batch of patients.
+   *
+   * @param patientIds a ListOfIds containing the ids of the patients to delete.
+   * @return a Promise that will resolve in an array of DocIdentifiers of the successfully deleted patients.
    */
-  async deletePatient(patientIds: string): Promise<Array<DocIdentifier>> {
-    let _body = null
-
-    const _url = this.host + `/patient/${encodeURIComponent(String(patientIds))}` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+  async deletePatients(patientIds: ListOfIds): Promise<Array<DocIdentifier>> {
+    const headers = (await this.headers).filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand(
+      'POST',
+      this.host + `/patient/delete/batch` + '?ts=' + new Date().getTime(),
+      headers,
+      patientIds,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Deletes a single patient by id.
+   *
+   * @param patientId the id of the patient to delete.
+   * @return a Promise that will resolve in the DocIdentifier of the deleted patient.
+   */
+  async deletePatient(patientId: string): Promise<DocIdentifier> {
+    return XHR.sendCommand(
+      'DELETE',
+      this.host + `/patient/${encodeURIComponent(patientId)}` + '?ts=' + new Date().getTime(),
+      await this.headers,
+      null,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
+      .then((doc) => new DocIdentifier(doc.body))
       .catch((err) => this.handleError(err))
   }
 
@@ -470,7 +493,13 @@ export class IccPatientApi {
    * @param startDocumentId A patient document ID
    * @param limit Number of rows
    */
-  async listDeletedPatients(startDate?: number, endDate?: number, desc?: boolean, startDocumentId?: string, limit?: number): Promise<PaginatedListPatient> {
+  async listDeletedPatients(
+    startDate?: number,
+    endDate?: number,
+    desc?: boolean,
+    startDocumentId?: string,
+    limit?: number
+  ): Promise<PaginatedListPatient> {
     let _body = null
 
     const _url =

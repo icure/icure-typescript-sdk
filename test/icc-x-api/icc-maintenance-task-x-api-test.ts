@@ -7,7 +7,7 @@ import { assert, expect } from 'chai'
 import { randomUUID } from 'crypto'
 import { getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { User } from '../../icc-api/model/User'
-import { IccMaintenanceTaskXApi } from '../../icc-x-api/icc-maintenance-task-x-api'
+import { IccMaintenanceTaskXApi } from '../../icc-x-api'
 import { MaintenanceTask } from '../../icc-api/model/MaintenanceTask'
 import { PropertyStub } from '../../icc-api/model/PropertyStub'
 import { PropertyTypeStub } from '../../icc-api/model/PropertyTypeStub'
@@ -134,12 +134,11 @@ describe('icc-x-maintenance-task-api Tests', () => {
     assert(!!createdTask.id)
 
     // When
-    const deletedTask: DocIdentifier[] = await apiForHcp1.maintenanceTaskApi.deleteMaintenanceTaskWithUser(hcp1User, createdTask.id!)
+    const deletedTask: DocIdentifier = await apiForHcp1.maintenanceTaskApi.deleteMaintenanceTaskWithUser(hcp1User, createdTask.id!)
 
     // Then
     assert(!!deletedTask)
-    assert(deletedTask.length == 1)
-    assert(deletedTask[0].id === createdTask.id)
+    assert(deletedTask.id === createdTask.id)
   })
 
   it('DeleteMaintenanceTaskWithUser Success for HCP that which parent has delegation', async () => {
@@ -151,13 +150,11 @@ describe('icc-x-maintenance-task-api Tests', () => {
     assert(!!createdTask.id)
 
     // When
-    const deletedTask: DocIdentifier[] = await apiForHcp2.maintenanceTaskApi.deleteMaintenanceTaskWithUser(hcp1User, createdTask.id!)
+    const deletedTask: DocIdentifier = await apiForHcp2.maintenanceTaskApi.deleteMaintenanceTaskWithUser(hcp1User, createdTask.id!)
 
     // Then
     assert(!!deletedTask)
-    // TODO investigate why it fails
-    assert(deletedTask.length == 1)
-    assert(deletedTask[0].id === createdTask.id)
+    assert(deletedTask.id === createdTask.id)
   })
 
   it('DeleteMaintenanceTaskWithUser Fails for non-delegated HCP', async () => {

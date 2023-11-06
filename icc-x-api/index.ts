@@ -74,7 +74,7 @@ import { ensureDelegationForSelf } from './crypto/utils'
 import { SecureDelegationsSecurityMetadataDecryptor } from './crypto/SecureDelegationsSecurityMetadataDecryptor'
 import { initialiseExchangeDataManagerForCurrentDataOwner } from './crypto/ExchangeDataManager'
 import { BaseExchangeDataManager } from './crypto/BaseExchangeDataManager'
-import { IccExchangeDataApi } from '../icc-api/api/IccExchangeDataApi'
+import { IccExchangeDataApi } from '../icc-api/api/internal/IccExchangeDataApi'
 import { UserSignatureKeysManager } from './crypto/UserSignatureKeysManager'
 import { AccessControlSecretUtils } from './crypto/AccessControlSecretUtils'
 import { SecureDelegationsEncryption } from './crypto/SecureDelegationsEncryption'
@@ -82,13 +82,14 @@ import { LegacyDelegationSecurityMetadataDecryptor } from './crypto/LegacyDelega
 import { ExtendedApisUtilsImpl } from './crypto/ExtendedApisUtilsImpl'
 import { SecureDelegationsManager } from './crypto/SecureDelegationsManager'
 import { AccessControlKeysHeadersProvider } from './crypto/AccessControlKeysHeadersProvider'
-import { IccExchangeDataMapApi } from '../icc-api/api/IccExchangeDataMapApi'
+import { IccExchangeDataMapApi } from '../icc-api/api/internal/IccExchangeDataMapApi'
 import { ExchangeDataMapManager } from './crypto/ExchangeDataMapManager'
 import { IccDeviceXApi } from './icc-device-x-api'
 import { IccBekmehrXApi } from './icc-bekmehr-x-api'
 import { IccDoctemplateXApi } from './icc-doctemplate-x-api'
 import { UserGroup } from '../icc-api/model/UserGroup'
 import { IccTopicXApi } from './icc-topic-x-api'
+import { IccRoleApi } from '../icc-api/api/IccRoleApi'
 import { DataOwnerTypeEnum } from '../icc-api/model/DataOwnerTypeEnum'
 import { DelegationsDeAnonymization } from './crypto/DelegationsDeAnonymization'
 
@@ -176,6 +177,7 @@ export interface Apis {
   readonly tarificationApi: IccTarificationApi
   readonly tmpApi: IccTmpApi
   readonly topicApi: IccTopicXApi
+  readonly roleApi: IccRoleApi
 }
 
 /**
@@ -784,6 +786,12 @@ class IcureApiImpl implements IcureApi {
         this.fetch
       ))
     )
+  }
+
+  private _roleApi: IccRoleApi | undefined
+
+  get roleApi(): IccRoleApi {
+    return this._roleApi ?? (this._roleApi = new IccRoleApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
   }
 
   private _entityReferenceApi: IccEntityrefApi | undefined

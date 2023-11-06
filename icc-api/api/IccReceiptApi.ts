@@ -12,10 +12,11 @@
 import { XHR } from './XHR'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { Receipt } from '../model/Receipt'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
 import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
+import { ListOfIds } from '../model/ListOfIds'
 
 export class IccReceiptApi {
   host: string
@@ -53,29 +54,52 @@ export class IccReceiptApi {
    * @param body
    */
   async createReceipt(body?: Receipt): Promise<Receipt> {
-    let _body = null
-    _body = body
-
     const _url = this.host + `/receipt` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Receipt(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 
   /**
+   * @summary Deletes a batch of receipts.
    *
-   * @summary Deletes a receipt
-   * @param receiptIds
+   * @param receiptIds a ListOfIds containing the ids of the receipts to delete.
+   * @return a Promise that will resolve in an array of DocIdentifiers of the successfully deleted receipts.
    */
-  async deleteReceipt(receiptIds: string): Promise<Array<DocIdentifier>> {
-    let _body = null
-
-    const _url = this.host + `/receipt/${encodeURIComponent(String(receiptIds))}` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+  async deleteReceipts(receiptIds: ListOfIds): Promise<Array<DocIdentifier>> {
+    const headers = (await this.headers).filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand(
+      'POST',
+      this.host + `/receipt/delete/batch` + '?ts=' + new Date().getTime(),
+      headers,
+      receiptIds,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Deletes a single receipt by id.
+   *
+   * @param receiptId the id of the receipt to delete.
+   * @return a Promise that will resolve in the DocIdentifier of the deleted receipt.
+   */
+  async deleteReceipt(receiptId: string): Promise<DocIdentifier> {
+    return XHR.sendCommand(
+      'DELETE',
+      this.host + `/receipt/${encodeURIComponent(receiptId)}` + '?ts=' + new Date().getTime(),
+      await this.headers,
+      null,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
+      .then((doc) => new DocIdentifier(doc.body))
       .catch((err) => this.handleError(err))
   }
 
@@ -195,7 +219,7 @@ export class IccReceiptApi {
   async bulkShareReceipt(request: {
     [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
   }): Promise<EntityBulkShareResult<Receipt>[]> {
-    const _url = this.host + '/classification/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
+    const _url = this.host + '/receipt/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())

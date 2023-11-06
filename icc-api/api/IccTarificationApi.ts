@@ -13,7 +13,7 @@ import { XHR } from './XHR'
 import { ListOfIds } from '../model/ListOfIds'
 import { PaginatedListTarification } from '../model/PaginatedListTarification'
 import { Tarification } from '../model/Tarification'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
 
 export class IccTarificationApi {
@@ -47,14 +47,11 @@ export class IccTarificationApi {
    * @summary Create a Tarification
    * @param body
    */
-  createTarification(body?: Tarification): Promise<Tarification> {
-    let _body = null
-    _body = body
-
+  async createTarification(body?: Tarification): Promise<Tarification> {
     const _url = this.host + `/tarification` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Tarification(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }

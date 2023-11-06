@@ -1,8 +1,8 @@
-import { XHR } from './XHR'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
-import { ExchangeData } from '../model/internal/ExchangeData'
-import { PaginatedListExchangeData } from '../model/PaginatedListExchangeData'
-import { iccRestApiPath } from './IccRestApiPath'
+import { XHR } from '../XHR'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../../icc-x-api'
+import { ExchangeData } from '../../model/internal/ExchangeData'
+import { PaginatedListExchangeData } from '../../model/PaginatedListExchangeData'
+import { iccRestApiPath } from '../IccRestApiPath'
 
 export class IccExchangeDataApi {
   host: string
@@ -30,7 +30,7 @@ export class IccExchangeDataApi {
     throw e
   }
 
-  createExchangeData(body?: ExchangeData): Promise<ExchangeData> {
+  async createExchangeData(body?: ExchangeData): Promise<ExchangeData> {
     const _url = this.host + `/exchangedata` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
@@ -39,7 +39,7 @@ export class IccExchangeDataApi {
       .catch((err) => this.handleError(err))
   }
 
-  modifyExchangeData(body?: ExchangeData): Promise<ExchangeData> {
+  async modifyExchangeData(body?: ExchangeData): Promise<ExchangeData> {
     const _url = this.host + `/exchangedata` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
@@ -48,7 +48,7 @@ export class IccExchangeDataApi {
       .catch((err) => this.handleError(err))
   }
 
-  getExchangeDataById(exchangeDataId: string): Promise<ExchangeData> {
+  async getExchangeDataById(exchangeDataId: string): Promise<ExchangeData> {
     const _url = this.host + `/exchangedata/${encodeURIComponent(String(exchangeDataId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
@@ -57,7 +57,7 @@ export class IccExchangeDataApi {
       .catch((err) => this.handleError(err))
   }
 
-  getExchangeDataByDelegatorDelegate(delegatorId: string, delegateId: string): Promise<ExchangeData[]> {
+  async getExchangeDataByDelegatorDelegate(delegatorId: string, delegateId: string): Promise<ExchangeData[]> {
     const _url =
       this.host +
       `/exchangedata/byDelegatorDelegate/${encodeURIComponent(String(delegatorId))}/${encodeURIComponent(String(delegateId))}` +
@@ -70,7 +70,7 @@ export class IccExchangeDataApi {
       .catch((err) => this.handleError(err))
   }
 
-  getExchangeDataByParticipant(dataOwnerId: string, startDocumentId?: string, limit?: number): Promise<PaginatedListExchangeData> {
+  async getExchangeDataByParticipant(dataOwnerId: string, startDocumentId?: string, limit?: number): Promise<PaginatedListExchangeData> {
     const _url =
       this.host +
       `/exchangedata/byParticipant/${encodeURIComponent(String(dataOwnerId))}` +
@@ -85,7 +85,7 @@ export class IccExchangeDataApi {
       .catch((err) => this.handleError(err))
   }
 
-  getExchangeDataParticipantCounterparts(dataOwnerId: string, counterpartTypes: string): Promise<string[]> {
+  async getExchangeDataParticipantCounterparts(dataOwnerId: string, counterpartTypes: string): Promise<string[]> {
     const _url =
       this.host +
       `/exchangedata/byParticipant/${encodeURIComponent(String(dataOwnerId))}/counterparts` +

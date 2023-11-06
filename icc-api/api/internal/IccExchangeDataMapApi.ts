@@ -1,9 +1,9 @@
-import { XHR } from './XHR'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
-import { iccRestApiPath } from './IccRestApiPath'
-import { ExchangeDataMap } from '../model/internal/ExchangeDataMap'
-import { ExchangeDataMapCreationBatch } from '../model/ExchangeDataMapCreationBatch'
-import { ListOfIds } from '../model/ListOfIds'
+import { XHR } from '../XHR'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../../icc-x-api'
+import { iccRestApiPath } from '../IccRestApiPath'
+import { ExchangeDataMap } from '../../model/internal/ExchangeDataMap'
+import { ExchangeDataMapCreationBatch } from '../../model/ExchangeDataMapCreationBatch'
+import { ListOfIds } from '../../model/ListOfIds'
 
 export class IccExchangeDataMapApi {
   host: string
@@ -31,7 +31,7 @@ export class IccExchangeDataMapApi {
     throw e
   }
 
-  getExchangeDataMapById(exchangeDataMapId: string): Promise<ExchangeDataMap> {
+  async getExchangeDataMapById(exchangeDataMapId: string): Promise<ExchangeDataMap> {
     const _url = this.host + `/exchangedatamap/${encodeURIComponent(String(exchangeDataMapId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
@@ -40,7 +40,7 @@ export class IccExchangeDataMapApi {
       .catch((err) => this.handleError(err))
   }
 
-  getExchangeDataMapByBatch(ids: string[]): Promise<ExchangeDataMap[]> {
+  async getExchangeDataMapByBatch(ids: string[]): Promise<ExchangeDataMap[]> {
     const _url = this.host + `/exchangedatamap/batch` + '?ts=' + new Date().getTime()
     const body = new ListOfIds({ ids })
     let headers = this.headers
@@ -50,7 +50,7 @@ export class IccExchangeDataMapApi {
       .catch((err) => this.handleError(err))
   }
 
-  createExchangeDataMap(body: ExchangeDataMap): Promise<ExchangeDataMap> {
+  async createExchangeDataMap(body: ExchangeDataMap): Promise<ExchangeDataMap> {
     const _url = this.host + `/exchangedatamap` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
@@ -59,7 +59,7 @@ export class IccExchangeDataMapApi {
       .catch((err) => this.handleError(err))
   }
 
-  createExchangeDataMapBatch(body: ExchangeDataMapCreationBatch): Promise<string> {
+  async createExchangeDataMapBatch(body: ExchangeDataMapCreationBatch): Promise<string> {
     const _url = this.host + `/exchangedatamap/batch` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
@@ -68,7 +68,7 @@ export class IccExchangeDataMapApi {
       .catch((err) => this.handleError(err))
   }
 
-  modifyExchangeDataMapForKey(accessControlKey: string, body: ExchangeDataMap): Promise<ExchangeDataMap> {
+  async modifyExchangeDataMapForKey(accessControlKey: string, body: ExchangeDataMap): Promise<ExchangeDataMap> {
     const _url = this.host + `/exchangedatamap/forKey/${encodeURIComponent(String(accessControlKey))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))

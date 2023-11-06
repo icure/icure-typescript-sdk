@@ -12,8 +12,9 @@
 import { XHR } from './XHR'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { DocumentTemplate } from '../model/DocumentTemplate'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
+import { ListOfIds } from '../model/ListOfIds'
 
 export class IccDoctemplateApi {
   host: string
@@ -46,29 +47,31 @@ export class IccDoctemplateApi {
    * @summary Create a document template with the current user
    * @param body
    */
-  createDocumentTemplate(body?: DocumentTemplate): Promise<DocumentTemplate> {
-    let _body = null
-    _body = body
-
+  async createDocumentTemplate(body?: DocumentTemplate): Promise<DocumentTemplate> {
     const _url = this.host + `/doctemplate` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new DocumentTemplate(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 
   /**
+   * @summary Deletes a batch of document templates.
    *
-   * @summary Deletes a document template
-   * @param documentTemplateIds
+   * @param documentTemplateIds a ListOfIds containing the ids of the document templates to delete.
+   * @return a Promise that will resolve in an array of DocIdentifiers of the successfully deleted document templates.
    */
-  deleteDocumentTemplate(documentTemplateIds: string): Promise<Array<DocIdentifier>> {
-    let _body = null
-
-    const _url = this.host + `/doctemplate/${encodeURIComponent(String(documentTemplateIds))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+  async deleteDocumentTemplates(documentTemplateIds: ListOfIds): Promise<Array<DocIdentifier>> {
+    return XHR.sendCommand(
+      'POST',
+      this.host + `/doctemplate/delete/batch` + '?ts=' + new Date().getTime(),
+      this.headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json')),
+      documentTemplateIds,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
       .catch((err) => this.handleError(err))
   }
@@ -77,12 +80,10 @@ export class IccDoctemplateApi {
    *
    * @summary Gets all document templates for all users
    */
-  findAllDocumentTemplates(): Promise<Array<DocumentTemplate>> {
-    let _body = null
-
+  async listAllDocumentTemplates(): Promise<Array<DocumentTemplate>> {
     const _url = this.host + `/doctemplate/find/all` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocumentTemplate(it)))
       .catch((err) => this.handleError(err))
   }
@@ -91,12 +92,10 @@ export class IccDoctemplateApi {
    *
    * @summary Gets all document templates for current user
    */
-  findDocumentTemplates(): Promise<Array<DocumentTemplate>> {
-    let _body = null
-
+  async listDocumentTemplates(): Promise<Array<DocumentTemplate>> {
     const _url = this.host + `/doctemplate` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocumentTemplate(it)))
       .catch((err) => this.handleError(err))
   }
@@ -106,12 +105,10 @@ export class IccDoctemplateApi {
    * @summary Gets all document templates by Type
    * @param documentTypeCode
    */
-  findDocumentTemplatesByDocumentType(documentTypeCode: string): Promise<Array<DocumentTemplate>> {
-    let _body = null
-
+  async findDocumentTemplatesByDocumentType(documentTypeCode: string): Promise<Array<DocumentTemplate>> {
     const _url = this.host + `/doctemplate/byDocumentType/${encodeURIComponent(String(documentTypeCode))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocumentTemplate(it)))
       .catch((err) => this.handleError(err))
   }
@@ -121,13 +118,11 @@ export class IccDoctemplateApi {
    * @summary Gets all document templates by Type For currentUser
    * @param documentTypeCode
    */
-  findDocumentTemplatesByDocumentTypeForCurrentUser(documentTypeCode: string): Promise<Array<DocumentTemplate>> {
-    let _body = null
-
+  async listDocumentTemplatesByDocumentTypeForCurrentUser(documentTypeCode: string): Promise<Array<DocumentTemplate>> {
     const _url =
       this.host + `/doctemplate/byDocumentTypeForCurrentUser/${encodeURIComponent(String(documentTypeCode))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocumentTemplate(it)))
       .catch((err) => this.handleError(err))
   }
@@ -137,7 +132,7 @@ export class IccDoctemplateApi {
    * @summary Gets all document templates
    * @param specialityCode
    */
-  findDocumentTemplatesBySpeciality(specialityCode: string): Promise<Array<DocumentTemplate>> {
+  async listDocumentTemplatesBySpeciality(specialityCode: string): Promise<Array<DocumentTemplate>> {
     let _body = null
 
     const _url = this.host + `/doctemplate/bySpecialty/${encodeURIComponent(String(specialityCode))}` + '?ts=' + new Date().getTime()
@@ -153,7 +148,7 @@ export class IccDoctemplateApi {
    * @param documentTemplateId
    * @param attachmentId
    */
-  getAttachmentText(documentTemplateId: string, attachmentId: string): Promise<ArrayBuffer> {
+  async getAttachmentText(documentTemplateId: string, attachmentId: string): Promise<ArrayBuffer> {
     let _body = null
 
     const _url =
@@ -172,7 +167,7 @@ export class IccDoctemplateApi {
    * @summary Gets a document template
    * @param documentTemplateId
    */
-  getDocumentTemplate(documentTemplateId: string): Promise<DocumentTemplate> {
+  async getDocumentTemplate(documentTemplateId: string): Promise<DocumentTemplate> {
     let _body = null
 
     const _url = this.host + `/doctemplate/${encodeURIComponent(String(documentTemplateId))}` + '?ts=' + new Date().getTime()
@@ -188,16 +183,14 @@ export class IccDoctemplateApi {
    * @param documentTemplateId
    * @param attachmentId
    */
-  getDocumentTemplateAttachment(documentTemplateId: string, attachmentId: string): Promise<ArrayBuffer> {
-    let _body = null
-
+  async getDocumentTemplateAttachment(documentTemplateId: string, attachmentId: string): Promise<ArrayBuffer> {
     const _url =
       this.host +
       `/doctemplate/${encodeURIComponent(String(documentTemplateId))}/attachment/${encodeURIComponent(String(attachmentId))}` +
       '?ts=' +
       new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
   }
@@ -208,14 +201,11 @@ export class IccDoctemplateApi {
    * @param body
    * @param documentTemplateId
    */
-  setDocumentTemplateAttachment(documentTemplateId: string, body?: ArrayBuffer): Promise<DocumentTemplate> {
-    let _body = null
-    _body = body
-
+  async setDocumentTemplateAttachment(documentTemplateId: string, body?: ArrayBuffer): Promise<DocumentTemplate> {
     const _url = this.host + `/doctemplate/${encodeURIComponent(String(documentTemplateId))}/attachment` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('PUT', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new DocumentTemplate(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -226,14 +216,11 @@ export class IccDoctemplateApi {
    * @param body
    * @param documentTemplateId
    */
-  setDocumentTemplateAttachmentJson(documentTemplateId: string, body?: string): Promise<DocumentTemplate> {
-    let _body = null
-    _body = body
-
+  async setDocumentTemplateAttachmentJson(documentTemplateId: string, body?: string): Promise<DocumentTemplate> {
     const _url = this.host + `/doctemplate/${encodeURIComponent(String(documentTemplateId))}/attachmentJson` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('PUT', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new DocumentTemplate(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -244,14 +231,11 @@ export class IccDoctemplateApi {
    * @param body
    * @param documentTemplateId
    */
-  updateDocumentTemplate(documentTemplateId: string, body?: DocumentTemplate): Promise<DocumentTemplate> {
-    let _body = null
-    _body = body
-
+  async updateDocumentTemplate(documentTemplateId: string, body?: DocumentTemplate): Promise<DocumentTemplate> {
     const _url = this.host + `/doctemplate/${encodeURIComponent(String(documentTemplateId))}` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('PUT', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new DocumentTemplate(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }

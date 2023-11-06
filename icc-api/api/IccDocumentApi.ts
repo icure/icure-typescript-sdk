@@ -14,7 +14,7 @@ import { DocIdentifier } from '../model/DocIdentifier'
 import { Document } from '../model/Document'
 import { IcureStub } from '../model/IcureStub'
 import { ListOfIds } from '../model/ListOfIds'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
 import { iccRestApiPath } from './IccRestApiPath'
 import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
@@ -55,13 +55,10 @@ export class IccDocumentApi {
    * @param body
    */
   async createDocument(body?: Document): Promise<Document> {
-    let _body = null
-    _body = body
-
     const _url = this.host + `/document` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Document(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -82,17 +79,43 @@ export class IccDocumentApi {
   }
 
   /**
-   * Deletes a batch of documents and returns the list of deleted document ids
-   * @summary Delete a document
-   * @param documentIds
+   * @summary Deletes a batch of documents and returns the list of deleted document ids.
+   *
+   * @param documentIds a ListOfIds containing the ids of the documents to delete.
+   * @return a Promise that will resolve in an array of DocIdentifier of the successfully deleted documents.
    */
-  async deleteDocument(documentIds: string): Promise<Array<DocIdentifier>> {
-    let _body = null
-
-    const _url = this.host + `/document/${encodeURIComponent(String(documentIds))}` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+  async deleteDocuments(documentIds: ListOfIds): Promise<Array<DocIdentifier>> {
+    const headers = (await this.headers).filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand(
+      'POST',
+      this.host + `/document/delete/batch` + '?ts=' + new Date().getTime(),
+      headers,
+      documentIds,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Deletes a single document by id.
+   *
+   * @param documentId the id of the document to delete.
+   * @return a DocIdentifier of the document.
+   */
+  async deleteDocument(documentId: string): Promise<DocIdentifier> {
+    return XHR.sendCommand(
+      'DELETE',
+      this.host + `/document/${encodeURIComponent(documentId)}` + '?ts=' + new Date().getTime(),
+      await this.headers,
+      null,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
+      .then((doc) => new DocIdentifier(doc.body))
       .catch((err) => this.handleError(err))
   }
 
@@ -207,7 +230,7 @@ export class IccDocumentApi {
 
     const _url = this.host + `/document/${encodeURIComponent(String(documentId))}/attachment` + '?ts=' + new Date().getTime()
     let headers = await this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, "application/octet-stream", this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, 'application/octet-stream', this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
   }
