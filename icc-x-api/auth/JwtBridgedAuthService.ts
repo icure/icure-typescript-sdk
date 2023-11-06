@@ -28,7 +28,7 @@ export class JwtBridgedAuthService implements AuthService {
     return this.getAuthHeaders().then(() => this._currentPromise.then(({ authJwt, refreshJwt }) => ({ token: authJwt!, refreshToken: refreshJwt! })))
   }
 
-  async getAuthHeaders(): Promise<Array<Header>> {
+  async getJWT(): Promise<string | undefined> {
     return this._currentPromise
       .then(({ authJwt, refreshJwt }) => {
         if (!authJwt || this._isJwtInvalidOrExpired(authJwt)) {
@@ -48,8 +48,14 @@ export class JwtBridgedAuthService implements AuthService {
           throw this._error
         }
         return this._currentPromise
+      }).then(({authJwt}) => {
+        return authJwt
       })
-      .then(({ authJwt }) => {
+  }
+
+  async getAuthHeaders(): Promise<Array<Header>> {
+    return this.getJWT()
+      .then((authJwt) => {
         return [new XHR.Header('Authorization', `Bearer ${authJwt}`)]
       })
   }
