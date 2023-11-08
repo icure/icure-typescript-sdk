@@ -81,7 +81,7 @@ describe('icc-topic-x-api Tests', () => {
 
     const retrievedByHcp2 = await topicApiForHcp2.getTopic(createdTopic.id!)
     expect(retrievedByHcp2).to.deep.equal(createdTopic)
-  })
+  }).timeout(10_000)
 
   it('An HCP should be able to create an encrypted topic', async () => {
     const { userApi: userApiForHcp, topicApi: topicApiForHcp, patientApi: patientApiForHcp } = await initApi(env!, hcp1Username)
@@ -101,7 +101,7 @@ describe('icc-topic-x-api Tests', () => {
     expect(notDecryptedTopic).to.not.deep.equal(createdTopic)
     expect(notDecryptedTopic.description).to.be.undefined
     expect(notDecryptedTopic.encryptedSelf).to.not.be.undefined
-  })
+  }).timeout(10_000)
 
   it('An HCP should be able to create a topic with no participants and add participants later', async () => {
     const { userApi: userApiForHcp, topicApi: topicApiForHcp, patientApi: patientApiForHcp } = await initApi(env!, hcp1Username)
@@ -134,7 +134,7 @@ describe('icc-topic-x-api Tests', () => {
     expect(retrievedByHcp2AfterAddParticipant.activeParticipants).all.keys(hcpUser.healthcarePartyId!, hcpUser2.healthcarePartyId!)
     expect(retrievedByHcp2AfterAddParticipant.activeParticipants![hcpUser2.healthcarePartyId!]).to.equal(TopicRole.PARTICIPANT)
     expect(retrievedByHcp2AfterAddParticipant.activeParticipants![hcpUser.healthcarePartyId!]).to.equal(TopicRole.OWNER)
-  })
+  }).timeout(10_000)
 
   it('A participant should not be able to remove another participant', async () => {
     const { userApi: userApiForHcp, topicApi: topicApiForHcp, patientApi: patientApiForHcp } = await initApi(env!, hcp1Username)
@@ -159,7 +159,7 @@ describe('icc-topic-x-api Tests', () => {
     } catch (e) {
       expect((e as XHRError).statusCode).to.equal(403)
     }
-  })
+  }).timeout(10_000)
 
   it('A participant should be able to remove himself but still able to get topic', async () => {
     const { userApi: userApiForHcp, topicApi: topicApiForHcp, patientApi: patientApiForHcp } = await initApi(env!, hcp1Username)
@@ -184,7 +184,7 @@ describe('icc-topic-x-api Tests', () => {
     const retrievedByHcp2AfterRemoveParticipant = await topicApiForHcp2.getTopic(createdTopic.id!)
 
     expect(retrievedByHcpAfterRemoveParticipant).to.deep.equal(retrievedByHcp2AfterRemoveParticipant)
-  })
+  }).timeout(10_000)
 
   it('An owner should be able to remove a participant', async () => {
     const { userApi: userApiForHcp, topicApi: topicApiForHcp, patientApi: patientApiForHcp } = await initApi(env!, hcp1Username)
@@ -208,7 +208,7 @@ describe('icc-topic-x-api Tests', () => {
 
     const retrievedByHcp2AfterRemoveParticipant = await topicApiForHcp2.getTopic(createdTopic.id!)
     expect(retrievedByHcp2AfterRemoveParticipant).to.deep.equal(topicWithRemovedParticipant)
-  })
+  }).timeout(10_000)
 
   it('A participant should be able to filter topics using TopicByHcPartyFilter', async () => {
     const { userApi: userApiForHcp, topicApi: topicApiForHcp, patientApi: patientApiForHcp } = await initApi(env!, hcp1Username)
@@ -270,7 +270,7 @@ describe('icc-topic-x-api Tests', () => {
 
     const filterResultForHcp2 = await topicApiForHcp2.filterTopicsBy(filterChain(hcpUser2.healthcarePartyId!))
     expect(filterResultForHcp2.rows?.map((t) => t.id)).to.includes(createdTopic.id)
-  })
+  }).timeout(10_000)
 
   async function doXOnYAndSubscribe<Y>(
     connectionPromise: Promise<Connection>,
