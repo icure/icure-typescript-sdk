@@ -267,7 +267,7 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
 
   async encryptAndCreateMessage(body: Message): Promise<Message> {
     const encryptedMessage = await this.encrypt([body])
-    const createdMessage = await super.createMessage(encryptedMessage[0])
+    const createdMessage = await super.createMessageInTopic(encryptedMessage[0])
     return (await this.decrypt([createdMessage]))[0].entity
   }
 

@@ -33,7 +33,7 @@ describe('icc-message-x-api Tests', () => {
     env = await initializer.execute(getEnvVariables())
   })
 
-  async function createMessage(messageApi: IccMessageXApi, hcpUser: User, patient: Patient, topic: Topic) {
+  async function createMessage(messageApi: IccMessageXApi, hcpUser: User, patient: Patient | null, topic: Topic) {
     return messageApi.encryptAndCreateMessage(
       await messageApi.newInstanceWithPatient(
         hcpUser,
@@ -52,7 +52,7 @@ describe('icc-message-x-api Tests', () => {
         }),
         {
           additionalDelegates: Object.fromEntries(
-            Object.keys(topic.activeParticipants ?? {}).map((hcpId) => [hcpId, SecureDelegation.AccessLevelEnum.WRITE])
+            Object.keys(topic.activeParticipants ?? {}).filter((hcpId) => hcpId != hcpUser.healthcarePartyId).map((hcpId) => [hcpId, SecureDelegation.AccessLevelEnum.READ])
           ),
         }
       )
@@ -110,7 +110,7 @@ describe('icc-message-x-api Tests', () => {
     const samplePatient = await createPatient(patientApiForHcp, hcpUser)
     const createdTopic = await createTopic(topicApiForHcp, hcpUser, samplePatient, { user: hcpUser2, role: TopicRole.PARTICIPANT })
 
-    const createdMessage = await createMessage(messageApiForHcp, hcpUser, samplePatient, createdTopic)
+    const createdMessage = await createMessage(messageApiForHcp, hcpUser, null, createdTopic)
 
     const message = await messageApiForHcp.getAndDecryptMessage(createdMessage.id!)
     const message2 = await messageApiForHcp2.getAndDecryptMessage(createdMessage.id!)
@@ -138,7 +138,7 @@ describe('icc-message-x-api Tests', () => {
     const samplePatient = await createPatient(patientApiForHcp, hcpUser)
     const createdTopic = await createTopic(topicApiForHcp, hcpUser, samplePatient)
 
-    const createdMessage = await createMessage(messageApiForHcp, hcpUser, samplePatient, createdTopic)
+    const createdMessage = await createMessage(messageApiForHcp, hcpUser, null, createdTopic)
 
     const message = await messageApiForHcp.getAndDecryptMessage(createdMessage.id!)
     expect(message).to.deep.equal(createdMessage)
@@ -167,7 +167,7 @@ describe('icc-message-x-api Tests', () => {
     const samplePatient = await createPatient(patientApiForHcp, hcpUser)
     const createdTopic = await createTopic(topicApiForHcp, hcpUser, samplePatient, { user: hcpUser2, role: TopicRole.PARTICIPANT })
 
-    const createdMessage = await createMessage(messageApiForHcp, hcpUser, samplePatient, createdTopic)
+    const createdMessage = await createMessage(messageApiForHcp, hcpUser, null, createdTopic)
 
     const message = await messageApiForHcp.getAndDecryptMessage(createdMessage.id!)
     expect(message).to.not.be.null
@@ -197,7 +197,7 @@ describe('icc-message-x-api Tests', () => {
     const samplePatient = await createPatient(patientApiForHcp, hcpUser)
     const createdTopic = await createTopic(topicApiForHcp, hcpUser, samplePatient, { user: hcpUser2, role: TopicRole.PARTICIPANT })
 
-    const createdMessage = await createMessage(messageApiForHcp, hcpUser, samplePatient, createdTopic)
+    const createdMessage = await createMessage(messageApiForHcp, hcpUser, null, createdTopic)
 
     const message = await messageApiForHcp.getAndDecryptMessage(createdMessage.id!)
 
@@ -237,7 +237,7 @@ describe('icc-message-x-api Tests', () => {
 
     const createdTopic = await createTopic(topicApiForHcp, hcpUser, samplePatient, { user: hcpUser2, role: TopicRole.PARTICIPANT })
 
-    const createdMessage = await createMessage(messageApiForHcp, hcpUser, samplePatient, createdTopic)
+    const createdMessage = await createMessage(messageApiForHcp, hcpUser, null, createdTopic)
 
     const message = await messageApiForHcp.getAndDecryptMessage(createdMessage.id!)
 
@@ -276,7 +276,7 @@ describe('icc-message-x-api Tests', () => {
     const samplePatient = await createPatient(patientApiForHcp, hcpUser)
     const createdTopic = await createTopic(topicApiForHcp, hcpUser, samplePatient, { user: hcpUser2, role: TopicRole.PARTICIPANT })
 
-    const createdMessage = await createMessage(messageApiForHcp, hcpUser, samplePatient, createdTopic)
+    const createdMessage = await createMessage(messageApiForHcp, hcpUser, null, createdTopic)
 
     const message = await messageApiForHcp.getAndDecryptMessage(createdMessage.id!)
 
@@ -316,7 +316,7 @@ describe('icc-message-x-api Tests', () => {
     const samplePatient = await createPatient(patientApiForHcp, hcpUser)
     const createdTopic = await createTopic(topicApiForHcp, hcpUser, samplePatient, { user: hcpUser2, role: TopicRole.PARTICIPANT })
 
-    const createdMessage = await createMessage(messageApiForHcp, hcpUser, samplePatient, createdTopic)
+    const createdMessage = await createMessage(messageApiForHcp, hcpUser, null, createdTopic)
 
     const message = await messageApiForHcp.getAndDecryptMessage(createdMessage.id!)
 
@@ -359,7 +359,7 @@ describe('icc-message-x-api Tests', () => {
     let latestMessage: Message | null = null
     for (let i = 0; i < 5; i++) {
       // Creating 5 messages
-      latestMessage = await createMessage(messageApiForHcp, hcpUser, samplePatient, createdTopic)
+      latestMessage = await createMessage(messageApiForHcp, hcpUser, null, createdTopic)
     }
 
     const filterChain = (hcpId: string, transportGuid: string) =>
@@ -407,7 +407,7 @@ describe('icc-message-x-api Tests', () => {
       topicApi: topicApiForHcp,
       patientApi: patientApiForHcp,
       messageApi: messageApiForHcp,
-    } = await initApi(env!, hcp1Username)
+    } = await initApi(env!, hcp2Username)
 
     const loggedUser = await userApiForHcp.getCurrentUser()
     const connectionPromise = async (options: {}, eventListener: (healthcareElement: Message) => Promise<void>) =>
@@ -456,18 +456,32 @@ describe('icc-message-x-api Tests', () => {
             patient,
             new Topic({
               description: 'Topic description',
+              activeParticipants: {
+                [loggedUser.healthcarePartyId!]: TopicRole.OWNER,
+              },
             })
           )
         )
 
-        await messageApiForHcp.encryptAndCreateMessage(
+        const createdMessage = await messageApiForHcp.encryptAndCreateMessage(
           await messageApiForHcp.newInstanceWithPatient(
             loggedUser,
-            patient,
+            null,
             new Message({
+              id: randomUUID(),
               subject: 'Message Subject',
+              sent: new Date().getTime(),
               transportGuid: topic.id,
-            })
+              readStatus: Object.fromEntries(
+                Object.keys(topic.activeParticipants ?? {})
+                  .filter((hcpId) => hcpId != loggedUser.healthcarePartyId)
+                  .map((hcpId) => [hcpId, { read: false }])
+              ),
+              fromHealthcarePartyId: loggedUser.healthcarePartyId,
+            }),
+            {
+              additionalDelegates: {}
+            }
           )
         )
       },
