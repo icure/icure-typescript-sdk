@@ -34,7 +34,7 @@ describe('icc-message-x-api Tests', () => {
   })
 
   async function createMessage(messageApi: IccMessageXApi, hcpUser: User, patient: Patient | null, topic: Topic) {
-    return messageApi.encryptAndCreateMessage(
+    return messageApi.encryptAndCreateMessageInTopic(
       await messageApi.newInstanceWithPatient(
         hcpUser,
         patient,
@@ -463,7 +463,7 @@ describe('icc-message-x-api Tests', () => {
           )
         )
 
-        const createdMessage = await messageApiForHcp.encryptAndCreateMessage(
+        const createdMessage = await messageApiForHcp.encryptAndCreateMessageInTopic(
           await messageApiForHcp.newInstanceWithPatient(
             loggedUser,
             null,
