@@ -70,6 +70,20 @@ export class IccMessageApi {
 
   /**
    *
+   * @summary Creates a message
+   * @param body
+   */
+  async createMessageInTopic(body?: Message): Promise<Message> {
+    const _url = this.host + `/message/topic` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new Message(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
    * @summary Deletes a message delegation
    * @param messageId
    * @param delegateId
