@@ -14,11 +14,11 @@ import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
 import { EncryptedFieldsManifest, parseEncryptedFields, subscribeToEntityEvents, SubscriptionOptions } from './utils'
-import { IccUserXApi } from '@icure/apiV6'
 import { IccAuthApi } from '../icc-api'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 import { AbstractFilter } from './filters/filters'
 import { Connection, ConnectionImpl } from '../icc-api/model/Connection'
+import { IccUserXApi } from './icc-user-x-api'
 
 export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements EncryptedEntityXApi<models.MaintenanceTask> {
   private readonly encryptedFields: EncryptedFieldsManifest

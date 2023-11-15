@@ -24,8 +24,29 @@ import { decodeJwtClaims, isJwtInvalidOrExpired } from './JwtUtils'
  *
  */
 export class SmartAuthProvider implements AuthenticationProvider {
+  private readonly tokenProvider: TokenProvider
+  constructor(
+    authApi: IccAuthApi,
+    login: string,
+    secretProvider: AuthSecretProvider,
+    props: {
+      initialSecret?: string
+      initialAuthToken?: string
+      initialRefreshToken?: string
+    } = {}
+  ) {
+    this.tokenProvider = new TokenProvider(
+      login,
+      props.initialSecret ? { value: props.initialSecret, type: undefined } : undefined,
+      props.initialAuthToken,
+      props.initialRefreshToken,
+      authApi,
+      secretProvider
+    )
+  }
+
   getAuthService(): AuthService {
-    throw 'TODO'
+    return new SmartAuthService(this.tokenProvider)
   }
 
   switchGroup(newGroupId: string, matches: Array<UserGroup>): Promise<AuthenticationProvider> {
@@ -136,18 +157,52 @@ class TokenProvider {
   constructor(
     private login: string,
     private currentLongLivedSecret: { value: string; type: LongLivedSecretType | undefined } | undefined,
+    private cachedToken: string | undefined,
+    private cachedRefreshToken: string | undefined,
     private readonly authApi: IccAuthApi,
     private readonly authSecretProvider: AuthSecretProvider
   ) {}
 
-  async getToken(minimumAuthenticationClassLevel: number): Promise<{ token: string; refreshToken: string }> {
+  async getCachedOrRefreshedOrNewToken(): Promise<{ token: string; type: RetrievedTokenType }> {
+    if (!!this.cachedToken && !isJwtInvalidOrExpired(this.cachedToken)) {
+      return { token: this.cachedToken, type: RetrievedTokenType.CACHED }
+    } else if (!!this.cachedRefreshToken && !isJwtInvalidOrExpired(this.cachedRefreshToken)) {
+      return this.refreshAndCacheToken(this.cachedRefreshToken)
+    } else {
+      return { token: await this.getAndCacheNewToken(undefined), type: RetrievedTokenType.NEW }
+    }
+  }
+
+  async getNewTokenWithClass(minimumAuthenticationClass: number): Promise<string> {
+    return await this.getAndCacheNewToken(minimumAuthenticationClass)
+  }
+
+  private async getAndCacheNewToken(minimumAuthenticationClassLevel: number | undefined): Promise<string> {
+    const { token, refreshToken } = await this.getNewToken(minimumAuthenticationClassLevel ?? 0)
+    this.cachedToken = token
+    this.cachedRefreshToken = refreshToken
+    return token
+  }
+
+  private async refreshAndCacheToken(refreshToken: string): Promise<{ token: string; type: RetrievedTokenType }> {
+    return await this.authApi.refreshAuthenticationJWT(refreshToken).then(
+      (authResult) => {
+        if (!authResult.token) throw new Error('Internal error: refresh succeeded but no token was returned. Unsupported backend version?')
+        this.cachedToken = authResult.token
+        return { token: authResult.token, type: RetrievedTokenType.REFRESHED }
+      },
+      async () => ({ token: await this.getAndCacheNewToken(undefined), type: RetrievedTokenType.NEW })
+    )
+  }
+
+  private async getNewToken(minimumAuthenticationClassLevel: number): Promise<{ token: string; refreshToken: string }> {
     if (!!this.currentLongLivedSecret && (!this.currentLongLivedSecret.type || this.currentLongLivedSecret.type >= minimumAuthenticationClassLevel)) {
       const resultWithCachedSecret = await this.doGetTokenWithSecret(this.currentLongLivedSecret.value, minimumAuthenticationClassLevel)
       if ('success' in resultWithCachedSecret) {
         return resultWithCachedSecret.success
       } else if (
         resultWithCachedSecret.failure === DoGetTokenResultFailureReason.NEEDS_2FA &&
-        minimumAuthenticationClassLevel >= ServerAuthenticationClass.TWO_FACTOR_AUTHENTICATION
+        minimumAuthenticationClassLevel <= ServerAuthenticationClass.TWO_FACTOR_AUTHENTICATION
       ) {
         return this.askTotpAndGetToken(this.currentLongLivedSecret.value, minimumAuthenticationClassLevel)
       } else return this.askSecretAndGetToken(minimumAuthenticationClassLevel, true)
@@ -215,7 +270,7 @@ class TokenProvider {
         const { token, refreshToken } = authResult
         if (!token || !refreshToken) throw new Error('Internal error: login succeeded but no token was returned. Unsupported backend version?')
         const claims = decodeJwtClaims(token)
-        const authClassLevel = claims['authClassLevel']
+        const authClassLevel = claims['tac']
         if (!authClassLevel || typeof authClassLevel !== 'number')
           throw new Error('Internal error: authClassLevel is not a number. Unsupported backend version?')
         if (authClassLevel < minimumAuthenticationClassLevel) {
@@ -226,21 +281,34 @@ class TokenProvider {
       },
       (error) => {
         if (!(error instanceof XHRError)) throw error
-        if (error.statusCode == 401) {
+        if (error.statusCode == 401 || error.statusCode == 412) {
+          // Password is wrong (401) or unacceptable (e.g. too short, 412)
           return { failure: DoGetTokenResultFailureReason.INVALID_PW_OR_TOKEN }
         } else if (error.statusCode == 406) {
+          // Password is correct, but 2fa token is not
           return { failure: DoGetTokenResultFailureReason.INVALID_2FA }
         } else if (error.statusCode == 417) {
-          return { failure: DoGetTokenResultFailureReason.INVALID_AUTH_CLASS_LEVEL }
+          // Password is correct, but the user has 2fa enabled and no 2fa token was provided
+          return { failure: DoGetTokenResultFailureReason.NEEDS_2FA }
         } else throw error
       }
     )
   }
 
-  switchedGroup(newLogin: string): TokenProvider {
+  async switchedGroup(newLogin: string): Promise<TokenProvider> {
+    const groupSwitchedTokens = await this.authApi.switchGroup(this.login, newLogin).then(
+      (response) => {
+        if (!response.token || !response.refreshToken)
+          throw new Error('Internal error: group switch succeeded but no token was returned. Unsupported backend version?')
+        return { token: response.token, refreshToken: response.refreshToken }
+      },
+      () => ({ token: undefined, refreshToken: undefined })
+    )
     return new TokenProvider(
       newLogin,
       this.currentLongLivedSecret ? { value: this.currentLongLivedSecret.value, type: undefined } : undefined,
+      groupSwitchedTokens.token,
+      groupSwitchedTokens.refreshToken,
       this.authApi,
       this.authSecretProvider
     )
@@ -258,4 +326,85 @@ enum DoGetTokenResultFailureReason {
   INVALID_2FA,
   INVALID_PW_OR_TOKEN,
   INVALID_AUTH_CLASS_LEVEL,
+}
+enum RetrievedTokenType {
+  CACHED,
+  REFRESHED,
+  NEW,
+}
+
+enum SmartAuthServiceState {
+  INITIAL,
+  DONE_INITIAL,
+  REATTEMPT,
+  REATTEMPTED_WITH_NEW_UNBOUND_TOKEN,
+  REATTEMPTED_WITH_AUTH_CLASS_SPECIFIC_TOKEN,
+  EXPECT_REQUEST_WITH_SPECIFIC_AUTH_CLASS,
+  TERMINAL_ERROR,
+}
+class SmartAuthService implements AuthService {
+  private currentState:
+    | { id: SmartAuthServiceState.INITIAL }
+    | { id: SmartAuthServiceState.DONE_INITIAL; initialToken: string }
+    | { id: SmartAuthServiceState.REATTEMPT; initialToken: string; initialError: Error }
+    | { id: SmartAuthServiceState.REATTEMPTED_WITH_NEW_UNBOUND_TOKEN }
+    | { id: SmartAuthServiceState.REATTEMPTED_WITH_AUTH_CLASS_SPECIFIC_TOKEN }
+    | { id: SmartAuthServiceState.EXPECT_REQUEST_WITH_SPECIFIC_AUTH_CLASS; errorFromNewToken: Error }
+    | { id: SmartAuthServiceState.TERMINAL_ERROR; error: Error } = { id: SmartAuthServiceState.INITIAL }
+
+  constructor(private readonly tokenProvider: TokenProvider) {}
+
+  async getAuthHeaders(minimumAuthenticationClassLevel: number | undefined): Promise<Array<XHR.Header>> {
+    return [new XHR.Header('Authorization', `Bearer ${await this.getAuthToken(minimumAuthenticationClassLevel)}`)]
+  }
+
+  private async getAuthToken(minimumAuthenticationClassLevel: number | undefined): Promise<string> {
+    switch (this.currentState.id) {
+      case SmartAuthServiceState.INITIAL:
+        if (minimumAuthenticationClassLevel != undefined) {
+          throw new Error('Illegal state: cannot ask for a specific auth class level at the first request attempt.')
+        } else {
+          const { token } = await this.tokenProvider.getCachedOrRefreshedOrNewToken()
+          this.currentState = { id: SmartAuthServiceState.DONE_INITIAL, initialToken: token }
+          return token
+        }
+      case SmartAuthServiceState.REATTEMPT:
+        if (minimumAuthenticationClassLevel != undefined) {
+          const token = await this.tokenProvider.getNewTokenWithClass(minimumAuthenticationClassLevel)
+          this.currentState = { id: SmartAuthServiceState.REATTEMPTED_WITH_AUTH_CLASS_SPECIFIC_TOKEN }
+          return token
+        } else {
+          const { token } = await this.tokenProvider.getCachedOrRefreshedOrNewToken()
+          if (token == this.currentState.initialToken) throw this.currentState.initialError
+          this.currentState = { id: SmartAuthServiceState.REATTEMPTED_WITH_NEW_UNBOUND_TOKEN }
+          return token
+        }
+      case SmartAuthServiceState.EXPECT_REQUEST_WITH_SPECIFIC_AUTH_CLASS:
+        if (minimumAuthenticationClassLevel != undefined) {
+          const token = await this.tokenProvider.getNewTokenWithClass(minimumAuthenticationClassLevel)
+          this.currentState = { id: SmartAuthServiceState.REATTEMPTED_WITH_AUTH_CLASS_SPECIFIC_TOKEN }
+          return token
+        } else throw this.currentState.errorFromNewToken
+      case SmartAuthServiceState.TERMINAL_ERROR:
+        throw this.currentState.error
+      default:
+        throw new Error(`Illegal state: cannot get token in state ${this.currentState.id}.`)
+    }
+  }
+
+  invalidateHeader(error: Error): void {
+    switch (this.currentState.id) {
+      case SmartAuthServiceState.DONE_INITIAL:
+        this.currentState = { id: SmartAuthServiceState.REATTEMPT, initialToken: this.currentState.initialToken, initialError: error }
+        break
+      case SmartAuthServiceState.REATTEMPTED_WITH_NEW_UNBOUND_TOKEN:
+        this.currentState = { id: SmartAuthServiceState.EXPECT_REQUEST_WITH_SPECIFIC_AUTH_CLASS, errorFromNewToken: error }
+        break
+      case SmartAuthServiceState.REATTEMPTED_WITH_AUTH_CLASS_SPECIFIC_TOKEN:
+        this.currentState = { id: SmartAuthServiceState.TERMINAL_ERROR, error: error }
+        break
+      default:
+        throw new Error(`Illegal state: cannot invalidate header in state ${this.currentState.id}.`)
+    }
+  }
 }

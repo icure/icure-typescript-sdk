@@ -78,9 +78,10 @@ export namespace XHR {
       ? self.fetch
       : fetch,
     contentTypeOverride?: 'application/json' | 'text/plain' | 'application/octet-stream',
-    headerProvider: AuthService = new NoAuthService()
+    headerProvider: AuthService = new NoAuthService(),
+    minimumAuthenticationClass: number | undefined = undefined
   ): Promise<Data> {
-    const authHeaders = await headerProvider.getAuthHeaders()
+    const authHeaders = await headerProvider.getAuthHeaders(minimumAuthenticationClass)
     const contentType = headers && headers.find((it) => (it.header ? it.header.toLowerCase() === 'content-type' : false))
     const clientTimeout = headers && headers.find((it) => (it.header ? it.header.toUpperCase() === 'X-CLIENT-SIDE-TIMEOUT' : false))
     const timeout = clientTimeout ? Number(clientTimeout.data) : 600000
@@ -122,7 +123,17 @@ export namespace XHR {
     ).then(async function (response) {
       if (response.status === 401) {
         headerProvider.invalidateHeader(new XHRError(url, await response.text(), response.status, response.statusText, response.headers))
-        return sendCommand(method, url, headers, data, fetchImpl, contentTypeOverride, headerProvider)
+        const requiredAuthLevelHeader = response.headers.get('Icure-Minimum-Required-Auth-Level')
+        return sendCommand(
+          method,
+          url,
+          headers,
+          data,
+          fetchImpl,
+          contentTypeOverride,
+          headerProvider,
+          requiredAuthLevelHeader ? parseInt(requiredAuthLevelHeader) : undefined
+        )
       } else if (response.status >= 400) {
         const error: {
           error: string

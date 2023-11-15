@@ -30,14 +30,14 @@ export class EnsembleAuthService implements AuthService {
     return this.jwtAuth?.getIcureTokens() ?? (Promise.resolve() as Promise<undefined>)
   }
 
-  async getAuthHeaders(): Promise<Array<Header>> {
+  async getAuthHeaders(minimumAuthenticationClass: number | undefined): Promise<Array<Header>> {
     this.currentState = !!this.currentState ? this.stateMap[this.currentState].next : this.currentState
 
     if (!!this.currentState) {
       // If I have a state I return the headers, otherwise I return empty headers
       // And delegate the responsibility of handling the error to the next call
       return !!this.stateMap[this.currentState].state
-        ? this.stateMap[this.currentState].state!.getAuthHeaders().catch((e) => {
+        ? this.stateMap[this.currentState].state!.getAuthHeaders(minimumAuthenticationClass).catch((e) => {
             if (e instanceof XHRError && e.statusCode === 417) {
               throw e
             }

@@ -5,9 +5,10 @@ export interface AuthService {
   /**
    * This method returns the headers needed to authenticate the user.
    * It can throw an error if is not possible to get the headers.
+   * @param minimumAuthenticationClassLevel the minimum authentication class level which the headers should have.
    * @return an array of headers for authentication.
    */
-  getAuthHeaders(): Promise<Array<Header>>
+  getAuthHeaders(minimumAuthenticationClassLevel?: number): Promise<Array<Header>>
 
   /**
    * If the headers are invalidated, you can set the error to throw
