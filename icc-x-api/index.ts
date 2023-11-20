@@ -92,6 +92,7 @@ import { IccTopicXApi } from './icc-topic-x-api'
 import { IccRoleApi } from '../icc-api/api/IccRoleApi'
 import { DataOwnerTypeEnum } from '../icc-api/model/DataOwnerTypeEnum'
 import { DelegationsDeAnonymization } from './crypto/DelegationsDeAnonymization'
+import { JwtBridgedAuthService } from './auth/JwtBridgedAuthService'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -127,24 +128,26 @@ export { StorageFacade } from './storage/StorageFacade'
 export { KeyStorageImpl } from './storage/KeyStorageImpl'
 export { CryptoStrategies } from './crypto/CryptoStrategies'
 
-export interface Apis {
+export interface BasicApis {
   readonly authApi: IccAuthApi
   readonly codeApi: IccCodeXApi
-  readonly calendarItemTypeApi: IccCalendarItemTypeApi
-  readonly medicalLocationApi: IccMedicallocationApi
-  readonly entityReferenceApi: IccEntityrefApi
   readonly userApi: IccUserXApi
   readonly permissionApi: IccPermissionApi
+  readonly insuranceApi: IccInsuranceApi
+  readonly entityReferenceApi: IccEntityrefApi
+  readonly agendaApi: IccAgendaApi
+  readonly groupApi: IccGroupApi
   readonly healthcarePartyApi: IccHcpartyXApi
   readonly deviceApi: IccDeviceXApi
+}
+export interface Apis extends BasicApis {
+  readonly calendarItemTypeApi: IccCalendarItemTypeApi
+  readonly medicalLocationApi: IccMedicallocationApi
   readonly cryptoApi: IccCryptoXApi
   readonly accessLogApi: IccAccesslogXApi
-  readonly agendaApi: IccAgendaApi
   readonly contactApi: IccContactXApi
   readonly formApi: IccFormXApi
-  readonly groupApi: IccGroupApi
   readonly invoiceApi: IccInvoiceXApi
-  readonly insuranceApi: IccInsuranceApi
   readonly documentApi: IccDocumentXApi
   readonly healthcareElementApi: IccHelementXApi
   readonly classificationApi: IccClassificationXApi
@@ -436,13 +439,18 @@ export namespace EncryptedFieldsConfig {
 /**
  * Details for the authentication of a user
  */
-export type AuthenticationDetails = {
-  username: string
-  password: string
-  forceBasic?: boolean // default false
-  icureTokens?: { token: string; refreshToken: string }
-  thirdPartyTokens?: { [thirdParty: string]: string }
-}
+export type AuthenticationDetails =
+  | {
+      username: string
+      password: string
+      thirdPartyTokens?: { [thirdParty: string]: string }
+    }
+  | {
+      icureTokens: { token: string; refreshToken: string }
+    }
+  | {
+      thirdPartyTokens: { [thirdParty: string]: string }
+    }
 
 /**
  * Main entry point for the iCure API. Provides entity-specific sub-apis and some general methods which are not related to a specific entity.
@@ -480,38 +488,7 @@ export namespace IcureApi {
     options: IcureApiOptions = {}
   ): Promise<IcureApi> {
     const params = new IcureApiOptions.WithDefaults(options)
-    let grouplessAuthenticationProvider: AuthenticationProvider
-    if ('getIcureTokens' in authenticationOptions && 'switchGroup' in authenticationOptions && 'getAuthService' in authenticationOptions) {
-      const tokens = await authenticationOptions.getIcureTokens()
-      if (!!tokens && !!tokens.token && !!tokens.refreshToken) {
-        grouplessAuthenticationProvider = new JwtAuthenticationProvider(
-          new IccAuthApi(host, params.headers, new NoAuthenticationProvider(), fetchImpl),
-          undefined,
-          undefined,
-          undefined,
-          tokens
-        )
-      } else {
-        grouplessAuthenticationProvider = authenticationOptions
-      }
-    } else if (
-      'username' in authenticationOptions &&
-      'password' in authenticationOptions &&
-      !!authenticationOptions.username &&
-      !!authenticationOptions.password
-    ) {
-      grouplessAuthenticationProvider = new EnsembleAuthenticationProvider(
-        new IccAuthApi(host, params.headers, new NoAuthenticationProvider(), fetchImpl),
-        authenticationOptions.username,
-        authenticationOptions.password,
-        3600,
-        undefined,
-        undefined,
-        authenticationOptions.thirdPartyTokens
-      )
-    } else {
-      throw new Error('Invalid authentication options provided')
-    }
+    let grouplessAuthenticationProvider = await getAuthenticationProvider(host, authenticationOptions, params.headers, fetchImpl)
     const grouplessUserApi = new IccUserApi(host, params.headers, grouplessAuthenticationProvider, fetchImpl)
     const matches = await grouplessUserApi.getMatchingUsers()
     const chosenGroupId = matches.length > 1 ? await params.groupSelector(matches) : matches[0].groupId!
@@ -534,6 +511,67 @@ export namespace IcureApi {
       cryptoStrategies
     )
   }
+}
+
+async function getAuthenticationProvider(
+  host: string,
+  authenticationOptions: AuthenticationDetails | AuthenticationProvider,
+  headers: { [headerName: string]: string },
+  fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response>
+) {
+  let authenticationProvider: AuthenticationProvider
+  if ('getIcureTokens' in authenticationOptions && 'switchGroup' in authenticationOptions && 'getAuthService' in authenticationOptions) {
+    const tokens = await authenticationOptions.getIcureTokens()
+    if (!!tokens && !!tokens.token && !!tokens.refreshToken) {
+      authenticationProvider = new JwtAuthenticationProvider(
+        new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl),
+        undefined,
+        undefined,
+        undefined,
+        tokens
+      )
+    } else {
+      authenticationProvider = authenticationOptions
+    }
+  } else if ('icureTokens' in authenticationOptions && !!authenticationOptions.icureTokens) {
+    authenticationProvider = new JwtAuthenticationProvider(
+      new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl),
+      undefined,
+      undefined,
+      undefined,
+      authenticationOptions.icureTokens
+    )
+  } else if (
+    'username' in authenticationOptions &&
+    'password' in authenticationOptions &&
+    !!authenticationOptions.username &&
+    !!authenticationOptions.password
+  ) {
+    authenticationProvider = new EnsembleAuthenticationProvider(
+      new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl),
+      authenticationOptions.username,
+      authenticationOptions.password,
+      3600,
+      undefined,
+      undefined,
+      authenticationOptions.thirdPartyTokens
+    )
+  } else if ('thirdPartyTokens' in authenticationOptions && !!authenticationOptions.thirdPartyTokens) {
+    authenticationProvider = new JwtAuthenticationProvider(
+      new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl),
+      undefined,
+      undefined,
+      new JwtBridgedAuthService(
+        new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl),
+        undefined,
+        undefined,
+        authenticationOptions.thirdPartyTokens
+      )
+    )
+  } else {
+    throw new Error('Invalid authentication options provided')
+  }
+  return authenticationProvider
 }
 
 // Apis which are used during crypto api initialisation, to avoid re-instantiating them later
@@ -1374,38 +1412,37 @@ class IcureApiImpl implements IcureApi {
 }
 
 /**
+ /**
  * @experimental This function still needs development and will be changed
  * Build apis which do not need crypto and can be used by non-data-owner users
  */
 export const BasicApis = async function (
   host: string,
-  username: string,
-  password: string,
+  authenticationOptions: AuthenticationDetails | AuthenticationProvider,
   crypto: Crypto = typeof window !== 'undefined' ? window.crypto : typeof self !== 'undefined' ? self.crypto : ({} as Crypto),
   fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
     ? window.fetch
     : typeof self !== 'undefined'
     ? self.fetch
     : fetch,
-  forceBasic: boolean = false
-) {
-  const headers = {}
-  const groupSpecificAuthenticationProvider = forceBasic
-    ? new BasicAuthenticationProvider(username, password)
-    : new EnsembleAuthenticationProvider(new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl), username, password)
-  const authApi = new IccAuthApi(host, headers, groupSpecificAuthenticationProvider, fetchImpl)
+  options: { headers?: { [headerName: string]: string } } = {}
+): Promise<BasicApis> {
+  const authenticationProvider = await getAuthenticationProvider(host, authenticationOptions, options.headers ?? {}, fetchImpl)
+  const authApi = new IccAuthApi(host, options.headers ?? {}, authenticationProvider, fetchImpl)
 
-  const codeApi = new IccCodeXApi(host, headers, groupSpecificAuthenticationProvider, fetchImpl)
-  const entityReferenceApi = new IccEntityrefApi(host, headers, groupSpecificAuthenticationProvider, fetchImpl)
-  const userApi = new IccUserXApi(host, headers, groupSpecificAuthenticationProvider, authApi, fetchImpl)
-  const permissionApi = new IccPermissionApi(host, headers, groupSpecificAuthenticationProvider, fetchImpl)
-  const agendaApi = new IccAgendaApi(host, headers, groupSpecificAuthenticationProvider, fetchImpl)
-  const groupApi = new IccGroupApi(host, headers, groupSpecificAuthenticationProvider)
-  const insuranceApi = new IccInsuranceApi(host, headers, groupSpecificAuthenticationProvider, fetchImpl)
-  const healthcarePartyApi = new IccHcpartyXApi(host, headers, groupSpecificAuthenticationProvider, authApi, fetchImpl)
+  const codeApi = new IccCodeXApi(host, options.headers ?? {}, authenticationProvider, fetchImpl)
+  const entityReferenceApi = new IccEntityrefApi(host, options.headers ?? {}, authenticationProvider, fetchImpl)
+  const userApi = new IccUserXApi(host, options.headers ?? {}, authenticationProvider, authApi, fetchImpl)
+  const deviceApi = new IccDeviceXApi(host, options.headers ?? {}, authenticationProvider, userApi, authApi, fetchImpl)
+  const permissionApi = new IccPermissionApi(host, options.headers ?? {}, authenticationProvider, fetchImpl)
+  const agendaApi = new IccAgendaApi(host, options.headers ?? {}, authenticationProvider, fetchImpl)
+  const groupApi = new IccGroupApi(host, options.headers ?? {}, authenticationProvider)
+  const insuranceApi = new IccInsuranceApi(host, options.headers ?? {}, authenticationProvider, fetchImpl)
+  const healthcarePartyApi = new IccHcpartyXApi(host, options.headers ?? {}, authenticationProvider, authApi, fetchImpl)
 
   return {
     authApi,
+    deviceApi,
     codeApi,
     userApi,
     permissionApi,
