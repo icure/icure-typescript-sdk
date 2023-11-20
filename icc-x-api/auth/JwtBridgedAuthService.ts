@@ -16,8 +16,8 @@ export class JwtBridgedAuthService implements AuthService {
 
   constructor(
     private authApi: IccAuthApi,
-    private username: string,
-    private password: string,
+    private username: string | undefined,
+    private password: string | undefined,
     private thirdPartyTokens: { [thirdParty: string]: string } = {}
   ) {}
 
@@ -48,16 +48,16 @@ export class JwtBridgedAuthService implements AuthService {
           throw this._error
         }
         return this._currentPromise
-      }).then(({authJwt}) => {
+      })
+      .then(({ authJwt }) => {
         return authJwt
       })
   }
 
   async getAuthHeaders(): Promise<Array<Header>> {
-    return this.getJWT()
-      .then((authJwt) => {
-        return [new XHR.Header('Authorization', `Bearer ${authJwt}`)]
-      })
+    return this.getJWT().then((authJwt) => {
+      return [new XHR.Header('Authorization', `Bearer ${authJwt}`)]
+    })
   }
 
   private async _refreshAuthJwt(refreshJwt: string | undefined): Promise<{ authJwt?: string; refreshJwt?: string }> {
