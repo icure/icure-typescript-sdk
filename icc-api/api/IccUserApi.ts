@@ -475,6 +475,21 @@ export class IccUserApi {
   }
 
   /**
+   * @summary Get a user by their phone number.
+   * @param phoneNumber
+   * @return a promise that resolves to the specified user.
+   */
+  getUserByPhoneNumber(phoneNumber: string): Promise<User> {
+    let _body = null
+
+    const _url = this.host + `/user/byPhoneNumber/${encodeURIComponent(String(phoneNumber))}` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new User(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    * Returns a list of users.
    * @summary List users with(out) pagination
    * @param startKey An user email
