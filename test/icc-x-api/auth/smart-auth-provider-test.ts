@@ -1,6 +1,6 @@
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import { before } from 'mocha'
-import { createNewHcpApi, getEnvironmentInitializer, setLocalStorage, TestUtils } from '../../utils/test_utils'
+import { createNewHcpApi, createUserInMultipleGroups, getEnvironmentInitializer, setLocalStorage, TestUtils } from '../../utils/test_utils'
 import { AuthenticationProvider, BasicAuthenticationProvider, NoAuthenticationProvider } from '../../../icc-x-api'
 import { IccAuthApi, IccUserApi } from '../../../icc-api'
 import 'isomorphic-fetch'
@@ -30,9 +30,8 @@ describe('Smart authentication provider', () => {
   it('Should automatically ask for secret to get a new token, and reasks the secret if it is not valid', async () => {
     const { credentials } = await createNewHcpApi(env)
     let calls = 0
-    const authProvider = new SmartAuthProvider(authApi, credentials.user, {
-      getSecret: async (login: string, acceptedSecrets: AuthSecretType[], previousAttempts: { secret: string; secretType: AuthSecretType }[]) => {
-        expect(login).to.equal(credentials.user)
+    const authProvider = SmartAuthProvider.initialise(authApi, credentials.user, {
+      getSecret: async (acceptedSecrets: AuthSecretType[], previousAttempts: { secret: string; secretType: AuthSecretType }[]) => {
         expect(acceptedSecrets).to.include(AuthSecretType.PASSWORD)
         expect(acceptedSecrets).to.include(AuthSecretType.LONG_LIVED_TOKEN)
         expect(acceptedSecrets).to.include(AuthSecretType.SHORT_LIVED_TOKEN)
@@ -73,10 +72,9 @@ describe('Smart authentication provider', () => {
       },
     })
     let calls = 0
-    const authProvider = new SmartAuthProvider(authApi, credentials.user, {
-      getSecret: async (login: string, acceptedSecrets: AuthSecretType[], previousAttempts: { secret: string; secretType: AuthSecretType }[]) => {
+    const authProvider = SmartAuthProvider.initialise(authApi, credentials.user, {
+      getSecret: async (acceptedSecrets: AuthSecretType[], previousAttempts: { secret: string; secretType: AuthSecretType }[]) => {
         if (calls == 0) {
-          expect(login).to.equal(credentials.user)
           expect(acceptedSecrets).to.include(AuthSecretType.PASSWORD)
           expect(acceptedSecrets).to.include(AuthSecretType.LONG_LIVED_TOKEN)
           expect(acceptedSecrets).to.include(AuthSecretType.SHORT_LIVED_TOKEN)
@@ -85,7 +83,6 @@ describe('Smart authentication provider', () => {
           calls++
           return { secret: userToken, secretType: AuthSecretType.LONG_LIVED_TOKEN }
         } else if (calls == 1) {
-          expect(login).to.equal(credentials.user)
           expect(acceptedSecrets).to.include(AuthSecretType.PASSWORD)
           expect(acceptedSecrets).to.not.include(AuthSecretType.LONG_LIVED_TOKEN)
           expect(acceptedSecrets).to.include(AuthSecretType.SHORT_LIVED_TOKEN)
@@ -133,10 +130,9 @@ describe('Smart authentication provider', () => {
       secret: totpSecret,
     })
     let calls = 0
-    const authProvider = new SmartAuthProvider(authApi, credentials.user, {
-      getSecret: async (login: string, acceptedSecrets: AuthSecretType[], previousAttempts: { secret: string; secretType: AuthSecretType }[]) => {
+    const authProvider = SmartAuthProvider.initialise(authApi, credentials.user, {
+      getSecret: async (acceptedSecrets: AuthSecretType[], previousAttempts: { secret: string; secretType: AuthSecretType }[]) => {
         if (calls == 0) {
-          expect(login).to.equal(credentials.user)
           expect(acceptedSecrets).to.include(AuthSecretType.PASSWORD)
           expect(acceptedSecrets).to.include(AuthSecretType.LONG_LIVED_TOKEN)
           expect(acceptedSecrets).to.include(AuthSecretType.SHORT_LIVED_TOKEN)
@@ -145,7 +141,6 @@ describe('Smart authentication provider', () => {
           calls++
           return { secret: userPw, secretType: AuthSecretType.PASSWORD }
         } else if (calls == 1 || calls == 2) {
-          expect(login).to.equal(credentials.user)
           expect(acceptedSecrets).to.have.members([AuthSecretType.TWO_FACTOR_AUTHENTICATION_TOKEN])
           if (calls == 1) expect(previousAttempts).to.be.empty
           if (calls == 2) expect(previousAttempts).to.have.length(1)
@@ -179,12 +174,11 @@ describe('Smart authentication provider', () => {
       secret: totpSecret,
     })
     let calls = 0
-    const authProvider = new SmartAuthProvider(
+    const authProvider = SmartAuthProvider.initialise(
       authApi,
       credentials.user,
       {
-        getSecret: async (login: string, acceptedSecrets: AuthSecretType[], previousAttempts: { secret: string; secretType: AuthSecretType }[]) => {
-          expect(login).to.equal(credentials.user)
+        getSecret: async (acceptedSecrets: AuthSecretType[], previousAttempts: { secret: string; secretType: AuthSecretType }[]) => {
           expect(acceptedSecrets).to.have.members([AuthSecretType.TWO_FACTOR_AUTHENTICATION_TOKEN])
           expect(previousAttempts).to.be.empty
           expect(calls++).to.equal(0)
@@ -198,5 +192,38 @@ describe('Smart authentication provider', () => {
     const userApi = userApiWithProvider(authProvider)
     expect((await userApi.getCurrentUser()).rev).to.equal(userWithPwAnd2fa.rev)
     expect(calls).to.equal(1)
+  })
+
+  it('Switched provider should keep cached secrets and should be able to have elevated security context', async () => {
+    const details = await createUserInMultipleGroups(env)
+    let calls = 0
+    const authProvider = SmartAuthProvider.initialise(authApi, details.userLogin, {
+      getSecret: async (acceptedSecrets: AuthSecretType[], previousAttempts: { secret: string; secretType: AuthSecretType }[]) => {
+        expect(acceptedSecrets).to.have.include(AuthSecretType.PASSWORD)
+        expect(previousAttempts).to.be.empty
+        expect(calls++).to.equal(0)
+        return { secret: details.userPw12, secretType: AuthSecretType.PASSWORD }
+      },
+    })
+    const defaultGroupUserApi = userApiWithProvider(authProvider)
+    const defaultGroupUser = await defaultGroupUserApi.getCurrentUser()
+    const otherGroupId = details.group1.id == defaultGroupUser.groupId ? details.group2.id : details.group1.id
+    const matches = await defaultGroupUserApi.getMatchingUsers()
+    const switchedUserApi = userApiWithProvider(await authProvider.switchGroup(otherGroupId!, matches))
+    const switchedUser = await switchedUserApi.getCurrentUser()
+    expect(switchedUser.id).to.not.equal(defaultGroupUser.id)
+    expect(switchedUser.groupId).to.equal(otherGroupId)
+    const updatedDefault = await switchedUserApi.modifyUser({
+      ...switchedUser,
+      authenticationTokens: {
+        'new-token': {
+          token: randomUUID(),
+          creationTime: Date.now(),
+          validity: 60 * 60 * 24 * 7,
+        },
+      },
+    })
+    expect(updatedDefault.rev).to.not.equal(switchedUser.rev)
+    expect(Object.keys(updatedDefault.authenticationTokens ?? {})).to.not.be.empty
   })
 })

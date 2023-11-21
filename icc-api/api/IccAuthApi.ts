@@ -72,12 +72,14 @@ export class IccAuthApi {
    * Login using username and password
    * @summary login
    * @param body
+   * @param groupId the group id where to login to.
    */
-  login(body?: LoginCredentials): Promise<AuthenticationResponse> {
+  login(body?: LoginCredentials, groupId?: string): Promise<AuthenticationResponse> {
     let _body = null
     _body = body
 
-    const _url = this.host + `/auth/login` + '?ts=' + new Date().getTime()
+    const _url = this.host + `/auth/login` + '?ts=' + new Date().getTime() + (groupId ? `&groupId=${encodeURIComponent(String(groupId))}` : '')
+
     let headers = this.headers
     headers = headers
       .filter((h) => h.header !== 'Content-Type' && h.header?.toLowerCase() !== 'authorization')

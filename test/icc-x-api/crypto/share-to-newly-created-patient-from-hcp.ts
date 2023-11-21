@@ -52,7 +52,7 @@ describe('Full battery of tests on crypto and keys', async function () {
 
     const apiAsPatient = await IcureApi.initialise(
       env!.iCureUrl,
-      { username: newPatientUser.login!, password: 'LetMeInForReal', forceBasic: true },
+      { username: newPatientUser.login!, password: 'LetMeInForReal' },
       new TestCryptoStrategies(await api.cryptoApi.primitives.RSA.generateKeyPair('sha-256')),
       webcrypto as unknown as Crypto,
       fetch,

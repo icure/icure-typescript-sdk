@@ -1,4 +1,4 @@
-import { AuthenticationProvider } from './AuthenticationProvider'
+import { AuthenticationProvider, NoAuthenticationProvider } from './AuthenticationProvider'
 import { UserGroup } from '../../icc-api/model/UserGroup'
 import { AuthService } from './AuthService'
 import { IccAuthApi } from '../../icc-api'
@@ -7,63 +7,11 @@ import XHRError = XHR.XHRError
 import { decodeJwtClaims, isJwtInvalidOrExpired } from './JwtUtils'
 
 /**
- * An authentication provider that automatically requests secrets for authentication as needed.
- *
- * This authentication provider can be initialised already with some secrets or tokens, and the provider will cache them and use them as needed for
- * as long as they remain valid. If at any point however the provider needs an updated secret or a secret of a different kind it will automatically
- * request this to the {@link SmartAuthProvider} to get the secret.
- *
- * An advantage of using this provider over others is that in case all the cached tokens and secrets were to expire while performing a request,
- * instead of having the request fail the provider will ask for new secrets from the {@link SmartAuthProvider} and the request will automatically
- * be retried with the new secret. Additionally, the provider may request updated secrets also for performing some sensitive operations (e.g. changing
- * password of the user) even if the cached tokens and/or did not expire. This could be the case for example if the cached secret is a long-lived
- * token, but in order to change the password the user needs to provide his current password.
- *
- * Note that in this context the cache of secrets and token is in memory only, and is not persisted in any way. Different instances of this provider
- * will not share the same cache.
- *
- */
-export class SmartAuthProvider implements AuthenticationProvider {
-  private readonly tokenProvider: TokenProvider
-  constructor(
-    authApi: IccAuthApi,
-    login: string,
-    secretProvider: AuthSecretProvider,
-    props: {
-      initialSecret?: string
-      initialAuthToken?: string
-      initialRefreshToken?: string
-    } = {}
-  ) {
-    this.tokenProvider = new TokenProvider(
-      login,
-      props.initialSecret ? { value: props.initialSecret, type: undefined } : undefined,
-      props.initialAuthToken,
-      props.initialRefreshToken,
-      authApi,
-      secretProvider
-    )
-  }
-
-  getAuthService(): AuthService {
-    return new SmartAuthService(this.tokenProvider)
-  }
-
-  switchGroup(newGroupId: string, matches: Array<UserGroup>): Promise<AuthenticationProvider> {
-    throw 'TODO'
-  }
-
-  getIcureTokens(): Promise<{ token: string; refreshToken: string } | undefined> {
-    return Promise.resolve(undefined)
-  }
-}
-
-/**
- * Allows the {@link SmartAuthProvider} to get the secrets (password, token, etc.) for authentication to the iCure SDK as needed.
+ * Needed by a {@link SmartAuthProvider} to get the secrets (password, token, etc.) for authentication to the iCure SDK as needed.
  */
 export interface AuthSecretProvider {
   /**
-   * Provides a secret for authentication to the iCure SDK within.
+   * Provides a secret for authentication to the iCure SDK.
    *
    * ## Accepted secrets
    *
@@ -90,7 +38,6 @@ export interface AuthSecretProvider {
    * If the user is using 2fa, and you get in input as `acceptedSecrets` an array `[PASSWORD, LONG_LIVED_TOKEN, SHORT_LIVED_TOKEN]`, and you pass to
    * authenticate a long-lived token, the SDK will not call this method again to ask for the 2fa token.
    *
-   * @param login the login of the user. This could be the username, the email, or the "groupId/userId" of the user.
    * @param acceptedSecrets the types of secrets that are acceptable for the operation being performed.
    * @param previousAttempts the secrets that were previously attempted by the SDK for this operation. This array will be empty the first time this
    * method is called for a given operation, but it may contain multiple elements if the SDK has already called this method multiple times because the
@@ -100,7 +47,6 @@ export interface AuthSecretProvider {
    * operation will fail without being re-attempted.
    */
   getSecret(
-    login: string,
     acceptedSecrets: AuthSecretType[],
     previousAttempts: { secret: string; secretType: AuthSecretType }[]
   ): Promise<{ secret: string; secretType: AuthSecretType }> // We may want to add some onSuccess callback in future or similar
@@ -141,6 +87,79 @@ export enum AuthSecretType {
   // DIGITAL_ID = 'DIGITAL_ID',
 }
 
+// Here starts internal entities that should not be used directly.
+
+/**
+ * @internal this class is meant for internal use only and may be changed without notice. The SmartAuthProvider will be initialised automatically
+ * by the iCure api depending on the authentication options you provide.
+ *
+ * An authentication provider that automatically requests secrets for authentication as needed.
+ *
+ * This authentication provider can be initialised already with some secrets or tokens, and the provider will cache them and use them as needed for
+ * as long as they remain valid. If at any point however the provider needs an updated secret or a secret of a different kind it will automatically
+ * request this to the {@link SmartAuthProvider} to get the secret.
+ *
+ * An advantage of using this provider over others is that in case all the cached tokens and secrets were to expire while performing a request,
+ * instead of having the request fail the provider will ask for new secrets from the {@link SmartAuthProvider} and the request will automatically
+ * be retried with the new secret. Additionally, the provider may request updated secrets also for performing some sensitive operations (e.g. changing
+ * password of the user) even if the cached tokens and/or did not expire. This could be the case for example if the cached secret is a long-lived
+ * token, but in order to change the password the user needs to provide his current password.
+ *
+ * Note that in this context the cache of secrets and token is in memory only, and is not persisted in any way. Different instances of this provider
+ * will not share the same cache.
+ *
+ */
+export class SmartAuthProvider implements AuthenticationProvider {
+  /**
+   * Initialises a {@link SmartAuthProvider}.
+   * @param authApi an "anonymous" {@link IccAuthApi} to use for authentication.
+   * @param login
+   * @param secretProvider
+   * @param props optional initialisation properties.
+   */
+  static initialise(
+    authApi: IccAuthApi,
+    login: string,
+    secretProvider: AuthSecretProvider,
+    props: {
+      initialSecret?: string
+      initialAuthToken?: string
+      initialRefreshToken?: string
+      loginGroupId?: string
+    } = {}
+  ): SmartAuthProvider {
+    return new SmartAuthProvider(
+      new TokenProvider(
+        login,
+        props.loginGroupId,
+        props.initialSecret ? { value: props.initialSecret, type: undefined } : undefined,
+        props.initialAuthToken,
+        props.initialRefreshToken,
+        authApi,
+        secretProvider
+      ),
+      props.loginGroupId
+    )
+  }
+
+  private constructor(private readonly tokenProvider: TokenProvider, private readonly groupId: string | undefined) {}
+
+  getAuthService(): AuthService {
+    return new SmartAuthService(this.tokenProvider)
+  }
+
+  async switchGroup(newGroupId: string, matches: Array<UserGroup>): Promise<AuthenticationProvider> {
+    if (newGroupId == this.groupId) return Promise.resolve(this)
+    if (!matches.find((match) => match.groupId == newGroupId)) throw new Error('New group id not found in matches.')
+    const switchedProvider = await this.tokenProvider.switchedGroup(newGroupId)
+    return new SmartAuthProvider(switchedProvider, this.groupId)
+  }
+
+  getIcureTokens(): Promise<{ token: string; refreshToken: string } | undefined> {
+    return Promise.resolve(undefined)
+  }
+}
+
 enum ServerAuthenticationClass {
   // DIGITAL_ID = 60,
   TWO_FACTOR_AUTHENTICATION = 50,
@@ -156,6 +175,7 @@ type LongLivedSecretType =
 class TokenProvider {
   constructor(
     private login: string,
+    private groupId: string | undefined,
     private currentLongLivedSecret: { value: string; type: LongLivedSecretType | undefined } | undefined,
     private cachedToken: string | undefined,
     private cachedRefreshToken: string | undefined,
@@ -227,7 +247,7 @@ class TokenProvider {
       throw new Error('Internal error: no secret type is accepted for this request. Group may be misconfigured, or client may be outdated.')
     const attempts: { secret: string; secretType: AuthSecretType }[] = []
     while (true) {
-      const { secret, secretType } = await this.authSecretProvider.getSecret(this.login, [...acceptedSecrets], attempts)
+      const { secret, secretType } = await this.authSecretProvider.getSecret([...acceptedSecrets], attempts)
       if (!acceptedSecrets.includes(secretType))
         throw new Error(`Accepted secret types are ${JSON.stringify(acceptedSecrets)}, but got a secret of type ${secretType}.`)
       attempts.push({ secret, secretType })
@@ -250,7 +270,7 @@ class TokenProvider {
       )
     const attempts: { secret: string; secretType: AuthSecretType }[] = []
     while (true) {
-      const { secret, secretType } = await this.authSecretProvider.getSecret(this.login, [AuthSecretType.TWO_FACTOR_AUTHENTICATION_TOKEN], attempts)
+      const { secret, secretType } = await this.authSecretProvider.getSecret([AuthSecretType.TWO_FACTOR_AUTHENTICATION_TOKEN], attempts)
       if (secretType != AuthSecretType.TWO_FACTOR_AUTHENTICATION_TOKEN)
         throw new Error(`Was expecting a 2fa token but got a secret of type ${secretType}.`)
       attempts.push({ secret, secretType })
@@ -265,7 +285,7 @@ class TokenProvider {
   }
 
   private async doGetTokenWithSecret(secret: string, minimumAuthenticationClassLevel: number): Promise<DoGetTokenResult> {
-    return this.authApi.login({ username: this.login, password: secret }).then(
+    return this.authApi.login({ username: this.login, password: secret }, this.groupId).then(
       (authResult) => {
         const { token, refreshToken } = authResult
         if (!token || !refreshToken) throw new Error('Internal error: login succeeded but no token was returned. Unsupported backend version?')
@@ -295,17 +315,20 @@ class TokenProvider {
     )
   }
 
-  async switchedGroup(newLogin: string): Promise<TokenProvider> {
-    const groupSwitchedTokens = await this.authApi.switchGroup(this.login, newLogin).then(
-      (response) => {
-        if (!response.token || !response.refreshToken)
-          throw new Error('Internal error: group switch succeeded but no token was returned. Unsupported backend version?')
-        return { token: response.token, refreshToken: response.refreshToken }
-      },
-      () => ({ token: undefined, refreshToken: undefined })
-    )
+  async switchedGroup(newGroupId: string): Promise<TokenProvider> {
+    const groupSwitchedTokens = this.cachedRefreshToken
+      ? await this.authApi.switchGroup(this.cachedRefreshToken, newGroupId).then(
+          (response) => {
+            if (!response.token || !response.refreshToken)
+              throw new Error('Internal error: group switch succeeded but no token was returned. Unsupported backend version?')
+            return { token: response.token, refreshToken: response.refreshToken }
+          },
+          () => ({ token: undefined, refreshToken: undefined })
+        )
+      : { token: undefined, refreshToken: undefined }
     return new TokenProvider(
-      newLogin,
+      this.login,
+      newGroupId,
       this.currentLongLivedSecret ? { value: this.currentLongLivedSecret.value, type: undefined } : undefined,
       groupSwitchedTokens.token,
       groupSwitchedTokens.refreshToken,
