@@ -525,6 +525,7 @@ export namespace IcureApi {
   ): Promise<IcureApi> {
     const params = new IcureApiOptions.WithDefaults(options)
     let grouplessAuthenticationProvider = await getAuthenticationProvider(host, authenticationOptions, params.headers, fetchImpl)
+    // TODO if this uses a smart auth provider the groupless auth provider does not share the secret cache with the group specific one.
     const grouplessUserApi = new IccUserApi(host, params.headers, grouplessAuthenticationProvider, fetchImpl)
     const matches = await grouplessUserApi.getMatchingUsers()
     const chosenGroupId = matches.length > 1 ? await params.groupSelector(matches) : matches[0].groupId!
