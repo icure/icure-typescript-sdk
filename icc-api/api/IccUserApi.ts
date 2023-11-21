@@ -475,9 +475,9 @@ export class IccUserApi {
   }
 
   /**
-   * General information about the user
-   * @summary Get a user by his PhoneNumber/Login
+   * @summary Get a user by their phone number.
    * @param phoneNumber
+   * @return a promise that resolves to the specified user.
    */
   getUserByPhoneNumber(phoneNumber: string): Promise<User> {
     let _body = null
