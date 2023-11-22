@@ -4,7 +4,7 @@ import { createNewHcpApi, createUserInMultipleGroups, getEnvironmentInitializer,
 import { AuthenticationProvider, BasicAuthenticationProvider, NoAuthenticationProvider } from '../../../icc-x-api'
 import { IccAuthApi, IccUserApi } from '../../../icc-api'
 import 'isomorphic-fetch'
-import { AuthSecretType, SmartAuthProvider } from '../../../icc-x-api/auth/SmartAuthProvider'
+import { AuthSecretDetails, AuthSecretType, SmartAuthProvider } from '../../../icc-x-api/auth/SmartAuthProvider'
 import { expect } from 'chai'
 import { randomUUID } from 'crypto'
 import initMasterApi = TestUtils.initMasterApi
@@ -31,7 +31,7 @@ describe('Smart authentication provider', () => {
     const { credentials } = await createNewHcpApi(env)
     let calls = 0
     const authProvider = SmartAuthProvider.initialise(authApi, credentials.user, {
-      getSecret: async (acceptedSecrets: AuthSecretType[], previousAttempts: { secret: string; secretType: AuthSecretType }[]) => {
+      getSecret: async (acceptedSecrets: AuthSecretType[], previousAttempts: AuthSecretDetails[]) => {
         expect(acceptedSecrets).to.include(AuthSecretType.PASSWORD)
         expect(acceptedSecrets).to.include(AuthSecretType.LONG_LIVED_TOKEN)
         expect(acceptedSecrets).to.include(AuthSecretType.SHORT_LIVED_TOKEN)
@@ -40,12 +40,12 @@ describe('Smart authentication provider', () => {
           expect(previousAttempts).to.be.empty
         } else if (calls == 1) {
           expect(previousAttempts).to.have.length(1)
-          expect(previousAttempts[0].secret).to.equal('wrong')
+          expect(previousAttempts[0].value).to.equal('wrong')
           expect(previousAttempts[0].secretType).to.equal(AuthSecretType.LONG_LIVED_TOKEN)
         } else fail(`Unexpected number of calls: ${calls}`)
         return calls++ == 0
-          ? { secret: 'wrong', secretType: AuthSecretType.LONG_LIVED_TOKEN } // pragma: allowlist secret
-          : { secret: credentials.password, secretType: AuthSecretType.LONG_LIVED_TOKEN }
+          ? { value: 'wrong', secretType: AuthSecretType.LONG_LIVED_TOKEN } // pragma: allowlist secret
+          : { value: credentials.password, secretType: AuthSecretType.LONG_LIVED_TOKEN }
       },
     })
     const userApi = userApiWithProvider(authProvider)
@@ -73,7 +73,7 @@ describe('Smart authentication provider', () => {
     })
     let calls = 0
     const authProvider = SmartAuthProvider.initialise(authApi, credentials.user, {
-      getSecret: async (acceptedSecrets: AuthSecretType[], previousAttempts: { secret: string; secretType: AuthSecretType }[]) => {
+      getSecret: async (acceptedSecrets: AuthSecretType[], previousAttempts: AuthSecretDetails[]) => {
         if (calls == 0) {
           expect(acceptedSecrets).to.include(AuthSecretType.PASSWORD)
           expect(acceptedSecrets).to.include(AuthSecretType.LONG_LIVED_TOKEN)
@@ -81,7 +81,7 @@ describe('Smart authentication provider', () => {
           expect(acceptedSecrets).to.not.include(AuthSecretType.TWO_FACTOR_AUTHENTICATION_TOKEN)
           expect(previousAttempts).to.be.empty
           calls++
-          return { secret: userToken, secretType: AuthSecretType.LONG_LIVED_TOKEN }
+          return { value: userToken, secretType: AuthSecretType.LONG_LIVED_TOKEN }
         } else if (calls == 1) {
           expect(acceptedSecrets).to.include(AuthSecretType.PASSWORD)
           expect(acceptedSecrets).to.not.include(AuthSecretType.LONG_LIVED_TOKEN)
@@ -89,7 +89,7 @@ describe('Smart authentication provider', () => {
           expect(acceptedSecrets).to.not.include(AuthSecretType.TWO_FACTOR_AUTHENTICATION_TOKEN)
           expect(previousAttempts).to.be.empty
           calls++
-          return { secret: userPw, secretType: AuthSecretType.PASSWORD }
+          return { value: userPw, secretType: AuthSecretType.PASSWORD }
         } else throw new Error(`Unexpected number of calls: ${calls}`)
       },
     })
@@ -131,7 +131,7 @@ describe('Smart authentication provider', () => {
     })
     let calls = 0
     const authProvider = SmartAuthProvider.initialise(authApi, credentials.user, {
-      getSecret: async (acceptedSecrets: AuthSecretType[], previousAttempts: { secret: string; secretType: AuthSecretType }[]) => {
+      getSecret: async (acceptedSecrets: AuthSecretType[], previousAttempts: AuthSecretDetails[]) => {
         if (calls == 0) {
           expect(acceptedSecrets).to.include(AuthSecretType.PASSWORD)
           expect(acceptedSecrets).to.include(AuthSecretType.LONG_LIVED_TOKEN)
@@ -139,14 +139,14 @@ describe('Smart authentication provider', () => {
           expect(acceptedSecrets).to.not.include(AuthSecretType.TWO_FACTOR_AUTHENTICATION_TOKEN)
           expect(previousAttempts).to.be.empty
           calls++
-          return { secret: userPw, secretType: AuthSecretType.PASSWORD }
+          return { value: userPw, secretType: AuthSecretType.PASSWORD }
         } else if (calls == 1 || calls == 2) {
           expect(acceptedSecrets).to.have.members([AuthSecretType.TWO_FACTOR_AUTHENTICATION_TOKEN])
           if (calls == 1) expect(previousAttempts).to.be.empty
           if (calls == 2) expect(previousAttempts).to.have.length(1)
           return calls++ == 1
-            ? { secret: totp.generate() + '13', secretType: AuthSecretType.TWO_FACTOR_AUTHENTICATION_TOKEN }
-            : { secret: totp.generate(), secretType: AuthSecretType.TWO_FACTOR_AUTHENTICATION_TOKEN }
+            ? { value: totp.generate() + '13', secretType: AuthSecretType.TWO_FACTOR_AUTHENTICATION_TOKEN }
+            : { value: totp.generate(), secretType: AuthSecretType.TWO_FACTOR_AUTHENTICATION_TOKEN }
         } else throw new Error(`Unexpected number of calls: ${calls}`)
       },
     })
@@ -178,15 +178,15 @@ describe('Smart authentication provider', () => {
       authApi,
       credentials.user,
       {
-        getSecret: async (acceptedSecrets: AuthSecretType[], previousAttempts: { secret: string; secretType: AuthSecretType }[]) => {
+        getSecret: async (acceptedSecrets: AuthSecretType[], previousAttempts: AuthSecretDetails[]) => {
           expect(acceptedSecrets).to.have.members([AuthSecretType.TWO_FACTOR_AUTHENTICATION_TOKEN])
           expect(previousAttempts).to.be.empty
           expect(calls++).to.equal(0)
-          return { secret: totp.generate(), secretType: AuthSecretType.TWO_FACTOR_AUTHENTICATION_TOKEN }
+          return { value: totp.generate(), secretType: AuthSecretType.TWO_FACTOR_AUTHENTICATION_TOKEN }
         },
       },
       {
-        initialSecret: userPw,
+        initialSecret: { plainSecret: userPw },
       }
     )
     const userApi = userApiWithProvider(authProvider)
@@ -198,11 +198,11 @@ describe('Smart authentication provider', () => {
     const details = await createUserInMultipleGroups(env)
     let calls = 0
     const authProvider = SmartAuthProvider.initialise(authApi, details.userLogin, {
-      getSecret: async (acceptedSecrets: AuthSecretType[], previousAttempts: { secret: string; secretType: AuthSecretType }[]) => {
+      getSecret: async (acceptedSecrets: AuthSecretType[], previousAttempts: AuthSecretDetails[]) => {
         expect(acceptedSecrets).to.have.include(AuthSecretType.PASSWORD)
         expect(previousAttempts).to.be.empty
         expect(calls++).to.equal(0)
-        return { secret: details.userPw12, secretType: AuthSecretType.PASSWORD }
+        return { value: details.userPw12, secretType: AuthSecretType.PASSWORD }
       },
     })
     const defaultGroupUserApi = userApiWithProvider(authProvider)

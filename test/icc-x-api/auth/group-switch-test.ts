@@ -11,7 +11,7 @@ import {
 } from '../../../icc-x-api/auth/AuthenticationProvider'
 import { expect, use as chaiUse } from 'chai'
 import * as chaiAsPromised from 'chai-as-promised'
-import { AuthSecretType, SmartAuthProvider } from '../../../icc-x-api/auth/SmartAuthProvider'
+import { AuthSecretType, AuthSecretDetails, SmartAuthProvider } from '../../../icc-x-api/auth/SmartAuthProvider'
 
 chaiUse(chaiAsPromised)
 
@@ -50,15 +50,9 @@ describe('Authentication providers should be able to switch group', function () 
       'Smart',
       () =>
         SmartAuthProvider.initialise(new IccAuthApi(host, {}, new NoAuthenticationProvider(), fetch), userDetails.userLogin, {
-          getSecret(
-            acceptedSecrets: AuthSecretType[],
-            previousAttempts: { secret: string; secretType: AuthSecretType }[]
-          ): Promise<{
-            secret: string
-            secretType: AuthSecretType
-          }> {
+          getSecret(acceptedSecrets: AuthSecretType[], previousAttempts: AuthSecretDetails[]): Promise<AuthSecretDetails> {
             expect(acceptedSecrets).to.include(AuthSecretType.PASSWORD)
-            return Promise.resolve({ secret: userDetails.userPw12, secretType: AuthSecretType.PASSWORD })
+            return Promise.resolve({ value: userDetails.userPw12, secretType: AuthSecretType.PASSWORD })
           },
         }),
     ],
