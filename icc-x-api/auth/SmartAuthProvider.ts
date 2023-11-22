@@ -155,11 +155,11 @@ export class SmartAuthProvider implements AuthenticationProvider {
     return new SmartAuthService(this.tokenProvider)
   }
 
-  async switchGroup(newGroupId: string, matches: Array<UserGroup>): Promise<AuthenticationProvider> {
-    if (newGroupId == this.groupId) return Promise.resolve(this)
+  async switchGroup(newGroupId: string, matches: Array<UserGroup>): Promise<{ switchedProvider: AuthenticationProvider; isGroupLocked: boolean }> {
+    if (newGroupId == this.groupId) return { switchedProvider: this, isGroupLocked: false }
     if (!matches.find((match) => match.groupId == newGroupId)) throw new Error('New group id not found in matches.')
     const switchedProvider = await this.tokenProvider.switchedGroup(newGroupId)
-    return new SmartAuthProvider(switchedProvider, this.groupId)
+    return { switchedProvider: new SmartAuthProvider(switchedProvider, this.groupId), isGroupLocked: false }
   }
 
   getIcureTokens(): Promise<{ token: string; refreshToken: string } | undefined> {

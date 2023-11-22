@@ -571,7 +571,7 @@ export namespace IcureApi {
   ): Promise<IcureApi> {
     const params = new IcureApiOptions.WithDefaults(options)
 
-    let grouplessAuthenticationProvider = await getAuthenticationProvider(host, authenticationOptions, params.headers ?? {}, fetchImpl)
+    const grouplessAuthenticationProvider = await getAuthenticationProvider(host, authenticationOptions, params.headers ?? {}, fetchImpl)
     const grouplessUserApi = new IccUserApi(host, params.headers, grouplessAuthenticationProvider, fetchImpl)
     const matches = await grouplessUserApi.getMatchingUsers()
     const chosenGroupId = matches.length > 1 ? await params.groupSelector(matches) : matches[0].groupId!
@@ -579,15 +579,24 @@ export namespace IcureApi {
      * On new very new users switching the authentication provider to a specific group may fail and block the user for too many requests. This is
      * probably linked to replication of the user in the fallback database.
      */
-    const groupSpecificAuthenticationProvider =
-      matches.length > 1 ? await grouplessAuthenticationProvider.switchGroup(chosenGroupId, matches) : grouplessAuthenticationProvider
-    const cryptoApis = await initialiseCryptoWithProvider(host, fetchImpl, groupSpecificAuthenticationProvider, params, cryptoStrategies, crypto)
+    const groupSpecificAuthenticationProviderInfo =
+      matches.length > 1
+        ? await grouplessAuthenticationProvider.switchGroup(chosenGroupId, matches)
+        : { switchedProvider: grouplessAuthenticationProvider, isGroupLocked: false }
+    const cryptoApis = await initialiseCryptoWithProvider(
+      host,
+      fetchImpl,
+      groupSpecificAuthenticationProviderInfo.switchedProvider,
+      params,
+      cryptoStrategies,
+      crypto
+    )
     return new IcureApiImpl(
       cryptoApis,
       host,
-      groupSpecificAuthenticationProvider,
+      groupSpecificAuthenticationProviderInfo.switchedProvider,
       fetch,
-      grouplessUserApi,
+      groupSpecificAuthenticationProviderInfo.isGroupLocked ? grouplessUserApi : undefined,
       matches,
       matches.find((match) => match.groupId === chosenGroupId)!,
       params,
@@ -1127,8 +1136,8 @@ class IcureApiImpl implements IcureApi {
     private readonly host: string,
     private readonly groupSpecificAuthenticationProvider: AuthenticationProvider,
     private readonly fetch: (input: RequestInfo, init?: RequestInit) => Promise<Response>,
-    private readonly grouplessUserApi: IccUserApi,
-    private readonly latestMatches: UserGroup[],
+    private readonly grouplessUserApi: IccUserApi | undefined,
+    latestMatches: UserGroup[],
     private readonly currentGroupInfo: UserGroup,
     private readonly params: IcureApiOptions.WithDefaults,
     private readonly cryptoStrategies: CryptoStrategies
@@ -1137,17 +1146,17 @@ class IcureApiImpl implements IcureApi {
   }
 
   async getGroupsInfo(): Promise<{ currentGroup: UserGroup; availableGroups: UserGroup[] }> {
-    this.latestGroupsRequest = this.grouplessUserApi.getMatchingUsers()
+    this.latestGroupsRequest = this.grouplessUserApi ? this.grouplessUserApi.getMatchingUsers() : this.userApi.getMatchingUsers()
     return { currentGroup: this.currentGroupInfo, availableGroups: await this.latestGroupsRequest }
   }
 
   async switchGroup(newGroupId: string): Promise<IcureApi> {
     const availableGroups = await this.latestGroupsRequest
-    const switchedProvider = await this.groupSpecificAuthenticationProvider.switchGroup(newGroupId, availableGroups)
+    const switchedProviderInfo = await this.groupSpecificAuthenticationProvider.switchGroup(newGroupId, availableGroups)
     const cryptoInitApis = await initialiseCryptoWithProvider(
       this.host,
       this.fetch,
-      switchedProvider,
+      switchedProviderInfo.switchedProvider,
       this.params,
       this.cryptoStrategies,
       this.cryptoApi.primitives.crypto
@@ -1155,14 +1164,122 @@ class IcureApiImpl implements IcureApi {
     return new IcureApiImpl(
       cryptoInitApis,
       this.host,
-      switchedProvider,
+      switchedProviderInfo.switchedProvider,
       this.fetch,
-      this.grouplessUserApi,
+      this.grouplessUserApi ?? (switchedProviderInfo.isGroupLocked ? this.userApi : undefined),
       availableGroups,
       availableGroups.find((x) => x.groupId === newGroupId)!,
       this.params,
       this.cryptoStrategies
     )
+  }
+}
+
+export interface IcureBasicApi extends BasicApis {
+  /**
+   * Get the information on groups that the current user can access and the current group that this api instance is working on.
+   * Note that the values you will get for `availableGroups` may differ from the values you would get if you call {@link IccUserApi.getMatchingUsers}
+   * on {@link Apis.userApi}, since the latter is specialised on the specific instance of the user in `currentGroup`.
+   */
+  getGroupsInfo(): Promise<{ currentGroup: UserGroup; availableGroups: UserGroup[] }>
+
+  /**
+   * Switches the api to allow the user to work on a different group.
+   * @param newGroupId the id of the group to switch to.
+   * @return a new api for the specified group.
+   */
+  switchGroup(newGroupId: string): Promise<IcureBasicApi>
+}
+
+class IcureBasicApiImpl implements IcureBasicApi {
+  private latestGroupsRequest: Promise<UserGroup[]>
+  private _agendaApi: IccAgendaApi | undefined
+  private _authApi: IccAuthApi | undefined
+  private _codeApi: IccCodeXApi | undefined
+  private _deviceApi: IccDeviceXApi | undefined
+  private _entityReferenceApi: IccEntityrefApi | undefined
+  private _groupApi: IccGroupApi | undefined
+  private _healthcarePartyApi: IccHcpartyXApi | undefined
+  private _insuranceApi: IccInsuranceApi | undefined
+  private _permissionApi: IccPermissionApi | undefined
+  private _userApi: IccUserXApi | undefined
+
+  get agendaApi(): IccAgendaApi {
+    return this._agendaApi ?? (this._agendaApi = new IccAgendaApi(this.host, this.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+  }
+  get authApi(): IccAuthApi {
+    return this._authApi ?? (this._authApi = new IccAuthApi(this.host, this.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+  }
+  get codeApi(): IccCodeXApi {
+    return this._codeApi ?? (this._codeApi = new IccCodeXApi(this.host, this.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+  }
+  get deviceApi(): IccDeviceXApi {
+    return (
+      this._deviceApi ??
+      (this._deviceApi = new IccDeviceXApi(this.host, this.headers, this.groupSpecificAuthenticationProvider, this.userApi, this.authApi, this.fetch))
+    )
+  }
+  get entityReferenceApi(): IccEntityrefApi {
+    return (
+      this._entityReferenceApi ??
+      (this._entityReferenceApi = new IccEntityrefApi(this.host, this.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
+  }
+  get groupApi(): IccGroupApi {
+    return this._groupApi ?? (this._groupApi = new IccGroupApi(this.host, this.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+  }
+  get healthcarePartyApi(): IccHcpartyXApi {
+    return (
+      this._healthcarePartyApi ??
+      (this._healthcarePartyApi = new IccHcpartyXApi(this.host, this.headers, this.groupSpecificAuthenticationProvider, this.authApi, this.fetch))
+    )
+  }
+  get insuranceApi(): IccInsuranceApi {
+    return (
+      this._insuranceApi ?? (this._insuranceApi = new IccInsuranceApi(this.host, this.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
+  }
+  get permissionApi(): IccPermissionApi {
+    return (
+      this._permissionApi ??
+      (this._permissionApi = new IccPermissionApi(this.host, this.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
+  }
+  get userApi(): IccUserXApi {
+    return (
+      this._userApi ?? (this._userApi = new IccUserXApi(this.host, this.headers, this.groupSpecificAuthenticationProvider, this.authApi, this.fetch))
+    )
+  }
+
+  async getGroupsInfo(): Promise<{ currentGroup: UserGroup; availableGroups: UserGroup[] }> {
+    this.latestGroupsRequest = this.grouplessUserApi ? this.grouplessUserApi.getMatchingUsers() : this.userApi.getMatchingUsers()
+    return { currentGroup: this.currentGroupInfo, availableGroups: await this.latestGroupsRequest }
+  }
+
+  async switchGroup(newGroupId: string): Promise<IcureBasicApi> {
+    const availableGroups = await this.latestGroupsRequest
+    const switchedProviderInfo = await this.groupSpecificAuthenticationProvider.switchGroup(newGroupId, availableGroups)
+    return new IcureBasicApiImpl(
+      this.host,
+      switchedProviderInfo.switchedProvider,
+      this.fetch,
+      this.grouplessUserApi ?? (switchedProviderInfo.isGroupLocked ? this.userApi : undefined),
+      availableGroups,
+      availableGroups.find((x) => x.groupId === newGroupId)!,
+      this.headers
+    )
+  }
+
+  constructor(
+    private readonly host: string,
+    private readonly groupSpecificAuthenticationProvider: AuthenticationProvider,
+    private readonly fetch: (input: RequestInfo, init?: RequestInit) => Promise<Response>,
+    private readonly grouplessUserApi: IccUserApi | undefined,
+    latestMatches: UserGroup[],
+    private readonly currentGroupInfo: UserGroup,
+    private readonly headers: { [headerName: string]: string }
+  ) {
+    this.latestGroupsRequest = Promise.resolve(latestMatches)
   }
 }
 
@@ -1179,31 +1296,23 @@ export const BasicApis = async function (
     : typeof self !== 'undefined'
     ? self.fetch
     : fetch,
-  options: { headers?: { [headerName: string]: string } } = {}
-): Promise<BasicApis> {
-  const authenticationProvider = await getAuthenticationProvider(host, authenticationOptions, options.headers ?? {}, fetchImpl)
-  const authApi = new IccAuthApi(host, options.headers ?? {}, authenticationProvider, fetchImpl)
-
-  const codeApi = new IccCodeXApi(host, options.headers ?? {}, authenticationProvider, fetchImpl)
-  const entityReferenceApi = new IccEntityrefApi(host, options.headers ?? {}, authenticationProvider, fetchImpl)
-  const userApi = new IccUserXApi(host, options.headers ?? {}, authenticationProvider, authApi, fetchImpl)
-  const deviceApi = new IccDeviceXApi(host, options.headers ?? {}, authenticationProvider, userApi, authApi, fetchImpl)
-  const permissionApi = new IccPermissionApi(host, options.headers ?? {}, authenticationProvider, fetchImpl)
-  const agendaApi = new IccAgendaApi(host, options.headers ?? {}, authenticationProvider, fetchImpl)
-  const groupApi = new IccGroupApi(host, options.headers ?? {}, authenticationProvider)
-  const insuranceApi = new IccInsuranceApi(host, options.headers ?? {}, authenticationProvider, fetchImpl)
-  const healthcarePartyApi = new IccHcpartyXApi(host, options.headers ?? {}, authenticationProvider, authApi, fetchImpl)
-
-  return {
-    authApi,
-    deviceApi,
-    codeApi,
-    userApi,
-    permissionApi,
-    insuranceApi,
-    entityReferenceApi,
-    agendaApi,
-    groupApi,
-    healthcarePartyApi,
-  }
+  options: {
+    headers?: { [headerName: string]: string }
+    groupSelector?: (availableGroupsInfo: UserGroup[]) => Promise<string>
+  } = {}
+): Promise<IcureBasicApi> {
+  const grouplessAuthenticationProvider = await getAuthenticationProvider(host, authenticationOptions, options.headers ?? {}, fetchImpl)
+  const grouplessUserApi = new IccUserApi(host, options.headers, grouplessAuthenticationProvider, fetchImpl)
+  const matches = await grouplessUserApi.getMatchingUsers()
+  const chosenGroupId = matches.length > 1 && !!options.groupSelector ? await options.groupSelector(matches) : matches[0].groupId!
+  const groupSpecificAuthenticationProviderInfo = await grouplessAuthenticationProvider.switchGroup(chosenGroupId, matches)
+  return new IcureBasicApiImpl(
+    host,
+    grouplessAuthenticationProvider,
+    fetch,
+    groupSpecificAuthenticationProviderInfo.isGroupLocked ? grouplessUserApi : undefined,
+    matches,
+    matches.find((match) => match.groupId === chosenGroupId)!,
+    options.headers ?? {}
+  )
 }

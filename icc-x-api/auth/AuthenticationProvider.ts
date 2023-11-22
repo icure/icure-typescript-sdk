@@ -6,6 +6,7 @@ import { NoAuthService } from './NoAuthService'
 import { BasicAuthService } from './BasicAuthService'
 import { JwtAuthService } from './JwtAuthService'
 import { UserGroup } from '../../icc-api/model/UserGroup'
+import { tr } from 'date-fns/locale'
 
 /**
  * @internal you should not implement this interface yourself.
@@ -23,9 +24,14 @@ export interface AuthenticationProvider {
    * @param matches the list of groups the user is in, containing also the group-specific id of the user. Note that users with same login username but
    * different password are considered as if they are different users and should not appear in these matches. You can get this list by calling
    * {@link IccUserApi.getMatchingUsers} authenticated.
-   * @return a new authentication provider
+   * @return an object containing:
+   * - `switchedProvider`: a new authentication provider, which can be used to perform requests as the user in the new group
+   * - `isGroupLocked`: true if the returned authentication provider is "locked" within new group, depends on the implementation of
+   *   AuthenticationProvider used. This means that using this provider when performing a request to get the list of groups the user is in may return
+   *   under certain circumstances only the new group, even though the original provider was able to return multiple groups. Even if true you can
+   *   still switch to another group, but you will have to use another authentication provider to get the matches.
    */
-  switchGroup(newGroupId: string, matches: Array<UserGroup>): Promise<AuthenticationProvider>
+  switchGroup(newGroupId: string, matches: Array<UserGroup>): Promise<{ switchedProvider: AuthenticationProvider; isGroupLocked: boolean }>
 
   getIcureTokens(): Promise<{ token: string; refreshToken: string } | undefined>
 }
@@ -66,16 +72,19 @@ export class EnsembleAuthenticationProvider implements AuthenticationProvider {
       : new EnsembleAuthService(this.jwtAuth, new NoAuthService(), this.basicAuth)
   }
 
-  async switchGroup(newGroupId: string, matches: Array<UserGroup>): Promise<AuthenticationProvider> {
+  async switchGroup(newGroupId: string, matches: Array<UserGroup>): Promise<{ switchedProvider: AuthenticationProvider; isGroupLocked: boolean }> {
     const switchInfo = await switchJwtAuth(this.authApi, this.jwtAuth, this.username, this.password, newGroupId, matches)
-    return new EnsembleAuthenticationProvider(
-      this.authApi,
-      switchInfo.loginForGroup,
-      this.password,
-      this.jwtTimeout,
-      switchInfo.switchedJwtAuth,
-      new BasicAuthService(switchInfo.loginForGroup, this.password)
-    )
+    return {
+      switchedProvider: new EnsembleAuthenticationProvider(
+        this.authApi,
+        switchInfo.loginForGroup,
+        this.password,
+        this.jwtTimeout,
+        switchInfo.switchedJwtAuth,
+        new BasicAuthService(switchInfo.loginForGroup, this.password)
+      ),
+      isGroupLocked: true,
+    }
   }
 }
 
@@ -118,9 +127,12 @@ export class JwtAuthenticationProvider implements AuthenticationProvider {
     return this.jwtAuth
   }
 
-  async switchGroup(newGroupId: string, matches: Array<UserGroup>): Promise<AuthenticationProvider> {
+  async switchGroup(newGroupId: string, matches: Array<UserGroup>): Promise<{ switchedProvider: AuthenticationProvider; isGroupLocked: boolean }> {
     const switchInfo = await switchJwtAuth(this.authApi, this.jwtAuth, this.username, this.password, newGroupId, matches)
-    return new JwtAuthenticationProvider(this.authApi, switchInfo.loginForGroup, this.password, switchInfo.switchedJwtAuth)
+    return {
+      switchedProvider: new JwtAuthenticationProvider(this.authApi, switchInfo.loginForGroup, this.password, switchInfo.switchedJwtAuth),
+      isGroupLocked: true,
+    }
   }
 }
 
@@ -135,8 +147,11 @@ export class BasicAuthenticationProvider implements AuthenticationProvider {
     return new BasicAuthService(this.username, this.password)
   }
 
-  async switchGroup(newGroupId: string, matches: Array<UserGroup>): Promise<AuthenticationProvider> {
-    return Promise.resolve(new BasicAuthenticationProvider(loginForGroup(newGroupId, matches), this.password))
+  async switchGroup(newGroupId: string, matches: Array<UserGroup>): Promise<{ switchedProvider: AuthenticationProvider; isGroupLocked: boolean }> {
+    return {
+      switchedProvider: new BasicAuthenticationProvider(loginForGroup(newGroupId, matches), this.password),
+      isGroupLocked: true,
+    }
   }
 }
 
@@ -149,8 +164,8 @@ export class NoAuthenticationProvider implements AuthenticationProvider {
     return Promise.resolve() as Promise<undefined>
   }
 
-  async switchGroup(newGroupId: string, matches: Array<UserGroup>): Promise<AuthenticationProvider> {
-    return Promise.resolve(new NoAuthenticationProvider())
+  async switchGroup(newGroupId: string, matches: Array<UserGroup>): Promise<{ switchedProvider: AuthenticationProvider; isGroupLocked: boolean }> {
+    return { switchedProvider: this, isGroupLocked: false }
   }
 }
 
