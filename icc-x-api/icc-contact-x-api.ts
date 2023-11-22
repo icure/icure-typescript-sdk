@@ -1,4 +1,4 @@
-import {IccAuthApi, IccContactApi} from '../icc-api'
+import { IccAuthApi, IccContactApi } from '../icc-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 
 import i18n from './rsrc/contact.i18n'
@@ -8,17 +8,17 @@ import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
 import { Contact, FilterChainService, ListOfIds, Service } from '../icc-api/model/models'
 import { PaginatedListContact } from '../icc-api/model/PaginatedListContact'
-import { utf8_2ua } from './utils/binary-utils'
+import { utf8_2ua } from './utils'
 import { ServiceByIdsFilter } from './filters/ServiceByIdsFilter'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
-import {before, encryptObject, decryptObject, EncryptedFieldsManifest, parseEncryptedFields, SubscriptionOptions} from './utils'
+import { before, encryptObject, decryptObject, EncryptedFieldsManifest, parseEncryptedFields, SubscriptionOptions } from './utils'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
-import {AbstractFilter} from "./filters/filters"
-import {IccUserXApi} from "./icc-user-x-api"
-import {subscribeToEntityEvents} from "./utils/websocket"
-import {Connection, ConnectionImpl} from "../icc-api/model/Connection"
+import { AbstractFilter } from './filters/filters'
+import { IccUserXApi } from './icc-user-x-api'
+import { subscribeToEntityEvents } from './utils'
+import { Connection, ConnectionImpl } from '../icc-api/model/Connection'
 
 export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi<models.Contact> {
   i18n: any = i18n
@@ -739,22 +739,21 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
 
   service() {
     return {
-      newInstance: (user: models.User, s: any) =>
-        _.extend(
-          {
-            id: this.crypto.primitives.randomUuid(),
-            _type: 'org.taktik.icure.entities.embed.Service',
-            created: new Date().getTime(),
-            modified: new Date().getTime(),
-            responsible: this.dataOwnerApi.getDataOwnerIdOf(user),
-            author: user.id,
-            codes: [],
-            tags: [],
-            content: {},
-            valueDate: parseInt(moment().format('YYYYMMDDHHmmss')),
-          },
-          s
-        ),
+      newInstance: (user: models.User, s: any) => {
+        return {
+          ...s,
+          id: s?.id ?? this.crypto.primitives.randomUuid(),
+          _type: 'org.taktik.icure.entities.embed.Service',
+          created: s?.created ?? new Date().getTime(),
+          modified: s?.modified ?? new Date().getTime(),
+          responsible: s?.responsible ?? this.dataOwnerApi.getDataOwnerIdOf(user),
+          author: s?.author ?? user.id,
+          codes: s?.codes ?? [],
+          tags: s?.tags ?? [],
+          content: s?.content ?? {},
+          valueDate: s?.valueDate ?? parseInt(moment().format('YYYYMMDDHHmmss')),
+        }
+      },
     }
   }
 
