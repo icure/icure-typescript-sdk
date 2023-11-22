@@ -93,6 +93,7 @@ import { IccRoleApi } from '../icc-api/api/IccRoleApi'
 import { DataOwnerTypeEnum } from '../icc-api/model/DataOwnerTypeEnum'
 import { DelegationsDeAnonymization } from './crypto/DelegationsDeAnonymization'
 import { JwtBridgedAuthService } from './auth/JwtBridgedAuthService'
+import { AuthSecretProvider, SmartAuthProvider } from './auth/SmartAuthProvider'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -451,6 +452,41 @@ export type AuthenticationDetails =
   | {
       thirdPartyTokens: { [thirdParty: string]: string }
     }
+  | SmartAuthenticationDetails
+
+/**
+ * Allows to perform authentication through an {@link AuthSecretProvider}.
+ *
+ * The iCure SDK can authenticate to the backend using different kinds of secrets, such as passwords, long-lived authentication tokens, and
+ * short-lived authentication tokens generated through the message gateway. iCure associates to each kind of secret a certain security level, and for
+ * some sensitive operations, depending on the configurations of the user and his group, some operations may require a secret of a certain security
+ * level. For example, with the default configurations, in order to change his own email the user can't have logged in with a long-lived token, but he
+ * needs to provide his current password or a short-lived token.
+ *
+ * By using this authentication option, the iCure SDK will automatically request and cache the secret from the {@link AuthSecretProvider} only when
+ * needed, which should help to minimise the interaction with the user.
+ *
+ * Another advantage of using this authentication option over others is that in case all the cached tokens and secrets were to expire while performing
+ * a request, instead of having the request fail the SDK will ask for a new secret from the {@link SmartAuthProvider} and the request will
+ * automatically be retried with the new secret.
+ *
+ * You must provide the following information:
+ * - username: any kind of value that can identify the user (userId, groupId/userId, username, email, ...). More generic identifiers, valid
+ *   on multiple groups, allow for simpler group switching by using {@link IcureApi.switchGroup}.
+ * - secretProvider: the secret provider to use for authentication. Will handle interaction with the gui.
+ *
+ * You can also provide the following optional information, which may allow to reduce the requests for secrets initially:
+ * - initialSecret: an initial secret (password, token, ...) that will be used to get new authentication tokens as needed. If it is expired it will be ignored.
+ * - initialAuthToken: an initial authentication token used on each request. If it is expired it will be ignored.
+ * - initialRefreshToken: an initial refresh token used to get new authentication tokens as needed. If it is expired it will be ignored.
+ */
+export type SmartAuthenticationDetails = {
+  username: string
+  secretProvider: AuthSecretProvider
+  initialSecret?: string
+  initialAuthToken?: string
+  initialRefreshToken?: string
+}
 
 /**
  * Main entry point for the iCure API. Provides entity-specific sub-apis and some general methods which are not related to a specific entity.
@@ -489,6 +525,7 @@ export namespace IcureApi {
   ): Promise<IcureApi> {
     const params = new IcureApiOptions.WithDefaults(options)
     let grouplessAuthenticationProvider = await getAuthenticationProvider(host, authenticationOptions, params.headers, fetchImpl)
+    // TODO if this uses a smart auth provider the groupless auth provider does not share the secret cache with the group specific one.
     const grouplessUserApi = new IccUserApi(host, params.headers, grouplessAuthenticationProvider, fetchImpl)
     const matches = await grouplessUserApi.getMatchingUsers()
     const chosenGroupId = matches.length > 1 ? await params.groupSelector(matches) : matches[0].groupId!
@@ -521,18 +558,7 @@ async function getAuthenticationProvider(
 ) {
   let authenticationProvider: AuthenticationProvider
   if ('getIcureTokens' in authenticationOptions && 'switchGroup' in authenticationOptions && 'getAuthService' in authenticationOptions) {
-    const tokens = await authenticationOptions.getIcureTokens()
-    if (!!tokens && !!tokens.token && !!tokens.refreshToken) {
-      authenticationProvider = new JwtAuthenticationProvider(
-        new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl),
-        undefined,
-        undefined,
-        undefined,
-        tokens
-      )
-    } else {
-      authenticationProvider = authenticationOptions
-    }
+    authenticationProvider = authenticationOptions
   } else if ('icureTokens' in authenticationOptions && !!authenticationOptions.icureTokens) {
     authenticationProvider = new JwtAuthenticationProvider(
       new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl),
@@ -567,6 +593,17 @@ async function getAuthenticationProvider(
         undefined,
         authenticationOptions.thirdPartyTokens
       )
+    )
+  } else if ('username' in authenticationOptions && 'secretProvider' in authenticationOptions) {
+    authenticationProvider = SmartAuthProvider.initialise(
+      new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl),
+      authenticationOptions.username,
+      authenticationOptions.secretProvider,
+      {
+        initialSecret: authenticationOptions.initialSecret,
+        initialAuthToken: authenticationOptions.initialAuthToken,
+        initialRefreshToken: authenticationOptions.initialRefreshToken,
+      }
     )
   } else {
     throw new Error('Invalid authentication options provided')

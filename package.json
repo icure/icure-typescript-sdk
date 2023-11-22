@@ -16,7 +16,7 @@
   "devDependencies": {
     "@icure/apiV6": "npm:@icure/api@6.4.4",
     "@icure/apiV7": "npm:@icure/api@7.1.14",
-    "@icure/test-setup": "0.0.61",
+    "@icure/test-setup": "0.0.62",
     "@types/chai": "^4.3.0",
     "@types/chai-as-promised": "^7.1.1",
     "@types/isomorphic-fetch": "^0.0.36",
@@ -43,7 +43,8 @@
     "rimraf": "^3.0.2",
     "source-map-support": "^0.5.21",
     "ts-node": "^10.7.0",
-    "typescript": "^4.5.5"
+    "typescript": "^4.5.5",
+    "otpauth": "^9.1.5"
   },
   "scripts": {
     "gen": "java -classpath swagger-codegen-generators.jar io.swagger.codegen.v3.cli.SwaggerCodegen generate -i https://kraken.svc.icure.cloud/v3/api-docs/v1 -l typescript --additional-properties classPrefix=Icc skipPathPrefix=/rest/v1 -o ./icc-api/",

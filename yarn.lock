@@ -240,10 +240,10 @@
     uuid-encoder "^1.1.0"
     ws "^8.13.0"
 
-"@icure/test-setup@0.0.61":
-  version "0.0.61"
-  resolved "https://registry.yarnpkg.com/@icure/test-setup/-/test-setup-0.0.61.tgz#d272615dab5ac9de4ca6bdfd22e5ff0d4b57dac3"
-  integrity sha512-MkJuqeXxmyEt+lSWzbWnCCeYcckoobgHFIvCbfebUJYx6IBK+J7H4s/YRWToANc7SIkWrSM+97NjuxtJjoJHuw==
+"@icure/test-setup@0.0.62":
+  version "0.0.62"
+  resolved "https://registry.yarnpkg.com/@icure/test-setup/-/test-setup-0.0.62.tgz#ffc87204cdb755a08772453c9313344f0fdadcd6"
+  integrity sha512-k65ngImRKRM546hv19Cy1DMHoLY7LEeYhke4TS2LaPJ7tYIHxXisqgpInIR2YWmIiudbmOkKEn3jAvwfoll7Tw==
   dependencies:
     "@icure/api" "7.1.13"
     "@types/react-dom" "^18.0.6"
@@ -1284,6 +1284,11 @@ json5@^2.2.1:
   resolved "https://registry.npmjs.org/json5/-/json5-2.2.3.tgz#78cd6f1a19bdc12b73db5ad0c61efd66c1e29283"
   integrity sha512-XmOWe7eyHYH14cLdVPoyg+GOH3rYX++KpzrylJwSW98t3Nk+U8XOl8FWKOgwtzdb8lXGf6zYwDUzeHMWfxasyg==
 
+jssha@~3.3.1:
+  version "3.3.1"
+  resolved "https://registry.yarnpkg.com/jssha/-/jssha-3.3.1.tgz#c5b7fc7fb9aa745461923b87df0e247dd59c7ea8"
+  integrity sha512-VCMZj12FCFMQYcFLPRm/0lOBbLi8uM2BhXPTqw3U4YAfs4AZfiApOoBLoN8cQE60Z50m1MYMTQVCfgF/KaCVhQ==
+
 libphonenumber-js@^1.7.18:
   version "1.10.15"
   resolved "https://registry.npmjs.org/libphonenumber-js/-/libphonenumber-js-1.10.15.tgz#cad454adb5bf271bc820bbf7dd66776afcda7be6"
@@ -1530,6 +1535,13 @@ onetime@^5.1.0:
   integrity sha512-kbpaSSGJTWdAY5KPVeMOKXSrPtr8C8C7wodJbcsd51jRnmD+GZu8Y0VoU6Dm5Z4vWr0Ig/1NKuWRKf7j5aaYSg==
   dependencies:
     mimic-fn "^2.1.0"
+
+otpauth@^9.1.5:
+  version "9.1.5"
+  resolved "https://registry.yarnpkg.com/otpauth/-/otpauth-9.1.5.tgz#102f15e2c921b3940592996568ff727e9ce17142"
+  integrity sha512-mnic91MZxvj04Ir7FN8Xi6wF3FU8D+s6M5p6FQaSS91/csKswoOI9Dk7kKSnGFAoBYgGTTO+OWScV0nJuzrbPg==
+  dependencies:
+    jssha "~3.3.1"
 
 p-limit@^2.2.0:
   version "2.3.0"

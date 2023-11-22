@@ -1,5 +1,5 @@
 import { AuthService } from './AuthService'
-import { IccAuthApi, OAuthThirdParty } from '../../icc-api'
+import { IccAuthApi } from '../../icc-api'
 import { EnsembleAuthService } from './EnsembleAuthService'
 import { JwtBridgedAuthService } from './JwtBridgedAuthService'
 import { NoAuthService } from './NoAuthService'
@@ -8,7 +8,7 @@ import { JwtAuthService } from './JwtAuthService'
 import { UserGroup } from '../../icc-api/model/UserGroup'
 
 /**
- * @internal you should not instantiate implementations of this interface directly.
+ * @internal you should not implement this interface yourself.
  */
 export interface AuthenticationProvider {
   /**
@@ -150,7 +150,7 @@ export class NoAuthenticationProvider implements AuthenticationProvider {
   }
 
   async switchGroup(newGroupId: string, matches: Array<UserGroup>): Promise<AuthenticationProvider> {
-    return this
+    return Promise.resolve(new NoAuthenticationProvider())
   }
 }
 
