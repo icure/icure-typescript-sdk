@@ -1,18 +1,19 @@
-import { Apis, hex2ua, IcureApi, ua2hex } from '../../icc-x-api'
+import { BasicApis, BasicAuthenticationProvider, CryptoPrimitives, hex2ua, IcureApi, Apis, retry, RSAUtils, ua2hex } from '../../icc-x-api'
 import { tmpdir } from 'os'
 import { TextDecoder, TextEncoder } from 'util'
 import { v4 as uuid } from 'uuid'
 import { webcrypto } from 'crypto'
-import { RSAUtils } from '../../icc-x-api/crypto/RSA'
 import { TestApi } from './TestApi'
 import { Api as TestSetupApi, Apis as TestSetupApis, HealthcareParty } from '@icure/apiV6'
-import { CryptoPrimitives } from '../../icc-x-api/crypto/CryptoPrimitives'
 import { testStorageWithKeys } from './TestStorage'
 import { TestCryptoStrategies } from './TestCryptoStrategies'
 import { User } from '../../icc-api/model/User'
 import { TestEnvironmentBuilder } from '@icure/test-setup/builder'
 import { getEnvVariables, TestVars, UserDetails } from '@icure/test-setup/types'
 import { EnvInitializer } from '@icure/test-setup/decorators'
+import 'isomorphic-fetch'
+import { IccUserApi } from '../../icc-api'
+import { Group } from '../../icc-api/model/Group'
 
 export function getTempEmail(): string {
   return `${uuid().substring(0, 8)}@icure.com`
@@ -43,7 +44,15 @@ export async function getEnvironmentInitializer(): Promise<EnvInitializer> {
     cachedInitializer = await baseEnvironment
       .withGroup(fetch, {
         patient: ['BASIC_USER', 'BASIC_DATA_OWNER'],
-        hcp: ['BASIC_USER', 'BASIC_DATA_OWNER', 'PATIENT_USER_MANAGER', 'HIERARCHICAL_DATA_OWNER'],
+        hcp: [
+          'BASIC_USER',
+          'BASIC_DATA_OWNER',
+          'PATIENT_USER_MANAGER',
+          'HIERARCHICAL_DATA_OWNER',
+          'TOPIC_MANAGER',
+          'TOPIC_PARTICIPANT',
+          'LEGACY_MESSAGE_MANAGER',
+        ],
         device: ['BASIC_USER', 'BASIC_DATA_OWNER'],
         user: ['BASIC_USER'],
       })
@@ -335,5 +344,106 @@ export async function createNewHcpWithoutKeyAndParentWithKey(
     childUser,
     childPassword,
     childDataOwnerId: childHcp.id!,
+  }
+}
+
+export type UserInManyGroupsDetails = {
+  user1: User
+  user2: User
+  group3: Group
+  userPw3: string
+  user3: User
+  group2: Group
+  group1: Group
+  userPw12: string
+  userLogin: string
+}
+export async function createUserInMultipleGroups(env: TestVars): Promise<UserInManyGroupsDetails> {
+  const primitives = new CryptoPrimitives(webcrypto as any)
+  const userGroup1Id: string = primitives.randomUuid() // Same username-pw as group 2
+  const userGroup2Id: string = primitives.randomUuid() // Same username-pw as group 1
+  const userGroup3Id: string = primitives.randomUuid() // Same username as group 1/2, different pw
+  const userLogin: string = `maria-${primitives.randomUuid()}@pompei.it`
+  const userPw12: string = `geppetto-${primitives.randomUuid()}`
+  const userPw3: string = `pinocchio-${primitives.randomUuid()}`
+  const user1Id: string = primitives.randomUuid()
+  const user2Id: string = primitives.randomUuid()
+  const user3Id: string = primitives.randomUuid()
+  const api = await BasicApis(env.iCureUrl, { username: 'john', password: 'LetMeIn' }, webcrypto as any, fetch) // pragma: allowlist secret
+  const group1 = await api.groupApi.createGroup(
+    userGroup1Id,
+    `test-group-1-${primitives.randomUuid()}`,
+    primitives.randomUuid(),
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    {}
+  )
+  const group2 = await api.groupApi.createGroup(
+    userGroup2Id,
+    `test-group-2-${primitives.randomUuid()}`,
+    primitives.randomUuid(),
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    {}
+  )
+  const group3 = await api.groupApi.createGroup(
+    userGroup3Id,
+    `test-group-3-${primitives.randomUuid()}`,
+    primitives.randomUuid(),
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    {}
+  )
+  const user1 = await api.userApi.createUserInGroup(userGroup1Id, {
+    id: user1Id,
+    name: userLogin,
+    login: userLogin,
+    email: userLogin,
+    passwordHash: userPw12,
+  })
+  const user2 = await api.userApi.createUserInGroup(userGroup2Id, {
+    id: user2Id,
+    name: userLogin,
+    login: userLogin,
+    email: userLogin,
+    passwordHash: userPw12,
+  })
+  const user3 = await api.userApi.createUserInGroup(userGroup3Id, {
+    id: user3Id,
+    name: userLogin,
+    login: userLogin,
+    email: userLogin,
+    passwordHash: userPw3,
+  })
+  console.log(`Waiting for user to be created - ${userLogin}`)
+  await retry(
+    async () => {
+      await new IccUserApi(env.iCureUrl, {}, new BasicAuthenticationProvider(`${userGroup1Id}/${user1Id}`, userPw12), fetch).getCurrentUser()
+      await new IccUserApi(env.iCureUrl, {}, new BasicAuthenticationProvider(`${userGroup2Id}/${user2Id}`, userPw12), fetch).getCurrentUser()
+      await new IccUserApi(env.iCureUrl, {}, new BasicAuthenticationProvider(`${userGroup3Id}/${user3Id}`, userPw3), fetch).getCurrentUser()
+    },
+    10,
+    5_000,
+    1
+  )
+  return {
+    user1,
+    user2,
+    group3,
+    userPw3,
+    user3,
+    group2,
+    group1,
+    userPw12,
+    userLogin,
   }
 }

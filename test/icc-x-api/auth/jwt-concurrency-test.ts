@@ -136,7 +136,5 @@ describe('Jwt authentication concurrency test', () => {
 
     const fetchedUser = await xUserApi.getUser(currentUser.id!)
     expect(fetchedUser.id).to.be.equal(currentUser.id)
-
-    await xUserApi.getToken(currentUser.id!, 'a_random_key')
   })
 })

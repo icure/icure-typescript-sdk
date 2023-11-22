@@ -1,35 +1,26 @@
 Arguments:
-  /Users/vincenzoclaudiopierro/.nvm/versions/node/v16.16.0/bin/node /Users/vincenzoclaudiopierro/.nvm/versions/node/v16.16.0/bin/yarn publish
+  /Users/trema/.nvm/versions/node/v18.16.0/bin/node /opt/homebrew/Cellar/yarn/1.22.19/libexec/bin/yarn.js install
 
 PATH:
-  /Users/vincenzoclaudiopierro/.rvm/gems/ruby-3.0.0/bin:/Users/vincenzoclaudiopierro/.rvm/gems/ruby-3.0.0@global/bin:/Users/vincenzoclaudiopierro/.rvm/rubies/ruby-3.0.0/bin:/Users/vincenzoclaudiopierro/Downloads/google-cloud-sdk/bin:/opt/homebrew/opt/jpeg/bin:/opt/homebrew/opt/dart@2.12/bin:/Users/vincenzoclaudiopierro/.nvm/versions/node/v16.16.0/bin:/Users/vincenzoclaudiopierro/.orbstack/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Library/Apple/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Users/vincenzoclaudiopierro/Library/Python/3.8/bin:/Users/vincenzoclaudiopierro/Library/Python/3.9/bin:/Users/vincenzoclaudiopierro/.rvm/bin
+  /Users/trema/.rvm/gems/ruby-2.7.6/bin:/Users/trema/.rvm/gems/ruby-2.7.6@global/bin:/Users/trema/.rvm/rubies/ruby-2.7.6/bin:/Users/trema/.sdkman/candidates/java/current/bin:/Users/trema/.sdkman/candidates/gradle/current/bin:/Users/trema/.nvm/versions/node/v18.16.0/bin:/Users/trema/google-cloud-sdk/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/Library/Apple/usr/bin:/Users/trema/icure-typescript-sdk/node_modules/.bin:/Users/trema/.orbstack/bin:/Users/trema/.rvm/bin
 
 Yarn version:
   1.22.19
 
 Node version:
-  16.16.0
+  18.16.0
 
 Platform:
   darwin arm64
 
 Trace:
-  Error: canceled
-      at Interface.<anonymous> (/Users/vincenzoclaudiopierro/.nvm/versions/node/v16.16.0/lib/node_modules/yarn/lib/cli.js:137150:13)
-      at Interface.emit (node:events:527:28)
-      at Interface._ttyWrite (node:readline:1081:16)
-      at ReadStream.onkeypress (node:readline:288:10)
-      at ReadStream.emit (node:events:527:28)
-      at emitKeys (node:internal/readline/utils:358:14)
-      at emitKeys.next (<anonymous>)
-      at ReadStream.onData (node:internal/readline/emitKeypressEvents:61:36)
-      at ReadStream.emit (node:events:527:28)
-      at addChunk (node:internal/streams/readable:315:12)
+  Error: connect ECONNREFUSED 127.0.0.1:4873
+      at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1494:16)
 
 npm manifest:
   {
     "name": "@icure/api",
-    "version": "7.1.9",
+    "version": "7.1.21",
     "description": "Typescript version of iCure standalone API client",
     "types": "dist/index.d.ts",
     "dependencies": {
@@ -44,8 +35,8 @@ npm manifest:
       "ws": "^8.13.0"
     },
     "devDependencies": {
-      "@icure/apiV6": "npm:@icure/api@6.4.0",
-      "@icure/test-setup": "^0.0.50",
+      "@icure/apiV6": "npm:@icure/api@6.4.4",
+      "@icure/test-setup": "0.0.62",
       "@types/chai": "^4.3.0",
       "@types/chai-as-promised": "^7.1.1",
       "@types/isomorphic-fetch": "^0.0.36",
@@ -72,7 +63,8 @@ npm manifest:
       "rimraf": "^3.0.2",
       "source-map-support": "^0.5.21",
       "ts-node": "^10.7.0",
-      "typescript": "^4.9.5"
+      "typescript": "^4.9.5",
+      "otpauth": "^9.1.5"
     },
     "scripts": {
       "gen": "java -classpath swagger-codegen-generators.jar io.swagger.codegen.v3.cli.SwaggerCodegen generate -i https://kraken.svc.icure.cloud/v3/api-docs/v1 -l typescript --additional-properties classPrefix=Icc skipPathPrefix=/rest/v1 -o ./icc-api/",
@@ -320,10 +312,25 @@ Lockfile:
     dependencies:
       "@jridgewell/trace-mapping" "0.3.9"
 
-  "@icure/api@^6.3.1":
-    version "6.3.1"
-    resolved "https://registry.yarnpkg.com/@icure/api/-/api-6.3.1.tgz#9b21ea5569f92adc6001bbab2d30ca517cc42119"
-    integrity sha512-S9lOXDkQQSy1nAheuz5QkvfjyovPxNfy8RsLNkHgli0K5B/QgTjWcuMyRmz//oeYxxn+hUloNiwtigQ3kKkCVQ==
+  "@icure/api@7.1.13":
+    version "7.1.13"
+    resolved "https://registry.yarnpkg.com/@icure/api/-/api-7.1.13.tgz#fbe6977f5dadaeb137b95c68378c695d35b9ce4d"
+    integrity sha512-xljOi9ZsnA/+FZLqal99j/e/0+4oAZFrDeFvqnUBY3BIsxEjM0y8HqerMEWJra2zd5256h7PXcRvMKiO6CzoLQ==
+    dependencies:
+      browser-or-node "^2.1.1"
+      date-fns "^2.23.0"
+      libphonenumber-js "^1.7.18"
+      lodash "^4.17.21"
+      moment "^2.22.1"
+      text-encoding "^0.7.0"
+      uuid "^8.3.2"
+      uuid-encoder "^1.1.0"
+      ws "^8.13.0"
+
+  "@icure/apiV6@npm:@icure/api@6.4.4":
+    version "6.4.4"
+    resolved "https://registry.yarnpkg.com/@icure/api/-/api-6.4.4.tgz#f12e894e0adf43de374b76203f3176e4b8c9f515"
+    integrity sha512-/PGeBKbjOl4B5UIAua9hAuPB4MIFSHT/24HexkBsIi5DrWcXvi15vp6SsrAo8mU2qNcK0ftYy64dQ3QkwR7dVA==
     dependencies:
       date-fns "^2.23.0"
       libphonenumber-js "^1.7.18"
@@ -333,11 +340,12 @@ Lockfile:
       uuid "^8.3.2"
       uuid-encoder "^1.1.0"
 
-  "@icure/apiV6@npm:@icure/api@6.4.0":
-    version "6.4.0"
-    resolved "https://registry.yarnpkg.com/@icure/api/-/api-6.4.0.tgz#9462583669ebfeb177c494b79f137bca09e8d039"
-    integrity sha512-ZalZ9z2uRkFi1n23z/2QJn2TobvskM0PYefhybSSU09yK74YR9Xhc6F3NQ/UA/F2Uz96tBVWVdI+hZswCNnS/Q==
+  "@icure/apiV7@npm:@icure/api@7.1.14":
+    version "7.1.14"
+    resolved "https://registry.yarnpkg.com/@icure/api/-/api-7.1.14.tgz#0b9d1d51f0e423d5d4d7e392f68fdb449d7ffc01"
+    integrity sha512-4QADsV9DgkF+UrXDUg4+1Ff2mXc+4A0tircMl8tV4JEQAv+vGc5F2hlvnYTu6uTgoqZUCtxn11W/Jb8xrLWJ0A==
     dependencies:
+      browser-or-node "^2.1.1"
       date-fns "^2.23.0"
       libphonenumber-js "^1.7.18"
       lodash "^4.17.21"
@@ -345,13 +353,14 @@ Lockfile:
       text-encoding "^0.7.0"
       uuid "^8.3.2"
       uuid-encoder "^1.1.0"
+      ws "^8.13.0"
 
-  "@icure/test-setup@^0.0.50":
-    version "0.0.50"
-    resolved "https://registry.yarnpkg.com/@icure/test-setup/-/test-setup-0.0.50.tgz#199304023ce0dec9de0510b55a9f0868e23b8f3c"
-    integrity sha512-p2ITYTR1ZzFjC3VhB5gZ1b8lPt3nvjVBjnC+gRLlU+2KQkCiQJtFlDhKSX2l3ibeYa0zhkZ5oN6Hl9vhuh0ijg==
+  "@icure/test-setup@0.0.62":
+    version "0.0.62"
+    resolved "https://registry.yarnpkg.com/@icure/test-setup/-/test-setup-0.0.62.tgz#ffc87204cdb755a08772453c9313344f0fdadcd6"
+    integrity sha512-k65ngImRKRM546hv19Cy1DMHoLY7LEeYhke4TS2LaPJ7tYIHxXisqgpInIR2YWmIiudbmOkKEn3jAvwfoll7Tw==
     dependencies:
-      "@icure/api" "^6.3.1"
+      "@icure/api" "7.1.13"
       "@types/react-dom" "^18.0.6"
       date-fns "^2.3.0"
       isomorphic-fetch "^3.0.0"
@@ -1395,6 +1404,11 @@ Lockfile:
     resolved "https://registry.npmjs.org/json5/-/json5-2.2.3.tgz#78cd6f1a19bdc12b73db5ad0c61efd66c1e29283"
     integrity sha512-XmOWe7eyHYH14cLdVPoyg+GOH3rYX++KpzrylJwSW98t3Nk+U8XOl8FWKOgwtzdb8lXGf6zYwDUzeHMWfxasyg==
 
+  jssha@~3.3.1:
+    version "3.3.1"
+    resolved "https://registry.yarnpkg.com/jssha/-/jssha-3.3.1.tgz#c5b7fc7fb9aa745461923b87df0e247dd59c7ea8"
+    integrity sha512-VCMZj12FCFMQYcFLPRm/0lOBbLi8uM2BhXPTqw3U4YAfs4AZfiApOoBLoN8cQE60Z50m1MYMTQVCfgF/KaCVhQ==
+
   libphonenumber-js@^1.7.18:
     version "1.10.15"
     resolved "https://registry.npmjs.org/libphonenumber-js/-/libphonenumber-js-1.10.15.tgz#cad454adb5bf271bc820bbf7dd66776afcda7be6"
@@ -1641,6 +1655,13 @@ Lockfile:
     integrity sha512-kbpaSSGJTWdAY5KPVeMOKXSrPtr8C8C7wodJbcsd51jRnmD+GZu8Y0VoU6Dm5Z4vWr0Ig/1NKuWRKf7j5aaYSg==
     dependencies:
       mimic-fn "^2.1.0"
+
+  otpauth@^9.1.5:
+    version "9.1.5"
+    resolved "https://registry.yarnpkg.com/otpauth/-/otpauth-9.1.5.tgz#102f15e2c921b3940592996568ff727e9ce17142"
+    integrity sha512-mnic91MZxvj04Ir7FN8Xi6wF3FU8D+s6M5p6FQaSS91/csKswoOI9Dk7kKSnGFAoBYgGTTO+OWScV0nJuzrbPg==
+    dependencies:
+      jssha "~3.3.1"
 
   p-limit@^2.2.0:
     version "2.3.0"

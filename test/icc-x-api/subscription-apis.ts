@@ -581,7 +581,7 @@ describe('Subscription API', () => {
     const subscribeAndCreateHealthcareParty = async (options: {}, eventTypes: ('CREATE' | 'DELETE' | 'UPDATE')[]) => {
       const connectionPromise = async (options: {}, dataOwnerId: string, eventListener: (patient: HealthcareParty) => Promise<void>) => {
         await sleep(2000)
-        return api!.healthcarePartyApi.subscribeToHealthcarePartyEvents(eventTypes, new AllHealthcarePartiesFilter({}), eventListener, options)
+        return masterApi!.healthcarePartyApi.subscribeToHealthcarePartyEvents(eventTypes, new AllHealthcarePartiesFilter({}), eventListener, options)
       }
 
       const loggedUser = await masterApi.userApi.getCurrentUser()
