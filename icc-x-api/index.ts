@@ -127,6 +127,8 @@ export interface BasicApis {
   readonly groupApi: IccGroupApi
   readonly healthcarePartyApi: IccHcpartyXApi
   readonly deviceApi: IccDeviceXApi
+  readonly patientApi: IccPatientApi
+  readonly roleApi: IccRoleApi
 }
 export interface Apis extends BasicApis {
   readonly calendarItemTypeApi: IccCalendarItemTypeApi
@@ -167,7 +169,6 @@ export interface Apis extends BasicApis {
   readonly replicationApi: IccReplicationApi
   readonly tarificationApi: IccTarificationApi
   readonly tmpApi: IccTmpApi
-  readonly roleApi: IccRoleApi
 }
 
 /**
@@ -1203,6 +1204,8 @@ class IcureBasicApiImpl implements IcureBasicApi {
   private _insuranceApi: IccInsuranceApi | undefined
   private _permissionApi: IccPermissionApi | undefined
   private _userApi: IccUserXApi | undefined
+  private _patientApi: IccPatientApi | undefined
+  private _roleApi: IccRoleApi | undefined
 
   get agendaApi(): IccAgendaApi {
     return this._agendaApi ?? (this._agendaApi = new IccAgendaApi(this.host, this.headers, this.groupSpecificAuthenticationProvider, this.fetch))
@@ -1254,6 +1257,14 @@ class IcureBasicApiImpl implements IcureBasicApi {
   async getGroupsInfo(): Promise<{ currentGroup: UserGroup; availableGroups: UserGroup[] }> {
     this.latestGroupsRequest = this.grouplessUserApi ? this.grouplessUserApi.getMatchingUsers() : this.userApi.getMatchingUsers()
     return { currentGroup: this.currentGroupInfo, availableGroups: await this.latestGroupsRequest }
+  }
+
+  get patientApi(): IccPatientApi {
+    return this._patientApi ?? (this._patientApi = new IccPatientApi(this.host, this.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+  }
+
+  get roleApi(): IccRoleApi {
+    return this._roleApi ?? (this._roleApi = new IccRoleApi(this.host, this.headers, this.groupSpecificAuthenticationProvider, this.fetch))
   }
 
   async switchGroup(newGroupId: string): Promise<IcureBasicApi> {
