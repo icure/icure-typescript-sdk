@@ -19,4 +19,5 @@ export class OperationToken {
   creationTime?: number
   validity?: number
   operation?: string
+  description?: string
 }
