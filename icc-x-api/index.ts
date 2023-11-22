@@ -114,6 +114,7 @@ export { LocalStorageImpl } from './storage/LocalStorageImpl'
 export { StorageFacade } from './storage/StorageFacade'
 export { KeyStorageImpl } from './storage/KeyStorageImpl'
 export { CryptoStrategies } from './crypto/CryptoStrategies'
+export { AuthSecretProvider, AuthSecretType, AuthSecretDetails } from './auth/SmartAuthProvider'
 
 export interface BasicApis {
   readonly authApi: IccAuthApi
