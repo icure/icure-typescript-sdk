@@ -83,17 +83,15 @@ export class MaintenanceTask {
   encryptedSelf?: string
 }
 export namespace MaintenanceTask {
-  export type StatusEnum = 'pending' | 'ongoing' | 'cancelled' | 'completed'
-  export const StatusEnum: { [key: string]: MaintenanceTask.StatusEnum } = {
-    Pending: 'pending',
-    Ongoing: 'ongoing',
-    Cancelled: 'cancelled',
-    Completed: 'completed',
+  export enum StatusEnum {
+    Pending = 'pending',
+    Ongoing = 'ongoing',
+    Cancelled = 'cancelled',
+    Completed = 'completed',
   }
-  export type TaskTypeEnum = 'KEY_PAIR_UPDATE' | 'NEW_USER_OWN_DATA_ACCESS' | 'OTHER'
-  export const TaskTypeEnum = {
-    KeyPairUpdate: 'KEY_PAIR_UPDATE',
-    NewUserOwnDataAccess: 'NEW_USER_OWN_DATA_ACCESS',
-    Other: 'OTHER',
+  export enum TaskTypeEnum {
+    KeyPairUpdate = 'KEY_PAIR_UPDATE',
+    NewUserOwnDataAccess = 'NEW_USER_OWN_DATA_ACCESS',
+    Other = 'OTHER',
   }
 }
