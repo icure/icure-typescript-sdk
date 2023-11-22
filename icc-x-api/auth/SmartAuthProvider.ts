@@ -1,10 +1,11 @@
 import { AuthenticationProvider, NoAuthenticationProvider } from './AuthenticationProvider'
 import { UserGroup } from '../../icc-api/model/UserGroup'
 import { AuthService } from './AuthService'
-import { IccAuthApi } from '../../icc-api'
+import { IccAuthApi, OAuthThirdParty } from '../../icc-api'
 import { XHR } from '../../icc-api/api/XHR'
 import XHRError = XHR.XHRError
 import { decodeJwtClaims, isJwtInvalidOrExpired } from './JwtUtils'
+import { AuthenticationResponse } from '../../icc-api/model/AuthenticationResponse'
 
 /**
  * Needed by a {@link SmartAuthProvider} to get the secrets (password, token, etc.) for authentication to the iCure SDK as needed.
@@ -46,11 +47,13 @@ export interface AuthSecretProvider {
    * @return a promise that resolves with the secret and the secret type to use for authentication. If the promise rejects then the ongoing SDK
    * operation will fail without being re-attempted.
    */
-  getSecret(
-    acceptedSecrets: AuthSecretType[],
-    previousAttempts: { secret: string; secretType: AuthSecretType }[]
-  ): Promise<{ secret: string; secretType: AuthSecretType }> // We may want to add some onSuccess callback in future or similar
+  getSecret(acceptedSecrets: AuthSecretType[], previousAttempts: AuthSecretDetails[]): Promise<AuthSecretDetails>
 }
+
+// We may want to add some onSuccess callback in future or similar
+export type AuthSecretDetails =
+  | { value: string; secretType: Exclude<AuthSecretType, AuthSecretType.EXTERNAL_AUTHENTICATION> }
+  | { value: string; secretType: AuthSecretType.EXTERNAL_AUTHENTICATION; oauthType: OAuthThirdParty }
 
 /**
  * Represents a type of secret that can be used for authentication with iCure.
@@ -79,7 +82,7 @@ export enum AuthSecretType {
    * A token provided by an external authentication provider (e.g. Oauth/Google).
    * Not yet in use.
    */
-  // EXTERNAL_AUTHENTICATION = 'EXTERNAL_AUTHENTICATION',
+  EXTERNAL_AUTHENTICATION = 'EXTERNAL_AUTHENTICATION',
   /**
    * A special case of external authentication where the provider is a digital identity provider.
    * Not yet in use.
@@ -122,22 +125,26 @@ export class SmartAuthProvider implements AuthenticationProvider {
     login: string,
     secretProvider: AuthSecretProvider,
     props: {
-      initialSecret?: string
+      initialSecret?: { plainSecret: string } | { oauthToken: string; oauthType: OAuthThirdParty }
       initialAuthToken?: string
       initialRefreshToken?: string
       loginGroupId?: string
     } = {}
   ): SmartAuthProvider {
+    let initialSecret: CachedSecretType | undefined = undefined
+    if (props.initialSecret) {
+      if ('plainSecret' in props.initialSecret) {
+        initialSecret = { value: props.initialSecret.plainSecret, type: undefined }
+      } else {
+        initialSecret = {
+          value: props.initialSecret.oauthToken,
+          type: ServerAuthenticationClass.EXTERNAL_AUTHENTICATION,
+          oauthType: props.initialSecret.oauthType,
+        }
+      }
+    }
     return new SmartAuthProvider(
-      new TokenProvider(
-        login,
-        props.loginGroupId,
-        props.initialSecret ? { value: props.initialSecret, type: undefined } : undefined,
-        props.initialAuthToken,
-        props.initialRefreshToken,
-        authApi,
-        secretProvider
-      ),
+      new TokenProvider(login, props.loginGroupId, initialSecret, props.initialAuthToken, props.initialRefreshToken, authApi, secretProvider),
       props.loginGroupId
     )
   }
@@ -164,19 +171,23 @@ enum ServerAuthenticationClass {
   // DIGITAL_ID = 60,
   TWO_FACTOR_AUTHENTICATION = 50,
   SHORT_LIVED_TOKEN = 40,
-  // EXTERNAL_AUTHENTICATION = 30,
+  EXTERNAL_AUTHENTICATION = 30,
   PASSWORD = 20,
   LONG_LIVED_TOKEN = 10,
 }
-type LongLivedSecretType =
-  | ServerAuthenticationClass.LONG_LIVED_TOKEN
-  | ServerAuthenticationClass.PASSWORD
-  | ServerAuthenticationClass.TWO_FACTOR_AUTHENTICATION
+// Secrets lasting more than 5 minutes -> makes sense to reuse them to get an elevated security jwt
+type LongLivedSecretType = ServerAuthenticationClass.LONG_LIVED_TOKEN | ServerAuthenticationClass.PASSWORD
+type CachedSecretType =
+  | { value: string; type: LongLivedSecretType | undefined }
+  | { value: string; type: ServerAuthenticationClass.EXTERNAL_AUTHENTICATION; oauthType: OAuthThirdParty }
+// In some providers Oauth tokens may have short duration or may be usable only once. We only want to cache them if they are going to be reusable and
+// if they last more than 5 minutes.
+const longLivedOAuthTokens = new Set([OAuthThirdParty.GOOGLE])
 class TokenProvider {
   constructor(
     private login: string,
     private groupId: string | undefined,
-    private currentLongLivedSecret: { value: string; type: LongLivedSecretType | undefined } | undefined,
+    private currentLongLivedSecret: CachedSecretType | undefined,
     private cachedToken: string | undefined,
     private cachedRefreshToken: string | undefined,
     private readonly authApi: IccAuthApi,
@@ -217,7 +228,7 @@ class TokenProvider {
 
   private async getNewToken(minimumAuthenticationClassLevel: number): Promise<{ token: string; refreshToken: string }> {
     if (!!this.currentLongLivedSecret && (!this.currentLongLivedSecret.type || this.currentLongLivedSecret.type >= minimumAuthenticationClassLevel)) {
-      const resultWithCachedSecret = await this.doGetTokenWithSecret(this.currentLongLivedSecret.value, minimumAuthenticationClassLevel)
+      const resultWithCachedSecret = await this.doGetTokenWithSecret(this.currentLongLivedSecret, minimumAuthenticationClassLevel)
       if ('success' in resultWithCachedSecret) {
         return resultWithCachedSecret.success
       } else if (
@@ -245,19 +256,20 @@ class TokenProvider {
     ].flat()
     if (!acceptedSecrets.length)
       throw new Error('Internal error: no secret type is accepted for this request. Group may be misconfigured, or client may be outdated.')
-    const attempts: { secret: string; secretType: AuthSecretType }[] = []
+    const attempts: AuthSecretDetails[] = []
     while (true) {
-      const { secret, secretType } = await this.authSecretProvider.getSecret([...acceptedSecrets], attempts)
-      if (!acceptedSecrets.includes(secretType))
-        throw new Error(`Accepted secret types are ${JSON.stringify(acceptedSecrets)}, but got a secret of type ${secretType}.`)
-      attempts.push({ secret, secretType })
-      const result = await this.doGetTokenWithSecret(secret, minimumAuthenticationClassLevel)
+      const secretDetails = await this.authSecretProvider.getSecret([...acceptedSecrets], attempts)
+      if (!acceptedSecrets.includes(secretDetails.secretType))
+        throw new Error(`Accepted secret types are ${JSON.stringify(acceptedSecrets)}, but got a secret of type ${secretDetails.secretType}.`)
+      attempts.push(secretDetails)
+      const result = await this.doGetTokenWithSecret(secretDetails, minimumAuthenticationClassLevel)
       if ('success' in result) {
-        this.updateCachedSecret(secret, secretType)
+        this.updateCachedSecret(secretDetails)
         return result.success
       } else if (result.failure == DoGetTokenResultFailureReason.NEEDS_2FA) {
-        return this.askTotpAndGetToken(secret, minimumAuthenticationClassLevel)
-      } else if (secretType == AuthSecretType.PASSWORD && result.failure == DoGetTokenResultFailureReason.INVALID_AUTH_CLASS_LEVEL) {
+        return this.askTotpAndGetToken(secretDetails.value, minimumAuthenticationClassLevel)
+      } else if (secretDetails.value == AuthSecretType.PASSWORD && result.failure == DoGetTokenResultFailureReason.INVALID_AUTH_CLASS_LEVEL) {
+        // If we tried a password, and it turns out that the user has 2fa not enabled next time we don't consider password valid
         return this.askSecretAndGetToken(minimumAuthenticationClassLevel, false)
       } // else retry
     }
@@ -268,15 +280,15 @@ class TokenProvider {
       throw new Error(
         "Internal error: asking for totp to login but minimumAuthenticationClassLevel is higher than TWO_FACTOR_AUTHENTICATION's level."
       )
-    const attempts: { secret: string; secretType: AuthSecretType }[] = []
+    const attempts: AuthSecretDetails[] = []
     while (true) {
-      const { secret, secretType } = await this.authSecretProvider.getSecret([AuthSecretType.TWO_FACTOR_AUTHENTICATION_TOKEN], attempts)
-      if (secretType != AuthSecretType.TWO_FACTOR_AUTHENTICATION_TOKEN)
-        throw new Error(`Was expecting a 2fa token but got a secret of type ${secretType}.`)
-      attempts.push({ secret, secretType })
-      const result = await this.doGetTokenWithSecret(`${password}|${secret}`, minimumAuthenticationClassLevel)
+      const details = await this.authSecretProvider.getSecret([AuthSecretType.TWO_FACTOR_AUTHENTICATION_TOKEN], attempts)
+      if (details.secretType != AuthSecretType.TWO_FACTOR_AUTHENTICATION_TOKEN)
+        throw new Error(`Was expecting a 2fa token but got a secret of type ${details.secretType}.`)
+      attempts.push(details)
+      const result = await this.doGetTokenWithSecret({ value: `${password}|${details.value}` }, minimumAuthenticationClassLevel)
       if ('success' in result) {
-        this.updateCachedSecret(password, AuthSecretType.PASSWORD)
+        this.updateCachedSecret({ value: password, secretType: AuthSecretType.PASSWORD })
         return result.success
       } else if (result.failure != DoGetTokenResultFailureReason.INVALID_2FA) {
         throw new Error(`Unexpected error while trying to login with (previously) valid password and 2fa token ${result.failure}.`)
@@ -284,8 +296,17 @@ class TokenProvider {
     }
   }
 
-  private async doGetTokenWithSecret(secret: string, minimumAuthenticationClassLevel: number): Promise<DoGetTokenResult> {
-    return this.authApi.login({ username: this.login, password: secret }, this.groupId).then(
+  private async doGetTokenWithSecret(
+    secret: { value: string; oauthType?: OAuthThirdParty },
+    minimumAuthenticationClassLevel: number
+  ): Promise<DoGetTokenResult> {
+    let authResultPromise: Promise<AuthenticationResponse>
+    if ('oauthType' in secret && !!secret.oauthType) {
+      authResultPromise = this.authApi.loginWithThirdPartyToken(secret.oauthType, secret.value)
+    } else {
+      authResultPromise = this.authApi.login({ username: this.login, password: secret.value }, this.groupId)
+    }
+    return authResultPromise.then(
       (authResult) => {
         const { token, refreshToken } = authResult
         if (!token || !refreshToken) throw new Error('Internal error: login succeeded but no token was returned. Unsupported backend version?')
@@ -337,9 +358,23 @@ class TokenProvider {
     )
   }
 
-  private updateCachedSecret(secret: string, secretType: AuthSecretType) {
-    if (secretType == AuthSecretType.LONG_LIVED_TOKEN || secretType == AuthSecretType.PASSWORD) {
-      this.currentLongLivedSecret = { value: secret, type: ServerAuthenticationClass.LONG_LIVED_TOKEN }
+  private updateCachedSecret(details: AuthSecretDetails) {
+    switch (details.secretType) {
+      case AuthSecretType.PASSWORD:
+        this.currentLongLivedSecret = { value: details.value, type: ServerAuthenticationClass.PASSWORD }
+        break
+      case AuthSecretType.LONG_LIVED_TOKEN:
+        this.currentLongLivedSecret = { value: details.value, type: ServerAuthenticationClass.LONG_LIVED_TOKEN }
+        break
+      case AuthSecretType.EXTERNAL_AUTHENTICATION:
+        if (longLivedOAuthTokens.has(details.oauthType)) {
+          this.currentLongLivedSecret = {
+            value: details.value,
+            type: ServerAuthenticationClass.EXTERNAL_AUTHENTICATION,
+            oauthType: details.oauthType,
+          }
+        }
+        break
     }
   }
 }

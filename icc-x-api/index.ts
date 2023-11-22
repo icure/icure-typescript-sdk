@@ -27,6 +27,7 @@ import {
   IccTarificationApi,
   IccTmpApi,
   IccUserApi,
+  OAuthThirdParty,
 } from '../icc-api'
 import { IccUserXApi } from './icc-user-x-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
@@ -448,7 +449,7 @@ export type AuthenticationDetails =
 export type SmartAuthenticationDetails = {
   username: string
   secretProvider: AuthSecretProvider
-  initialSecret?: string
+  initialSecret?: { plainSecret: string } | { oauthToken: string; oauthType: OAuthThirdParty }
   initialAuthToken?: string
   initialRefreshToken?: string
 }
