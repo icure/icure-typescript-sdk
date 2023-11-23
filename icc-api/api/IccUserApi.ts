@@ -132,6 +132,35 @@ export class IccUserApi {
   }
 
   /**
+   * @summary Creates a new admin user in the group of the current user.
+   * @param body the user to create.
+   * @return a promise that will resolve to the created user.
+   */
+  createAdminUser(body?: User): Promise<User> {
+    const _url = this.host + `/user/admin` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new User(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Creates a new admin user in a group of the current user.
+   * @param body the user to create.
+   * @param groupId the id of the group where to create the user.
+   * @return a promise that will resolve to the created user.
+   */
+  createAdminUserInGroup(groupId: string, body?: User): Promise<User> {
+    const _url = this.host + `/user/admin/inGroup/${encodeURIComponent(String(groupId))}` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new User(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    * Delete a User based on his/her ID. The return value is an array containing the ID of deleted user.
    * @summary Delete a User based on his/her ID.
    * @param userId
