@@ -1,14 +1,17 @@
 import { KeyPair } from './crypto/RSA'
+import { RecoveryDataUseFailureReason } from './crypto/RecoveryDataEncryption'
 
-export interface KeyPairRecovery {
+export { RecoveryDataUseFailureReason } from './crypto/RecoveryDataEncryption'
+
+export interface IccRecoveryXApi {
   /**
-   * Create recovery data for a keypair and stores it encrypted on the iCure server. This allows the user that created
-   * it to recover the keypair at a later time by just providing the string returned by this method to the
-   * {@link recoverKeyPair} method.
+   * Create recovery data for the logged user and stores it encrypted on the iCure server. This allows the user that created
+   * it to recover all the currently available keypairs at a later time by just providing the string returned by this method to the
+   * {@link recoverKeyPairs} method.
    *
-   * You can also provide an expiration time for the recovery data. If you do so, the recovery data will be deleted
-   * automatically after ~{@link lifetimeSeconds} seconds. If you don't provide an expiration time, the recovery data
-   * will never expire.
+   * You can also provide an expiration time for the recovery data (through `options.lifetimeSeconds`). If you do so, the recovery dat
+   * a will be deleted automatically after that amount seconds has passed. If you don't provide an expiration time, the recovery data
+   * will be available until it is explicitly deleted.
    *
    * This could be used to:
    * - Provide some sort of one-use "recovery codes" to the user, which he can use to recover his keypair if he loses
@@ -23,26 +26,23 @@ export interface KeyPairRecovery {
    * containing the recovery data will be able to get the private key of the data owner from the recovery key returned
    * by this method. Therefore, the resulting recovery key must be kept secret, just like a private key.
    *
-   * @param keyPair The keypair that will be available through this recovery data.
-   * @param lifetimeSeconds the amount of seconds the recovery data will be available. If not provided, the recovery
-   * data will be available until it is deleted.
+   * @param options optional parameters:
+   * - `includeParentsKeys` if true, the recovery data will also contain any available keypairs for parents data owners.
+   * - `lifetimeSeconds` the amount of seconds the recovery data will be available. If not provided, the recovery data will be available until it is
+   *   explicitly deleted.
    * @return an hexadecimal string that is the `recoveryKey` which will allow the user to recover his keypair later or
-   * from another device. This value must be kept secret from other users. You can use this value with {@link recoverKeyPair}
+   * from another device. This value must be kept secret from other users. You can use this value with {@link recoverKeyPairs}
    */
-  createKeyPairRecoveryInfo(keyPair: KeyPair<CryptoKey>, lifetimeSeconds?: number): Promise<string>
+  createRecoveryInfoForAvailableKeyPairs(options: { includeParentsKeys?: boolean; lifetimeSeconds?: number }): Promise<string>
 
   /**
-   * Recover a keypair from a recovery key created in the past by the {@link createKeyPairRecoveryInfo} method.
-   * @param recoveryKey the result of a past call to {@link createKeyPairRecoveryInfo}.
-   * @param autoDelete if true, the recovery data will be deleted from the server after it could be used successfully.
-   * This will prevent the recovery key from being used again.
-   * @return the keypair that was given as input to the call of {@link createKeyPairRecoveryInfo} which returned the
-   * provided {@link recoveryKey}.
+   * Equivalent to {@link KeyPairRecoverer.recoverWithRecoveryKey}
    */
-  recoverKeyPair(recoveryKey: string, autoDelete: boolean): Promise<KeyPair<CryptoKey>>
-}
+  recoverKeyPairs(
+    recoveryKey: string,
+    autoDelete: boolean
+  ): Promise<{ success: { [dataOwnerId: string]: { [publicKeySpki: string]: KeyPair<CryptoKey> } } } | { failure: RecoveryDataUseFailureReason }>
 
-export interface ExchangeDataRecovery {
   /**
    * Create recovery data that allows the delegate {@link delegateId} recover the content of exchange data from the
    * current data owner to the delegate.
@@ -60,28 +60,30 @@ export interface ExchangeDataRecovery {
    *
    * @param delegateId id of the delegate that needs access to his exchange data from the current data owner. This can't
    * be the id of the current data owner (you should instead recover the keypair).
-   * @param lifetimeSeconds the amount of seconds the recovery data will be available. If not provided, the recovery
-   * data will be available until it is deleted.
+   * @param options optional parameters:
+   * - `lifetimeSeconds` the amount of seconds the recovery data will be available. If not provided, the recovery data will be available until it is
+   *   explicitly deleted.
    * @return an hexadecimal string that is the `recoveryKey` which will allow the delegate to gain access to the exchange data.
    * This value must be kept secret from users other than the current data owner and the delegate.
    * You can use this value with {@link recoverExchangeData}
    */
-  createExchangeDataRecoveryInfo(delegateId: string, lifetimeSeconds?: number): Promise<string>
+  createExchangeDataRecoveryInfo(delegateId: string, options: { lifetimeSeconds?: number }): Promise<string>
 
   /**
    * Recover the content of exchange data from the delegator that created the recovery data at the provided.
    * {@link recoveryKey} to the current delegate. This will enable the current user to access the exchange data with
    * any of his private keys available on the device from which this method was called.
+   * The exchange data will be automatically deleted from the server after the process completes successfully.
    *
    * @param recoveryKey the result of a call to {@link createExchangeDataRecoveryInfo} by a delegator.
+   * @return null on success or a failure reason if the recovery data could not be used to perform the operation.
+   * @throws If the recovery data is valid but the process fails for other reasons.
    */
-  recoverExchangeData(recoveryKey: string): Promise<void>
-}
+  recoverExchangeData(recoveryKey: string): Promise<RecoveryDataUseFailureReason | null>
 
-export interface IccRecoveryXApi extends KeyPairRecovery, ExchangeDataRecovery {
   /**
    * Deletes the recovery information associated to a certain recovery key. You can use this method with the recovery key for any kind of data
-   * (whether it is obtained from the {@link createKeyPairRecoveryInfo} or {@link createExchangeDataRecoveryInfo} methods).
+   * (whether it is obtained from the {@link createRecoveryInfoForAvailableKeyPairs} or {@link createExchangeDataRecoveryInfo} methods).
    * If there is no data associated to the provided recovery key, this method will do nothing.
    * @param recoveryKey the recovery key associated to the recovery information to delete.
    */

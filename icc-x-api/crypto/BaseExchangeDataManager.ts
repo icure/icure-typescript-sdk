@@ -310,11 +310,33 @@ export class BaseExchangeDataManager {
       }
     | undefined
   > {
-    const dataOwnerId = await this.dataOwnerApi.getCurrentDataOwnerId()
     const rawExchangeKey = await this.tryDecrypt(exchangeData.exchangeKey, decryptionKeys)
     const rawAccessControlSecret = await this.tryDecrypt(exchangeData.accessControlSecret, decryptionKeys)
     const rawSharedSignatureKey = await this.tryDecrypt(exchangeData.sharedSignatureKey, decryptionKeys)
     if (!rawExchangeKey || !rawAccessControlSecret || !rawSharedSignatureKey) return undefined
+    return await this.updateExchangeDataWithRawDecryptedContent(
+      exchangeData,
+      newEncryptionKeys,
+      rawExchangeKey,
+      rawAccessControlSecret,
+      rawSharedSignatureKey
+    )
+  }
+
+  /**
+   * Same as [tryUpdateExchangeData] but the decrypted content is already provided.
+   */
+  async updateExchangeDataWithRawDecryptedContent(
+    exchangeData: ExchangeData,
+    newEncryptionKeys: { [keyPairFingerprint: string]: CryptoKey },
+    rawExchangeKey: ArrayBuffer,
+    rawAccessControlSecret: ArrayBuffer,
+    rawSharedSignatureKey: ArrayBuffer
+  ): Promise<{
+    exchangeData: ExchangeData
+    exchangeKey: CryptoKey
+    accessControlSecret: string
+  }> {
     const exchangeKey = await this.importExchangeKey(new Uint8Array(rawExchangeKey))
     const accessControlSecret = await this.importAccessControlSecret(new Uint8Array(rawAccessControlSecret))
     const sharedSignatureKey = await this.importSharedSignatureKey(new Uint8Array(rawSharedSignatureKey))
@@ -407,6 +429,10 @@ export class BaseExchangeDataManager {
     return await this.primitives.AES.importKey('raw', decryptedBytes)
   }
 
+  private async exportExchangeKey(key: CryptoKey): Promise<ArrayBuffer> {
+    return await this.primitives.AES.exportKey(key, 'raw')
+  }
+
   private async generateSharedSignatureKey(): Promise<{
     key: CryptoKey // the imported key
     rawBytes: ArrayBuffer // the bytes to encrypt for in the exchange data
@@ -419,12 +445,16 @@ export class BaseExchangeDataManager {
     return await this.primitives.HMAC.importKey(decryptedBytes)
   }
 
+  private async exportSharedSignatureKey(key: CryptoKey): Promise<ArrayBuffer> {
+    return await this.primitives.HMAC.exportKey(key)
+  }
+
   // Generates a new access control secret
   private async generateAccessControlSecret(): Promise<{
     secret: string // the imported secret
     rawBytes: ArrayBuffer // the bytes to encrypt for in the exchange data
   }> {
-    const rawBytes = await this.primitives.randomBytes(16)
+    const rawBytes = this.primitives.randomBytes(16)
     return {
       secret: await this.importAccessControlSecret(rawBytes),
       rawBytes,
@@ -433,6 +463,10 @@ export class BaseExchangeDataManager {
 
   private importAccessControlSecret(decryptedBytes: ArrayBuffer): Promise<string> {
     return Promise.resolve(ua2hex(decryptedBytes))
+  }
+
+  private exportAccessControlSecret(secret: string): Promise<ArrayBuffer> {
+    return Promise.resolve(hex2ua(secret))
   }
 
   private async encryptDataWithKeys(
