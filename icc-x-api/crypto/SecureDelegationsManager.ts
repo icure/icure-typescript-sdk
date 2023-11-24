@@ -141,7 +141,8 @@ export class SecureDelegationsManager {
     const exchangeDataInfo = await this.exchangeDataManager.getOrCreateEncryptionDataTo(
       delegateId,
       entityWithType.type,
-      entityWithType.entity.secretForeignKeys ?? []
+      entityWithType.entity.secretForeignKeys ?? [],
+      false
     )
     const accessControlHashes = await this.accessControlSecretUtils.secureDelegationKeysFor(
       exchangeDataInfo.accessControlSecret,
@@ -250,7 +251,8 @@ export class SecureDelegationsManager {
     const exchangeDataInfo = await this.exchangeDataManager.getOrCreateEncryptionDataTo(
       delegateId,
       entity.type,
-      entity.entity.secretForeignKeys ?? []
+      entity.entity.secretForeignKeys ?? [],
+      false
     )
     const accessControlHashes = await this.accessControlSecretUtils.secureDelegationKeysFor(
       exchangeDataInfo.accessControlSecret,

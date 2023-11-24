@@ -1266,7 +1266,10 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
    * @return true if exchange data was initialized, false if the patient already has a key pair and the exchange data
    * will be initialized in the standard way (automatically on the first time data is shared with the user).
    */
-  initialiseExchangeDataToNewlyInvitedPatient(patientId: string): Promise<boolean> {
-    throw 'TODO'
+  async forceInitialiseExchangeDataToNewlyInvitedPatient(patientId: string): Promise<boolean> {
+    const patient = await super.getPatient(patientId)
+    if (this.dataOwnerApi.getHexPublicKeysOf(patient).size) return false
+    await this.crypto.exchangeData.getOrCreateEncryptionDataTo(patientId, undefined, undefined, true)
+    return true
   }
 }
