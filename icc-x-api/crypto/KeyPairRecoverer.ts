@@ -1,6 +1,5 @@
 import { KeyPair } from './RSA'
 import { RecoveryDataEncryption, RecoveryDataUseFailureReason } from './RecoveryDataEncryption'
-import { IccRecoveryDataApi } from '../../icc-api/api/internal/IccRecoveryDataApi'
 
 /**
  * Allows to recover user keypairs using builtin recovery mechanisms.
@@ -8,7 +7,7 @@ import { IccRecoveryDataApi } from '../../icc-api/api/internal/IccRecoveryDataAp
  * Other recovery methods (such as transfer keys) are used automatically by the sdk when available and don't require any input from your application.
  */
 export class KeyPairRecoverer {
-  constructor(private readonly recoveryDataEncryption: RecoveryDataEncryption, private readonly baseRecoveryApi: IccRecoveryDataApi) {}
+  constructor(private readonly recoveryDataEncryption: RecoveryDataEncryption) {}
 
   /**
    * Recover a keypair using a recovery key created in the past using the {@link IccRecoveryXApi.createRecoveryInfoForAvailableKeyPairs} method.

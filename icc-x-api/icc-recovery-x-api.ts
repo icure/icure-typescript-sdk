@@ -167,6 +167,9 @@ export class IccRecoveryXApi {
         )
       }
     }
+    await this.baseRecoveryApi.deleteRecoveryData(await this.recoveryDataEncryption.recoveryKeyToId(recoveryKey)).catch((e) => {
+      console.warn(`Could not delete recovery data with id ${recoveryKey} after successful recovery: ${e}. Ignoring.`)
+    })
     return null
   }
 
