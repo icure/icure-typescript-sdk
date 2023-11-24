@@ -1,12 +1,15 @@
 import { KeyPair } from './RSA'
-import { RecoveryDataUseFailureReason } from './RecoveryDataEncryption'
+import { RecoveryDataEncryption, RecoveryDataUseFailureReason } from './RecoveryDataEncryption'
+import { IccRecoveryDataApi } from '../../icc-api/api/internal/IccRecoveryDataApi'
 
 /**
  * Allows to recover user keypairs using builtin recovery mechanisms.
  * This interface includes recovery methods that require some input from your application (e.g. a recovery key created from a different device).
  * Other recovery methods (such as transfer keys) are used automatically by the sdk when available and don't require any input from your application.
  */
-export interface KeyPairRecoverer {
+export class KeyPairRecoverer {
+  constructor(private readonly recoveryDataEncryption: RecoveryDataEncryption, private readonly baseRecoveryApi: IccRecoveryDataApi) {}
+
   /**
    * Recover a keypair using a recovery key created in the past using the {@link IccRecoveryXApi.createRecoveryInfoForAvailableKeyPairs} method.
    * @param recoveryKey the result of a past call to {@link IccRecoveryXApi.createRecoveryInfoForAvailableKeyPairs}.
@@ -24,5 +27,7 @@ export interface KeyPairRecoverer {
   recoverWithRecoveryKey(
     recoveryKey: string,
     autoDelete: boolean
-  ): Promise<{ success: { [dataOwnerId: string]: { [publicKeySpki: string]: KeyPair<CryptoKey> } } } | { failure: RecoveryDataUseFailureReason }>
+  ): Promise<{ success: { [dataOwnerId: string]: { [publicKeySpki: string]: KeyPair<CryptoKey> } } } | { failure: RecoveryDataUseFailureReason }> {
+    return this.recoveryDataEncryption.getAndDecryptKeyPairsRecoveryData(recoveryKey, autoDelete)
+  }
 }

@@ -1,9 +1,26 @@
-import { KeyPair } from './crypto/RSA'
-import { RecoveryDataUseFailureReason } from './crypto/RecoveryDataEncryption'
+import { KeyPair, ShaVersion } from './crypto/RSA'
+import { RecoveryDataEncryption, RecoveryDataUseFailureReason } from './crypto/RecoveryDataEncryption'
+import { IccRecoveryDataApi } from '../icc-api/api/internal/IccRecoveryDataApi'
+import { UserEncryptionKeysManager } from './crypto/UserEncryptionKeysManager'
+import { IccDataOwnerXApi } from './icc-data-owner-x-api'
+import { CryptoPrimitives } from './crypto/CryptoPrimitives'
+import { ua2hex } from './utils'
+import { Content } from '../icc-api/model/Content'
+import { RecoveryData } from '../icc-api/model/internal/RecoveryData'
+import { BaseExchangeDataManager } from './crypto/BaseExchangeDataManager'
 
 export { RecoveryDataUseFailureReason } from './crypto/RecoveryDataEncryption'
 
-export interface IccRecoveryXApi {
+export class IccRecoveryXApi {
+  constructor(
+    private readonly baseRecoveryApi: IccRecoveryDataApi,
+    private readonly recoveryDataEncryption: RecoveryDataEncryption,
+    private readonly keyManager: UserEncryptionKeysManager,
+    private readonly dataOwnerApi: IccDataOwnerXApi,
+    private readonly primitives: CryptoPrimitives,
+    private readonly baseExchangeData: BaseExchangeDataManager
+  ) {}
+
   /**
    * Create recovery data for the logged user and stores it encrypted on the iCure server. This allows the user that created
    * it to recover all the currently available keypairs at a later time by just providing the string returned by this method to the
@@ -33,7 +50,37 @@ export interface IccRecoveryXApi {
    * @return an hexadecimal string that is the `recoveryKey` which will allow the user to recover his keypair later or
    * from another device. This value must be kept secret from other users. You can use this value with {@link recoverKeyPairs}
    */
-  createRecoveryInfoForAvailableKeyPairs(options: { includeParentsKeys?: boolean; lifetimeSeconds?: number }): Promise<string>
+  async createRecoveryInfoForAvailableKeyPairs(options: { includeParentsKeys?: boolean; lifetimeSeconds?: number } = {}): Promise<string> {
+    const selfId = await this.dataOwnerApi.getCurrentDataOwnerId()
+    const allAvailableKeys = await this.keyManager.getCurrentUserHierarchyAvailableKeypairs()
+    let dataOwnersToInclude: { dataOwnerId: string; keys: { pair: KeyPair<CryptoKey>; verified: boolean }[] }[]
+    if (options.includeParentsKeys) {
+      dataOwnersToInclude = [allAvailableKeys.self, ...allAvailableKeys.parents]
+    } else {
+      dataOwnersToInclude = [allAvailableKeys.self]
+    }
+    const keyPairsToSave: { [delegateId: string]: { pair: KeyPair<CryptoKey>; algorithm: ShaVersion }[] } = {}
+    for (const { dataOwnerId, keys } of dataOwnersToInclude) {
+      const dataOwner = await this.dataOwnerApi.getDataOwner(dataOwnerId)
+      const sha1Keys = new Set(this.dataOwnerApi.getHexPublicKeysWithSha1Of(dataOwner))
+      const sha256Keys = new Set(this.dataOwnerApi.getHexPublicKeysWithSha256Of(dataOwner))
+      const pairs: { pair: KeyPair<CryptoKey>; algorithm: ShaVersion }[] = []
+      for (const { pair, verified } of keys) {
+        if (verified) {
+          const pubKeyHex = ua2hex(await this.primitives.RSA.exportKey(pair.publicKey, 'spki'))
+          if (sha256Keys.has(pubKeyHex)) {
+            pairs.push({ pair, algorithm: 'sha-256' })
+          } else if (sha1Keys.has(pubKeyHex)) {
+            pairs.push({ pair, algorithm: 'sha-1' })
+          } else {
+            console.warn(`Found stored key ${pubKeyHex} for data owner ${dataOwnerId} which is not saved in the data owner. Ignoring.`)
+          }
+        }
+      }
+      keyPairsToSave[dataOwnerId] = pairs
+    }
+    return await this.recoveryDataEncryption.createAndSaveKeyPairsRecoveryDataFor(selfId, keyPairsToSave, options.lifetimeSeconds)
+  }
 
   /**
    * Equivalent to {@link KeyPairRecoverer.recoverWithRecoveryKey}
@@ -41,7 +88,9 @@ export interface IccRecoveryXApi {
   recoverKeyPairs(
     recoveryKey: string,
     autoDelete: boolean
-  ): Promise<{ success: { [dataOwnerId: string]: { [publicKeySpki: string]: KeyPair<CryptoKey> } } } | { failure: RecoveryDataUseFailureReason }>
+  ): Promise<{ success: { [dataOwnerId: string]: { [publicKeySpki: string]: KeyPair<CryptoKey> } } } | { failure: RecoveryDataUseFailureReason }> {
+    return this.recoveryDataEncryption.getAndDecryptKeyPairsRecoveryData(recoveryKey, autoDelete)
+  }
 
   /**
    * Create recovery data that allows the delegate {@link delegateId} recover the content of exchange data from the
@@ -67,7 +116,26 @@ export interface IccRecoveryXApi {
    * This value must be kept secret from users other than the current data owner and the delegate.
    * You can use this value with {@link recoverExchangeData}
    */
-  createExchangeDataRecoveryInfo(delegateId: string, options: { lifetimeSeconds?: number }): Promise<string>
+  async createExchangeDataRecoveryInfo(delegateId: string, options: { lifetimeSeconds?: number } = {}): Promise<string> {
+    const exchangeDataToDelegate = await this.baseExchangeData.getExchangeDataByDelegatorDelegatePair(
+      await this.dataOwnerApi.getCurrentDataOwnerId(),
+      delegateId
+    )
+    const decryptionKeys = this.keyManager.getDecryptionKeys()
+    const decryptedInformation: {
+      exchangeDataId: string
+      rawExchangeKey: ArrayBuffer
+      rawAccessControlSecret: ArrayBuffer
+      rawSharedSignatureKey: ArrayBuffer
+    }[] = []
+    for (const exchangeData of exchangeDataToDelegate) {
+      const decryptedData = await this.baseExchangeData.tryRawDecryptExchangeData(exchangeData, decryptionKeys)
+      if (decryptedData !== undefined) {
+        decryptedInformation.push({ ...decryptedData, exchangeDataId: exchangeData.id! })
+      }
+    }
+    return this.recoveryDataEncryption.createAndSaveExchangeDataRecoveryData(delegateId, decryptedInformation, options.lifetimeSeconds)
+  }
 
   /**
    * Recover the content of exchange data from the delegator that created the recovery data at the provided.
@@ -79,34 +147,73 @@ export interface IccRecoveryXApi {
    * @return null on success or a failure reason if the recovery data could not be used to perform the operation.
    * @throws If the recovery data is valid but the process fails for other reasons.
    */
-  recoverExchangeData(recoveryKey: string): Promise<RecoveryDataUseFailureReason | null>
+  async recoverExchangeData(recoveryKey: string): Promise<RecoveryDataUseFailureReason | null> {
+    const selfEncryptionKeys = Object.fromEntries(this.keyManager.getSelfVerifiedKeys().map((k) => [k.fingerprint, k.pair.publicKey]))
+    const recoveredExchangeData = await this.recoveryDataEncryption.getAndDecryptExchangeDataRecoveryData(recoveryKey)
+    if ('failure' in recoveredExchangeData) {
+      return recoveredExchangeData.failure
+    }
+    for (const exchangeDataInfo of recoveredExchangeData.success) {
+      const retrievedData = await this.baseExchangeData.getExchangeDataById(exchangeDataInfo.exchangeDataId)
+      if (!retrievedData) {
+        console.warn(`Could not recover exchange data with id ${exchangeDataInfo.exchangeDataId} as it was not found. Ignoring`)
+      } else {
+        await this.baseExchangeData.updateExchangeDataWithRawDecryptedContent(
+          retrievedData,
+          selfEncryptionKeys,
+          exchangeDataInfo.rawExchangeKey,
+          exchangeDataInfo.rawAccessControlSecret,
+          exchangeDataInfo.rawSharedSignatureKey
+        )
+      }
+    }
+    return null
+  }
 
   /**
-   * Deletes the recovery information associated to a certain recovery key. You can use this method with the recovery key for any kind of data
-   * (whether it is obtained from the {@link createRecoveryInfoForAvailableKeyPairs} or {@link createExchangeDataRecoveryInfo} methods).
+   * Deletes the recovery information associated to a certain recovery key. You can use this method with the recovery key for any kind of data,
+   * regardless of how you obtained the recovery key (from the {@link createRecoveryInfoForAvailableKeyPairs} or from the
+   * {@link createExchangeDataRecoveryInfo} methods).
    * If there is no data associated to the provided recovery key, this method will do nothing.
    * @param recoveryKey the recovery key associated to the recovery information to delete.
    */
-  deleteRecoveryInfo(recoveryKey: string): Promise<void>
+  async deleteRecoveryInfo(recoveryKey: string): Promise<void> {
+    await this.baseRecoveryApi.deleteRecoveryData(await this.recoveryDataEncryption.recoveryKeyToId(recoveryKey))
+  }
 
   /**
    * Deletes the recovery information associated to a certain data owner, regardless of type.
    * @param dataOwnerId the data owner for which to delete the recovery data.
    * @return the number of deleted recovery information.
    */
-  deleteAllRecoveryInfoFor(dataOwnerId: string): Promise<number>
+  async deleteAllRecoveryInfoFor(dataOwnerId: string): Promise<number> {
+    return this.getCountFromDeleteAllRes(await this.baseRecoveryApi.deleteAllRecoveryDataForRecipient(dataOwnerId))
+  }
 
   /**
    * Deletes all key pair recovery information for a certain data owner.
    * @param dataOwnerId the data owner for which to delete the key pair recovery information.
    * @return the number of deleted key pair recovery information.
    */
-  deleteAllKeyPairRecoveryInfoFor(dataOwnerId: string): Promise<number>
+  async deleteAllKeyPairRecoveryInfoFor(dataOwnerId: string): Promise<number> {
+    return this.getCountFromDeleteAllRes(
+      await this.baseRecoveryApi.deleteAllRecoveryDataOfTypeForRecipient(RecoveryData.Type.KEYPAIR_RECOVERY, dataOwnerId)
+    )
+  }
 
   /**
    * Deletes all exchange data recovery information for a certain data owner.
    * @param dataOwnerId the data owner for which to delete the exchange data recovery information.
    * @return the number of deleted exchange data recovery information.
    */
-  deleteAllExchangeDataRecoveryInfoFor(dataOwnerId: string): Promise<number>
+  async deleteAllExchangeDataRecoveryInfoFor(dataOwnerId: string): Promise<number> {
+    return this.getCountFromDeleteAllRes(
+      await this.baseRecoveryApi.deleteAllRecoveryDataOfTypeForRecipient(RecoveryData.Type.EXCHANGE_KEY_RECOVERY, dataOwnerId)
+    )
+  }
+
+  private async getCountFromDeleteAllRes(deleteAllRes: Content): Promise<number> {
+    if (deleteAllRes.numberValue !== undefined) return deleteAllRes.numberValue
+    throw new Error(`Unexpected result from delete method: ${JSON.stringify(deleteAllRes)}`)
+  }
 }

@@ -135,7 +135,7 @@ export class IccCryptoXApi {
     }
     parents: {
       dataOwnerId: string
-      keys: { pair: KeyPair<CryptoKey> }[]
+      keys: { pair: KeyPair<CryptoKey>; verified: boolean }[]
     }[]
   }> {
     return this._keyManager.getCurrentUserHierarchyAvailableKeypairs()

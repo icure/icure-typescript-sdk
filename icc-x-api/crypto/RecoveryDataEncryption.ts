@@ -8,6 +8,7 @@ import { XHR } from '../../icc-api/api/XHR'
 import XHRError = XHR.XHRError
 import { ExchangeData } from '../../icc-api/model/internal/ExchangeData'
 import { KeyPairUpdateRequest } from '../maintenance/KeyPairUpdateRequest'
+import { get } from 'lodash'
 
 export enum RecoveryDataUseFailureReason {
   /**
@@ -47,6 +48,10 @@ type RecoveryDataContent = KeyPairRecoveryDataContent | ExchangeDataRecoveryData
 export class RecoveryDataEncryption {
   constructor(private readonly primitives: CryptoPrimitives, private readonly baseRecoveryApi: IccRecoveryDataApi) {}
 
+  async recoveryKeyToId(recoveryKey: string): Promise<string> {
+    return ua2hex(await this.primitives.sha256(hex2ua(recoveryKey)))
+  }
+
   async createAndSaveKeyPairsRecoveryDataFor(
     recipient: string,
     keyPairs: { [delegateId: string]: { pair: KeyPair<CryptoKey>; algorithm: ShaVersion }[] },
@@ -70,26 +75,36 @@ export class RecoveryDataEncryption {
   }
 
   async getAndDecryptKeyPairsRecoveryData(
-    recoveryKey: string
-  ): Promise<{ succes: { [delegateId: string]: { [publicKeySpki: string]: KeyPair<CryptoKey> } } } | { failure: RecoveryDataUseFailureReason }> {
+    recoveryKey: string,
+    autoDeleteOnSuccess: boolean
+  ): Promise<{ success: { [dataOwnerId: string]: { [publicKeySpki: string]: KeyPair<CryptoKey> } } } | { failure: RecoveryDataUseFailureReason }> {
     const getRecoveryDataResult = await this.getRecoveryDataAndDecrypt(recoveryKey, RecoveryData.Type.KEYPAIR_RECOVERY)
-    if ('failure' in getRecoveryDataResult) return getRecoveryDataResult
-    const recoveredKeysData = getRecoveryDataResult.decryptedJson as KeyPairRecoveryDataContent
-    const recoveredKeys: { [delegateId: string]: { [publicKeySpki: string]: KeyPair<CryptoKey> } } = {}
-    for (const [delegateId, pairs] of Object.entries(recoveredKeysData)) {
-      const delegateKeys: { [publicKeySpki: string]: KeyPair<CryptoKey> } = {}
-      for (const { pair, algorithm } of pairs) {
-        delegateKeys[ua2hex(b64_2ua(pair.publicKey))] = {
-          privateKey: await this.primitives.RSA.importKey('pkcs8', b64_2ua(pair.privateKey), ['decrypt'], algorithm),
-          publicKey: await this.primitives.RSA.importKey('spki', b64_2ua(pair.publicKey), ['encrypt'], algorithm),
+    if ('failure' in getRecoveryDataResult) {
+      return getRecoveryDataResult
+    } else {
+      const recoveredKeysData = getRecoveryDataResult.decryptedJson as KeyPairRecoveryDataContent
+      const recoveredKeys: { [delegateId: string]: { [publicKeySpki: string]: KeyPair<CryptoKey> } } = {}
+      for (const [delegateId, pairs] of Object.entries(recoveredKeysData)) {
+        const delegateKeys: { [publicKeySpki: string]: KeyPair<CryptoKey> } = {}
+        for (const { pair, algorithm } of pairs) {
+          delegateKeys[ua2hex(b64_2ua(pair.publicKey))] = {
+            privateKey: await this.primitives.RSA.importKey('pkcs8', b64_2ua(pair.privateKey), ['decrypt'], algorithm),
+            publicKey: await this.primitives.RSA.importKey('spki', b64_2ua(pair.publicKey), ['encrypt'], algorithm),
+          }
         }
+        recoveredKeys[delegateId] = delegateKeys
       }
-      recoveredKeys[delegateId] = delegateKeys
+      if (autoDeleteOnSuccess) {
+        await this.baseRecoveryApi.deleteRecoveryData(await this.recoveryKeyToId(recoveryKey)).catch((e) => {
+          console.warn(`Failed to auto-delete recovery data, ignoring. ${e}`)
+        })
+      }
+      return { success: recoveredKeys }
     }
-    return { succes: recoveredKeys }
   }
 
-  createAndSaveExchangeDataRecoveryData(
+  async createAndSaveExchangeDataRecoveryData(
+    recipient: string,
     exchangeDataInfo: {
       exchangeDataId: string
       rawAccessControlSecret: ArrayBuffer
@@ -98,20 +113,42 @@ export class RecoveryDataEncryption {
     }[],
     lifetimeSeconds: number | undefined
   ): Promise<string> {
-    throw 'TODO'
+    return await this.createRecoveryData(
+      recipient,
+      RecoveryData.Type.EXCHANGE_KEY_RECOVERY,
+      lifetimeSeconds,
+      exchangeDataInfo.map((x) => ({
+        exchangeDataId: x.exchangeDataId,
+        rawAccessControlSecret: ua2b64(x.rawAccessControlSecret),
+        rawSharedSignatureKey: ua2b64(x.rawSharedSignatureKey),
+        rawExchangeKey: ua2b64(x.rawExchangeKey),
+      }))
+    )
   }
 
-  getAndDecryptExchangeDataRecoveryData(
+  async getAndDecryptExchangeDataRecoveryData(
     recoveryKey: string
-  ): Promise<{ exchangeDataId: string; rawAccessControlSecret: ArrayBuffer; rawSharedSignatureKey: ArrayBuffer; rawExchangeKey: ArrayBuffer }[]> {
-    throw 'TODO'
+  ): Promise<
+    | { success: { exchangeDataId: string; rawAccessControlSecret: ArrayBuffer; rawSharedSignatureKey: ArrayBuffer; rawExchangeKey: ArrayBuffer }[] }
+    | { failure: RecoveryDataUseFailureReason }
+  > {
+    const getRecoveryDataResult = await this.getRecoveryDataAndDecrypt(recoveryKey, RecoveryData.Type.EXCHANGE_KEY_RECOVERY)
+    if ('failure' in getRecoveryDataResult) return getRecoveryDataResult
+    return {
+      success: (getRecoveryDataResult.decryptedJson as ExchangeDataRecoveryDataContent).map((x) => ({
+        exchangeDataId: x.exchangeDataId,
+        rawAccessControlSecret: b64_2ua(x.rawAccessControlSecret),
+        rawSharedSignatureKey: b64_2ua(x.rawSharedSignatureKey),
+        rawExchangeKey: b64_2ua(x.rawExchangeKey),
+      })),
+    }
   }
 
   async getRecoveryDataAndDecrypt(
     recoveryKey: string,
     expectedType: RecoveryData.Type
   ): Promise<{ recoveryData: RecoveryData; decryptedJson: any } | { failure: RecoveryDataUseFailureReason }> {
-    const id = ua2hex(await this.primitives.sha256(hex2ua(recoveryKey)))
+    const id = await this.recoveryKeyToId(recoveryKey)
     const getResult = await this.baseRecoveryApi.getRecoveryData(id).then(
       (r) => ({ recoveryData: r }),
       (e) => {
@@ -146,7 +183,7 @@ export class RecoveryDataEncryption {
   ): Promise<string> {
     const recoveryKey = await this.primitives.AES.generateCryptoKey(false)
     const recoveryKeyHex = ua2hex(await this.primitives.AES.exportKey(recoveryKey, 'raw'))
-    const id = ua2hex(await this.primitives.sha256(hex2ua(recoveryKeyHex)))
+    const id = await this.recoveryKeyToId(recoveryKeyHex)
     const encryptedSelf = b2a(ua2string(await this.primitives.AES.encrypt(recoveryKey, utf8_2ua(JSON.stringify(content)))))
     const expirationInstant = lifetimeSeconds ? Date.now() + lifetimeSeconds * 1000 : undefined
     const data: RecoveryData = new RecoveryData({

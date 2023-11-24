@@ -287,6 +287,24 @@ export class BaseExchangeDataManager {
     }
   }
 
+  async tryRawDecryptExchangeData(
+    exchangeData: ExchangeData,
+    decryptionKeys: { [publicKeyFingerprint: string]: KeyPair<CryptoKey> }
+  ): Promise<
+    | {
+        rawExchangeKey: ArrayBuffer
+        rawAccessControlSecret: ArrayBuffer
+        rawSharedSignatureKey: ArrayBuffer
+      }
+    | undefined
+  > {
+    const rawExchangeKey = await this.tryDecrypt(exchangeData.exchangeKey, decryptionKeys)
+    const rawAccessControlSecret = await this.tryDecrypt(exchangeData.accessControlSecret, decryptionKeys)
+    const rawSharedSignatureKey = await this.tryDecrypt(exchangeData.sharedSignatureKey, decryptionKeys)
+    if (!rawExchangeKey || !rawAccessControlSecret || !rawSharedSignatureKey) return undefined
+    return { rawExchangeKey, rawAccessControlSecret, rawSharedSignatureKey }
+  }
+
   /**
    * Updates existing exchange data and uploads it to the cloud in order to share it also with additional public keys, useful for example in cases
    * where one of the data owners involved in the exchange data has lost one of his keys.
