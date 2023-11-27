@@ -141,8 +141,6 @@ export class IccAnonymousAccessApi {
     startDocumentId?: string,
     limit?: number,
   ): Promise<PaginatedListMedicalLocation> {
-    let _body = null
-
     const _url =
       this.host +
       `/aa/medicallocation/byGroup/${groupId}` +
@@ -152,7 +150,7 @@ export class IccAnonymousAccessApi {
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = await this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('GET', _url, headers, undefined, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListMedicalLocation(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
