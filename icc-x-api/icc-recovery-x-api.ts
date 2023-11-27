@@ -7,7 +7,7 @@ import { CryptoPrimitives } from './crypto/CryptoPrimitives'
 import { ua2hex } from './utils'
 import { Content } from '../icc-api/model/Content'
 import { RecoveryData } from '../icc-api/model/internal/RecoveryData'
-import { BaseExchangeDataManager } from './crypto/BaseExchangeDataManager'
+import { ExchangeDataManager } from './crypto/ExchangeDataManager'
 
 export { RecoveryDataUseFailureReason } from './crypto/RecoveryDataEncryption'
 
@@ -18,7 +18,7 @@ export class IccRecoveryXApi {
     private readonly keyManager: UserEncryptionKeysManager,
     private readonly dataOwnerApi: IccDataOwnerXApi,
     private readonly primitives: CryptoPrimitives,
-    private readonly baseExchangeData: BaseExchangeDataManager
+    private readonly exchangeData: ExchangeDataManager
   ) {}
 
   /**
@@ -62,8 +62,8 @@ export class IccRecoveryXApi {
     const keyPairsToSave: { [delegateId: string]: { pair: KeyPair<CryptoKey>; algorithm: ShaVersion }[] } = {}
     for (const { dataOwnerId, keys } of dataOwnersToInclude) {
       const dataOwner = await this.dataOwnerApi.getDataOwner(dataOwnerId)
-      const sha1Keys = new Set(this.dataOwnerApi.getHexPublicKeysWithSha1Of(dataOwner))
-      const sha256Keys = new Set(this.dataOwnerApi.getHexPublicKeysWithSha256Of(dataOwner))
+      const sha1Keys = new Set(this.dataOwnerApi.getHexPublicKeysWithSha1Of(dataOwner.dataOwner))
+      const sha256Keys = new Set(this.dataOwnerApi.getHexPublicKeysWithSha256Of(dataOwner.dataOwner))
       const pairs: { pair: KeyPair<CryptoKey>; algorithm: ShaVersion }[] = []
       for (const { pair, verified } of keys) {
         if (verified) {
@@ -117,7 +117,7 @@ export class IccRecoveryXApi {
    * You can use this value with {@link recoverExchangeData}
    */
   async createExchangeDataRecoveryInfo(delegateId: string, options: { lifetimeSeconds?: number } = {}): Promise<string> {
-    const exchangeDataToDelegate = await this.baseExchangeData.getExchangeDataByDelegatorDelegatePair(
+    const exchangeDataToDelegate = await this.exchangeData.base.getExchangeDataByDelegatorDelegatePair(
       await this.dataOwnerApi.getCurrentDataOwnerId(),
       delegateId
     )
@@ -129,7 +129,7 @@ export class IccRecoveryXApi {
       rawSharedSignatureKey: ArrayBuffer
     }[] = []
     for (const exchangeData of exchangeDataToDelegate) {
-      const decryptedData = await this.baseExchangeData.tryRawDecryptExchangeData(exchangeData, decryptionKeys)
+      const decryptedData = await this.exchangeData.base.tryRawDecryptExchangeData(exchangeData, decryptionKeys)
       if (decryptedData !== undefined) {
         decryptedInformation.push({ ...decryptedData, exchangeDataId: exchangeData.id! })
       }
@@ -154,11 +154,11 @@ export class IccRecoveryXApi {
       return recoveredExchangeData.failure
     }
     for (const exchangeDataInfo of recoveredExchangeData.success) {
-      const retrievedData = await this.baseExchangeData.getExchangeDataById(exchangeDataInfo.exchangeDataId)
+      const retrievedData = await this.exchangeData.base.getExchangeDataById(exchangeDataInfo.exchangeDataId)
       if (!retrievedData) {
         console.warn(`Could not recover exchange data with id ${exchangeDataInfo.exchangeDataId} as it was not found. Ignoring`)
       } else {
-        await this.baseExchangeData.updateExchangeDataWithRawDecryptedContent(
+        await this.exchangeData.base.updateExchangeDataWithRawDecryptedContent(
           retrievedData,
           selfEncryptionKeys,
           exchangeDataInfo.rawExchangeKey,
@@ -170,6 +170,7 @@ export class IccRecoveryXApi {
     await this.baseRecoveryApi.deleteRecoveryData(await this.recoveryDataEncryption.recoveryKeyToId(recoveryKey)).catch((e) => {
       console.warn(`Could not delete recovery data with id ${recoveryKey} after successful recovery: ${e}. Ignoring.`)
     })
+    await this.exchangeData.clearOrRepopulateCache()
     return null
   }
 

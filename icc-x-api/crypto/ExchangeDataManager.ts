@@ -222,6 +222,8 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
       const sha1KeysOfDelegate = hexPublicKeysWithSha1Of(delegate.stub)
       let allVerifiedDelegateKeys: string[]
       if (!sha256KeysOfDelegate.size && !sha1KeysOfDelegate.size) {
+        if (!options.allowNoDelegateKeys)
+          throw new Error(`Could not create exchange data to ${delegateId} as no public key for the delegate was found.`)
         allVerifiedDelegateKeys = []
       } else if (this.useParentKeys && (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()).includes(delegateId)) {
         allVerifiedDelegateKeys = await this.encryptionKeys.getVerifiedPublicKeysFor(delegate.stub)
@@ -656,20 +658,25 @@ class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
       this.delegateToVerifiedEncryptionDataId.set(delegateId, newDataId)
       const createdAndCachedData = await this.idToDataCache.get(newDataId, () =>
         this.cacheJob(async () => {
-          const created = await this.createNewExchangeData(delegateId, { newDataId, allowNoDelegateKeys: allowCreationWithoutDelegateKey })
-          const hashes = await this.secureDelegationKeysForAllEntitiesNoSfkAndSpecificEntitySfksPairs(
-            created.accessControlSecret,
-            entityType,
-            entitySecretForeignKeys
-          )
-          return {
-            exchangeData: created.exchangeData,
-            decrypted: {
-              accessControlSecret: created.accessControlSecret,
-              exchangeKey: created.exchangeKey,
-              verified: true,
-            },
-            hashes,
+          try {
+            const created = await this.createNewExchangeData(delegateId, { newDataId, allowNoDelegateKeys: allowCreationWithoutDelegateKey })
+            const hashes = await this.secureDelegationKeysForAllEntitiesNoSfkAndSpecificEntitySfksPairs(
+              created.accessControlSecret,
+              entityType,
+              entitySecretForeignKeys
+            )
+            return {
+              exchangeData: created.exchangeData,
+              decrypted: {
+                accessControlSecret: created.accessControlSecret,
+                exchangeKey: created.exchangeKey,
+                verified: true,
+              },
+              hashes,
+            }
+          } catch (e) {
+            this.delegateToVerifiedEncryptionDataId.delete(delegateId)
+            throw e
           }
         })
       )

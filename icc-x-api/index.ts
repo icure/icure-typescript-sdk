@@ -815,7 +815,7 @@ async function initialiseCryptoWithProvider(
       userEncryptionKeysManager,
       dataOwnerApi,
       cryptoPrimitives,
-      baseExchangeDataManager
+      exchangeDataManager
     ),
   }
 }
