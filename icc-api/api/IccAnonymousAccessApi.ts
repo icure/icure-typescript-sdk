@@ -14,6 +14,8 @@ import { AppointmentTypeAndPlace } from '../model/AppointmentTypeAndPlace'
 import { UserAndHealthcareParty } from '../model/UserAndHealthcareParty'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
+import {PaginatedListAccessLog} from "../model/PaginatedListAccessLog"
+import {PaginatedListMedicalLocation} from "../model/PaginatedListMedicalLocation"
 
 export class IccAnonymousAccessApi {
   host: string
@@ -122,6 +124,34 @@ export class IccAnonymousAccessApi {
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new UserAndHealthcareParty(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
+   * @summary Get paginated list of Access Logs
+   * @param groupId MedicalLocations group id
+   * @param startKey The start key for pagination
+   * @param startDocumentId A patient document ID
+   * @param limit Number of rows
+   */
+  async getPublicMedicalLocationsByGroupId(
+    groupId: string,
+    startKey?: string,
+    startDocumentId?: string,
+    limit?: number,
+  ): Promise<PaginatedListMedicalLocation> {
+    const _url =
+      this.host +
+      `/aa/medicallocation/byGroup/${groupId}` +
+      '?ts=' +
+      new Date().getTime() +
+      (startKey ? '&startKey=' + encodeURIComponent(String(startKey)) : '') +
+      (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
+      (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, undefined, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListMedicalLocation(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 }
