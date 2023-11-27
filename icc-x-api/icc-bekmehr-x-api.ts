@@ -61,6 +61,19 @@ export class IccBekmehrXApi extends IccBekmehrApi {
       .replace(/\/rest\/v.+/, '/ws')
   }
 
+  private getJwtIfNewVersionOrNull(): Promise<string | null> {
+    return this.usesNewKraken.then((isNewKraken) => {
+      return isNewKraken
+        ? this.authenticationProvider
+            .getAuthService()
+            .getAuthHeaders()
+            .then((h) => {
+              return !!h && h.length > 0 && h[0].data.includes('Bearer') ? h[0].data.replace('Bearer ', '') : null
+            })
+        : null
+    })
+  }
+
   socketEventListener(
     socket: WebSocket,
     healthcarePartyId: string,
@@ -176,33 +189,30 @@ export class IccBekmehrXApi extends IccBekmehrApi {
     sessionId?: string,
     patchers: Patcher[] = []
   ): Promise<Blob | undefined> {
-    return this.usesNewKraken
-      .then((isNewKraken) => {
-        return isNewKraken ? this.authenticationProvider.getAuthService().getAuthHeaders() : null
-      })
-      .then((authHeaders) => {
-        return (!sessionId && !authHeaders ? this.authApi.token('GET', '/ws/be_kmehr/generateSmf') : Promise.resolve('')).then(
-          (token) =>
-            new Promise<Blob | undefined>((resolve, reject) => {
-              const socket = new WebSocket(
-                token.length
-                  ? `${this.wssHost}/be_kmehr/generateSmf;tokenid=${token}`
-                  : `${this.wssHost}/be_kmehr/generateSmf;sessionid=${sessionId ?? ''}`,
-                !!authHeaders && authHeaders.length > 0 ? [authHeaders[0].data.replace(' ', '')] : []
+    return this.getJwtIfNewVersionOrNull().then((jwt) => {
+      return (!sessionId && !jwt ? this.authApi.token('GET', '/ws/be_kmehr/generateSmf') : Promise.resolve('')).then(
+        (token) =>
+          new Promise<Blob | undefined>((resolve, reject) => {
+            const socket = new WebSocket(
+              token.length
+                ? `${this.wssHost}/be_kmehr/generateSmf;tokenid=${token}`
+                : !!jwt
+                ? `${this.wssHost}/be_kmehr/generateSmf;jwt=${jwt}`
+                : `${this.wssHost}/be_kmehr/generateSmf;sessionid=${sessionId ?? ''}`
+            )
+            socket.addEventListener('open', function () {
+              socket.send(
+                JSON.stringify({
+                  parameters: { patientId: patientId, language: language, info: body },
+                })
               )
-              socket.addEventListener('open', function () {
-                socket.send(
-                  JSON.stringify({
-                    parameters: { patientId: patientId, language: language, info: body },
-                  })
-                )
-              })
-
-              // Listen for messages
-              socket.addEventListener('message', this.socketEventListener(socket, healthcarePartyId, resolve, reject, patchers, progressCallback))
             })
-        )
-      })
+
+            // Listen for messages
+            socket.addEventListener('message', this.socketEventListener(socket, healthcarePartyId, resolve, reject, patchers, progressCallback))
+          })
+      )
+    })
   }
 
   generateSumehrExportWithEncryptionSupport(
@@ -213,32 +223,29 @@ export class IccBekmehrXApi extends IccBekmehrApi {
     sessionId?: string,
     patchers: Patcher[] = []
   ): Promise<Blob | undefined> {
-    return this.usesNewKraken
-      .then((isNewKraken) => {
-        return isNewKraken ? this.authenticationProvider.getAuthService().getAuthHeaders() : null
-      })
-      .then((authHeaders) => {
-        return (!sessionId && !authHeaders ? this.authApi.token('GET', '/ws/be_kmehr/generateSumehr') : Promise.resolve('')).then(
-          (token) =>
-            new Promise<Blob | undefined>((resolve, reject) => {
-              const socket = new WebSocket(
-                token.length
-                  ? `${this.wssHost}/be_kmehr/generateSumehr;tokenid=${token}`
-                  : `${this.wssHost}/be_kmehr/generateSumehr;sessionid=${sessionId ?? ''}`,
-                !!authHeaders && authHeaders.length > 0 ? [authHeaders[0].data.replace(' ', '')] : []
+    return this.getJwtIfNewVersionOrNull().then((jwt) => {
+      return (!sessionId && !jwt ? this.authApi.token('GET', '/ws/be_kmehr/generateSumehr') : Promise.resolve('')).then(
+        (token) =>
+          new Promise<Blob | undefined>((resolve, reject) => {
+            const socket = new WebSocket(
+              token.length
+                ? `${this.wssHost}/be_kmehr/generateSumehr;tokenid=${token}`
+                : !!jwt
+                ? `${this.wssHost}/be_kmehr/generateSumehr;jwt=${jwt}`
+                : `${this.wssHost}/be_kmehr/generateSumehr;sessionid=${sessionId ?? ''}`
+            )
+            socket.addEventListener('open', function () {
+              socket.send(
+                JSON.stringify({
+                  parameters: { patientId: patientId, language: language, info: body },
+                })
               )
-              socket.addEventListener('open', function () {
-                socket.send(
-                  JSON.stringify({
-                    parameters: { patientId: patientId, language: language, info: body },
-                  })
-                )
-              })
-              // Listen for messages
-              socket.addEventListener('message', this.socketEventListener(socket, healthcarePartyId, resolve, reject, patchers))
             })
-        )
-      })
+            // Listen for messages
+            socket.addEventListener('message', this.socketEventListener(socket, healthcarePartyId, resolve, reject, patchers))
+          })
+      )
+    })
   }
 
   generateSumehrV2ExportWithEncryptionSupport(
@@ -249,32 +256,29 @@ export class IccBekmehrXApi extends IccBekmehrApi {
     sessionId?: string,
     patchers: Patcher[] = []
   ): Promise<Blob | undefined> {
-    return this.usesNewKraken
-      .then((isNewKraken) => {
-        return isNewKraken ? this.authenticationProvider.getAuthService().getAuthHeaders() : null
-      })
-      .then((authHeaders) => {
-        return (!sessionId && !authHeaders ? this.authApi.token('GET', '/ws/be_kmehr/generateSumehrV2') : Promise.resolve('')).then(
-          (token) =>
-            new Promise<Blob | undefined>((resolve, reject) => {
-              const socket = new WebSocket(
-                token.length
-                  ? `${this.wssHost}/be_kmehr/generateSumehrV2;tokenid=${token}`
-                  : `${this.wssHost}/be_kmehr/generateSumehrV2;sessionid=${sessionId ?? ''}`,
-                !!authHeaders && authHeaders.length > 0 ? [authHeaders[0].data.replace(' ', '')] : []
+    return this.getJwtIfNewVersionOrNull().then((jwt) => {
+      return (!sessionId && !jwt ? this.authApi.token('GET', '/ws/be_kmehr/generateSumehrV2') : Promise.resolve('')).then(
+        (token) =>
+          new Promise<Blob | undefined>((resolve, reject) => {
+            const socket = new WebSocket(
+              token.length
+                ? `${this.wssHost}/be_kmehr/generateSumehrV2;tokenid=${token}`
+                : !!jwt
+                ? `${this.wssHost}/be_kmehr/generateSumehrV2;jwt=${jwt}`
+                : `${this.wssHost}/be_kmehr/generateSumehrV2;sessionid=${sessionId ?? ''}`
+            )
+            socket.addEventListener('open', function () {
+              socket.send(
+                JSON.stringify({
+                  parameters: { patientId: patientId, language: language, info: body },
+                })
               )
-              socket.addEventListener('open', function () {
-                socket.send(
-                  JSON.stringify({
-                    parameters: { patientId: patientId, language: language, info: body },
-                  })
-                )
-              })
-              // Listen for messages
-              socket.addEventListener('message', this.socketEventListener(socket, healthcarePartyId, resolve, reject, patchers))
             })
-        )
-      })
+            // Listen for messages
+            socket.addEventListener('message', this.socketEventListener(socket, healthcarePartyId, resolve, reject, patchers))
+          })
+      )
+    })
   }
 
   generateDiaryNoteExportWithEncryptionSupport(
@@ -285,33 +289,29 @@ export class IccBekmehrXApi extends IccBekmehrApi {
     sessionId?: string,
     patchers: Patcher[] = []
   ): Promise<Blob | undefined> {
-    return this.usesNewKraken
-      .then((isNewKraken) => {
-        console.log(isNewKraken)
-        return isNewKraken ? this.authenticationProvider.getAuthService().getAuthHeaders() : null
-      })
-      .then((authHeaders) => {
-        return (!sessionId && !authHeaders ? this.authApi.token('GET', '/ws/be_kmehr/generateDiaryNote') : Promise.resolve('')).then(
-          (token) =>
-            new Promise<Blob | undefined>((resolve, reject) => {
-              const socket = new WebSocket(
-                token.length
-                  ? `${this.wssHost}/be_kmehr/generateDiaryNote;tokenid=${token}`
-                  : `${this.wssHost}/be_kmehr/generateDiaryNote;sessionid=${sessionId ?? ''}`,
-                !!authHeaders && authHeaders.length > 0 ? [authHeaders[0].data.replace(' ', '')] : []
+    return this.getJwtIfNewVersionOrNull().then((jwt) => {
+      return (!sessionId && !jwt ? this.authApi.token('GET', '/ws/be_kmehr/generateDiaryNote') : Promise.resolve('')).then(
+        (token) =>
+          new Promise<Blob | undefined>((resolve, reject) => {
+            const socket = new WebSocket(
+              token.length
+                ? `${this.wssHost}/be_kmehr/generateDiaryNote;tokenid=${token}`
+                : !!jwt
+                ? `${this.wssHost}/be_kmehr/generateDiaryNote;jwt=${jwt}`
+                : `${this.wssHost}/be_kmehr/generateDiaryNote;sessionid=${sessionId ?? ''}`
+            )
+            socket.addEventListener('open', function () {
+              socket.send(
+                JSON.stringify({
+                  parameters: { patientId: patientId, language: language, info: body },
+                })
               )
-              socket.addEventListener('open', function () {
-                socket.send(
-                  JSON.stringify({
-                    parameters: { patientId: patientId, language: language, info: body },
-                  })
-                )
-              })
-              // Listen for messages
-              socket.addEventListener('message', this.socketEventListener(socket, healthcarePartyId, resolve, reject, patchers))
             })
-        )
-      })
+            // Listen for messages
+            socket.addEventListener('message', this.socketEventListener(socket, healthcarePartyId, resolve, reject, patchers))
+          })
+      )
+    })
   }
 
   generateMedicationSchemeWithEncryptionSupport(
@@ -324,37 +324,34 @@ export class IccBekmehrXApi extends IccBekmehrApi {
     sessionId?: string,
     patchers: Patcher[] = []
   ): Promise<Blob | undefined> {
-    return this.usesNewKraken
-      .then((isNewKraken) => {
-        return isNewKraken ? this.authenticationProvider.getAuthService().getAuthHeaders() : null
-      })
-      .then((authHeaders) => {
-        return (!sessionId && !authHeaders ? this.authApi.token('GET', '/ws/be_kmehr/generateMedicationScheme') : Promise.resolve('')).then(
-          (token) =>
-            new Promise<Blob | undefined>((resolve, reject) => {
-              const socket = new WebSocket(
-                token.length
-                  ? `${this.wssHost}/be_kmehr/generateMedicationScheme;tokenid=${token}`
-                  : `${this.wssHost}/be_kmehr/generateMedicationScheme;sessionid=${sessionId ?? ''}`,
-                !!authHeaders && authHeaders.length > 0 ? [authHeaders[0].data.replace(' ', '')] : []
+    return this.getJwtIfNewVersionOrNull().then((jwt) => {
+      return (!sessionId && !jwt ? this.authApi.token('GET', '/ws/be_kmehr/generateMedicationScheme') : Promise.resolve('')).then(
+        (token) =>
+          new Promise<Blob | undefined>((resolve, reject) => {
+            const socket = new WebSocket(
+              token.length
+                ? `${this.wssHost}/be_kmehr/generateMedicationScheme;tokenid=${token}`
+                : !!jwt
+                ? `${this.wssHost}/be_kmehr/generateMedicationScheme;jwt=${jwt}`
+                : `${this.wssHost}/be_kmehr/generateMedicationScheme;sessionid=${sessionId ?? ''}`
+            )
+            socket.addEventListener('open', function () {
+              socket.send(
+                JSON.stringify({
+                  parameters: {
+                    patientId: patientId,
+                    language: language,
+                    recipientSafe: recipientSafe,
+                    version: version,
+                    info: body,
+                  },
+                })
               )
-              socket.addEventListener('open', function () {
-                socket.send(
-                  JSON.stringify({
-                    parameters: {
-                      patientId: patientId,
-                      language: language,
-                      recipientSafe: recipientSafe,
-                      version: version,
-                      info: body,
-                    },
-                  })
-                )
-              })
-              // Listen for messages
-              socket.addEventListener('message', this.socketEventListener(socket, healthcarePartyId, resolve, reject, patchers))
             })
-        )
-      })
+            // Listen for messages
+            socket.addEventListener('message', this.socketEventListener(socket, healthcarePartyId, resolve, reject, patchers))
+          })
+      )
+    })
   }
 }
