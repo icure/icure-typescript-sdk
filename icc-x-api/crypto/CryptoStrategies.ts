@@ -2,6 +2,7 @@ import { KeyPair } from './RSA'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
 import { DataOwnerWithType } from '../../icc-api/model/DataOwnerWithType'
+import { KeyPairRecoverer } from './KeyPairRecoverer'
 
 /**
  * Allows to customise the behaviour of the crypto api to better suit your needs.
@@ -37,6 +38,7 @@ export interface CryptoStrategies {
    *   value won't be cached (will be again part of `unknownKeys` in future instances.
    * @param keysData all information on unknown and unavailable keys for each data owner part of the current data owner hierarchy.
    * @param cryptoPrimitives cryptographic primitives you can use to support the process.
+   * @param keyPairRecoverer a key pair recoverer.
    * @return all recovered keys and key authenticity information, by data owner.
    */
   recoverAndVerifySelfHierarchyKeys(
@@ -45,7 +47,8 @@ export interface CryptoStrategies {
       unknownKeys: string[]
       unavailableKeys: string[]
     }[],
-    cryptoPrimitives: CryptoPrimitives
+    cryptoPrimitives: CryptoPrimitives,
+    keyPairRecoverer: KeyPairRecoverer
   ): Promise<{
     [dataOwnerId: string]: {
       recoveredKeys: { [keyPairFingerprint: string]: KeyPair<CryptoKey> }

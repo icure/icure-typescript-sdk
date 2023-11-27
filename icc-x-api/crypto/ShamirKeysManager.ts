@@ -65,7 +65,7 @@ export class ShamirKeysManager {
     const delegatesKeys: { [delegateId: string]: CryptoKey } = {}
     let updatedSelf = self
     for (const delegateId of new Set(Object.values(keySplitsToUpdate).flatMap((x) => x.notariesIds))) {
-      const res = await this.exchangeDataManager.getOrCreateEncryptionDataTo(delegateId, undefined, undefined)
+      const res = await this.exchangeDataManager.getOrCreateEncryptionDataTo(delegateId, undefined, undefined, false)
       delegatesKeys[delegateId] = res.exchangeKey
     }
     for (const [key, params] of Object.entries(keySplitsToUpdate)) {

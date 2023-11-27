@@ -95,6 +95,10 @@ import { DataOwnerTypeEnum } from '../icc-api/model/DataOwnerTypeEnum'
 import { DelegationsDeAnonymization } from './crypto/DelegationsDeAnonymization'
 import { JwtBridgedAuthService } from './auth/JwtBridgedAuthService'
 import { AuthSecretProvider, SmartAuthProvider } from './auth/SmartAuthProvider'
+import { KeyPairRecoverer } from './crypto/KeyPairRecoverer'
+import { IccRecoveryDataApi } from '../icc-api/api/internal/IccRecoveryDataApi'
+import { RecoveryDataEncryption } from './crypto/RecoveryDataEncryption'
+import { IccRecoveryXApi } from './icc-recovery-x-api'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -183,6 +187,7 @@ export interface Apis extends BasicApis {
   readonly tmpApi: IccTmpApi
   readonly topicApi: IccTopicXApi
   readonly roleApi: IccRoleApi
+  readonly recoveryApi: IccRecoveryXApi
 }
 
 /**
@@ -624,6 +629,7 @@ type CryptoInitialisationInfo = {
   maintenanceTaskApi: IccMaintenanceTaskXApi
   headers: { [headerName: string]: string }
   dataOwnerRequiresAnonymousDelegation: boolean
+  recoveryApi: IccRecoveryXApi
 }
 
 const REQUEST_AUTOFIX_ANONYMITY_HEADER = 'Icure-Request-Autofix-Anonymity'
@@ -663,19 +669,23 @@ async function initialiseCryptoWithProvider(
   const basePatientApi = new IccPatientApi(host, updatedHeaders, groupSpecificAuthenticationProvider, fetchImpl)
   const dataOwnerApi = new IccDataOwnerXApi(host, updatedHeaders, groupSpecificAuthenticationProvider, fetchImpl)
   const exchangeDataApi = new IccExchangeDataApi(host, updatedHeaders, groupSpecificAuthenticationProvider, fetchImpl)
+  const baseRecoveryDataApi = new IccRecoveryDataApi(host, updatedHeaders, groupSpecificAuthenticationProvider, fetchImpl)
   // Crypto initialisation
   const icureStorage = new IcureStorageFacade(params.keyStorage, params.storage, params.entryKeysFactory)
   const cryptoPrimitives = new CryptoPrimitives(crypto)
   const baseExchangeKeysManager = new BaseExchangeKeysManager(cryptoPrimitives, dataOwnerApi, healthcarePartyApi, basePatientApi, deviceApi)
   const baseExchangeDataManager = new BaseExchangeDataManager(exchangeDataApi, dataOwnerApi, cryptoPrimitives, dataOwnerRequiresAnonymousDelegation)
   const keyRecovery = new KeyRecovery(cryptoPrimitives, dataOwnerApi, baseExchangeKeysManager, baseExchangeDataManager)
+  const recoveryDataEncryption = new RecoveryDataEncryption(cryptoPrimitives, baseRecoveryDataApi)
+  const keyPairRecoverer = new KeyPairRecoverer(recoveryDataEncryption)
   const userEncryptionKeysManager = new UserEncryptionKeysManager(
     cryptoPrimitives,
     dataOwnerApi,
     icureStorage,
     keyRecovery,
     cryptoStrategies,
-    !params.disableParentKeysInitialisation
+    !params.disableParentKeysInitialisation,
+    keyPairRecoverer
   )
   const userSignatureKeysManager = new UserSignatureKeysManager(icureStorage, dataOwnerApi, cryptoPrimitives)
   const newKey = await userEncryptionKeysManager.initialiseKeys()
@@ -799,6 +809,14 @@ async function initialiseCryptoWithProvider(
     icureMaintenanceTaskApi,
     headers: updatedHeaders,
     dataOwnerRequiresAnonymousDelegation,
+    recoveryApi: new IccRecoveryXApi(
+      baseRecoveryDataApi,
+      recoveryDataEncryption,
+      userEncryptionKeysManager,
+      dataOwnerApi,
+      cryptoPrimitives,
+      exchangeDataManager
+    ),
   }
 }
 
@@ -820,6 +838,10 @@ class IcureApiImpl implements IcureApi {
   }
 
   private _authApi: IccAuthApi | undefined
+
+  get recoveryApi(): IccRecoveryXApi {
+    return this.cryptoInitInfos.recoveryApi
+  }
 
   get authApi(): IccAuthApi {
     return (

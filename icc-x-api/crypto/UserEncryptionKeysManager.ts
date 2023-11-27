@@ -9,6 +9,7 @@ import { CryptoStrategies } from './CryptoStrategies'
 import { DataOwnerWithType } from '../../icc-api/model/DataOwnerWithType'
 import { CryptoActorStub, CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
 import { BaseExchangeKeysManager } from './BaseExchangeKeysManager'
+import { KeyPairRecoverer } from './KeyPairRecoverer'
 
 type KeyPairData = { pair: KeyPair<CryptoKey>; isVerified: boolean; isDevice: boolean }
 type KeyRecovererAndVerifier = (
@@ -51,7 +52,8 @@ export class UserEncryptionKeysManager {
     private readonly icureStorage: IcureStorageFacade,
     private readonly keyRecovery: KeyRecovery,
     private readonly strategies: CryptoStrategies,
-    private readonly initialiseParentKeys: boolean
+    private readonly initialiseParentKeys: boolean,
+    private readonly keypairRecoverer: KeyPairRecoverer
   ) {}
 
   /**
@@ -69,7 +71,7 @@ export class UserEncryptionKeysManager {
     }
     parents: {
       dataOwnerId: string
-      keys: { pair: KeyPair<CryptoKey> }[]
+      keys: { pair: KeyPair<CryptoKey>; verified: boolean }[]
     }[]
   }> {
     this.ensureInitialised()
@@ -84,7 +86,7 @@ export class UserEncryptionKeysManager {
       },
       parents: remainingHierarchy.map((x) => ({
         dataOwnerId: x,
-        keys: Object.values(this.keysCache![x]).map(({ pair }) => ({ pair })),
+        keys: Object.values(this.keysCache![x]).map(({ pair, isVerified, isDevice }) => ({ pair, verified: isVerified || isDevice })),
       })),
     }
   }
@@ -142,7 +144,7 @@ export class UserEncryptionKeysManager {
    */
   async initialiseKeys(): Promise<{ newKeyPair: KeyPair<CryptoKey>; newKeyFingerprint: string } | undefined> {
     const newKey = await this.doLoadKeys(
-      (x) => this.strategies.recoverAndVerifySelfHierarchyKeys(x, this.primitives),
+      (x) => this.strategies.recoverAndVerifySelfHierarchyKeys(x, this.primitives, this.keypairRecoverer),
       (x) => this.strategies.generateNewKeyForDataOwner(x, this.primitives)
     )
     return newKey ? { newKeyPair: newKey.pair, newKeyFingerprint: newKey.fingerprint } : undefined
