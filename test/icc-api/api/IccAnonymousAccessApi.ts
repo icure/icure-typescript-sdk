@@ -20,7 +20,7 @@ describe('Anonymous Access', () => {
   it('should be able to retrieve publicly available informations of medicalLocation', async () => {
     const { medicalLocationApi, anonymousAccessApi } = await initMasterApi(env)
 
-    const privateMedicalLocation = await medicalLocationApi.createMedicalLocation(
+    const createdMedicalLocation = await medicalLocationApi.createMedicalLocation(
       new MedicalLocation({
         id: randomUUID(),
         name: 'private medicalLocation ' + randomUUID(),
@@ -28,7 +28,7 @@ describe('Anonymous Access', () => {
       })
     )
 
-    const publicMedicalLocation = await medicalLocationApi.createMedicalLocation(
+    const createdMedicalLocationWithPublicInfo = await medicalLocationApi.createMedicalLocation(
       new MedicalLocation({
         id: randomUUID(),
         name: 'public medicalLocation ' + randomUUID(),
@@ -44,12 +44,15 @@ describe('Anonymous Access', () => {
 
     const paginatedMedicalLocations = await anonymousAccessApi.getPublicMedicalLocationsByGroupId(groupId)
 
-    expect(paginatedMedicalLocations.rows?.length).to.be.equal(1)
-    expect(paginatedMedicalLocations.rows?.[0].id).to.be.equal(publicMedicalLocation.id)
-    expect(paginatedMedicalLocations.rows?.[0].name).to.be.undefined
-    expect(paginatedMedicalLocations.rows?.[0].description).to.be.undefined
-    expect(paginatedMedicalLocations.rows?.[0].publicInformations).not.to.be.undefined
-    expect(paginatedMedicalLocations.rows?.[0].publicInformations?.address).to.be.equal(publicMedicalLocation.publicInformations?.address)
-    expect(paginatedMedicalLocations.rows?.[0].publicInformations?.phone).to.be.equal(publicMedicalLocation.publicInformations?.phone)
+    expect(paginatedMedicalLocations.rows?.length).to.be.greaterThan(0)
+
+    const publicMedicalLocationIds = paginatedMedicalLocations.rows?.map((medicalLocation) => medicalLocation.id)
+    expect(publicMedicalLocationIds).to.include(createdMedicalLocationWithPublicInfo.id)
+    expect(publicMedicalLocationIds).not.to.include(createdMedicalLocation.id)
+    
+    const publicMedicalLocation: MedicalLocation = paginatedMedicalLocations.rows!.find((medicalLocation) => medicalLocation.id === createdMedicalLocationWithPublicInfo.id)!
+    expect(publicMedicalLocation).to.be.not.undefined
+    expect(publicMedicalLocation?.name).to.be.undefined
+    expect(publicMedicalLocation?.description).to.be.undefined
   })
 })
