@@ -399,9 +399,11 @@ class FullyCachedExchangeDataManager extends AbstractExchangeDataManager {
         exchangeKey: cached.decrypted.exchangeKey,
       }
     }
+    // TODO this could technically allow for 2 concurrent exchange data creations, needs fix
     const created = await this.createNewExchangeData(delegateId, { allowNoDelegateKeys: allowCreationWithoutDelegateKey })
     this.cacheData(
       created.exchangeData,
+      true,
       { accessControlSecret: created.accessControlSecret, exchangeKey: created.exchangeKey, verified: true },
       entityType,
       entitySecretForeignKeys
@@ -427,13 +429,14 @@ class FullyCachedExchangeDataManager extends AbstractExchangeDataManager {
       const data = await this.base.getExchangeDataById(id)
       if (!data) throw new Error(`Could not find exchange data with id ${id}`)
       const decrypted = await this.decryptData(data)
-      this.cacheData(data, decrypted, entityType, entitySecretForeignKeys)
+      this.cacheData(data, false, decrypted, entityType, entitySecretForeignKeys)
       return { exchangeData: data, exchangeKey: decrypted?.exchangeKey, accessControlSecret: decrypted?.accessControlSecret }
     } else return undefined
   }
 
   private cacheData(
     exchangeData: ExchangeData,
+    isNewData: boolean,
     decrypted: { accessControlSecret: string; exchangeKey: CryptoKey; verified: boolean } | undefined,
     entityType?: EntityWithDelegationTypeName,
     entitySecretForeignKeys?: string[]
@@ -453,6 +456,7 @@ class FullyCachedExchangeDataManager extends AbstractExchangeDataManager {
           caches.delegateToVerifiedEncryptionDataId[exchangeData.delegate] = exchangeData.id!
         }
       }
+      if (isNewData) caches.entityTypeToAccessControlKeysValue = {}
       return caches
     })
   }
