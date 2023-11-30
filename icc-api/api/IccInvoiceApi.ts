@@ -24,6 +24,7 @@ import { iccRestApiPath } from './IccRestApiPath'
 import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { MinimalEntityBulkShareResult } from '../model/requests/MinimalEntityBulkShareResult'
+import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
 
 export class IccInvoiceApi {
   host: string
@@ -727,9 +728,7 @@ export class IccInvoiceApi {
   /**
    * @internal this method is for internal use only and may be changed without notice
    */
-  async bulkShareInvoices(request: {
-    [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
-  }): Promise<EntityBulkShareResult<Invoice>[]> {
+  async bulkShareInvoices(request: BulkShareOrUpdateMetadataParams): Promise<EntityBulkShareResult<Invoice>[]> {
     const _url = this.host + '/invoice/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
@@ -741,9 +740,7 @@ export class IccInvoiceApi {
   /**
    * @internal this method is for internal use only and may be changed without notice
    */
-  async bulkShareInvoicesMinimal(request: {
-    [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
-  }): Promise<MinimalEntityBulkShareResult[]> {
+  async bulkShareInvoicesMinimal(request: BulkShareOrUpdateMetadataParams): Promise<MinimalEntityBulkShareResult[]> {
     const _url = this.host + '/invoice/bulkSharedMetadataUpdateMinimal' + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))

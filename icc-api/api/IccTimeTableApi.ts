@@ -17,6 +17,7 @@ import { iccRestApiPath } from './IccRestApiPath'
 import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { ListOfIds } from '../model/ListOfIds'
+import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
 
 export class IccTimeTableApi {
   host: string
@@ -181,9 +182,7 @@ export class IccTimeTableApi {
   /**
    * @internal this method is for internal use only and may be changed without notice
    */
-  async bulkShareTimeTable(request: {
-    [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
-  }): Promise<EntityBulkShareResult<TimeTable>[]> {
+  async bulkShareTimeTable(request: BulkShareOrUpdateMetadataParams): Promise<EntityBulkShareResult<TimeTable>[]> {
     const _url = this.host + '/timeTable/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))

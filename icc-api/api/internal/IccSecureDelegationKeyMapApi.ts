@@ -5,6 +5,7 @@ import { AuthenticationProvider, NoAuthenticationProvider } from '../../../icc-x
 import { iccRestApiPath } from '../IccRestApiPath'
 import { SecureDelegationKeyMap } from '../../model/internal/SecureDelegationKeyMap'
 import { ListOfIds } from '../../model/ListOfIds'
+import { BulkShareOrUpdateMetadataParams } from '../../model/requests/BulkShareOrUpdateMetadataParams'
 
 /**
  * @internal this class is for internal use only and may be changed without notice.
@@ -62,9 +63,7 @@ export class IccSecureDelegationKeyMapApi {
   }
 
   async bulkShareSecureDelegationKeyMap(
-    request: {
-      [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
-    },
+    request: BulkShareOrUpdateMetadataParams,
     proofOfAccessHeaders: XHR.Header[]
   ): Promise<EntityBulkShareResult<SecureDelegationKeyMap>[]> {
     const _url = this.host + '/securedelegationkeymap/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()

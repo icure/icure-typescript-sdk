@@ -25,6 +25,7 @@ import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-ap
 import { iccRestApiPath } from './IccRestApiPath'
 import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
+import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
 
 export class IccPatientApi {
   host: string
@@ -859,9 +860,7 @@ export class IccPatientApi {
   /**
    * @internal this method is for internal use only and may be changed without notice
    */
-  async bulkSharePatients(request: {
-    [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
-  }): Promise<EntityBulkShareResult<Patient>[]> {
+  async bulkSharePatients(request: BulkShareOrUpdateMetadataParams): Promise<EntityBulkShareResult<Patient>[]> {
     const _url = this.host + '/patient/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))

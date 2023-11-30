@@ -18,6 +18,7 @@ import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-ap
 import { iccRestApiPath } from './IccRestApiPath'
 import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
+import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
 
 export class IccDocumentApi {
   host: string
@@ -476,9 +477,7 @@ export class IccDocumentApi {
   /**
    * @internal this method is for internal use only and may be changed without notice
    */
-  async bulkShareDocument(request: {
-    [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
-  }): Promise<EntityBulkShareResult<Document>[]> {
+  async bulkShareDocument(request: BulkShareOrUpdateMetadataParams): Promise<EntityBulkShareResult<Document>[]> {
     const _url = this.host + '/document/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))

@@ -19,6 +19,7 @@ import { iccRestApiPath } from './IccRestApiPath'
 import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { ListOfIds } from '../model/ListOfIds'
+import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
 
 export class IccMaintenanceTaskApi {
   host: string
@@ -165,9 +166,7 @@ export class IccMaintenanceTaskApi {
   /**
    * @internal this method is for internal use only and may be changed without notice
    */
-  async bulkShareMaintenanceTask(request: {
-    [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
-  }): Promise<EntityBulkShareResult<MaintenanceTask>[]> {
+  async bulkShareMaintenanceTask(request: BulkShareOrUpdateMetadataParams): Promise<EntityBulkShareResult<MaintenanceTask>[]> {
     const _url = this.host + '/maintenancetask/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))

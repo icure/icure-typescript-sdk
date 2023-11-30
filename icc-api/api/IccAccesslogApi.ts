@@ -18,6 +18,7 @@ import { iccRestApiPath } from './IccRestApiPath'
 import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { ListOfIds } from '../model/ListOfIds'
+import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
 
 export class IccAccesslogApi {
   host: string
@@ -290,9 +291,7 @@ export class IccAccesslogApi {
   /**
    * @internal this method is for internal use only and may be changed without notice
    */
-  async bulkShareAccessLogs(request: {
-    [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
-  }): Promise<EntityBulkShareResult<AccessLog>[]> {
+  async bulkShareAccessLogs(request: BulkShareOrUpdateMetadataParams): Promise<EntityBulkShareResult<AccessLog>[]> {
     const _url = this.host + '/accesslog/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))

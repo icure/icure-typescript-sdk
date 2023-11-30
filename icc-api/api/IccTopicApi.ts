@@ -20,6 +20,7 @@ import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { FilterChainTopic } from '../model/FilterChainTopic'
 import { PaginatedListTopic } from '../model/PaginatedListTopic'
 import { AbstractFilterTopic } from '../model/AbstractFilterTopic'
+import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
 
 export class IccTopicApi {
   host: string
@@ -138,9 +139,7 @@ export class IccTopicApi {
   /**
    * @internal this method is for internal use only and may be changed without notice
    */
-  async bulkShareTopics(request: {
-    [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
-  }): Promise<EntityBulkShareResult<Topic>[]> {
+  async bulkShareTopics(request: BulkShareOrUpdateMetadataParams): Promise<EntityBulkShareResult<Topic>[]> {
     const _url = this.host + '/topic/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))

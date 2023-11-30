@@ -20,6 +20,7 @@ import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShar
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { MinimalEntityBulkShareResult } from '../model/requests/MinimalEntityBulkShareResult'
 import { ListOfIds } from '../model/ListOfIds'
+import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
 
 export class IccClassificationApi {
   host: string
@@ -213,9 +214,7 @@ export class IccClassificationApi {
   /**
    * @internal this method is for internal use only and may be changed without notice
    */
-  async bulkShareClassifications(request: {
-    [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
-  }): Promise<EntityBulkShareResult<Classification>[]> {
+  async bulkShareClassifications(request: BulkShareOrUpdateMetadataParams): Promise<EntityBulkShareResult<Classification>[]> {
     const _url = this.host + '/classification/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
@@ -227,9 +226,7 @@ export class IccClassificationApi {
   /**
    * @internal this method is for internal use only and may be changed without notice
    */
-  async bulkShareClassificationsMinimal(request: {
-    [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
-  }): Promise<MinimalEntityBulkShareResult[]> {
+  async bulkShareClassificationsMinimal(request: BulkShareOrUpdateMetadataParams): Promise<MinimalEntityBulkShareResult[]> {
     const _url = this.host + '/classification/bulkSharedMetadataUpdateMinimal' + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))

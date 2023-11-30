@@ -21,6 +21,7 @@ import AccessLevel = SecureDelegation.AccessLevelEnum
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import RequestedPermissionInternal = EntityShareRequest.RequestedPermissionInternal
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
+import { BulkShareOrUpdateMetadataParams, EntityRequestInformation } from '../../icc-api/model/requests/BulkShareOrUpdateMetadataParams'
 
 /**
  * @internal this class is for internal use only and may be changed without notice.
@@ -127,9 +128,7 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
         }
       }
     }[],
-    doRequestBulkShareOrUpdate: (request: {
-      [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
-    }) => Promise<EntityBulkShareResult<T>[]>
+    doRequestBulkShareOrUpdate: (request: BulkShareOrUpdateMetadataParams) => Promise<EntityBulkShareResult<T>[]>
   ): Promise<{
     updatedEntities: T[]
     unmodifiedEntitiesIds: string[]
@@ -151,7 +150,7 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
       entitiesType,
       entitiesUpdates
     )
-    const results = await doRequestBulkShareOrUpdate(allRequestsByEntityId)
+    const results = await doRequestBulkShareOrUpdate({ requestsByEntityId: allRequestsByEntityId })
     const updatedEntities: T[] = []
     const updateErrors: {
       entityId: string
@@ -204,9 +203,7 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
         }
       }
     }[],
-    doRequestBulkShareOrUpdate: (request: {
-      [p: string]: { [p: string]: EntityShareOrMetadataUpdateRequest }
-    }) => Promise<MinimalEntityBulkShareResult[]>
+    doRequestBulkShareOrUpdate: (request: BulkShareOrUpdateMetadataParams) => Promise<MinimalEntityBulkShareResult[]>
   ): Promise<{
     unmodifiedEntitiesIds: string[]
     successfulUpdates: { entityId: string; delegateId: string }[]
@@ -228,7 +225,7 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
       entitiesType,
       entitiesUpdates
     )
-    const results = await doRequestBulkShareOrUpdate(allRequestsByEntityId)
+    const results = await doRequestBulkShareOrUpdate({ requestsByEntityId: allRequestsByEntityId })
     const updateErrors: {
       entityId: string
       delegateId: string
@@ -281,7 +278,7 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     }[]
   ): Promise<{
     unmodifiedEntitiesIds: string[]
-    allRequestsByEntityId: { [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest } }
+    allRequestsByEntityId: { [entityId: string]: EntityRequestInformation }
     orderedRequestsInfoByEntityId: {
       [entityId: string]: {
         delegateId: string
@@ -298,7 +295,7 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     if (new Set(entitiesUpdates.map((e) => e.entity.id)).size !== entitiesUpdates.length) {
       throw new Error('Duplicate requests: the same entity id is present more than once in the input')
     }
-    const allRequestsByEntityId = {} as { [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest } }
+    const allRequestsByEntityId = {} as { [entityId: string]: EntityRequestInformation }
     const orderedRequestsInfoByEntityId: {
       [entityId: string]: {
         delegateId: string
@@ -357,7 +354,16 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
         }
       }
       if (Object.keys(currentRequests).length > 0) {
-        allRequestsByEntityId[entityId] = currentRequests
+        const existingDelegationMembersDetails = await this.secDelMetadataDecryptor.getDelegationMemberDetails(entityWithType)
+        const accessibleMembers = new Set(
+          this.useParentKeys ? await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds() : await this.dataOwnerApi.getCurrentDataOwnerId()
+        )
+        const potentialParentDelegations = Object.entries(existingDelegationMembersDetails).flatMap(([k, members]) => {
+          if ((!!members.delegate && accessibleMembers.has(members.delegate)) || (!!members.delegator && accessibleMembers.has(members.delegator))) {
+            return [k]
+          } else return []
+        })
+        allRequestsByEntityId[entityId] = { requests: currentRequests, potentialParentDelegations }
         orderedRequestsInfoByEntityId[entityId] = currentOrderedRequests
       } else {
         unmodifiedEntitiesIds.push(entityId)
@@ -377,7 +383,7 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
         requestedPermissions: RequestedPermissionEnum | undefined
       }
     },
-    doRequestBulkShareOrUpdate: (request: { [p: string]: { [p: string]: EntityShareOrMetadataUpdateRequest } }) => Promise<EntityBulkShareResult<T>[]>
+    doRequestBulkShareOrUpdate: (request: BulkShareOrUpdateMetadataParams) => Promise<EntityBulkShareResult<T>[]>
   ): Promise<ShareResult<T>> {
     const availableEncryptionKeys = await this.encryptionKeysOf(entity)
     const availableOwningEntityIds = await this.owningEntityIdsOf(entity)

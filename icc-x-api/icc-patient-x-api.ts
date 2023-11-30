@@ -31,6 +31,7 @@ import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 import { IccUserXApi } from './icc-user-x-api'
 import { AbstractFilter } from './filters/filters'
 import { Connection, ConnectionImpl } from '../icc-api/model/Connection'
+import { BulkShareOrUpdateMetadataParams } from '../icc-api/model/requests/BulkShareOrUpdateMetadataParams'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi<models.Patient> {
@@ -714,9 +715,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
           modified: number
         },
         tagsCondition: (tags: string[]) => boolean,
-        doShareMinimal: (request: {
-          [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
-        }) => Promise<MinimalEntityBulkShareResult[]>
+        doShareMinimal: (request: BulkShareOrUpdateMetadataParams) => Promise<MinimalEntityBulkShareResult[]>
       ): Promise<void> => {
         const delegatesToApply = delegateIds.filter((delegateId) => tagsCondition(delegationTags[delegateId]))
         if (entities.length && delegatesToApply.length) {

@@ -8,6 +8,7 @@ import { EntityShareRequest } from '../../icc-api/model/requests/EntityShareRequ
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { EntityShareOrMetadataUpdateRequest } from '../../icc-api/model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../../icc-api/model/requests/EntityBulkShareResult'
+import { BulkShareOrUpdateMetadataParams } from '../../icc-api/model/requests/BulkShareOrUpdateMetadataParams'
 
 /**
  * @internal this class is intended for internal use only and may be changed without notice.
@@ -38,9 +39,7 @@ export class ConfidentialEntities {
   async initialiseConfidentialSecretId<T extends EncryptedEntity>(
     entity: T,
     entityType: EntityWithDelegationTypeName,
-    doRequestBulkShareOrUpdate: (request: {
-      [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
-    }) => Promise<EntityBulkShareResult<T>[]>
+    doRequestBulkShareOrUpdate: (request: BulkShareOrUpdateMetadataParams) => Promise<EntityBulkShareResult<T>[]>
   ): Promise<T | undefined> {
     if (await this.getConfidentialSecretId({ entity, type: entityType })) return undefined
     const confidentialSecretId = this.primitives.randomUuid()

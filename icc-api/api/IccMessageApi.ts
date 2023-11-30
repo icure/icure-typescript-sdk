@@ -23,6 +23,7 @@ import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShar
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { FilterChainMessage } from '../model/FilterChainMessage'
 import { AbstractFilterMessage } from '../model/AbstractFilterMessage'
+import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
 
 export class IccMessageApi {
   host: string
@@ -508,9 +509,7 @@ export class IccMessageApi {
   /**
    * @internal this method is for internal use only and may be changed without notice
    */
-  async bulkShareMessages(request: {
-    [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
-  }): Promise<EntityBulkShareResult<Message>[]> {
+  async bulkShareMessages(request: BulkShareOrUpdateMetadataParams): Promise<EntityBulkShareResult<Message>[]> {
     const _url = this.host + '/message/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))

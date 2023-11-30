@@ -21,6 +21,7 @@ import { iccRestApiPath } from './IccRestApiPath'
 import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { MinimalEntityBulkShareResult } from '../model/requests/MinimalEntityBulkShareResult'
+import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
 
 export class IccFormApi {
   host: string
@@ -573,9 +574,7 @@ export class IccFormApi {
   /**
    * @internal this method is for internal use only and may be changed without notice
    */
-  async bulkShareForms(request: {
-    [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
-  }): Promise<EntityBulkShareResult<Form>[]> {
+  async bulkShareForms(request: BulkShareOrUpdateMetadataParams): Promise<EntityBulkShareResult<Form>[]> {
     const _url = this.host + '/form/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
@@ -587,9 +586,7 @@ export class IccFormApi {
   /**
    * @internal this method is for internal use only and may be changed without notice
    */
-  async bulkShareFormsMinimal(request: {
-    [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
-  }): Promise<MinimalEntityBulkShareResult[]> {
+  async bulkShareFormsMinimal(request: BulkShareOrUpdateMetadataParams): Promise<MinimalEntityBulkShareResult[]> {
     const _url = this.host + '/form/bulkSharedMetadataUpdateMinimal' + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))

@@ -29,6 +29,7 @@ import { iccRestApiPath } from './IccRestApiPath'
 import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { MinimalEntityBulkShareResult } from '../model/requests/MinimalEntityBulkShareResult'
+import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
 
 export class IccContactApi {
   host: string
@@ -712,9 +713,7 @@ export class IccContactApi {
   /**
    * @internal this method is for internal use only and may be changed without notice
    */
-  async bulkShareContacts(request: {
-    [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
-  }): Promise<EntityBulkShareResult<Contact>[]> {
+  async bulkShareContacts(request: BulkShareOrUpdateMetadataParams): Promise<EntityBulkShareResult<Contact>[]> {
     const _url = this.host + '/contact/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
@@ -726,9 +725,7 @@ export class IccContactApi {
   /**
    * @internal this method is for internal use only and may be changed without notice
    */
-  async bulkShareContactsMinimal(request: {
-    [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
-  }): Promise<MinimalEntityBulkShareResult[]> {
+  async bulkShareContactsMinimal(request: BulkShareOrUpdateMetadataParams): Promise<MinimalEntityBulkShareResult[]> {
     const _url = this.host + '/contact/bulkSharedMetadataUpdateMinimal' + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))

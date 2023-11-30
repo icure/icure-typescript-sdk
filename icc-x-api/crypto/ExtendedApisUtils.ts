@@ -10,6 +10,7 @@ import { ShareMetadataBehaviour } from './ShareMetadataBehaviour'
 import { ShareResult } from '../utils/ShareResult'
 import { MinimalEntityBulkShareResult } from '../../icc-api/model/requests/MinimalEntityBulkShareResult'
 import { EncryptedFieldsManifest } from '../utils'
+import { BulkShareOrUpdateMetadataParams } from '../../icc-api/model/requests/BulkShareOrUpdateMetadataParams'
 
 /**
  * @internal this interface is meant only for internal use and may be changed without notice.
@@ -163,9 +164,7 @@ export interface ExtendedApisUtils {
         }
       }
     }[],
-    doRequestBulkShareOrUpdate: (request: {
-      [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
-    }) => Promise<EntityBulkShareResult<T>[]>
+    doRequestBulkShareOrUpdate: (request: BulkShareOrUpdateMetadataParams) => Promise<EntityBulkShareResult<T>[]>
   ): Promise<{
     updatedEntities: T[]
     unmodifiedEntitiesIds: string[]
@@ -197,9 +196,7 @@ export interface ExtendedApisUtils {
         }
       }
     }[],
-    doRequestBulkShareOrUpdate: (request: {
-      [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
-    }) => Promise<MinimalEntityBulkShareResult[]>
+    doRequestBulkShareOrUpdate: (request: BulkShareOrUpdateMetadataParams) => Promise<MinimalEntityBulkShareResult[]>
   ): Promise<{
     unmodifiedEntitiesIds: string[]
     successfulUpdates: { entityId: string; delegateId: string }[]
@@ -249,9 +246,7 @@ export interface ExtendedApisUtils {
         requestedPermissions: RequestedPermissionEnum | undefined
       }
     },
-    doRequestBulkShareOrUpdate: (request: {
-      [entityId: string]: { [requestId: string]: EntityShareOrMetadataUpdateRequest }
-    }) => Promise<EntityBulkShareResult<T>[]>
+    doRequestBulkShareOrUpdate: (request: BulkShareOrUpdateMetadataParams) => Promise<EntityBulkShareResult<T>[]>
   ): Promise<ShareResult<T>>
   // endregion
 
