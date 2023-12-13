@@ -1,29 +1,29 @@
-import {createNewHcpApi, getEnvironmentInitializer, hcp1Username, setLocalStorage, TestUtils} from '../utils/test_utils'
-import {before} from 'mocha'
-import {crypto} from '../../node-compat'
-import {TestApi} from '../utils/TestApi'
-import {getEnvVariables, TestVars} from '@icure/test-setup/types'
+import { createNewHcpApi, getEnvironmentInitializer, hcp1Username, setLocalStorage, TestUtils } from '../utils/test_utils'
+import { before } from 'mocha'
+import { crypto } from '../../node-compat'
+import { TestApi } from '../utils/TestApi'
+import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import {
   AuthenticationProvider,
   AuthSecretDetails,
   AuthSecretType,
   BasicAuthenticationProvider,
-  CryptoPrimitives, IccUserXApi,
-  NoAuthenticationProvider
-} from "../../icc-x-api"
-import {webcrypto} from "crypto"
-import {expect} from "chai"
-import {User} from "../../icc-api/model/User"
-import {v4 as uuid} from "uuid"
+  CryptoPrimitives,
+  IccUserXApi,
+  NoAuthenticationProvider,
+} from '../../icc-x-api'
+import { webcrypto } from 'crypto'
+import { assert, expect } from 'chai'
+import { User } from '../../icc-api/model/User'
+import { v4 as uuid } from 'uuid'
 import initMasterApi = TestUtils.initMasterApi
-import {SmartAuthProvider} from "../../icc-x-api/auth/SmartAuthProvider";
+import { SmartAuthProvider } from '../../icc-x-api/auth/SmartAuthProvider'
 import { randomUUID } from 'crypto'
-import {IccAuthApi, IccUserApi} from "../../icc-api";
+import { IccAuthApi, IccUserApi } from '../../icc-api'
 
 setLocalStorage(fetch)
 let env: TestVars
 let authApi: IccAuthApi
-
 
 describe('icc-x-user-api Tests', () => {
   before(async function () {
@@ -63,7 +63,7 @@ describe('icc-x-user-api Tests', () => {
 
     expect(user).to.be.deep.equal({
       ...createdUser,
-      systemMetadata: user.systemMetadata
+      systemMetadata: user.systemMetadata,
     })
   })
 
@@ -72,10 +72,8 @@ describe('icc-x-user-api Tests', () => {
     const initialUser = await api.userApi.getCurrentUser()
     const masterApi = await initMasterApi(env)
     const userToken = randomUUID()
-    const userPw = randomUUID()
-    const userWithLongTokenAndPw = await masterApi.userApi.modifyUser({
+    const userWithLongToken = await masterApi.userApi.modifyUser({
       ...initialUser,
-      passwordHash: userPw,
       authenticationTokens: {
         'test-long-lived-token': {
           token: userToken,
@@ -84,31 +82,29 @@ describe('icc-x-user-api Tests', () => {
         },
       },
     })
-    let calls = 0
+    let longLivedTokenRequested = false
+    let shortLivedTokenRequested = false
     const authProvider = SmartAuthProvider.initialise(authApi, credentials.user, {
       getSecret: async (acceptedSecrets: AuthSecretType[], previousAttempts: AuthSecretDetails[]) => {
         if (acceptedSecrets.includes(AuthSecretType.LONG_LIVED_TOKEN)) {
+          longLivedTokenRequested = true
           return { value: userToken, secretType: AuthSecretType.LONG_LIVED_TOKEN }
-        } else if (acceptedSecrets.includes(AuthSecretType.PASSWORD)) {
-          if (calls===0) {
-            calls++
-            await masterApi.userApi.getToken(userWithLongTokenAndPw.id!, 'tmp', 300, '123456')
-          }
-          return { value: userPw, secretType: AuthSecretType.PASSWORD }
-        } else {
+        } else if (acceptedSecrets.includes(AuthSecretType.SHORT_LIVED_TOKEN)) {
+          shortLivedTokenRequested = true
+          await masterApi.userApi.getToken(userWithLongToken.id!, 'tmp', 300, '123456')
           return { value: '123456', secretType: AuthSecretType.SHORT_LIVED_TOKEN }
-        }
+        } else assert.fail('Should request LONG_LIVED_TOKEN or SHORT_LIVED_TOKEN')
       },
     })
     const userApi = userApiWithProvider(authProvider)
-    expect((await userApi.getCurrentUser()).rev).to.equal(userWithLongTokenAndPw.rev)
-    expect(calls).to.equal(0)
+    expect((await userApi.getCurrentUser()).rev).to.equal(userWithLongToken.rev)
+    expect(longLivedTokenRequested).to.be.true
+    expect(shortLivedTokenRequested).to.be.false
 
     const newPw = randomUUID()
-    const userWithNewPw = await userApi.modifyUser({ ...userWithLongTokenAndPw, passwordHash: newPw })
+    const userWithNewPw = await userApi.modifyUser({ ...userWithLongToken, passwordHash: newPw })
 
-    expect(userWithNewPw.rev).to.not.equal(userWithLongTokenAndPw.rev)
-    expect(calls).to.equal(1)
-})
-
+    expect(userWithNewPw.rev).to.not.equal(userWithLongToken.rev)
+    expect(shortLivedTokenRequested).to.be.true
+  })
 })
