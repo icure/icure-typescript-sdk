@@ -1,5 +1,5 @@
 /**
- * Check if two sets are equals (they contain the same elements).
+ * Check if two sets are equals (they contain the same elements). Will not work if the content can't be compared by `==`.
  */
 export function setEquals<T>(setA: Set<T>, setB: Set<T>): boolean {
   if (setA.size != setB.size) return false
@@ -24,7 +24,7 @@ export function anyEquals(anyA: any, anyB: any): boolean {
   //Test if object is array
   if (Array.isArray(anyA) && Array.isArray(anyB)) {
     return arrayEquals(anyA, anyB)
-  } else /*Test if objects are set */ if(anyA instanceof Set && anyB instanceof Set) {
+  } /*Test if objects are set */ else if (anyA instanceof Set && anyB instanceof Set) {
     return setEquals(anyA, anyB)
   } else if (typeof anyA === 'object' && typeof anyB === 'object') {
     return objectEquals(anyA, anyB)
@@ -39,10 +39,10 @@ export function anyEquals(anyA: any, anyB: any): boolean {
  * @param ignoredProperties
  */
 export function objectEquals<T extends { [key: string]: any }>(objectA: T, objectB: T, ignoredProperties?: string[]): boolean {
-    const missingInA = Object.keys(objectB)
-      .filter((key) => !ignoredProperties?.includes(key))
-      .filter((key) => !Object.keys(objectA).includes(key))
-      .filter((key) => objectB[key] !== undefined && objectB[key] !== null)
+  const missingInA = Object.keys(objectB)
+    .filter((key) => !ignoredProperties?.includes(key))
+    .filter((key) => !Object.keys(objectA).includes(key))
+    .filter((key) => objectB[key] !== undefined && objectB[key] !== null)
 
   if (missingInA.length > 0) return false
 
