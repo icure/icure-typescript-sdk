@@ -57,6 +57,30 @@ export class IccUserXApi extends IccUserApi {
     } else return super.modifyUser(body)
   }
 
+  async modifyUserInGroup(groupId: string, body?: User): Promise<User> {
+    //If we do not load the current user, we cannot know if the modification is on the current user
+    await this.getCurrentUser()
+    if (this.cachedCurrentUser && (await this.cachedCurrentUser).id === body?.id && (await this.cachedCurrentUser).groupId === groupId) {
+      try {
+        const modifiedUser = await super.modifyUserInGroup(groupId, body).catch(async (e) => {
+          //It is
+          if (e.statusCode === 409) {
+            let userInDb = await super.getCurrentUser();
+            if (objectEquals((await this.cachedCurrentUser)!, userInDb, ['authenticationTokens', 'rev'])) {
+              return await super.modifyUserInGroup(groupId, {...body, rev: userInDb.rev, authenticationTokens: userInDb.authenticationTokens})
+            }
+          }
+          throw e
+        })
+        this.cachedCurrentUser = Promise.resolve(modifiedUser)
+        return modifiedUser
+      } catch (e) {
+        this.cachedCurrentUser = undefined
+        throw e
+      }
+    } else return super.modifyUserInGroup(groupId, body)
+  }
+
   async subscribeToUserEvents(
     eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
     filter: AbstractFilter<User> | undefined,
