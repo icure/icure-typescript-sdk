@@ -84,19 +84,18 @@ describe('icc-x-user-api Tests', () => {
     })
     let longLivedTokenRequested = false
     let shortLivedTokenRequested = false
-    const authProvider = SmartAuthProvider.initialise(authApi, credentials.user, {
-      getSecret: async (acceptedSecrets: AuthSecretType[], previousAttempts: AuthSecretDetails[]) => {
-        if (acceptedSecrets.includes(AuthSecretType.LONG_LIVED_TOKEN)) {
-          longLivedTokenRequested = true
-          return { value: userToken, secretType: AuthSecretType.LONG_LIVED_TOKEN }
-        } else if (acceptedSecrets.includes(AuthSecretType.SHORT_LIVED_TOKEN)) {
-          shortLivedTokenRequested = true
-          await masterApi.userApi.getToken(userWithLongToken.id!, 'tmp', 300, '123456')
-          return { value: '123456', secretType: AuthSecretType.SHORT_LIVED_TOKEN }
-        } else assert.fail('Should request LONG_LIVED_TOKEN or SHORT_LIVED_TOKEN')
-      },
-    })
-    const userApi = userApiWithProvider(authProvider)
+
+    let getSecret = async (acceptedSecrets: AuthSecretType[], previousAttempts: AuthSecretDetails[]): Promise<AuthSecretDetails> => {
+      if (acceptedSecrets.includes(AuthSecretType.LONG_LIVED_TOKEN)) {
+        longLivedTokenRequested = true
+        return { value: userToken, secretType: AuthSecretType.LONG_LIVED_TOKEN }
+      } else if (acceptedSecrets.includes(AuthSecretType.SHORT_LIVED_TOKEN)) {
+        shortLivedTokenRequested = true
+        await masterApi.userApi.getToken(userWithLongToken.id!, 'tmp', 300, '123456')
+        return { value: '123456', secretType: AuthSecretType.SHORT_LIVED_TOKEN }
+      } else assert.fail('Should request LONG_LIVED_TOKEN or SHORT_LIVED_TOKEN')
+    }
+    const userApi = userApiWithProvider(SmartAuthProvider.initialise(authApi, credentials.user, { getSecret }))
     expect((await userApi.getCurrentUser()).rev).to.equal(userWithLongToken.rev)
     expect(longLivedTokenRequested).to.be.true
     expect(shortLivedTokenRequested).to.be.false
@@ -105,6 +104,23 @@ describe('icc-x-user-api Tests', () => {
     const userWithNewPw = await userApi.modifyUser({ ...userWithLongToken, passwordHash: newPw })
 
     expect(userWithNewPw.rev).to.not.equal(userWithLongToken.rev)
+    expect(shortLivedTokenRequested).to.be.true
+
+    longLivedTokenRequested = false
+    shortLivedTokenRequested = false
+
+    const otherUserApi = userApiWithProvider(SmartAuthProvider.initialise(authApi, credentials.user, { getSecret }))
+    expect((await otherUserApi.getCurrentUser()).rev).to.equal(userWithNewPw.rev)
+
+    expect(longLivedTokenRequested).to.be.true
+    expect(shortLivedTokenRequested).to.be.false
+
+    const newerPw = randomUUID()
+    const userInGroupWithNewPw = await otherUserApi.modifyUserInGroup(initialUser.groupId!, { ...userWithNewPw, passwordHash: newerPw })
+
+    expect(userInGroupWithNewPw.rev).to.not.equal(userWithNewPw.rev)
+
+    expect(longLivedTokenRequested).to.be.true
     expect(shortLivedTokenRequested).to.be.true
   })
 })
