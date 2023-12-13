@@ -5,6 +5,7 @@ import { User } from '../icc-api/model/User'
 import { Connection, ConnectionImpl } from '../icc-api/model/Connection'
 import { subscribeToEntityEvents , SubscriptionOptions} from './utils'
 import { IccAuthApi } from '../icc-api'
+import {objectEquals} from "./utils/collection-utils";
 
 export class IccUserXApi extends IccUserApi {
   fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response>
@@ -33,9 +34,20 @@ export class IccUserXApi extends IccUserApi {
   }
 
   async modifyUser(body?: User): Promise<User> {
+    //If we do not load the current user, we cannot know if the modification is on the current user
+    await this.getCurrentUser()
     if (this.cachedCurrentUser && (await this.cachedCurrentUser).id === body?.id) {
       try {
-        const modifiedUser = await super.modifyUser(body)
+        const modifiedUser = await super.modifyUser(body).catch(async (e) => {
+          //It is
+          if (e.statusCode === 409) {
+            let userInDb = await super.getCurrentUser();
+            if (objectEquals((await this.cachedCurrentUser)!, userInDb, ['authenticationTokens', 'rev'])) {
+              return await super.modifyUser({...body, rev: userInDb.rev, authenticationTokens: userInDb.authenticationTokens})
+            }
+          }
+          throw e
+        })
         this.cachedCurrentUser = Promise.resolve(modifiedUser)
         return modifiedUser
       } catch (e) {
