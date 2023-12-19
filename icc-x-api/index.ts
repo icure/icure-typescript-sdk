@@ -502,8 +502,11 @@ export interface IcureApi extends Apis {
    * Get the information on groups that the current user can access and the current group that this api instance is working on.
    * Note that the values you will get for `availableGroups` may differ from the values you would get if you call {@link IccUserApi.getMatchingUsers}
    * on {@link Apis.userApi}, since the latter is specialised on the specific instance of the user in `currentGroup`.
+   * - `currentGroup`: the group that this api instance is working on, or undefined if the backend environment is not multi-group.
+   * - `availableGroups`: the list of groups that the current user can access with the provided secret. Empty if the backend environment is not
+   * multi-group.
    */
-  getGroupsInfo(): Promise<{ currentGroup: UserGroup; availableGroups: UserGroup[] }>
+  getGroupsInfo(): Promise<{ currentGroup: UserGroup | undefined; availableGroups: UserGroup[] }>
 
   /**
    * Switches the api to allow the user to work on a different group.
@@ -533,14 +536,20 @@ export namespace IcureApi {
     let grouplessAuthenticationProvider = await getAuthenticationProvider(host, authenticationOptions, params.headers, fetchImpl)
     // TODO if this uses a smart auth provider the groupless auth provider does not share the secret cache with the group specific one.
     const grouplessUserApi = new IccUserApi(host, params.headers, grouplessAuthenticationProvider, fetchImpl)
-    const matches = await grouplessUserApi.getMatchingUsers()
-    const chosenGroupId = matches.length > 1 ? await params.groupSelector(matches) : matches[0].groupId!
+    const matches = await getMatchesOrEmpty(grouplessUserApi)
+    const chosenGroupId = matches.length > 1 && !!options.groupSelector ? await options.groupSelector(matches) : matches[0]?.groupId
+    const groupSpecificAuthenticationProviderInfo =
+      matches.length > 1 && chosenGroupId
+        ? await grouplessAuthenticationProvider.switchGroup(chosenGroupId, matches)
+        : { switchedProvider: grouplessAuthenticationProvider, isGroupLocked: false }
     /*TODO
      * On new very new users switching the authentication provider to a specific group may fail and block the user for too many requests. This is
      * probably linked to replication of the user in the fallback database.
      */
     const groupSpecificAuthenticationProvider =
-      matches.length > 1 ? await grouplessAuthenticationProvider.switchGroup(chosenGroupId, matches) : grouplessAuthenticationProvider
+      matches.length > 1 && chosenGroupId
+        ? await grouplessAuthenticationProvider.switchGroup(chosenGroupId, matches)
+        : grouplessAuthenticationProvider
     const cryptoInitInfo = await initialiseCryptoWithProvider(host, fetchImpl, groupSpecificAuthenticationProvider, params, cryptoStrategies, crypto)
     return new IcureApiImpl(
       cryptoInitInfo,
@@ -549,7 +558,7 @@ export namespace IcureApi {
       fetch,
       grouplessUserApi,
       matches,
-      matches.find((match) => match.groupId === chosenGroupId)!,
+      matches.find((match) => match.groupId === chosenGroupId),
       params,
       cryptoStrategies
     )
@@ -830,7 +839,7 @@ class IcureApiImpl implements IcureApi {
     private readonly fetch: (input: RequestInfo, init?: RequestInit) => Promise<Response>,
     private readonly grouplessUserApi: IccUserApi,
     latestMatches: UserGroup[],
-    private readonly currentGroupInfo: UserGroup,
+    private readonly currentGroupInfo: UserGroup | undefined,
     private readonly params: IcureApiOptions.WithDefaults,
     private readonly cryptoStrategies: CryptoStrategies
   ) {
@@ -1441,7 +1450,7 @@ class IcureApiImpl implements IcureApi {
     return this.cryptoInitInfos.userApi
   }
 
-  async getGroupsInfo(): Promise<{ currentGroup: UserGroup; availableGroups: UserGroup[] }> {
+  async getGroupsInfo(): Promise<{ currentGroup: UserGroup | undefined; availableGroups: UserGroup[] }> {
     this.latestGroupsRequest = this.grouplessUserApi.getMatchingUsers()
     return { currentGroup: this.currentGroupInfo, availableGroups: await this.latestGroupsRequest }
   }
@@ -1511,5 +1520,14 @@ export const BasicApis = async function (
     agendaApi,
     groupApi,
     healthcarePartyApi,
+  }
+}
+
+async function getMatchesOrEmpty(userApi: IccUserApi): Promise<UserGroup[]> {
+  try {
+    return await userApi.getMatchingUsers()
+  } catch (err) {
+    if (err instanceof Error && 'statusCode' in err && err.statusCode === 404) return Promise.resolve([])
+    else return Promise.reject(err)
   }
 }

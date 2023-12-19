@@ -638,4 +638,24 @@ export class IccUserApi {
       .then((doc) => new User(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
+
+  enable2fa(userId: string, secret: string): Promise<void> {
+    let _body = { secret }
+
+    const _url = this.host + `/user/${encodeURIComponent(String(userId))}/2fa` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then(() => {})
+      .catch((err) => this.handleError(err))
+  }
+
+  disable2fa(userId: string): Promise<void> {
+    const _url = this.host + `/user/${encodeURIComponent(String(userId))}/2fa` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('DELETE', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then(() => {})
+      .catch((err) => this.handleError(err))
+  }
 }

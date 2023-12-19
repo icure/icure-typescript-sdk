@@ -9,7 +9,7 @@ import { assert, expect } from 'chai'
 import { User } from '../../icc-api/model/User'
 import { v4 as uuid } from 'uuid'
 import initMasterApi = TestUtils.initMasterApi
-import { AuthSecretType, SmartAuthProvider } from '../../icc-x-api/auth/SmartAuthProvider'
+import { AuthSecretDetails, AuthSecretType, SmartAuthProvider } from '../../icc-x-api/auth/SmartAuthProvider'
 import { randomUUID } from 'crypto'
 import { IccAuthApi, IccUserApi } from '../../icc-api'
 

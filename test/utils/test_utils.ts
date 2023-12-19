@@ -44,7 +44,9 @@ export async function getEnvironmentInitializer(): Promise<EnvInitializer> {
     const env = getEnvVariables()
     const scratchDir = 'test/scratch'
     const baseEnvironment =
-      env.testEnvironment === 'docker' ? new TestEnvironmentBuilder().setUpDockerEnvironment(scratchDir, ['mock']) : new TestEnvironmentBuilder()
+      env.testEnvironment === 'docker' || env.testEnvironment === 'oss'
+        ? new TestEnvironmentBuilder().setUpDockerEnvironment(scratchDir, ['mock'])
+        : new TestEnvironmentBuilder()
     cachedInitializer = await baseEnvironment
       .withGroup(fetch, {
         patient: ['BASIC_USER', 'BASIC_DATA_OWNER'],

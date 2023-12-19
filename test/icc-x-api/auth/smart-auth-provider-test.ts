@@ -123,11 +123,10 @@ describe('Smart authentication provider', () => {
       secret: totpSecret,
     })
     const userPw = randomUUID()
+    await masterApi.userApi.enable2fa(initialUser.id!, totpSecret)
     const userWithPwAnd2fa = await masterApi.userApi.modifyUser({
       ...initialUser,
       passwordHash: userPw,
-      use2fa: true,
-      secret: totpSecret,
     })
     let calls = 0
     const authProvider = SmartAuthProvider.initialise(authApi, credentials.user, {
@@ -167,11 +166,10 @@ describe('Smart authentication provider', () => {
       secret: totpSecret,
     })
     const userPw = randomUUID()
+    await masterApi.userApi.enable2fa(initialUser.id!, totpSecret)
     const userWithPwAnd2fa = await masterApi.userApi.modifyUser({
       ...initialUser,
       passwordHash: userPw,
-      use2fa: true,
-      secret: totpSecret,
     })
     let calls = 0
     const authProvider = SmartAuthProvider.initialise(
