@@ -80,6 +80,8 @@ import { IccDeviceXApi } from './icc-device-x-api'
 import { IccRoleApi } from '../icc-api/api/IccRoleApi'
 import { JwtBridgedAuthService } from './auth/JwtBridgedAuthService'
 import { AuthSecretProvider, SmartAuthProvider } from './auth/SmartAuthProvider'
+import { XHR } from '../icc-api/api/XHR'
+import XHRError = XHR.XHRError
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -464,8 +466,11 @@ export interface IcureApi extends Apis {
    * Get the information on groups that the current user can access and the current group that this api instance is working on.
    * Note that the values you will get for `availableGroups` may differ from the values you would get if you call {@link IccUserApi.getMatchingUsers}
    * on {@link Apis.userApi}, since the latter is specialised on the specific instance of the user in `currentGroup`.
+   * - `currentGroup`: the group that this api instance is working on, or undefined if the backend environment is not multi-group.
+   * - `availableGroups`: the list of groups that the current user can access with the provided secret. Empty if the backend environment is not
+   * multi-group.
    */
-  getGroupsInfo(): Promise<{ currentGroup: UserGroup; availableGroups: UserGroup[] }>
+  getGroupsInfo(): Promise<{ currentGroup: UserGroup | undefined; availableGroups: UserGroup[] }>
 
   /**
    * Switches the api to allow the user to work on a different group.
@@ -545,7 +550,7 @@ export interface IcureApi extends Apis {
    * Note that the values you will get for `availableGroups` may differ from the values you would get if you call {@link IccUserApi.getMatchingUsers}
    * on {@link Apis.userApi}, since the latter is specialised on the specific instance of the user in `currentGroup`.
    */
-  getGroupsInfo(): Promise<{ currentGroup: UserGroup; availableGroups: UserGroup[] }>
+  getGroupsInfo(): Promise<{ currentGroup: UserGroup | undefined; availableGroups: UserGroup[] }>
 
   /**
    * Switches the api to allow the user to work on a different group.
@@ -574,14 +579,14 @@ export namespace IcureApi {
 
     const grouplessAuthenticationProvider = await getAuthenticationProvider(host, authenticationOptions, params.headers ?? {}, fetchImpl)
     const grouplessUserApi = new IccUserApi(host, params.headers, grouplessAuthenticationProvider, fetchImpl)
-    const matches = await grouplessUserApi.getMatchingUsers()
-    const chosenGroupId = matches.length > 1 ? await params.groupSelector(matches) : matches[0].groupId!
+    const matches: UserGroup[] = await getMatchesOrEmpty(grouplessUserApi)
+    const chosenGroupId = matches.length > 1 ? await params.groupSelector(matches) : matches[0]?.groupId
     /*TODO
      * On new very new users switching the authentication provider to a specific group may fail and block the user for too many requests. This is
      * probably linked to replication of the user in the fallback database.
      */
     const groupSpecificAuthenticationProviderInfo =
-      matches.length > 1
+      matches.length > 1 && chosenGroupId
         ? await grouplessAuthenticationProvider.switchGroup(chosenGroupId, matches)
         : { switchedProvider: grouplessAuthenticationProvider, isGroupLocked: false }
     const cryptoApis = await initialiseCryptoWithProvider(
@@ -599,7 +604,7 @@ export namespace IcureApi {
       fetch,
       groupSpecificAuthenticationProviderInfo.isGroupLocked ? grouplessUserApi : undefined,
       matches,
-      matches.find((match) => match.groupId === chosenGroupId)!,
+      matches.find((match) => match.groupId === chosenGroupId),
       params,
       cryptoStrategies
     )
@@ -1139,19 +1144,21 @@ class IcureApiImpl implements IcureApi {
     private readonly fetch: (input: RequestInfo, init?: RequestInit) => Promise<Response>,
     private readonly grouplessUserApi: IccUserApi | undefined,
     latestMatches: UserGroup[],
-    private readonly currentGroupInfo: UserGroup,
+    private readonly currentGroupInfo: UserGroup | undefined,
     private readonly params: IcureApiOptions.WithDefaults,
     private readonly cryptoStrategies: CryptoStrategies
   ) {
     this.latestGroupsRequest = Promise.resolve(latestMatches)
   }
 
-  async getGroupsInfo(): Promise<{ currentGroup: UserGroup; availableGroups: UserGroup[] }> {
+  async getGroupsInfo(): Promise<{ currentGroup: UserGroup | undefined; availableGroups: UserGroup[] }> {
+    if (!this.currentGroupInfo) return { currentGroup: undefined, availableGroups: [] }
     this.latestGroupsRequest = this.grouplessUserApi ? this.grouplessUserApi.getMatchingUsers() : this.userApi.getMatchingUsers()
     return { currentGroup: this.currentGroupInfo, availableGroups: await this.latestGroupsRequest }
   }
 
   async switchGroup(newGroupId: string): Promise<IcureApi> {
+    if (!this.currentGroupInfo) throw new Error('Cannot switch group: the backend environment does not support multiple groups.')
     const availableGroups = await this.latestGroupsRequest
     const switchedProviderInfo = await this.groupSpecificAuthenticationProvider.switchGroup(newGroupId, availableGroups)
     const cryptoInitApis = await initialiseCryptoWithProvider(
@@ -1181,8 +1188,11 @@ export interface IcureBasicApi extends BasicApis {
    * Get the information on groups that the current user can access and the current group that this api instance is working on.
    * Note that the values you will get for `availableGroups` may differ from the values you would get if you call {@link IccUserApi.getMatchingUsers}
    * on {@link Apis.userApi}, since the latter is specialised on the specific instance of the user in `currentGroup`.
+   * - `currentGroup`: the group that this api instance is working on, or undefined if the backend environment is not multi-group.
+   * - `availableGroups`: the list of groups that the current user can access with the provided secret. Empty if the backend environment is not
+   * multi-group.
    */
-  getGroupsInfo(): Promise<{ currentGroup: UserGroup; availableGroups: UserGroup[] }>
+  getGroupsInfo(): Promise<{ currentGroup: UserGroup | undefined; availableGroups: UserGroup[] }>
 
   /**
    * Switches the api to allow the user to work on a different group.
@@ -1254,7 +1264,8 @@ class IcureBasicApiImpl implements IcureBasicApi {
     )
   }
 
-  async getGroupsInfo(): Promise<{ currentGroup: UserGroup; availableGroups: UserGroup[] }> {
+  async getGroupsInfo(): Promise<{ currentGroup: UserGroup | undefined; availableGroups: UserGroup[] }> {
+    if (!this.currentGroupInfo) return { currentGroup: undefined, availableGroups: [] }
     this.latestGroupsRequest = this.grouplessUserApi ? this.grouplessUserApi.getMatchingUsers() : this.userApi.getMatchingUsers()
     return { currentGroup: this.currentGroupInfo, availableGroups: await this.latestGroupsRequest }
   }
@@ -1268,6 +1279,7 @@ class IcureBasicApiImpl implements IcureBasicApi {
   }
 
   async switchGroup(newGroupId: string): Promise<IcureBasicApi> {
+    if (!this.currentGroupInfo) throw new Error('Cannot switch group: the backend environment does not support multiple groups.')
     const availableGroups = await this.latestGroupsRequest
     const switchedProviderInfo = await this.groupSpecificAuthenticationProvider.switchGroup(newGroupId, availableGroups)
     return new IcureBasicApiImpl(
@@ -1287,7 +1299,7 @@ class IcureBasicApiImpl implements IcureBasicApi {
     private readonly fetch: (input: RequestInfo, init?: RequestInit) => Promise<Response>,
     private readonly grouplessUserApi: IccUserApi | undefined,
     latestMatches: UserGroup[],
-    private readonly currentGroupInfo: UserGroup,
+    private readonly currentGroupInfo: UserGroup | undefined,
     private readonly headers: { [headerName: string]: string }
   ) {
     this.latestGroupsRequest = Promise.resolve(latestMatches)
@@ -1314,16 +1326,28 @@ export const BasicApis = async function (
 ): Promise<IcureBasicApi> {
   const grouplessAuthenticationProvider = await getAuthenticationProvider(host, authenticationOptions, options.headers ?? {}, fetchImpl)
   const grouplessUserApi = new IccUserApi(host, options.headers, grouplessAuthenticationProvider, fetchImpl)
-  const matches = await grouplessUserApi.getMatchingUsers()
-  const chosenGroupId = matches.length > 1 && !!options.groupSelector ? await options.groupSelector(matches) : matches[0].groupId!
-  const groupSpecificAuthenticationProviderInfo = await grouplessAuthenticationProvider.switchGroup(chosenGroupId, matches)
+  const matches = await getMatchesOrEmpty(grouplessUserApi)
+  const chosenGroupId = matches.length > 1 && !!options.groupSelector ? await options.groupSelector(matches) : matches[0]?.groupId
+  const groupSpecificAuthenticationProviderInfo =
+    matches.length > 1 && chosenGroupId
+      ? await grouplessAuthenticationProvider.switchGroup(chosenGroupId, matches)
+      : { switchedProvider: grouplessAuthenticationProvider, isGroupLocked: false }
   return new IcureBasicApiImpl(
     host,
     grouplessAuthenticationProvider,
     fetch,
     groupSpecificAuthenticationProviderInfo.isGroupLocked ? grouplessUserApi : undefined,
     matches,
-    matches.find((match) => match.groupId === chosenGroupId)!,
+    matches.find((match) => match.groupId === chosenGroupId),
     options.headers ?? {}
   )
+}
+
+async function getMatchesOrEmpty(userApi: IccUserApi): Promise<UserGroup[]> {
+  try {
+    return await userApi.getMatchingUsers()
+  } catch (err) {
+    if (err instanceof Error && 'statusCode' in err && err.statusCode === 404) return Promise.resolve([])
+    else return Promise.reject(err)
+  }
 }
