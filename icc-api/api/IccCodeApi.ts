@@ -15,7 +15,7 @@ import { Code } from '../model/Code'
 import { FilterChainCode } from '../model/FilterChainCode'
 import { PaginatedListCode } from '../model/PaginatedListCode'
 import { Unit } from '../model/Unit'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 
 export class IccCodeApi {

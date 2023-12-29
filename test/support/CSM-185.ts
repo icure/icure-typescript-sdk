@@ -1,4 +1,4 @@
-import { getEnvironmentInitializer, hcp1Username, patUsername, setLocalStorage, TestUtils } from '../utils/test_utils'
+import { describeNoLite, getEnvironmentInitializer, hcp1Username, patUsername, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { IcureApi, sleep } from '../../icc-x-api'
 import { webcrypto } from 'crypto'
 import { expect } from 'chai'
@@ -15,7 +15,8 @@ setLocalStorage(fetch)
 
 let env: TestVars
 
-describe('CSM-185', async function () {
+// Uses WebSocket
+describeNoLite('CSM-185', async function () {
   before(async function () {
     this.timeout(600000)
     const initializer = await getEnvironmentInitializer()

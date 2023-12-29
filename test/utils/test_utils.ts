@@ -14,7 +14,7 @@ import { EnvInitializer } from '@icure/test-setup/decorators'
 import 'isomorphic-fetch'
 import { createPatientUser } from '@icure/test-setup/creation'
 import { IccUserApi } from '../../icc-api'
-import { Test } from 'mocha'
+import { Context, describe, Suite, Test } from 'mocha'
 import { Group } from '../../icc-api/model/Group'
 
 export function getTempEmail(): string {
@@ -524,5 +524,25 @@ export async function createUserInMultipleGroups(env: TestVars): Promise<UserInM
     userPw12,
     userPw3,
     userLogin,
+  }
+}
+
+export function isLiteTest() {
+  return getEnvVariables().testEnvironment == 'oss'
+}
+
+export function describeNoLite(title: string, fn: (this: Suite) => void): Suite | void {
+  if (isLiteTest()) {
+    return describe.skip(title, fn)
+  } else {
+    return describe(title, fn)
+  }
+}
+
+export function itNoLite(title: string, fn: (this: Context) => PromiseLike<any>): Test {
+  if (isLiteTest()) {
+    return it.skip(title, fn)
+  } else {
+    return it(title, fn)
   }
 }

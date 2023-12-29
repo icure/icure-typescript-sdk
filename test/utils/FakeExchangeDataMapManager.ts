@@ -16,10 +16,6 @@ export class FakeExchangeDataMapManager extends ExchangeDataMapManager {
     })
   }
 
-  async getExchangeDataMap(accessControlKeyHash: string): Promise<ExchangeDataMap> {
-    return this.fakeApi.getById(accessControlKeyHash)!
-  }
-
   async getExchangeDataMapBatch(accessControlKeyHashes: string[]): Promise<ExchangeDataMap[]> {
     return accessControlKeyHashes.reduce((prev, curr) => {
       return [...prev, this.fakeApi.getById(curr)!]

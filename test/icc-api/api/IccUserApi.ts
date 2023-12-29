@@ -1,6 +1,6 @@
 import { expect } from 'chai'
 import { randomUUID } from 'crypto'
-import { getEnvironmentInitializer, hcp1Username, setLocalStorage, TestUtils } from '../../utils/test_utils'
+import { describeNoLite, getEnvironmentInitializer, hcp1Username, setLocalStorage, TestUtils } from '../../utils/test_utils'
 import initApi = TestUtils.initApi
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import { DatabaseInitialisation } from '../../../icc-api/model/DatabaseInitialisation'
@@ -9,7 +9,7 @@ import initMasterApi = TestUtils.initMasterApi
 let env: TestVars
 setLocalStorage(fetch)
 
-describe('User', () => {
+describeNoLite('User in group', () => {
   before(async function () {
     this.timeout(600000)
     const initializer = await getEnvironmentInitializer()
@@ -86,4 +86,19 @@ describe('User', () => {
     const userWithoutRole = await userApi.removeRolesInGroup(user.id!, groupId, [role])
     expect(userWithoutRole.systemMetadata?.inheritsRoles).to.be.equal(true)
   })
+})
+
+describe('User', () => {
+  before(async function () {
+    this.timeout(600000)
+    const initializer = await getEnvironmentInitializer()
+    env = await initializer.execute(getEnvVariables())
+  })
+
+  it('should be capable of creating a token', async () => {
+    const { userApi } = await initApi(env, hcp1Username)
+    const currentUser = await userApi.getCurrentUser()
+    const token = await userApi.getToken(currentUser.id!, `e2eTestTS-${randomUUID()}`, 3, undefined)
+    expect(token.match(/[a-fA-F0-9]+/))
+  }).timeout(30000)
 })

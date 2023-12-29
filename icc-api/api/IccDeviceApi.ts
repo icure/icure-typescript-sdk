@@ -17,7 +17,7 @@ import { FilterChainDevice } from '../model/FilterChainDevice'
 import { IdWithRev } from '../model/IdWithRev'
 import { ListOfIds } from '../model/ListOfIds'
 import { PaginatedListDevice } from '../model/PaginatedListDevice'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 
 export class IccDeviceApi {

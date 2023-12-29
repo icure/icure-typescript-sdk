@@ -1527,7 +1527,7 @@ async function getMatchesOrEmpty(userApi: IccUserApi): Promise<UserGroup[]> {
   try {
     return await userApi.getMatchingUsers()
   } catch (err) {
-    if (err instanceof Error && 'statusCode' in err && err.statusCode === 404) return Promise.resolve([])
+    if (err instanceof Error && 'statusCode' in err && (err as any).statusCode === 404) return Promise.resolve([])
     else return Promise.reject(err)
   }
 }

@@ -1,5 +1,5 @@
 import 'isomorphic-fetch'
-import { getEnvironmentInitializer, hcp1Username, hcp2Username, hcp3Username, setLocalStorage, TestUtils } from '../utils/test_utils'
+import { describeNoLite, getEnvironmentInitializer, hcp1Username, hcp2Username, hcp3Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { before, it, describe } from 'mocha'
 import { IccMessageXApi, IccPatientXApi, sleep, SubscriptionOptions } from '../../icc-x-api'
 import { Patient } from '../../icc-api/model/Patient'
@@ -26,7 +26,7 @@ chaiUse(chaiAsPromised)
 setLocalStorage(fetch)
 let env: TestVars
 
-describe('icc-message-x-api Tests', () => {
+describeNoLite('icc-message-x-api Topic-based tests', () => {
   before(async function () {
     this.timeout(600000)
     const initializer = await getEnvironmentInitializer()
@@ -52,7 +52,9 @@ describe('icc-message-x-api Tests', () => {
         }),
         {
           additionalDelegates: Object.fromEntries(
-            Object.keys(topic.activeParticipants ?? {}).filter((hcpId) => hcpId != hcpUser.healthcarePartyId).map((hcpId) => [hcpId, SecureDelegation.AccessLevelEnum.READ])
+            Object.keys(topic.activeParticipants ?? {})
+              .filter((hcpId) => hcpId != hcpUser.healthcarePartyId)
+              .map((hcpId) => [hcpId, SecureDelegation.AccessLevelEnum.READ])
           ),
         }
       )
@@ -131,7 +133,12 @@ describe('icc-message-x-api Tests', () => {
       },
     })
 
-    const baseMessageApi = new IccMessageApi(env!.iCureUrl, messageApiForHcp._headers, messageApiForHcp.authenticationProvider, messageApiForHcp.fetchImpl)
+    const baseMessageApi = new IccMessageApi(
+      env!.iCureUrl,
+      messageApiForHcp._headers,
+      messageApiForHcp.authenticationProvider,
+      messageApiForHcp.fetchImpl
+    )
 
     const hcpUser = await userApiForHcp.getCurrentUser()
 
@@ -480,7 +487,7 @@ describe('icc-message-x-api Tests', () => {
               fromHealthcarePartyId: loggedUser.healthcarePartyId,
             }),
             {
-              additionalDelegates: {}
+              additionalDelegates: {},
             }
           )
         )
@@ -513,4 +520,4 @@ describe('icc-message-x-api Tests', () => {
       ['CREATE']
     )
   }).timeout(60000)
-}).timeout(60_000)
+})?.timeout(60_000)

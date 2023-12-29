@@ -2,7 +2,6 @@ import 'isomorphic-fetch'
 import { getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { before } from 'mocha'
 import { IccPatientXApi, IccUserXApi } from '../../icc-x-api'
-import { BasicAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { IccInvoiceApi } from '../../icc-api'
 import { Patient } from '../../icc-api/model/Patient'
 import { User } from '../../icc-api/model/User'
@@ -11,6 +10,7 @@ import { Invoice } from '../../icc-api/model/Invoice'
 import { assert, expect } from 'chai'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import initApi = TestUtils.initApi
+import { BasicAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 
 setLocalStorage(fetch)
 let env: TestVars

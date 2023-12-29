@@ -19,7 +19,7 @@ import { TokenWithGroup } from '../model/TokenWithGroup'
 import { Unit } from '../model/Unit'
 import { User } from '../model/User'
 import { UserGroup } from '../model/UserGroup'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 import { ListOfIds } from '../model/ListOfIds'
 

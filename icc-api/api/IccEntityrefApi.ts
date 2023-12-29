@@ -11,7 +11,7 @@
  */
 import { XHR } from './XHR'
 import { EntityReference } from '../model/EntityReference'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 
 export class IccEntityrefApi {

@@ -8,8 +8,7 @@ import { crypto } from '../../node-compat'
 import { ua2hex } from '../../icc-x-api'
 import { Patient } from '../../icc-api/model/Patient'
 import { before } from 'mocha'
-import { getEnvironmentInitializer, hcp1Username, patUsername, setLocalStorage, TestUtils } from '../utils/test_utils'
-import { BasicAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { getEnvironmentInitializer, hcp1Username, isLiteTest, patUsername, setLocalStorage, TestUtils } from '../utils/test_utils'
 import initApi = TestUtils.initApi
 import { TestApi } from '../utils/TestApi'
 import { RSAUtils } from '../../icc-x-api/crypto/RSA'
@@ -17,6 +16,7 @@ import * as chaiAsPromised from 'chai-as-promised'
 import { EntityShareRequest } from '../../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
+import { BasicAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 chaiUse(chaiAsPromised)
 
 setLocalStorage(fetch)
@@ -104,8 +104,10 @@ describe('Patient', () => {
       await calendarItemApi.newInstancePatient(user, patient, { patientId: patient.id, title: ciTitle, details: ciDetails })
     )
 
-    await expect(api.patientApi.getPatientWithUser(hcpUser, patient.id!)).to.be.rejected
-    await expect(api.calendarItemApi.getCalendarItemWithUser(hcpUser, ci.id)).to.be.rejected
+    if (!isLiteTest()) {
+      await expect(api.patientApi.getPatientWithUser(hcpUser, patient.id!)).to.be.rejected
+      await expect(api.calendarItemApi.getCalendarItemWithUser(hcpUser, ci.id)).to.be.rejected
+    }
 
     await patientApi.shareWith(hcpUser.healthcarePartyId!, pat!, await patientApi.decryptSecretIdsOf(pat!), { requestedPermissions: FULL_WRITE })
     await calendarItemApi.shareWith(hcpUser.healthcarePartyId!, ci!, { requestedPermissions: FULL_WRITE })

@@ -34,16 +34,6 @@ export class ExchangeDataMapManager {
   }
 
   /**
-   * Retrieves an Exchange Data Map.
-   * @param accessControlKeyHash the hex-encoded hash of the Exchange Data Map to retrieve.
-   */
-  async getExchangeDataMap(accessControlKeyHash: string): Promise<ExchangeDataMap> {
-    const exchangeDataMap = await this.api.getExchangeDataMapById(accessControlKeyHash)
-    await this.exchangeDataMapCache.get(exchangeDataMap.id, () => Promise.resolve({ item: null }))
-    return exchangeDataMap
-  }
-
-  /**
    * Retrieves a batch of Exchange Data Maps.
    * @param accessControlKeyHashes the hex-encoded hashes of the Exchange Data Maps to retrieve.
    */

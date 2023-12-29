@@ -14,7 +14,7 @@ import { ClassificationTemplate } from '../model/ClassificationTemplate'
 import { Delegation } from '../model/Delegation'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { PaginatedListClassificationTemplate } from '../model/PaginatedListClassificationTemplate'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 import { ListOfIds } from '../model/ListOfIds'
 

@@ -13,7 +13,7 @@ import { XHR } from './XHR'
 import { ReplicateCommand } from '../model/ReplicateCommand'
 import { ReplicatorDocument } from '../model/ReplicatorDocument'
 import { ReplicatorResponse } from '../model/ReplicatorResponse'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 
 export class IccReplicationApi {

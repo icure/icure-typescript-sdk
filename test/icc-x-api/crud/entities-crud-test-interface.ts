@@ -31,6 +31,7 @@ import { Topic } from '../../../icc-api/model/Topic'
 export interface CRUDInterface {
   encryptable: boolean
   skipDenied?: boolean
+  cloudOnly?: boolean
   create(api: IcureApi, patient: Patient): Promise<IdWithRev>
   share(delegatorApi: IcureApi, delegateApi: IcureApi, entity: any): Promise<IdWithRev>
   deleteMany(api: IcureApi, ids: IdWithRev[]): Promise<Array<DocIdentifier>>
@@ -203,6 +204,7 @@ export const entities: { [key: string]: CRUDInterface } = {
   },
   HealthcarePartyInGroup: {
     encryptable: false,
+    cloudOnly: true,
     create: async (api: IcureApi, _: Patient) =>
       api.healthcarePartyApi.createHealthcareParty(new HealthcareParty({ id: randomUUID(), name: randomUUID() })),
     share: async (_: IcureApi, __: IcureApi, entity: any) => entity,
@@ -400,6 +402,7 @@ export const entities: { [key: string]: CRUDInterface } = {
   },
   Topic: {
     encryptable: true,
+    cloudOnly: true,
     create: async (api: IcureApi, patient: Patient) => {
       const currentUser = await api.userApi.getCurrentUser()
       const item = await api.topicApi.newInstance(currentUser, patient)

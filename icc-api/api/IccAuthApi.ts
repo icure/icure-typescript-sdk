@@ -12,7 +12,7 @@
 import { XHR } from './XHR'
 import { AuthenticationResponse } from '../model/AuthenticationResponse'
 import { LoginCredentials } from '../model/LoginCredentials'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 
 export enum OAuthThirdParty {
@@ -79,7 +79,13 @@ export class IccAuthApi {
     let _body = null
     _body = body
 
-    const _url = this.host + `/auth/login` + '?ts=' + new Date().getTime() + (groupId ? `&groupId=${encodeURIComponent(String(groupId))}` : '') + (!!duration ? `&duration=${duration}` : '')
+    const _url =
+      this.host +
+      `/auth/login` +
+      '?ts=' +
+      new Date().getTime() +
+      (groupId ? `&groupId=${encodeURIComponent(String(groupId))}` : '') +
+      (!!duration ? `&duration=${duration}` : '')
     let headers = this.headers
     headers = headers
       .filter((h) => h.header !== 'Content-Type' && h.header?.toLowerCase() !== 'authorization')

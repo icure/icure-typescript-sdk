@@ -1,4 +1,10 @@
-import { createUserInMultipleGroups, getEnvironmentInitializer, setLocalStorage, UserInManyGroupsDetails } from '../../utils/test_utils'
+import {
+  createUserInMultipleGroups,
+  describeNoLite,
+  getEnvironmentInitializer,
+  setLocalStorage,
+  UserInManyGroupsDetails,
+} from '../../utils/test_utils'
 import { getEnvVariables } from '@icure/test-setup/types'
 import 'isomorphic-fetch'
 import { IccAuthApi, IccUserApi } from '../../../icc-api'
@@ -11,7 +17,7 @@ import {
 } from '../../../icc-x-api/auth/AuthenticationProvider'
 import { expect, use as chaiUse } from 'chai'
 import * as chaiAsPromised from 'chai-as-promised'
-import { AuthSecretType, AuthSecretDetails, SmartAuthProvider } from '../../../icc-x-api/auth/SmartAuthProvider'
+import { AuthSecretDetails, AuthSecretType, SmartAuthProvider } from '../../../icc-x-api/auth/SmartAuthProvider'
 
 chaiUse(chaiAsPromised)
 
@@ -20,7 +26,7 @@ setLocalStorage(fetch)
 let host: string
 let userDetails: UserInManyGroupsDetails
 
-describe('Authentication providers should be able to switch group', function () {
+describeNoLite('Authentication providers should be able to switch group', function () {
   before(async function () {
     this.timeout(600000)
     const initializer = await getEnvironmentInitializer()

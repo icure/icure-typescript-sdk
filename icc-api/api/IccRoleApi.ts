@@ -1,5 +1,5 @@
 import { XHR } from './XHR'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { Role } from '../model/Role'
 import { iccRestApiPath } from './IccRestApiPath'
 

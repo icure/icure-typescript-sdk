@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto'
-import { getEnvironmentInitializer, setLocalStorage, TestUtils } from '../../utils/test_utils'
+import { describeNoLite, getEnvironmentInitializer, setLocalStorage, TestUtils } from '../../utils/test_utils'
 import 'isomorphic-fetch'
 import { UserTypeEnum } from '../../../icc-api/model/UserTypeEnum'
 import initMasterApi = TestUtils.initMasterApi
@@ -12,7 +12,7 @@ setLocalStorage(fetch)
 
 let env: TestVars
 
-describe('Group', () => {
+describeNoLite('Group', () => {
   before(async function () {
     this.timeout(600000)
     const initializer = await getEnvironmentInitializer()

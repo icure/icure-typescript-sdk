@@ -12,7 +12,7 @@
 import { XHR } from './XHR'
 import { Article } from '../model/Article'
 import { DocIdentifier } from '../model/DocIdentifier'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 import { ListOfIds } from '../model/ListOfIds'
 

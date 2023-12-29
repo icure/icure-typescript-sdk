@@ -12,7 +12,7 @@
 import { XHR } from './XHR'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { FrontEndMigration } from '../model/FrontEndMigration'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 
 export class IccFrontendmigrationApi {

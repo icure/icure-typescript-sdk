@@ -18,7 +18,7 @@ import { HealthcareParty } from '../model/HealthcareParty'
 import { ListOfIds } from '../model/ListOfIds'
 import { PaginatedListHealthcareParty } from '../model/PaginatedListHealthcareParty'
 import { PublicKey } from '../model/PublicKey'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 
 export class IccHcpartyApi {

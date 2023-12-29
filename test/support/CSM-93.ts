@@ -1,4 +1,4 @@
-import { getEnvironmentInitializer, hcp1Username, patUsername, setLocalStorage, TestUtils } from '../utils/test_utils'
+import { getEnvironmentInitializer, hcp1Username, isLiteTest, patUsername, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { IcureApi, ua2hex } from '../../icc-x-api'
 import { webcrypto } from 'crypto'
 import { expect, use as chaiUse } from 'chai'
@@ -98,9 +98,11 @@ describe('CSM-93', async function () {
         keyStorage: new TestKeyStorage(),
       }
     )
-    await expect(patApisLost.patientApi.getPatientWithUser(patUser, p2.id!)).to.be.rejected
-    await expect(patApisLost.healthcareElementApi.getHealthElementWithUser(patUser, he.id!)).to.be.rejected
-    await expect(patApisLost.contactApi.getContactWithUser(patUser, ctc!.id!)).to.be.rejected
+    if (!isLiteTest()) {
+      await expect(patApisLost.patientApi.getPatientWithUser(patUser, p2.id!)).to.be.rejected
+      await expect(patApisLost.healthcareElementApi.getHealthElementWithUser(patUser, he.id!)).to.be.rejected
+      await expect(patApisLost.contactApi.getContactWithUser(patUser, ctc!.id!)).to.be.rejected
+    }
     // The patient had to create a new aes exchange key to share the maintenance task with the hcp:
     // If you don't clear the cache of the hcp he will not be able to decrypt the maintenance task
     await hcpApis.cryptoApi.forceReload()

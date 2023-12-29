@@ -13,7 +13,7 @@ import { XHR } from './XHR'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { Insurance } from '../model/Insurance'
 import { ListOfIds } from '../model/ListOfIds'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 import { PaginatedListInsurance } from '../model/PaginatedListInsurance'
 

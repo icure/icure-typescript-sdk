@@ -11,7 +11,7 @@ import { webcrypto } from 'crypto'
 import 'isomorphic-fetch'
 
 import { expect } from 'chai'
-import { getEnvironmentInitializer, getTempEmail, setLocalStorage, TestUtils } from '../../utils/test_utils'
+import { getEnvironmentInitializer, getTempEmail, isLiteTest, setLocalStorage, TestUtils } from '../../utils/test_utils'
 import { TestApi } from '../../utils/TestApi'
 import { KeyPair } from '../../../icc-x-api/crypto/RSA'
 import { CryptoPrimitives } from '../../../icc-x-api/crypto/CryptoPrimitives'
@@ -464,7 +464,7 @@ describe('Full crypto test - Read/Share scenarios', async function () {
 
           const retrievePromise = facade.get(api, `partial-${user.id}-${f[0]}`)
           const lostInitialKey = uId.includes('one lost key and one available key')
-          if (uType === 'patient' && lostInitialKey) {
+          if (uType === 'patient' && lostInitialKey && !isLiteTest()) {
             // Patient with lost key can't prove he has access to data: he will get an error
             let gaveError = false
             try {

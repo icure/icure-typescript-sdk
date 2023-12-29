@@ -1,4 +1,4 @@
-import { AuthenticationProvider, NoAuthenticationProvider } from './AuthenticationProvider'
+import { AuthenticationProvider } from './AuthenticationProvider'
 import { UserGroup } from '../../icc-api/model/UserGroup'
 import { AuthService } from './AuthService'
 import { IccAuthApi, OAuthThirdParty } from '../../icc-api'

@@ -1,4 +1,4 @@
-import { createHcpHierarchyApis, getEnvironmentInitializer, setLocalStorage } from '../utils/test_utils'
+import { createHcpHierarchyApis, getEnvironmentInitializer, isLiteTest, setLocalStorage } from '../utils/test_utils'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import { expect } from 'chai'
 import 'isomorphic-fetch'
@@ -58,7 +58,9 @@ describe('test confidential helement', () => {
       console.log(e)
       failedToRetrieve = true
     }
-    expect(failedToRetrieve).to.equal(true, 'Parent should fail to retrieve confidential data')
+    if (!isLiteTest()) {
+      expect(failedToRetrieve).to.equal(true, 'Parent should fail to retrieve confidential data')
+    }
     // Even if in some way I could get the contact I should not be able to decrypt it
     expect(await parentApi.cryptoApi.xapi.encryptionKeysOf({ entity: confidentialHe!, type: 'HealthElement' }, undefined)).to.have.length(0)
   })

@@ -11,7 +11,7 @@
  */
 import { XHR } from './XHR'
 import { DataOwnerWithType } from '../model/DataOwnerWithType'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { CryptoActorStubWithType } from '../model/CryptoActorStub'
 import { iccRestApiPath } from './IccRestApiPath'
 

@@ -8,12 +8,12 @@ import 'isomorphic-fetch'
 import { IccPatientApi } from '../../../icc-api'
 import { expect } from 'chai'
 
-import { BasicAuthenticationProvider } from '../../../icc-x-api/auth/AuthenticationProvider'
 import { createHcpHierarchyApis, getEnvironmentInitializer, setLocalStorage } from '../../utils/test_utils'
 import { TestKeyStorage, TestStorage } from '../../utils/TestStorage'
 import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import { IcureApi } from '../../../icc-x-api'
+import { BasicAuthenticationProvider } from '../../../icc-x-api'
 
 setLocalStorage(fetch)
 

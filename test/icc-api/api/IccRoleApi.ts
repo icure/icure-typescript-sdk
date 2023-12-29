@@ -1,5 +1,5 @@
 import 'isomorphic-fetch'
-import { getEnvironmentInitializer, setLocalStorage, TestUtils } from '../../utils/test_utils'
+import { describeNoLite, getEnvironmentInitializer, setLocalStorage, TestUtils } from '../../utils/test_utils'
 import { IccRoleApi } from '../../../icc-api/api/IccRoleApi'
 import { expect } from 'chai'
 import initMasterApi = TestUtils.initMasterApi
@@ -10,7 +10,7 @@ setLocalStorage(fetch)
 let env: TestVars
 let roleApi: IccRoleApi
 
-describe('IccRoleApi', () => {
+describeNoLite('IccRoleApi', () => {
   before(async function () {
     this.timeout(600000)
     const initializer = await getEnvironmentInitializer()

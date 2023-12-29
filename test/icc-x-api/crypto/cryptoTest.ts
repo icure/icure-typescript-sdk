@@ -1,14 +1,22 @@
-/* make node behave */
-import 'isomorphic-fetch'
 import { IccPatientApi } from '../../../icc-api'
-import { expect } from 'chai'
+import 'isomorphic-fetch'
+import { expect, use as chaiUse } from 'chai'
 import 'mocha'
 
 import { Patient } from '../../../icc-api/model/Patient'
-import { createHcpHierarchyApis, getEnvironmentInitializer, hcp1Username, setLocalStorage, TestUtils } from '../../utils/test_utils'
-import { BasicAuthenticationProvider } from '../../../icc-x-api/auth/AuthenticationProvider'
+import {
+  createHcpHierarchyApis,
+  createNewHcpApi,
+  getEnvironmentInitializer,
+  hcp1Username,
+  isLiteTest,
+  setLocalStorage,
+  TestUtils,
+} from '../../utils/test_utils'
 import initApi = TestUtils.initApi
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
+import { BasicAuthenticationProvider } from '../../../icc-x-api'
+chaiUse(require('chai-as-promised'))
 
 let env: TestVars
 
@@ -275,7 +283,9 @@ describe('test that confidential helement information cannot be retrieved at MH 
         console.log(e)
         failedToRetrieve = true
       }
-      expect(failedToRetrieve).to.equal(true, 'MH should fail to retrieve confidential data')
+      if (!isLiteTest()) {
+        expect(failedToRetrieve).to.equal(true, 'MH should fail to retrieve confidential data')
+      }
       // Even if in some way I could get the contact I should not be able to decrypt it
       expect(await api.cryptoApi.xapi.encryptionKeysOf({ entity: confidentialHe!, type: 'HealthElement' }, undefined)).to.have.length(0)
     }
@@ -335,9 +345,34 @@ describe('test that confidential contact information cannot be retrieved at MH l
         console.log(e)
         failedToRetrieve = true
       }
-      expect(failedToRetrieve).to.equal(true, 'MH should fail to retrieve confidential data')
+      if (!isLiteTest()) {
+        expect(failedToRetrieve).to.equal(true, 'MH should fail to retrieve confidential data')
+      }
       // Even if in some way I could get the contact I should not be able to decrypt it
       expect(await api.cryptoApi.xapi.encryptionKeysOf({ entity: confidentialCtc!, type: 'Contact' }, undefined)).to.have.length(0)
     }
+  })
+})
+
+describe('Share entity behaviour', () => {
+  before(async function () {
+    this.timeout(600000)
+    const initializer = await getEnvironmentInitializer()
+    env = await initializer.execute(getEnvVariables())
+  })
+
+  it("share method should fail if the user attempts to share an entity he can't access", async () => {
+    const hcp1 = await createNewHcpApi(env)
+    const hcp2 = await createNewHcpApi(env)
+    const hcp3 = await createNewHcpApi(env)
+    const patient: Patient = await hcp1.api.patientApi.createPatientWithUser(
+      hcp1.user,
+      await hcp1.api.patientApi.newInstance(hcp1.user, { firstName: 'John', lastName: 'Doe', note: 'Secret' })
+    )
+    const encryptedPatient = await new IccPatientApi(env.iCureUrl, {}, hcp1.api.authApi.authenticationProvider, fetch).getPatient(patient.id!)
+    await expect(hcp2.api.patientApi.shareWith(hcp3.credentials.dataOwnerId, encryptedPatient, [], { requestedPermissions: 'FULL_WRITE' })).to.be
+      .rejected
+    const shared = await hcp1.api.patientApi.shareWith(hcp2.credentials.dataOwnerId, patient, [], { requestedPermissions: 'FULL_WRITE' })
+    await hcp2.api.patientApi.shareWith(hcp3.credentials.dataOwnerId, shared, [], { requestedPermissions: 'FULL_WRITE' })
   })
 })

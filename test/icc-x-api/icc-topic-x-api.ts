@@ -1,5 +1,5 @@
 import 'isomorphic-fetch'
-import { getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils } from '../utils/test_utils'
+import { describeNoLite, getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { before, it, describe } from 'mocha'
 import { IccPatientXApi, sleep, SubscriptionOptions } from '../../icc-x-api'
 import { Patient } from '../../icc-api/model/Patient'
@@ -23,7 +23,7 @@ import { IccTopicApi } from '../../icc-api'
 setLocalStorage(fetch)
 let env: TestVars
 
-describe('icc-topic-x-api Tests', () => {
+describeNoLite('icc-topic-x-api Tests', () => {
   before(async function () {
     this.timeout(600000)
     const initializer = await getEnvironmentInitializer()
@@ -96,7 +96,7 @@ describe('icc-topic-x-api Tests', () => {
     const retrievedByHcp = await topicApiForHcp.getTopic(createdTopic.id!)
     expect(retrievedByHcp).to.deep.equal(createdTopic)
     expect(retrievedByHcp.description).to.not.be.undefined
-    
+
     const notDecryptedTopic = await baseTopicApi.getTopic(createdTopic.id!)
     expect(notDecryptedTopic).to.not.deep.equal(createdTopic)
     expect(notDecryptedTopic.description).to.be.undefined

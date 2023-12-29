@@ -1,4 +1,4 @@
-import { createNewHcpApi, getEnvironmentInitializer, getTempEmail, setLocalStorage, TestUtils } from '../utils/test_utils'
+import { createNewHcpApi, getEnvironmentInitializer, getTempEmail, isLiteTest, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { before } from 'mocha'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import { CryptoPrimitives, IcureApi, KeyPair, sleep } from '../../icc-x-api'
@@ -90,7 +90,7 @@ describe('Recovery api use scenarios', () => {
         keyStorage: new TestKeyStorage(),
       }
     )
-    await expect(patientApi.healthcareElementApi.getHealthElementWithUser(patientUser, sharedHealthData.id!)).to.be.rejected
+    if (!isLiteTest()) await expect(patientApi.healthcareElementApi.getHealthElementWithUser(patientUser, sharedHealthData.id!)).to.be.rejected
     expect(await patientApi.recoveryApi.recoverExchangeData(recoveryKey + 'aa')).to.equal(RecoveryDataUseFailureReason.Missing) // User put in the wrong key
     expect(await patientApi.recoveryApi.recoverExchangeData(recoveryKey)).to.be.null
     expect(await patientApi.recoveryApi.recoverExchangeData(recoveryKey)).to.equal(RecoveryDataUseFailureReason.Missing) // After use it is automatically deleted

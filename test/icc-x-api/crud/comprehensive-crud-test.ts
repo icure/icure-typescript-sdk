@@ -1,6 +1,15 @@
 import 'isomorphic-fetch'
 import { before } from 'mocha'
-import { createNewHcpApi, getEnvironmentInitializer, hcp1Username, patUsername, setLocalStorage, TestUtils } from '../../utils/test_utils'
+import {
+  createNewHcpApi,
+  getEnvironmentInitializer,
+  hcp1Username,
+  isLiteTest,
+  itNoLite,
+  patUsername,
+  setLocalStorage,
+  TestUtils,
+} from '../../utils/test_utils'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import initMasterApi = TestUtils.initMasterApi
 import { hex2ua, IcureApi, RSAUtils } from '../../../icc-x-api'
@@ -39,7 +48,7 @@ describe('CRUD Test', () => {
     const patientUser = await patientApi.userApi.getCurrentUser()
     patient = await patientApi.patientApi.getPatientWithUser(patientUser, patientUser.patientId!)
     const { api, credentials, user } = await createNewHcpApi(env)
-    await masterApi.userApi.addRoles(user.id!, ['BASIC_USER'])
+    if (!isLiteTest()) await masterApi.userApi.addRoles(user.id!, ['BASIC_USER'])
 
     const RSA = new RSAUtils(webcrypto as any)
     const keys = {
@@ -159,109 +168,113 @@ describe('CRUD Test', () => {
     }
   })
 
-  Object.entries(entities).forEach(([entityType, operations]) => {
-    it(`A user with create permissions can create a ${entityType}`, async () => {
-      const api = entitiesPermissions[entityType].create.allowed
-      const entity = await operations.create(api, patient)
-      expect(entity.rev).not.to.be.undefined
+  Object.entries(entities)
+    .filter(([, operations]) => {
+      return !isLiteTest() || !operations.cloudOnly
     })
+    .forEach(([entityType, operations]) => {
+      it(`A user with create permissions can create a ${entityType}`, async () => {
+        const api = entitiesPermissions[entityType].create.allowed
+        const entity = await operations.create(api, patient)
+        expect(entity.rev).not.to.be.undefined
+      })
 
-    it(`A user without create permissions cannot create a ${entityType}`, async function () {
-      if (!!operations.skipDenied) this.skip()
-      const api = entitiesPermissions[entityType].create.denied
-      if (!api) this.skip()
-      await expect(operations.create(api, patient)).to.be.rejected
-    })
+      itNoLite(`A user without create permissions cannot create a ${entityType}`, async function () {
+        if (!!operations.skipDenied) this.skip()
+        const api = entitiesPermissions[entityType].create.denied
+        if (!api) this.skip()
+        await expect(operations.create(api, patient)).to.be.rejected
+      })
 
-    it(`A user can delete many ${entityType} if they have access to them`, async function () {
-      if (!operations.encryptable) {
-        this.skip()
-      }
-      const creationApi = entitiesPermissions[entityType].create.allowed
-      const api = entitiesPermissions[entityType].delete.allowed
-      const notAccessibleEntities: IdWithRev[] = []
-      for (let i = 0; i <= 5; i++) {
-        const entity = await operations.create(creationApi, patient)
-        notAccessibleEntities.push(entity)
-      }
-      const accessibleEntities: IdWithRev[] = []
-      for (let i = 0; i <= 5; i++) {
+      it(`A user can delete many ${entityType} if they have access to them`, async function () {
+        if (!operations.encryptable) {
+          this.skip()
+        }
+        const creationApi = entitiesPermissions[entityType].create.allowed
+        const api = entitiesPermissions[entityType].delete.allowed
+        const notAccessibleEntities: IdWithRev[] = []
+        for (let i = 0; i <= 5; i++) {
+          const entity = await operations.create(creationApi, patient)
+          notAccessibleEntities.push(entity)
+        }
+        const accessibleEntities: IdWithRev[] = []
+        for (let i = 0; i <= 5; i++) {
+          const entity = await operations.create(creationApi, patient).then((e) => {
+            return operations.share(creationApi, api, e)
+          })
+          accessibleEntities.push(entity)
+        }
+        const result = await operations.deleteMany(api, isLiteTest() ? accessibleEntities : notAccessibleEntities.concat(accessibleEntities))
+        expect(result.length).to.be.equal(accessibleEntities.length)
+        result.forEach((el) => {
+          expect(accessibleEntities.find((it) => it.id === el.id)).not.to.be.undefined
+        })
+      })
+
+      itNoLite(`A user can delete many ${entityType} if they have the correct role`, async function () {
+        if (!!operations.encryptable) this.skip()
+        const creationApi = entitiesPermissions[entityType].create.allowed
+        const api = entitiesPermissions[entityType].delete.allowed
+        const entities: IdWithRev[] = []
+        for (let i = 0; i <= 5; i++) {
+          const entity = await operations.create(creationApi, patient)
+          entities.push(entity)
+        }
+        const result = await operations.deleteMany(api, entities)
+        expect(result.length).to.be.equal(entities.length)
+        result.forEach((el) => {
+          expect(entities.find((it) => it.id === el.id)).not.to.be.undefined
+        })
+      })
+
+      itNoLite(`A user cannot delete many ${entityType} if they do not have the correct role`, async function () {
+        if (!!operations.skipDenied) this.skip()
+        const creationApi = entitiesPermissions[entityType].create.allowed
+        const api = entitiesPermissions[entityType].delete.denied
+        if (!api) {
+          throw new Error('An API is required to perform this test')
+        }
+        const entities: IdWithRev[] = []
+        for (let i = 0; i <= 5; i++) {
+          const entity = await operations.create(creationApi, patient)
+          entities.push(entity)
+        }
+        await operations.deleteMany(api, entities).then(
+          (result) => {
+            expect(result).to.be.empty
+          },
+          () => {
+            expect(true).to.be.eq(true, 'Response should be empty or promise rejected')
+          }
+        )
+      })
+
+      it(`A user can delete a single ${entityType} if they have access to it`, async function () {
+        const creationApi = entitiesPermissions[entityType].create.allowed
+        const api = entitiesPermissions[entityType].delete.allowed
         const entity = await operations.create(creationApi, patient).then((e) => {
           return operations.share(creationApi, api, e)
         })
-        accessibleEntities.push(entity)
-      }
-      const result = await operations.deleteMany(api, notAccessibleEntities.concat(accessibleEntities))
-      expect(result.length).to.be.equal(accessibleEntities.length)
-      result.forEach((el) => {
-        expect(accessibleEntities.find((it) => it.id === el.id)).not.to.be.undefined
+        const result = await operations.delete(api, entity)
+        expect(result.id).to.be.equal(entity.id)
       })
-    })
 
-    it(`A user can delete many ${entityType} if they have the correct role`, async function () {
-      if (!!operations.encryptable) this.skip()
-      const creationApi = entitiesPermissions[entityType].create.allowed
-      const api = entitiesPermissions[entityType].delete.allowed
-      const entities: IdWithRev[] = []
-      for (let i = 0; i <= 5; i++) {
-        const entity = await operations.create(creationApi, patient)
-        entities.push(entity)
-      }
-      const result = await operations.deleteMany(api, entities)
-      expect(result.length).to.be.equal(entities.length)
-      result.forEach((el) => {
-        expect(entities.find((it) => it.id === el.id)).not.to.be.undefined
-      })
-    })
-
-    it(`A user cannot delete many ${entityType} if they do not have the correct role`, async function () {
-      if (!!operations.skipDenied) this.skip()
-      const creationApi = entitiesPermissions[entityType].create.allowed
-      const api = entitiesPermissions[entityType].delete.denied
-      if (!api) {
-        throw new Error('An API is required to perform this test')
-      }
-      const entities: IdWithRev[] = []
-      for (let i = 0; i <= 5; i++) {
-        const entity = await operations.create(creationApi, patient)
-        entities.push(entity)
-      }
-      await operations.deleteMany(api, entities).then(
-        (result) => {
-          expect(result).to.be.empty
-        },
-        () => {
-          expect(true).to.be.eq(true, 'Response should be empty or promise rejected')
+      itNoLite(`A user cannot delete a single ${entityType} if they do not have access to it`, async function () {
+        if (!!operations.skipDenied) {
+          this.skip()
         }
-      )
-    })
-
-    it(`A user can delete a single ${entityType} if they have access to it`, async function () {
-      const creationApi = entitiesPermissions[entityType].create.allowed
-      const api = entitiesPermissions[entityType].delete.allowed
-      const entity = await operations.create(creationApi, patient).then((e) => {
-        return operations.share(creationApi, api, e)
+        const creationApi = entitiesPermissions[entityType].create.allowed
+        const api = entitiesPermissions[entityType].delete.denied
+        if (!api) {
+          throw new Error('An API is required to perform this test')
+        }
+        const entity = await operations.create(creationApi, patient)
+        await expect(operations.delete(api, entity)).to.be.rejected
       })
-      const result = await operations.delete(api, entity)
-      expect(result.id).to.be.equal(entity.id)
-    })
 
-    it(`A user cannot delete a single ${entityType} if they do not have access to it`, async function () {
-      if (!!operations.skipDenied) {
-        this.skip()
-      }
-      const creationApi = entitiesPermissions[entityType].create.allowed
-      const api = entitiesPermissions[entityType].delete.denied
-      if (!api) {
-        throw new Error('An API is required to perform this test')
-      }
-      const entity = await operations.create(creationApi, patient)
-      await expect(operations.delete(api, entity)).to.be.rejected
+      it(`A user cannot delete a single ${entityType} that does not exist`, async function () {
+        const api = entitiesPermissions[entityType].delete.allowed
+        await expect(operations.delete(api, new IdWithRev({ id: randomUUID() }))).to.be.rejected
+      })
     })
-
-    it(`A user cannot delete a single ${entityType} that does not exist`, async function () {
-      const api = entitiesPermissions[entityType].delete.allowed
-      await expect(operations.delete(api, new IdWithRev({ id: randomUUID() }))).to.be.rejected
-    })
-  })
 })

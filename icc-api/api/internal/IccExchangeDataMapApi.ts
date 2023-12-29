@@ -31,15 +31,6 @@ export class IccExchangeDataMapApi {
     throw e
   }
 
-  async getExchangeDataMapById(exchangeDataMapId: string): Promise<ExchangeDataMap> {
-    const _url = this.host + `/exchangedatamap/${encodeURIComponent(String(exchangeDataMapId))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new ExchangeDataMap(doc.body as JSON))
-      .catch((err) => this.handleError(err))
-  }
-
   async getExchangeDataMapByBatch(ids: string[]): Promise<ExchangeDataMap[]> {
     const _url = this.host + `/exchangedatamap/batch` + '?ts=' + new Date().getTime()
     const body = new ListOfIds({ ids })
@@ -50,30 +41,12 @@ export class IccExchangeDataMapApi {
       .catch((err) => this.handleError(err))
   }
 
-  async createExchangeDataMap(body: ExchangeDataMap): Promise<ExchangeDataMap> {
-    const _url = this.host + `/exchangedatamap` + '?ts=' + new Date().getTime()
-    let headers = this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new ExchangeDataMap(doc.body as JSON))
-      .catch((err) => this.handleError(err))
-  }
-
   async createExchangeDataMapBatch(body: ExchangeDataMapCreationBatch): Promise<string> {
     const _url = this.host + `/exchangedatamap/batch` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => doc.body as string)
-      .catch((err) => this.handleError(err))
-  }
-
-  async modifyExchangeDataMapForKey(accessControlKey: string, body: ExchangeDataMap): Promise<ExchangeDataMap> {
-    const _url = this.host + `/exchangedatamap/forKey/${encodeURIComponent(String(accessControlKey))}` + '?ts=' + new Date().getTime()
-    let headers = this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new ExchangeDataMap(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 }

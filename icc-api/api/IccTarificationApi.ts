@@ -13,7 +13,7 @@ import { XHR } from './XHR'
 import { ListOfIds } from '../model/ListOfIds'
 import { PaginatedListTarification } from '../model/PaginatedListTarification'
 import { Tarification } from '../model/Tarification'
-import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api'
+import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 
 export class IccTarificationApi {
