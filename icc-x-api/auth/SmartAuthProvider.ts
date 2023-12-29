@@ -312,8 +312,11 @@ class TokenProvider {
         if (!token || !refreshToken) throw new Error('Internal error: login succeeded but no token was returned. Unsupported backend version?')
         const claims = decodeJwtClaims(token)
         const authClassLevel = claims['tac']
-        if (!authClassLevel || typeof authClassLevel !== 'number')
-          throw new Error('Internal error: authClassLevel is not a number. Unsupported backend version?')
+        if (!authClassLevel || typeof authClassLevel !== 'number') {
+          if (minimumAuthenticationClassLevel > 0) {
+            throw new Error('Internal error: authClassLevel is not a number. Unsupported backend version?')
+          } else return { success: { token, refreshToken } }
+        }
         if (authClassLevel < minimumAuthenticationClassLevel) {
           return { failure: DoGetTokenResultFailureReason.INVALID_AUTH_CLASS_LEVEL }
         } else {
