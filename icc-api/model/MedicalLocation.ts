@@ -34,5 +34,5 @@ export class MedicalLocation {
   address?: Address
   agendaIds?: Array<string>
   options?: { [key: string]: string }
-  publicInformations?: { [key: string]: any }
+  publicInformations?: { [key: string]: string }
 }
