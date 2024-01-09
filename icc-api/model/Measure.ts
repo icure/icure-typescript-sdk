@@ -13,20 +13,27 @@ import { CodeStub } from './CodeStub'
 import {ReferenceRange} from "./ReferenceRange"
 
 export class Measure {
+  /**
+   * We delete min and max from the json and create a referenceRange from it
+   * Since this is a shallow copy, deletion of min and max will have no effect on the original json since it's the top level fields
+   *
+   * @param json
+   */
   constructor(json: JSON | any) {
+    const measureValue = {...json}
 
-    if (!!json?.min || !!json?.max) {
-      json.referenceRange = [
+    if (!!measureValue?.min || !!measureValue?.max) {
+      measureValue.referenceRange = [
         new ReferenceRange({
-          low: json.min,
-          high: json.max
+          low: measureValue.min,
+          high: measureValue.max
         })
       ]
-      delete json?.min
-      delete json?.max
+      delete measureValue?.min
+      delete measureValue?.max
     }
 
-    Object.assign(this as Measure, json)
+    Object.assign(this as Measure, measureValue)
   }
 
   value?: number
