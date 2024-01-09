@@ -1,6 +1,6 @@
 {
   "name": "@icure/api",
-  "version": "8.0.0",
+  "version": "8.0.1",
   "description": "Typescript version of iCure standalone API client",
   "types": "dist/index.d.ts",
   "dependencies": {
@@ -38,13 +38,13 @@
     "mocha": "^9.2.2",
     "node-localstorage": "^2.2.1",
     "nyc": "^15.1.0",
+    "otpauth": "^9.1.5",
     "prettier": "^2.6.2",
     "pretty-quick": "^3.1.3",
     "rimraf": "^3.0.2",
     "source-map-support": "^0.5.21",
     "ts-node": "^10.7.0",
-    "typescript": "^4.5.5",
-    "otpauth": "^9.1.5"
+    "typescript": "^4.5.5"
   },
   "scripts": {
     "gen": "java -classpath swagger-codegen-generators.jar io.swagger.codegen.v3.cli.SwaggerCodegen generate -i https://kraken.svc.icure.cloud/v3/api-docs/v1 -l typescript --additional-properties classPrefix=Icc skipPathPrefix=/rest/v1 -o ./icc-api/",
