@@ -22,7 +22,14 @@ import { EntityWithDelegationTypeName } from '../../icc-x-api/utils/EntityWithDe
  */
 export class Contact {
   constructor(json: JSON | any) {
-    Object.assign(this as Contact, json)
+    Object.assign(
+      this as Contact,
+      json,
+    )
+
+    if (!!this.services) {
+      this.services = this.services.map((service: JSON | any) => new Service(service))
+    }
   }
 
   /**
