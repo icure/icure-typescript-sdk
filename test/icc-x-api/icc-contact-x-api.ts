@@ -1,24 +1,25 @@
-import { before } from 'mocha'
+import {before} from 'mocha'
 
 import 'isomorphic-fetch'
 
-import { IccContactXApi, IccHelementXApi, IccPatientXApi } from '../../icc-x-api'
-import { Patient } from '../../icc-api/model/Patient'
-import { assert, expect } from 'chai'
-import { randomUUID } from 'crypto'
-import { getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils } from '../utils/test_utils'
-import { Code } from '../../icc-api/model/Code'
-import { Contact } from '../../icc-api/model/Contact'
-import { Service } from '../../icc-api/model/Service'
-import { Content } from '../../icc-api/model/Content'
-import { User } from '../../icc-api/model/User'
-import { HealthElement } from '../../icc-api/model/HealthElement'
-import { SubContact } from '../../icc-api/model/SubContact'
-import { ServiceLink } from '../../icc-api/model/ServiceLink'
-import { FilterChainService } from '../../icc-api/model/FilterChainService'
-import { ServiceByHcPartyHealthElementIdsFilter } from '../../icc-x-api/filters/ServiceByHcPartyHealthElementIdsFilter'
+import {IccContactXApi, IccHelementXApi, IccPatientXApi} from '../../icc-x-api'
+import {Patient} from '../../icc-api/model/Patient'
+import {assert, expect} from 'chai'
+import {randomUUID} from 'crypto'
+import {getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils} from '../utils/test_utils'
+import {Code} from '../../icc-api/model/Code'
+import {Contact} from '../../icc-api/model/Contact'
+import {Service} from '../../icc-api/model/Service'
+import {Content} from '../../icc-api/model/Content'
+import {User} from '../../icc-api/model/User'
+import {HealthElement} from '../../icc-api/model/HealthElement'
+import {SubContact} from '../../icc-api/model/SubContact'
+import {ServiceLink} from '../../icc-api/model/ServiceLink'
+import {FilterChainService} from '../../icc-api/model/FilterChainService'
+import {ServiceByHcPartyHealthElementIdsFilter} from '../../icc-x-api/filters/ServiceByHcPartyHealthElementIdsFilter'
+import {getEnvVariables, TestVars} from '@icure/test-setup/types'
+import {Measure} from "../../icc-api/model/Measure"
 import initApi = TestUtils.initApi
-import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 
 setLocalStorage(fetch)
 let env: TestVars
@@ -62,7 +63,7 @@ async function createHealthElement(healthElementApi: IccHelementXApi, hcpUser: U
           }),
         ],
       }),
-      { confidential: true }
+      {confidential: true}
     )
   )
 }
@@ -79,7 +80,7 @@ function createBasicContact(contactApiForHcp: IccContactXApi, hcpUser: User, pat
           new Service({
             id: randomUUID(),
             valueDate: 20220203111034,
-            content: { en: new Content({ numberValue: 53.5 }) },
+            content: {en: new Content({numberValue: 53.5})},
             tags: [
               new Code({
                 id: 'LOINC|29463-7|2',
@@ -93,14 +94,14 @@ function createBasicContact(contactApiForHcp: IccContactXApi, hcpUser: User, pat
       ],
       descr: 'Weight value',
     }),
-    { confidential: true }
+    {confidential: true}
   )
 }
 
 describe('icc-x-contact-api Tests', () => {
   it('CreateContactWithUser Success for HCP', async () => {
     // Given
-    const { userApi: userApiForHcp, patientApi: patientApiForHcp, contactApi: contactApiForHcp, cryptoApi } = await initApi(env!, hcp1Username)
+    const {userApi: userApiForHcp, patientApi: patientApiForHcp, contactApi: contactApiForHcp, cryptoApi} = await initApi(env!, hcp1Username)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
 
@@ -125,7 +126,7 @@ describe('icc-x-contact-api Tests', () => {
     expect(readContact.services![0].id).to.be.equal(contactToCreate.services![0].id)
     expect(readContact.services![0].valueDate).to.be.equal(contactToCreate.services![0].valueDate)
     expect(readContact.services![0].tags![0].id).to.be.equal(contactToCreate.services![0].tags![0].id!)
-    expect(await cryptoApi.xapi.encryptionKeysOf({ entity: readContact, type: 'Contact' }, undefined)).to.have.length(1)
+    expect(await cryptoApi.xapi.encryptionKeysOf({entity: readContact, type: 'Contact'}, undefined)).to.have.length(1)
     const decryptedPatientIds = await contactApiForHcp.decryptPatientIdOf(readContact)
     expect(decryptedPatientIds).to.have.length(1)
     expect(decryptedPatientIds[0]).to.equal(patient.id)
@@ -151,7 +152,7 @@ describe('icc-x-contact-api Tests', () => {
           new SubContact({
             id: randomUUID(),
             healthElementId: healthElement!.id!,
-            services: [new ServiceLink({ serviceId: contact.services![0].id })],
+            services: [new ServiceLink({serviceId: contact.services![0].id})],
           }),
         ],
       }
@@ -199,7 +200,7 @@ describe('icc-x-contact-api Tests', () => {
           new SubContact({
             id: randomUUID(),
             healthElementId: healthElement!.id!,
-            services: [new ServiceLink({ serviceId: contact.services![0].id })],
+            services: [new ServiceLink({serviceId: contact.services![0].id})],
           }),
         ],
       }
@@ -226,12 +227,12 @@ describe('icc-x-contact-api Tests', () => {
     const user2 = await api2.userApi.getCurrentUser()
     const samplePatient = await api1.patientApi.createPatientWithUser(
       user1,
-      await api1.patientApi.newInstance(user1, { firstName: 'Gigio', lastName: 'Bagigio' })
+      await api1.patientApi.newInstance(user1, {firstName: 'Gigio', lastName: 'Bagigio'})
     )
     const encryptedField = 'Something encrypted'
     const entity = await api1.calendarItemApi.createCalendarItemWithHcParty(
       user1,
-      await api1.calendarItemApi.newInstancePatient(user1, samplePatient, { details: encryptedField })
+      await api1.calendarItemApi.newInstancePatient(user1, samplePatient, {details: encryptedField})
     )
     expect(entity.details).to.be.equal(encryptedField)
     await api2.calendarItemApi
@@ -247,4 +248,94 @@ describe('icc-x-contact-api Tests', () => {
     expect(retrieved.details).to.be.equal(encryptedField)
     expect((await api2.calendarItemApi.decryptPatientIdOf(retrieved))[0]).to.equal(samplePatient.id)
   })
+
+  it('Instanciation of old Measure should be mapped to new Measure with referenceRange', () => {
+    const oldMeasure = {
+      min: 0,
+      max: 10,
+    }
+
+    const newMeasure = new Measure({...oldMeasure})
+
+    expect(newMeasure.referenceRange).to.not.be.undefined
+    expect(newMeasure.referenceRange).to.not.undefined
+    expect(newMeasure.referenceRange).to.have.length(1)
+    expect(newMeasure.referenceRange![0].low).to.be.equal(oldMeasure.min)
+    expect(newMeasure.referenceRange![0].high).to.be.equal(oldMeasure.max)
+  })
+
+  it('Instanciation of Service with old Measure should be mapped to new Measure with referenceRange', () => {
+    const serviceJson = {
+      id: 'serviceId',
+      valueDate: 20220203111034,
+      content: {
+        en: {
+          numberValue: 53.5,
+          measureValue: {
+            min: 0,
+            max: 10,
+          }
+
+        }
+      },
+      tags: [
+        {
+          id: 'LOINC|29463-7|2',
+          code: '29463-7',
+          type: 'LOINC',
+          version: '2',
+        },
+      ],
+    }
+
+    const service = new Service(JSON.parse(JSON.stringify(serviceJson)))
+
+    expect(service.content?.en?.measureValue).to.not.be.undefined
+    expect(service.content?.en?.measureValue?.referenceRange).to.not.be.undefined
+    expect(service.content?.en?.measureValue?.referenceRange).to.have.length(1)
+    expect(service.content?.en?.measureValue?.referenceRange![0].low).to.be.equal(serviceJson.content.en.measureValue.min)
+    expect(service.content?.en?.measureValue?.referenceRange![0].high).to.be.equal(serviceJson.content.en.measureValue.max)
+  })
+
+  it('Instanciation of Contact with old Measure should be mapped to new Measure with referenceRange', () => {
+    const contactJson = {
+      id: 'contactId',
+      services: [
+        {
+          id: 'serviceId',
+          valueDate: 20220203111034,
+          content: {
+            en: {
+              numberValue: 53.5,
+              measureValue: {
+                min: 0,
+                max: 10,
+              }
+            }
+          },
+          tags: [
+            {
+              id: 'LOINC|29463-7|2',
+              code: '29463-7',
+              type: 'LOINC',
+              version: '2',
+            },
+          ],
+        },
+      ],
+      descr: 'Weight value',
+    }
+
+    const contact = new Contact(JSON.parse(JSON.stringify(contactJson)))
+
+    expect(contact.services).to.not.be.undefined
+    expect(contact.services).to.have.length(1)
+    expect(contact.services![0].content?.en?.measureValue).to.not.be.undefined
+    expect(contact.services![0].content?.en?.measureValue?.referenceRange).to.not.be.undefined
+    expect(contact.services![0].content?.en?.measureValue?.referenceRange).to.have.length(1)
+    expect(contact.services![0].content?.en?.measureValue?.referenceRange![0].low).to.be.equal(contactJson.services[0].content.en.measureValue.min)
+    expect(contact.services![0].content?.en?.measureValue?.referenceRange![0].high).to.be.equal(contactJson.services[0].content.en.measureValue.max)
+  })
+
+
 })

@@ -197,7 +197,7 @@
   dependencies:
     "@jridgewell/trace-mapping" "0.3.9"
 
-"@icure/api@7.1.32", "@icure/apiV7@npm:@icure/api@7.1.32":
+"@icure/api@7.1.32":
   version "7.1.32"
   resolved "https://registry.yarnpkg.com/@icure/api/-/api-7.1.32.tgz#5e32158c89bac42f2b2fcebb0cd5dd58601be5e5"
   integrity sha512-WDZh+Y9EyrRLCkt8P0LK/tiWgg6R+ZpkiIYnmT27YLAsB2cIBb+nlEIGuF9ig1WdstixO9WfwWeaGfx+QiQIpw==
@@ -224,6 +224,21 @@
     text-encoding "^0.7.0"
     uuid "^8.3.2"
     uuid-encoder "^1.1.0"
+
+"@icure/apiV7@npm:@icure/api@7.1.31":
+  version "7.1.31"
+  resolved "https://registry.yarnpkg.com/@icure/api/-/api-7.1.31.tgz#ad74a0e2ec2abfb21fc759e667fcbd6563218489"
+  integrity sha512-AqzpL3BdZzQpcy81tgn5q2WdRYoYR94fv1G5PKuxGfdW1jT+zlPG3/1G1ndqWruqsJUZfdsGduNV7fYypzQwWQ==
+  dependencies:
+    browser-or-node "^2.1.1"
+    date-fns "^2.23.0"
+    libphonenumber-js "^1.7.18"
+    lodash "^4.17.21"
+    moment "^2.22.1"
+    text-encoding "^0.7.0"
+    uuid "^8.3.2"
+    uuid-encoder "^1.1.0"
+    ws "^8.13.0"
 
 "@icure/test-setup@0.0.68":
   version "0.0.68"

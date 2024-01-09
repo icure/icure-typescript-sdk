@@ -10,15 +10,26 @@
  * Do not edit the class manually.
  */
 import { CodeStub } from './CodeStub'
+import {ReferenceRange} from "./ReferenceRange"
 
 export class Measure {
   constructor(json: JSON | any) {
+
+    if (!!json?.min || !!json?.max) {
+      json.referenceRange = [
+        new ReferenceRange({
+          low: json.min,
+          high: json.max
+        })
+      ]
+      delete json?.min
+      delete json?.max
+    }
+
     Object.assign(this as Measure, json)
   }
 
   value?: number
-  min?: number
-  max?: number
   ref?: number
   severity?: number
   severityCode?: string
@@ -28,4 +39,8 @@ export class Measure {
   unitCodes?: Array<CodeStub>
   comment?: string
   comparator?: string
+  /**
+   * Reference range for the measure
+   */
+  referenceRange?: Array<ReferenceRange>
 }
