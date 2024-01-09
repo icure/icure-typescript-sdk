@@ -356,7 +356,7 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
       if (Object.keys(currentRequests).length > 0) {
         const existingDelegationMembersDetails = await this.secDelMetadataDecryptor.getDelegationMemberDetails(entityWithType)
         const accessibleMembers = new Set(
-          this.useParentKeys ? await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds() : await this.dataOwnerApi.getCurrentDataOwnerId()
+          this.useParentKeys ? await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds() : [await this.dataOwnerApi.getCurrentDataOwnerId()]
         )
         const potentialParentDelegations = Object.entries(existingDelegationMembersDetails).flatMap(([k, members]) => {
           if ((!!members.delegate && accessibleMembers.has(members.delegate)) || (!!members.delegator && accessibleMembers.has(members.delegator))) {
