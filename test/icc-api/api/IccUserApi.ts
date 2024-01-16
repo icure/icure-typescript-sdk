@@ -38,11 +38,11 @@ describe('User', () => {
     })
     expect(user.systemMetadata?.roles?.length ?? 0).to.be.equal(0)
 
-    const userWithRole = await userApi.addRoles(user.id!, [role])
+    const userWithRole = await userApi.setRoles(user.id!, [role])
     expect(userWithRole.systemMetadata?.roles?.length ?? 0).to.be.equal(1)
     expect(userWithRole.systemMetadata?.roles![0]).to.be.equal(role)
 
-    const userWithoutRole = await userApi.removeRoles(user.id!, [role])
+    const userWithoutRole = await userApi.resetRoles(user.id!)
     expect(userWithoutRole.systemMetadata?.inheritsRoles).to.be.true
   })
 
@@ -78,11 +78,11 @@ describe('User', () => {
     })
     expect(user.systemMetadata?.roles?.length ?? 0).to.be.equal(0)
 
-    const userWithRole = await userApi.addRolesInGroup(user.id!, groupId, [role])
+    const userWithRole = await userApi.setRolesInGroup(user.id!, groupId, [role])
     expect(userWithRole.systemMetadata?.roles?.length ?? 0).to.be.equal(1)
     expect(userWithRole.systemMetadata?.roles![0]).to.be.equal(role)
 
-    const userWithoutRole = await userApi.removeRolesInGroup(user.id!, groupId, [role])
+    const userWithoutRole = await userApi.resetRolesInGroup(user.id!, groupId)
     expect(userWithoutRole.systemMetadata?.inheritsRoles).to.be.true
   })
 })
