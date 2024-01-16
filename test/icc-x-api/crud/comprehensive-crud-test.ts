@@ -48,7 +48,7 @@ describe('CRUD Test', () => {
     const patientUser = await patientApi.userApi.getCurrentUser()
     patient = await patientApi.patientApi.getPatientWithUser(patientUser, patientUser.patientId!)
     const { api, credentials, user } = await createNewHcpApi(env)
-    if (!isLiteTest()) await masterApi.userApi.addRoles(user.id!, ['BASIC_USER'])
+    if (!isLiteTest()) await masterApi.userApi.setRoles(user.id!, ['BASIC_USER'])
 
     const RSA = new RSAUtils(webcrypto as any)
     const keys = {
