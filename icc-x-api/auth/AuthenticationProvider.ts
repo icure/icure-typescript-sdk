@@ -99,7 +99,7 @@ export class JwtAuthenticationProvider implements AuthenticationProvider {
     private readonly username?: string,
     private readonly password?: string,
     jwtAuth?: JwtAuthService | JwtBridgedAuthService,
-    private readonly icureToken?: { token: string; refreshToken: string }
+    icureToken?: { token: string; refreshToken: string }
   ) {
     const composedAuth =
       jwtAuth ??

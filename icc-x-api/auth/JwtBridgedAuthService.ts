@@ -20,7 +20,9 @@ export class JwtBridgedAuthService implements AuthService {
     private password: string | undefined,
     private thirdPartyTokens: { [thirdParty: string]: string } = {},
     initialJwt: { authJwt: string; refreshJwt: string } | undefined
-  ) {}
+  ) {
+    this._currentPromise = Promise.resolve(initialJwt ?? {})
+  }
 
   get refreshToken(): Promise<string | undefined> {
     return this._currentPromise.then((x) => x.refreshJwt as any)
