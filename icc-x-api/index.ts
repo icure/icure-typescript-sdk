@@ -454,6 +454,7 @@ export type AuthenticationDetails =
     }
   | {
       icureTokens: { token: string; refreshToken: string }
+      credentials?: { username: string; password: string }
     }
   | {
       thirdPartyTokens: { [thirdParty: string]: string }
@@ -577,8 +578,8 @@ async function getAuthenticationProvider(
   } else if ('icureTokens' in authenticationOptions && !!authenticationOptions.icureTokens) {
     authenticationProvider = new JwtAuthenticationProvider(
       new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl),
-      undefined,
-      undefined,
+      authenticationOptions?.credentials?.username,
+      authenticationOptions?.credentials?.password,
       undefined,
       authenticationOptions.icureTokens
     )
@@ -606,7 +607,8 @@ async function getAuthenticationProvider(
         new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl),
         undefined,
         undefined,
-        authenticationOptions.thirdPartyTokens
+        authenticationOptions.thirdPartyTokens,
+        undefined
       )
     )
   } else if ('username' in authenticationOptions && 'secretProvider' in authenticationOptions) {

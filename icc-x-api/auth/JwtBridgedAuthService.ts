@@ -18,7 +18,8 @@ export class JwtBridgedAuthService implements AuthService {
     private authApi: IccAuthApi,
     private username: string | undefined,
     private password: string | undefined,
-    private thirdPartyTokens: { [thirdParty: string]: string } = {}
+    private thirdPartyTokens: { [thirdParty: string]: string } = {},
+    initialJwt: { authJwt: string; refreshJwt: string } | undefined
   ) {}
 
   get refreshToken(): Promise<string | undefined> {

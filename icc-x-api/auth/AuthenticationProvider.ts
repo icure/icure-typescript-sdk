@@ -44,7 +44,7 @@ export class EnsembleAuthenticationProvider implements AuthenticationProvider {
     basicAuth?: BasicAuthService,
     thirdPartyTokens: { [thirdParty: string]: string } = {}
   ) {
-    this.jwtAuth = jwtAuth ?? new JwtBridgedAuthService(this.authApi, this.username, this.password)
+    this.jwtAuth = jwtAuth ?? new JwtBridgedAuthService(this.authApi, this.username, this.password, thirdPartyTokens, undefined)
     this.basicAuth = basicAuth ?? new BasicAuthService(this.username, this.password)
   }
 
@@ -57,7 +57,7 @@ export class EnsembleAuthenticationProvider implements AuthenticationProvider {
     // but it will not use it until the suspension ends
     if (this.jwtAuth.isInErrorState()) {
       console.warn('Error state in JWT, I will skip it')
-      this.jwtAuth = new JwtBridgedAuthService(this.authApi, this.username, this.password)
+      this.jwtAuth = new JwtBridgedAuthService(this.authApi, this.username, this.password, {}, undefined)
       this.suspensionEnd = new Date(new Date().getTime() + this.jwtTimeout * 1000)
     }
 
@@ -103,10 +103,16 @@ export class JwtAuthenticationProvider implements AuthenticationProvider {
   ) {
     const composedAuth =
       jwtAuth ??
-      (icureToken
+      (!!username && !!password
+        ? new JwtBridgedAuthService(
+            authApi,
+            username!,
+            password!,
+            {},
+            icureToken ? { authJwt: icureToken.token, refreshJwt: icureToken.refreshToken } : undefined
+          )
+        : icureToken
         ? new JwtAuthService(authApi, { authJwt: icureToken.token, refreshJwt: icureToken.refreshToken })
-        : !!username && !!password
-        ? new JwtBridgedAuthService(authApi, username!, password!)
         : undefined)
     if (!composedAuth) {
       throw new Error('No authentication method provided')
@@ -186,6 +192,7 @@ async function switchJwtAuth(
           authApi,
           updatedLogin,
           password,
+          {},
           switchedJwtInfo?.token && switchedJwtInfo?.refreshToken
             ? { authJwt: switchedJwtInfo.token, refreshJwt: switchedJwtInfo.refreshToken }
             : undefined
