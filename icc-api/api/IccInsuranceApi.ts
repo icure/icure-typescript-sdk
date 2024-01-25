@@ -158,8 +158,7 @@ export class IccInsuranceApi {
 
     const _url =
       this.host +
-      `/insurance?` +
-      'ts=' +
+      `/insurance?ts=` +
       new Date().getTime() +
       (!!startDocumentId ? `&startDocumentId=${encodeURIComponent(startDocumentId)}` : '') +
       (!!limit ? `&limit=${encodeURIComponent(limit)}` : '')
