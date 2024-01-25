@@ -17,6 +17,7 @@ export class CodeStub {
 
   id?: string
   context?: string
+  contextLabel?: string
   type?: string
   code?: string
   version?: string

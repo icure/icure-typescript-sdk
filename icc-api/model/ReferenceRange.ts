@@ -24,6 +24,7 @@ export class ReferenceRange {
     this.codes = json?.codes?.map((code: JSON | any) => new CodeStub(code))
     this.notes = json?.notes?.map((note: JSON | any) => new Annotation(note))
     this.age = new Range(json?.age)
+    this.stringValue = json?.stringValue
   }
 
   low?: number
@@ -32,4 +33,5 @@ export class ReferenceRange {
   codes?: CodeStub[]
   notes?: Annotation[]
   age?: Range
+  stringValue?: string
 }
