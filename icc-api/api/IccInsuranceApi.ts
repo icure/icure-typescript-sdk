@@ -150,9 +150,10 @@ export class IccInsuranceApi {
 
     const _url =
       this.host +
-      `/insurance?startDocumentId=${encodeURIComponent(String(startDocumentId))}&limit=${encodeURIComponent(String(limit))}` +
-      '&ts=' +
-      new Date().getTime()
+      `/insurance?ts=` +
+      new Date().getTime() +
+      (!!startDocumentId ? `&startDocumentId=${encodeURIComponent(startDocumentId)}` : '') +
+      (!!limit ? `&limit=${encodeURIComponent(limit)}` : '')
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListInsurance(doc.body as JSON))
