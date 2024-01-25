@@ -1,8 +1,9 @@
 export class HMACUtils {
   private readonly _crypto: Crypto
-  private readonly params = {
+  private readonly params: HmacKeyGenParams = {
     name: 'HMAC',
     hash: 'SHA-512',
+    length: 128 * 8, // Recommended length in bits. Adding this because not all implementations behave well.
   }
 
   constructor(crypto: Crypto) {
