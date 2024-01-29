@@ -1,22 +1,22 @@
 import 'isomorphic-fetch'
 import { expect, use as chaiUse } from 'chai'
 import 'mocha'
-import { Apis } from '../../icc-x-api'
+import { Apis, ShaVersion, ua2hex } from '../../icc-x-api'
 import { IccPatientApi } from '../../icc-api'
 import { User } from '../../icc-api/model/User'
 import { crypto } from '../../node-compat'
-import { ua2hex } from '../../icc-x-api'
 import { Patient } from '../../icc-api/model/Patient'
 import { before } from 'mocha'
 import { getEnvironmentInitializer, hcp1Username, isLiteTest, patUsername, setLocalStorage, TestUtils } from '../utils/test_utils'
-import initApi = TestUtils.initApi
 import { TestApi } from '../utils/TestApi'
 import { RSAUtils } from '../../icc-x-api/crypto/RSA'
 import * as chaiAsPromised from 'chai-as-promised'
 import { EntityShareRequest } from '../../icc-api/model/requests/EntityShareRequest'
-import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import { BasicAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import initApi = TestUtils.initApi
+import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
+
 chaiUse(chaiAsPromised)
 
 setLocalStorage(fetch)
@@ -55,7 +55,7 @@ describe('Patient', () => {
     )
 
     const rsa = new RSAUtils(crypto)
-    const keyPair = await rsa.generateKeyPair('sha-256')
+    const keyPair = await rsa.generateKeyPair(ShaVersion.Sha256)
     const { publicKey, privateKey } = keyPair
     const publicKeyHex = ua2hex(await rsa.exportKey(publicKey, 'spki'))
     const rawPatientApi = new IccPatientApi(env.iCureUrl, {}, new BasicAuthenticationProvider(tmpUser.id!, pwd))

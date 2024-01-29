@@ -12,7 +12,7 @@ import { createHcpHierarchyApis, getEnvironmentInitializer, setLocalStorage } fr
 import { TestKeyStorage, TestStorage } from '../../utils/TestStorage'
 import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
-import { IcureApi } from '../../../icc-x-api'
+import { IcureApi, ShaVersion } from '../../../icc-x-api'
 import { BasicAuthenticationProvider } from '../../../icc-x-api'
 
 setLocalStorage(fetch)
@@ -53,7 +53,7 @@ describe('Full battery of tests on crypto and keys', async function () {
     const apiAsPatient = await IcureApi.initialise(
       env!.iCureUrl,
       { username: newPatientUser.login!, password: 'LetMeInForReal' },
-      new TestCryptoStrategies(await api.cryptoApi.primitives.RSA.generateKeyPair('sha-256')),
+      new TestCryptoStrategies(await api.cryptoApi.primitives.RSA.generateKeyPair(ShaVersion.Sha256)),
       webcrypto as unknown as Crypto,
       fetch,
       {

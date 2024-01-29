@@ -12,7 +12,7 @@ import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { ShareResult } from './utils/ShareResult'
 import { XHR } from '../icc-api/api/XHR'
-import { EncryptedFieldsManifest, parseEncryptedFields } from './utils'
+import { EncryptedFieldsManifest, EntityWithDelegationTypeName, parseEncryptedFields } from './utils'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 
 export interface AccessLogWithPatientId extends AccessLog {
@@ -25,7 +25,7 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
   dataOwnerApi: IccDataOwnerXApi
 
   get headers(): Promise<Array<XHR.Header>> {
-    return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, 'AccessLog'))
+    return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, EntityWithDelegationTypeName.AccessLog))
   }
 
   constructor(
@@ -91,7 +91,9 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
-    const sfk = options.preferredSfk ?? (await this.crypto.confidential.getAnySecretIdSharedWithParents({ entity: patient, type: 'Patient' }))
+    const sfk =
+      options.preferredSfk ??
+      (await this.crypto.confidential.getAnySecretIdSharedWithParents({ entity: patient, type: EntityWithDelegationTypeName.Patient }))
     if (!sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id}`)
     const extraDelegations = {
       ...Object.fromEntries(
@@ -101,7 +103,7 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
     }
     return new AccessLog(
       await this.crypto.xapi
-        .entityWithInitialisedEncryptedMetadata(accessLog, 'AccessLog', patient.id, sfk, true, false, extraDelegations)
+        .entityWithInitialisedEncryptedMetadata(accessLog, EntityWithDelegationTypeName.AccessLog, patient.id, sfk, true, false, extraDelegations)
         .then((x) => x.updatedEntity)
     )
   }
@@ -126,7 +128,7 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
    */
 
   async findBy(hcpartyId: string, patient: models.Patient, usingPost: boolean = false): Promise<models.AccessLog[]> {
-    const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: 'Patient' }, hcpartyId)
+    const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: EntityWithDelegationTypeName.Patient }, hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     return extractedKeys && extractedKeys.length > 0
       ? usingPost
@@ -146,7 +148,9 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
 
   decrypt(hcpId: string, accessLogs: Array<models.AccessLog>): Promise<Array<models.AccessLog>> {
     return Promise.all(
-      accessLogs.map((x) => this.crypto.xapi.decryptEntity(x, 'AccessLog', (json) => new AccessLog(json)).then(({ entity }) => entity))
+      accessLogs.map((x) =>
+        this.crypto.xapi.decryptEntity(x, EntityWithDelegationTypeName.AccessLog, (json) => new AccessLog(json)).then(({ entity }) => entity)
+      )
     )
   }
 
@@ -157,7 +161,16 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
 
   private encryptAs(dataOwner: string, accessLogs: Array<models.AccessLog>): Promise<Array<models.AccessLog>> {
     return Promise.all(
-      accessLogs.map((x) => this.crypto.xapi.tryEncryptEntity(x, 'AccessLog', this.encryptedFields, false, false, (json) => new AccessLog(json)))
+      accessLogs.map((x) =>
+        this.crypto.xapi.tryEncryptEntity(
+          x,
+          EntityWithDelegationTypeName.AccessLog,
+          this.encryptedFields,
+          false,
+          false,
+          (json) => new AccessLog(json)
+        )
+      )
     )
   }
 
@@ -270,13 +283,15 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
         (decryptedLogs) =>
           Promise.all(
             _.map(decryptedLogs, (decryptedLog) => {
-              return this.crypto.xapi.owningEntityIdsOf({ entity: decryptedLog, type: 'AccessLog' }, user.healthcarePartyId as string).then(
-                (keys) =>
-                  ({
-                    ...decryptedLog,
-                    patientId: _.head(keys),
-                  } as AccessLogWithPatientId)
-              )
+              return this.crypto.xapi
+                .owningEntityIdsOf({ entity: decryptedLog, type: EntityWithDelegationTypeName.AccessLog }, user.healthcarePartyId as string)
+                .then(
+                  (keys) =>
+                    ({
+                      ...decryptedLog,
+                      patientId: _.head(keys),
+                    } as AccessLogWithPatientId)
+                )
             })
           )
       )
@@ -307,14 +322,14 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
    * there should only be one element in the returned array, but in case of entity merges there could be multiple values.
    */
   async decryptPatientIdOf(accessLog: AccessLog): Promise<string[]> {
-    return this.crypto.xapi.owningEntityIdsOf({ entity: accessLog, type: 'AccessLog' }, undefined)
+    return this.crypto.xapi.owningEntityIdsOf({ entity: accessLog, type: EntityWithDelegationTypeName.AccessLog }, undefined)
   }
 
   /**
    * @return if the logged data owner has write access to the content of the given access log
    */
   async hasWriteAccess(accessLog: AccessLog): Promise<boolean> {
-    return this.crypto.xapi.hasWriteAccess({ entity: accessLog, type: 'AccessLog' })
+    return this.crypto.xapi.hasWriteAccess({ entity: accessLog, type: EntityWithDelegationTypeName.AccessLog })
   }
 
   /**
@@ -395,11 +410,11 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
   ): Promise<ShareResult<AccessLog>> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
-    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(accessLog, 'AccessLog')
+    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(accessLog, EntityWithDelegationTypeName.AccessLog)
     const updatedEntity = entityWithEncryptionKey ? await this.modifyAs(self, entityWithEncryptionKey) : accessLog
     return this.crypto.xapi
       .simpleShareOrUpdateEncryptedEntityMetadata(
-        { entity: updatedEntity, type: 'AccessLog' },
+        { entity: updatedEntity, type: EntityWithDelegationTypeName.AccessLog },
         true,
         Object.fromEntries(
           Object.entries(delegates).map(([delegateId, options]) => [
@@ -420,14 +435,17 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
   getDataOwnersWithAccessTo(
     entity: AccessLog
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'AccessLog' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: EntityWithDelegationTypeName.AccessLog })
   }
 
   getEncryptionKeysOf(entity: AccessLog): Promise<string[]> {
-    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'AccessLog' }, undefined)
+    return this.crypto.xapi.encryptionKeysOf({ entity, type: EntityWithDelegationTypeName.AccessLog }, undefined)
   }
 
   createDelegationDeAnonymizationMetadata(entity: AccessLog, delegates: string[]): Promise<void> {
-    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'AccessLog' }, delegates)
+    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo(
+      { entity, type: EntityWithDelegationTypeName.AccessLog },
+      delegates
+    )
   }
 }

@@ -11,9 +11,7 @@ import {
   TestUtils,
 } from '../../utils/test_utils'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
-import initMasterApi = TestUtils.initMasterApi
-import { hex2ua, IcureApi, RSAUtils } from '../../../icc-x-api'
-import initApi = TestUtils.initApi
+import { hex2ua, IcureApi, RSAUtils, ShaVersion } from '../../../icc-x-api'
 import * as chaiAsPromised from 'chai-as-promised'
 import { expect, use as chaiUse } from 'chai'
 import { entities } from './entities-crud-test-interface'
@@ -21,6 +19,9 @@ import { Patient } from '../../../icc-api/model/Patient'
 import { IdWithRev } from '../../../icc-api/model/IdWithRev'
 import { randomUUID, webcrypto } from 'crypto'
 import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
+import initMasterApi = TestUtils.initMasterApi
+import initApi = TestUtils.initApi
+
 chaiUse(chaiAsPromised)
 
 setLocalStorage(fetch)
@@ -52,8 +53,8 @@ describe('CRUD Test', () => {
 
     const RSA = new RSAUtils(webcrypto as any)
     const keys = {
-      publicKey: await RSA.importKey('spki', hex2ua(credentials.publicKey), ['encrypt'], 'sha-1'),
-      privateKey: await RSA.importKey('pkcs8', hex2ua(credentials.privateKey), ['decrypt'], 'sha-1'),
+      publicKey: await RSA.importKey('spki', hex2ua(credentials.publicKey), ['encrypt'], ShaVersion.Sha1),
+      privateKey: await RSA.importKey('pkcs8', hex2ua(credentials.privateKey), ['decrypt'], ShaVersion.Sha1),
     }
 
     noPermissionsApi = await IcureApi.initialise(

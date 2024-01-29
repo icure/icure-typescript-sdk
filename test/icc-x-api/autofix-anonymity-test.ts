@@ -2,7 +2,7 @@ import { before } from 'mocha'
 import { createNewHcpApi, createNewPatientApi, getEnvironmentInitializer, setLocalStorage } from '../utils/test_utils'
 import { getEnvVariables, TestVars, UserDetails } from '@icure/test-setup/types'
 import { DataOwnerTypeEnum } from '../../icc-api/model/DataOwnerTypeEnum'
-import { CryptoPrimitives, CryptoStrategies, IcureApi, KeyPair } from '../../icc-x-api'
+import { CryptoPrimitives, CryptoStrategies, IcureApi, KeyPair, ShaVersion } from '../../icc-x-api'
 import { expect } from 'chai'
 import { CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
 import { DataOwnerWithType } from '../../icc-api/model/DataOwnerWithType'
@@ -56,7 +56,7 @@ describe('Autofix anonymity tests', () => {
     const storage = await testStorageWithKeys([
       {
         dataOwnerId: userDetails.dataOwnerId,
-        pairs: [{ keyPair: { publicKey: userDetails.publicKey, privateKey: userDetails.privateKey }, shaVersion: 'sha-1' }],
+        pairs: [{ keyPair: { publicKey: userDetails.publicKey, privateKey: userDetails.privateKey }, shaVersion: ShaVersion.Sha1 }],
       },
     ])
     const api = await IcureApi.initialise(

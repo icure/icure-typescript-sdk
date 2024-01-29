@@ -16,6 +16,7 @@ import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 import { AccessLog } from '../icc-api/model/models'
+import { EntityWithDelegationTypeName } from './utils'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXApi<models.Document> {
@@ -574,7 +575,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
   }
 
   override get headers(): Promise<Array<XHR.Header>> {
-    return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, 'Document'))
+    return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, EntityWithDelegationTypeName.Document))
   }
 
   /**
@@ -616,7 +617,8 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
     const sfk = message
-      ? options.preferredSfk ?? (await this.crypto.confidential.getAnySecretIdSharedWithParents({ entity: message, type: 'Message' }))
+      ? options.preferredSfk ??
+        (await this.crypto.confidential.getAnySecretIdSharedWithParents({ entity: message, type: EntityWithDelegationTypeName.Message }))
       : undefined
     if (message && !sfk) throw new Error(`Couldn't find any sfk of parent message ${message.id}`)
     const extraDelegations = {
@@ -627,14 +629,14 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     }
     return new models.Document(
       await this.crypto.xapi
-        .entityWithInitialisedEncryptedMetadata(document, 'Document', message?.id, sfk, true, false, extraDelegations)
+        .entityWithInitialisedEncryptedMetadata(document, EntityWithDelegationTypeName.Document, message?.id, sfk, true, false, extraDelegations)
         .then((x) => x.updatedEntity)
     )
   }
 
   // noinspection JSUnusedGlobalSymbols
   async findByMessage(hcpartyId: string, message: models.Message) {
-    const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: message, type: 'Message' }, hcpartyId)
+    const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: message, type: EntityWithDelegationTypeName.Message }, hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     let documents: Array<models.Document> = await this.findDocumentsByHCPartyPatientForeignKeys(topmostParentId, _.uniq(extractedKeys).join(','))
     return await this.decrypt(hcpartyId, documents)
@@ -644,7 +646,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
   decrypt(hcpartyId: string, documents: Array<models.Document>): Promise<Array<models.Document>> {
     return Promise.all(
       documents.map((document) =>
-        this.crypto.xapi.decryptAndImportAllDecryptionKeys({ entity: document, type: 'Document' }).then((keys) => {
+        this.crypto.xapi.decryptAndImportAllDecryptionKeys({ entity: document, type: EntityWithDelegationTypeName.Document }).then((keys) => {
           if (!keys.length) {
             console.log('Cannot decrypt document', document.id)
             return Promise.resolve(document)
@@ -765,7 +767,9 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
    */
   async encryptAndSetDocumentAttachment(document: models.Document, attachment: ArrayBuffer | Uint8Array, utis?: string[]): Promise<models.Document> {
     if (!document.rev) throw new Error('Cannot set attachment on document without rev')
-    const { encryptedData, updatedEntity } = await this.crypto.xapi.encryptDataOf(document, 'Document', attachment, (d) => this.modifyDocument(d))
+    const { encryptedData, updatedEntity } = await this.crypto.xapi.encryptDataOf(document, EntityWithDelegationTypeName.Document, attachment, (d) =>
+      this.modifyDocument(d)
+    )
     return await this.setMainDocumentAttachment(document.id!, updatedEntity?.rev ?? document.rev, encryptedData, utis)
   }
 
@@ -798,7 +802,9 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     utis?: string[]
   ): Promise<models.Document> {
     if (!document.rev) throw new Error('Cannot set attachment on document without rev')
-    const { encryptedData, updatedEntity } = await this.crypto.xapi.encryptDataOf(document, 'Document', attachment, (d) => this.modifyDocument())
+    const { encryptedData, updatedEntity } = await this.crypto.xapi.encryptDataOf(document, EntityWithDelegationTypeName.Document, attachment, (d) =>
+      this.modifyDocument()
+    )
     return await this.setSecondaryAttachment(document.id!, secondaryAttachmentKey, updatedEntity?.rev ?? document.rev!, encryptedData, utis)
   }
 
@@ -849,8 +855,10 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     document: models.Document,
     validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<{ data: ArrayBuffer; wasDecrypted: boolean }> {
-    return await this.crypto.xapi.tryDecryptDataOf({ entity: document, type: 'Document' }, await this.getRawMainDocumentAttachment(document.id!), (x) =>
-      validator(x)
+    return await this.crypto.xapi.tryDecryptDataOf(
+      { entity: document, type: EntityWithDelegationTypeName.Document },
+      await this.getRawMainDocumentAttachment(document.id!),
+      (x) => validator(x)
     )
   }
 
@@ -888,7 +896,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<{ data: ArrayBuffer; wasDecrypted: boolean }> {
     return await this.crypto.xapi.tryDecryptDataOf(
-      { entity: document, type: 'Document' },
+      { entity: document, type: EntityWithDelegationTypeName.Document },
       await this.getSecondaryAttachment(document.id!, secondaryAttachmentKey),
       (x) => validator(x)
     )
@@ -900,14 +908,14 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
    * in the returned array, but in case of entity merges there could be multiple values.
    */
   async decryptMessageIdOf(document: models.Document): Promise<string[]> {
-    return this.crypto.xapi.owningEntityIdsOf({ entity: document, type: 'Document' }, undefined)
+    return this.crypto.xapi.owningEntityIdsOf({ entity: document, type: EntityWithDelegationTypeName.Document }, undefined)
   }
 
   /**
    * @return if the logged data owner has write access to the content of the given document
    */
   async hasWriteAccess(document: models.Document): Promise<boolean> {
-    return this.crypto.xapi.hasWriteAccess({ entity: document, type: 'Document' })
+    return this.crypto.xapi.hasWriteAccess({ entity: document, type: EntityWithDelegationTypeName.Document })
   }
 
   /**
@@ -984,11 +992,11 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
   ): Promise<ShareResult<models.Document>> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
-    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(document, 'Document')
+    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(document, EntityWithDelegationTypeName.Document)
     const updatedEntity = entityWithEncryptionKey ? await this.modifyDocument(entityWithEncryptionKey) : document
     return this.crypto.xapi
       .simpleShareOrUpdateEncryptedEntityMetadata(
-        { entity: updatedEntity, type: 'Document' },
+        { entity: updatedEntity, type: EntityWithDelegationTypeName.Document },
         true,
         Object.fromEntries(
           Object.entries(delegates).map(([delegateId, options]) => [
@@ -1009,14 +1017,17 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
   getDataOwnersWithAccessTo(
     entity: models.Document
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'Document' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: EntityWithDelegationTypeName.Document })
   }
 
   getEncryptionKeysOf(entity: models.Document): Promise<string[]> {
-    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'Document' }, undefined)
+    return this.crypto.xapi.encryptionKeysOf({ entity, type: EntityWithDelegationTypeName.Document }, undefined)
   }
 
   createDelegationDeAnonymizationMetadata(entity: models.Document, delegates: string[]): Promise<void> {
-    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'Document' }, delegates)
+    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo(
+      { entity, type: EntityWithDelegationTypeName.Document },
+      delegates
+    )
   }
 }

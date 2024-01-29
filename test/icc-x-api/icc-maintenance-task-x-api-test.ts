@@ -2,7 +2,7 @@ import { before } from 'mocha'
 
 import 'isomorphic-fetch'
 
-import { Apis } from '../../icc-x-api'
+import { Apis, EntityWithDelegationTypeName } from '../../icc-x-api'
 import { assert, expect } from 'chai'
 import { randomUUID } from 'crypto'
 import { getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils } from '../utils/test_utils'
@@ -90,7 +90,10 @@ describe('icc-x-maintenance-task-api Tests', () => {
     // Then
     assert(createdTask != null)
     assert(createdTask.id == taskToCreate.id)
-    const keysFor1 = await apiForHcp1.cryptoApi.xapi.encryptionKeysOf({ entity: createdTask, type: 'MaintenanceTask' }, undefined)
+    const keysFor1 = await apiForHcp1.cryptoApi.xapi.encryptionKeysOf(
+      { entity: createdTask, type: EntityWithDelegationTypeName.MaintenanceTask },
+      undefined
+    )
     expect(keysFor1).to.have.length(1)
 
     const foundTask: MaintenanceTask = await apiForHcp2.maintenanceTaskApi.getMaintenanceTaskWithUser(hcp2User, createdTask.id!)
@@ -98,7 +101,10 @@ describe('icc-x-maintenance-task-api Tests', () => {
     assert(foundTask.id == createdTask.id)
     assert(foundTask.properties?.find((prop: PropertyStub) => prop.typedValue?.stringValue == hcp2.id) != undefined)
     assert(foundTask.properties?.find((prop: PropertyStub) => prop.typedValue?.stringValue == hcp2.publicKey) != undefined)
-    const keysFor2 = await apiForHcp2.cryptoApi.xapi.encryptionKeysOf({ entity: createdTask, type: 'MaintenanceTask' }, undefined)
+    const keysFor2 = await apiForHcp2.cryptoApi.xapi.encryptionKeysOf(
+      { entity: createdTask, type: EntityWithDelegationTypeName.MaintenanceTask },
+      undefined
+    )
     expect(keysFor2).to.have.length(1)
     expect(keysFor2[0]).to.equal(keysFor1[0])
   }).timeout(30000)

@@ -1,8 +1,7 @@
 import 'isomorphic-fetch'
 import { Api as ApiV6, User as UserV6 } from '@icure/apiV6'
-import { IcureApi as ApiV7, User as UserV7, CryptoStrategies as CryptoStrategiesV7, DataOwnerWithType as DataOwnerWithTypeV7 } from '@icure/apiV7'
-import { IcureApi as ApiV8, ua2hex, hex2ua, RSAUtils } from '../../icc-x-api'
-import { User as UserV8 } from '../../icc-api/model/User'
+import { CryptoStrategies as CryptoStrategiesV7, DataOwnerWithType as DataOwnerWithTypeV7, IcureApi as ApiV7, User as UserV7 } from '@icure/apiV7'
+import { EntityWithDelegationTypeName, hex2ua, IcureApi as ApiV8, RSAUtils, ShaVersion, ua2hex } from '../../icc-x-api'
 import { getEnvironmentInitializer, setLocalStorage } from '../utils/test_utils'
 import { KeyPair } from '../../icc-x-api/crypto/RSA'
 import { expect } from 'chai'
@@ -13,9 +12,9 @@ import { HealthcareParty } from '../../icc-api/model/HealthcareParty'
 import { TestKeyStorage, TestStorage, testStorageWithKeys } from '../utils/TestStorage'
 import { TestCryptoStrategies } from '../utils/TestCryptoStrategies'
 import { EntityShareRequest } from '../../icc-api/model/requests/EntityShareRequest'
-import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import { hexPublicKeysWithSha1Of, hexPublicKeysWithSha256Of } from '../../icc-x-api/crypto/utils'
+import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 
 type UserCredentials = {
   login: string
@@ -79,7 +78,7 @@ class ApiFactoryV6 implements ApiFactory {
     )
     return <UniformizedMasterApi>{
       createUser: async () => {
-        const pair = await cryptoPrimitives.RSA.generateKeyPair('sha-1')
+        const pair = await cryptoPrimitives.RSA.generateKeyPair(ShaVersion.Sha1)
         const hcp = await apis.healthcarePartyApi.createHealthcareParty(new HealthcareParty({ id: uuid(), firstName: `name`, lastName: 'v6' }))
         const user = await apis.userApi.createUser(
           new UserV6({
@@ -208,8 +207,8 @@ class ApiFactoryV7 implements ApiFactory {
 
   async masterApi(env: TestVars): Promise<UniformizedMasterApi> {
     const key = {
-      privateKey: await cryptoPrimitives.RSA.importKey('pkcs8', hex2ua(env.masterHcp!.privateKey), ['decrypt'], 'sha-1'),
-      publicKey: await cryptoPrimitives.RSA.importKey('spki', hex2ua(env.masterHcp!.publicKey), ['encrypt'], 'sha-1'),
+      privateKey: await cryptoPrimitives.RSA.importKey('pkcs8', hex2ua(env.masterHcp!.privateKey), ['decrypt'], ShaVersion.Sha1),
+      publicKey: await cryptoPrimitives.RSA.importKey('spki', hex2ua(env.masterHcp!.publicKey), ['encrypt'], ShaVersion.Sha1),
     }
     const apis = await ApiV7.initialise(
       env.iCureUrl,
@@ -224,7 +223,7 @@ class ApiFactoryV7 implements ApiFactory {
     )
     return <UniformizedMasterApi>{
       createUser: async () => {
-        const pair = await cryptoPrimitives.RSA.generateKeyPair('sha-1')
+        const pair = await cryptoPrimitives.RSA.generateKeyPair(ShaVersion.Sha1)
         const hcp = await apis.healthcarePartyApi.createHealthcareParty(new HealthcareParty({ id: uuid(), firstName: `name`, lastName: 'v7' }))
         const user = await apis.userApi.createUser(
           new UserV7({
@@ -254,7 +253,7 @@ class ApiFactoryV7 implements ApiFactory {
               publicKey: ua2hex(await cryptoPrimitives.RSA.exportKey(credentials.key.publicKey, 'spki')),
               privateKey: ua2hex(await cryptoPrimitives.RSA.exportKey(credentials.key.privateKey, 'pkcs8')),
             },
-            shaVersion: 'sha-1',
+            shaVersion: ShaVersion.Sha1,
           },
         ],
       },
@@ -322,8 +321,8 @@ class ApiFactoryV8 implements ApiFactory {
 
   async masterApi(env: TestVars): Promise<UniformizedMasterApi> {
     const key = {
-      privateKey: await cryptoPrimitives.RSA.importKey('pkcs8', hex2ua(env.masterHcp!.privateKey), ['decrypt'], 'sha-1'),
-      publicKey: await cryptoPrimitives.RSA.importKey('spki', hex2ua(env.masterHcp!.publicKey), ['encrypt'], 'sha-1'),
+      privateKey: await cryptoPrimitives.RSA.importKey('pkcs8', hex2ua(env.masterHcp!.privateKey), ['decrypt'], ShaVersion.Sha1),
+      publicKey: await cryptoPrimitives.RSA.importKey('spki', hex2ua(env.masterHcp!.publicKey), ['encrypt'], ShaVersion.Sha1),
     }
     const apis = await ApiV8.initialise(
       env.iCureUrl,
@@ -338,7 +337,7 @@ class ApiFactoryV8 implements ApiFactory {
     )
     return <UniformizedMasterApi>{
       createUser: async () => {
-        const pair = await cryptoPrimitives.RSA.generateKeyPair('sha-256')
+        const pair = await cryptoPrimitives.RSA.generateKeyPair(ShaVersion.Sha256)
         const hcp = await apis.healthcarePartyApi.createHealthcareParty(new HealthcareParty({ id: uuid(), firstName: `name`, lastName: 'v7' }))
         const user = await apis.userApi.createUser(
           new UserV7({
@@ -368,7 +367,7 @@ class ApiFactoryV8 implements ApiFactory {
               publicKey: ua2hex(await cryptoPrimitives.RSA.exportKey(credentials.key.publicKey, 'spki')),
               privateKey: ua2hex(await cryptoPrimitives.RSA.exportKey(credentials.key.privateKey, 'pkcs8')),
             },
-            shaVersion: 'sha-1',
+            shaVersion: ShaVersion.Sha1,
           },
         ],
       },
@@ -411,7 +410,7 @@ class ApiFactoryV8 implements ApiFactory {
         const healthdata = await apis.healthcareElementApi.getHealthElementWithUser(user, id)
         return {
           secretContent: healthdata.note!,
-          secretIds: await apis.cryptoApi.xapi.secretIdsOf({ entity: healthdata, type: 'HealthElement' }, undefined),
+          secretIds: await apis.cryptoApi.xapi.secretIdsOf({ entity: healthdata, type: EntityWithDelegationTypeName.HealthElement }, undefined),
           owningEntityIds: await apis.healthcareElementApi.decryptPatientIdOf(healthdata),
         }
       },

@@ -10,15 +10,15 @@ import { ExchangeData } from '../../../icc-api/model/internal/ExchangeData'
 import { expect } from 'chai'
 import { IcureStub } from '../../../icc-api/model/IcureStub'
 import { SecureDelegation } from '../../../icc-api/model/SecureDelegation'
-import AccessLevel = SecureDelegation.AccessLevelEnum
-import { ua2hex } from '../../../icc-x-api'
+import { ShaVersion, ua2hex } from '../../../icc-x-api'
 import { SecurityMetadata } from '../../../icc-api/model/SecurityMetadata'
 import { asyncGeneratorToArray } from '../../../icc-x-api/utils/collection-utils'
 import { FakeExchangeDataMapManager } from '../../utils/FakeExchangeDataMapManager'
+import AccessLevel = SecureDelegation.AccessLevelEnum
 
 describe('Secure delegations security metadata decryptor', async function () {
   const primitives = new CryptoPrimitives(webcrypto as any)
-  const expectedType: EntityWithDelegationTypeName = 'AccessLog'
+  const expectedType: EntityWithDelegationTypeName = EntityWithDelegationTypeName.AccessLog
   const expectedSfks = [primitives.randomUuid(), primitives.randomUuid()]
   let encryptionKeysManager: FakeEncryptionKeysManager
   let exchangeData: FakeDecryptionExchangeDataManager
@@ -47,7 +47,7 @@ describe('Secure delegations security metadata decryptor', async function () {
   }
 
   async function initialiseComponents() {
-    encryptionKeysManager = await FakeEncryptionKeysManager.create(primitives, [], [await primitives.RSA.generateKeyPair('sha-256')])
+    encryptionKeysManager = await FakeEncryptionKeysManager.create(primitives, [], [await primitives.RSA.generateKeyPair(ShaVersion.Sha256)])
     exchangeData = new FakeDecryptionExchangeDataManager(expectedType, expectedSfks, new CryptoPrimitives(webcrypto as any))
     exchangeDataMap = new FakeExchangeDataMapManager()
     secureDelegationsEncryption = new SecureDelegationsEncryption(encryptionKeysManager, primitives)
@@ -345,7 +345,7 @@ describe('Secure delegations security metadata decryptor', async function () {
     await initialiseComponents()
     const self = primitives.randomUuid()
     const createdData = await createExchangeDataAndSecureDelegationEncryptedData(self, primitives.randomUuid())
-    const newKey = await primitives.RSA.generateKeyPair('sha-256')
+    const newKey = await primitives.RSA.generateKeyPair(ShaVersion.Sha256)
     const newKeyFp = ua2hex(await primitives.RSA.exportKey(newKey.publicKey, 'spki')).slice(-32)
     const delegation = new SecureDelegationWithEncryptedExchangeId({
       ...createdData.secureDelegationEncryptedData,

@@ -3,7 +3,7 @@ import { expect } from 'chai'
 import { SecurityMetadataDecryptor, SecurityMetadataDecryptorChain } from '../../../icc-x-api/crypto/SecurityMetadataDecryptor'
 import { EncryptedEntityStub } from '../../../icc-api/model/models'
 import { toString } from 'lodash'
-import { EncryptedEntityWithType } from '../../../icc-x-api/utils/EntityWithDelegationTypeName'
+import { EncryptedEntityWithType, EntityWithDelegationTypeName } from '../../../icc-x-api/utils/EntityWithDelegationTypeName'
 import { SecureDelegation } from '../../../icc-api/model/SecureDelegation'
 import AccessLevel = SecureDelegation.AccessLevelEnum
 
@@ -29,7 +29,7 @@ const baseDecryptor = {
 }
 
 describe('Security metadata decryptor chain', async function () {
-  const expectedEntity: EncryptedEntityWithType = { entity: {} as EncryptedEntityStub, type: 'Patient' }
+  const expectedEntity: EncryptedEntityWithType = { entity: {} as EncryptedEntityStub, type: EntityWithDelegationTypeName.Patient }
   const expectedDataOwnerHierarchySubset = ['a', 'b']
 
   it('should return all elements in order for encryption keys', async function () {

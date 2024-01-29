@@ -1,4 +1,4 @@
-import { Apis, IcureApi, ua2hex } from '../../../icc-x-api'
+import { Apis, IcureApi, ShaVersion, ua2hex } from '../../../icc-x-api'
 import { v4 as uuid } from 'uuid'
 import { Patient } from '../../../icc-api/model/Patient'
 import { Contact } from '../../../icc-api/model/Contact'
@@ -141,7 +141,7 @@ const entities: EntityCreators = {
 
 const userDefinitions: Record<string, (user: User, password: string, pair: KeyPair<CryptoKey>) => Promise<{ user: User; apis: Apis }>> = {
   'one available key and one lost key recoverable through transfer keys': async (user, password, originalKey) => {
-    const newKey = await primitives.RSA.generateKeyPair('sha-256')
+    const newKey = await primitives.RSA.generateKeyPair(ShaVersion.Sha256)
     const apiWithOnlyNewKey = await IcureApi.initialise(
       env!.iCureUrl,
       {
@@ -180,7 +180,7 @@ const userDefinitions: Record<string, (user: User, password: string, pair: KeyPa
     return { user, apis: apiWithOnlyNewKey }
   },
   'two available keys': async (user, password, originalKey) => {
-    const newKey = await primitives.RSA.generateKeyPair('sha-256')
+    const newKey = await primitives.RSA.generateKeyPair(ShaVersion.Sha256)
     const apiWithOnlyNewKey = await IcureApi.initialise(
       env!.iCureUrl,
       { username: user.login!, password },
@@ -202,7 +202,7 @@ const userDefinitions: Record<string, (user: User, password: string, pair: KeyPa
       {
         dataOwnerId: user.healthcarePartyId ?? user.patientId!,
         pairs: keyStrings.map((key) => {
-          return { keyPair: key, shaVersion: 'sha-256' }
+          return { keyPair: key, shaVersion: ShaVersion.Sha256 }
         }),
       },
     ])
@@ -218,13 +218,13 @@ const userDefinitions: Record<string, (user: User, password: string, pair: KeyPa
     apis: await TestApi(env.iCureUrl, user.login!, password, webcrypto as any, originalKey),
   }),
   'one lost key and one available key': async (user, password) => {
-    const newKeyPair = await primitives.RSA.generateKeyPair('sha-256')
+    const newKeyPair = await primitives.RSA.generateKeyPair(ShaVersion.Sha256)
     const apis = await TestApi(env.iCureUrl, user.login!, password, webcrypto as any, newKeyPair)
     await apis.icureMaintenanceTaskApi.createMaintenanceTasksForNewKeypair(user, newKeyPair)
     return { user, apis }
   },
   'one lost key and one upgraded available key thanks to delegate who gave access back to previous data': async (user, password) => {
-    const newKeyPair = await primitives.RSA.generateKeyPair('sha-256')
+    const newKeyPair = await primitives.RSA.generateKeyPair(ShaVersion.Sha256)
     const api = await TestApi(env.iCureUrl, user.login!, password, webcrypto as any, newKeyPair)
     await api.icureMaintenanceTaskApi.createMaintenanceTasksForNewKeypair(user, newKeyPair)
     const giveAccessBackApi = apis['givingAccessBack']
@@ -256,7 +256,7 @@ async function createPartialsForHcp(
   user: User,
   password: string
 ): Promise<KeyPair<CryptoKey>> {
-  const key = await primitives.RSA.generateKeyPair('sha-256')
+  const key = await primitives.RSA.generateKeyPair(ShaVersion.Sha256)
   const api1 = await TestApi(env!.iCureUrl, user.login!, password, webcrypto as any, key)
   await Object.entries(entityFacades).reduce(async (p, f) => {
     await p
@@ -277,7 +277,7 @@ async function createPartialsForPatient(
   patientCreatorUser: User,
   patientCreatorApis: Apis
 ): Promise<KeyPair<CryptoKey>> {
-  const key = await primitives.RSA.generateKeyPair('sha-256')
+  const key = await primitives.RSA.generateKeyPair(ShaVersion.Sha256)
   const api1 = await TestApi(env!.iCureUrl, user.login!, password, webcrypto as any, key)
   const pat = await patientCreatorApis.patientApi.getPatientWithUser(patientCreatorUser, user.patientId!)
   await patientCreatorApis.patientApi.shareWith(user.patientId!, pat, await patientCreatorApis.patientApi.decryptSecretIdsOf(pat), {

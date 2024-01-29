@@ -16,7 +16,7 @@ import { FilterChainTopic } from '../icc-api/model/FilterChainTopic'
 import { PaginatedListTopic } from '../icc-api/model/PaginatedListTopic'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
-import { EncryptedFieldsManifest, parseEncryptedFields, subscribeToEntityEvents, SubscriptionOptions } from './utils'
+import { EncryptedFieldsManifest, EntityWithDelegationTypeName, parseEncryptedFields, subscribeToEntityEvents, SubscriptionOptions } from './utils'
 import { AbstractFilter } from './filters/filters'
 import { Connection, ConnectionImpl } from '../icc-api/model/Connection'
 
@@ -45,7 +45,7 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
   }
 
   get headers(): Promise<Array<XHR.Header>> {
-    return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, 'Topic'))
+    return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, EntityWithDelegationTypeName.Topic))
   }
 
   /**
@@ -93,27 +93,32 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
     const sfk = patient
-      ? options.preferredSfk ?? (await this.crypto.confidential.getAnySecretIdSharedWithParents({ entity: patient, type: 'Patient' }))
+      ? options.preferredSfk ??
+        (await this.crypto.confidential.getAnySecretIdSharedWithParents({ entity: patient, type: EntityWithDelegationTypeName.Patient }))
       : undefined
 
     if (patient && !sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id}`)
 
     return new models.Topic(
       await this.crypto.xapi
-        .entityWithInitialisedEncryptedMetadata(topic, 'Topic', patient?.id, sfk, true, false, extraDelegations)
+        .entityWithInitialisedEncryptedMetadata(topic, EntityWithDelegationTypeName.Topic, patient?.id, sfk, true, false, extraDelegations)
         .then((x) => x.updatedEntity)
     )
   }
 
   async decrypt(topics: Array<models.Topic>) {
     return await Promise.all(
-      topics.map((topic) => this.crypto.xapi.decryptEntity(topic, 'Topic', (x) => new models.Topic(x)).then(({ entity }) => entity))
+      topics.map((topic) =>
+        this.crypto.xapi.decryptEntity(topic, EntityWithDelegationTypeName.Topic, (x) => new models.Topic(x)).then(({ entity }) => entity)
+      )
     )
   }
 
   async encrypt(topics: Array<models.Topic>): Promise<Array<models.Topic>> {
     return await Promise.all(
-      topics.map((p) => this.crypto.xapi.tryEncryptEntity(p, 'Topic', this.encryptedFields, true, false, (x) => new models.Topic(x)))
+      topics.map((p) =>
+        this.crypto.xapi.tryEncryptEntity(p, EntityWithDelegationTypeName.Topic, this.encryptedFields, true, false, (x) => new models.Topic(x))
+      )
     )
   }
 
@@ -135,14 +140,14 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
    * in the returned array, but in case of entity merges there could be multiple values.
    */
   async decryptPatientIdOf(topic: models.Topic): Promise<string[]> {
-    return this.crypto.xapi.owningEntityIdsOf({ entity: topic, type: 'Topic' }, undefined)
+    return this.crypto.xapi.owningEntityIdsOf({ entity: topic, type: EntityWithDelegationTypeName.Topic }, undefined)
   }
 
   /**
    * @return if the logged data owner has write access to the content of the given topic
    */
   async hasWriteAccess(topic: models.Topic): Promise<boolean> {
-    return this.crypto.xapi.hasWriteAccess({ entity: topic, type: 'Topic' })
+    return this.crypto.xapi.hasWriteAccess({ entity: topic, type: EntityWithDelegationTypeName.Topic })
   }
 
   /**
@@ -221,11 +226,11 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
     }
   ): Promise<ShareResult<models.Topic>> {
     // All entities should have an encryption key.
-    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(topic, 'Topic')
+    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(topic, EntityWithDelegationTypeName.Topic)
     const updatedEntity = entityWithEncryptionKey ? await this.modifyTopic(entityWithEncryptionKey) : topic
     return this.crypto.xapi
       .simpleShareOrUpdateEncryptedEntityMetadata(
-        { entity: updatedEntity, type: 'Topic' },
+        { entity: updatedEntity, type: EntityWithDelegationTypeName.Topic },
         true,
         Object.fromEntries(
           Object.entries(delegates).map(([delegateId, options]) => [
@@ -246,11 +251,11 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
   getDataOwnersWithAccessTo(
     entity: models.Topic
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'Topic' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: EntityWithDelegationTypeName.Topic })
   }
 
   getEncryptionKeysOf(entity: models.Topic): Promise<string[]> {
-    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'Topic' }, undefined)
+    return this.crypto.xapi.encryptionKeysOf({ entity, type: EntityWithDelegationTypeName.Topic }, undefined)
   }
 
   /**
@@ -345,7 +350,7 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
     return await subscribeToEntityEvents(
       this.host,
       this.authApi,
-      'Topic',
+      EntityWithDelegationTypeName.Topic,
       eventTypes,
       filter,
       eventFired,
@@ -355,6 +360,6 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
   }
 
   createDelegationDeAnonymizationMetadata(entity: Topic, delegates: string[]): Promise<void> {
-    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'Topic' }, delegates)
+    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: EntityWithDelegationTypeName.Topic }, delegates)
   }
 }

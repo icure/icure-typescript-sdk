@@ -17,12 +17,13 @@ import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import { XHR } from '../icc-api/api/XHR'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 import { MaintenanceTask } from '../icc-api/model/models'
+import { EntityWithDelegationTypeName } from './utils'
 
 export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntityXApi<models.TimeTable> {
   i18n: any = i18n
 
   get headers(): Promise<Array<XHR.Header>> {
-    return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, 'TimeTable'))
+    return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, EntityWithDelegationTypeName.TimeTable))
   }
 
   constructor(
@@ -82,7 +83,15 @@ export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntity
 
     return new models.TimeTable(
       await this.crypto.xapi
-        .entityWithInitialisedEncryptedMetadata(timeTable, 'TimeTable', undefined, undefined, true, false, extraDelegations)
+        .entityWithInitialisedEncryptedMetadata(
+          timeTable,
+          EntityWithDelegationTypeName.TimeTable,
+          undefined,
+          undefined,
+          true,
+          false,
+          extraDelegations
+        )
         .then((x) => x.updatedEntity)
     )
   }
@@ -91,7 +100,7 @@ export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntity
    * @return if the logged data owner has write access to the content of the given time table
    */
   async hasWriteAccess(timeTable: models.TimeTable): Promise<boolean> {
-    return this.crypto.xapi.hasWriteAccess({ entity: timeTable, type: 'TimeTable' })
+    return this.crypto.xapi.hasWriteAccess({ entity: timeTable, type: EntityWithDelegationTypeName.TimeTable })
   }
 
   /**
@@ -162,10 +171,10 @@ export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntity
     }
   ): Promise<ShareResult<models.TimeTable>> {
     // All entities should have an encryption key.
-    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(timeTable, 'TimeTable')
+    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(timeTable, EntityWithDelegationTypeName.TimeTable)
     const updatedEntity = entityWithEncryptionKey ? await this.modifyTimeTable(entityWithEncryptionKey) : timeTable
     return this.crypto.xapi.simpleShareOrUpdateEncryptedEntityMetadata(
-      { entity: updatedEntity, type: 'TimeTable' },
+      { entity: updatedEntity, type: EntityWithDelegationTypeName.TimeTable },
       true,
       Object.fromEntries(
         Object.entries(delegates).map(([delegateId, options]) => [
@@ -185,14 +194,17 @@ export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntity
   getDataOwnersWithAccessTo(
     entity: models.TimeTable
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'TimeTable' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: EntityWithDelegationTypeName.TimeTable })
   }
 
   getEncryptionKeysOf(entity: models.TimeTable): Promise<string[]> {
-    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'TimeTable' }, undefined)
+    return this.crypto.xapi.encryptionKeysOf({ entity, type: EntityWithDelegationTypeName.TimeTable }, undefined)
   }
 
   createDelegationDeAnonymizationMetadata(entity: models.TimeTable, delegates: string[]): Promise<void> {
-    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'TimeTable' }, delegates)
+    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo(
+      { entity, type: EntityWithDelegationTypeName.TimeTable },
+      delegates
+    )
   }
 }

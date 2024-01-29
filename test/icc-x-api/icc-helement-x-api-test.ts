@@ -2,7 +2,7 @@ import { before } from 'mocha'
 
 import 'isomorphic-fetch'
 
-import { IccHelementXApi, IccPatientXApi } from '../../icc-x-api'
+import { EntityWithDelegationTypeName, IccHelementXApi, IccPatientXApi } from '../../icc-x-api'
 import { Patient } from '../../icc-api/model/Patient'
 import { assert, expect } from 'chai'
 import { randomUUID } from 'crypto'
@@ -10,10 +10,10 @@ import { getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage,
 import { HealthElement } from '../../icc-api/model/HealthElement'
 import { Code } from '../../icc-api/model/Code'
 import { User } from '../../icc-api/model/User'
-import initApi = TestUtils.initApi
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import { HealthElementByIdsFilter } from '../../icc-x-api/filters/HealthElementByIdsFilter'
 import { FilterChainHealthElement } from '../../icc-api/model/FilterChainHealthElement'
+import initApi = TestUtils.initApi
 
 setLocalStorage(fetch)
 let env: TestVars
@@ -76,7 +76,9 @@ describe('icc-helement-x-api Tests', () => {
     assert(readHealthElement != null)
     assert(readHealthElement.id != null)
     assert(readHealthElement.note == hElementToCreate.note)
-    expect(await cryptoApiForHcp.xapi.encryptionKeysOf({ entity: readHealthElement, type: 'Contact' }, undefined)).to.have.length(1)
+    expect(
+      await cryptoApiForHcp.xapi.encryptionKeysOf({ entity: readHealthElement, type: EntityWithDelegationTypeName.HealthElement }, undefined)
+    ).to.have.length(1)
     const decryptedPatientIds = await hElementApiForHcp.decryptPatientIdOf(readHealthElement)
     expect(decryptedPatientIds).to.have.length(1)
     expect(decryptedPatientIds[0]).to.equal(patient.id)
@@ -115,7 +117,9 @@ describe('icc-helement-x-api Tests', () => {
     assert(readHealthElement.note != createdHealthElement.note)
     assert(readHealthElement.note == modifiedHealthElement.note)
     assert(readHealthElement.note == newNote)
-    expect(await cryptoApiForHcp.xapi.encryptionKeysOf({ entity: readHealthElement, type: 'Contact' }, undefined)).to.have.length(1)
+    expect(
+      await cryptoApiForHcp.xapi.encryptionKeysOf({ entity: readHealthElement, type: EntityWithDelegationTypeName.HealthElement }, undefined)
+    ).to.have.length(1)
     const decryptedPatientIds = await hElementApiForHcp.decryptPatientIdOf(readHealthElement)
     expect(decryptedPatientIds).to.have.length(1)
     expect(decryptedPatientIds[0]).to.equal(patient.id)

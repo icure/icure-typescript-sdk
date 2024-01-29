@@ -2,7 +2,7 @@
 import { acyclic, graphFromEdges, StronglyConnectedGraph } from '../utils/graph-utils'
 import { DataOwner, DataOwnerOrStub, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { RSAUtils, ShaVersion } from './RSA'
-import { hex2ua } from '../utils'
+import { EntityWithDelegationTypeName, hex2ua } from '../utils'
 import { Patient } from '../../icc-api/model/Patient'
 import { ExtendedApisUtils } from './ExtendedApisUtils'
 import { CryptoPrimitives } from './CryptoPrimitives'
@@ -15,7 +15,6 @@ import { DataOwnerTypeEnum } from '../../icc-api/model/DataOwnerTypeEnum'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 
 /**
- * @internal this function is meant only for internal use and may be changed without notice.
  * Get the public keys of a data owner which should be used for RSA-OAEP with sha256.
  * @param dataOwner
  */
@@ -24,7 +23,6 @@ export function hexPublicKeysWithSha256Of(dataOwner: DataOwner) {
 }
 
 /**
- * @internal this function is meant only for internal use and may be changed without notice.
  * Get the public keys of a data owner which should be used for RSA-OAEP with sha1.
  * @param dataOwner
  */
@@ -103,18 +101,26 @@ export async function ensureDelegationForSelf(
   const self = await dataOwnerApi.getCurrentDataOwner()
   if (self.type === 'patient') {
     const patient = new Patient(self.dataOwner)
-    const patientWithType: EncryptedEntityWithType = { entity: patient, type: 'Patient' }
+    const patientWithType: EncryptedEntityWithType = { entity: patient, type: EntityWithDelegationTypeName.Patient }
     const availableSecretIds = await xapi.secretIdsOf(patientWithType, undefined)
     if (availableSecretIds.length) {
       return self
     } else {
       if (xapi.hasEmptyEncryptionMetadata(patient)) {
         // This should not really happen, usually some user will have already initialised the patient and its encryption metadata.
-        const updatedPatient = await xapi.entityWithInitialisedEncryptedMetadata(patient, 'Patient', undefined, undefined, true, true, {})
+        const updatedPatient = await xapi.entityWithInitialisedEncryptedMetadata(
+          patient,
+          EntityWithDelegationTypeName.Patient,
+          undefined,
+          undefined,
+          true,
+          true,
+          {}
+        )
         return { dataOwner: await patientApi.modifyPatient(updatedPatient.updatedEntity), type: DataOwnerTypeEnum.Patient }
       } else {
         const updatedPatient = await xapi.simpleShareOrUpdateEncryptedEntityMetadata(
-          { entity: patient, type: 'Patient' },
+          { entity: patient, type: EntityWithDelegationTypeName.Patient },
           false,
           {
             [patient.id!]: {
@@ -135,17 +141,16 @@ export async function ensureDelegationForSelf(
 }
 
 /**
- * @internal This method is intended only for internal use and may be changed without notice.
  * Search a public key in the data owner and returns the corresponding SHA version used to generate it or undefined if not found.
  * @param dataOwner the data owner.
  * @param publicKey the public key.
  * @return 'sha-1', 'sha-256', undefined
  */
-export function getShaVersionForKey(dataOwner: DataOwnerOrStub, publicKey: string) {
+export function getShaVersionForKey(dataOwner: DataOwnerOrStub, publicKey: string): ShaVersion | undefined {
   return dataOwner.publicKey === publicKey || Object.keys(dataOwner.aesExchangeKeys ?? {}).includes(publicKey)
-    ? 'sha-1'
+    ? ShaVersion.Sha1
     : !!dataOwner.publicKeysForOaepWithSha256?.includes(publicKey)
-    ? 'sha-256'
+    ? ShaVersion.Sha256
     : undefined
 }
 

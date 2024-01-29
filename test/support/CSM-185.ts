@@ -1,5 +1,5 @@
 import { describeNoLite, getEnvironmentInitializer, hcp1Username, patUsername, setLocalStorage, TestUtils } from '../utils/test_utils'
-import { IcureApi, sleep } from '../../icc-x-api'
+import { IcureApi, ShaVersion, sleep } from '../../icc-x-api'
 import { webcrypto } from 'crypto'
 import { expect } from 'chai'
 import 'isomorphic-fetch'
@@ -112,7 +112,7 @@ describeNoLite('CSM-185', async function () {
         statuses.push('connected')
         await sleep(2_000)
 
-        const newPair = await patApis.cryptoApi.primitives.RSA.generateKeyPair('sha-256')
+        const newPair = await patApis.cryptoApi.primitives.RSA.generateKeyPair(ShaVersion.Sha256)
         const patApisLost = await IcureApi.initialise(
           env.iCureUrl,
           { username: env.dataOwnerDetails[patUsername].user, password: env.dataOwnerDetails[patUsername].password },

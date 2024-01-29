@@ -1,11 +1,11 @@
-import { hex2ua, pkcs8ToJwk, spkiToJwk } from '../../../icc-x-api'
+import { hex2ua, pkcs8ToJwk, ShaVersion, spkiToJwk } from '../../../icc-x-api'
 import { expect } from 'chai'
 import { randomUUID } from 'crypto'
 import { getEnvironmentInitializer, hcp1Username, patUsername, TestUtils } from '../../utils/test_utils'
-import initApi = TestUtils.initApi
 import { SecureDelegation } from '../../../icc-api/model/SecureDelegation'
-import AccessLevel = SecureDelegation.AccessLevelEnum
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
+import initApi = TestUtils.initApi
+import AccessLevel = SecureDelegation.AccessLevelEnum
 
 let env: TestVars
 
@@ -25,7 +25,7 @@ describe('Calendar', () => {
     const hcp = await hcpApi.userApi.getCurrentUser()
 
     const jwk = {
-      publicKey: spkiToJwk(hex2ua(env!.dataOwnerDetails[patUsername].publicKey), 'sha-1'),
+      publicKey: spkiToJwk(hex2ua(env!.dataOwnerDetails[patUsername].publicKey), ShaVersion.Sha1),
       privateKey: pkcs8ToJwk(hex2ua(env!.dataOwnerDetails[patUsername].privateKey)),
     }
     await api.cryptoApi.keyStorage.storeKeyPair(`${currentUser.healthcarePartyId!}.${env!.dataOwnerDetails[patUsername].publicKey.slice(-32)}`, jwk)

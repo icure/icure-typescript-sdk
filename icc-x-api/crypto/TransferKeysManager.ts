@@ -1,4 +1,4 @@
-import { KeyPair } from './RSA'
+import { KeyPair, ShaVersion } from './RSA'
 import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { ua2hex } from '../utils'
 import { UserEncryptionKeysManager } from './UserEncryptionKeysManager'
@@ -35,8 +35,8 @@ export class TransferKeysManager {
     const newEdgesByTarget = await this.getNewVerifiedTransferKeysEdges(self)
     if (!newEdgesByTarget.length) return
     const selfId = self.stub.id!
-    const fpToPublicKey = fingerprintToPublicKeysMapOf(self.stub, 'sha-1')
-    const fpToPublicKeyWithSha256 = fingerprintToPublicKeysMapOf(self.stub, 'sha-256')
+    const fpToPublicKey = fingerprintToPublicKeysMapOf(self.stub, ShaVersion.Sha1)
+    const fpToPublicKeyWithSha256 = fingerprintToPublicKeysMapOf(self.stub, ShaVersion.Sha256)
     const signatureKeyPair = await this.userSignatureKeysManager.getOrCreateSignatureKeyPair()
     const verifiedFps = new Set(this.encryptionKeysManager.getSelfVerifiedKeys().map((x) => x.fingerprint))
     const allVerifiedSourcesAndTarget = Array.from(
@@ -53,8 +53,8 @@ export class TransferKeysManager {
       selfId,
       { [signatureKeyPair.fingerprint]: signatureKeyPair.keyPair.privateKey },
       {
-        ...(await loadPublicKeys(this.primitives.RSA, newExchangeKeyPublicKeys, 'sha-1')),
-        ...(await loadPublicKeys(this.primitives.RSA, newExchangeKeyPublicKeysWithSha256, 'sha-256')),
+        ...(await loadPublicKeys(this.primitives.RSA, newExchangeKeyPublicKeys, ShaVersion.Sha1)),
+        ...(await loadPublicKeys(this.primitives.RSA, newExchangeKeyPublicKeysWithSha256, ShaVersion.Sha256)),
       }
     )
     let updatedTransferKeys = self.stub.transferKeys ?? {}

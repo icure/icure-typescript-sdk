@@ -15,6 +15,7 @@ import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 import { AccessLog } from '../icc-api/model/models'
+import { EntityWithDelegationTypeName } from './utils'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<models.Form> {
@@ -22,7 +23,7 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
   dataOwnerApi: IccDataOwnerXApi
 
   get headers(): Promise<Array<XHR.Header>> {
-    return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, 'Contact'))
+    return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, EntityWithDelegationTypeName.Form))
   }
 
   constructor(
@@ -80,7 +81,9 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
-    const sfk = options.preferredSfk ?? (await this.crypto.confidential.getAnySecretIdSharedWithParents({ entity: patient, type: 'Patient' }))
+    const sfk =
+      options.preferredSfk ??
+      (await this.crypto.confidential.getAnySecretIdSharedWithParents({ entity: patient, type: EntityWithDelegationTypeName.Patient }))
     if (!sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id}`)
     const extraDelegations = {
       ...Object.fromEntries(
@@ -90,7 +93,7 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
     }
     return new models.Form(
       await this.crypto.xapi
-        .entityWithInitialisedEncryptedMetadata(form, 'Form', patient.id, sfk, true, false, extraDelegations)
+        .entityWithInitialisedEncryptedMetadata(form, EntityWithDelegationTypeName.Form, patient.id, sfk, true, false, extraDelegations)
         .then((x) => x.updatedEntity)
     )
   }
@@ -113,7 +116,7 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
    * @param usingPost (Promise)
    */
   async findBy(hcpartyId: string, patient: models.Patient, usingPost: boolean = false) {
-    const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: 'Patient' }, hcpartyId)
+    const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: EntityWithDelegationTypeName.Patient }, hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     let forms: Array<models.Form> = await (usingPost
       ? this.findFormsByHCPartyPatientForeignKeysUsingPost(hcpartyId!, undefined, undefined, undefined, _.uniq(extractedKeys))
@@ -122,7 +125,11 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
   }
 
   decrypt(hcpartyId: string, forms: Array<models.Form>) {
-    return Promise.all(forms.map((form) => this.crypto.xapi.decryptEntity(form, 'Form', (x) => new models.Form(x)).then(({ entity }) => entity)))
+    return Promise.all(
+      forms.map((form) =>
+        this.crypto.xapi.decryptEntity(form, EntityWithDelegationTypeName.Form, (x) => new models.Form(x)).then(({ entity }) => entity)
+      )
+    )
   }
 
   /**
@@ -131,14 +138,14 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
    * in the returned array, but in case of entity merges there could be multiple values.
    */
   async decryptPatientIdOf(form: models.Form): Promise<string[]> {
-    return this.crypto.xapi.owningEntityIdsOf({ entity: form, type: 'Form' }, undefined)
+    return this.crypto.xapi.owningEntityIdsOf({ entity: form, type: EntityWithDelegationTypeName.Form }, undefined)
   }
 
   /**
    * @return if the logged data owner has write access to the content of the given form
    */
   async hasWriteAccess(form: models.Form): Promise<boolean> {
-    return this.crypto.xapi.hasWriteAccess({ entity: form, type: 'Form' })
+    return this.crypto.xapi.hasWriteAccess({ entity: form, type: EntityWithDelegationTypeName.Form })
   }
 
   /**
@@ -219,11 +226,11 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
   ): Promise<ShareResult<models.Form>> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
-    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(form, 'Form')
+    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(form, EntityWithDelegationTypeName.Form)
     const updatedEntity = entityWithEncryptionKey ? await this.modifyForm(entityWithEncryptionKey) : form
     return this.crypto.xapi
       .simpleShareOrUpdateEncryptedEntityMetadata(
-        { entity: updatedEntity, type: 'Form' },
+        { entity: updatedEntity, type: EntityWithDelegationTypeName.Form },
         true,
         Object.fromEntries(
           Object.entries(delegates).map(([delegateId, options]) => [
@@ -244,14 +251,14 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
   getDataOwnersWithAccessTo(
     entity: models.Form
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'Form' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: EntityWithDelegationTypeName.Form })
   }
 
   getEncryptionKeysOf(entity: models.Form): Promise<string[]> {
-    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'Form' }, undefined)
+    return this.crypto.xapi.encryptionKeysOf({ entity, type: EntityWithDelegationTypeName.Form }, undefined)
   }
 
   createDelegationDeAnonymizationMetadata(entity: models.Form, delegates: string[]): Promise<void> {
-    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'Form' }, delegates)
+    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: EntityWithDelegationTypeName.Form }, delegates)
   }
 }

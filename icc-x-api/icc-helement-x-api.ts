@@ -17,7 +17,7 @@ import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
 import { IccUserXApi } from './icc-user-x-api'
-import { EncryptedFieldsManifest, parseEncryptedFields, subscribeToEntityEvents, SubscriptionOptions } from './utils'
+import { EncryptedFieldsManifest, EntityWithDelegationTypeName, parseEncryptedFields, subscribeToEntityEvents, SubscriptionOptions } from './utils'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 import { AbstractFilter } from './filters/filters'
 import { Connection, ConnectionImpl } from '../icc-api/model/Connection'
@@ -26,7 +26,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
   private readonly encryptedFields: EncryptedFieldsManifest
 
   get headers(): Promise<Array<XHR.Header>> {
-    return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, 'HealthElement'))
+    return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, EntityWithDelegationTypeName.HealthElement))
   }
 
   constructor(
@@ -96,8 +96,8 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     const sfk =
       options.preferredSfk ??
       (options?.confidential
-        ? await this.crypto.confidential.getConfidentialSecretId({ entity: patient, type: 'Patient' })
-        : await this.crypto.confidential.getAnySecretIdSharedWithParents({ entity: patient, type: 'Patient' }))
+        ? await this.crypto.confidential.getConfidentialSecretId({ entity: patient, type: EntityWithDelegationTypeName.Patient })
+        : await this.crypto.confidential.getAnySecretIdSharedWithParents({ entity: patient, type: EntityWithDelegationTypeName.Patient }))
     if (!sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id} for confidential=${options?.confidential ?? false}`)
     const extraDelegations = {
       ...(options.confidential
@@ -109,7 +109,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     }
     const initialisationInfo = await this.crypto.xapi.entityWithInitialisedEncryptedMetadata(
       helement,
-      'HealthElement',
+      EntityWithDelegationTypeName.HealthElement,
       patient.id,
       sfk,
       true,
@@ -195,7 +195,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     patient: models.Patient,
     usingPost: boolean = false
   ): Promise<models.HealthElement[]> {
-    let keysAndHcPartyId = await this.crypto.xapi.secretIdsForHcpHierarchyOf({ entity: patient, type: 'Patient' })
+    let keysAndHcPartyId = await this.crypto.xapi.secretIdsForHcpHierarchyOf({ entity: patient, type: EntityWithDelegationTypeName.Patient })
     const keys = keysAndHcPartyId.find((secretForeignKeys) => secretForeignKeys.ownerId == hcPartyId)?.extracted
     if (keys == undefined) {
       throw Error('No delegation for user')
@@ -255,7 +255,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
 
   findBy(hcpartyId: string, patient: models.Patient, keepObsoleteVersions = false, usingPost = false) {
     return this.crypto.xapi
-      .secretIdsForHcpHierarchyOf({ entity: patient, type: 'Patient' })
+      .secretIdsForHcpHierarchyOf({ entity: patient, type: EntityWithDelegationTypeName.Patient })
       .then((secretForeignKeys) =>
         secretForeignKeys && secretForeignKeys.length > 0
           ? Promise.all(
@@ -313,7 +313,14 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
   private encryptAs(owner: string, healthElements: Array<models.HealthElement>): Promise<Array<models.HealthElement>> {
     return Promise.all(
       healthElements.map((he) =>
-        this.crypto.xapi.tryEncryptEntity(he, 'HealthElement', this.encryptedFields, false, false, (x) => new models.HealthElement(x))
+        this.crypto.xapi.tryEncryptEntity(
+          he,
+          EntityWithDelegationTypeName.HealthElement,
+          this.encryptedFields,
+          false,
+          false,
+          (x) => new models.HealthElement(x)
+        )
       )
     )
   }
@@ -324,7 +331,11 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
 
   decrypt(dataOwnerId: string, hes: Array<models.HealthElement>): Promise<Array<models.HealthElement>> {
     return Promise.all(
-      hes.map((he) => this.crypto.xapi.decryptEntity(he, 'HealthElement', (x) => new models.HealthElement(x)).then(({ entity }) => entity))
+      hes.map((he) =>
+        this.crypto.xapi
+          .decryptEntity(he, EntityWithDelegationTypeName.HealthElement, (x) => new models.HealthElement(x))
+          .then(({ entity }) => entity)
+      )
     )
   }
 
@@ -378,14 +389,14 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
    * in the returned array, but in case of entity merges there could be multiple values.
    */
   async decryptPatientIdOf(healthElement: models.HealthElement): Promise<string[]> {
-    return this.crypto.xapi.owningEntityIdsOf({ entity: healthElement, type: 'HealthElement' }, undefined)
+    return this.crypto.xapi.owningEntityIdsOf({ entity: healthElement, type: EntityWithDelegationTypeName.HealthElement }, undefined)
   }
 
   /**
    * @return if the logged data owner has write access to the content of the given health element
    */
   async hasWriteAccess(healthElement: models.HealthElement): Promise<boolean> {
-    return this.crypto.xapi.hasWriteAccess({ entity: healthElement, type: 'HealthElement' })
+    return this.crypto.xapi.hasWriteAccess({ entity: healthElement, type: EntityWithDelegationTypeName.HealthElement })
   }
 
   /**
@@ -465,11 +476,11 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
   ): Promise<ShareResult<models.HealthElement>> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
-    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(healthElement, 'HealthElement')
+    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(healthElement, EntityWithDelegationTypeName.HealthElement)
     const updatedEntity = entityWithEncryptionKey ? await this.modifyHealthElementAs(self, entityWithEncryptionKey) : healthElement
     return this.crypto.xapi
       .simpleShareOrUpdateEncryptedEntityMetadata(
-        { entity: updatedEntity, type: 'HealthElement' },
+        { entity: updatedEntity, type: EntityWithDelegationTypeName.HealthElement },
         true,
         Object.fromEntries(
           Object.entries(delegates).map(([delegateId, options]) => [
@@ -490,11 +501,11 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
   getDataOwnersWithAccessTo(
     entity: models.HealthElement
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'HealthElement' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: EntityWithDelegationTypeName.HealthElement })
   }
 
   getEncryptionKeysOf(entity: models.HealthElement): Promise<string[]> {
-    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'HealthElement' }, undefined)
+    return this.crypto.xapi.encryptionKeysOf({ entity, type: EntityWithDelegationTypeName.HealthElement }, undefined)
   }
 
   async subscribeToHealthElementEvents(
@@ -508,7 +519,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     return await subscribeToEntityEvents(
       this.host,
       this.authApi,
-      'HealthElement',
+      EntityWithDelegationTypeName.HealthElement,
       eventTypes,
       filter,
       eventFired,
@@ -518,6 +529,9 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
   }
 
   createDelegationDeAnonymizationMetadata(entity: HealthElement, delegates: string[]): Promise<void> {
-    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'HealthElement' }, delegates)
+    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo(
+      { entity, type: EntityWithDelegationTypeName.HealthElement },
+      delegates
+    )
   }
 }

@@ -4,7 +4,7 @@ import { webcrypto } from 'crypto'
 import { FakeEncryptionKeysManager } from '../../utils/FakeEncryptionKeysManager'
 import { SecureDelegationsSecurityMetadataDecryptor } from '../../../icc-x-api/crypto/SecureDelegationsSecurityMetadataDecryptor'
 import { SecureDelegationsEncryption } from '../../../icc-x-api/crypto/SecureDelegationsEncryption'
-import { hex2ua, ua2hex } from '../../../icc-x-api'
+import { EntityWithDelegationTypeName, hex2ua, ShaVersion, ua2hex } from '../../../icc-x-api'
 import { SecureDelegationsManager } from '../../../icc-x-api/crypto/SecureDelegationsManager'
 import { AccessControlSecretUtils } from '../../../icc-x-api/crypto/AccessControlSecretUtils'
 import { ExchangeDataManager, initialiseExchangeDataManagerForCurrentDataOwner } from '../../../icc-x-api/crypto/ExchangeDataManager'
@@ -17,16 +17,15 @@ import { KeyPair } from '../../../icc-x-api/crypto/RSA'
 import { EntityShareRequest } from '../../../icc-api/model/requests/EntityShareRequest'
 import { expect } from 'chai'
 import { EncryptedEntityStub } from '../../../icc-api/model/models'
-import { EntityWithDelegationTypeName } from '../../../icc-x-api/utils/EntityWithDelegationTypeName'
 import { SecurityMetadata } from '../../../icc-api/model/SecurityMetadata'
 import { SecureDelegation } from '../../../icc-api/model/SecureDelegation'
 import { asyncGeneratorToArray } from '../../../icc-x-api/utils/collection-utils'
 import { EntitySharedMetadataUpdateRequest } from '../../../icc-api/model/requests/EntitySharedMetadataUpdateRequest'
 import { fingerprintV2 } from '../../../icc-x-api/crypto/utils'
 import { DataOwnerTypeEnum } from '../../../icc-api/model/DataOwnerTypeEnum'
+import { FakeExchangeDataMapManager } from '../../utils/FakeExchangeDataMapManager'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionInternal
 import EntryUpdateTypeEnum = EntitySharedMetadataUpdateRequest.EntryUpdateTypeEnum
-import { FakeExchangeDataMapManager } from '../../utils/FakeExchangeDataMapManager'
 
 describe('Secure delegations manager', async function () {
   const primitives = new CryptoPrimitives(webcrypto as any)
@@ -46,10 +45,10 @@ describe('Secure delegations manager', async function () {
 
   async function initialiseComponents(explicitSelf: boolean, explicitDelegate: boolean) {
     selfId = primitives.randomUuid()
-    selfKeypair = await primitives.RSA.generateKeyPair('sha-256')
+    selfKeypair = await primitives.RSA.generateKeyPair(ShaVersion.Sha256)
     selfKeyFp = ua2hex(await primitives.RSA.exportKey(selfKeypair.publicKey, 'spki')).slice(-32)
     delegateId = primitives.randomUuid()
-    delegateKeypair = await primitives.RSA.generateKeyPair('sha-256')
+    delegateKeypair = await primitives.RSA.generateKeyPair(ShaVersion.Sha256)
     delegateKeyFp = fingerprintV2(ua2hex(await primitives.RSA.exportKey(delegateKeypair.publicKey, 'spki')))
     dataOwnerApi = new FakeDataOwnerApi(
       {
@@ -103,7 +102,7 @@ describe('Secure delegations manager', async function () {
       const secretIds = [ua2hex(primitives.randomBytes(16)), ua2hex(primitives.randomBytes(16))]
       const encryptionKeys = [ua2hex(primitives.randomBytes(16))]
       const owningEntityIds = [ua2hex(primitives.randomBytes(16)), ua2hex(primitives.randomBytes(16)), ua2hex(primitives.randomBytes(16))]
-      const entityType = 'Patient'
+      const entityType = EntityWithDelegationTypeName.Patient
       const shareOrUpdateParams = await manager.makeShareOrUpdateRequestParams(
         { entity: { secretForeignKeys: [] }, type: entityType },
         delegateId,
@@ -151,7 +150,7 @@ describe('Secure delegations manager', async function () {
             },
           }),
         },
-        type: 'Patient',
+        type: EntityWithDelegationTypeName.Patient,
       }
       await exchangeDataMapManager.createExchangeDataMaps({ [secDelKey]: shareParams.encryptedExchangeDataId! })
       await exchangeData.clearOrRepopulateCache()
@@ -186,9 +185,17 @@ describe('Secure delegations manager', async function () {
       await initialiseComponents(false, false)
       const canonicalSfk = primitives.randomUuid()
       const aliasSfk = primitives.randomUuid()
-      const exchangeDataInfo = await exchangeData.getOrCreateEncryptionDataTo(delegateId, 'Patient', [], false)
-      const canonicalKey = await accessControlSecretUtils.secureDelegationKeyFor(exchangeDataInfo.accessControlSecret, 'Patient', canonicalSfk)
-      const aliasKey = await accessControlSecretUtils.secureDelegationKeyFor(exchangeDataInfo.accessControlSecret, 'Patient', aliasSfk)
+      const exchangeDataInfo = await exchangeData.getOrCreateEncryptionDataTo(delegateId, EntityWithDelegationTypeName.Patient, [], false)
+      const canonicalKey = await accessControlSecretUtils.secureDelegationKeyFor(
+        exchangeDataInfo.accessControlSecret,
+        EntityWithDelegationTypeName.Patient,
+        canonicalSfk
+      )
+      const aliasKey = await accessControlSecretUtils.secureDelegationKeyFor(
+        exchangeDataInfo.accessControlSecret,
+        EntityWithDelegationTypeName.Patient,
+        aliasSfk
+      )
       const existingSecretIds = [ua2hex(primitives.randomBytes(16))]
       const newSecretIds = [ua2hex(primitives.randomBytes(16))]
       const existingEncryptionKeys: string[] = []
@@ -212,7 +219,7 @@ describe('Secure delegations manager', async function () {
             keysEquivalences: { [aliasKey]: canonicalKey },
           }),
         },
-        type: 'Patient',
+        type: EntityWithDelegationTypeName.Patient,
       }
       const shareOrUpdateParams = await manager.makeShareOrUpdateRequestParams(
         fakeEntity,
@@ -250,8 +257,12 @@ describe('Secure delegations manager', async function () {
   it('should return undefined for existing secure delegations if it contains all entries.', async function () {
     await initialiseComponents(false, false)
     const canonicalSfk = primitives.randomUuid()
-    const exchangeDataInfo = await exchangeData.getOrCreateEncryptionDataTo(delegateId, 'Patient', [], false)
-    const canonicalKey = await accessControlSecretUtils.secureDelegationKeyFor(exchangeDataInfo.accessControlSecret, 'Patient', canonicalSfk)
+    const exchangeDataInfo = await exchangeData.getOrCreateEncryptionDataTo(delegateId, EntityWithDelegationTypeName.Patient, [], false)
+    const canonicalKey = await accessControlSecretUtils.secureDelegationKeyFor(
+      exchangeDataInfo.accessControlSecret,
+      EntityWithDelegationTypeName.Patient,
+      canonicalSfk
+    )
     const existingSecretIds = [ua2hex(primitives.randomBytes(16))]
     const existingEncryptionKeys: string[] = []
     const existingOwningEntityIds = [ua2hex(primitives.randomBytes(16))]
@@ -271,7 +282,7 @@ describe('Secure delegations manager', async function () {
           },
         }),
       },
-      type: 'Patient',
+      type: EntityWithDelegationTypeName.Patient,
     }
     const shareOrUpdateParams = await manager.makeShareOrUpdateRequestParams(
       fakeEntity,

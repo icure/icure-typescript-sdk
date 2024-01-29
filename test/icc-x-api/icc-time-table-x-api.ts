@@ -2,7 +2,7 @@ import 'isomorphic-fetch'
 
 import { before } from 'mocha'
 import { getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils } from '../utils/test_utils'
-import { IccTimeTableXApi } from '../../icc-x-api'
+import { EntityWithDelegationTypeName, IccTimeTableXApi } from '../../icc-x-api'
 import initApi = TestUtils.initApi
 import { User } from '../../icc-api/model/User'
 import { randomUUID } from 'crypto'
@@ -72,9 +72,13 @@ describe('icc-x-time-table-api Tests', () => {
     expect(createdTimeTable.name).to.equals(baseTimeTable.name)
     expect(createdTimeTable.startTime).to.equals(baseTimeTable.startTime)
     expect(createdTimeTable.items!.length).to.equals(1)
-    expect(await cryptoApi.xapi.encryptionKeysOf({ entity: createdTimeTable, type: 'TimeTable' }, undefined)).to.have.length(1)
-    expect(await cryptoApi.xapi.secretIdsOf({ entity: createdTimeTable, type: 'TimeTable' }, undefined)).to.have.length(0)
-    expect(await cryptoApi.xapi.owningEntityIdsOf({ entity: createdTimeTable, type: 'TimeTable' }, undefined)).to.have.length(0)
+    expect(
+      await cryptoApi.xapi.encryptionKeysOf({ entity: createdTimeTable, type: EntityWithDelegationTypeName.TimeTable }, undefined)
+    ).to.have.length(1)
+    expect(await cryptoApi.xapi.secretIdsOf({ entity: createdTimeTable, type: EntityWithDelegationTypeName.TimeTable }, undefined)).to.have.length(0)
+    expect(
+      await cryptoApi.xapi.owningEntityIdsOf({ entity: createdTimeTable, type: EntityWithDelegationTypeName.TimeTable }, undefined)
+    ).to.have.length(0)
   })
 
   it('Share with should work as expected', async () => {

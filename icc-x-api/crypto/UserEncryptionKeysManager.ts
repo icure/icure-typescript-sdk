@@ -1,14 +1,13 @@
-import { DataOwner, DataOwnerOrStub, IccDataOwnerXApi } from '../icc-data-owner-x-api'
+import { DataOwnerOrStub, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { KeyPair, ShaVersion } from './RSA'
 import { ua2hex } from '../utils'
 import { IcureStorageFacade } from '../storage/IcureStorageFacade'
-import { fingerprintToPublicKeysMapOf, fingerprintV1 } from './utils'
+import { fingerprintV1 } from './utils'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { KeyRecovery } from './KeyRecovery'
 import { CryptoStrategies } from './CryptoStrategies'
 import { DataOwnerWithType } from '../../icc-api/model/DataOwnerWithType'
 import { CryptoActorStub, CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
-import { BaseExchangeKeysManager } from './BaseExchangeKeysManager'
 import { KeyPairRecoverer } from './KeyPairRecoverer'
 
 type KeyPairData = { pair: KeyPair<CryptoKey>; isVerified: boolean; isDevice: boolean }
@@ -328,7 +327,7 @@ export class UserEncryptionKeysManager {
     importedKeyPair: undefined | KeyPair<CryptoKey>,
     selfDataOwner: DataOwnerWithType
   ): Promise<{ publicKeyFingerprint: string; keyPair: KeyPair<CryptoKey>; updatedSelf: CryptoActorStubWithType }> {
-    const keyPair = importedKeyPair ?? (await this.primitives.RSA.generateKeyPair('sha-256'))
+    const keyPair = importedKeyPair ?? (await this.primitives.RSA.generateKeyPair(ShaVersion.Sha256))
     const publicKeyHex = ua2hex(await this.primitives.RSA.exportKey(keyPair.publicKey, 'spki'))
     const jwKey = await this.primitives.RSA.exportKey(keyPair.publicKey, 'jwk')
     if (jwKey.alg !== 'RSA-OAEP-256') {

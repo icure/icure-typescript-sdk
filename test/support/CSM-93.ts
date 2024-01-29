@@ -1,5 +1,5 @@
 import { getEnvironmentInitializer, hcp1Username, isLiteTest, patUsername, setLocalStorage, TestUtils } from '../utils/test_utils'
-import { IcureApi, ua2hex } from '../../icc-x-api'
+import { IcureApi, ShaVersion, ua2hex } from '../../icc-x-api'
 import { webcrypto } from 'crypto'
 import { expect, use as chaiUse } from 'chai'
 import 'isomorphic-fetch'
@@ -9,12 +9,13 @@ import { MaintenanceTaskAfterDateFilter } from '../../icc-x-api/filters/Maintena
 import { Service } from '../../icc-api/model/Service'
 import { Contact } from '../../icc-api/model/Contact'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
-import initApi = TestUtils.initApi
 import { TestCryptoStrategies } from '../utils/TestCryptoStrategies'
 import { KeyPairUpdateRequest } from '../../icc-x-api/maintenance/KeyPairUpdateRequest'
-setLocalStorage(fetch)
 import * as chaiAsPromised from 'chai-as-promised'
 import { TestKeyStorage, TestStorage } from '../utils/TestStorage'
+import initApi = TestUtils.initApi
+
+setLocalStorage(fetch)
 chaiUse(chaiAsPromised)
 
 let env: TestVars
@@ -85,7 +86,7 @@ describe('CSM-93', async function () {
     checkContactDecrypted(await hcpApis.contactApi.getContactWithUser(hcpUser, ctc!.id!))
     checkContactDecrypted(await patApis.contactApi.getContactWithUser(patUser, ctc!.id!))
     const startTimestamp = new Date().getTime()
-    const newPair = await patApis.cryptoApi.primitives.RSA.generateKeyPair('sha-256')
+    const newPair = await patApis.cryptoApi.primitives.RSA.generateKeyPair(ShaVersion.Sha256)
     const patApisLost = await IcureApi.initialise(
       env.iCureUrl,
       { username: env.dataOwnerDetails[patUsername].user, password: env.dataOwnerDetails[patUsername].password },

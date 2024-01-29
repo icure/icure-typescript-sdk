@@ -1,24 +1,24 @@
-import {before} from 'mocha'
+import { before } from 'mocha'
 
 import 'isomorphic-fetch'
 
-import {IccContactXApi, IccHelementXApi, IccPatientXApi} from '../../icc-x-api'
-import {Patient} from '../../icc-api/model/Patient'
-import {assert, expect} from 'chai'
-import {randomUUID} from 'crypto'
-import {getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils} from '../utils/test_utils'
-import {Code} from '../../icc-api/model/Code'
-import {Contact} from '../../icc-api/model/Contact'
-import {Service} from '../../icc-api/model/Service'
-import {Content} from '../../icc-api/model/Content'
-import {User} from '../../icc-api/model/User'
-import {HealthElement} from '../../icc-api/model/HealthElement'
-import {SubContact} from '../../icc-api/model/SubContact'
-import {ServiceLink} from '../../icc-api/model/ServiceLink'
-import {FilterChainService} from '../../icc-api/model/FilterChainService'
-import {ServiceByHcPartyHealthElementIdsFilter} from '../../icc-x-api/filters/ServiceByHcPartyHealthElementIdsFilter'
-import {getEnvVariables, TestVars} from '@icure/test-setup/types'
-import {Measure} from "../../icc-api/model/Measure"
+import { EntityWithDelegationTypeName, IccContactXApi, IccHelementXApi, IccPatientXApi } from '../../icc-x-api'
+import { Patient } from '../../icc-api/model/Patient'
+import { assert, expect } from 'chai'
+import { randomUUID } from 'crypto'
+import { getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils } from '../utils/test_utils'
+import { Code } from '../../icc-api/model/Code'
+import { Contact } from '../../icc-api/model/Contact'
+import { Service } from '../../icc-api/model/Service'
+import { Content } from '../../icc-api/model/Content'
+import { User } from '../../icc-api/model/User'
+import { HealthElement } from '../../icc-api/model/HealthElement'
+import { SubContact } from '../../icc-api/model/SubContact'
+import { ServiceLink } from '../../icc-api/model/ServiceLink'
+import { FilterChainService } from '../../icc-api/model/FilterChainService'
+import { ServiceByHcPartyHealthElementIdsFilter } from '../../icc-x-api/filters/ServiceByHcPartyHealthElementIdsFilter'
+import { getEnvVariables, TestVars } from '@icure/test-setup/types'
+import { Measure } from '../../icc-api/model/Measure'
 import initApi = TestUtils.initApi
 
 setLocalStorage(fetch)
@@ -63,7 +63,7 @@ async function createHealthElement(healthElementApi: IccHelementXApi, hcpUser: U
           }),
         ],
       }),
-      {confidential: true}
+      { confidential: true }
     )
   )
 }
@@ -80,7 +80,7 @@ function createBasicContact(contactApiForHcp: IccContactXApi, hcpUser: User, pat
           new Service({
             id: randomUUID(),
             valueDate: 20220203111034,
-            content: {en: new Content({numberValue: 53.5})},
+            content: { en: new Content({ numberValue: 53.5 }) },
             tags: [
               new Code({
                 id: 'LOINC|29463-7|2',
@@ -94,14 +94,14 @@ function createBasicContact(contactApiForHcp: IccContactXApi, hcpUser: User, pat
       ],
       descr: 'Weight value',
     }),
-    {confidential: true}
+    { confidential: true }
   )
 }
 
 describe('icc-x-contact-api Tests', () => {
   it('CreateContactWithUser Success for HCP', async () => {
     // Given
-    const {userApi: userApiForHcp, patientApi: patientApiForHcp, contactApi: contactApiForHcp, cryptoApi} = await initApi(env!, hcp1Username)
+    const { userApi: userApiForHcp, patientApi: patientApiForHcp, contactApi: contactApiForHcp, cryptoApi } = await initApi(env!, hcp1Username)
 
     const hcpUser = await userApiForHcp.getCurrentUser()
 
@@ -126,7 +126,7 @@ describe('icc-x-contact-api Tests', () => {
     expect(readContact.services![0].id).to.be.equal(contactToCreate.services![0].id)
     expect(readContact.services![0].valueDate).to.be.equal(contactToCreate.services![0].valueDate)
     expect(readContact.services![0].tags![0].id).to.be.equal(contactToCreate.services![0].tags![0].id!)
-    expect(await cryptoApi.xapi.encryptionKeysOf({entity: readContact, type: 'Contact'}, undefined)).to.have.length(1)
+    expect(await cryptoApi.xapi.encryptionKeysOf({ entity: readContact, type: EntityWithDelegationTypeName.Contact }, undefined)).to.have.length(1)
     const decryptedPatientIds = await contactApiForHcp.decryptPatientIdOf(readContact)
     expect(decryptedPatientIds).to.have.length(1)
     expect(decryptedPatientIds[0]).to.equal(patient.id)
@@ -152,7 +152,7 @@ describe('icc-x-contact-api Tests', () => {
           new SubContact({
             id: randomUUID(),
             healthElementId: healthElement!.id!,
-            services: [new ServiceLink({serviceId: contact.services![0].id})],
+            services: [new ServiceLink({ serviceId: contact.services![0].id })],
           }),
         ],
       }
@@ -200,7 +200,7 @@ describe('icc-x-contact-api Tests', () => {
           new SubContact({
             id: randomUUID(),
             healthElementId: healthElement!.id!,
-            services: [new ServiceLink({serviceId: contact.services![0].id})],
+            services: [new ServiceLink({ serviceId: contact.services![0].id })],
           }),
         ],
       }
@@ -227,12 +227,12 @@ describe('icc-x-contact-api Tests', () => {
     const user2 = await api2.userApi.getCurrentUser()
     const samplePatient = await api1.patientApi.createPatientWithUser(
       user1,
-      await api1.patientApi.newInstance(user1, {firstName: 'Gigio', lastName: 'Bagigio'})
+      await api1.patientApi.newInstance(user1, { firstName: 'Gigio', lastName: 'Bagigio' })
     )
     const encryptedField = 'Something encrypted'
     const entity = await api1.calendarItemApi.createCalendarItemWithHcParty(
       user1,
-      await api1.calendarItemApi.newInstancePatient(user1, samplePatient, {details: encryptedField})
+      await api1.calendarItemApi.newInstancePatient(user1, samplePatient, { details: encryptedField })
     )
     expect(entity.details).to.be.equal(encryptedField)
     await api2.calendarItemApi
@@ -255,7 +255,7 @@ describe('icc-x-contact-api Tests', () => {
       max: 10,
     }
 
-    const newMeasure = new Measure({...oldMeasure})
+    const newMeasure = new Measure({ ...oldMeasure })
 
     expect(newMeasure.referenceRange).to.not.be.undefined
     expect(newMeasure.referenceRange).to.not.undefined
@@ -277,9 +277,8 @@ describe('icc-x-contact-api Tests', () => {
           measureValue: {
             min: 0,
             max: 10,
-          }
-
-        }
+          },
+        },
       },
       tags: [
         {
@@ -316,8 +315,8 @@ describe('icc-x-contact-api Tests', () => {
               measureValue: {
                 min: 0,
                 max: 10,
-              }
-            }
+              },
+            },
           },
           tags: [
             {
@@ -345,6 +344,4 @@ describe('icc-x-contact-api Tests', () => {
     expect(Object.keys(contact.services![0].content?.en?.measureValue!)).to.not.contain('min')
     expect(Object.keys(contact.services![0].content?.en?.measureValue!)).to.not.contain('max')
   })
-
-
 })

@@ -1,4 +1,4 @@
-import { Apis, IcureApi, ua2hex } from '../../../icc-x-api'
+import { Apis, IcureApi, ShaVersion, ua2hex } from '../../../icc-x-api'
 import { CalendarItem } from '../../../icc-api/model/CalendarItem'
 import { FilterChainMaintenanceTask, MaintenanceTask, PaginatedListMaintenanceTask } from '../../../icc-api/model/models'
 import { before, describe, it } from 'mocha'
@@ -13,8 +13,8 @@ import { TestKeyStorage, TestStorage } from '../../utils/TestStorage'
 import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
 import { KeyPairUpdateRequest } from '../../../icc-x-api/maintenance/KeyPairUpdateRequest'
 import { SecureDelegation } from '../../../icc-api/model/SecureDelegation'
-import AccessLevel = SecureDelegation.AccessLevelEnum
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
+import AccessLevel = SecureDelegation.AccessLevelEnum
 
 async function _getHcpKeyUpdateMaintenanceTask(delegateApi: Apis): Promise<MaintenanceTask> {
   const delegateUser = await delegateApi.userApi.getCurrentUser()
@@ -123,7 +123,7 @@ describe('Full battery of tests on crypto and keys', async function () {
     expect(originalDecryptedData.successfulDecryptions.length).to.equal(2)
 
     // And creates a new one
-    const newKey = await api.cryptoApi.primitives.RSA.generateKeyPair('sha-256')
+    const newKey = await api.cryptoApi.primitives.RSA.generateKeyPair(ShaVersion.Sha256)
     const publicKey = ua2hex(await api.cryptoApi.primitives.RSA.exportKey(newKey.publicKey, 'spki'))
     const apiAfterNewKey = await IcureApi.initialise(
       env!.iCureUrl,

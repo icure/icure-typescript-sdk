@@ -3,7 +3,7 @@ import { before } from 'mocha'
 import { createHcpHierarchyApis, getEnvironmentInitializer, getTempEmail, setLocalStorage, TestUtils } from '../../utils/test_utils'
 import { webcrypto } from 'crypto'
 import 'isomorphic-fetch'
-import { Apis } from '../../../icc-x-api'
+import { Apis, EntityWithDelegationTypeName, ShaVersion } from '../../../icc-x-api'
 import { User } from '../../../icc-api/model/User'
 import { Patient } from '../../../icc-api/model/Patient'
 import { HealthElement } from '../../../icc-api/model/HealthElement'
@@ -15,18 +15,17 @@ import { FilterChainMaintenanceTask } from '../../../icc-api/model/FilterChainMa
 import { MaintenanceTaskAfterDateFilter } from '../../../icc-x-api/filters/MaintenanceTaskAfterDateFilter'
 import { KeyPairUpdateRequest } from '../../../icc-x-api/maintenance/KeyPairUpdateRequest'
 import { EntityShareRequest } from '../../../icc-api/model/requests/EntityShareRequest'
-import { EntityWithDelegationTypeName } from '../../../icc-x-api/utils/EntityWithDelegationTypeName'
 import { MaintenanceTask } from '../../../icc-api/model/MaintenanceTask'
 import * as _ from 'lodash'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import { SecureDelegation } from '../../../icc-api/model/SecureDelegation'
 import { CalendarItem } from '../../../icc-api/model/CalendarItem'
 import { DataOwnerTypeEnum } from '../../../icc-api/model/DataOwnerTypeEnum'
+import { Message } from '../../../icc-api/model/Message'
+import { IccSecureDelegationKeyMapApi } from '../../../icc-api/api/internal/IccSecureDelegationKeyMapApi'
 import initMasterApi = TestUtils.initMasterApi
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
-import { Message } from '../../../icc-api/model/Message'
-import { IccSecureDelegationKeyMapApi } from '../../../icc-api/api/internal/IccSecureDelegationKeyMapApi'
 
 const FULL_WRITE = RequestedPermissionEnum.FULL_WRITE
 const FULL_READ = RequestedPermissionEnum.FULL_READ
@@ -94,7 +93,7 @@ describe('Anonymous delegations', () => {
 
   async function loseKeyAndGiveAccessBack(userThatLosesKey: UserInfo, apiToGiveAccessBack: Apis, userGivingAccessBack: UserInfo): Promise<Apis> {
     const timeBeforeNewKey = new Date().getTime()
-    const newKeyPair = await primitives.RSA.generateKeyPair('sha-256')
+    const newKeyPair = await primitives.RSA.generateKeyPair(ShaVersion.Sha256)
     const newApi = await TestApi(env.iCureUrl, userThatLosesKey.user.login!, userThatLosesKey.pw, webcrypto as any, newKeyPair, {
       createMaintenanceTasksOnNewKey: false,
     })
@@ -103,7 +102,7 @@ describe('Anonymous delegations', () => {
       DataOwnerTypeEnum.Hcp,
     ])
     await apiToGiveAccessBack.cryptoApi.forceReload()
-    const searchIds = await dataOwnerIdsForSearch(apiToGiveAccessBack, userGivingAccessBack.dataOwnerId, 'MaintenanceTask')
+    const searchIds = await dataOwnerIdsForSearch(apiToGiveAccessBack, userGivingAccessBack.dataOwnerId, EntityWithDelegationTypeName.MaintenanceTask)
     const keyPairUpdateRequests = await searchIds
       .reduce(async (acc, searchId) => {
         const awaitedAcc = await acc
@@ -163,7 +162,7 @@ describe('Anonymous delegations', () => {
     const user = await apis.userApi.getCurrentUser()
     const patient = await apis.patientApi.getPatientWithUser(user, expected.patient.id!)
     expect(patient.note).to.equal(expected.patient.note)
-    const searchIds = await dataOwnerIdsForSearch(apis, apis.dataOwnerApi.getDataOwnerIdOf(user), 'HealthElement')
+    const searchIds = await dataOwnerIdsForSearch(apis, apis.dataOwnerApi.getDataOwnerIdOf(user), EntityWithDelegationTypeName.HealthElement)
     const patientKeys = await apis.patientApi.decryptSecretIdsOf(patient)
     expect(patientKeys).to.not.be.empty
     const sfks = _.uniq(patientKeys).join(',')
@@ -427,11 +426,10 @@ describe('Anonymous delegations', () => {
      *       A->?P1  P1->?P2
      *       A->?P2
      */
-    await apiA.api.cryptoApi.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'CalendarItem' }, [
-      apiB.userInfo.dataOwnerId,
-      apiP1.userInfo.dataOwnerId,
-      apiP2.userInfo.dataOwnerId,
-    ])
+    await apiA.api.cryptoApi.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo(
+      { entity, type: EntityWithDelegationTypeName.CalendarItem },
+      [apiB.userInfo.dataOwnerId, apiP1.userInfo.dataOwnerId, apiP2.userInfo.dataOwnerId]
+    )
     /*
      * A can create de-anonymization metadata for his delegations.
      * A->A  A->B    B->?P1
@@ -480,11 +478,10 @@ describe('Anonymous delegations', () => {
       },
       true
     )
-    await apiP1.api.cryptoApi.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'CalendarItem' }, [
-      apiB.userInfo.dataOwnerId,
-      apiA.userInfo.dataOwnerId,
-      apiP2.userInfo.dataOwnerId,
-    ])
+    await apiP1.api.cryptoApi.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo(
+      { entity, type: EntityWithDelegationTypeName.CalendarItem },
+      [apiB.userInfo.dataOwnerId, apiA.userInfo.dataOwnerId, apiP2.userInfo.dataOwnerId]
+    )
     /* Both delegator and delegate can create de-anonymization metadata for a delegation.
      * A->A  A->B   B->P1
      *       A->P1  P1->P2
@@ -542,9 +539,10 @@ describe('Anonymous delegations', () => {
       await hierarchy.parentApi.calendarItemApi.newInstance(hierarchy.parentUser, { note: 'Calendar item note' })
     ) // Auto-shared with grandApi, but no de-anonymization metadata
     entity = await hierarchy.parentApi.calendarItemApi.shareWith(patientInfo.userInfo.dataOwnerId, entity, { requestedPermissions: FULL_WRITE })
-    await hierarchy.parentApi.cryptoApi.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'CalendarItem' }, [
-      hierarchy.grandUser.healthcarePartyId!,
-    ])
+    await hierarchy.parentApi.cryptoApi.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo(
+      { entity, type: EntityWithDelegationTypeName.CalendarItem },
+      [hierarchy.grandUser.healthcarePartyId!]
+    )
     await patientInfo.api.cryptoApi.forceReload()
     const expectedAccess = {
       [hierarchy.parentUser.healthcarePartyId!]: AccessLevelEnum.WRITE,
@@ -567,10 +565,10 @@ describe('Anonymous delegations', () => {
     )
     entity = await apiA.api.calendarItemApi.shareWith(apiB.userInfo.dataOwnerId, entity, { requestedPermissions: FULL_WRITE })
     entity = await apiA.api.calendarItemApi.shareWith(apiP.userInfo.dataOwnerId, entity, { requestedPermissions: FULL_WRITE })
-    await apiA.api.cryptoApi.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'CalendarItem' }, [
-      apiB.userInfo.dataOwnerId,
-      apiP.userInfo.dataOwnerId,
-    ])
+    await apiA.api.cryptoApi.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo(
+      { entity, type: EntityWithDelegationTypeName.CalendarItem },
+      [apiB.userInfo.dataOwnerId, apiP.userInfo.dataOwnerId]
+    )
     const secureDelegationKeyMapApi = new IccSecureDelegationKeyMapApi(env.iCureUrl, {}, apiA.api.authApi.authenticationProvider, fetch)
     const secureDelegationKeyMaps = await secureDelegationKeyMapApi.getByDelegationKeys(
       { ids: Object.keys(entity.securityMetadata!.secureDelegations!) },
@@ -601,9 +599,10 @@ describe('Anonymous delegations', () => {
     )
     entity2 = await apiA.api.calendarItemApi.shareWith(apiB.userInfo.dataOwnerId, entity2, { requestedPermissions: FULL_WRITE })
     entity2 = await apiA.api.calendarItemApi.shareWith(apiP.userInfo.dataOwnerId, entity2, { requestedPermissions: FULL_WRITE })
-    await apiA.api.cryptoApi.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity: entity1, type: 'CalendarItem' }, [
-      apiB.userInfo.dataOwnerId,
-    ])
+    await apiA.api.cryptoApi.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo(
+      { entity: entity1, type: EntityWithDelegationTypeName.CalendarItem },
+      [apiB.userInfo.dataOwnerId]
+    )
     const expectedAccess = {
       [apiA.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
       [apiB.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
@@ -628,10 +627,10 @@ describe('Anonymous delegations', () => {
     )
     entity = await apiP1.api.calendarItemApi.shareWith(apiP2.userInfo.dataOwnerId, entity, { requestedPermissions: FULL_WRITE })
     entity = await apiP1.api.calendarItemApi.shareWith(apiA.userInfo.dataOwnerId, entity, { requestedPermissions: FULL_WRITE })
-    await apiP1.api.cryptoApi.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'CalendarItem' }, [
-      apiP2.userInfo.dataOwnerId,
-      apiA.userInfo.dataOwnerId,
-    ])
+    await apiP1.api.cryptoApi.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo(
+      { entity, type: EntityWithDelegationTypeName.CalendarItem },
+      [apiP2.userInfo.dataOwnerId, apiA.userInfo.dataOwnerId]
+    )
     const p1ToP2DelegationKey = Object.entries(entity.securityMetadata!.secureDelegations!).find(
       ([_, v]) => v.delegate === undefined && v.delegator === undefined && v.parentDelegations !== undefined
     )![0]
@@ -641,10 +640,10 @@ describe('Anonymous delegations', () => {
     const delegationMapBeforeAttemptedResharingByA = (await delegationMapApi.getByDelegationKeys({ ids: [p1ToP2DelegationKey] }, []))[0]
     expect(delegationMapBeforeAttemptedResharingByA).to.not.be.undefined
     expect(Object.keys(delegationMapBeforeAttemptedResharingByA.securityMetadata!.secureDelegations!)).to.have.length(3)
-    await apiA.api.cryptoApi.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'CalendarItem' }, [
-      apiP2.userInfo.dataOwnerId,
-      apiP1.userInfo.dataOwnerId,
-    ])
+    await apiA.api.cryptoApi.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo(
+      { entity, type: EntityWithDelegationTypeName.CalendarItem },
+      [apiP2.userInfo.dataOwnerId, apiP1.userInfo.dataOwnerId]
+    )
     const delegationMapAfterAttemptedResharingByA = (await delegationMapApi.getByDelegationKeys({ ids: [p1ToP2DelegationKey] }, []))[0]
     expect(delegationMapAfterAttemptedResharingByA).to.not.be.undefined
     expect(Object.keys(delegationMapAfterAttemptedResharingByA.securityMetadata!.secureDelegations!)).to.have.length(3)
@@ -663,9 +662,10 @@ describe('Anonymous delegations', () => {
     entity = await apiA.api.calendarItemApi.shareWith(apiB.userInfo.dataOwnerId, entity, { requestedPermissions: FULL_WRITE })
     entity = await apiA.api.calendarItemApi.shareWith(apiC.userInfo.dataOwnerId, entity, { requestedPermissions: FULL_WRITE })
     entity = await apiA.api.calendarItemApi.shareWith(apiP.userInfo.dataOwnerId, entity, { requestedPermissions: FULL_WRITE })
-    await apiA.api.cryptoApi.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'CalendarItem' }, [
-      apiB.userInfo.dataOwnerId,
-    ])
+    await apiA.api.cryptoApi.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo(
+      { entity, type: EntityWithDelegationTypeName.CalendarItem },
+      [apiB.userInfo.dataOwnerId]
+    )
     const expectedAccess = {
       [apiA.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
       [apiB.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,
@@ -704,18 +704,21 @@ describe('Anonymous delegations', () => {
     entity = await hierarchy.grandApi.calendarItemApi.shareWith(apiC.userInfo.dataOwnerId, entity, { requestedPermissions: FULL_WRITE })
     entity = await hierarchy.grandApi.calendarItemApi.shareWith(apiP.userInfo.dataOwnerId, entity, { requestedPermissions: FULL_WRITE })
     // Child shares deanon info with A
-    await hierarchy.parentApi.cryptoApi.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'CalendarItem' }, [
-      apiA.userInfo.dataOwnerId,
-    ])
+    await hierarchy.parentApi.cryptoApi.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo(
+      { entity, type: EntityWithDelegationTypeName.CalendarItem },
+      [apiA.userInfo.dataOwnerId]
+    )
     // P shares with B
     await apiP.api.cryptoApi.forceReload()
-    await apiP.api.cryptoApi.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'CalendarItem' }, [
-      apiB.userInfo.dataOwnerId,
-    ])
+    await apiP.api.cryptoApi.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo(
+      { entity, type: EntityWithDelegationTypeName.CalendarItem },
+      [apiB.userInfo.dataOwnerId]
+    )
     // Parent shares with C
-    await hierarchy.grandApi.cryptoApi.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'CalendarItem' }, [
-      apiC.userInfo.dataOwnerId,
-    ])
+    await hierarchy.grandApi.cryptoApi.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo(
+      { entity, type: EntityWithDelegationTypeName.CalendarItem },
+      [apiC.userInfo.dataOwnerId]
+    )
     const expectedAccess = {
       [hierarchy.grandUser.healthcarePartyId!]: AccessLevelEnum.WRITE,
       [apiA.userInfo.dataOwnerId]: AccessLevelEnum.WRITE,

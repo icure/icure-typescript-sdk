@@ -2,7 +2,7 @@ import 'isomorphic-fetch'
 import { ShamirClass } from '../../../icc-x-api/crypto/shamir'
 import { expect } from 'chai'
 import 'mocha'
-import { IcureApi, ua2hex } from '../../../icc-x-api'
+import { IcureApi, ShaVersion, ua2hex } from '../../../icc-x-api'
 import {
   createHcpHierarchyApis,
   getEnvironmentInitializer,
@@ -46,7 +46,7 @@ describe('Shamir split', () => {
 
   it('should be able to split and recombine a private key', async () => {
     const rsa = new RSAUtils(crypto)
-    const key = ua2hex(await rsa.exportKey((await rsa.generateKeyPair('sha-256')).privateKey, 'pkcs8'))
+    const key = ua2hex(await rsa.exportKey((await rsa.generateKeyPair(ShaVersion.Sha256)).privateKey, 'pkcs8'))
     const shamir = new ShamirClass(crypto)
     const splits = shamir.share(key, 4, 3)
     const combined = shamir.combine([splits[1], splits[0], splits[3]])
@@ -112,7 +112,7 @@ describe('Shamir key recovery', async function () {
         pairs: [
           {
             keyPair: { privateKey: hierarchyApis.grandCredentials.privateKey, publicKey: hierarchyApis.grandCredentials.publicKey },
-            shaVersion: 'sha-1',
+            shaVersion: ShaVersion.Sha1,
           },
         ],
       },
@@ -121,12 +121,12 @@ describe('Shamir key recovery', async function () {
         pairs: [
           {
             keyPair: { privateKey: hierarchyApis.parentCredentials.privateKey, publicKey: hierarchyApis.parentCredentials.publicKey },
-            shaVersion: 'sha-1',
+            shaVersion: ShaVersion.Sha1,
           },
         ],
       },
     ])
-    const newKey = await api.cryptoApi.primitives.RSA.generateKeyPair('sha-256')
+    const newKey = await api.cryptoApi.primitives.RSA.generateKeyPair(ShaVersion.Sha256)
     const lostKeyApi = await IcureApi.initialise(
       env.iCureUrl,
       {

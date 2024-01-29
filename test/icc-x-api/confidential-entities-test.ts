@@ -3,7 +3,8 @@ import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import { expect } from 'chai'
 import 'isomorphic-fetch'
 import { SecureDelegation } from '../../icc-api/model/SecureDelegation'
-import AccessLevelEnum = SecureDelegation.AccessLevelEnum
+import { EntityWithDelegationTypeName } from '../../icc-x-api'
+
 setLocalStorage(fetch)
 
 var env: TestVars
@@ -62,7 +63,9 @@ describe('test confidential helement', () => {
       expect(failedToRetrieve).to.equal(true, 'Parent should fail to retrieve confidential data')
     }
     // Even if in some way I could get the contact I should not be able to decrypt it
-    expect(await parentApi.cryptoApi.xapi.encryptionKeysOf({ entity: confidentialHe!, type: 'HealthElement' }, undefined)).to.have.length(0)
+    expect(
+      await parentApi.cryptoApi.xapi.encryptionKeysOf({ entity: confidentialHe!, type: EntityWithDelegationTypeName.HealthElement }, undefined)
+    ).to.have.length(0)
   })
 
   it('creation of confidential data should fail if no confidential secret id is available for patient', async () => {

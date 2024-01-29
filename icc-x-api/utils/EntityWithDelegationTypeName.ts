@@ -3,39 +3,41 @@
  */
 import { EncryptedEntity, EncryptedEntityStub } from '../../icc-api/model/models'
 
+export enum EntityWithDelegationTypeName {
+  Article = 'Article',
+  AccessLog = 'AccessLog',
+  CalendarItem = 'CalendarItem',
+  Classification = 'Classification',
+  Contact = 'Contact',
+  Document = 'Document',
+  Form = 'Form',
+  HealthElement = 'HealthElement',
+  Invoice = 'Invoice',
+  MaintenanceTask = 'MaintenanceTask',
+  Message = 'Message',
+  Patient = 'Patient',
+  Receipt = 'Receipt',
+  TimeTable = 'TimeTable',
+  Topic = 'Topic',
+}
+
 export const entityWithDelegationTypeNames: Set<EntityWithDelegationTypeName> = new Set([
-  'Article',
-  'AccessLog',
-  'CalendarItem',
-  'Classification',
-  'Contact',
-  'Document',
-  'Form',
-  'HealthElement',
-  'Invoice',
-  'MaintenanceTask',
-  'Message',
-  'Patient',
-  'Receipt',
-  'TimeTable',
+  EntityWithDelegationTypeName.Article,
+  EntityWithDelegationTypeName.AccessLog,
+  EntityWithDelegationTypeName.CalendarItem,
+  EntityWithDelegationTypeName.Classification,
+  EntityWithDelegationTypeName.Contact,
+  EntityWithDelegationTypeName.Document,
+  EntityWithDelegationTypeName.Form,
+  EntityWithDelegationTypeName.HealthElement,
+  EntityWithDelegationTypeName.Invoice,
+  EntityWithDelegationTypeName.MaintenanceTask,
+  EntityWithDelegationTypeName.Message,
+  EntityWithDelegationTypeName.Patient,
+  EntityWithDelegationTypeName.Receipt,
+  EntityWithDelegationTypeName.TimeTable,
 ])
 
-export type EntityWithDelegationTypeName =
-  | 'Article'
-  | 'AccessLog'
-  | 'CalendarItem'
-  | 'Classification'
-  | 'Contact'
-  | 'Document'
-  | 'Form'
-  | 'HealthElement'
-  | 'Invoice'
-  | 'MaintenanceTask'
-  | 'Message'
-  | 'Patient'
-  | 'Receipt'
-  | 'TimeTable'
-  | 'Topic'
 /**
  * Type containing information on an entity and its type. If the entity is a stub (EncryptedEntityStub or IcureStub) the type should refer to the
  * original entity from which the stub was extracted.

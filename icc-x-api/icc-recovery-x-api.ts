@@ -69,9 +69,9 @@ export class IccRecoveryXApi {
         if (verified) {
           const pubKeyHex = ua2hex(await this.primitives.RSA.exportKey(pair.publicKey, 'spki'))
           if (sha256Keys.has(pubKeyHex)) {
-            pairs.push({ pair, algorithm: 'sha-256' })
+            pairs.push({ pair, algorithm: ShaVersion.Sha256 })
           } else if (sha1Keys.has(pubKeyHex)) {
-            pairs.push({ pair, algorithm: 'sha-1' })
+            pairs.push({ pair, algorithm: ShaVersion.Sha1 })
           } else {
             console.warn(`Found stored key ${pubKeyHex} for data owner ${dataOwnerId} which is not saved in the data owner. Ignoring.`)
           }

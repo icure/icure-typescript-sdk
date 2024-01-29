@@ -8,7 +8,7 @@ import { randomBytes, randomUUID } from 'crypto'
 import { getEnvironmentInitializer, hcp1Username, hcp2Username, hcp3Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import initApi = TestUtils.initApi
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
-import { ua2b64 } from '../../icc-x-api'
+import { EntityWithDelegationTypeName, ua2b64 } from '../../icc-x-api'
 
 setLocalStorage(fetch)
 let env: TestVars
@@ -51,7 +51,9 @@ describe('icc-x-patient-api Tests', () => {
     assert(readPatient.note == patientToCreate.note)
     assert(readPatient.firstName == patientToCreate.firstName)
     assert(readPatient.lastName == patientToCreate.lastName)
-    expect(await cryptoApiForHcp.xapi.encryptionKeysOf({ entity: readPatient, type: 'Patient' }, undefined)).to.have.length(1)
+    expect(
+      await cryptoApiForHcp.xapi.encryptionKeysOf({ entity: readPatient, type: EntityWithDelegationTypeName.Patient }, undefined)
+    ).to.have.length(1)
     expect(await patientApiForHcp.decryptSecretIdsOf(readPatient)).to.have.length(1)
   })
 

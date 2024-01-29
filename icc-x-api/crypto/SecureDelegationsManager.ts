@@ -19,6 +19,7 @@ import EntryUpdateTypeEnum = EntitySharedMetadataUpdateRequest.EntryUpdateTypeEn
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import { SecurityMetadata } from '../../icc-api/model/SecurityMetadata'
 import { ExchangeDataMapManager } from './ExchangeDataMapManager'
+import { ShaVersion } from './RSA'
 
 export class SecureDelegationsManager {
   constructor(
@@ -365,7 +366,7 @@ export class SecureDelegationsManager {
       const delegateVerifiedKeys: { [fp: string]: CryptoKey } = {}
       for (const keyHex of [...delegateInfo.availablePublicKeysHexWithSha1, ...delegateInfo.availablePublicKeysHexWithSha256]) {
         const currFp = fingerprintV2(keyHex)
-        const shaVersion = delegateInfo.availablePublicKeysHexWithSha1.includes(keyHex) ? 'sha-1' : 'sha-256'
+        const shaVersion = delegateInfo.availablePublicKeysHexWithSha1.includes(keyHex) ? ShaVersion.Sha1 : ShaVersion.Sha256
         if (fingerprintsOfVerifiedExchangeData.has(currFp)) {
           delegateVerifiedKeys[currFp] = await this.primitives.RSA.importKey('spki', hex2ua(keyHex), ['encrypt'], shaVersion)
         }

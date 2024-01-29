@@ -5,7 +5,10 @@ import { ua2utf8, utf8_2ua } from '../utils'
  */
 export type KeyPair<T> = { publicKey: T; privateKey: T }
 
-export type ShaVersion = 'sha-1' | 'sha-256'
+export enum ShaVersion {
+  Sha1 = 'sha-1',
+  Sha256 = 'sha-256',
+}
 
 export class RSAUtils {
   /********* RSA Config **********/

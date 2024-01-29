@@ -1,9 +1,8 @@
 import { before } from 'mocha'
-import { getEnvironmentInitializer, hcp1Username, setLocalStorage, TestUtils } from '../utils/test_utils'
+import { getEnvironmentInitializer, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
-import { Apis, hex2ua, IcureApi } from '../../icc-x-api'
+import { Apis, IcureApi, ShaVersion } from '../../icc-x-api'
 import { User } from '../../icc-api/model/User'
-import initApi = TestUtils.initApi
 import { TestCryptoStrategies } from '../utils/TestCryptoStrategies'
 import { webcrypto } from 'crypto'
 import { TestKeyStorage, TestStorage } from '../utils/TestStorage'
@@ -11,6 +10,7 @@ import { expect, use as chaiUse } from 'chai'
 import 'isomorphic-fetch'
 import { KeyPair } from '../../icc-x-api/crypto/RSA'
 import initMasterApi = TestUtils.initMasterApi
+
 chaiUse(require('chai-as-promised'))
 
 setLocalStorage(fetch)
@@ -39,7 +39,7 @@ describe('A user without access to parent data', () => {
       login,
       passwordHash: 'LetMeInForReal',
     })
-    keypair = await initialisationApi.cryptoApi.primitives.RSA.generateKeyPair('sha-256')
+    keypair = await initialisationApi.cryptoApi.primitives.RSA.generateKeyPair(ShaVersion.Sha256)
     api = await IcureApi.initialise(
       env.iCureUrl,
       { username: childUser.login!, password: 'LetMeInForReal' },

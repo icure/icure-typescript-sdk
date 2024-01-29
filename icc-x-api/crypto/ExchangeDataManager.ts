@@ -7,10 +7,11 @@ import { AccessControlSecretUtils } from './AccessControlSecretUtils'
 import { CryptoStrategies } from './CryptoStrategies'
 import { fingerprintV1, getShaVersionForKey, hexPublicKeysWithSha1Of, hexPublicKeysWithSha256Of } from './utils'
 import { CryptoPrimitives } from './CryptoPrimitives'
-import { hex2ua, ua2b64 } from '../utils'
+import { hex2ua } from '../utils'
 import { LruTemporisedAsyncCache } from '../utils/lru-temporised-async-cache'
 import { EntityWithDelegationTypeName, entityWithDelegationTypeNames } from '../utils/EntityWithDelegationTypeName'
 import { CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
+import { ShaVersion } from './RSA'
 
 export type ExchangeDataManagerOptionalParameters = {
   // Only for not fully cached implementation (data owner can't request all his exchange data), amount of exchange data which can be cached
@@ -238,9 +239,14 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
         throw new Error(`Could not create exchange data to ${delegateId} as no public key for the delegate could be verified.`)
       for (const delegateKey of allVerifiedDelegateKeys) {
         if (sha1KeysOfDelegate.has(delegateKey)) {
-          encryptionKeys[fingerprintV1(delegateKey)] = await this.primitives.RSA.importKey('spki', hex2ua(delegateKey), ['encrypt'], 'sha-1')
+          encryptionKeys[fingerprintV1(delegateKey)] = await this.primitives.RSA.importKey('spki', hex2ua(delegateKey), ['encrypt'], ShaVersion.Sha1)
         } else if (sha256KeysOfDelegate.has(delegateKey)) {
-          encryptionKeys[fingerprintV1(delegateKey)] = await this.primitives.RSA.importKey('spki', hex2ua(delegateKey), ['encrypt'], 'sha-256')
+          encryptionKeys[fingerprintV1(delegateKey)] = await this.primitives.RSA.importKey(
+            'spki',
+            hex2ua(delegateKey),
+            ['encrypt'],
+            ShaVersion.Sha256
+          )
         } else throw new Error('Illegal state: verified keys should contain only keys for OAPE-SHA1 or OAPE-SHA256.')
       }
     }

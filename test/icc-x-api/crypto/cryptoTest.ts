@@ -13,9 +13,10 @@ import {
   setLocalStorage,
   TestUtils,
 } from '../../utils/test_utils'
-import initApi = TestUtils.initApi
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
-import { BasicAuthenticationProvider } from '../../../icc-x-api'
+import { BasicAuthenticationProvider, EntityWithDelegationTypeName } from '../../../icc-x-api'
+import initApi = TestUtils.initApi
+
 chaiUse(require('chai-as-promised'))
 
 let env: TestVars
@@ -287,7 +288,9 @@ describe('test that confidential helement information cannot be retrieved at MH 
         expect(failedToRetrieve).to.equal(true, 'MH should fail to retrieve confidential data')
       }
       // Even if in some way I could get the contact I should not be able to decrypt it
-      expect(await api.cryptoApi.xapi.encryptionKeysOf({ entity: confidentialHe!, type: 'HealthElement' }, undefined)).to.have.length(0)
+      expect(
+        await api.cryptoApi.xapi.encryptionKeysOf({ entity: confidentialHe!, type: EntityWithDelegationTypeName.HealthElement }, undefined)
+      ).to.have.length(0)
     }
   })
 })
@@ -349,7 +352,9 @@ describe('test that confidential contact information cannot be retrieved at MH l
         expect(failedToRetrieve).to.equal(true, 'MH should fail to retrieve confidential data')
       }
       // Even if in some way I could get the contact I should not be able to decrypt it
-      expect(await api.cryptoApi.xapi.encryptionKeysOf({ entity: confidentialCtc!, type: 'Contact' }, undefined)).to.have.length(0)
+      expect(
+        await api.cryptoApi.xapi.encryptionKeysOf({ entity: confidentialCtc!, type: EntityWithDelegationTypeName.Contact }, undefined)
+      ).to.have.length(0)
     }
   })
 })

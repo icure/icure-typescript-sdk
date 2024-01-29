@@ -6,32 +6,33 @@ import i18n from './rsrc/contact.i18n'
 import * as moment from 'moment'
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import { AccessLog, Contact, FilterChainService, ListOfIds, Service } from '../icc-api/model/models'
+import { Contact, FilterChainService, ListOfIds, Service } from '../icc-api/model/models'
 import { PaginatedListContact } from '../icc-api/model/PaginatedListContact'
-import { a2b, b2a, string2ua, ua2string, utf8_2ua } from './utils/binary-utils'
+import { utf8_2ua } from './utils/binary-utils'
 import { ServiceByIdsFilter } from './filters/ServiceByIdsFilter'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import {
   before,
-  encryptObject,
   decryptObject,
   EncryptedFieldsManifest,
+  encryptObject,
+  EntityWithDelegationTypeName,
   parseEncryptedFields,
-  SubscriptionOptions,
   subscribeToEntityEvents,
+  SubscriptionOptions,
 } from './utils'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
-import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 import { ShareResult } from './utils/ShareResult'
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
-import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
 import { IccUserXApi } from './icc-user-x-api'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 import { AbstractFilter } from './filters/filters'
 import { Connection, ConnectionImpl } from '../icc-api/model/Connection'
+import AccessLevelEnum = SecureDelegation.AccessLevelEnum
+import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 
 export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi<models.Contact> {
   i18n: any = i18n
@@ -40,7 +41,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
   private readonly serviceEncryptedFieldsWithContent: EncryptedFieldsManifest
 
   get headers(): Promise<Array<XHR.Header>> {
-    return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, 'Contact'))
+    return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, EntityWithDelegationTypeName.Contact))
   }
 
   constructor(
@@ -130,8 +131,8 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     const sfk =
       options.preferredSfk ??
       (options?.confidential
-        ? await this.crypto.confidential.getConfidentialSecretId({ entity: patient, type: 'Patient' })
-        : await this.crypto.confidential.getAnySecretIdSharedWithParents({ entity: patient, type: 'Patient' }))
+        ? await this.crypto.confidential.getConfidentialSecretId({ entity: patient, type: EntityWithDelegationTypeName.Patient })
+        : await this.crypto.confidential.getAnySecretIdSharedWithParents({ entity: patient, type: EntityWithDelegationTypeName.Patient }))
     if (!sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id} for confidential=${options.confidential ?? false}`)
     const extraDelegations = {
       ...(options.confidential
@@ -143,7 +144,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     }
     const initialisationInfo = await this.crypto.xapi.entityWithInitialisedEncryptedMetadata(
       contact,
-      'Contact',
+      EntityWithDelegationTypeName.Contact,
       patient.id,
       sfk,
       true,
@@ -170,7 +171,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
    * @param usingPost
    */
   async findBy(hcpartyId: string, patient: models.Patient, usingPost: boolean = false) {
-    return await this.crypto.xapi.secretIdsForHcpHierarchyOf({ entity: patient, type: 'Patient' }).then((keysHierarchy) =>
+    return await this.crypto.xapi.secretIdsForHcpHierarchyOf({ entity: patient, type: EntityWithDelegationTypeName.Patient }).then((keysHierarchy) =>
       keysHierarchy && keysHierarchy.length > 0
         ? Promise.all(
             keysHierarchy
@@ -196,7 +197,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
   async findByPatientSFKs(hcpartyId: string, patients: Array<models.Patient>): Promise<Array<models.Contact>> {
     const perHcpId: { [key: string]: string[] } = {}
     for (const patient of patients) {
-      ;(await this.crypto.xapi.secretIdsForHcpHierarchyOf({ entity: patient, type: 'Patient' }))
+      ;(await this.crypto.xapi.secretIdsForHcpHierarchyOf({ entity: patient, type: EntityWithDelegationTypeName.Patient }))
         .reduce((acc, level) => {
           return acc.concat([
             {
@@ -456,13 +457,16 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       ctcs.map(async (ctc) => {
         let initialisedCtc = ctc
         if (!bypassEncryption) {
-          const contactWithKeys = await this.crypto.xapi.ensureEncryptionKeysInitialised(ctc, 'Contact')
+          const contactWithKeys = await this.crypto.xapi.ensureEncryptionKeysInitialised(ctc, EntityWithDelegationTypeName.Contact)
           if (contactWithKeys) {
             initialisedCtc = contactWithKeys
           }
         }
 
-        const encryptionKey = await this.crypto.xapi.decryptAndImportAnyEncryptionKey({ entity: initialisedCtc, type: 'Contact' })
+        const encryptionKey = await this.crypto.xapi.decryptAndImportAnyEncryptionKey({
+          entity: initialisedCtc,
+          type: EntityWithDelegationTypeName.Contact,
+        })
 
         return new Contact(
           await encryptObject(
@@ -474,7 +478,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
               return this.crypto.primitives.AES.encrypt(encryptionKey.key, utf8_2ua(JSON.stringify(obj)), encryptionKey.raw)
             },
             this.contactEncryptedFields,
-            'contact'
+            EntityWithDelegationTypeName.Contact
           )
         )
       })
@@ -484,7 +488,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
   decrypt(hcpartyId: string, ctcs: Array<models.Contact>): Promise<Array<models.Contact>> {
     return Promise.all(
       ctcs.map(async (ctc) => {
-        const keys = await this.crypto.xapi.decryptAndImportAllDecryptionKeys({ entity: ctc, type: 'Contact' })
+        const keys = await this.crypto.xapi.decryptAndImportAllDecryptionKeys({ entity: ctc, type: EntityWithDelegationTypeName.Contact })
         if (!keys || !keys.length) {
           console.log('Cannot decrypt contact', ctc.id)
           return ctc
@@ -504,7 +508,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       svcs.map(async (svc) => {
         let currentKeys = keys ?? (svc.contactId ? contactKeysCache[svc.contactId!] : undefined)
         if (!currentKeys) {
-          const decryptedKeys = await this.crypto.xapi.decryptAndImportAllDecryptionKeys({ entity: svc, type: 'Contact' })
+          const decryptedKeys = await this.crypto.xapi.decryptAndImportAllDecryptionKeys({ entity: svc, type: EntityWithDelegationTypeName.Contact })
           if (svc.contactId) {
             contactKeysCache[svc.contactId!] = decryptedKeys
           }
@@ -965,14 +969,14 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
    * in the returned array, but in case of entity merges there could be multiple values.
    */
   async decryptPatientIdOf(contact: models.Contact): Promise<string[]> {
-    return this.crypto.xapi.owningEntityIdsOf({ entity: contact, type: 'Contact' }, undefined)
+    return this.crypto.xapi.owningEntityIdsOf({ entity: contact, type: EntityWithDelegationTypeName.Contact }, undefined)
   }
 
   /**
    * @return if the logged data owner has write access to the content of the given contact
    */
   async hasWriteAccess(contact: models.Contact): Promise<boolean> {
-    return this.crypto.xapi.hasWriteAccess({ entity: contact, type: 'Contact' })
+    return this.crypto.xapi.hasWriteAccess({ entity: contact, type: EntityWithDelegationTypeName.Contact })
   }
 
   /**
@@ -1053,11 +1057,11 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
   ): Promise<ShareResult<models.Contact>> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
-    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(contact, 'Contact')
+    const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(contact, EntityWithDelegationTypeName.Contact)
     const updatedEntity = entityWithEncryptionKey ? await this.modifyContactAs(self, entityWithEncryptionKey) : contact
     return this.crypto.xapi
       .simpleShareOrUpdateEncryptedEntityMetadata(
-        { entity: updatedEntity, type: 'Contact' },
+        { entity: updatedEntity, type: EntityWithDelegationTypeName.Contact },
         true,
         Object.fromEntries(
           Object.entries(delegates).map(([delegateId, options]) => [
@@ -1078,11 +1082,11 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
   getDataOwnersWithAccessTo(
     entity: models.Contact
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
-    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: 'Contact' })
+    return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: EntityWithDelegationTypeName.Contact })
   }
 
   getEncryptionKeysOf(entity: models.Contact): Promise<string[]> {
-    return this.crypto.xapi.encryptionKeysOf({ entity, type: 'Contact' }, undefined)
+    return this.crypto.xapi.encryptionKeysOf({ entity, type: EntityWithDelegationTypeName.Contact }, undefined)
   }
 
   async subscribeToServiceEvents(
@@ -1114,7 +1118,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     return subscribeToEntityEvents(
       this.host,
       this.authApi,
-      'Contact',
+      EntityWithDelegationTypeName.Contact,
       eventTypes,
       filter,
       eventFired,
@@ -1124,6 +1128,6 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
   }
 
   createDelegationDeAnonymizationMetadata(entity: Contact, delegates: string[]): Promise<void> {
-    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: 'Contact' }, delegates)
+    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: EntityWithDelegationTypeName.Contact }, delegates)
   }
 }

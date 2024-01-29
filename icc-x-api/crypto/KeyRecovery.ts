@@ -113,11 +113,11 @@ export class KeyRecovery {
     exchangeKeys: { [delegateId: string]: CryptoKey[] }
   ): Promise<{ [pubKeyFingerprint: string]: KeyPair<CryptoKey> }> {
     const res: { [pubKeyFingerprint: string]: KeyPair<CryptoKey> } = {}
-    const keysByFp = fingerprintToPublicKeysMapOf(dataOwner.dataOwner, 'sha-1')
-    const keysByFpWithSha256 = fingerprintToPublicKeysMapOf(dataOwner.dataOwner, 'sha-256')
+    const keysByFp = fingerprintToPublicKeysMapOf(dataOwner.dataOwner, ShaVersion.Sha1)
+    const keysByFpWithSha256 = fingerprintToPublicKeysMapOf(dataOwner.dataOwner, ShaVersion.Sha256)
     for (const [fp, split] of Object.entries(splits)) {
       const pub = keysByFp[fp] ?? keysByFpWithSha256[fp]
-      const shaVersion = !!pub && !!keysByFp[fp] ? 'sha-1' : !!pub && !!keysByFpWithSha256[fp] ? 'sha-256' : undefined
+      const shaVersion = !!pub && !!keysByFp[fp] ? ShaVersion.Sha1 : !!pub && !!keysByFpWithSha256[fp] ? ShaVersion.Sha256 : undefined
       if (!!pub && !!shaVersion) {
         const recovered = await this.tryRecoverSplitPrivate(split, exchangeKeys, shaVersion)
         if (recovered) {
@@ -205,8 +205,8 @@ export class KeyRecovery {
     missingKeysFp: Set<string>
   ): Promise<{ [pubKeyFingerprint: string]: KeyPair<CryptoKey> }> {
     const publicKeyFingerprintToPublicKey = {
-      ...fingerprintToPublicKeysMapOf(dataOwner.dataOwner, 'sha-1'),
-      ...fingerprintToPublicKeysMapOf(dataOwner.dataOwner, 'sha-256'),
+      ...fingerprintToPublicKeysMapOf(dataOwner.dataOwner, ShaVersion.Sha1),
+      ...fingerprintToPublicKeysMapOf(dataOwner.dataOwner, ShaVersion.Sha256),
     }
     const missingKeysTransferData: { [recoverableKeyPubFp: string]: { publicKey: string; encryptedPrivateKey: Set<string> } } = {}
     Object.values(dataOwner.dataOwner.transferKeys ?? {}).forEach((transferKeysByEncryptor) => {
