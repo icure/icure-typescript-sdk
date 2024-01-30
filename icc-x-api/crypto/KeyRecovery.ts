@@ -92,7 +92,7 @@ export class KeyRecovery {
     ) {
       const selfId = dataOwner.dataOwner.id!
       const shamirSplits: { [keyPairFp: string]: { [delegateId: string]: string } } = {
-        [dataOwner.dataOwner.publicKey!.slice(-32)]: dataOwner.dataOwner.privateKeyShamirPartitions!,
+        [fingerprintV1(dataOwner.dataOwner.publicKey!)]: dataOwner.dataOwner.privateKeyShamirPartitions!,
       }
       const delegatesOfSplits = Array.from(
         new Set(

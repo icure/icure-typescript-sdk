@@ -5,6 +5,7 @@ import { KeyPair } from './RSA'
 import { hex2ua, ua2hex } from '../utils'
 import { ExchangeDataManager } from './ExchangeDataManager'
 import { CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
+import { fingerprintV1 } from './utils'
 
 /**
  * Allows to create or update shamir split keys.
@@ -26,7 +27,7 @@ export class ShamirKeysManager {
   getExistingSplitsInfo(dataOwner: DataOwnerOrStub): { [keyPairFingerprint: string]: string[] } {
     const legacyPartitionDelegates = Object.keys(dataOwner.privateKeyShamirPartitions ?? {})
     if (legacyPartitionDelegates.length > 0) {
-      const fp = dataOwner.publicKey?.slice(-32)
+      const fp = dataOwner.publicKey && fingerprintV1(dataOwner.publicKey)
       if (!fp) {
         console.error('Invalid data owner: the owner has legacy key partitions but no legacy key.')
       } else return { [fp]: legacyPartitionDelegates }
@@ -48,8 +49,8 @@ export class ShamirKeysManager {
     keySplitsToDelete: string[]
   ): Promise<CryptoActorStubWithType> {
     const self = CryptoActorStubWithType.fromDataOwner(await this.dataOwnerApi.getCurrentDataOwner())
-    const toUpdateSet = new Set(Object.keys(keySplitsToUpdate).map((x) => x.slice(-32)))
-    const toDeleteSet = new Set(keySplitsToDelete.slice(-32))
+    const toUpdateSet = new Set(Object.keys(keySplitsToUpdate).map((x) => fingerprintV1(x)))
+    const toDeleteSet = new Set(Object.keys(keySplitsToDelete).map((x) => fingerprintV1(x)))
     const intersection = Array.from(toDeleteSet).filter((x) => toUpdateSet.has(x))
     const existingSplits = new Set(Object.keys(this.getExistingSplitsInfo(self.stub)))
     const allKeys = this.encryptionKeysManager.getDecryptionKeys()
@@ -69,7 +70,7 @@ export class ShamirKeysManager {
       delegatesKeys[delegateId] = res.exchangeKey
     }
     for (const [key, params] of Object.entries(keySplitsToUpdate)) {
-      updatedSelf = await this.updateKeySplit(updatedSelf, key.slice(-32), params.notariesIds, params.minShares, delegatesKeys, allKeys)
+      updatedSelf = await this.updateKeySplit(updatedSelf, fingerprintV1(key), params.notariesIds, params.minShares, delegatesKeys, allKeys)
     }
     for (const keyFp of toDeleteSet) {
       updatedSelf = this.deleteKeySplit(updatedSelf, keyFp)
@@ -90,7 +91,7 @@ export class ShamirKeysManager {
   }
 
   private deleteKeySplit(dataOwner: CryptoActorStubWithType, keyFp: string): CryptoActorStubWithType {
-    if (keyFp !== dataOwner.stub.publicKey?.slice(-32)) {
+    if (!dataOwner.stub.publicKey || keyFp !== fingerprintV1(dataOwner.stub.publicKey)) {
       throw new Error('Currently it is possible to use shamir splits only for the legacy public key')
     }
     return {
@@ -110,7 +111,7 @@ export class ShamirKeysManager {
     delegatesKeys: { [p: string]: CryptoKey },
     allKeys: { [p: string]: KeyPair<CryptoKey> }
   ): Promise<CryptoActorStubWithType> {
-    if (keyFp !== dataOwner.stub.publicKey?.slice(-32)) {
+    if (!dataOwner.stub.publicKey || keyFp !== fingerprintV1(dataOwner.stub.publicKey)) {
       throw new Error('Currently it is possible to use shamir splits only for the legacy public key')
     }
     return {

@@ -3,7 +3,7 @@ import { IccDeviceApi, IccPatientApi, IccUserApi } from '../icc-api'
 import { HealthcareParty } from '../icc-api/model/HealthcareParty'
 import { Patient } from '../icc-api/model/Patient'
 import { Device } from '../icc-api/model/Device'
-import { fingerprintV1, hexPublicKeysWithSha1Of, hexPublicKeysWithSha256Of } from './crypto/utils'
+import { fingerprintV1, fingerprintV2, hexPublicKeysWithSha1Of, hexPublicKeysWithSha256Of } from './crypto/utils'
 import { IccHcpartyXApi } from './icc-hcparty-x-api'
 import { XHR } from '../icc-api/api/XHR'
 import { CryptoActorStub, CryptoActorStubWithType } from '../icc-api/model/CryptoActorStub'
@@ -180,7 +180,7 @@ export class IccDataOwnerXApi extends IccDataownerApi {
 
   private checkDataOwnerIntegrity(dataOwner: DataOwnerOrStub) {
     const keys = new Set([...this.getHexPublicKeysWithSha1Of(dataOwner), ...this.getHexPublicKeysWithSha256Of(dataOwner)])
-    if (new Set(Array.from(keys).map((x) => x.slice(-32))).size != keys.size)
+    if (new Set(Array.from(keys).map((x) => fingerprintV2(x))).size != keys.size)
       throw new Error(
         `Different public keys for ${dataOwner.id} have the same fingerprint; this should not happen in normal circumstances. Please report this error to iCure.`
       )

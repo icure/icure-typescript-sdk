@@ -13,6 +13,7 @@ import { SecureDelegation } from '../icc-api/model/SecureDelegation'
 import { IccExchangeDataApi } from '../icc-api/api/internal/IccExchangeDataApi'
 import { DataOwnerTypeEnum } from '../icc-api/model/DataOwnerTypeEnum'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
+import { fingerprintV1 } from './crypto/utils'
 
 type ExchangeKeyInfo = { delegator: string; delegate: string; fingerprints: Set<string> }
 
@@ -64,7 +65,7 @@ export class IccIcureMaintenanceXApi {
       }
     }
     const hexNewPubKey = ua2hex(await this.crypto.primitives.RSA.exportKey(keypair.publicKey, 'spki'))
-    const hexNewPubKeyFp = hexNewPubKey.slice(-32)
+    const hexNewPubKeyFp = fingerprintV1(hexNewPubKey)
     const selfId = await this.dataOwnerApi.getCurrentDataOwnerId()
     const requestDataOwnersForExchangeKeys = (await this.getExchangeKeysInfosOf(selfId, requestToOwnerTypes))
       .filter((info) => !info.fingerprints.has(hexNewPubKeyFp))
@@ -98,14 +99,14 @@ export class IccIcureMaintenanceXApi {
       Object.values(delegatorFpToKeys).map((encryptedKeys) => ({
         delegator: delegatorId,
         delegate: dataOwnerId,
-        fingerprints: new Set(Object.keys(encryptedKeys).map((x) => x.slice(-32))),
+        fingerprints: new Set(Object.keys(encryptedKeys).map((x) => fingerprintV1(x))),
       }))
     )
     const infoFrom = Object.values(allExchangeKeys.keysFromOwner).flatMap((delegateIdToKeys) =>
       Object.entries(delegateIdToKeys).map(([delegateId, encryptedKeys]) => ({
         delegator: dataOwnerId,
         delegate: delegateId,
-        fingerprints: new Set(Object.keys(encryptedKeys).map((x) => x.slice(-32))),
+        fingerprints: new Set(Object.keys(encryptedKeys).map((x) => fingerprintV1(x))),
       }))
     )
     return [...infoFrom, ...infoTo]

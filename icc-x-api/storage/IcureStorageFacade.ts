@@ -2,6 +2,7 @@ import { KeyStorageFacade } from './KeyStorageFacade'
 import { StorageFacade } from './StorageFacade'
 import { StorageEntryKeysFactory } from './StorageEntryKeysFactory'
 import { KeyPair } from '../crypto/RSA'
+import { fingerprintV1 } from '../crypto/utils'
 
 /**
  * @internal This class is meant for internal use only and may be changed without notice.
@@ -48,7 +49,9 @@ export class IcureStorageFacade {
     const deviceKey =
       (await this.keys.getKeypair(this.entryFor.deviceKeypairOfDataOwner(dataOwnerId, publicKeyFingerprint))) ??
       (await this.keys.getKeypair(`org.taktik.icure.rsa.${dataOwnerId}.${publicKeyFingerprint}`)) ??
-      (legacyPublicKey?.slice(-32) === publicKeyFingerprint ? await this.keys.getKeypair(`org.taktik.icure.rsa.${dataOwnerId}`) : undefined)
+      (!!legacyPublicKey && fingerprintV1(legacyPublicKey) === publicKeyFingerprint
+        ? await this.keys.getKeypair(`org.taktik.icure.rsa.${dataOwnerId}`)
+        : undefined)
     if (deviceKey) return { pair: deviceKey, isDevice: true }
     const cachedKey = await this.keys.getKeypair(this.entryFor.cachedRecoveredKeypairOfDataOwner(dataOwnerId, publicKeyFingerprint))
     if (cachedKey) return { pair: cachedKey, isDevice: false }

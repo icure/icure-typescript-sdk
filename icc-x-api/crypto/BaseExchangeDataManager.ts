@@ -518,7 +518,7 @@ export class BaseExchangeDataManager {
       sharedSignatureKey: decryptedSharedSignatureKey,
     })
     for (const [fp, signature] of Object.entries(exchangeData.delegatorSignature)) {
-      const verificationKey = await getVerificationKey(fp.slice(-32))
+      const verificationKey = await getVerificationKey(fp)
       if (verificationKey && (await this.primitives.RSA.verifySignature(verificationKey, b64_2ua(signature), delegatorSignatureData))) return true
     }
     return false

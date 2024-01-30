@@ -217,7 +217,7 @@ export class BaseExchangeKeysManager {
   ): Promise<{ raw: string; key: CryptoKey } | undefined> {
     for (const [entryKey, encrypted] of Object.entries(encryptedExchangeKey)) {
       // Due to bugs in past version the entry may actually contain the full public key instead of just the fingerprint.
-      const fp = entryKey.slice(-32)
+      const fp = fingerprintV1(entryKey)
       const keyPair = keyPairsByFingerprint[fp]
       if (keyPair !== undefined) {
         const res = await this.tryDecryptExchangeKeyWith(encrypted, keyPair, fp)
@@ -323,7 +323,11 @@ export class BaseExchangeKeysManager {
       }, {} as { [id: string]: CryptoActorStub })
       return {
         [ownerLegacyPublicKey]: Object.entries(owner.hcPartyKeys ?? {}).reduce((acc, [hcpId, keys]) => {
-          acc[hcpId] = { [ownerLegacyPublicKey.slice(-32)]: keys[0], [counterPartsById[hcpId]?.publicKey?.slice(-32) ?? '']: keys[1] }
+          const counterpartKey = counterPartsById[hcpId]?.publicKey
+          acc[hcpId] = {
+            [fingerprintV1(ownerLegacyPublicKey)]: keys[0],
+            [(counterpartKey && fingerprintV1(counterpartKey)) ?? '']: keys[1],
+          }
           return acc
         }, {} as { [delegateId: string]: { [fingerprint: string]: string } }),
         ...(owner.aesExchangeKeys ?? {}),

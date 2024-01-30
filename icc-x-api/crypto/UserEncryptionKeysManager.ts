@@ -176,7 +176,7 @@ export class UserEncryptionKeysManager {
     const selfKeys = this.keysCache![this.selfId!]
     const allKeysEntries = Object.entries(selfKeys)
 
-    const legacyKeyFp = this.selfLegacyPublicKey?.slice(-32)
+    const legacyKeyFp = this.selfLegacyPublicKey && fingerprintV1(this.selfLegacyPublicKey)
     const legacyKeyData = legacyKeyFp ? selfKeys[legacyKeyFp] : undefined
     const legacyEntry = legacyKeyData?.isVerified && legacyKeyFp ? [{ fingerprint: legacyKeyFp, pair: legacyKeyData.pair }] : []
 
@@ -257,7 +257,7 @@ export class UserEncryptionKeysManager {
         ...this.dataOwnerApi.getHexPublicKeysWithSha256Of(dowt.dataOwner),
       ])
       const unavailableKeys = Array.from(allPublicKeys).flatMap((key) => {
-        return availableKeysFpSet.has(key.slice(-32)) ? [] : [key]
+        return availableKeysFpSet.has(fingerprintV1(key)) ? [] : [key]
       })
       const unknownKeys = Array.from(allPublicKeys).filter(
         (x) => !(fingerprintV1(x) in verifiedKeysMap) && !(availableKeys?.[fingerprintV1(x)]?.isDevice === true)
