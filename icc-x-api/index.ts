@@ -133,6 +133,7 @@ export { LocalStorageImpl } from './storage/LocalStorageImpl'
 export { StorageFacade } from './storage/StorageFacade'
 export { KeyStorageImpl } from './storage/KeyStorageImpl'
 export { CryptoStrategies } from './crypto/CryptoStrategies'
+export { getShaVersionForKey } from './crypto/utils'
 
 export interface BasicApis {
   readonly authApi: IccAuthApi
