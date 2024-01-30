@@ -183,7 +183,8 @@ export function fingerprintV2(key: string): string {
  * @return the fingerprint of the key in the v2 format.
  */
 export function fingerprintV1toV2(fp: string): string {
-  return fp.slice(0, -10)
+  // Conversion resilient to mistakes: if the fingerprint is already in V2 format it will be returned as is.
+  return fp.slice(0, 22)
 }
 
 /**

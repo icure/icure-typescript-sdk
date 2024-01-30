@@ -4,7 +4,7 @@ import { UserEncryptionKeysManager } from './UserEncryptionKeysManager'
 import { CryptoStrategies } from './CryptoStrategies'
 import { EncryptedEntityWithType, EntityWithDelegationTypeName } from '../utils/EntityWithDelegationTypeName'
 import { LruTemporisedAsyncCache } from '../utils/lru-temporised-async-cache'
-import { fingerprintV2, hexPublicKeysWithSha1Of, hexPublicKeysWithSha256Of } from './utils'
+import { fingerprintV1toV2, fingerprintV2, hexPublicKeysWithSha1Of, hexPublicKeysWithSha256Of } from './utils'
 import { ExchangeDataManager } from './ExchangeDataManager'
 import { ExchangeData } from '../../icc-api/model/internal/ExchangeData'
 import { SecureDelegationsEncryption } from './SecureDelegationsEncryption'
@@ -355,7 +355,7 @@ export class SecureDelegationsManager {
         explicitDelegator: selfId,
         encryptedExchangeDataId: await this.secureDelegationsEncryption.encryptExchangeDataId(
           exchangeData.id!,
-          Object.fromEntries(this.userKeys.getSelfVerifiedKeys().map((keyInfo) => [keyInfo.fingerprint, keyInfo.pair.publicKey]))
+          Object.fromEntries(this.userKeys.getSelfVerifiedKeys().map((keyInfo) => [fingerprintV1toV2(keyInfo.fingerprint), keyInfo.pair.publicKey]))
         ),
       }
     } else if (!delegateInfo.requiresAnonymousDelegations && this.selfNeedsAnonymousDelegations) {
