@@ -203,3 +203,23 @@ export function fingerprintIsV1(fp: string): boolean {
 export function fingerprintIsV2(fp: string): boolean {
   return fp.length === 22
 }
+
+/**
+ * @internal this function is meant only for internal use and may be changed without notice.
+ * @param fp the fingerprint v2.
+ * @return the fingerprint v1 using the standard tail.
+ */
+export function fingerprintV2ToStandardV1(fp: string): string {
+  return fp + '0203010001'
+}
+
+/**
+ * @internal this function is meant only for internal use and may be changed without notice.
+ * @param publicKeyOrFpv1 a public key in spki format or a public key fp v1
+ * @throws if the input does not terminate with 0203010001
+ */
+export function checkStandardPublicKeyTail(publicKeyOrFpv1: string) {
+  if (publicKeyOrFpv1.slice(-10) != '0203010001') {
+    throw new Error('Illegal state: generated public key should end with 0203010001')
+  }
+}

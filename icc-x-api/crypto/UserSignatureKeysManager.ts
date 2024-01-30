@@ -3,7 +3,7 @@ import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { hex2ua, jwk2spki, ua2hex } from '../utils'
 import { KeyPair } from './RSA'
-import { fingerprintV1 } from './utils'
+import { checkStandardPublicKeyTail, fingerprintV1, fingerprintV2, fingerprintV2ToStandardV1 } from './utils'
 
 export class UserSignatureKeysManager {
   constructor(
@@ -42,10 +42,17 @@ export class UserSignatureKeysManager {
       return this.signatureKeysCache
     } else {
       const generatedPair = await this.primitives.RSA.generateSignatureKeyPair()
-      const fingerprint = ua2hex(await this.primitives.RSA.exportKey(generatedPair.publicKey, 'spki')).slice(-32)
-      await this.iCureStorage.saveSignatureKeyPair(dataOwnerId, fingerprint, await this.primitives.RSA.exportKeys(generatedPair, 'jwk', 'jwk'))
-      this.verificationKeysCache.set(fingerprint, generatedPair.publicKey)
-      this.signatureKeysCache = { fingerprint, keyPair: generatedPair }
+      const exportedPub = ua2hex(await this.primitives.RSA.exportKey(generatedPair.publicKey, 'spki'))
+      checkStandardPublicKeyTail(exportedPub)
+      const fpV2 = fingerprintV2(exportedPub)
+      // For consistency with encryption keys we use fpv1 when saving
+      await this.iCureStorage.saveSignatureKeyPair(
+        dataOwnerId,
+        fingerprintV1(exportedPub),
+        await this.primitives.RSA.exportKeys(generatedPair, 'jwk', 'jwk')
+      )
+      this.verificationKeysCache.set(fpV2, generatedPair.publicKey)
+      this.signatureKeysCache = { fingerprint: fpV2, keyPair: generatedPair }
       return this.signatureKeysCache
     }
   }
@@ -59,7 +66,11 @@ export class UserSignatureKeysManager {
   async getSignatureVerificationKey(fingerprint: string): Promise<CryptoKey | undefined> {
     const cached = this.verificationKeysCache.get(fingerprint)
     if (cached) return cached
-    const loaded = await this.iCureStorage.loadSignatureVerificationKey(await this.dataOwnerApi.getCurrentDataOwnerId(), fingerprint)
+    // For consistency with encryption keys we use fpv1 when saving
+    const loaded = await this.iCureStorage.loadSignatureVerificationKey(
+      await this.dataOwnerApi.getCurrentDataOwnerId(),
+      fingerprintV2ToStandardV1(fingerprint)
+    )
     if (loaded) {
       const imported = await this.primitives.RSA.importVerificationKey('jwk', loaded)
       this.verificationKeysCache.set(fingerprint, imported)
