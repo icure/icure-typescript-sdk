@@ -320,14 +320,14 @@ export class IccHcpartyApi {
   /**
    * General information about the healthcare Party
    * @summary Get healthcareParties by their IDs
-   * @param healthcarePartyIds
    */
-  getHealthcareParties(healthcarePartyIds: string): Promise<Array<HealthcareParty>> {
-    let _body = null
+  getHealthcareParties(body?: ListOfIds): Promise<Array<HealthcareParty>> {
+    let _body = body
 
-    const _url = this.host + `/hcparty/byIds/${encodeURIComponent(String(healthcarePartyIds))}` + '?ts=' + new Date().getTime()
+    const _url = this.host + '/hcparty/byIds?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new HealthcareParty(it)))
       .catch((err) => this.handleError(err))
   }

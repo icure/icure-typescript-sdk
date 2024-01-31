@@ -1,11 +1,12 @@
-import {IccAuthApi, IccHcpartyApi} from '../icc-api'
+import { IccAuthApi, IccHcpartyApi } from '../icc-api'
 import { HealthcareParty } from '../icc-api/model/HealthcareParty'
 import * as models from '../icc-api/model/models'
 import { findName, garnishPersonWithName, hasName } from './utils/person-util'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
-import {AbstractFilter} from "./filters/filters";
-import {subscribeToEntityEvents, SubscriptionOptions} from "./utils";
-import {Connection, ConnectionImpl} from "../icc-api/model/Connection";
+import { AbstractFilter } from './filters/filters'
+import { subscribeToEntityEvents, SubscriptionOptions } from './utils'
+import { Connection, ConnectionImpl } from '../icc-api/model/Connection'
+import { ListOfIds } from '../icc-api/model/models'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccHcpartyXApi extends IccHcpartyApi {
@@ -112,8 +113,11 @@ export class IccHcpartyXApi extends IccHcpartyApi {
     })
   }
 
-  getHealthcareParties(healthcarePartyIds: string): Promise<Array<HealthcareParty> | any> {
-    const ids = healthcarePartyIds.split(',').filter((x) => !!x)
+  getHealthcareParties(healthcarePartyIds: ListOfIds): Promise<Array<HealthcareParty> | any> {
+    const ids = healthcarePartyIds.ids
+    if (!ids || !ids.length) {
+      return Promise.resolve([])
+    }
     const cached: Array<[string, Promise<HealthcareParty> | null]> = ids.map((id) => [id, this.getHcPartyFromCache(id)])
     const toFetch = cached.filter((x) => !x[1]).map((x) => x[0])
 
@@ -121,7 +125,7 @@ export class IccHcpartyXApi extends IccHcpartyApi {
       return Promise.all(cached.map((x) => x[1]!))
     }
 
-    const prom: Promise<HealthcareParty[]> = super.getHealthcareParties(toFetch.join(','))
+    const prom: Promise<HealthcareParty[]> = super.getHealthcareParties(new ListOfIds({ ids: toFetch }))
     return Promise.all(
       cached.map(
         (x) =>
@@ -158,14 +162,8 @@ export class IccHcpartyXApi extends IccHcpartyApi {
     eventFired: (dataSample: HealthcareParty) => Promise<void>,
     options: SubscriptionOptions = {}
   ): Promise<Connection> {
-    return subscribeToEntityEvents(
-      this.host,
-      this.authApi,
-      'HealthcareParty',
-      eventTypes,
-      filter,
-      eventFired,
-      options,
-    ).then((rs) => new ConnectionImpl(rs))
+    return subscribeToEntityEvents(this.host, this.authApi, 'HealthcareParty', eventTypes, filter, eventFired, options).then(
+      (rs) => new ConnectionImpl(rs)
+    )
   }
 }
