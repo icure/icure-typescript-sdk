@@ -540,10 +540,6 @@ export namespace IcureApi {
     const grouplessUserApi = new IccUserApi(host, params.headers, grouplessAuthenticationProvider, fetchImpl)
     const matches = await getMatchesOrEmpty(grouplessUserApi)
     const chosenGroupId = matches.length > 1 && !!options.groupSelector ? await options.groupSelector(matches) : matches[0]?.groupId
-    const groupSpecificAuthenticationProviderInfo =
-      matches.length > 1 && chosenGroupId
-        ? await grouplessAuthenticationProvider.switchGroup(chosenGroupId, matches)
-        : { switchedProvider: grouplessAuthenticationProvider, isGroupLocked: false }
     /*TODO
      * On new very new users switching the authentication provider to a specific group may fail and block the user for too many requests. This is
      * probably linked to replication of the user in the fallback database.
