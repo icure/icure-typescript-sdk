@@ -60,7 +60,7 @@ export class UserSignatureKeysManager {
   /**
    * Get all available keys which can be used to verify the authenticity of a signature which should have been created
    * by the current data owner.
-   * @param fingerprint v1 fingerprint of the key to retrieve.
+   * @param fingerprint v2 fingerprint of the key to retrieve.
    * @return all available verification keys by fingerprint.
    */
   async getSignatureVerificationKey(fingerprint: string): Promise<CryptoKey | undefined> {

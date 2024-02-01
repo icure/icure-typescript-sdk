@@ -21,7 +21,7 @@ import { SecurityMetadata } from '../../../icc-api/model/SecurityMetadata'
 import { SecureDelegation } from '../../../icc-api/model/SecureDelegation'
 import { asyncGeneratorToArray } from '../../../icc-x-api/utils/collection-utils'
 import { EntitySharedMetadataUpdateRequest } from '../../../icc-api/model/requests/EntitySharedMetadataUpdateRequest'
-import { fingerprintV2 } from '../../../icc-x-api/crypto/utils'
+import { fingerprintV1toV2, fingerprintV2 } from '../../../icc-x-api/crypto/utils'
 import { DataOwnerTypeEnum } from '../../../icc-api/model/DataOwnerTypeEnum'
 import { FakeExchangeDataMapManager } from '../../utils/FakeExchangeDataMapManager'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionInternal
@@ -122,7 +122,7 @@ describe('Secure delegations manager', async function () {
       } else if (explicitSelf && !explicitDelegate) {
         expect(shareParams.exchangeDataId).to.be.undefined
         expect(Object.entries(shareParams.encryptedExchangeDataId ?? {})).to.have.length(1)
-        expect(shareParams.encryptedExchangeDataId![selfKeyFp]).to.not.be.undefined
+        expect(shareParams.encryptedExchangeDataId![fingerprintV1toV2(selfKeyFp)]).to.not.be.undefined
       } else if (!explicitSelf && explicitDelegate) {
         expect(shareParams.exchangeDataId).to.be.undefined
         expect(Object.entries(shareParams.encryptedExchangeDataId ?? {})).to.have.length(1)
