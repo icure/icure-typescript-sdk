@@ -23,3 +23,11 @@ export function decodeJwtClaims(jwt: string): any {
   if (parts.length !== 3) throw new Error('Invalid JWT: should be 3 parts')
   return JSON.parse(a2b(parts[1]))
 }
+
+/**
+ * @internal this function is for internal use only and may be changed without notice
+ * Get the group of the jwt.
+ */
+export function getGroupOfJwt(jwt: string): string {
+  return decodeJwtClaims(jwt)['g']
+}

@@ -99,6 +99,7 @@ import { KeyPairRecoverer } from './crypto/KeyPairRecoverer'
 import { IccRecoveryDataApi } from '../icc-api/api/internal/IccRecoveryDataApi'
 import { RecoveryDataEncryption } from './crypto/RecoveryDataEncryption'
 import { IccRecoveryXApi } from './icc-recovery-x-api'
+import { getGroupOfJwt } from './auth/JwtUtils'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -230,12 +231,15 @@ export interface IcureApiOptions {
   readonly encryptedFieldsConfig?: EncryptedFieldsConfig
   /**
    * Each user may exist in multiple groups, but an instance of {@link IcureApi} is specialised for a single group. This function allows you to decide
-   * the group to use for a given user. This functions will be called only if a user exists in at least 2 groups, takes in input the information on
-   * the groups the user can access (in no specific order) and must return the id of one of these groups.
+   * the group to use for a given user.
+   * This functions will be called only if a user exists in at least 2 groups, and takes in input:
+   * - the information on the groups the user can access (in no specific order)
+   * - if the authentication method uses JWT also the current group id (undefined otherwise)
+   * The function must return the id of one of the available groups.
    * @default takes the first group provided. The group chosen by this method may vary between different instantiations of the {@link IcureApi} even
    * if for the same user and if the groups available for the user do not change.
    */
-  readonly groupSelector?: (availableGroupsInfo: UserGroup[]) => Promise<string>
+  readonly groupSelector?: (availableGroupsInfo: UserGroup[], currentGroupId?: string) => Promise<string>
   /**
    * Temporary value to support EHR Lite and MedTech api implementations.
    *
@@ -539,13 +543,15 @@ export namespace IcureApi {
     // TODO if this uses a smart auth provider the groupless auth provider does not share the secret cache with the group specific one.
     const grouplessUserApi = new IccUserApi(host, params.headers, grouplessAuthenticationProvider, fetchImpl)
     const matches = await getMatchesOrEmpty(grouplessUserApi)
-    const chosenGroupId = matches.length > 1 && !!options.groupSelector ? await options.groupSelector(matches) : matches[0]?.groupId
+    const tokens = await grouplessAuthenticationProvider.getIcureTokens()
+    const currentGroupId = tokens ? getGroupOfJwt(tokens.token) : undefined
+    const chosenGroupId = matches.length > 1 && !!options.groupSelector ? await options.groupSelector(matches, currentGroupId) : matches[0]?.groupId
     /*TODO
      * On new very new users switching the authentication provider to a specific group may fail and block the user for too many requests. This is
      * probably linked to replication of the user in the fallback database.
      */
     const groupSpecificAuthenticationProvider =
-      matches.length > 1 && chosenGroupId
+      matches.length > 1 && chosenGroupId && chosenGroupId !== currentGroupId
         ? await grouplessAuthenticationProvider.switchGroup(chosenGroupId, matches)
         : grouplessAuthenticationProvider
     const cryptoInitInfo = await initialiseCryptoWithProvider(host, fetchImpl, groupSpecificAuthenticationProvider, params, cryptoStrategies, crypto)
