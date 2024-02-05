@@ -709,16 +709,10 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     enckeys?: string,
     fileName?: string
   ): Promise<any> {
-    const url =
-      this.host +
-      `/document/${documentId}/attachment/${attachmentId}` +
-      '?ts=' +
-      new Date().getTime() +
-      (enckeys ? `&enckeys=${enckeys}` : '') +
-      (fileName ? `&fileName=${fileName}` : '')
-    return XHR.sendCommand('GET', url, await this.headers, null, this.fetchImpl, returnType, this.authenticationProvider.getAuthService())
-      .then((doc) => doc.body)
-      .catch((err) => this.handleError(err))
+    if (!!enckeys || !!fileName) {
+      console.warn('Using getAttachmentAs method with a value for enckeys or fileName does nothing anymore.')
+    }
+    return this.getMainAttachmentAs(documentId, returnType)
   }
 
   //prettier-ignore
@@ -727,24 +721,13 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
   getMainAttachmentAs(documentId: string, returnType: "text/plain"): Promise<string>
   //prettier-ignore
   getMainAttachmentAs(documentId: string, returnType: "application/json"): Promise<any>
+  //prettier-ignore
+  getMainAttachmentAs(documentId: string, returnType: 'application/octet-stream' | 'text/plain' | 'application/json'): Promise<any>
   async getMainAttachmentAs(documentId: string, returnType: 'application/octet-stream' | 'text/plain' | 'application/json'): Promise<any> {
     const url = this.host + `/document/${documentId}/attachment` + '?ts=' + new Date().getTime()
     return XHR.sendCommand('GET', url, await this.headers, null, this.fetchImpl, returnType, this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  getAttachmentUrl(documentId: string, attachmentId: string, sfks: Array<{ delegatorId: string; key: CryptoKey }>, fileName?: string) {
-    return this.authApi
-      .token('GET', `/rest/v1/document/${documentId}/attachment/${attachmentId}`)
-      .then(
-        (token) =>
-          this.host +
-          `/document/${documentId}/attachment/${attachmentId}${token ? `;tokenid=${token}` : ''}` +
-          (sfks && sfks.length ? '?enckeys=' + sfks.join(',') : '') +
-          (fileName && fileName.length ? `${sfks && sfks.length ? '&' : '?'}fileName=${encodeURIComponent(fileName)}` : '')
-      )
   }
 
   // noinspection JSUnusedGlobalSymbols
