@@ -14,7 +14,7 @@ import {ReferenceRange} from "./ReferenceRange"
 
 export class Measure {
   /**
-   * We delete min and max from the json and create a referenceRange from it
+   * We delete min and max from the json and create a referenceRanges from it
    * Since this is a shallow copy, deletion of min and max will have no effect on the original json since it's the top level fields
    *
    * @param json
@@ -23,7 +23,7 @@ export class Measure {
     const measureValue = {...json}
 
     if (!!measureValue?.min || !!measureValue?.max) {
-      measureValue.referenceRange = [
+      measureValue.referenceRanges = [
         new ReferenceRange({
           low: measureValue.min,
           high: measureValue.max
@@ -49,5 +49,5 @@ export class Measure {
   /**
    * Reference range for the measure
    */
-  referenceRange?: Array<ReferenceRange>
+  referenceRanges?: Array<ReferenceRange>
 }

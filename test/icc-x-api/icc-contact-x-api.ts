@@ -249,7 +249,7 @@ describe('icc-x-contact-api Tests', () => {
     expect((await api2.calendarItemApi.decryptPatientIdOf(retrieved))[0]).to.equal(samplePatient.id)
   })
 
-  it('Instanciation of old Measure should be mapped to new Measure with referenceRange', () => {
+  it('Instanciation of old Measure should be mapped to new Measure with referenceRanges', () => {
     const oldMeasure = {
       min: 0,
       max: 10,
@@ -257,17 +257,17 @@ describe('icc-x-contact-api Tests', () => {
 
     const newMeasure = new Measure({...oldMeasure})
 
-    expect(newMeasure.referenceRange).to.not.be.undefined
-    expect(newMeasure.referenceRange).to.not.undefined
-    expect(newMeasure.referenceRange).to.have.length(1)
-    expect(newMeasure.referenceRange![0].low).to.be.equal(oldMeasure.min)
-    expect(newMeasure.referenceRange![0].high).to.be.equal(oldMeasure.max)
+    expect(newMeasure.referenceRanges).to.not.be.undefined
+    expect(newMeasure.referenceRanges).to.not.undefined
+    expect(newMeasure.referenceRanges).to.have.length(1)
+    expect(newMeasure.referenceRanges![0].low).to.be.equal(oldMeasure.min)
+    expect(newMeasure.referenceRanges![0].high).to.be.equal(oldMeasure.max)
 
     expect(Object.keys(newMeasure)).to.not.contain('min')
     expect(Object.keys(newMeasure)).to.not.contain('max')
   })
 
-  it('Instanciation of Service with old Measure should be mapped to new Measure with referenceRange', () => {
+  it('Instanciation of Service with old Measure should be mapped to new Measure with referenceRanges', () => {
     const serviceJson = {
       id: 'serviceId',
       valueDate: 20220203111034,
@@ -294,16 +294,16 @@ describe('icc-x-contact-api Tests', () => {
     const service = new Service(JSON.parse(JSON.stringify(serviceJson)))
 
     expect(service.content?.en?.measureValue).to.not.be.undefined
-    expect(service.content?.en?.measureValue?.referenceRange).to.not.be.undefined
-    expect(service.content?.en?.measureValue?.referenceRange).to.have.length(1)
-    expect(service.content?.en?.measureValue?.referenceRange![0].low).to.be.equal(serviceJson.content.en.measureValue.min)
-    expect(service.content?.en?.measureValue?.referenceRange![0].high).to.be.equal(serviceJson.content.en.measureValue.max)
+    expect(service.content?.en?.measureValue?.referenceRanges).to.not.be.undefined
+    expect(service.content?.en?.measureValue?.referenceRanges).to.have.length(1)
+    expect(service.content?.en?.measureValue?.referenceRanges![0].low).to.be.equal(serviceJson.content.en.measureValue.min)
+    expect(service.content?.en?.measureValue?.referenceRanges![0].high).to.be.equal(serviceJson.content.en.measureValue.max)
 
     expect(Object.keys(service.content?.en?.measureValue!)).to.not.contain('min')
     expect(Object.keys(service.content?.en?.measureValue!)).to.not.contain('max')
   })
 
-  it('Instanciation of Contact with old Measure should be mapped to new Measure with referenceRange', () => {
+  it('Instanciation of Contact with old Measure should be mapped to new Measure with referenceRanges', () => {
     const contactJson = {
       id: 'contactId',
       services: [
@@ -337,10 +337,10 @@ describe('icc-x-contact-api Tests', () => {
     expect(contact.services).to.not.be.undefined
     expect(contact.services).to.have.length(1)
     expect(contact.services![0].content?.en?.measureValue).to.not.be.undefined
-    expect(contact.services![0].content?.en?.measureValue?.referenceRange).to.not.be.undefined
-    expect(contact.services![0].content?.en?.measureValue?.referenceRange).to.have.length(1)
-    expect(contact.services![0].content?.en?.measureValue?.referenceRange![0].low).to.be.equal(contactJson.services[0].content.en.measureValue.min)
-    expect(contact.services![0].content?.en?.measureValue?.referenceRange![0].high).to.be.equal(contactJson.services[0].content.en.measureValue.max)
+    expect(contact.services![0].content?.en?.measureValue?.referenceRanges).to.not.be.undefined
+    expect(contact.services![0].content?.en?.measureValue?.referenceRanges).to.have.length(1)
+    expect(contact.services![0].content?.en?.measureValue?.referenceRanges![0].low).to.be.equal(contactJson.services[0].content.en.measureValue.min)
+    expect(contact.services![0].content?.en?.measureValue?.referenceRanges![0].high).to.be.equal(contactJson.services[0].content.en.measureValue.max)
 
     expect(Object.keys(contact.services![0].content?.en?.measureValue!)).to.not.contain('min')
     expect(Object.keys(contact.services![0].content?.en?.measureValue!)).to.not.contain('max')
