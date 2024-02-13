@@ -30,6 +30,9 @@ export class Content {
       this.measureValue = new Measure(json.measureValue)
     }
 
+    if (!!json?.compoundValue) {
+      this.compoundValue = json.compoundValue.map((service: JSON | any) => new Service(service))
+    }
   }
 
   stringValue?: string
