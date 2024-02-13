@@ -438,7 +438,7 @@ export namespace EncryptedFieldsConfig {
   export const Defaults = {
     accessLog: ['detail', 'objectId'],
     calendarItem: ['details', 'title', 'patientId'],
-    contact: ['descr'],
+    contact: ['descr', 'notes[].markdown'],
     service: ['notes[].markdown'],
     healthElement: ['descr', 'note', 'notes[].markdown'],
     maintenanceTask: ['properties'],
