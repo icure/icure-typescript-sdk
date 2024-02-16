@@ -5,7 +5,7 @@ import * as _ from 'lodash'
 import { XHR } from '../icc-api/api/XHR'
 import * as models from '../icc-api/model/models'
 
-import { a2b, hex2ua, string2ua, ua2string } from './utils/binary-utils'
+import { a2b, hex2ua, string2ua, ua2string, ua2utf8 } from './utils/binary-utils'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
@@ -730,6 +730,48 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
       .catch((err) => this.handleError(err))
   }
 
+  //prettier-ignore
+  getAndTryDecryptMainAttachmentAs(document: models.Document, returnType: "application/octet-stream"): Promise<ArrayBuffer | undefined>
+  //prettier-ignore
+  getAndTryDecryptMainAttachmentAs(document: models.Document, returnType: "text/plain"): Promise<string | undefined>
+  //prettier-ignore
+  getAndTryDecryptMainAttachmentAs(document: models.Document, returnType: "application/json"): Promise<any | undefined>
+  //prettier-ignore
+  getAndTryDecryptMainAttachmentAs(document: models.Document, returnType: 'application/octet-stream' | 'text/plain' | 'application/json'): Promise<any | undefined>
+  async getAndTryDecryptMainAttachmentAs(
+    document: models.Document,
+    returnType: 'application/octet-stream' | 'text/plain' | 'application/json'
+  ): Promise<any | undefined> {
+    const key = (await this.crypto.xapi.encryptionKeysOf({ entity: document, type: EntityWithDelegationTypeName.Document }, undefined))[0]
+    if (!key) return undefined
+    const tryParse = this.parserFor(returnType)
+    const attachmentInfo = await this.getAndTryDecryptDocumentAttachment(document, (decrypted) => Promise.resolve(tryParse(decrypted) !== undefined))
+    if (attachmentInfo.wasDecrypted) {
+      return tryParse(attachmentInfo.data)
+    } else return undefined
+  }
+  private parserFor(returnType: 'application/octet-stream' | 'text/plain' | 'application/json'): (data: ArrayBuffer) => any | undefined {
+    if (returnType === 'application/octet-stream') {
+      return (data) => data
+    } else if (returnType === 'text/plain') {
+      return (data) => {
+        try {
+          return ua2utf8(data)
+        } catch (e) {
+          return undefined
+        }
+      }
+    } else if (returnType === 'application/json') {
+      return (data) => {
+        try {
+          return JSON.parse(ua2utf8(data))
+        } catch (e) {
+          return undefined
+        }
+      }
+    } else throw new Error(`Unsupported type ${returnType}`)
+  }
+
   // noinspection JSUnusedGlobalSymbols
   uti(mimeType: string, extension: string) {
     return (mimeType && mimeType !== 'application/octet-stream' ? this.utiDefs[mimeType] : this.utiExts[extension]) || this.utiDefs[mimeType]
@@ -753,7 +795,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     const { encryptedData, updatedEntity } = await this.crypto.xapi.encryptDataOf(document, EntityWithDelegationTypeName.Document, attachment, (d) =>
       this.modifyDocument(d)
     )
-    return await this.setMainDocumentAttachment(document.id!, updatedEntity?.rev ?? document.rev, encryptedData, utis)
+    return await this.setMainDocumentAttachment(document.id!, updatedEntity?.rev ?? document.rev, encryptedData, utis, true)
   }
 
   /**
@@ -766,7 +808,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
    */
   async setClearDocumentAttachment(document: models.Document, attachment: ArrayBuffer | Uint8Array, utis?: string[]): Promise<models.Document> {
     if (!document.rev) throw new Error('Cannot set attachment on document without rev')
-    return await this.setMainDocumentAttachment(document.id!, document.rev, attachment, utis)
+    return await this.setMainDocumentAttachment(document.id!, document.rev, attachment, utis, false)
   }
 
   /**
@@ -788,7 +830,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     const { encryptedData, updatedEntity } = await this.crypto.xapi.encryptDataOf(document, EntityWithDelegationTypeName.Document, attachment, (d) =>
       this.modifyDocument()
     )
-    return await this.setSecondaryAttachment(document.id!, secondaryAttachmentKey, updatedEntity?.rev ?? document.rev!, encryptedData, utis)
+    return await this.setSecondaryAttachment(document.id!, secondaryAttachmentKey, updatedEntity?.rev ?? document.rev!, encryptedData, utis, true)
   }
 
   /**
@@ -806,7 +848,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     attachment: ArrayBuffer | Uint8Array,
     utis?: string[]
   ): Promise<models.Document> {
-    return await this.setSecondaryAttachment(document.id!, secondaryAttachmentKey, document.rev!, attachment, utis)
+    return await this.setSecondaryAttachment(document.id!, secondaryAttachmentKey, document.rev!, attachment, utis, false)
   }
 
   /**

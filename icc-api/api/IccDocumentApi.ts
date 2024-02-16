@@ -324,8 +324,16 @@ export class IccDocumentApi {
    * @param body content of the attachment (must be compatible with XHR body)
    * @param utis an array of UTIs for the attachment. The first element will be considered as the main UTI for the document. If provided and non-empty
    * overrides existing values.
+   * @param dataIsEncrypted set this to true if the body you provided is containing encrypted data. This helps to have the appropriate content type
+   * for the attachment. Defaults is false
    */
-  async setMainDocumentAttachment(documentId: string, documentRev: string, body: Object, utis?: Array<string>): Promise<Document> {
+  async setMainDocumentAttachment(
+    documentId: string,
+    documentRev: string,
+    body: Object,
+    utis?: Array<string>,
+    dataIsEncrypted?: boolean
+  ): Promise<Document> {
     if (!documentRev) throw new Error('Document rev is required')
     let _body = body
 
@@ -336,7 +344,8 @@ export class IccDocumentApi {
       new Date().getTime() +
       '&rev=' +
       encodeURIComponent(String(documentRev)) +
-      (utis ? utis.map((x) => '&utis=' + encodeURIComponent(String(x))).join('') : '')
+      (utis ? utis.map((x) => '&utis=' + encodeURIComponent(String(x))).join('') : '') +
+      (dataIsEncrypted ? '&encrypted=' + encodeURIComponent(String(dataIsEncrypted)) : '')
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
@@ -406,9 +415,18 @@ export class IccDocumentApi {
    * will fail with CONFLICT status
    * @param attachment
    * @param utis an array of UTIs for the attachment. If provided and non-empty overrides existing values.
+   * @param dataIsEncrypted set this to true if the body you provided is containing encrypted data. This helps to have the appropriate content type
+   * for the attachment. Defaults is false
    * @return the updated document
    */
-  async setSecondaryAttachment(documentId: string, key: string, rev: string, attachment: Object, utis?: Array<string>): Promise<Document> {
+  async setSecondaryAttachment(
+    documentId: string,
+    key: string,
+    rev: string,
+    attachment: Object,
+    utis?: Array<string>,
+    dataIsEncrypted?: boolean
+  ): Promise<Document> {
     const _url =
       this.host +
       `/document/` +
@@ -418,7 +436,8 @@ export class IccDocumentApi {
       '?ts=' +
       new Date().getTime() +
       (rev ? '&rev=' + encodeURIComponent(String(rev)) : '') +
-      (utis ? utis.map((x) => '&utis=' + encodeURIComponent(String(x))).join('') : '')
+      (utis ? utis.map((x) => '&utis=' + encodeURIComponent(String(x))).join('') : '') +
+      (dataIsEncrypted ? '&encrypted=' + encodeURIComponent(String(dataIsEncrypted)) : '')
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
     return XHR.sendCommand('PUT', _url, headers, attachment, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
