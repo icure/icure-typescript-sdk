@@ -182,7 +182,7 @@ type CachedSecretType =
   | { value: string; type: ServerAuthenticationClass.EXTERNAL_AUTHENTICATION; oauthType: OAuthThirdParty }
 // In some providers Oauth tokens may have short duration or may be usable only once. We only want to cache them if they are going to be reusable and
 // if they last more than 5 minutes.
-const longLivedOAuthTokens = new Set([OAuthThirdParty.GOOGLE])
+const longLivedOAuthTokens = new Set([OAuthThirdParty.BE_FAS, OAuthThirdParty.GOOGLE])
 class TokenProvider {
   constructor(
     private login: string,

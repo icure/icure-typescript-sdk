@@ -16,6 +16,7 @@ import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-ap
 import { iccRestApiPath } from './IccRestApiPath'
 
 export enum OAuthThirdParty {
+  BE_FAS = 'be.fas',
   GOOGLE = 'google',
   MICROSOFT = 'microsoft',
   APPLE = 'apple',
