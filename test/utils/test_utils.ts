@@ -1,4 +1,4 @@
-import { BasicApis, BasicAuthenticationProvider, CryptoPrimitives, hex2ua, IcureApi, Apis, retry, RSAUtils, ua2hex } from '../../icc-x-api'
+import {BasicAuthenticationProvider, CryptoPrimitives, hex2ua, IcureApi, Apis, retry, RSAUtils, ua2hex, IcureBasicApi} from '../../icc-x-api'
 import { tmpdir } from 'os'
 import { TextDecoder, TextEncoder } from 'util'
 import { v4 as uuid } from 'uuid'
@@ -369,7 +369,7 @@ export async function createUserInMultipleGroups(env: TestVars): Promise<UserInM
   const user1Id: string = primitives.randomUuid()
   const user2Id: string = primitives.randomUuid()
   const user3Id: string = primitives.randomUuid()
-  const api = await BasicApis(env.iCureUrl, { username: 'john', password: 'LetMeIn' }, webcrypto as any, fetch) // pragma: allowlist secret
+  const api = await IcureBasicApi.initialise(env.iCureUrl, { username: 'john', password: 'LetMeIn' }, fetch) // pragma: allowlist secret
   const group1 = await api.groupApi.createGroup(
     userGroup1Id,
     `test-group-1-${primitives.randomUuid()}`,

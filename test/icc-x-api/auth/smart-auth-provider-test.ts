@@ -209,7 +209,7 @@ describe('Smart authentication provider', () => {
     const defaultGroupUser = await defaultGroupUserApi.getCurrentUser()
     const otherGroupId = details.group1.id == defaultGroupUser.groupId ? details.group2.id : details.group1.id
     const matches = await defaultGroupUserApi.getMatchingUsers()
-    const switchedUserApi = userApiWithProvider(await authProvider.switchGroup(otherGroupId!, matches))
+    const switchedUserApi = userApiWithProvider((await authProvider.switchGroup(otherGroupId!, matches)).switchedProvider)
     const switchedUser = await switchedUserApi.getCurrentUser()
     expect(switchedUser.id).to.not.equal(defaultGroupUser.id)
     expect(switchedUser.groupId).to.equal(otherGroupId)

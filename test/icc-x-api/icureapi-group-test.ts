@@ -2,7 +2,7 @@ import { getEnvironmentInitializer, setLocalStorage } from '../utils/test_utils'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import { webcrypto } from 'crypto'
 import 'isomorphic-fetch'
-import { BasicApis, IcureApi, retry, ua2hex } from '../../icc-x-api'
+import {IcureApi, IcureBasicApi, retry, ua2hex} from '../../icc-x-api'
 import { CryptoPrimitives } from '../../icc-x-api/crypto/CryptoPrimitives'
 import { IccUserApi } from '../../icc-api'
 import { BasicAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
@@ -37,7 +37,7 @@ describe('Icure api', function () {
     this.timeout(600000)
     const initializer = await getEnvironmentInitializer()
     env = await initializer.execute(getEnvVariables())
-    const api = await BasicApis(env.iCureUrl, { username: 'john', password: 'LetMeIn'}, webcrypto as any, fetch)
+    const api = await IcureBasicApi.initialise(env.iCureUrl, { username: 'john', password: 'LetMeIn'}, fetch)
     async function newGroupWithHcpUser(groupId: string, groupPrefix: string, userLogin: string, userPw: string, hcpId: string): Promise<string> {
       await api.groupApi.createGroup(
         groupId,
@@ -143,12 +143,12 @@ describe('Icure api', function () {
     expect(Object.keys(api2.cryptoApi.userKeysManager.getDecryptionKeys())).to.have.members([key2PubHex.slice(-32)])
     const api1GroupsInfo = await api1.getGroupsInfo()
     expect(api1GroupsInfo.availableGroups.map((x) => x.groupId)).to.have.members([userGroup1Id, userGroup2Id])
-    expect(api1GroupsInfo.currentGroup.groupId).to.equal(userGroup1Id)
+    expect(api1GroupsInfo.currentGroup?.groupId).to.equal(userGroup1Id)
     const api1SwitchedTo2 = await api1.switchGroup(userGroup2Id)
     expect((await api1SwitchedTo2.userApi.getCurrentUser()).id).to.equal(user2Id)
     expect(Object.keys(api1SwitchedTo2.cryptoApi.userKeysManager.getDecryptionKeys())).to.have.members([key2PubHex.slice(-32)])
     const api1switchedTo2GroupsInfo = await api1SwitchedTo2.getGroupsInfo()
     expect(api1switchedTo2GroupsInfo.availableGroups.map((x) => x.groupId)).to.have.members([userGroup1Id, userGroup2Id])
-    expect(api1switchedTo2GroupsInfo.currentGroup.groupId).to.equal(userGroup2Id)
+    expect(api1switchedTo2GroupsInfo.currentGroup?.groupId).to.equal(userGroup2Id)
   })
 })
