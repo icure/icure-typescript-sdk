@@ -465,14 +465,18 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
       }
     }
   ): Promise<{ [delegateId: string]: EntityShareOrMetadataUpdateRequest }> {
-    const hierarchy = await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
+    const hierarchy = this.useParentKeys
+      ? await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
+      : [await this.dataOwnerApi.getCurrentDataOwnerId()]
     const legacySecretIds = await asyncGeneratorToArray(this.legacyDelMetadataDecryptor.decryptSecretIdsOf(entity, hierarchy))
     const legacyEncryptionKeys = await asyncGeneratorToArray(this.legacyDelMetadataDecryptor.decryptEncryptionKeysOf(entity, hierarchy))
     const legacyOwningEntityIds = await asyncGeneratorToArray(this.legacyDelMetadataDecryptor.decryptOwningEntityIdsOf(entity, hierarchy))
     const res = {} as { [delegateId: string]: EntityShareOrMetadataUpdateRequest }
+    const selfId = await this.dataOwnerApi.getCurrentDataOwnerId()
     for (const hierarchyMember of hierarchy) {
       const hierarchyMemberMigration = await this.makeMigrationRequestForMemberOfHierarchy(
         entity,
+        selfId,
         hierarchyMember,
         userRequestsForEntity[hierarchyMember],
         legacySecretIds,
@@ -488,7 +492,8 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
 
   private async makeMigrationRequestForMemberOfHierarchy(
     entity: EncryptedEntityWithType,
-    dataOwnerId: string,
+    selfId: string,
+    currMemberId: string,
     userRequestForDelegate:
       | {
           shareSecretIds?: string[]
@@ -501,50 +506,52 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     legacyEncryptionKeys: { decrypted: string; dataOwnersWithAccess: string[] }[],
     legacyOwningEntityIds: { decrypted: string; dataOwnersWithAccess: string[] }[]
   ): Promise<EntityShareOrMetadataUpdateRequest | undefined> {
-    const selfId = await this.dataOwnerApi.getCurrentDataOwnerId()
+    // This implementation is very specific from migration from delegations to secure delegations. If in future we will have to migrate from secure delegations to something else, this method may need significant changes in its logic.
+    const subHierarchy = this.useParentKeys ? await this.dataOwnerApi.getCurrentDataOwnerHierarchyIdsFrom(currMemberId) : [currMemberId]
+    const subHierarchySet = new Set(subHierarchy)
     const legacyAccess =
-      selfId === entity.entity.id && dataOwnerId === selfId
+      selfId === entity.entity.id && currMemberId === selfId
         ? AccessLevel.WRITE
-        : await this.legacyDelMetadataDecryptor.getEntityAccessLevel(entity, [dataOwnerId])
+        : await this.legacyDelMetadataDecryptor.getEntityAccessLevel(entity, subHierarchy)
     if (!legacyAccess) return undefined
-    const selfLegacySecretIds = legacySecretIds.filter((x) => x.dataOwnersWithAccess.includes(dataOwnerId)).map((x) => x.decrypted)
-    const selfLegacyEncryptionKeys = legacyEncryptionKeys.filter((x) => x.dataOwnersWithAccess.includes(dataOwnerId)).map((x) => x.decrypted)
-    const selfLegacyOwningEntityIds = legacyOwningEntityIds.filter((x) => x.dataOwnersWithAccess.includes(dataOwnerId)).map((x) => x.decrypted)
-    const currentAccess = await this.secDelMetadataDecryptor.getEntityAccessLevel(entity, [dataOwnerId])
-    const needsImprovedAccess = legacyAccess === AccessLevel.WRITE && currentAccess !== AccessLevel.WRITE // Only applies to legacy delegations to secure delegations migration: may change if in future we need to migrate from legacy delegations to secure delegations
+    const selfLegacySecretIds = legacySecretIds.filter((x) => x.dataOwnersWithAccess.some((d) => subHierarchySet.has(d))).map((x) => x.decrypted)
+    const selfLegacyEncryptionKeys = legacyEncryptionKeys
+      .filter((x) => x.dataOwnersWithAccess.some((d) => subHierarchySet.has(d)))
+      .map((x) => x.decrypted)
+    const selfLegacyOwningEntityIds = legacyOwningEntityIds
+      .filter((x) => x.dataOwnersWithAccess.some((d) => subHierarchySet.has(d)))
+      .map((x) => x.decrypted)
     let missingSecretIds: string[] = []
     let missingEncryptionKeys: string[] = []
     let missingOwningEntityIds: string[] = []
     if (selfLegacySecretIds.length > 0) {
       const currentSecretIds = new Set(
-        (await asyncGeneratorToArray(this.secDelMetadataDecryptor.decryptSecretIdsOf(entity, [dataOwnerId]))).map((x) => x.decrypted)
+        (await asyncGeneratorToArray(this.secDelMetadataDecryptor.decryptSecretIdsOf(entity, [currMemberId]))).map((x) => x.decrypted)
       )
       missingSecretIds = selfLegacySecretIds.filter((x) => !currentSecretIds.has(x))
     }
     if (selfLegacyEncryptionKeys.length > 0) {
       const currentEncryptionKeys = new Set(
-        (await asyncGeneratorToArray(this.secDelMetadataDecryptor.decryptEncryptionKeysOf(entity, [dataOwnerId]))).map((x) => x.decrypted)
+        (await asyncGeneratorToArray(this.secDelMetadataDecryptor.decryptEncryptionKeysOf(entity, [currMemberId]))).map((x) => x.decrypted)
       )
       missingEncryptionKeys = selfLegacyEncryptionKeys.filter((x) => !currentEncryptionKeys.has(x))
     }
     if (selfLegacyOwningEntityIds.length > 0) {
       const currentOwningEntityIds = new Set(
-        (await asyncGeneratorToArray(this.secDelMetadataDecryptor.decryptOwningEntityIdsOf(entity, [dataOwnerId]))).map((x) => x.decrypted)
+        (await asyncGeneratorToArray(this.secDelMetadataDecryptor.decryptOwningEntityIdsOf(entity, [currMemberId]))).map((x) => x.decrypted)
       )
       missingOwningEntityIds = selfLegacyOwningEntityIds.filter((x) => !currentOwningEntityIds.has(x))
     }
-    if (needsImprovedAccess || missingSecretIds.length > 0 || missingEncryptionKeys.length > 0 || missingOwningEntityIds.length > 0) {
+    if (missingSecretIds.length > 0 || missingEncryptionKeys.length > 0 || missingOwningEntityIds.length > 0) {
       let requestedPermissions: RequestedPermissionInternal
-      if (dataOwnerId === selfId && needsImprovedAccess) {
+      if (currMemberId === selfId) {
         requestedPermissions = RequestedPermissionInternal.ROOT
-      } else if (legacyAccess === AccessLevel.WRITE) {
-        requestedPermissions = RequestedPermissionInternal.FULL_WRITE
       } else {
-        requestedPermissions = userRequestForDelegate?.requestedPermissions ?? RequestedPermissionInternal.FULL_READ
+        requestedPermissions = RequestedPermissionInternal.FULL_WRITE // Legacy permission if present is always write
       }
       return await this.secureDelegationsManager.makeShareOrUpdateRequestParams(
         entity,
-        dataOwnerId,
+        currMemberId,
         Array.from(new Set([...missingSecretIds, ...(userRequestForDelegate?.shareSecretIds ?? [])])),
         Array.from(new Set([...missingEncryptionKeys, ...(userRequestForDelegate?.shareEncryptionKeys ?? [])])),
         Array.from(new Set([...missingOwningEntityIds, ...(userRequestForDelegate?.shareOwningEntityIds ?? [])])),

@@ -417,7 +417,7 @@ export async function createNewHcpWithoutKeyAndParentWithKey(
   }
 }
 
-function testSetupMasterApi(env: TestVars): Promise<TestSetupApi> {
+export function testSetupMasterApi(env: TestVars): Promise<TestSetupApi> {
   return TestSetupApi.initialise(
     env.iCureUrl,
     { username: env.masterHcp!.user, password: env.masterHcp!.password },
