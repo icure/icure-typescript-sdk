@@ -542,7 +542,9 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
       )
       missingOwningEntityIds = selfLegacyOwningEntityIds.filter((x) => !currentOwningEntityIds.has(x))
     }
-    if (missingSecretIds.length > 0 || missingEncryptionKeys.length > 0 || missingOwningEntityIds.length > 0) {
+    const mustCreateRootDelegation =
+      selfId === entity.entity.id && currMemberId === selfId && !(await this.secDelMetadataDecryptor.getEntityAccessLevel(entity, subHierarchy))
+    if (missingSecretIds.length > 0 || missingEncryptionKeys.length > 0 || missingOwningEntityIds.length > 0 || mustCreateRootDelegation) {
       let requestedPermissions: RequestedPermissionInternal
       if (currMemberId === selfId) {
         requestedPermissions = RequestedPermissionInternal.ROOT
