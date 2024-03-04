@@ -567,7 +567,11 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     content: ArrayBuffer | Uint8Array,
     validator: (decryptedData: ArrayBuffer) => Promise<boolean> | undefined
   ): Promise<{ data: ArrayBuffer; wasDecrypted: boolean }> {
-    const decryptedKeys = this.allSecurityMetadataDecryptor.decryptEncryptionKeysOf(entity, [await this.dataOwnerApi.getCurrentDataOwnerId()])
+    const dataOwnerIds = this.useParentKeys
+      ? await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
+      : [await this.dataOwnerApi.getCurrentDataOwnerId()]
+
+    const decryptedKeys = this.allSecurityMetadataDecryptor.decryptEncryptionKeysOf(entity, dataOwnerIds)
     const triedKeys: Set<string> = new Set()
     let latest = await decryptedKeys.next()
     while (!latest.done) {
@@ -596,9 +600,12 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     if (!!ensureInitialisedKeysResult) {
       updatedEntity = await saveEntity(ensureInitialisedKeysResult)
     }
-    const decryptedKeys = this.allSecurityMetadataDecryptor.decryptEncryptionKeysOf({ entity: updatedEntity ?? entity, type }, [
-      await this.dataOwnerApi.getCurrentDataOwnerId(),
-    ])
+
+    const dataOwnerIds = this.useParentKeys
+      ? await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
+      : [await this.dataOwnerApi.getCurrentDataOwnerId()]
+
+    const decryptedKeys = this.allSecurityMetadataDecryptor.decryptEncryptionKeysOf({ entity: updatedEntity ?? entity, type }, dataOwnerIds)
     let latest = await decryptedKeys.next()
     while (!latest.done) {
       try {
@@ -797,7 +804,11 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
   }
 
   private async tryImportFirstValidKey(entity: EncryptedEntityWithType): Promise<{ key: CryptoKey; raw: string } | undefined> {
-    const generator = this.allSecurityMetadataDecryptor.decryptEncryptionKeysOf(entity, await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())
+    const dataOwnerIds = this.useParentKeys
+      ? await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
+      : [await this.dataOwnerApi.getCurrentDataOwnerId()]
+
+    const generator = this.allSecurityMetadataDecryptor.decryptEncryptionKeysOf(entity, dataOwnerIds)
     let latest = await generator.next()
     while (!latest.done) {
       const imported = await this.tryImportKey(latest.value.decrypted)
