@@ -15,6 +15,7 @@ import { Place } from '../model/Place'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 import { ListOfIds } from '../model/ListOfIds'
+import { PaginatedListPlace } from '../model/PaginatedListPlace'
 
 export class IccPlaceApi {
   host: string
@@ -92,16 +93,32 @@ export class IccPlaceApi {
   }
 
   /**
-   *
+   * @deprecated use {@link getPlacesWithPagination} instead.
    * @summary Gets all places
    */
   async getPlaces(): Promise<Array<Place>> {
-    let _body = null
+    const _url = this.host + `/place?ts=${new Date().getTime()}&limit=1000000`
+    const headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListPlace(doc.body as JSON).rows ?? [])
+      .catch((err) => this.handleError(err))
+  }
 
-    const _url = this.host + `/place` + '?ts=' + new Date().getTime()
-    let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new Place(it)))
+  /**
+   * @summary Gets all places with pagination.
+   * @param startDocumentId the startDocumentId provided by the previous page or undefined for the first page.
+   * @param limit the number of elements that the page should contain.
+   * @return a promise that will resolve in a PaginatedListPlace.
+   */
+  async getPlacesWithPagination(startDocumentId?: string, limit?: number): Promise<PaginatedListPlace> {
+    const _url =
+      this.host +
+      `/place?ts=${new Date().getTime()}` +
+      (!!startDocumentId ? `&startDocumentId=${encodeURIComponent(startDocumentId)}` : '') +
+      (!!limit ? `&limit=${limit}` : '')
+    const headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListPlace(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 

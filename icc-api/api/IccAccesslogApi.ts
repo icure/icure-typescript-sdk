@@ -125,6 +125,41 @@ export class IccAccesslogApi {
   }
 
   /**
+   * @summary List access logs found by Healthcare Party id and secret foreign key element id with pagination.
+   *
+   * @param hcPartyId the healthcare party id.
+   * @param secretFKey the secret foreign key.
+   * @param startKey the startKey provided by the previous page or undefined for the first page.
+   * @param startDocumentId the startDocumentId provided by the previous page or undefined for the first page.
+   * @param limit the number of elements that the page should contain.
+   * @return a promise that will resolve in a PaginatedListAccessLog.
+   */
+  async findAccessLogsByHCPartyPatientForeignKey(
+    hcPartyId: string,
+    secretFKey: string,
+    startKey?: string,
+    startDocumentId?: string,
+    limit?: number
+  ): Promise<PaginatedListAccessLog> {
+    const _url =
+      this.host +
+      `/accesslog/byHcPartySecretForeignKey` +
+      '?ts=' +
+      new Date().getTime() +
+      '&hcPartyId=' +
+      encodeURIComponent(hcPartyId) +
+      `&secretFKey=${encodeURIComponent(secretFKey)}` +
+      (!!startKey ? `&startKey=${encodeURIComponent(startKey)}` : '') +
+      (!!startDocumentId ? `&startDocumentId=${encodeURIComponent(startDocumentId)}` : '') +
+      (!!limit ? `&limit=${limit}` : '')
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListAccessLog(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    *
    * @summary List access logs found by Healthcare Party and secret foreign keyelementIds.
    * @param hcPartyId

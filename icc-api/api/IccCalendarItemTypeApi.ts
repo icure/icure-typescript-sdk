@@ -15,6 +15,7 @@ import { DocIdentifier } from '../model/DocIdentifier'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 import { ListOfIds } from '../model/ListOfIds'
+import { PaginatedListCalendarItemType } from '../model/PaginatedListCalendarItemType'
 
 export class IccCalendarItemTypeApi {
   host: string
@@ -92,30 +93,68 @@ export class IccCalendarItemTypeApi {
   }
 
   /**
-   *
+   * @deprecated use {@link getCalendarItemTypesWithPagination} instead.
    * @summary Gets all calendarItemTypes
    */
   async getCalendarItemTypes(): Promise<Array<CalendarItemType>> {
-    let _body = null
-
-    const _url = this.host + `/calendarItemType` + '?ts=' + new Date().getTime()
+    const _url = this.host + `/calendarItemType?ts=${new Date().getTime()}&limit=1000000`
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new CalendarItemType(it)))
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListCalendarItemType(doc.body as JSON).rows ?? [])
       .catch((err) => this.handleError(err))
   }
 
   /**
-   *
+   * @summary Gets all calendarItemTypes with pagination.
+   * @param startDocumentId the startDocumentId provided by the previous page or undefined for the first page.
+   * @param limit the number of elements that the page should contain.
+   * @return a promise that will resolve in a PaginatedListCalendarItemType.
+   */
+  async getCalendarItemTypesWithPagination(startDocumentId?: string, limit?: number): Promise<PaginatedListCalendarItemType> {
+    const _url =
+      this.host +
+      `/calendarItemType?ts=${new Date().getTime()}` +
+      (!!startDocumentId ? `&startDocumentId=${encodeURIComponent(startDocumentId)}` : '') +
+      (!!limit ? `&limit=${limit}` : '')
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListCalendarItemType(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @deprecated use {@link getCalendarItemTypesIncludeDeletedWithPagination} instead.
    * @summary Gets all calendarItemTypes include deleted
    */
   async getCalendarItemTypesIncludeDeleted(): Promise<Array<CalendarItemType>> {
-    let _body = null
-
-    const _url = this.host + `/calendarItemType/includeDeleted` + '?ts=' + new Date().getTime()
+    const _url = this.host + `/calendarItemType/includeDeleted?ts=${new Date().getTime()}&limit=1000000`
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new CalendarItemType(it)))
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListCalendarItemType(doc.body as JSON).rows ?? [])
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Gets all calendarItemTypes including deleted entities with pagination.
+   * @param startKey the startKey provided by the previous page or undefined for the first page.
+   * @param startDocumentId the startDocumentId provided by the previous page or undefined for the first page.
+   * @param limit the number of elements that the page should contain.
+   * @return a promise that will resolve in a PaginatedListCalendarItemType.
+   */
+  async getCalendarItemTypesIncludeDeletedWithPagination(
+    startKey?: string,
+    startDocumentId?: string,
+    limit?: number
+  ): Promise<PaginatedListCalendarItemType> {
+    const _url =
+      this.host +
+      `/calendarItemType/includeDeleted?ts=${new Date().getTime()}` +
+      (!!startKey ? `&startKey=${encodeURIComponent(startKey)}` : '') +
+      (!!startDocumentId ? `&startDocumentId=${encodeURIComponent(startDocumentId)}` : '') +
+      (!!limit ? `&limit=${limit}` : '')
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListCalendarItemType(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 

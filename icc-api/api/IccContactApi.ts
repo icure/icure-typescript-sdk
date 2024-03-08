@@ -371,6 +371,36 @@ export class IccContactApi {
   }
 
   /**
+   * @summary Get a list of contacts found by Healthcare Party and a patient foreign key with pagination.
+   * @param hcPartyId the id of the healthcare party.
+   * @param patientForeignKey the secret foreign key,
+   * @param startKey the startKey provided by the previous page or undefined for the first page.
+   * @param startDocumentId the startDocumentId provided by the previous page or undefined for the first page.
+   * @param limit the number of elements that the page should contain.
+   * @return a promise that will resolve in a PaginatedListContact.
+   */
+  async findContactsByHCPartyPatientForeignKey(
+    hcPartyId: string,
+    patientForeignKey: string,
+    startKey?: string,
+    startDocumentId?: string,
+    limit?: number
+  ): Promise<PaginatedListContact> {
+    const _url =
+      this.host +
+      `/contact/byHcPartyPatientForeignKey?ts=${new Date().getTime()}` +
+      `&hcPartyId=${encodeURIComponent(hcPartyId)}` +
+      `&patientForeignKey=${encodeURIComponent(patientForeignKey)}` +
+      (!!startKey ? `&startKey=${encodeURIComponent(startKey)}` : '') +
+      (!!startDocumentId ? `&startDocumentId=${encodeURIComponent(startDocumentId)}` : '') +
+      (!!limit ? `&limit=${limit}` : '')
+    const headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListContact(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    * Keys must be delimited by coma
    * @summary List contacts found By Healthcare Party and secret foreign keys.
    * @param body

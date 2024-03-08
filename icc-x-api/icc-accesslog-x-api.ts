@@ -146,6 +146,24 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
     return super.findAccessLogsByHCPartyPatientForeignKeysUsingPost(hcPartyId, secretFKeys).then((accesslogs) => this.decrypt(hcPartyId, accesslogs))
   }
 
+  async findAccessLogsByHCPartyPatientForeignKey(
+    hcPartyId: string,
+    secretFKey: string,
+    startKey?: string,
+    startDocumentId?: string,
+    limit?: number
+  ): Promise<PaginatedListAccessLog> {
+    return super.findAccessLogsByHCPartyPatientForeignKey(hcPartyId, secretFKey, startKey, startDocumentId, limit).then((paginatedList) =>
+      this.decrypt(hcPartyId, paginatedList.rows ?? []).then(
+        (decryptedItems) =>
+          new PaginatedListAccessLog({
+            rows: decryptedItems,
+            nextKeyPair: paginatedList.nextKeyPair,
+          })
+      )
+    )
+  }
+
   decrypt(hcpId: string, accessLogs: Array<models.AccessLog>): Promise<Array<models.AccessLog>> {
     return Promise.all(
       accessLogs.map((x) =>

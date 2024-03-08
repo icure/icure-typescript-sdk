@@ -102,8 +102,8 @@ export class IccClassificationTemplateApi {
   }
 
   /**
-   * Keys hast to delimited by coma
-   * @summary List classification Templates found By Healthcare Party and secret foreign keyelementIds.
+   * Keys have to be delimited by commas.
+   * @summary List classification Templates found By Healthcare Party and secret foreign keys.
    * @param hcPartyId
    * @param secretFKeys
    */
@@ -120,6 +120,36 @@ export class IccClassificationTemplateApi {
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new ClassificationTemplate(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary List classification Templates found By Healthcare Party and a single secret foreign key with pagination.
+   * @param hcPartyId the healthcare party id.
+   * @param secretFKey the secret foreign key.
+   * @param startKey the startKey provided by the previous page or undefined for the first page.
+   * @param startDocumentId the startDocumentId provided by the previous page or undefined for the first page.
+   * @param limit the number of elements that the page should contain.
+   * @return a promise that will resolve in a PaginatedListClassificationTemplate.
+   */
+  async findClassificationTemplatesByHCPartyPatientForeignKey(
+    hcPartyId: string,
+    secretFKey: string,
+    startKey?: string,
+    startDocumentId?: string,
+    limit?: number
+  ): Promise<PaginatedListClassificationTemplate> {
+    const _url =
+      this.host +
+      `/classificationTemplate/byHcPartySecretForeignKey?ts=${new Date().getTime()}` +
+      `&hcPartyId=${encodeURIComponent(hcPartyId)}` +
+      `&secretFKey=${encodeURIComponent(secretFKey)}` +
+      (!!startKey ? `&startKey=${encodeURIComponent(startKey)}` : '') +
+      (!!startDocumentId ? `&startDocumentId=${encodeURIComponent(startDocumentId)}` : '') +
+      (!!limit ? `&limit=${limit}` : '')
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListClassificationTemplate(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 

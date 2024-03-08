@@ -15,6 +15,7 @@ import { DocumentTemplate } from '../model/DocumentTemplate'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 import { ListOfIds } from '../model/ListOfIds'
+import { PaginatedListDocumentTemplate } from '../model/PaginatedListDocumentTemplate'
 
 export class IccDoctemplateApi {
   host: string
@@ -77,14 +78,34 @@ export class IccDoctemplateApi {
   }
 
   /**
-   *
+   * @deprecated use {@link listAllDocumentTemplatesWithPagination} instead.
    * @summary Gets all document templates for all users
    */
   async listAllDocumentTemplates(): Promise<Array<DocumentTemplate>> {
-    const _url = this.host + `/doctemplate/find/all` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    const _url = this.host + `/doctemplate/find/all?ts=${new Date().getTime()}&limit=1000000`
+    const headers = this.headers
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new DocumentTemplate(it)))
+      .then((doc) => new PaginatedListDocumentTemplate(doc.body as JSON).rows ?? [])
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Gets all document templates for all users with pagination.
+   * @param startKey the startKey provided by the previous page or undefined for the first page.
+   * @param startDocumentId the startDocumentId provided by the previous page or undefined for the first page.
+   * @param limit the number of elements that the page should contain.
+   * @return a promise that will resolve in a PaginatedListDocumentTemplate.
+   */
+  async listAllDocumentTemplatesWithPagination(startKey?: string, startDocumentId?: string, limit?: number): Promise<PaginatedListDocumentTemplate> {
+    const _url =
+      this.host +
+      `/doctemplate/find/all?ts=${new Date().getTime()}` +
+      (!!startKey ? `&startKey=${encodeURIComponent(startKey)}` : '') +
+      (!!startDocumentId ? `&startDocumentId=${encodeURIComponent(startDocumentId)}` : '') +
+      (!!limit ? `&limit=${limit}` : '')
+    const headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListDocumentTemplate(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 

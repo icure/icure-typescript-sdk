@@ -5,7 +5,6 @@ import * as models from '../icc-api/model/models'
 
 import * as _ from 'lodash'
 import * as moment from 'moment'
-import { a2b, b2a, hex2ua, string2ua, ua2utf8, utf8_2ua } from './utils/binary-utils'
 import { FilterChainHealthElement, HealthElement, PaginatedListHealthElement } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
@@ -179,6 +178,34 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
 
   findHealthElementsByHCPartyPatientForeignKeys(hcPartyId: string, secretFKeys: string): never {
     throw new Error('Cannot call a method that returns health element without providing a user for de/encryption')
+  }
+
+  findHealthElementsByHCPartyPatientForeignKey(
+    hcPartyId: string,
+    secretFKey: string,
+    startKey?: string,
+    startDocumentId?: string,
+    limit?: number
+  ): never {
+    throw new Error('Cannot call a method that returns health element without providing a user for de/encryption')
+  }
+
+  async findHealthElementsByHCPartyPatientForeignKeyWithUser(
+    hcPartyId: string,
+    secretFKey: string,
+    startKey?: string,
+    startDocumentId?: string,
+    limit?: number
+  ): Promise<PaginatedListHealthElement> {
+    return super.findHealthElementsByHCPartyPatientForeignKey(hcPartyId, secretFKey, startKey, startDocumentId, limit).then((paginatedList) =>
+      this.decrypt(hcPartyId, paginatedList.rows ?? []).then(
+        (decryptedItems) =>
+          new PaginatedListHealthElement({
+            rows: decryptedItems,
+            nextKeyPair: paginatedList.nextKeyPair,
+          })
+      )
+    )
   }
 
   findHealthElementsByHCPartyPatientForeignKeysWithUser(user: models.User, hcPartyId: string, secretFKeys: string): Promise<HealthElement[]> {

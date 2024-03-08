@@ -333,7 +333,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     return super.getPatients(body).then((pats) => this.decrypt(user, pats))
   }
 
-  listDeletedPatients(startDate?: number, endDate?: number, desc?: boolean, startDocumentId?: string, limit?: number): never {
+  listDeletedPatients(startDate?: number, endDate?: number, desc?: boolean, startKey?: string, startDocumentId?: string, limit?: number): never {
     throw new Error('Cannot call a method that returns contacts without providing a user for de/encryption')
   }
 
@@ -342,11 +342,12 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     startDate?: number,
     endDate?: number,
     desc?: boolean,
+    startKey?: string,
     startDocumentId?: string,
     limit?: number
   ): Promise<models.PaginatedListPatient | any> {
     return super
-      .listDeletedPatients(startDate, endDate, desc, startDocumentId, limit)
+      .listDeletedPatients(startDate, endDate, desc, startDocumentId, startKey, limit)
       .then((pl) => this.decrypt(user, pl.rows!, false).then((dr) => Object.assign(pl, { rows: dr })))
   }
 

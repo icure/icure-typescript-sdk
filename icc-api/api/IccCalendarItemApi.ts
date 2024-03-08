@@ -20,6 +20,7 @@ import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShar
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { MinimalEntityBulkShareResult } from '../model/requests/MinimalEntityBulkShareResult'
 import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
+import { PaginatedListCalendarItem } from '../model/PaginatedListCalendarItem'
 
 export class IccCalendarItemApi {
   host: string
@@ -154,28 +155,49 @@ export class IccCalendarItemApi {
   }
 
   /**
+   * @deprecated use {@link findCalendarItemsByRecurrenceIdWithPagination} instead.
    *
    * @summary Find CalendarItems by recurrenceId
    * @param recurrenceId
    */
   async findCalendarItemsByRecurrenceId(recurrenceId: string): Promise<Array<CalendarItem>> {
-    let _body = null
-
-    const _url =
-      this.host +
-      `/calendarItem/byRecurrenceId` +
-      '?ts=' +
-      new Date().getTime() +
-      (recurrenceId ? '&recurrenceId=' + encodeURIComponent(String(recurrenceId)) : '')
+    const _url = this.host + `/calendarItem/byRecurrenceId?ts=${new Date().getTime()}&recurrenceId=${encodeURIComponent(recurrenceId)}&limit=1000000`
     let headers = await this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new CalendarItem(it)))
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListCalendarItem(doc.body as JSON).rows ?? [])
       .catch((err) => this.handleError(err))
   }
 
   /**
    *
-   * @summary Gets an calendarItem
+   * @summary Find CalendarItems by recurrenceId
+   * @param recurrenceId the recurrence id.
+   * @param startKey the startKey provided by the previous page or undefined for the first page.
+   * @param startDocumentId the startDocumentId provided by the previous page or undefined for the first page.
+   * @param limit the number of elements that the page should contain.
+   * @return a promise that will resolve in a PaginatedListAccessLog.
+   */
+  async findCalendarItemsByRecurrenceIdWithPagination(
+    recurrenceId: string,
+    startKey?: string,
+    startDocumentId?: string,
+    limit?: number
+  ): Promise<PaginatedListCalendarItem> {
+    const _url =
+      this.host +
+      `/calendarItem/byRecurrenceId?ts=${new Date().getTime()}&recurrenceId=${encodeURIComponent(recurrenceId)}` +
+      (!!startKey ? `&startKey=${encodeURIComponent(startKey)}` : '') +
+      (!!startDocumentId ? `&startDocumentId=${encodeURIComponent(startDocumentId)}` : '') +
+      (!!limit ? `&limit=${limit}` : '')
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListCalendarItem(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
+   * @summary Gets a calendarItem
    * @param calendarItemId
    */
   async getCalendarItem(calendarItemId: string): Promise<CalendarItem> {
@@ -189,16 +211,36 @@ export class IccCalendarItemApi {
   }
 
   /**
+   * @deprecated use {@link getCalendarItemsWithPagination} instead
    *
    * @summary Gets all calendarItems
    */
   async getCalendarItems(): Promise<Array<CalendarItem>> {
-    let _body = null
-
-    const _url = this.host + `/calendarItem` + '?ts=' + new Date().getTime()
+    const _url = this.host + `/calendarItem?ts=${new Date().getTime()}$limit=1000000`
     let headers = await this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new CalendarItem(it)))
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListCalendarItem(doc.body as JSON).rows ?? [])
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary gets all Calendar Items with pagination.
+   *
+   * @param startDocumentId the startDocumentId provided by the previous page or null if it's the first page.
+   * @param limit the size of the page
+   * @return a promise that will resolve in a PaginatedListCalendarItem.
+   */
+  async getCalendarItemsWithPagination(startDocumentId?: string, limit?: number): Promise<PaginatedListCalendarItem> {
+    const _url =
+      this.host +
+      `/calendarItem` +
+      '?ts=' +
+      new Date().getTime() +
+      (!!startDocumentId ? `&startDocumentId=${encodeURIComponent(startDocumentId)}` : '') +
+      (!!limit ? `&limit=${limit}` : '')
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListCalendarItem(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 

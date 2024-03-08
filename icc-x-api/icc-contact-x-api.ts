@@ -291,6 +291,24 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       .then((contacts) => this.decrypt(hcPartyId, contacts))
   }
 
+  async findContactsByHCPartyPatientForeignKey(
+    hcPartyId: string,
+    patientForeignKey: string,
+    startKey?: string,
+    startDocumentId?: string,
+    limit?: number
+  ): Promise<PaginatedListContact> {
+    return super.findContactsByHCPartyPatientForeignKey(hcPartyId, patientForeignKey, startKey, startDocumentId, limit).then((paginatedList) =>
+      this.decrypt(hcPartyId, paginatedList.rows ?? []).then(
+        (decryptedItems) =>
+          new PaginatedListContact({
+            rows: decryptedItems,
+            nextKeyPair: paginatedList.nextKeyPair,
+          })
+      )
+    )
+  }
+
   filterByWithUser(
     user: models.User,
     startDocumentId?: string,
