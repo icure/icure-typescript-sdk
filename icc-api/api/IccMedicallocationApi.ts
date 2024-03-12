@@ -15,6 +15,7 @@ import { MedicalLocation } from '../model/MedicalLocation'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 import { ListOfIds } from '../model/ListOfIds'
+import { PaginatedListMedicalLocation } from '../model/PaginatedListMedicalLocation'
 
 export class IccMedicallocationApi {
   host: string
@@ -92,16 +93,32 @@ export class IccMedicallocationApi {
   }
 
   /**
-   *
-   * @summary Gets all medical locations
+   * @deprecated use {@link getMedicalLocationsWithPagination} instead.
+   * @summary Gets all medical locations.
    */
   async getMedicalLocations(): Promise<Array<MedicalLocation>> {
-    let _body = null
+    const _url = this.host + `/medicallocation?ts=${new Date().getTime()}&limit=1000000`
+    const headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListMedicalLocation(doc.body as JSON).rows ?? [])
+      .catch((err) => this.handleError(err))
+  }
 
-    const _url = this.host + `/medicallocation` + '?ts=' + new Date().getTime()
-    let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new MedicalLocation(it)))
+  /**
+   * @summary Gets all medical locations with pagination.
+   * @param startDocumentId the startDocumentId provided by the previous page or undefined for the first page.
+   * @param limit the number of elements that the page should contain.
+   * @return a promise that will resolve in a PaginatedListMedicalLocation.
+   */
+  async getMedicalLocationsWithPagination(startDocumentId?: string, limit?: number): Promise<PaginatedListMedicalLocation> {
+    const _url =
+      this.host +
+      `/medicallocation?ts=${new Date().getTime()}` +
+      (!!startDocumentId ? `&startDocumentId=${encodeURIComponent(startDocumentId)}` : '') +
+      (!!limit ? `&limit=${limit}` : '')
+    const headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListMedicalLocation(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 

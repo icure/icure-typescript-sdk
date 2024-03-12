@@ -15,6 +15,7 @@ import { Keyword } from '../model/Keyword'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 import { ListOfIds } from '../model/ListOfIds'
+import { PaginatedListKeyword } from '../model/PaginatedListKeyword'
 
 export class IccKeywordApi {
   host: string
@@ -91,16 +92,32 @@ export class IccKeywordApi {
   }
 
   /**
-   *
-   * @summary Gets all keywords
+   * @deprecated use {@link getKeywordsWithPagination} instead.
+   * @summary Gets all keywords.
    */
   async getKeywords(): Promise<Array<Keyword>> {
-    let _body = null
-
-    const _url = this.host + `/keyword` + '?ts=' + new Date().getTime()
+    const _url = this.host + `/keyword?ts=${new Date().getTime()}&limit=1000000`
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new Keyword(it)))
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListKeyword(doc.body as JSON).rows ?? [])
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Gets all keywords with pagination.
+   * @param startDocumentId the startDocumentId provided by the previous page or undefined for the first page.
+   * @param limit the number of elements that the page should contain.
+   * @return a promise that will resolve in a PaginatedListKeyword.
+   */
+  async getKeywordsWithPagination(startDocumentId?: string, limit?: number): Promise<PaginatedListKeyword> {
+    const _url =
+      this.host +
+      `/keyword?ts=${new Date().getTime()}` +
+      (!!startDocumentId ? `&startDocumentId=${encodeURIComponent(startDocumentId)}` : '') +
+      (!!limit ? `&limit=${limit}` : '')
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListKeyword(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 

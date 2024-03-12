@@ -21,6 +21,7 @@ import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { MinimalEntityBulkShareResult } from '../model/requests/MinimalEntityBulkShareResult'
 import { ListOfIds } from '../model/ListOfIds'
 import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
+import { PaginatedListClassification } from '../model/PaginatedListClassification'
 
 export class IccClassificationApi {
   host: string
@@ -108,7 +109,7 @@ export class IccClassificationApi {
   }
 
   /**
-   * Keys hast to delimited by coma
+   * Keys have to be delimited by comma
    * @summary List classification Templates found By Healthcare Party and secret foreign keyelementIds.
    * @param hcPartyId
    * @param secretFKeys
@@ -126,6 +127,36 @@ export class IccClassificationApi {
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Classification(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary List classifications found By Healthcare Party and a single secret foreign key with pagination.
+   * @param hcPartyId the healthcare party id.
+   * @param secretFKey the secret foreign key.
+   * @param startKey the startKey provided by the previous page or undefined for the first page.
+   * @param startDocumentId the startDocumentId provided by the previous page or undefined for the first page.
+   * @param limit the number of elements that the page should contain.
+   * @return a promise that will resolve in a PaginatedListClassification.
+   */
+  async findClassificationsByHCPartyPatientForeignKey(
+    hcPartyId: string,
+    secretFKey: string,
+    startKey?: string,
+    startDocumentId?: string,
+    limit?: number
+  ): Promise<PaginatedListClassification> {
+    const _url =
+      this.host +
+      `/classification/byHcPartySecretForeignKey?ts=${new Date().getTime()}` +
+      `&hcPartyId=${encodeURIComponent(hcPartyId)}` +
+      `&secretFKey=${encodeURIComponent(secretFKey)}` +
+      (!!startKey ? `&startKey=${encodeURIComponent(startKey)}` : '') +
+      (!!startDocumentId ? `&startDocumentId=${encodeURIComponent(startDocumentId)}` : '') +
+      (!!limit ? `&limit=${limit}` : '')
+    const headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListClassification(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 

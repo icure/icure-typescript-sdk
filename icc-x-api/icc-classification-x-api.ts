@@ -15,7 +15,6 @@ import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
-import { AccessLog } from '../icc-api/model/models'
 import { EntityWithDelegationTypeName } from './utils'
 
 export class IccClassificationXApi extends IccClassificationApi implements EncryptedEntityXApi<models.Classification> {

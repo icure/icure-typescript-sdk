@@ -17,6 +17,7 @@ import { PaginatedListCode } from '../model/PaginatedListCode'
 import { Unit } from '../model/Unit'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
+import { ListOfIds } from '../model/ListOfIds'
 
 export class IccCodeApi {
   host: string
@@ -346,12 +347,12 @@ export class IccCodeApi {
    * @summary Gets a list of codes by ids
    * @param codeIds
    */
-  getCodes(codeIds: string): Promise<Array<Code>> {
-    let _body = null
+  async getCodes(codeIds: string[]): Promise<Array<Code>> {
+    const body = new ListOfIds(codeIds)
 
-    const _url = this.host + `/code/byIds/${encodeURIComponent(String(codeIds))}` + '?ts=' + new Date().getTime()
+    const _url = this.host + `/code/byIds` + '?ts=' + new Date().getTime()
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Code(it)))
       .catch((err) => this.handleError(err))
   }

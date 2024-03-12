@@ -15,6 +15,7 @@ import { DocIdentifier } from '../model/DocIdentifier'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 import { ListOfIds } from '../model/ListOfIds'
+import { PaginatedListArticle } from '../model/PaginatedListArticle'
 
 export class IccArticleApi {
   host: string
@@ -112,16 +113,36 @@ export class IccArticleApi {
   }
 
   /**
+   * @deprecated use {@link getArticlesWithPagination} instead.
    *
    * @summary Gets all articles
    */
   async getArticles(): Promise<Array<Article>> {
-    let _body = null
-
-    const _url = this.host + `/article` + '?ts=' + new Date().getTime()
+    const _url = this.host + `/article` + '?ts=' + new Date().getTime() + '&limit=1000000'
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new Article(it)))
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListArticle(doc.body as JSON).rows ?? [])
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary gets all articles with pagination.
+   *
+   * @param startDocumentId the startDocumentId provided by the previous page or null if it's the first page.
+   * @param limit the size of the page
+   * @return a promise that will resolve in a PaginatedListArticle.
+   */
+  async getArticlesWithPagination(startDocumentId?: string, limit?: number): Promise<PaginatedListArticle> {
+    const _url =
+      this.host +
+      `/article` +
+      '?ts=' +
+      new Date().getTime() +
+      (!!startDocumentId ? `&startDocumentId=${encodeURIComponent(startDocumentId)}` : '') +
+      (!!limit ? `&limit=${limit}` : '')
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListArticle(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 

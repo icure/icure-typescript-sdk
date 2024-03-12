@@ -489,6 +489,7 @@ export class IccPatientApi {
    * @summary Find deleted patients
    * @param startDate Filter deletions after this date (unix epoch), included
    * @param endDate Filter deletions before this date (unix epoch), included
+   * @param startKey the startKey provided by the previous page or undefined for the first page.
    * @param desc Descending
    * @param startDocumentId A patient document ID
    * @param limit Number of rows
@@ -497,23 +498,23 @@ export class IccPatientApi {
     startDate?: number,
     endDate?: number,
     desc?: boolean,
+    startKey?: string,
     startDocumentId?: string,
     limit?: number
   ): Promise<PaginatedListPatient> {
-    let _body = null
-
     const _url =
       this.host +
       `/patient/deleted/by_date` +
       '?ts=' +
       new Date().getTime() +
-      (startDate ? '&startDate=' + encodeURIComponent(String(startDate)) : '') +
-      (endDate ? '&endDate=' + encodeURIComponent(String(endDate)) : '') +
-      (desc ? '&desc=' + encodeURIComponent(String(desc)) : '') +
-      (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
-      (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
+      (startDate ? '&startDate=' + encodeURIComponent(startDate) : '') +
+      (endDate ? '&endDate=' + encodeURIComponent(endDate) : '') +
+      (desc ? '&desc=' + encodeURIComponent(desc) : '') +
+      (startKey ? '&startKey=' + encodeURIComponent(startKey) : '') +
+      (startDocumentId ? '&startDocumentId=' + encodeURIComponent(startDocumentId) : '') +
+      (limit ? '&limit=' + encodeURIComponent(limit) : '')
     let headers = await this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListPatient(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }

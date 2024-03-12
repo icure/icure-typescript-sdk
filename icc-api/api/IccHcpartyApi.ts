@@ -213,27 +213,31 @@ export class IccHcpartyApi {
    * @param spec The speciality of the HCP
    * @param firstCode The first postCode for the HCP
    * @param lastCode The last postCode for the HCP
+   * @param startKey the startKey provided by the previous page or undefined for the first page.
+   * @param startDocumentId the startDocumentId provided by the previous page or undefined for the first page.
    * @param limit Number of rows
    */
-  findBySpecialityAndPostCode(
+  async findBySpecialityAndPostCode(
     type: string,
     spec: string,
     firstCode: string,
     lastCode: string,
+    startKey?: string,
+    startDocumentId?: string,
     limit?: number
   ): Promise<PaginatedListHealthcareParty> {
-    let _body = null
-
     const _url =
       this.host +
-      `/hcparty/bySpecialityAndPostCode/${encodeURIComponent(String(type))}/${encodeURIComponent(String(spec))}/${encodeURIComponent(
-        String(firstCode)
-      )}/to/${encodeURIComponent(String(lastCode))}` +
+      `/hcparty/bySpecialityAndPostCode/${encodeURIComponent(type)}/${encodeURIComponent(spec)}/${encodeURIComponent(
+        firstCode
+      )}/to/${encodeURIComponent(lastCode)}` +
       '?ts=' +
       new Date().getTime() +
-      (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
+      +(!!startKey ? `&startKey=${encodeURIComponent(startKey)}` : '') +
+      (!!startDocumentId ? `&startDocumentId=${encodeURIComponent(startDocumentId)}` : '') +
+      (!!limit ? `&limit=${limit}` : '')
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListHealthcareParty(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
@@ -247,7 +251,7 @@ export class IccHcpartyApi {
    * @param limit Number of rows
    * @param desc Descending
    */
-  findBySsinOrNihii(
+  async findBySsinOrNihii(
     searchValue: string,
     startKey?: string,
     startDocumentId?: string,

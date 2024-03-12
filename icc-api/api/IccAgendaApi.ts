@@ -15,6 +15,7 @@ import { DocIdentifier } from '../model/DocIdentifier'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 import { ListOfIds } from '../model/ListOfIds'
+import { PaginatedListAgenda } from '../model/PaginatedListAgenda'
 
 export class IccAgendaApi {
   host: string
@@ -113,16 +114,36 @@ export class IccAgendaApi {
   }
 
   /**
+   * @deprecated use {@link getAgendasWithPagination} instead.
    *
    * @summary Gets all agendas
    */
-  getAgendas(): Promise<Array<Agenda>> {
-    let _body = null
-
-    const _url = this.host + `/agenda` + '?ts=' + new Date().getTime()
+  async getAgendas(): Promise<Array<Agenda>> {
+    const _url = this.host + `/agenda` + '?ts=' + new Date().getTime() + '&limit=1000000'
     let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new Agenda(it)))
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListAgenda(doc.body as JSON).rows ?? [])
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary gets all agendas with pagination.
+   *
+   * @param startDocumentId the startDocumentId provided by the previous page or null if it's the first page.
+   * @param limit the size of the page
+   * @return a promise that will resolve in a PaginatedListAgenda.
+   */
+  async getAgendasWithPagination(startDocumentId?: string, limit?: number): Promise<PaginatedListAgenda> {
+    const _url =
+      this.host +
+      `/agenda` +
+      '?ts=' +
+      new Date().getTime() +
+      (!!startDocumentId ? `&startDocumentId=${encodeURIComponent(startDocumentId)}` : '') +
+      (!!limit ? `&limit=${limit}` : '')
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListAgenda(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 

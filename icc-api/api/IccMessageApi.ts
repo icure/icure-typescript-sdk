@@ -203,7 +203,6 @@ export class IccMessageApi {
   }
 
   /**
-   *
    * @summary List messages found By Healthcare Party and secret foreign keys.
    * @param body
    */
@@ -220,7 +219,7 @@ export class IccMessageApi {
   }
 
   /**
-   * Keys must be delimited by coma
+   * Keys must be delimited by commas.
    * @summary List messages found By Healthcare Party and secret foreign keys.
    * @param secretFKeys
    */
@@ -236,6 +235,33 @@ export class IccMessageApi {
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Message(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary List messages found for the current healthcare party and a single secret foreign key.
+   * @param secretFKey the secret foreign key.
+   * @param startKey the startKey provided by the previous page or undefined for the first page.
+   * @param startDocumentId the startDocumentId provided by the previous page or undefined for the first page.
+   * @param limit the number of elements that the page should contain.
+   * @return a promise that will resolve in a PaginatedListMessage.
+   */
+  async findMessagesByHCPartyPatientForeignKey(
+    secretFKey: string,
+    startKey?: string,
+    startDocumentId?: string,
+    limit?: number
+  ): Promise<PaginatedListMessage> {
+    const _url =
+      this.host +
+      `/message/byHcPartySecretForeignKeys?ts=${new Date().getTime()}` +
+      `&secretFKey=${encodeURIComponent(secretFKey)}` +
+      (!!startKey ? `&startKey=${encodeURIComponent(startKey)}` : '') +
+      (!!startDocumentId ? `&startDocumentId=${encodeURIComponent(startDocumentId)}` : '') +
+      (!!limit ? `&limit=${limit}` : '')
+    const headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListMessage(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 

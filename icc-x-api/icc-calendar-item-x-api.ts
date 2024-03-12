@@ -16,6 +16,7 @@ import { EncryptedFieldsManifest, EntityWithDelegationTypeName, parseEncryptedFi
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
+import { PaginatedListCalendarItem } from '../icc-api/model/PaginatedListCalendarItem'
 
 export class IccCalendarItemXApi extends IccCalendarItemApi implements EncryptedEntityXApi<models.CalendarItem> {
   i18n: any = i18n
@@ -166,11 +167,65 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
     throw new Error('Cannot call a method that must en/decrypt a calendar item without providing a user for de/encryption')
   }
 
-  getCalendarItemsWithUser(user: models.User): Promise<Array<CalendarItem> | any> {
+  /**
+   * @deprecated use {@link getCalendarItemsWithPaginationWithUser} instead.
+   */
+  async getCalendarItemsWithUser(user: models.User): Promise<Array<CalendarItem> | any> {
     return super.getCalendarItems().then((calendarItems) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, calendarItems))
   }
 
   getCalendarItems(): never {
+    throw new Error('Cannot call a method that must en/decrypt a calendar item without providing a user for de/encryption')
+  }
+
+  async getCalendarItemsWithPaginationWithUser(user: models.User, startDocumentId?: string, limit?: number): Promise<PaginatedListCalendarItem> {
+    return super.getCalendarItemsWithPagination(startDocumentId, limit).then((calendarItems) =>
+      this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, calendarItems.rows ?? []).then(
+        (decryptedItems) =>
+          new PaginatedListCalendarItem({
+            rows: decryptedItems,
+            nextKeyPair: calendarItems.nextKeyPair,
+          })
+      )
+    )
+  }
+
+  getCalendarItemsWithPagination(startDocumentId?: string, limit?: number): never {
+    throw new Error('Cannot call a method that must en/decrypt a calendar item without providing a user for de/encryption')
+  }
+
+  /**
+   * @deprecated use {@link findCalendarItemsByRecurrenceIdWithPaginationWithUser} instead.
+   */
+  async findCalendarItemsByRecurrenceIdWithUser(user: models.User, recurrenceId: string): Promise<Array<CalendarItem> | any> {
+    return super
+      .findCalendarItemsByRecurrenceId(recurrenceId)
+      .then((calendarItems) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, calendarItems))
+  }
+
+  findCalendarItemsByRecurrenceId(recurrenceId: string): never {
+    throw new Error('Cannot call a method that must en/decrypt a calendar item without providing a user for de/encryption')
+  }
+
+  async findCalendarItemsByRecurrenceIdWithPaginationWithUser(
+    user: models.User,
+    recurrenceId: string,
+    startKey?: string,
+    startDocumentId?: string,
+    limit?: number
+  ): Promise<PaginatedListCalendarItem> {
+    return super.findCalendarItemsByRecurrenceIdWithPagination(recurrenceId, startKey, startDocumentId, limit).then((calendarItems) =>
+      this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, calendarItems.rows ?? []).then(
+        (decryptedItems) =>
+          new PaginatedListCalendarItem({
+            rows: decryptedItems,
+            nextKeyPair: calendarItems.nextKeyPair,
+          })
+      )
+    )
+  }
+
+  findCalendarItemsByRecurrenceIdWithPagination(recurrenceId: string, startKey?: string, startDocumentId?: string, limit?: number): never {
     throw new Error('Cannot call a method that must en/decrypt a calendar item without providing a user for de/encryption')
   }
 

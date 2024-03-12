@@ -216,7 +216,7 @@ export class IccInvoiceApi {
   }
 
   /**
-   * Keys have to delimited by coma
+   * Keys have to delimited by commas.
    * @summary List invoices found By Healthcare Party and secret foreign patient keys.
    * @param hcPartyId
    * @param secretFKeys
@@ -234,6 +234,37 @@ export class IccInvoiceApi {
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary List invoices found By Healthcare Party and a single secret foreign patient keys with pagination.
+   * @param hcPartyId the healthcare party id.
+   * @param secretFKey the secret foreign key.
+   * @param startKey the startKey provided by the previous page or undefined for the first page.
+   * @param startDocumentId the startDocumentId provided by the previous page or undefined for the first page.
+   * @param limit the number of elements that the page should contain.
+   * @return a promise that will resolve in a PaginatedListInvoice.
+   */
+  async findInvoicesByHCPartyPatientForeignKey(
+    hcPartyId: string,
+    secretFKey: string,
+    startKey?: string,
+    startDocumentId?: string,
+    limit?: number
+  ): Promise<PaginatedListInvoice> {
+    const _url =
+      this.host +
+      `/invoice/byHcPartySecretForeignKey?ts=${new Date().getTime()}` +
+      '&hcPartyId=' +
+      encodeURIComponent(hcPartyId) +
+      `&secretFKey=${encodeURIComponent(secretFKey)}` +
+      (!!startKey ? `&startKey=${encodeURIComponent(startKey)}` : '') +
+      (!!startDocumentId ? `&startDocumentId=${encodeURIComponent(startDocumentId)}` : '') +
+      (!!limit ? `&limit=${limit}` : '')
+    const headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListInvoice(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 
