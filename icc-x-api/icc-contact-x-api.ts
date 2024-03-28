@@ -520,22 +520,36 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     )
   }
 
-  decryptServices(hcpartyId: string, svcs: Array<models.Service>, keys?: { key: CryptoKey; raw: string }[]): Promise<Array<models.Service>> {
-    const contactKeysCache: { [contactId: string]: { key: CryptoKey; raw: string }[] } = {}
-    return Promise.all(
-      svcs.map(async (svc) => {
-        let currentKeys = keys ?? (svc.contactId ? contactKeysCache[svc.contactId!] : undefined)
-        if (!currentKeys) {
-          const decryptedKeys = await this.crypto.xapi.decryptAndImportAllDecryptionKeys({ entity: svc, type: EntityWithDelegationTypeName.Contact })
-          if (svc.contactId) {
-            contactKeysCache[svc.contactId!] = decryptedKeys
-          }
-          currentKeys = decryptedKeys
-        }
+  decryptServices(hcpartyId: string, svcs: Array<models.Service>): Promise<Array<models.Service>> {
+    return this.doDecryptServices(svcs, {})
+  }
 
+  private async doDecryptServices(
+    svcs: Array<models.Service>,
+    initialKeysCache: { [contactId: string]: { key: CryptoKey; raw: string }[] }
+  ): Promise<Array<models.Service>> {
+    const contactIdToService = Object.fromEntries(svcs.flatMap((svc) => (svc.contactId ? [[svc.contactId, svc]] : [])))
+    const keysCache = Object.fromEntries(
+      await Promise.all(
+        Object.entries(contactIdToService).map(async ([contactId, service]) => {
+          const initial = initialKeysCache[contactId]
+          const keys = !initial
+            ? await this.crypto.xapi.decryptAndImportAllDecryptionKeys({ entity: service, type: EntityWithDelegationTypeName.Contact })
+            : initial
+          return [contactId, keys] as [string, { key: CryptoKey; raw: string }[]]
+        })
+      )
+    )
+    return await Promise.all(
+      svcs.map(async (svc) => {
+        const cachedKeys = keysCache[svc.contactId!]
+        const keys = !cachedKeys
+          ? // Fallback in case for some reason the service is not associated with a contact
+            await this.crypto.xapi.decryptAndImportAllDecryptionKeys({ entity: svc, type: EntityWithDelegationTypeName.Contact })
+          : cachedKeys
         return new Service(
           await decryptObject(svc, async (encrypted) => {
-            return (await this.crypto.xapi.tryDecryptJson(currentKeys!, encrypted, false)) ?? {}
+            return (await this.crypto.xapi.tryDecryptJson(keys!, encrypted, false)) ?? {}
           })
         )
       })
