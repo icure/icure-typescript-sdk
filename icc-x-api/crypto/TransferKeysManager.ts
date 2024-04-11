@@ -86,7 +86,11 @@ export class TransferKeysManager {
   // Result only includes the acyclic label, not the full group
   private transferKeysCandidatesFp(keyToFp: string, graph: StronglyConnectedGraph): string[] {
     return Object.entries(reachSetsAcyclic(graph.acyclicGraph))
-      .filter(([from, reachable]) => from != keyToFp && !reachable.has(keyToFp))
+      .filter(([from, reachable]) => {
+        const currGroup = graph.acyclicLabelToGroup[from] ?? [from]
+        const reachableOriginal = new Set(Array.from(reachable).flatMap((x) => graph.acyclicLabelToGroup[x] ?? [x]))
+        return !currGroup.includes(keyToFp) && !reachableOriginal.has(keyToFp)
+      })
       .map((x) => x[0])
   }
 
