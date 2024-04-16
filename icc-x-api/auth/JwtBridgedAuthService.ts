@@ -6,6 +6,7 @@ import Header = XHR.Header
 import { a2b } from '../utils'
 import { AuthenticationResponse } from '../../icc-api/model/AuthenticationResponse'
 import XHRError = XHR.XHRError
+import { JwtError } from './JwtError'
 
 /**
  * Differs from JwtAuthService in that it can create new refresh tokens if the old one is expired
@@ -33,20 +34,40 @@ export class JwtBridgedAuthService implements AuthService {
 
   async getJWT(): Promise<string | undefined> {
     return this._currentPromise
+      .then(
+        ({ authJwt, refreshJwt }) => ({ authJwt, refreshJwt }),
+        (e: Error) => {
+          if (e instanceof JwtError) {
+            const wrappedError = e.reason as any
+            if (!!wrappedError.statusCode && wrappedError.statusCode >= 400 && wrappedError.statusCode < 500) {
+              return { authJwt: undefined, refreshJwt: undefined }
+            } else {
+              return { authJwt: e.jwt, refreshJwt: e.refreshJwt }
+            }
+          } else {
+            return { authJwt: undefined, refreshJwt: undefined }
+          }
+        }
+      )
       .then(({ authJwt, refreshJwt }) => {
         if (!authJwt || this._isJwtInvalidOrExpired(authJwt)) {
           // If it does not have the JWT, tries to get it
           // If the JWT is expired, tries to refresh it
 
-          this._currentPromise = this._refreshAuthJwt(refreshJwt).then((updatedTokens) => {
-            // If here the token is null,
-            // it goes in a suspension status
-            if (!updatedTokens.authJwt) {
-              throw new Error('Your iCure back-end version does not support JWT authentication')
-            }
+          this._currentPromise = this._refreshAuthJwt(refreshJwt).then(
+            (updatedTokens) => {
+              // If here the token is null,
+              // it goes in a suspension status
+              if (!updatedTokens.authJwt) {
+                throw new Error('Your iCure back-end version does not support JWT authentication')
+              }
 
-            return updatedTokens
-          })
+              return updatedTokens
+            },
+            (e: Error) => {
+              throw new JwtError(authJwt, refreshJwt, 'There was an error while refreshing the token, please re-instantiate the API or try again.', e)
+            }
+          )
         } else if (!!this._error) {
           throw this._error
         }
