@@ -363,4 +363,37 @@ export class IccCalendarItemApi {
       .then((doc) => (doc.body as Array<JSON>).map((x) => new MinimalEntityBulkShareResult(x)))
       .catch((err) => this.handleError(err))
   }
+
+  /**
+   * @summary List CalendarItem ids by data owner and a set of secret foreign key. The ids will be sorted by CalendarItem startTime, in ascending or descending
+   * order according to the specified parameter value.
+   *
+   * @param dataOwnerId the data owner id.
+   * @param secretFKeys an array of secret foreign keys.
+   * @param startDate a timestamp in epoch milliseconds. If undefined, all the calendar item ids since the beginning of time will be returned.
+   * @param endDate a timestamp in epoch milliseconds. If undefined, all the calendar item ids until the end of time will be returned.
+   * @param descending whether to return the ids ordered in ascending or descending order by CalendarItem startTime
+   * @return a promise that will resolve in an Array of CalendarItem ids.
+   */
+  async findCalendarItemIdsByDataOwnerPatientStartTime(
+    dataOwnerId: string,
+    secretFKeys: string[],
+    startDate?: number,
+    endDate?: number,
+    descending?: boolean
+  ): Promise<string[]> {
+    const _url =
+      this.host +
+      `/calendarItem/byDataOwnerPatientStartTime?ts=${new Date().getTime()}` +
+      '&dataOwnerId=' +
+      encodeURIComponent(dataOwnerId) +
+      (!!startDate ? `&startDate=${encodeURIComponent(startDate)}` : '') +
+      (!!endDate ? `&endDate=${encodeURIComponent(endDate)}` : '') +
+      (!!descending ? `&descending=${descending}` : '')
+    const headers = (await this.headers).filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    const body = new ListOfIds({ ids: secretFKeys })
+    return XHR.sendCommand('POST', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
+      .catch((err) => this.handleError(err))
+  }
 }

@@ -238,33 +238,35 @@ export class IccInvoiceApi {
   }
 
   /**
-   * @summary List invoices found By Healthcare Party and a single secret foreign patient keys with pagination.
-   * @param hcPartyId the healthcare party id.
-   * @param secretFKey the secret foreign key.
-   * @param startKey the startKey provided by the previous page or undefined for the first page.
-   * @param startDocumentId the startDocumentId provided by the previous page or undefined for the first page.
-   * @param limit the number of elements that the page should contain.
-   * @return a promise that will resolve in a PaginatedListInvoice.
+   * @summary List Invoice ids by data owner and a set of secret foreign key. The ids will be sorted by Invoice invoiceDate, in ascending or descending
+   * order according to the specified parameter value.
+   *
+   * @param dataOwnerId the data owner id.
+   * @param secretFKeys an array of secret foreign keys.
+   * @param startDate a timestamp in epoch milliseconds. If undefined, all the invoice ids since the beginning of time will be returned.
+   * @param endDate a timestamp in epoch milliseconds. If undefined, all the invoice ids until the end of time will be returned.
+   * @param descending whether to return the ids ordered in ascending or descending order by Invoice invoiceDate.
+   * @return a promise that will resolve in an Array of Invoice ids.
    */
-  async findInvoicesByHCPartyPatientForeignKey(
-    hcPartyId: string,
-    secretFKey: string,
-    startKey?: string,
-    startDocumentId?: string,
-    limit?: number
-  ): Promise<PaginatedListInvoice> {
+  async findInvoiceIdsByDataOwnerPatientInvoiceDate(
+    dataOwnerId: string,
+    secretFKeys: string[],
+    startDate?: number,
+    endDate?: number,
+    descending?: boolean
+  ): Promise<string[]> {
     const _url =
       this.host +
-      `/invoice/byHcPartySecretForeignKey?ts=${new Date().getTime()}` +
-      '&hcPartyId=' +
-      encodeURIComponent(hcPartyId) +
-      `&secretFKey=${encodeURIComponent(secretFKey)}` +
-      (!!startKey ? `&startKey=${encodeURIComponent(startKey)}` : '') +
-      (!!startDocumentId ? `&startDocumentId=${encodeURIComponent(startDocumentId)}` : '') +
-      (!!limit ? `&limit=${limit}` : '')
-    const headers = await this.headers
-    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new PaginatedListInvoice(doc.body as JSON))
+      `/invoice/byDataOwnerPatientInvoiceDate?ts=${new Date().getTime()}` +
+      '&dataOwnerId=' +
+      encodeURIComponent(dataOwnerId) +
+      (!!startDate ? `&startDate=${encodeURIComponent(startDate)}` : '') +
+      (!!endDate ? `&endDate=${encodeURIComponent(endDate)}` : '') +
+      (!!descending ? `&descending=${descending}` : '')
+    const headers = (await this.headers).filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    const body = new ListOfIds({ ids: secretFKeys })
+    return XHR.sendCommand('POST', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
       .catch((err) => this.handleError(err))
   }
 

@@ -371,36 +371,6 @@ export class IccContactApi {
   }
 
   /**
-   * @summary Get a list of contacts found by Healthcare Party and a patient foreign key with pagination.
-   * @param hcPartyId the id of the healthcare party.
-   * @param patientForeignKey the secret foreign key,
-   * @param startKey the startKey provided by the previous page or undefined for the first page.
-   * @param startDocumentId the startDocumentId provided by the previous page or undefined for the first page.
-   * @param limit the number of elements that the page should contain.
-   * @return a promise that will resolve in a PaginatedListContact.
-   */
-  async findContactsByHCPartyPatientForeignKey(
-    hcPartyId: string,
-    patientForeignKey: string,
-    startKey?: string,
-    startDocumentId?: string,
-    limit?: number
-  ): Promise<PaginatedListContact> {
-    const _url =
-      this.host +
-      `/contact/byHcPartyPatientForeignKey?ts=${new Date().getTime()}` +
-      `&hcPartyId=${encodeURIComponent(hcPartyId)}` +
-      `&patientForeignKey=${encodeURIComponent(patientForeignKey)}` +
-      (!!startKey ? `&startKey=${encodeURIComponent(startKey)}` : '') +
-      (!!startDocumentId ? `&startDocumentId=${encodeURIComponent(startDocumentId)}` : '') +
-      (!!limit ? `&limit=${limit}` : '')
-    const headers = await this.headers
-    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new PaginatedListContact(doc.body as JSON))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
    * Keys must be delimited by coma
    * @summary List contacts found By Healthcare Party and secret foreign keys.
    * @param body
@@ -724,7 +694,7 @@ export class IccContactApi {
   }
 
   /**
-   * Keys must be delimited by coma
+   * Keys must be delimited by comma
    * @summary Update delegations in healthElements.
    * @param body
    */
@@ -737,6 +707,39 @@ export class IccContactApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Contact(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary List Contact ids by data owner and a set of secret foreign key. The ids will be sorted by Contact openingDate, in ascending or descending
+   * order according to the specified parameter value.
+   *
+   * @param dataOwnerId the data owner id.
+   * @param secretFKeys an array of secret foreign keys.
+   * @param startDate a timestamp in epoch milliseconds. If undefined, all the contact ids since the beginning of time will be returned.
+   * @param endDate a timestamp in epoch milliseconds. If undefined, all the contact ids until the end of time will be returned.
+   * @param descending whether to return the ids ordered in ascending or descending order by Contact openingDate
+   * @return a promise that will resolve in an Array of Contact ids.
+   */
+  async findContactIdsByDataOwnerPatientOpeningDate(
+    dataOwnerId: string,
+    secretFKeys: string[],
+    startDate?: number,
+    endDate?: number,
+    descending?: boolean
+  ): Promise<string[]> {
+    const _url =
+      this.host +
+      `/contact/byDataOwnerPatientOpeningDate?ts=${new Date().getTime()}` +
+      '&dataOwnerId=' +
+      encodeURIComponent(dataOwnerId) +
+      (!!startDate ? `&startDate=${encodeURIComponent(startDate)}` : '') +
+      (!!endDate ? `&endDate=${encodeURIComponent(endDate)}` : '') +
+      (!!descending ? `&descending=${descending}` : '')
+    const headers = (await this.headers).filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    const body = new ListOfIds({ ids: secretFKeys })
+    return XHR.sendCommand('POST', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
       .catch((err) => this.handleError(err))
   }
 

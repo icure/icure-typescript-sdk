@@ -2,7 +2,7 @@ import { IccAuthApi, IccMessageApi } from '../icc-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 
 import * as models from '../icc-api/model/models'
-import { MaintenanceTask, Message, MessagesReadStatusUpdate, PaginatedListMessage, Patient, User } from '../icc-api/model/models'
+import { Message, MessagesReadStatusUpdate, PaginatedListMessage, Patient, User } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
