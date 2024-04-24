@@ -1,5 +1,5 @@
 import { describe } from 'mocha'
-import { CryptoPrimitives } from '../../../icc-x-api/crypto/CryptoPrimitives'
+import { CryptoPrimitives, CryptoPrimitivesImpl } from '../../../icc-x-api/crypto/CryptoPrimitives'
 import { webcrypto } from 'crypto'
 import { FakeEncryptionKeysManager } from '../../utils/FakeEncryptionKeysManager'
 import { SecureDelegationsSecurityMetadataDecryptor } from '../../../icc-x-api/crypto/SecureDelegationsSecurityMetadataDecryptor'
@@ -28,7 +28,7 @@ import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionInternal
 import EntryUpdateTypeEnum = EntitySharedMetadataUpdateRequest.EntryUpdateTypeEnum
 
 describe('Secure delegations manager', async function () {
-  const primitives = new CryptoPrimitives(webcrypto as any)
+  const primitives = new CryptoPrimitivesImpl(webcrypto as any)
   let selfId: string
   let selfKeyFp: string
   let selfKeypair: KeyPair<CryptoKey>

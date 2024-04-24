@@ -11,7 +11,7 @@ import {
   TestUtils,
 } from '../../utils/test_utils'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
-import { hex2ua, IcureApi, RSAUtils, ShaVersion } from '../../../icc-x-api'
+import { hex2ua, IcureApi, RSAUtils, RSAUtilsImpl, ShaVersion } from '../../../icc-x-api'
 import * as chaiAsPromised from 'chai-as-promised'
 import { expect, use as chaiUse } from 'chai'
 import { entities } from './entities-crud-test-interface'
@@ -51,7 +51,7 @@ describe('CRUD Test', () => {
     const { api, credentials, user } = await createNewHcpApi(env)
     if (!isLiteTest()) await masterApi.userApi.setRoles(user.id!, ['BASIC_USER'])
 
-    const RSA = new RSAUtils(webcrypto as any)
+    const RSA = new RSAUtilsImpl(webcrypto as any)
     const keys = {
       publicKey: await RSA.importKey('spki', hex2ua(credentials.publicKey), ['encrypt'], ShaVersion.Sha1),
       privateKey: await RSA.importKey('pkcs8', hex2ua(credentials.privateKey), ['decrypt'], ShaVersion.Sha1),

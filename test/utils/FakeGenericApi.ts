@@ -1,10 +1,10 @@
 import * as _ from 'lodash'
-import { CryptoPrimitives } from '../../icc-x-api/crypto/CryptoPrimitives'
+import { CryptoPrimitives, CryptoPrimitivesImpl } from '../../icc-x-api/crypto/CryptoPrimitives'
 import { webcrypto } from 'crypto'
 
 export class FakeGenericApi<T extends { id?: string; rev?: string }> {
   private readonly data: Map<string, T> = new Map()
-  private readonly primitives: CryptoPrimitives = new CryptoPrimitives(webcrypto as any)
+  private readonly primitives: CryptoPrimitives = new CryptoPrimitivesImpl(webcrypto as any)
 
   createObject(obj: T): T {
     if (!obj.id) throw new Error(`New object should have id`)

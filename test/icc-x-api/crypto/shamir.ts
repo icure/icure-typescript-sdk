@@ -2,7 +2,7 @@ import 'isomorphic-fetch'
 import { ShamirClass } from '../../../icc-x-api/crypto/shamir'
 import { expect } from 'chai'
 import 'mocha'
-import { IcureApi, ShaVersion, ua2hex } from '../../../icc-x-api'
+import { IcureApi, RSAUtilsImpl, ShaVersion, ua2hex } from '../../../icc-x-api'
 import {
   createHcpHierarchyApis,
   getEnvironmentInitializer,
@@ -45,7 +45,7 @@ describe('Shamir split', () => {
   })
 
   it('should be able to split and recombine a private key', async () => {
-    const rsa = new RSAUtils(crypto)
+    const rsa = new RSAUtilsImpl(crypto)
     const key = ua2hex(await rsa.exportKey((await rsa.generateKeyPair(ShaVersion.Sha256)).privateKey, 'pkcs8'))
     const shamir = new ShamirClass(crypto)
     const splits = shamir.share(key, 4, 3)

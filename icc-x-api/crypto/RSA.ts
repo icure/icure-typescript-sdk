@@ -10,7 +10,137 @@ export enum ShaVersion {
   Sha256 = 'sha-256',
 }
 
-export class RSAUtils {
+export interface RSAUtils {
+  /**
+   * Generates a key pair for encryption/decryption of data.
+   * @param shaVersion the version of the SHA algorithm to use.
+   */
+  generateKeyPair(shaVersion: ShaVersion): Promise<KeyPair<CryptoKey>>
+
+  /**
+   * Generates a key pair for signing data and signature verification.
+   */
+  generateSignatureKeyPair(): Promise<KeyPair<CryptoKey>>
+
+  /**
+   *
+   * 'JWK': Json Web key (ref. http://tools.ietf.org/html/draft-ietf-jose-json-web-key-11)
+   * 'spki': for private key
+   * 'pkcs8': for private Key
+   *
+   * @param keyPair is {publicKey: CryptoKey, privateKey: CryptoKey}
+   * @param privKeyFormat will be 'pkcs8' or 'jwk'
+   * @param pubKeyFormat will be 'spki' or 'jwk'
+   * @returns {Promise} will the AES Key
+   */
+  exportKeys(keyPair: KeyPair<CryptoKey>, privKeyFormat: 'jwk', pubKeyFormat: 'jwk'): Promise<KeyPair<JsonWebKey>>
+
+  exportKeys(keyPair: KeyPair<CryptoKey>, privKeyFormat: 'pkcs8', pubKeyFormat: 'spki'): Promise<KeyPair<ArrayBuffer>>
+
+  exportKeys(keyPair: KeyPair<CryptoKey>, privKeyFormat: string, pubKeyFormat: string): Promise<KeyPair<JsonWebKey | ArrayBuffer>>
+
+  /**
+   *  Format:
+   *
+   * 'JWK': Json Web key (ref. http://tools.ietf.org/html/draft-ietf-jose-json-web-key-11)
+   * 'spki': for private key
+   * 'pkcs8': for private Key
+   *
+   * @param cryptoKey public or private
+   * @param format either 'jwk' or 'spki' or 'pkcs8'
+   * @returns {Promise|*} will be RSA key (public or private)
+   */
+  exportKey(cryptoKey: CryptoKey, format: 'jwk'): Promise<JsonWebKey>
+
+  exportKey(cryptoKey: CryptoKey, format: 'spki'): Promise<ArrayBuffer>
+
+  exportKey(cryptoKey: CryptoKey, format: 'pkcs8'): Promise<ArrayBuffer>
+
+  exportKey(cryptoKey: CryptoKey, format: string): Promise<JsonWebKey | ArrayBuffer>
+
+  /**
+   *
+   * @param publicKey (CryptoKey)
+   * @param plainData (Uint8Array)
+   */
+  encrypt(publicKey: CryptoKey, plainData: Uint8Array): Promise<ArrayBuffer>
+
+  /**
+   *
+   * @param privateKey (CryptoKey)
+   * @param encryptedData (Uint8Array)
+   */
+  decrypt(privateKey: CryptoKey, encryptedData: Uint8Array): Promise<ArrayBuffer>
+
+  /**
+   *
+   * @param format 'jwk', 'spki', or 'pkcs8'
+   * @param keydata should be the key data based on the format.
+   * @param keyUsages Array of usages. For example, ['encrypt'] for public key.
+   * @param hashAlgorithm 'sha-1' or 'sha-256'
+   * @returns {*}
+   */
+  importKey(format: string, keydata: JsonWebKey | ArrayBuffer, keyUsages: KeyUsage[], hashAlgorithm: ShaVersion): Promise<CryptoKey>
+
+  importSignatureKey(format: 'jwk' | 'pkcs8', keydata: JsonWebKey | ArrayBuffer): Promise<CryptoKey>
+
+  importVerificationKey(format: 'jwk' | 'spki', keydata: JsonWebKey | ArrayBuffer): Promise<CryptoKey>
+
+  paramsForCreationOrImport(shaVersion: ShaVersion): any
+
+  /**
+   *
+   * @param format 'jwk' or 'pkcs8'
+   * @param keydata should be the key data based on the format.
+   * @param hashAlgorithm 'sha-1' or 'sha-256'
+   * @returns {*}
+   */
+  importPrivateKey(format: string, keydata: JsonWebKey | ArrayBuffer, hashAlgorithm: ShaVersion): Promise<CryptoKey>
+
+  /**
+   *
+   * @param privateKeyFormat 'jwk' or 'pkcs8'
+   * @param privateKeydata    should be the key data based on the format.
+   * @param publicKeyFormat 'jwk' or 'spki'
+   * @param publicKeyData should be the key data based on the format.
+   * @param hashAlgorithm 'sha-1' or 'sha-256'
+   * @returns {Promise|*}
+   */
+  importKeyPair(
+    privateKeyFormat: string,
+    privateKeydata: JsonWebKey | ArrayBuffer,
+    publicKeyFormat: string,
+    publicKeyData: JsonWebKey | ArrayBuffer,
+    hashAlgorithm: ShaVersion
+  ): Promise<KeyPair<CryptoKey>>
+
+  /**
+   * Tries to encrypt then decrypt data using a keypair. If both operations succeed without throwing an error and the decrypted data matches the
+   * original data returns true, else false.
+   * @param keyPair a key pair.
+   * @return if the key pair could be successfully used to encrypt then decrypt data.
+   */
+  checkKeyPairValidity(keyPair: KeyPair<CryptoKey>): Promise<boolean>
+
+  /**
+   * Generates a signature for some data. The signature algorithm used is RSA-PSS with SHA-256.
+   * @param privateKey private key to use for signature
+   * @param data the data to sign
+   * @return the signature.
+   */
+  sign(privateKey: CryptoKey, data: ArrayBuffer): Promise<ArrayBuffer>
+
+  /**
+   * Verifies if a signature matches the data. The signature algorithm used is RSA-PSS with sha-256.
+   * @param publicKey public key to use for signature verification.
+   * @param signature the signature to verify
+   * @param data the data that was signed
+   * @return if the signature matches the data and key.
+   */
+  verifySignature(publicKey: CryptoKey, signature: ArrayBuffer, data: ArrayBuffer): Promise<boolean>
+}
+
+export class RSAUtilsImpl implements RSAUtils {
   /********* RSA Config **********/
   //TODO bigger modulus
   //TODO PSS for signing
@@ -155,7 +285,7 @@ export class RSAUtils {
     return this.crypto.subtle.importKey(format as any, keydata as any, this.signatureKeysGenerationParams, extractable, ['verify'])
   }
 
-  private paramsForCreationOrImport(shaVersion: ShaVersion) {
+  paramsForCreationOrImport(shaVersion: ShaVersion) {
     if (shaVersion === 'sha-1') {
       return this.rsaHashedParams
     } else if (shaVersion === 'sha-256') {
@@ -248,4 +378,4 @@ export class RSAUtils {
   }
 }
 
-export const RSA = new RSAUtils()
+export const RSA: RSAUtils = new RSAUtilsImpl()

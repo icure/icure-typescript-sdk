@@ -1,7 +1,16 @@
 import 'isomorphic-fetch'
 import { Api as ApiV6, User as UserV6 } from '@icure/apiV6'
 import { CryptoStrategies as CryptoStrategiesV7, DataOwnerWithType as DataOwnerWithTypeV7, IcureApi as ApiV7, User as UserV7 } from '@icure/apiV7'
-import { EntityWithDelegationTypeName, hex2ua, IcureApi as ApiV8, RSAUtils, ShaVersion, ua2hex } from '../../icc-x-api'
+import {
+  CryptoPrimitivesImpl,
+  EntityWithDelegationTypeName,
+  hex2ua,
+  IcureApi as ApiV8,
+  RSAUtils,
+  RSAUtilsImpl,
+  ShaVersion,
+  ua2hex,
+} from '../../icc-x-api'
 import { getEnvironmentInitializer, setLocalStorage } from '../utils/test_utils'
 import { KeyPair } from '../../icc-x-api/crypto/RSA'
 import { expect } from 'chai'
@@ -58,7 +67,7 @@ function checkEncryptedData(actual: EncryptedData, expected: EncryptedData, actu
 }
 
 setLocalStorage(fetch)
-const cryptoPrimitives = new CryptoPrimitives(webcrypto as any)
+const cryptoPrimitives = new CryptoPrimitivesImpl(webcrypto as any)
 let env: TestVars
 
 class ApiFactoryV6 implements ApiFactory {
@@ -155,7 +164,7 @@ class ApiFactoryV6 implements ApiFactory {
 }
 
 class TestCryptoStrategiesV7 implements CryptoStrategiesV7 {
-  private readonly RSA = new RSAUtils(webcrypto as any)
+  private readonly RSA = new RSAUtilsImpl(webcrypto as any)
   constructor(private readonly key: KeyPair<CryptoKey> | undefined) {}
 
   async generateNewKeyForDataOwner(self: DataOwnerWithTypeV7): Promise<KeyPair<CryptoKey> | boolean> {

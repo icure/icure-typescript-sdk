@@ -58,7 +58,7 @@ import {
   JwtAuthenticationProvider,
   NoAuthenticationProvider,
 } from './auth/AuthenticationProvider'
-import { CryptoPrimitives } from './crypto/CryptoPrimitives'
+import { CryptoPrimitives, CryptoPrimitivesImpl } from './crypto/CryptoPrimitives'
 import { UserEncryptionKeysManager } from './crypto/UserEncryptionKeysManager'
 import { IcureStorageFacade } from './storage/IcureStorageFacade'
 import { DefaultStorageEntryKeysFactory } from './storage/DefaultStorageEntryKeysFactory'
@@ -654,7 +654,7 @@ async function initialiseCryptoWithProvider(
   groupSpecificAuthenticationProvider: AuthenticationProvider,
   params: IcureApiOptions.WithDefaults,
   cryptoStrategies: CryptoStrategies,
-  crypto: Crypto
+  crypto: Crypto | CryptoPrimitives
 ): Promise<CryptoInitialisationInfo> {
   const initialDataOwnerStub = await new IccDataOwnerXApi(
     host,
@@ -686,7 +686,7 @@ async function initialiseCryptoWithProvider(
   const baseRecoveryDataApi = new IccRecoveryDataApi(host, updatedHeaders, groupSpecificAuthenticationProvider, fetchImpl)
   // Crypto initialisation
   const icureStorage = new IcureStorageFacade(params.keyStorage, params.storage, params.entryKeysFactory)
-  const cryptoPrimitives = new CryptoPrimitives(crypto)
+  const cryptoPrimitives = 'AES' in crypto && 'RSA' in crypto && 'HMAC' in crypto ? crypto : new CryptoPrimitivesImpl(crypto)
   const baseExchangeKeysManager = new BaseExchangeKeysManager(cryptoPrimitives, dataOwnerApi, healthcarePartyApi, basePatientApi, deviceApi)
   const baseExchangeDataManager = new BaseExchangeDataManager(exchangeDataApi, dataOwnerApi, cryptoPrimitives, dataOwnerRequiresAnonymousDelegation)
   const keyRecovery = new KeyRecovery(cryptoPrimitives, dataOwnerApi, baseExchangeKeysManager, baseExchangeDataManager)
@@ -1469,7 +1469,7 @@ class IcureApiImpl implements IcureApi {
       switchedProvider,
       this.params,
       this.cryptoStrategies,
-      this.cryptoApi.primitives.crypto
+      this.cryptoApi.primitives
     )
     return new IcureApiImpl(
       cryptoInitInfos,

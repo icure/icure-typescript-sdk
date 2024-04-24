@@ -4,7 +4,7 @@ import {
   ExchangeDataManagerOptionalParameters,
   initialiseExchangeDataManagerForCurrentDataOwner,
 } from '../../../icc-x-api/crypto/ExchangeDataManager'
-import { CryptoPrimitives } from '../../../icc-x-api/crypto/CryptoPrimitives'
+import { CryptoPrimitives, CryptoPrimitivesImpl } from '../../../icc-x-api/crypto/CryptoPrimitives'
 import { webcrypto } from 'crypto'
 import { BaseExchangeDataManager } from '../../../icc-x-api/crypto/BaseExchangeDataManager'
 import { FakeExchangeDataApi } from '../../utils/FakeExchangeDataApi'
@@ -28,7 +28,7 @@ import { IccExchangeDataApi } from '../../../icc-api/api/internal/IccExchangeDat
 setLocalStorage(fetch)
 
 describe('Exchange data manager - unit', async function () {
-  const primitives = new CryptoPrimitives(webcrypto as any)
+  const primitives = new CryptoPrimitivesImpl(webcrypto as any)
   const accessControlSecretUtils = new AccessControlSecretUtils(primitives)
   let selfId: string
   let selfKeyFpV1: string

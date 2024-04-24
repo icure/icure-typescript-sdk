@@ -1,4 +1,4 @@
-import { Apis, IcureApi, ShaVersion, ua2hex } from '../../../icc-x-api'
+import { Apis, CryptoPrimitivesImpl, IcureApi, ShaVersion, ua2hex } from '../../../icc-x-api'
 import { v4 as uuid } from 'uuid'
 import { Patient } from '../../../icc-api/model/Patient'
 import { Contact } from '../../../icc-api/model/Contact'
@@ -100,7 +100,7 @@ const facades: EntityFacades = {
 }
 
 const users: { user: User; password: string }[] = []
-const primitives = new CryptoPrimitives(webcrypto as any)
+const primitives = new CryptoPrimitivesImpl(webcrypto as any)
 let delegateUser: User | undefined = undefined
 let delegateHcp: HealthcareParty | undefined = undefined
 let delegateHcpPassword: string | undefined = undefined

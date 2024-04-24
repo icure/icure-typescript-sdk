@@ -1,4 +1,4 @@
-import { b64Url2ua, ShaVersion } from '../../../icc-x-api'
+import { b64Url2ua, RSAUtilsImpl, ShaVersion } from '../../../icc-x-api'
 import { expect } from 'chai'
 
 import 'mocha'
@@ -19,7 +19,7 @@ describe('ArrayBuffer methods', () => {
     this.timeout(600000)
     const initializer = await getEnvironmentInitializer()
     env = await initializer.execute(getEnvVariables())
-    rsa = new RSAUtils(crypto)
+    rsa = new RSAUtilsImpl(crypto)
   })
 
   describe('truncateTrailingNulls', () => {

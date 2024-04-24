@@ -256,7 +256,7 @@ export class DelegationsDeAnonymization {
     const initialDelegates = [delegationMembersDetails.delegate, delegationMembersDetails.delegator, ...delegates].filter((x) => x != selfDoId)
     const initalisedMapInfo = await this.xapis.entityWithInitialisedEncryptedMetadata<SecureDelegationKeyMap>(
       {
-        id: this.cryptoPrimitives.crypto.randomUUID(),
+        id: this.cryptoPrimitives.randomUuid(),
         delegate: delegationMembersDetails.delegate,
         delegator: delegationMembersDetails.delegator,
         delegationKey: delegationKey,

@@ -1,4 +1,12 @@
-export class HMACUtils {
+export interface HMACUtils {
+  generateKey(): Promise<CryptoKey>
+  exportKey(key: CryptoKey): Promise<ArrayBuffer>
+  importKey(key: ArrayBuffer): Promise<CryptoKey>
+  sign(key: CryptoKey, data: ArrayBuffer): Promise<ArrayBuffer>
+  verify(key: CryptoKey, data: ArrayBuffer, signature: ArrayBuffer): Promise<boolean>
+}
+
+export class HMACUtilsImpl implements HMACUtils {
   private readonly _crypto: Crypto
   private readonly recommendedKeyLengthBytes = 128
   private readonly params: HmacKeyGenParams = {

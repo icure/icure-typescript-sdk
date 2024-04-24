@@ -3,7 +3,7 @@ import { IcureStorageFacade } from '../../../icc-x-api/storage/IcureStorageFacad
 import { TestKeyStorage, TestStorage } from '../../utils/TestStorage'
 import { DefaultStorageEntryKeysFactory } from '../../../icc-x-api/storage/DefaultStorageEntryKeysFactory'
 import { FakeDataOwnerApi } from '../../utils/FakeDataOwnerApi'
-import { CryptoPrimitives } from '../../../icc-x-api/crypto/CryptoPrimitives'
+import { CryptoPrimitives, CryptoPrimitivesImpl } from '../../../icc-x-api/crypto/CryptoPrimitives'
 import { webcrypto } from 'crypto'
 import { DataOwnerTypeEnum } from '../../../icc-api/model/DataOwnerTypeEnum'
 import { ua2hex } from '../../../icc-x-api'
@@ -13,7 +13,7 @@ import { fingerprintV1, fingerprintV2 } from '../../../icc-x-api/crypto/utils'
 describe('SignatureKeysManager', () => {
   it('should be able to store a key pair in local storage and reload it', async () => {
     const iCureStorage = new IcureStorageFacade(new TestKeyStorage(), new TestStorage(), new DefaultStorageEntryKeysFactory())
-    const primitives = new CryptoPrimitives(webcrypto as any)
+    const primitives = new CryptoPrimitivesImpl(webcrypto as any)
     const dataOwnerApi = new FakeDataOwnerApi({ id: primitives.randomUuid(), type: DataOwnerTypeEnum.Hcp })
     const manager1 = new UserSignatureKeysManager(iCureStorage, dataOwnerApi, primitives)
     const pair1 = await manager1.getOrCreateSignatureKeyPair()

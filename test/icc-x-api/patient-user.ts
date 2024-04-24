@@ -1,7 +1,7 @@
 import 'isomorphic-fetch'
 import { expect, use as chaiUse } from 'chai'
 import 'mocha'
-import { Apis, ShaVersion, ua2hex } from '../../icc-x-api'
+import { Apis, RSAUtilsImpl, ShaVersion, ua2hex } from '../../icc-x-api'
 import { IccPatientApi } from '../../icc-api'
 import { User } from '../../icc-api/model/User'
 import { crypto } from '../../node-compat'
@@ -54,7 +54,7 @@ describe('Patient', () => {
       })
     )
 
-    const rsa = new RSAUtils(crypto)
+    const rsa = new RSAUtilsImpl(crypto)
     const keyPair = await rsa.generateKeyPair(ShaVersion.Sha256)
     const { publicKey, privateKey } = keyPair
     const publicKeyHex = ua2hex(await rsa.exportKey(publicKey, 'spki'))

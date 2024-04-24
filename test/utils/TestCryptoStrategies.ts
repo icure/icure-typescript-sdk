@@ -1,5 +1,5 @@
 import { CryptoStrategies } from '../../icc-x-api/crypto/CryptoStrategies'
-import { KeyPair, RSAUtils, ShaVersion } from '../../icc-x-api/crypto/RSA'
+import { KeyPair, RSAUtils, RSAUtilsImpl, ShaVersion } from '../../icc-x-api/crypto/RSA'
 import { hexPublicKeysWithSha1Of, hexPublicKeysWithSha256Of } from '../../icc-x-api/crypto/utils'
 import { webcrypto } from 'crypto'
 import { CryptoPrimitives, hex2ua, ua2hex } from '../../icc-x-api'
@@ -7,7 +7,7 @@ import { CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
 import { DataOwnerWithType } from '../../icc-api/model/DataOwnerWithType'
 
 export class TestCryptoStrategies implements CryptoStrategies {
-  private readonly RSA = new RSAUtils(webcrypto as any)
+  private readonly RSA = new RSAUtilsImpl(webcrypto as any)
   recoverAndVerifyCallsParams: Array<{ dataOwner: DataOwnerWithType; unknownKeys: string[]; unavailableKeys: string[] }[]> = []
 
   constructor(

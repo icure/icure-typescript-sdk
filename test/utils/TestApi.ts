@@ -1,4 +1,4 @@
-import { IcureApi, IcureApiOptions, KeyPair, RSAUtils, ShaVersion } from '../../icc-x-api'
+import { IcureApi, IcureApiOptions, KeyPair, RSAUtils, RSAUtilsImpl, ShaVersion } from '../../icc-x-api'
 import { TestKeyStorage, TestStorage } from './TestStorage'
 import { TestCryptoStrategies } from './TestCryptoStrategies'
 import 'isomorphic-fetch'
@@ -11,7 +11,7 @@ export const TestApi = async function (
   keyPair?: KeyPair<CryptoKey>,
   options: IcureApiOptions = {}
 ): Promise<IcureApi> {
-  const initialisedKeys = keyPair ?? (await new RSAUtils(crypto).generateKeyPair(ShaVersion.Sha256))
+  const initialisedKeys = keyPair ?? (await new RSAUtilsImpl(crypto).generateKeyPair(ShaVersion.Sha256))
   return IcureApi.initialise(
     host,
     {

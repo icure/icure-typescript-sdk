@@ -3,7 +3,7 @@ import { before } from 'mocha'
 import { createHcpHierarchyApis, getEnvironmentInitializer, getTempEmail, setLocalStorage, TestUtils } from '../../utils/test_utils'
 import { webcrypto } from 'crypto'
 import 'isomorphic-fetch'
-import { Apis, EntityWithDelegationTypeName, ShaVersion } from '../../../icc-x-api'
+import { Apis, CryptoPrimitivesImpl, EntityWithDelegationTypeName, ShaVersion } from '../../../icc-x-api'
 import { User } from '../../../icc-api/model/User'
 import { Patient } from '../../../icc-api/model/Patient'
 import { HealthElement } from '../../../icc-api/model/HealthElement'
@@ -44,7 +44,7 @@ const typeCombinations: [DataOwnerType, DataOwnerType][] = [
 let env: TestVars
 let masterApi: Apis
 let masterUser: User
-const primitives = new CryptoPrimitives(webcrypto as any)
+const primitives = new CryptoPrimitivesImpl(webcrypto as any)
 
 describe('Anonymous delegations', () => {
   before(async function () {
