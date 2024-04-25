@@ -14,7 +14,7 @@ let env: TestVars
 let api: IccMedicallocationApi
 const entities: MedicalLocation[] = []
 
-describe('IccArticleApi', () => {
+describe('IccMedicalLocationApi', () => {
   before(async function () {
     this.timeout(600000)
     const initializer = await getEnvironmentInitializer()
@@ -34,8 +34,8 @@ describe('IccArticleApi', () => {
 
   it('Should be able of getting the Medical Locations using the deprecated method', async () => {
     const page = await api.getMedicalLocations()
-    page.forEach((it) => {
-      const existingEntity = entities.find((a) => a.id === it.id)
+    entities.forEach((it) => {
+      const existingEntity = page.find((a) => a.id === it.id)
       expect(existingEntity).not.to.be.undefined
       expect(it.rev).to.be.eq(existingEntity!!.rev!!)
     })
@@ -46,13 +46,13 @@ describe('IccArticleApi', () => {
     expect(firstPage.nextKeyPair).not.to.be.undefined
     expect(firstPage.rows).not.to.be.undefined
 
-    const secondPage = await api.getMedicalLocationsWithPagination(firstPage.nextKeyPair?.startKeyDocId, 6)
+    const secondPage = await api.getMedicalLocationsWithPagination(firstPage.nextKeyPair?.startKeyDocId, 10000)
     expect(secondPage.nextKeyPair).to.be.undefined
     expect(secondPage.rows).not.to.be.undefined
 
     const rows = firstPage.rows!!.concat(secondPage.rows!!)
-    rows.forEach((it) => {
-      const existingEntity = entities.find((a) => a.id === it.id)
+    entities.forEach((it) => {
+      const existingEntity = rows.find((a) => a.id === it.id)
       expect(existingEntity).not.to.be.undefined
       expect(it.rev).to.be.eq(existingEntity!!.rev!!)
     })
