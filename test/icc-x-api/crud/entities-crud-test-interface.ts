@@ -125,6 +125,7 @@ export const entities: { [key: string]: CRUDInterface } = {
   },
   ClassificationTemplate: {
     encryptable: false,
+    skipDenied: true,
     create: async (api: IcureApi, _: Patient) =>
       api.classificationTemplateApi.createClassificationTemplate(new ClassificationTemplate({ id: randomUUID(), label: randomUUID() })),
     share: async (_: IcureApi, __: IcureApi, entity: any) => entity,
