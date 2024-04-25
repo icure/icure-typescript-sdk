@@ -5,7 +5,7 @@ import 'isomorphic-fetch'
 import { Apis, EntityWithDelegationTypeName } from '../../icc-x-api'
 import { assert, expect } from 'chai'
 import { randomUUID } from 'crypto'
-import { getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils } from '../utils/test_utils'
+import { createHcpHierarchyApis, getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { User } from '../../icc-api/model/User'
 import { IccMaintenanceTaskXApi } from '../../icc-x-api'
 import { MaintenanceTask } from '../../icc-api/model/MaintenanceTask'
@@ -70,12 +70,13 @@ describe('icc-x-maintenance-task-api Tests', () => {
     this.timeout(600000)
     const initializer = await getEnvironmentInitializer()
     env = await initializer.execute(getEnvVariables())
+    const hierarchicalHcps = await createHcpHierarchyApis(env)
 
-    apiForHcp1 = await initApi(env, hcp1Username)
+    apiForHcp1 = hierarchicalHcps.grandApi
     hcp1User = await apiForHcp1.userApi.getCurrentUser()
     hcp1 = await apiForHcp1.healthcarePartyApi.getCurrentHealthcareParty()
 
-    apiForHcp2 = await initApi(env, hcp2Username)
+    apiForHcp2 = hierarchicalHcps.parentApi
     hcp2User = await apiForHcp2.userApi.getCurrentUser()
     hcp2 = await apiForHcp2.healthcarePartyApi.getCurrentHealthcareParty()
   })
