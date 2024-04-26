@@ -3,7 +3,7 @@ import { before } from 'mocha'
 import { crypto } from '../../node-compat'
 import { TestApi } from '../utils/TestApi'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
-import { AuthenticationProvider, CryptoPrimitives, CryptoPrimitivesImpl, IccUserXApi, NoAuthenticationProvider } from '../../icc-x-api'
+import { AuthenticationProvider, CryptoPrimitives, WebCryptoPrimitives, IccUserXApi, NoAuthenticationProvider } from '../../icc-x-api'
 import { webcrypto } from 'crypto'
 import { assert, expect } from 'chai'
 import { User } from '../../icc-api/model/User'
@@ -36,7 +36,7 @@ describe('icc-x-user-api Tests', () => {
   })
 
   it('Can get an user by its phoneNumber', async () => {
-    const primitives = new CryptoPrimitivesImpl(webcrypto as any)
+    const primitives = new WebCryptoPrimitives(webcrypto as any)
     const phoneNumber = `+${primitives.randomUuid()}`
 
     const api = await initMasterApi(env)

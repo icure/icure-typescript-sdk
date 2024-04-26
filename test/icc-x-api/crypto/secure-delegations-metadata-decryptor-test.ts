@@ -1,5 +1,5 @@
 import { describe } from 'mocha'
-import { CryptoPrimitives, CryptoPrimitivesImpl } from '../../../icc-x-api/crypto/CryptoPrimitives'
+import { CryptoPrimitives, WebCryptoPrimitives } from '../../../icc-x-api/crypto/CryptoPrimitives'
 import { webcrypto } from 'crypto'
 import { FakeEncryptionKeysManager } from '../../utils/FakeEncryptionKeysManager'
 import { SecureDelegationsSecurityMetadataDecryptor } from '../../../icc-x-api/crypto/SecureDelegationsSecurityMetadataDecryptor'
@@ -17,7 +17,7 @@ import { FakeExchangeDataMapManager } from '../../utils/FakeExchangeDataMapManag
 import AccessLevel = SecureDelegation.AccessLevelEnum
 
 describe('Secure delegations security metadata decryptor', async function () {
-  const primitives = new CryptoPrimitivesImpl(webcrypto as any)
+  const primitives = new WebCryptoPrimitives(webcrypto as any)
   const expectedType: EntityWithDelegationTypeName = EntityWithDelegationTypeName.AccessLog
   const expectedSfks = [primitives.randomUuid(), primitives.randomUuid()]
   let encryptionKeysManager: FakeEncryptionKeysManager
@@ -48,7 +48,7 @@ describe('Secure delegations security metadata decryptor', async function () {
 
   async function initialiseComponents() {
     encryptionKeysManager = await FakeEncryptionKeysManager.create(primitives, [], [await primitives.RSA.generateKeyPair(ShaVersion.Sha256)])
-    exchangeData = new FakeDecryptionExchangeDataManager(expectedType, expectedSfks, new CryptoPrimitivesImpl(webcrypto as any))
+    exchangeData = new FakeDecryptionExchangeDataManager(expectedType, expectedSfks, new WebCryptoPrimitives(webcrypto as any))
     exchangeDataMap = new FakeExchangeDataMapManager()
     secureDelegationsEncryption = new SecureDelegationsEncryption(encryptionKeysManager, primitives)
     decryptor = new SecureDelegationsSecurityMetadataDecryptor(exchangeData, exchangeDataMap, secureDelegationsEncryption, undefined as any) // data owner api not used in these tests

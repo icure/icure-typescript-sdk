@@ -2,7 +2,7 @@ import {
   BasicApis,
   BasicAuthenticationProvider,
   CryptoPrimitives,
-  CryptoPrimitivesImpl,
+  WebCryptoPrimitives,
   hex2ua,
   IcureApi,
   IcureApiOptions,
@@ -150,7 +150,7 @@ export async function createNewHcpApi(env: TestVars): Promise<{
   user: User
 }> {
   const initialisationApi = await testSetupMasterApi(env)
-  const primitives = new CryptoPrimitivesImpl(webcrypto as any)
+  const primitives = new WebCryptoPrimitives(webcrypto as any)
   const credentials = await createHealthcarePartyUser(initialisationApi, `user-${primitives.randomUuid()}`, primitives.randomUuid())
   const storage = await testStorageWithKeys([
     {
@@ -179,7 +179,7 @@ export async function createNewPatientApi(env: TestVars): Promise<{
   user: User
 }> {
   const initialisationApi = await testSetupMasterApi(env)
-  const primitives = new CryptoPrimitivesImpl(webcrypto as any)
+  const primitives = new WebCryptoPrimitives(webcrypto as any)
   const credentials = await createPatientUser(initialisationApi, `user-${primitives.randomUuid()}`, primitives.randomUuid())
   const storage = await testStorageWithKeys([
     {
@@ -228,7 +228,7 @@ export async function createHcpHierarchyApis(
 }> {
   const shaVersion = ShaVersion.Sha1
   const initialisationApi = await testSetupMasterApi(env)
-  const primitives = new CryptoPrimitivesImpl(webcrypto as any)
+  const primitives = new WebCryptoPrimitives(webcrypto as any)
   const grandCredentials = await createHealthcarePartyUser(initialisationApi, `grand-${primitives.randomUuid()}`, primitives.randomUuid())
   const parentCredentials = await createHealthcarePartyUser(initialisationApi, `parent-${primitives.randomUuid()}`, primitives.randomUuid())
   const childCredentials = await createHealthcarePartyUser(initialisationApi, `child-${primitives.randomUuid()}`, primitives.randomUuid())
@@ -386,7 +386,7 @@ export async function createNewHcpWithoutKeyAndParentWithKey(
   childPassword: string
 }> {
   const initialisationApi = await testSetupMasterApi(env)
-  const primitives = new CryptoPrimitivesImpl(webcrypto as any)
+  const primitives = new WebCryptoPrimitives(webcrypto as any)
   const parentCredentials = await createHealthcarePartyUser(initialisationApi, `parent-${primitives.randomUuid()}`, primitives.randomUuid())
   const childUser = uuid() + '@email.com'
   const childPassword = uuid()
@@ -451,7 +451,7 @@ export type UserInManyGroupsDetails = {
   userLogin: string
 }
 export async function createUserInMultipleGroups(env: TestVars): Promise<UserInManyGroupsDetails> {
-  const primitives = new CryptoPrimitivesImpl(webcrypto as any)
+  const primitives = new WebCryptoPrimitives(webcrypto as any)
   const userGroup1Id: string = primitives.randomUuid() // Same username-pw as group 2
   const userGroup2Id: string = primitives.randomUuid() // Same username-pw as group 1
   const userGroup3Id: string = primitives.randomUuid() // Same username as group 1/2, different pw

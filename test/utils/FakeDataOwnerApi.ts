@@ -4,7 +4,7 @@ import { Patient } from '../../icc-api/model/Patient'
 import { Device } from '../../icc-api/model/Device'
 import { HealthcareParty } from '../../icc-api/model/HealthcareParty'
 import { KeyPair } from '../../icc-x-api/crypto/RSA'
-import { CryptoPrimitives, CryptoPrimitivesImpl } from '../../icc-x-api/crypto/CryptoPrimitives'
+import { CryptoPrimitives, WebCryptoPrimitives } from '../../icc-x-api/crypto/CryptoPrimitives'
 import { webcrypto } from 'crypto'
 import { ua2hex } from '../../icc-x-api'
 import { DataOwnerTypeEnum } from '../../icc-api/model/DataOwnerTypeEnum'
@@ -15,7 +15,7 @@ import { User } from '../../icc-api/model/User'
 export class FakeDataOwnerApi extends IccDataOwnerXApi {
   private readonly selfId: string
   private readonly data = new FakeGenericApi<DataOwner & { type: DataOwnerTypeEnum }>()
-  private readonly primitives = new CryptoPrimitivesImpl(webcrypto as any)
+  private readonly primitives = new WebCryptoPrimitives(webcrypto as any)
 
   constructor(self: DataOwner & { type: DataOwnerTypeEnum }, others: (DataOwner & { type: DataOwnerTypeEnum })[] = []) {
     super('fake', {}, null as any, null as any)

@@ -58,7 +58,7 @@ import {
   JwtAuthenticationProvider,
   NoAuthenticationProvider,
 } from './auth/AuthenticationProvider'
-import { CryptoPrimitives, CryptoPrimitivesImpl } from './crypto/CryptoPrimitives'
+import { CryptoPrimitives, WebCryptoPrimitives } from './crypto/CryptoPrimitives'
 import { UserEncryptionKeysManager } from './crypto/UserEncryptionKeysManager'
 import { IcureStorageFacade } from './storage/IcureStorageFacade'
 import { DefaultStorageEntryKeysFactory } from './storage/DefaultStorageEntryKeysFactory'
@@ -531,7 +531,7 @@ export namespace IcureApi {
     host: string,
     authenticationOptions: AuthenticationDetails | AuthenticationProvider,
     cryptoStrategies: CryptoStrategies,
-    crypto: Crypto = typeof window !== 'undefined' ? window.crypto : typeof self !== 'undefined' ? self.crypto : ({} as Crypto),
+    crypto: Crypto | CryptoPrimitives = typeof window !== 'undefined' ? window.crypto : typeof self !== 'undefined' ? self.crypto : ({} as Crypto),
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
@@ -687,7 +687,7 @@ async function initialiseCryptoWithProvider(
   const baseRecoveryDataApi = new IccRecoveryDataApi(host, updatedHeaders, groupSpecificAuthenticationProvider, fetchImpl)
   // Crypto initialisation
   const icureStorage = new IcureStorageFacade(params.keyStorage, params.storage, params.entryKeysFactory)
-  const cryptoPrimitives = 'AES' in crypto && 'RSA' in crypto && 'HMAC' in crypto ? crypto : new CryptoPrimitivesImpl(crypto)
+  const cryptoPrimitives = 'AES' in crypto && 'RSA' in crypto && 'HMAC' in crypto ? crypto : new WebCryptoPrimitives(crypto)
   const baseExchangeKeysManager = new BaseExchangeKeysManager(cryptoPrimitives, dataOwnerApi, healthcarePartyApi, basePatientApi, deviceApi)
   const baseExchangeDataManager = new BaseExchangeDataManager(exchangeDataApi, dataOwnerApi, cryptoPrimitives, dataOwnerRequiresAnonymousDelegation)
   const keyRecovery = new KeyRecovery(cryptoPrimitives, dataOwnerApi, baseExchangeKeysManager, baseExchangeDataManager)
@@ -1494,7 +1494,7 @@ class IcureApiImpl implements IcureApi {
 export const BasicApis = async function (
   host: string,
   authenticationOptions: AuthenticationDetails | AuthenticationProvider,
-  crypto: Crypto = typeof window !== 'undefined' ? window.crypto : typeof self !== 'undefined' ? self.crypto : ({} as Crypto),
+  crypto: Crypto | CryptoPrimitives = typeof window !== 'undefined' ? window.crypto : typeof self !== 'undefined' ? self.crypto : ({} as Crypto),
   fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
     ? window.fetch
     : typeof self !== 'undefined'

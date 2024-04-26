@@ -27,7 +27,7 @@ export interface CryptoPrimitives {
 /**
  * Gives access to cryptographic primitives.
  */
-export class CryptoPrimitivesImpl implements CryptoPrimitives {
+export class WebCryptoPrimitives implements CryptoPrimitives {
   private readonly _rsa: RSAUtils
   private readonly _aes: AESUtils
   private readonly _shamir: ShamirClass
