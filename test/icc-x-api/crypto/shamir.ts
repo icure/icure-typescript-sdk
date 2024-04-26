@@ -1,5 +1,5 @@
 import 'isomorphic-fetch'
-import { ShamirClass } from '../../../icc-x-api/crypto/shamir'
+import { ShamirClass, WebcryptoShamir } from '../../../icc-x-api/crypto/shamir'
 import { expect } from 'chai'
 import 'mocha'
 import { IcureApi, RSAUtilsImpl, ShaVersion, ua2hex } from '../../../icc-x-api'
@@ -40,14 +40,14 @@ setLocalStorage(fetch)
 
 describe('Shamir split', () => {
   it('should return 5 splits', () => {
-    const result = new ShamirClass(crypto).share(data, 5, 3)
+    const result = new WebcryptoShamir(crypto).share(data, 5, 3)
     expect(result.length).to.equal(5)
   })
 
   it('should be able to split and recombine a private key', async () => {
     const rsa = new RSAUtilsImpl(crypto)
     const key = ua2hex(await rsa.exportKey((await rsa.generateKeyPair(ShaVersion.Sha256)).privateKey, 'pkcs8'))
-    const shamir = new ShamirClass(crypto)
+    const shamir = new WebcryptoShamir(crypto)
     const splits = shamir.share(key, 4, 3)
     const combined = shamir.combine([splits[1], splits[0], splits[3]])
     expect(combined).to.equal(key)
@@ -56,13 +56,13 @@ describe('Shamir split', () => {
 
 describe('Shamir combine', () => {
   it('should return combined data from all shares', () => {
-    expect(new ShamirClass(crypto).combine(shares)).to.equal(data)
+    expect(new WebcryptoShamir(crypto).combine(shares)).to.equal(data)
   })
 
   it('should return combined data with some shares', () => {
     for (let i = 0; i < 4; i++) {
       for (let j = i + 1; j < 5; j++) {
-        expect(new ShamirClass(crypto).combine(shares.filter((x, idx) => idx !== i && idx !== j))).to.equal(data)
+        expect(new WebcryptoShamir(crypto).combine(shares.filter((x, idx) => idx !== i && idx !== j))).to.equal(data)
       }
     }
   })
@@ -70,7 +70,7 @@ describe('Shamir combine', () => {
   it('should fail miserably because it has not enough shares', () => {
     for (let i = 0; i < 4; i++) {
       for (let j = i + 1; j < 5; j++) {
-        expect(new ShamirClass(crypto).combine(shares.filter((x, idx) => idx === i && idx === j))).to.equal('')
+        expect(new WebcryptoShamir(crypto).combine(shares.filter((x, idx) => idx === i && idx === j))).to.equal('')
       }
     }
   })

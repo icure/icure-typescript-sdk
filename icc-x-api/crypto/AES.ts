@@ -16,6 +16,11 @@ export interface AESUtils {
    */
   decrypt(cryptoKey: CryptoKey, encryptedData: ArrayBuffer | Uint8Array, rawKey?: string): Promise<ArrayBuffer>
 
+  /**
+   * @deprecated this method is not correct: in some cases decryption may not fail even if the wrong key is used: if the
+   * first provided keys are wrong and the last one is correct the decryption will succeed for sure, but there is a small
+   * chance that you will get garbage
+   */
   decryptSome(cryptoKeys: CryptoKey[], uint8Array: Uint8Array): Promise<ArrayBuffer>
 
   /**

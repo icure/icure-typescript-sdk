@@ -80,13 +80,11 @@ export interface RSAUtils {
    * @param hashAlgorithm 'sha-1' or 'sha-256'
    * @returns {*}
    */
-  importKey(format: string, keydata: JsonWebKey | ArrayBuffer, keyUsages: KeyUsage[], hashAlgorithm: ShaVersion): Promise<CryptoKey>
+  importKey(format: 'jwk' | 'spki' | 'pkcs8', keydata: JsonWebKey | ArrayBuffer, keyUsages: KeyUsage[], hashAlgorithm: ShaVersion): Promise<CryptoKey>
 
   importSignatureKey(format: 'jwk' | 'pkcs8', keydata: JsonWebKey | ArrayBuffer): Promise<CryptoKey>
 
   importVerificationKey(format: 'jwk' | 'spki', keydata: JsonWebKey | ArrayBuffer): Promise<CryptoKey>
-
-  paramsForCreationOrImport(shaVersion: ShaVersion): any
 
   /**
    *
@@ -95,7 +93,7 @@ export interface RSAUtils {
    * @param hashAlgorithm 'sha-1' or 'sha-256'
    * @returns {*}
    */
-  importPrivateKey(format: string, keydata: JsonWebKey | ArrayBuffer, hashAlgorithm: ShaVersion): Promise<CryptoKey>
+  importPrivateKey(format: 'jwk' | 'pkcs8', keydata: JsonWebKey | ArrayBuffer, hashAlgorithm: ShaVersion): Promise<CryptoKey>
 
   /**
    *
@@ -107,9 +105,9 @@ export interface RSAUtils {
    * @returns {Promise|*}
    */
   importKeyPair(
-    privateKeyFormat: string,
+    privateKeyFormat: 'jwk' | 'pkcs8',
     privateKeydata: JsonWebKey | ArrayBuffer,
-    publicKeyFormat: string,
+    publicKeyFormat: 'jwk' | 'spki',
     publicKeyData: JsonWebKey | ArrayBuffer,
     hashAlgorithm: ShaVersion
   ): Promise<KeyPair<CryptoKey>>
@@ -267,7 +265,12 @@ export class RSAUtilsImpl implements RSAUtils {
    * @param hashAlgorithm 'sha-1' or 'sha-256'
    * @returns {*}
    */
-  importKey(format: string, keydata: JsonWebKey | ArrayBuffer, keyUsages: KeyUsage[], hashAlgorithm: ShaVersion): Promise<CryptoKey> {
+  importKey(
+    format: 'jwk' | 'spki' | 'pkcs8',
+    keydata: JsonWebKey | ArrayBuffer,
+    keyUsages: KeyUsage[],
+    hashAlgorithm: ShaVersion
+  ): Promise<CryptoKey> {
     const extractable = true
     return new Promise((resolve: (value: CryptoKey) => any, reject) => {
       const rsaParams = this.paramsForCreationOrImport(hashAlgorithm)
@@ -302,7 +305,7 @@ export class RSAUtilsImpl implements RSAUtils {
    * @param hashAlgorithm 'sha-1' or 'sha-256'
    * @returns {*}
    */
-  importPrivateKey(format: string, keydata: JsonWebKey | ArrayBuffer, hashAlgorithm: ShaVersion): Promise<CryptoKey> {
+  importPrivateKey(format: 'jwk' | 'pkcs8', keydata: JsonWebKey | ArrayBuffer, hashAlgorithm: ShaVersion): Promise<CryptoKey> {
     const extractable = true
     return new Promise((resolve: (value: CryptoKey) => any, reject) => {
       const rsaParams = this.paramsForCreationOrImport(hashAlgorithm)

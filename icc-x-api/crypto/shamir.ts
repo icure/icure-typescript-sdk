@@ -1,4 +1,4 @@
-export class ShamirClass {
+export abstract class ShamirClass {
   // Protected settings object
   config = {
     bits: 8, // default number of bits
@@ -18,11 +18,8 @@ export class ShamirClass {
     logs: [] as Array<number>,
     exps: [] as Array<number>,
   }
-  private crypto: Crypto
 
-  constructor(crypto: Crypto = typeof window !== 'undefined' ? window.crypto : typeof self !== 'undefined' ? self.crypto : ({} as Crypto)) {
-    this.crypto = crypto
-  }
+  protected abstract fillRandom(arr: Uint32Array): void
 
   init() {
     const primitive = this.config.primitivePolynomials[this.config.bits]!
@@ -107,7 +104,7 @@ export class ShamirClass {
       arr = new Uint32Array(elems)
 
     while (str === null) {
-      this.crypto.getRandomValues(arr)
+      this.fillRandom(arr)
       str = construct(bits, arr, 8)
     }
 
@@ -323,4 +320,17 @@ export class ShamirClass {
   }
 }
 
-export const shamir = new ShamirClass()
+export class WebcryptoShamir extends ShamirClass {
+  private crypto: Crypto
+
+  constructor(crypto: Crypto = typeof window !== 'undefined' ? window.crypto : typeof self !== 'undefined' ? self.crypto : ({} as Crypto)) {
+    super()
+    this.crypto = crypto
+  }
+
+  protected fillRandom(arr: Uint32Array): void {
+    this.crypto.getRandomValues(arr)
+  }
+}
+
+export const shamir: ShamirClass = new WebcryptoShamir()

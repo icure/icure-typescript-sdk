@@ -1,6 +1,6 @@
 import { RSAUtils, RSAUtilsImpl } from './RSA'
 import { AESUtils, AESUtilsImpl } from './AES'
-import { ShamirClass } from './shamir'
+import { ShamirClass, WebcryptoShamir } from './shamir'
 import { HMACUtils, HMACUtilsImpl } from './HMACUtils'
 
 export interface CryptoPrimitives {
@@ -58,7 +58,7 @@ export class CryptoPrimitivesImpl implements CryptoPrimitives {
     this._crypto = crypto
     this._rsa = new RSAUtilsImpl(crypto)
     this._aes = new AESUtilsImpl(crypto)
-    this._shamir = new ShamirClass(crypto)
+    this._shamir = new WebcryptoShamir(crypto)
     this._hmac = new HMACUtilsImpl(crypto)
   }
 
