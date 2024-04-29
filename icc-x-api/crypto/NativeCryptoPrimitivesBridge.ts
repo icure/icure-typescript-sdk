@@ -246,9 +246,9 @@ class NativeRsaBridge implements RSAUtils {
         return await this.rsa.exportPublicKeyJwk(getKryptomKey(cryptoKey))
       }
     } else if (format === 'spki') {
-      return await this.rsa.exportPrivateKeyPkcs8(getKryptomKey(cryptoKey))
-    } else if (format === 'pkcs8') {
       return await this.rsa.exportPublicKeySpki(getKryptomKey(cryptoKey))
+    } else if (format === 'pkcs8') {
+      return await this.rsa.exportPrivateKeyPkcs8(getKryptomKey(cryptoKey))
     } else throw new Error(`Invalid format ${format}`)
   }
 
