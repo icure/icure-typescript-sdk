@@ -4,7 +4,7 @@
   "description": "Typescript version of iCure standalone API client",
   "types": "dist/index.d.ts",
   "dependencies": {
-    "browser-or-node": "^2.1.1",
+    "browser-or-node": "^3.0.0",
     "date-fns": "^2.23.0",
     "libphonenumber-js": "^1.7.18",
     "lodash": "^4.17.21",
