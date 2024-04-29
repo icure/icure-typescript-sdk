@@ -4,7 +4,6 @@ import { ShamirClass } from './shamir'
 import { AESUtils } from './AES'
 import { KeyPair, RSAUtils, ShaVersion } from './RSA'
 import { b64_2ua, hex2ua, ua2b64, ua2hex, ua2utf8, utf8_2ua } from '../utils'
-import { randomBytes } from 'crypto'
 
 /**
  * Allows to use the expo-kryptom module as crypto primitives. This is necessary when building expo (react native) apps.
@@ -110,7 +109,7 @@ class NativeAesBridge implements AESUtils {
   }
 
   generateIV(ivByteLength: number): Uint8Array {
-    return randomBytes(ivByteLength)
+    return this.random.randomBytes(ivByteLength)
   }
 
   async importKey(format: 'jwk' | 'raw', aesKey: JsonWebKey | ArrayBuffer | Uint8Array): Promise<CryptoKey> {
