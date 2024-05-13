@@ -24,6 +24,7 @@ import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { FilterChainMessage } from '../model/FilterChainMessage'
 import { AbstractFilterMessage } from '../model/AbstractFilterMessage'
 import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
+import { AccessLog } from '../model/AccessLog'
 
 export class IccMessageApi {
   host: string
@@ -56,7 +57,6 @@ export class IccMessageApi {
   }
 
   /**
-   *
    * @summary Creates a message
    * @param body
    */
@@ -418,7 +418,6 @@ export class IccMessageApi {
   }
 
   /**
-   *
    * @summary Gets a message
    * @param messageId
    */
@@ -429,6 +428,19 @@ export class IccMessageApi {
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Message(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Gets batch of messages by their ids.
+   * @param messageIds the ids of the messages
+   */
+  async getMessages(messageIds: ListOfIds): Promise<Message[]> {
+    const _url = this.host + `/message/byIds` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('GET', _url, headers, messageIds, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Message(it)))
       .catch((err) => this.handleError(err))
   }
 

@@ -220,7 +220,6 @@ export class IccAccesslogApi {
   }
 
   /**
-   *
    * @summary Get an access log
    * @param accessLogId
    */
@@ -231,6 +230,19 @@ export class IccAccesslogApi {
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new AccessLog(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Get a batch of Access Logs by their ids.
+   * @param ids an array of ids.
+   */
+  async getAccessLogs(ids: ListOfIds): Promise<AccessLog[]> {
+    const _url = this.host + `/accesslog/byIds` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+
+    return XHR.sendCommand('POST', _url, headers, ids, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new AccessLog(it)))
       .catch((err) => this.handleError(err))
   }
 

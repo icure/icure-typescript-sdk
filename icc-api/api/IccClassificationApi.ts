@@ -179,16 +179,14 @@ export class IccClassificationApi {
   }
 
   /**
-   * Ids are seperated by a coma
-   * @summary Get a list of classifications
+   * @summary Get a list of classifications by their ids.
    * @param ids
    */
-  async getClassificationByHcPartyId(ids: string): Promise<Array<Classification>> {
-    let _body = null
-
-    const _url = this.host + `/classification/byIds/${encodeURIComponent(String(ids))}` + '?ts=' + new Date().getTime()
+  async getClassificationByHcPartyId(ids: ListOfIds): Promise<Array<Classification>> {
+    const _url = this.host + `/classification/byIds` + '?ts=' + new Date().getTime()
     let headers = await this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, ids, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Classification(it)))
       .catch((err) => this.handleError(err))
   }

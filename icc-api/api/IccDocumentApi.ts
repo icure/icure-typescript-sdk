@@ -129,6 +129,7 @@ export class IccDocumentApi {
    * @param secretFKeys
    */
   async findByTypeHCPartyMessageSecretFKeys(documentTypeCode: string, hcPartyId: string, secretFKeys: string[]): Promise<Array<Document>> {
+    const body = new ListOfIds({ ids: secretFKeys })
     const _url =
       this.host +
       `/document/byHcPartySecretForeignKeys` +
@@ -138,7 +139,7 @@ export class IccDocumentApi {
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '')
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, secretFKeys, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Document(it)))
       .catch((err) => this.handleError(err))
   }
@@ -150,6 +151,7 @@ export class IccDocumentApi {
    * @param secretFKeys
    */
   async findDocumentsByHCPartyPatientForeignKeys(hcPartyId: string, secretFKeys: string[]): Promise<Array<Document>> {
+    const body = new ListOfIds({ ids: secretFKeys })
     const _url =
       this.host +
       `/document/byHcPartySecretForeignKeys` +
@@ -158,7 +160,7 @@ export class IccDocumentApi {
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '')
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, secretFKeys, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Document(it)))
       .catch((err) => this.handleError(err))
   }
