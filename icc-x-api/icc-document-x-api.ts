@@ -638,7 +638,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
   async findByMessage(hcpartyId: string, message: models.Message) {
     const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: message, type: EntityWithDelegationTypeName.Message }, hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
-    let documents: Array<models.Document> = await this.findDocumentsByHCPartyPatientForeignKeys(topmostParentId, _.uniq(extractedKeys).join(','))
+    let documents: Array<models.Document> = await this.findDocumentsByHCPartyPatientForeignKeys(topmostParentId, _.uniq(extractedKeys))
     return await this.decrypt(hcpartyId, documents)
   }
 
