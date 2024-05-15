@@ -24,6 +24,7 @@ import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { FilterChainMessage } from '../model/FilterChainMessage'
 import { AbstractFilterMessage } from '../model/AbstractFilterMessage'
 import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
+import { AccessLog } from '../model/AccessLog'
 
 export class IccMessageApi {
   host: string
@@ -56,7 +57,6 @@ export class IccMessageApi {
   }
 
   /**
-   *
    * @summary Creates a message
    * @param body
    */
@@ -239,29 +239,35 @@ export class IccMessageApi {
   }
 
   /**
-   * @summary List messages found for the current healthcare party and a single secret foreign key.
-   * @param secretFKey the secret foreign key.
-   * @param startKey the startKey provided by the previous page or undefined for the first page.
-   * @param startDocumentId the startDocumentId provided by the previous page or undefined for the first page.
-   * @param limit the number of elements that the page should contain.
-   * @return a promise that will resolve in a PaginatedListMessage.
+   * @summary List Message ids by data owner and a set of secret foreign key. The ids will be sorted by Message sent, in ascending or descending
+   * order according to the specified parameter value.
+   *
+   * @param dataOwnerId the data owner id.
+   * @param secretFKeys an array of secret foreign keys.
+   * @param startDate a timestamp in epoch milliseconds. If undefined, all the message ids since the beginning of time will be returned.
+   * @param endDate a timestamp in epoch milliseconds. If undefined, all the message ids until the end of time will be returned.
+   * @param descending whether to return the ids ordered in ascending or descending order by Message sent.
+   * @return a promise that will resolve in an Array of Message ids.
    */
-  async findMessagesByHCPartyPatientForeignKey(
-    secretFKey: string,
-    startKey?: string,
-    startDocumentId?: string,
-    limit?: number
-  ): Promise<PaginatedListMessage> {
+  async listMessageIdsByDataOwnerPatientSentDate(
+    dataOwnerId: string,
+    secretFKeys: string[],
+    startDate?: number,
+    endDate?: number,
+    descending?: boolean
+  ): Promise<string[]> {
     const _url =
       this.host +
-      `/message/byHcPartySecretForeignKeys?ts=${new Date().getTime()}` +
-      `&secretFKey=${encodeURIComponent(secretFKey)}` +
-      (!!startKey ? `&startKey=${encodeURIComponent(startKey)}` : '') +
-      (!!startDocumentId ? `&startDocumentId=${encodeURIComponent(startDocumentId)}` : '') +
-      (!!limit ? `&limit=${limit}` : '')
-    const headers = await this.headers
-    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new PaginatedListMessage(doc.body as JSON))
+      `/message/byDataOwnerPatientSentDate?ts=${new Date().getTime()}` +
+      '&dataOwnerId=' +
+      encodeURIComponent(dataOwnerId) +
+      (!!startDate ? `&startDate=${encodeURIComponent(startDate)}` : '') +
+      (!!endDate ? `&endDate=${encodeURIComponent(endDate)}` : '') +
+      (!!descending ? `&descending=${descending}` : '')
+    const headers = (await this.headers).filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    const body = new ListOfIds({ ids: secretFKeys })
+    return XHR.sendCommand('POST', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
       .catch((err) => this.handleError(err))
   }
 
@@ -412,7 +418,6 @@ export class IccMessageApi {
   }
 
   /**
-   *
    * @summary Gets a message
    * @param messageId
    */
@@ -423,6 +428,19 @@ export class IccMessageApi {
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Message(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Gets batch of messages by their ids.
+   * @param messageIds the ids of the messages
+   */
+  async getMessages(messageIds: ListOfIds): Promise<Message[]> {
+    const _url = this.host + `/message/byIds` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('GET', _url, headers, messageIds, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Message(it)))
       .catch((err) => this.handleError(err))
   }
 

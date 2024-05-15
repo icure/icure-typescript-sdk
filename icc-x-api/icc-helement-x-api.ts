@@ -180,34 +180,6 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     throw new Error('Cannot call a method that returns health element without providing a user for de/encryption')
   }
 
-  findHealthElementsByHCPartyPatientForeignKey(
-    hcPartyId: string,
-    secretFKey: string,
-    startKey?: string,
-    startDocumentId?: string,
-    limit?: number
-  ): never {
-    throw new Error('Cannot call a method that returns health element without providing a user for de/encryption')
-  }
-
-  async findHealthElementsByHCPartyPatientForeignKeyWithUser(
-    hcPartyId: string,
-    secretFKey: string,
-    startKey?: string,
-    startDocumentId?: string,
-    limit?: number
-  ): Promise<PaginatedListHealthElement> {
-    return super.findHealthElementsByHCPartyPatientForeignKey(hcPartyId, secretFKey, startKey, startDocumentId, limit).then((paginatedList) =>
-      this.decrypt(hcPartyId, paginatedList.rows ?? []).then(
-        (decryptedItems) =>
-          new PaginatedListHealthElement({
-            rows: decryptedItems,
-            nextKeyPair: paginatedList.nextKeyPair,
-          })
-      )
-    )
-  }
-
   findHealthElementsByHCPartyPatientForeignKeysWithUser(user: models.User, hcPartyId: string, secretFKeys: string): Promise<HealthElement[]> {
     return super.findHealthElementsByHCPartyPatientForeignKeys(hcPartyId, secretFKeys).then((hes) => this.decryptWithUser(user, hes))
   }

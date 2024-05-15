@@ -266,33 +266,35 @@ export class IccFormApi {
   }
 
   /**
-   * @summary List forms found By Healthcare Party and a single secret foreign key with pagination.
-   * @param hcPartyId the healthcare party id.
-   * @param secretFKey the secret foreign key.
-   * @param startKey the startKey provided by the previous page or undefined for the first page.
-   * @param startDocumentId the startDocumentId provided by the previous page or undefined for the first page.
-   * @param limit the number of elements that the page should contain.
-   * @return a promise that will resolve in a PaginatedListForm.
+   * @summary List Form ids by data owner and a set of secret foreign key. The ids will be sorted by Form openingDate, in ascending or descending
+   * order according to the specified parameter value.
+   *
+   * @param dataOwnerId the data owner id.
+   * @param secretFKeys an array of secret foreign keys.
+   * @param startDate a timestamp in epoch milliseconds. If undefined, all the form ids since the beginning of time will be returned.
+   * @param endDate a timestamp in epoch milliseconds. If undefined, all the form ids until the end of time will be returned.
+   * @param descending whether to return the ids ordered in ascending or descending order by Form openingDate
+   * @return a promise that will resolve in an Array of Form ids.
    */
-  async findFormsByHCPartyPatientForeignKey(
-    hcPartyId: string,
-    secretFKey: string,
-    startKey?: string,
-    startDocumentId?: string,
-    limit?: number
-  ): Promise<PaginatedListForm> {
+  async findFormIdsByDataOwnerPatientOpeningDate(
+    dataOwnerId: string,
+    secretFKeys: string[],
+    startDate?: number,
+    endDate?: number,
+    descending?: boolean
+  ): Promise<string[]> {
     const _url =
       this.host +
-      `/form/byHcPartySecretForeignKeys?ts=${new Date().getTime()}` +
-      +'&hcPartyId=' +
-      encodeURIComponent(hcPartyId) +
-      `&secretPatientKey=${encodeURIComponent(secretFKey)}` +
-      (!!startKey ? `&startKey=${encodeURIComponent(startKey)}` : '') +
-      (!!startDocumentId ? `&startDocumentId=${encodeURIComponent(startDocumentId)}` : '') +
-      (!!limit ? `&limit=${limit}` : '')
-    const headers = await this.headers
-    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new PaginatedListForm(doc.body as JSON))
+      `/form/byDataOwnerPatientOpeningDate?ts=${new Date().getTime()}` +
+      '&dataOwnerId=' +
+      encodeURIComponent(dataOwnerId) +
+      (!!startDate ? `&startDate=${encodeURIComponent(startDate)}` : '') +
+      (!!endDate ? `&endDate=${encodeURIComponent(endDate)}` : '') +
+      (!!descending ? `&descending=${descending}` : '')
+    const headers = (await this.headers).filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    const body = new ListOfIds({ ids: secretFKeys })
+    return XHR.sendCommand('POST', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
       .catch((err) => this.handleError(err))
   }
 

@@ -14,7 +14,6 @@ import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
-import { AccessLog } from '../icc-api/model/models'
 import { EntityWithDelegationTypeName } from './utils'
 
 // noinspection JSUnusedGlobalSymbols

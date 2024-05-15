@@ -128,19 +128,18 @@ export class IccDocumentApi {
    * @param hcPartyId
    * @param secretFKeys
    */
-  async findByTypeHCPartyMessageSecretFKeys(documentTypeCode: string, hcPartyId: string, secretFKeys: string): Promise<Array<Document>> {
-    let _body = null
-
+  async findByTypeHCPartyMessageSecretFKeys(documentTypeCode: string, hcPartyId: string, secretFKeys: string[]): Promise<Array<Document>> {
+    const body = new ListOfIds({ ids: secretFKeys })
     const _url =
       this.host +
-      `/document/byTypeHcPartySecretForeignKeys` +
+      `/document/byHcPartySecretForeignKeys` +
       '?ts=' +
       new Date().getTime() +
       (documentTypeCode ? '&documentTypeCode=' + encodeURIComponent(String(documentTypeCode)) : '') +
-      (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
-      (secretFKeys ? '&secretFKeys=' + encodeURIComponent(String(secretFKeys)) : '')
+      (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '')
     let headers = await this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Document(it)))
       .catch((err) => this.handleError(err))
   }
@@ -151,18 +150,17 @@ export class IccDocumentApi {
    * @param hcPartyId
    * @param secretFKeys
    */
-  async findDocumentsByHCPartyPatientForeignKeys(hcPartyId: string, secretFKeys: string): Promise<Array<Document>> {
-    let _body = null
-
+  async findDocumentsByHCPartyPatientForeignKeys(hcPartyId: string, secretFKeys: string[]): Promise<Array<Document>> {
+    const body = new ListOfIds({ ids: secretFKeys })
     const _url =
       this.host +
       `/document/byHcPartySecretForeignKeys` +
       '?ts=' +
       new Date().getTime() +
-      (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
-      (secretFKeys ? '&secretFKeys=' + encodeURIComponent(String(secretFKeys)) : '')
+      (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '')
     let headers = await this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Document(it)))
       .catch((err) => this.handleError(err))
   }

@@ -1,7 +1,7 @@
 import { IccAccesslogApi } from '../icc-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 import * as models from '../icc-api/model/models'
-import { AccessLog, PaginatedListAccessLog } from '../icc-api/model/models'
+import { AccessLog, ListOfIds, PaginatedListAccessLog } from '../icc-api/model/models'
 import * as _ from 'lodash'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
@@ -146,24 +146,6 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
     return super.findAccessLogsByHCPartyPatientForeignKeysUsingPost(hcPartyId, secretFKeys).then((accesslogs) => this.decrypt(hcPartyId, accesslogs))
   }
 
-  async findAccessLogsByHCPartyPatientForeignKey(
-    hcPartyId: string,
-    secretFKey: string,
-    startKey?: string,
-    startDocumentId?: string,
-    limit?: number
-  ): Promise<PaginatedListAccessLog> {
-    return super.findAccessLogsByHCPartyPatientForeignKey(hcPartyId, secretFKey, startKey, startDocumentId, limit).then((paginatedList) =>
-      this.decrypt(hcPartyId, paginatedList.rows ?? []).then(
-        (decryptedItems) =>
-          new PaginatedListAccessLog({
-            rows: decryptedItems,
-            nextKeyPair: paginatedList.nextKeyPair,
-          })
-      )
-    )
-  }
-
   decrypt(hcpId: string, accessLogs: Array<models.AccessLog>): Promise<Array<models.AccessLog>> {
     return Promise.all(
       accessLogs.map((x) =>
@@ -214,6 +196,14 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
       .getAccessLog(accessLogId)
       .then((accessLog) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, [accessLog]))
       .then((als) => als[0])
+  }
+
+  async getAccessLogs(ids: ListOfIds): Promise<AccessLog[]> {
+    throw new Error('Cannot call a method that returns access logs without providing a user for de/encryption')
+  }
+
+  getAccessLogsWithUser(user: models.User, ids: ListOfIds): Promise<AccessLog[]> {
+    return super.getAccessLogs(ids).then((accessLogs) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, accessLogs))
   }
 
   listAccessLogs(fromEpoch?: number, toEpoch?: number, startKey?: number, startDocumentId?: string, limit?: number): never {

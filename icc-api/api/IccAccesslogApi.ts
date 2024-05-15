@@ -125,37 +125,35 @@ export class IccAccesslogApi {
   }
 
   /**
-   * @summary List access logs found by Healthcare Party id and secret foreign key element id with pagination.
+   * @summary List AccessLog ids by data owner and a set of secret foreign key. The ids will be sorted by AccessLog date, in ascending or descending
+   * order according to the specified parameter value.
    *
-   * @param hcPartyId the healthcare party id.
-   * @param secretFKey the secret foreign key.
-   * @param startKey the startKey provided by the previous page or undefined for the first page.
-   * @param startDocumentId the startDocumentId provided by the previous page or undefined for the first page.
-   * @param limit the number of elements that the page should contain.
-   * @return a promise that will resolve in a PaginatedListAccessLog.
+   * @param dataOwnerId the data owner id.
+   * @param secretFKeys an array of secret foreign keys.
+   * @param startDate a timestamp in epoch milliseconds. If undefined, all the access log ids since the beginning of time will be returned.
+   * @param endDate a timestamp in epoch milliseconds. If undefined, all the access log ids until the end of time will be returned.
+   * @param descending whether to return the ids ordered in ascending or descending order by AccessLog date
+   * @return a promise that will resolve in an Array of AccessLog ids.
    */
-  async findAccessLogsByHCPartyPatientForeignKey(
-    hcPartyId: string,
-    secretFKey: string,
-    startKey?: string,
-    startDocumentId?: string,
-    limit?: number
-  ): Promise<PaginatedListAccessLog> {
+  async findAccessLogIdsByDataOwnerPatientDate(
+    dataOwnerId: string,
+    secretFKeys: string[],
+    startDate?: number,
+    endDate?: number,
+    descending?: boolean
+  ): Promise<string[]> {
     const _url =
       this.host +
-      `/accesslog/byHcPartySecretForeignKey` +
-      '?ts=' +
-      new Date().getTime() +
-      '&hcPartyId=' +
-      encodeURIComponent(hcPartyId) +
-      `&secretFKey=${encodeURIComponent(secretFKey)}` +
-      (!!startKey ? `&startKey=${encodeURIComponent(startKey)}` : '') +
-      (!!startDocumentId ? `&startDocumentId=${encodeURIComponent(startDocumentId)}` : '') +
-      (!!limit ? `&limit=${limit}` : '')
-    let headers = await this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new PaginatedListAccessLog(doc.body as JSON))
+      `/accesslog/byDataOwnerPatientDate?ts=${new Date().getTime()}` +
+      '&dataOwnerId=' +
+      encodeURIComponent(dataOwnerId) +
+      (!!startDate ? `&startDate=${encodeURIComponent(startDate)}` : '') +
+      (!!endDate ? `&endDate=${encodeURIComponent(endDate)}` : '') +
+      (!!descending ? `&descending=${descending}` : '')
+    const headers = (await this.headers).filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    const body = new ListOfIds({ ids: secretFKeys })
+    return XHR.sendCommand('POST', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
       .catch((err) => this.handleError(err))
   }
 
@@ -222,7 +220,6 @@ export class IccAccesslogApi {
   }
 
   /**
-   *
    * @summary Get an access log
    * @param accessLogId
    */
@@ -233,6 +230,19 @@ export class IccAccesslogApi {
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new AccessLog(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Get a batch of Access Logs by their ids.
+   * @param ids an array of ids.
+   */
+  async getAccessLogs(ids: ListOfIds): Promise<AccessLog[]> {
+    const _url = this.host + `/accesslog/byIds` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+
+    return XHR.sendCommand('POST', _url, headers, ids, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new AccessLog(it)))
       .catch((err) => this.handleError(err))
   }
 
