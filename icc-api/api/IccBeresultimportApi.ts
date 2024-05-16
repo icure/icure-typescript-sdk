@@ -98,7 +98,7 @@ export class IccBeresultimportApi {
       (formIds ? '&formIds=' + encodeURIComponent(String(formIds)) : '') +
       (planOfActionId ? '&planOfActionId=' + encodeURIComponent(String(planOfActionId)) : '') +
       (enckeys ? '&enckeys=' + encodeURIComponent(String(enckeys)) : '')
-    let headers = this.headers
+    const headers = this.headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Contact(doc.body as JSON))
       .catch((err) => this.handleError(err))

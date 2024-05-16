@@ -480,13 +480,34 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     )
   }
 
-  decryptServices(hcpartyId: string, svcs: Array<models.Service>, keys?: { key: CryptoKey; raw: string }[]): Promise<Array<models.Service>> {
-    return Promise.all(
-      svcs.map(async (svc) => {
-        if (!keys) {
-          keys = await this.crypto.entities.importAllValidKeys(await this.crypto.entities.encryptionKeysOf(svc, hcpartyId))
-        }
+  decryptServices(hcpartyId: string, svcs: Array<models.Service>): Promise<Array<models.Service>> {
+    return this.doDecryptServices(hcpartyId, svcs, {})
+  }
 
+  private async doDecryptServices(
+    hcpartyId: string,
+    svcs: Array<models.Service>,
+    initialKeysCache: { [contactId: string]: { key: CryptoKey; raw: string }[] }
+  ): Promise<Array<models.Service>> {
+    const contactIdToService = Object.fromEntries(svcs.flatMap((svc) => (svc.contactId ? [[svc.contactId, svc]] : [])))
+    const keysCache = Object.fromEntries(
+      await Promise.all(
+        Object.entries(contactIdToService).map(async ([contactId, service]) => {
+          const initial = initialKeysCache[contactId]
+          const keys = !initial
+            ? await this.crypto.entities.importAllValidKeys(await this.crypto.entities.encryptionKeysOf(service, hcpartyId))
+            : initial
+          return [contactId, keys] as [string, { key: CryptoKey; raw: string }[]]
+        })
+      )
+    )
+    return await Promise.all(
+      svcs.map(async (svc) => {
+        const cachedKeys = keysCache[svc.contactId!]
+        const keys = !cachedKeys
+          ? // Fallback in case for some reason the service is not associated with a contact
+            await this.crypto.entities.importAllValidKeys(await this.crypto.entities.encryptionKeysOf(svc, hcpartyId))
+          : cachedKeys
         return new Service(
           await decryptObject(svc, async (encrypted) => {
             return (await this.crypto.entities.tryDecryptJson(keys!, encrypted, false)) ?? {}
