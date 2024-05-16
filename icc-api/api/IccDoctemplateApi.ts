@@ -113,8 +113,9 @@ export class IccDoctemplateApi {
    *
    * @summary Gets all document templates for current user
    */
-  async listDocumentTemplates(): Promise<Array<DocumentTemplate>> {
-    const _url = this.host + `/doctemplate` + '?ts=' + new Date().getTime()
+  async listDocumentTemplates(loadAttachment?: boolean): Promise<Array<DocumentTemplate>> {
+    const _url = this.host + `/doctemplate` + '?ts=' + new Date().getTime() +
+      (loadAttachment !== undefined ? '&loadAttachment=' + encodeURIComponent(String(loadAttachment)) : '')
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocumentTemplate(it)))
@@ -126,8 +127,9 @@ export class IccDoctemplateApi {
    * @summary Gets all document templates by Type
    * @param documentTypeCode
    */
-  async findDocumentTemplatesByDocumentType(documentTypeCode: string): Promise<Array<DocumentTemplate>> {
-    const _url = this.host + `/doctemplate/byDocumentType/${encodeURIComponent(String(documentTypeCode))}` + '?ts=' + new Date().getTime()
+  async findDocumentTemplatesByDocumentType(documentTypeCode: string, loadAttachment?: boolean): Promise<Array<DocumentTemplate>> {
+    const _url = this.host + `/doctemplate/byDocumentType/${encodeURIComponent(String(documentTypeCode))}` + '?ts=' + new Date().getTime() +
+      (loadAttachment !== undefined ? '&loadAttachment=' + encodeURIComponent(String(loadAttachment)) : '')
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocumentTemplate(it)))
@@ -139,9 +141,10 @@ export class IccDoctemplateApi {
    * @summary Gets all document templates by Type For currentUser
    * @param documentTypeCode
    */
-  async listDocumentTemplatesByDocumentTypeForCurrentUser(documentTypeCode: string): Promise<Array<DocumentTemplate>> {
+  async listDocumentTemplatesByDocumentTypeForCurrentUser(documentTypeCode: string, loadAttachment?: boolean): Promise<Array<DocumentTemplate>> {
     const _url =
-      this.host + `/doctemplate/byDocumentTypeForCurrentUser/${encodeURIComponent(String(documentTypeCode))}` + '?ts=' + new Date().getTime()
+      this.host + `/doctemplate/byDocumentTypeForCurrentUser/${encodeURIComponent(String(documentTypeCode))}` + '?ts=' + new Date().getTime() +
+      (loadAttachment !== undefined ? '&loadAttachment=' + encodeURIComponent(String(loadAttachment)) : '')
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocumentTemplate(it)))
@@ -153,10 +156,11 @@ export class IccDoctemplateApi {
    * @summary Gets all document templates
    * @param specialityCode
    */
-  async listDocumentTemplatesBySpeciality(specialityCode: string): Promise<Array<DocumentTemplate>> {
+  async listDocumentTemplatesBySpeciality(specialityCode: string, loadAttachment?: boolean): Promise<Array<DocumentTemplate>> {
     let _body = null
 
-    const _url = this.host + `/doctemplate/bySpecialty/${encodeURIComponent(String(specialityCode))}` + '?ts=' + new Date().getTime()
+    const _url = this.host + `/doctemplate/bySpecialty/${encodeURIComponent(String(specialityCode))}` + '?ts=' + new Date().getTime() +
+      (loadAttachment !== undefined ? '&loadAttachment=' + encodeURIComponent(String(loadAttachment)) : '')
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocumentTemplate(it)))
