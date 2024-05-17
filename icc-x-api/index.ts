@@ -542,7 +542,6 @@ async function getAuthenticationProvider(
   return authenticationProvider
 }
 
-
 export namespace IcureApi {
   /**
    * Initialises a new instance of the iCure API.
@@ -810,7 +809,6 @@ class IcureApiImpl implements IcureApi {
       (this._bekmehrApi = new IccBekmehrXApi(
         this.host,
         this.params.headers,
-        this.authApi,
         this.contactApi,
         this.healthcareElementApi,
         this.documentApi,
@@ -1202,7 +1200,9 @@ class IcureBasicApiImpl implements IcureBasicApi {
   private _roleApi: IccRoleApi | undefined
 
   get agendaApi(): IccAgendaApi {
-    return this._agendaApi ?? (this._agendaApi = new IccAgendaApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    return (
+      this._agendaApi ?? (this._agendaApi = new IccAgendaApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
   }
   get authApi(): IccAuthApi {
     return this._authApi ?? (this._authApi = new IccAuthApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
@@ -1213,7 +1213,14 @@ class IcureBasicApiImpl implements IcureBasicApi {
   get deviceApi(): IccDeviceXApi {
     return (
       this._deviceApi ??
-      (this._deviceApi = new IccDeviceXApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.userApi, this.authApi, this.fetch))
+      (this._deviceApi = new IccDeviceXApi(
+        this.host,
+        this.params.headers,
+        this.groupSpecificAuthenticationProvider,
+        this.userApi,
+        this.authApi,
+        this.fetch
+      ))
     )
   }
   get entityReferenceApi(): IccEntityrefApi {
@@ -1228,12 +1235,19 @@ class IcureBasicApiImpl implements IcureBasicApi {
   get healthcarePartyApi(): IccHcpartyXApi {
     return (
       this._healthcarePartyApi ??
-      (this._healthcarePartyApi = new IccHcpartyXApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.authApi, this.fetch))
+      (this._healthcarePartyApi = new IccHcpartyXApi(
+        this.host,
+        this.params.headers,
+        this.groupSpecificAuthenticationProvider,
+        this.authApi,
+        this.fetch
+      ))
     )
   }
   get insuranceApi(): IccInsuranceApi {
     return (
-      this._insuranceApi ?? (this._insuranceApi = new IccInsuranceApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+      this._insuranceApi ??
+      (this._insuranceApi = new IccInsuranceApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
     )
   }
   get permissionApi(): IccPermissionApi {
@@ -1244,7 +1258,8 @@ class IcureBasicApiImpl implements IcureBasicApi {
   }
   get userApi(): IccUserXApi {
     return (
-      this._userApi ?? (this._userApi = new IccUserXApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.authApi, this.fetch))
+      this._userApi ??
+      (this._userApi = new IccUserXApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.authApi, this.fetch))
     )
   }
 
@@ -1255,7 +1270,9 @@ class IcureBasicApiImpl implements IcureBasicApi {
   }
 
   get patientApi(): IccPatientApi {
-    return this._patientApi ?? (this._patientApi = new IccPatientApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    return (
+      this._patientApi ?? (this._patientApi = new IccPatientApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
   }
 
   get roleApi(): IccRoleApi {
@@ -1331,8 +1348,8 @@ export namespace IcureBasicApi {
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
-        ? self.fetch
-        : fetch,
+      ? self.fetch
+      : fetch,
     options: IcureBasicApiOptions = {}
   ): Promise<IcureBasicApi> {
     const params = new IcureBasicApiOptions.WithDefaults(options)
@@ -1356,7 +1373,7 @@ export namespace IcureBasicApi {
       groupSpecificAuthenticationProviderInfo.isGroupLocked ? grouplessUserApi : undefined,
       matches,
       matches.find((match) => match.groupId === chosenGroupId),
-      params,
+      params
     )
   }
 }
