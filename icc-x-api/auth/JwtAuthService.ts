@@ -11,6 +11,7 @@ import { JwtError } from './JwtError'
 export class JwtAuthService implements AuthService {
   private _error: Error | null = null
   private _currentPromise: Promise<{ authJwt: string; refreshJwt: string } | undefined> = Promise.resolve(undefined as any)
+  readonly jwtGetter = this.getIcureTokens
 
   constructor(private readonly authApi: IccAuthApi, initialJwt?: { authJwt: string; refreshJwt: string }) {
     if (!!initialJwt) {

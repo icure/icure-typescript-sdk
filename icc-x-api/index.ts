@@ -53,7 +53,6 @@ import { LocalStorageImpl } from './storage/LocalStorageImpl'
 import { KeyStorageImpl } from './storage/KeyStorageImpl'
 import {
   AuthenticationProvider,
-  BasicAuthenticationProvider,
   EnsembleAuthenticationProvider,
   JwtAuthenticationProvider,
   NoAuthenticationProvider,
@@ -1244,7 +1243,6 @@ class IcureApiImpl implements IcureApi {
       (this._bekmehrApi = new IccBekmehrXApi(
         this.host,
         this.cryptoInitInfos.headers,
-        this.authApi,
         this.contactApi,
         this.healthcareElementApi,
         this.documentApi,

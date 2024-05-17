@@ -14,6 +14,7 @@ import { JwtError } from './JwtError'
 export class JwtBridgedAuthService implements AuthService {
   private _error: Error | null = null
   private _currentPromise: Promise<{ authJwt?: string; refreshJwt?: string }> = Promise.resolve({})
+  readonly jwtGetter = this.getIcureTokens
 
   constructor(
     private authApi: IccAuthApi,
