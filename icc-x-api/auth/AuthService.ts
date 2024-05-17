@@ -16,4 +16,10 @@ export interface AuthService {
    * @param error the error to throw
    */
   invalidateHeader(error: Error): void
+
+  /**
+   * This property will be implemented only by the JwtServices, and will return a
+   * function that provides the latest JWT.
+   */
+  readonly jwtGetter?: () => Promise<{ token: string; refreshToken: string } | undefined>
 }

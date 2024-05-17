@@ -6,8 +6,6 @@ import { IccHelementXApi } from './icc-helement-x-api'
 import { string2ua, ua2string } from './utils/binary-utils'
 import { Contact, Document, HealthElement, Service } from '../icc-api/model/models'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
-import { JwtAuthService } from './auth/JwtAuthService'
-import { JwtBridgedAuthService } from './auth/JwtBridgedAuthService'
 
 export type Patcher = ContactPatcher | HealthElementPatcher | DocumentPatcher | ServicePatcher
 export interface ContactPatcher {
@@ -58,8 +56,8 @@ export class IccBekmehrXApi extends IccBekmehrApi {
 
   private getJwt(): Promise<string> {
     const authService = this.authenticationProvider.getAuthService()
-    if (authService instanceof JwtAuthService || authService instanceof JwtBridgedAuthService) {
-      return authService.getIcureTokens().then((tokens) => {
+    if (!!authService.jwtGetter) {
+      return authService.jwtGetter().then((tokens) => {
         if (!tokens) {
           throw new Error('Missing JWT')
         }
