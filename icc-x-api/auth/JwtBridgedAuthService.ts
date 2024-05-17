@@ -14,6 +14,7 @@ import { JwtError } from '../JwtError'
 export class JwtBridgedAuthService implements AuthService {
   private _error: Error | null = null
   private _currentPromise: Promise<{ authJwt?: string; refreshJwt?: string }> = Promise.resolve({})
+  readonly jwtGetter = this.getIcureTokens
 
   constructor(
     private authApi: IccAuthApi,
@@ -25,6 +26,7 @@ export class JwtBridgedAuthService implements AuthService {
   get refreshToken(): Promise<string | undefined> {
     return this._currentPromise.then((x) => x.refreshJwt as any)
   }
+
   getIcureTokens(): Promise<{ token: string; refreshToken: string } | undefined> {
     return this.getAuthHeaders().then(() => this._currentPromise.then(({ authJwt, refreshJwt }) => ({ token: authJwt!, refreshToken: refreshJwt! })))
   }
