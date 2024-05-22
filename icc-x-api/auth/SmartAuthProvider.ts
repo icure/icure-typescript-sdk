@@ -6,6 +6,7 @@ import { XHR } from '../../icc-api/api/XHR'
 import XHRError = XHR.XHRError
 import { decodeJwtClaims, isJwtInvalidOrExpired } from './JwtUtils'
 import { AuthenticationResponse } from '../../icc-api/model/AuthenticationResponse'
+import undefinedError = Mocha.utils.undefinedError
 
 /**
  * Needed by a {@link SmartAuthProvider} to get the secrets (password, token, etc.) for authentication to the iCure SDK as needed.
@@ -414,6 +415,11 @@ class SmartAuthService implements AuthService {
 
   async getAuthHeaders(minimumAuthenticationClassLevel: number | undefined): Promise<Array<XHR.Header>> {
     return [new XHR.Header('Authorization', `Bearer ${await this.getAuthToken(minimumAuthenticationClassLevel)}`)]
+  }
+
+  async jwtGetter(): Promise<{ token: string; refreshToken: string | undefined }> {
+    const token = await this.getAuthToken(undefined)
+    return { token, refreshToken: undefined }
   }
 
   private async getAuthToken(minimumAuthenticationClassLevel: number | undefined): Promise<string> {
