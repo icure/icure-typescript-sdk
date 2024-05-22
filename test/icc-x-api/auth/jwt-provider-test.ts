@@ -9,10 +9,14 @@ import { JwtAuthService } from '../../../icc-x-api/auth/JwtAuthService'
 import { JwtError } from '../../../icc-x-api/JwtError'
 import { XHR } from '../../../icc-api/api/XHR'
 import XHRError = XHR.XHRError
+import { BasicAuthService } from '../../../icc-x-api/auth/BasicAuthService'
+import { NoAuthService } from '../../../icc-x-api/auth/NoAuthService'
+import { EnsembleAuthService } from '../../../icc-x-api/auth/EnsembleAuthService'
+import { AuthSecretDetails, AuthSecretType, SmartAuthProvider } from '../../../icc-x-api/auth/SmartAuthProvider'
 
 describe('JWT provider resiliency test', () => {
   function generateJwt() {
-    return `jwt.${b2a(JSON.stringify({ exp: 1000 }))}.${Math.floor(100000 + Math.random() * 900000)}`
+    return `jwt.${b2a(JSON.stringify({ exp: 1000, tac: 10 }))}.${Math.floor(100000 + Math.random() * 900000)}`
   }
 
   function generateRefreshJwt() {
@@ -145,5 +149,75 @@ describe('JWT provider resiliency test', () => {
     const secondJwt = fakeAuthApi.jwt
     expect(secondHeader[0].data).to.be.equal(`Bearer ${secondJwt}`)
     expect(secondJwt).not.to.be.equal(initialJwt)
+  })
+
+  it('A BasicAuthService does not have a jwtGetter property', async () => {
+    const service = new BasicAuthService('username', 'password') as AuthService
+    expect(service.jwtGetter).to.be.undefined
+  })
+
+  it('A NoAuthService does not have a jwtGetter property', async () => {
+    const service = new NoAuthService() as AuthService
+    expect(service.jwtGetter).to.be.undefined
+  })
+
+  it('A JwtBridgedAuthService supports the jwtGetter', async () => {
+    const fakeAuthApi = new FakeAuthApi()
+    const authService = new JwtBridgedAuthService(fakeAuthApi, 'username', 'password', {}) as AuthService
+    expect(authService.jwtGetter).not.to.be.undefined
+
+    if (!!authService.jwtGetter) {
+      const token = await authService.jwtGetter()
+
+      expect(token?.token).to.be.equal(fakeAuthApi.jwt)
+    }
+  })
+
+  it('A JwtAuthService supports the jwtGetter', async () => {
+    const initialJwt = generateJwt()
+    const initialRefresh = generateRefreshJwt()
+    const fakeAuthApi = new FakeAuthApi()
+    const jwtService = new JwtAuthService(fakeAuthApi, { authJwt: initialJwt, refreshJwt: initialRefresh }) as AuthService
+    expect(jwtService.jwtGetter).not.to.be.undefined
+
+    if (!!jwtService.jwtGetter) {
+      const token = await jwtService.jwtGetter()
+
+      expect(token?.token).to.be.equal(initialJwt)
+    }
+  })
+
+  it('An EnsembleAuthService supports the jwtGetter', async () => {
+    const initialJwt = generateJwt()
+    const initialRefresh = generateRefreshJwt()
+    const fakeAuthApi = new FakeAuthApi()
+    const basic = new BasicAuthService('username', 'password')
+    const jwtService = new JwtAuthService(fakeAuthApi, { authJwt: initialJwt, refreshJwt: initialRefresh })
+    const service = new EnsembleAuthService(jwtService, new NoAuthService(), basic) as AuthService
+    expect(service.jwtGetter).not.to.be.undefined
+
+    if (!!service.jwtGetter) {
+      const token = await service.jwtGetter()
+
+      expect(token?.token).to.be.equal(initialJwt)
+    }
+  })
+
+  it('A SmartAuthService supports the jwtGetter', async () => {
+    const authApi = new FakeAuthApi()
+    const authProvider = SmartAuthProvider.initialise(authApi, 'username', {
+      getSecret: async (acceptedSecrets: AuthSecretType[], previousAttempts: AuthSecretDetails[]) => {
+        return { value: 'wrong', secretType: AuthSecretType.LONG_LIVED_TOKEN } // pragma: allowlist secret
+      },
+    })
+    const service = authProvider.getAuthService()
+
+    expect(service.jwtGetter).not.to.be.undefined
+
+    if (!!service.jwtGetter) {
+      const token = await service.jwtGetter()
+
+      expect(token?.token).to.be.equal(authApi.jwt)
+    }
   })
 })

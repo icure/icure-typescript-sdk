@@ -11,6 +11,7 @@ export class EnsembleAuthService implements AuthService {
   private currentState: string | null
   private error: Error | null = null
   private stateMap: { [key: string]: { state: AuthService | null; next: string | null } }
+  readonly jwtGetter = this.getIcureTokens
 
   constructor(
     private readonly jwtAuth: JwtBridgedAuthService | JwtAuthService | null,
