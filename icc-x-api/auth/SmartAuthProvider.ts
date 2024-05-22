@@ -416,6 +416,11 @@ class SmartAuthService implements AuthService {
     return [new XHR.Header('Authorization', `Bearer ${await this.getAuthToken(minimumAuthenticationClassLevel)}`)]
   }
 
+  async jwtGetter(): Promise<{ token: string; refreshToken: string | undefined }> {
+    const token = await this.getAuthToken(undefined)
+    return { token, refreshToken: undefined }
+  }
+
   private async getAuthToken(minimumAuthenticationClassLevel: number | undefined): Promise<string> {
     switch (this.currentState.id) {
       case SmartAuthServiceState.INITIAL:
