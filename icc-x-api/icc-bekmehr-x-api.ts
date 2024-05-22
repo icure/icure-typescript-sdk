@@ -54,15 +54,14 @@ export class IccBekmehrXApi extends IccBekmehrApi {
       .replace(/\/rest\/v.+/, '/ws')
   }
 
-  private getJwt(): Promise<string> {
+  private async getJwt(): Promise<string> {
     const authService = this.authenticationProvider.getAuthService()
     if (!!authService.jwtGetter) {
-      return authService.jwtGetter().then((tokens) => {
-        if (!tokens) {
-          throw new Error('Missing JWT')
-        }
-        return tokens.token
-      })
+      const tokens = await authService.jwtGetter()
+      if (!tokens) {
+        throw new Error('Missing JWT')
+      }
+      return tokens.token
     } else {
       throw new Error('The existing provider is not a JWT provider')
     }

@@ -21,5 +21,5 @@ export interface AuthService {
    * This property will be implemented only by the JwtServices, and will return a
    * function that provides the latest JWT.
    */
-  readonly jwtGetter?: () => Promise<{ token: string; refreshToken: string } | undefined>
+  readonly jwtGetter?: () => Promise<{ token: string; refreshToken: string | undefined } | undefined>
 }
