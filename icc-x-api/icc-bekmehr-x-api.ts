@@ -184,7 +184,7 @@ export class IccBekmehrXApi extends IccBekmehrApi {
     return this.getJwt().then(
       (jwt) =>
         new Promise<Blob | undefined>((resolve, reject) => {
-          const socket = new WebSocket(`${this.wssHost}/be_kmehr/generateSmf;jwt=${jwt}`)
+          const socket = new WebSocket(`${this.wssHost}/be_kmehr/generateSmf?jwt=${jwt}`)
           socket.addEventListener('open', function () {
             socket.send(
               JSON.stringify({
@@ -209,7 +209,7 @@ export class IccBekmehrXApi extends IccBekmehrApi {
     return this.getJwt().then(
       (jwt) =>
         new Promise<Blob | undefined>((resolve, reject) => {
-          const socket = new WebSocket(`${this.wssHost}/be_kmehr/generateSumehr;jwt=${jwt}`)
+          const socket = new WebSocket(`${this.wssHost}/be_kmehr/generateSumehr?jwt=${jwt}`)
           socket.addEventListener('open', function () {
             socket.send(
               JSON.stringify({
@@ -233,7 +233,7 @@ export class IccBekmehrXApi extends IccBekmehrApi {
     return this.getJwt().then(
       (jwt) =>
         new Promise<Blob | undefined>((resolve, reject) => {
-          const socket = new WebSocket(`${this.wssHost}/be_kmehr/generateSumehrV2;jwt=${jwt}`)
+          const socket = new WebSocket(`${this.wssHost}/be_kmehr/generateSumehrV2?jwt=${jwt}`)
           socket.addEventListener('open', function () {
             socket.send(
               JSON.stringify({
@@ -257,7 +257,7 @@ export class IccBekmehrXApi extends IccBekmehrApi {
     return this.getJwt().then(
       (jwt) =>
         new Promise<Blob | undefined>((resolve, reject) => {
-          const socket = new WebSocket(`${this.wssHost}/be_kmehr/generateDiaryNote;jwt=${jwt}`)
+          const socket = new WebSocket(`${this.wssHost}/be_kmehr/generateDiaryNote?jwt=${jwt}`)
           socket.addEventListener('open', function () {
             socket.send(
               JSON.stringify({
@@ -283,7 +283,7 @@ export class IccBekmehrXApi extends IccBekmehrApi {
     return this.getJwt().then(
       (jwt) =>
         new Promise<Blob | undefined>((resolve, reject) => {
-          const socket = new WebSocket(`${this.wssHost}/be_kmehr/generateMedicationScheme;jwt=${jwt}`)
+          const socket = new WebSocket(`${this.wssHost}/be_kmehr/generateMedicationScheme?jwt=${jwt}`)
           socket.addEventListener('open', function () {
             socket.send(
               JSON.stringify({
