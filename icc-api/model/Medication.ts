@@ -32,6 +32,10 @@ export class Medication {
   medicinalProduct?: Medicinalproduct
   numberOfPackages?: number
   batch?: string
+  /**
+   * The expiration date of the medication. Format: yyyyMMdd
+   */
+  expirationDate?: number
   instructionForPatient?: string
   instructionForReimbursement?: string
   commentForDelivery?: string
