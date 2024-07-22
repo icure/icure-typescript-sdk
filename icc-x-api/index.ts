@@ -121,6 +121,7 @@ export * from './icc-receipt-x-api'
 export * from './icc-data-owner-x-api'
 export * from './icc-icure-maintenance-x-api'
 export * from './icc-maintenance-task-x-api'
+export * from './icc-recovery-x-api'
 export * from './utils'
 
 export * from './crypto/RSA'
