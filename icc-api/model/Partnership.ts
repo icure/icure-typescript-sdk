@@ -64,6 +64,8 @@ export namespace Partnership {
     | 'stepmother'
     | 'stepson'
     | 'tutor'
+    | 'cohabiting'
+    | 'registered_partner'
     | 'next_of_kin'
     | 'federal_agency'
     | 'insurance_company'
@@ -101,6 +103,8 @@ export namespace Partnership {
     Stepmother: 'stepmother' as TypeEnum,
     Stepson: 'stepson' as TypeEnum,
     Tutor: 'tutor' as TypeEnum,
+    Cohabiting: 'cohabiting' as TypeEnum,
+    RegisteredPartner: 'registered_partner' as TypeEnum,
     NextOfKin: 'next_of_kin' as TypeEnum,
     FederalAgency: 'federal_agency' as TypeEnum,
     InsuranceCompany: 'insurance_company' as TypeEnum,
