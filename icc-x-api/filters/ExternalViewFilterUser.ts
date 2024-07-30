@@ -2,7 +2,7 @@ import { AbstractFilterUser } from '../../icc-api/model/AbstractFilterUser'
 import { ExternalFilterKey } from '../../icc-api/model/ExternalFilterKey'
 
 export class ExternalViewFilterUser extends AbstractFilterUser {
-  $type: string = 'ExternalViewFilterDto'
+  $type: string = 'ExternalViewFilter'
   entityQualifiedName: string = 'org.taktik.icure.entities.User'
   constructor(json: JSON | any) {
     super(json)

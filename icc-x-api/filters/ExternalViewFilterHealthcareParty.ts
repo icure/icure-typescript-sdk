@@ -2,7 +2,7 @@ import { ExternalFilterKey } from '../../icc-api/model/ExternalFilterKey'
 import { AbstractFilterHealthcareParty } from '../../icc-api/model/AbstractFilterHealthcareParty'
 
 export class ExternalViewFilterHealthcareParty extends AbstractFilterHealthcareParty {
-  $type: string = 'ExternalViewFilterDto'
+  $type: string = 'ExternalViewFilter'
   entityQualifiedName: string = 'org.taktik.icure.entities.HealthcareParty'
   constructor(json: JSON | any) {
     super(json)
