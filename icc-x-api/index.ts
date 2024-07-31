@@ -129,6 +129,7 @@ export * from './crypto/CryptoPrimitives'
 export * from './crypto/ShareMetadataBehaviour'
 export * from './auth/AuthenticationProvider'
 
+export { AuthSecretDetails, AuthSecretType, AuthSecretProvider } from './auth/SmartAuthProvider'
 export { KeyStorageFacade } from './storage/KeyStorageFacade'
 export { LocalStorageImpl } from './storage/LocalStorageImpl'
 export { StorageFacade } from './storage/StorageFacade'
