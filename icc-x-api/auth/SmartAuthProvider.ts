@@ -165,7 +165,7 @@ export class SmartAuthProvider implements AuthenticationProvider {
   }
 
   getIcureTokens(): Promise<{ token: string; refreshToken: string } | undefined> {
-    return Promise.resolve(undefined)
+    return this.tokenProvider.getCachedTokensOrLoad()
   }
 }
 
@@ -204,6 +204,13 @@ class TokenProvider {
     } else {
       return { token: await this.getAndCacheNewToken(undefined), type: RetrievedTokenType.NEW }
     }
+  }
+
+  async getCachedTokensOrLoad(): Promise<{ token: string; refreshToken: string }> {
+    if (!this.cachedToken || !this.cachedRefreshToken) {
+      await this.getAndCacheNewToken(undefined)
+    }
+    return { token: this.cachedToken!, refreshToken: this.cachedRefreshToken! }
   }
 
   async getNewTokenWithClass(minimumAuthenticationClass: number): Promise<string> {
