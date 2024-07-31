@@ -187,7 +187,7 @@ describe('Smart authentication provider', () => {
         },
       },
       {
-        initialSecret: { plainSecret: userPw },
+        initialSecret: { password: userPw },
       }
     )
     const userApi = userApiWithProvider(authProvider)
