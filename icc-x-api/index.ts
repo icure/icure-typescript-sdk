@@ -551,30 +551,29 @@ export namespace IcureApi {
     options: IcureApiOptions = {}
   ): Promise<IcureApi> {
     const params = new IcureApiOptions.WithDefaults(options)
-    let grouplessAuthenticationProvider = await getAuthenticationProvider(host, authenticationOptions, params.headers, fetchImpl)
-    // TODO if this uses a smart auth provider the groupless auth provider does not share the secret cache with the group specific one.
-    const grouplessUserApi = new IccUserApi(host, params.headers, grouplessAuthenticationProvider, fetchImpl)
-    const matches = await getMatchesOrEmpty(grouplessUserApi)
-    const tokens = await grouplessAuthenticationProvider.getIcureTokens()
-    const currentGroupId = tokens ? getGroupOfJwt(tokens.token) : undefined
-    const chosenGroupId = matches.length > 1 && !!options.groupSelector ? await options.groupSelector(matches, currentGroupId) : matches[0]?.groupId
-    /*TODO
-     * On new very new users switching the authentication provider to a specific group may fail and block the user for too many requests. This is
-     * probably linked to replication of the user in the fallback database.
-     */
-    const groupSpecificAuthenticationProvider =
-      matches.length > 1 && chosenGroupId && chosenGroupId !== currentGroupId
-        ? await grouplessAuthenticationProvider.switchGroup(chosenGroupId, matches)
-        : grouplessAuthenticationProvider
-    const cryptoInitInfo = await initialiseCryptoWithProvider(host, fetchImpl, groupSpecificAuthenticationProvider, params, cryptoStrategies, crypto)
+    let authenticationProviderInfo = await initialiseAuthProviderWithGroupSelector(
+      host,
+      authenticationOptions,
+      params.headers,
+      fetchImpl,
+      params.groupSelector
+    )
+    const cryptoInitInfo = await initialiseCryptoWithProvider(
+      host,
+      fetchImpl,
+      authenticationProviderInfo.groupSpecificAuthenticationProvider,
+      params,
+      cryptoStrategies,
+      crypto
+    )
     return new IcureApiImpl(
       cryptoInitInfo,
       host,
-      groupSpecificAuthenticationProvider,
+      authenticationProviderInfo.groupSpecificAuthenticationProvider,
       fetch,
-      grouplessUserApi,
-      matches,
-      matches.find((match) => match.groupId === chosenGroupId),
+      authenticationProviderInfo.grouplessUserApi,
+      authenticationProviderInfo.matches,
+      authenticationProviderInfo.matches.find((match) => match.groupId === authenticationProviderInfo.chosenGroupId),
       params,
       cryptoStrategies
     )
@@ -641,6 +640,43 @@ async function getAuthenticationProvider(
     throw new Error('Invalid authentication options provided')
   }
   return authenticationProvider
+}
+
+async function initialiseAuthProviderWithGroupSelector(
+  host: string,
+  authenticationOptions: AuthenticationDetails | AuthenticationProvider,
+  headers: { [headerName: string]: string },
+  fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response>,
+  groupSelector: ((availableGroupsInfo: UserGroup[], currentGroupId?: string) => Promise<string>) | undefined
+) {
+  let grouplessAuthenticationProvider = await getAuthenticationProvider(host, authenticationOptions, headers, fetchImpl)
+  const grouplessUserApi = new IccUserApi(host, headers, grouplessAuthenticationProvider, fetchImpl)
+  const matches = await getMatchesOrEmpty(grouplessUserApi)
+  const tokens = await grouplessAuthenticationProvider.getIcureTokens()
+  const currentGroupId = tokens ? getGroupOfJwt(tokens.token) : undefined
+  const chosenGroupId = matches.length > 1 && !!groupSelector ? await groupSelector(matches, currentGroupId) : matches[0]?.groupId
+  /*TODO
+   * On new very new users switching the authentication provider to a specific group may fail and block the user for too many requests. This is
+   * probably linked to replication of the user in the fallback database.
+   */
+  /*
+   * If the auth provider is initialized with credentials and jwt not switching the group will may cause issues:
+   * 1. The default group for the user is group A
+   * 2. The user logs in to group B -> the provider is switched
+   * 3. The user refreshes the page -> a new instance of the api with initial iCure tokens is created
+   * 4. The refresh token is expired / the user needs to do a high security operation -> a new login is done .If we did
+   *    not switch the provider here the login would default to group A, potentially causing a lot of issues...
+   */
+  const groupSpecificAuthenticationProvider = !!chosenGroupId
+    ? await grouplessAuthenticationProvider.switchGroup(chosenGroupId, matches)
+    : grouplessAuthenticationProvider
+  return {
+    groupSpecificAuthenticationProvider,
+    // No need for a groupless user api on a group-specific smart auth provider
+    grouplessUserApi: groupSpecificAuthenticationProvider instanceof SmartAuthProvider ? undefined : grouplessUserApi,
+    matches,
+    chosenGroupId,
+  }
 }
 
 // Apis which are used during crypto api initialisation, to avoid re-instantiating them later
@@ -854,7 +890,7 @@ class IcureApiImpl implements IcureApi {
     private readonly host: string,
     private readonly groupSpecificAuthenticationProvider: AuthenticationProvider,
     private readonly fetch: (input: RequestInfo, init?: RequestInit) => Promise<Response>,
-    private readonly grouplessUserApi: IccUserApi,
+    private readonly grouplessUserApi: IccUserApi | undefined,
     latestMatches: UserGroup[],
     private readonly currentGroupInfo: UserGroup | undefined,
     private readonly params: IcureApiOptions.WithDefaults,
@@ -1467,7 +1503,7 @@ class IcureApiImpl implements IcureApi {
   }
 
   async getGroupsInfo(): Promise<{ currentGroup: UserGroup | undefined; availableGroups: UserGroup[] }> {
-    this.latestGroupsRequest = this.grouplessUserApi.getMatchingUsers()
+    this.latestGroupsRequest = (this.grouplessUserApi ?? this.userApi).getMatchingUsers()
     return { currentGroup: this.currentGroupInfo, availableGroups: await this.latestGroupsRequest }
   }
 
@@ -1596,7 +1632,7 @@ class IcureBasicApiImpl implements IcureBasicApi {
 
   async getGroupsInfo(): Promise<{ currentGroup: UserGroup | undefined; availableGroups: UserGroup[] }> {
     if (!this.currentGroupInfo) return { currentGroup: undefined, availableGroups: [] }
-    this.latestGroupsRequest = this.grouplessUserApi ? this.grouplessUserApi.getMatchingUsers() : this.userApi.getMatchingUsers()
+    this.latestGroupsRequest = (this.grouplessUserApi ?? this.userApi).getMatchingUsers()
     return { currentGroup: this.currentGroupInfo, availableGroups: await this.latestGroupsRequest }
   }
 
@@ -1629,7 +1665,7 @@ class IcureBasicApiImpl implements IcureBasicApi {
     private readonly host: string,
     private readonly groupSpecificAuthenticationProvider: AuthenticationProvider,
     private readonly fetch: (input: RequestInfo, init?: RequestInit) => Promise<Response>,
-    private readonly grouplessUserApi: IccUserApi,
+    private readonly grouplessUserApi: IccUserApi | undefined,
     latestMatches: UserGroup[],
     private readonly currentGroupInfo: UserGroup | undefined,
     private readonly params: IcureBasicApiOptions.WithDefaults
@@ -1687,24 +1723,20 @@ export namespace IcureBasicApi {
     options: IcureBasicApiOptions = {}
   ): Promise<IcureBasicApi> {
     const params = new IcureBasicApiOptions.WithDefaults(options)
-
-    const grouplessAuthenticationProvider = await getAuthenticationProvider(host, authenticationOptions, params.headers ?? {}, fetchImpl)
-    const grouplessUserApi = new IccUserApi(host, params.headers, grouplessAuthenticationProvider, fetchImpl)
-    const matches: UserGroup[] = await getMatchesOrEmpty(grouplessUserApi)
-    const tokens = await grouplessAuthenticationProvider.getIcureTokens()
-    const currentGroupId = tokens ? getGroupOfJwt(tokens.token) : undefined
-    const chosenGroupId = matches.length > 1 && !!options.groupSelector ? await options.groupSelector(matches, currentGroupId) : matches[0]?.groupId
-    const groupSpecificAuthenticationProvider =
-      matches.length > 1 && chosenGroupId && chosenGroupId !== currentGroupId
-        ? await grouplessAuthenticationProvider.switchGroup(chosenGroupId, matches)
-        : grouplessAuthenticationProvider
+    const authProviderInfo = await initialiseAuthProviderWithGroupSelector(
+      host,
+      authenticationOptions,
+      params.headers ?? {},
+      fetchImpl,
+      params.groupSelector
+    )
     return new IcureBasicApiImpl(
       host,
-      groupSpecificAuthenticationProvider,
+      authProviderInfo.groupSpecificAuthenticationProvider,
       fetch,
-      grouplessUserApi,
-      matches,
-      matches.find((match) => match.groupId === chosenGroupId),
+      authProviderInfo.grouplessUserApi,
+      authProviderInfo.matches,
+      authProviderInfo.matches.find((match) => match.groupId === authProviderInfo.chosenGroupId),
       params
     )
   }

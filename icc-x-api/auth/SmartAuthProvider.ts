@@ -304,7 +304,7 @@ class TokenProvider {
   ): Promise<DoGetTokenResult> {
     let authResultPromise: Promise<AuthenticationResponse>
     if ('oauthType' in secret && !!secret.oauthType) {
-      authResultPromise = this.authApi.loginWithThirdPartyToken(secret.oauthType, secret.value)
+      authResultPromise = this.authApi.loginWithThirdPartyToken(secret.oauthType, secret.value) // TODO add group id
     } else {
       authResultPromise = this.authApi.login({ username: this.login, password: secret.value }, this.groupId)
     }
