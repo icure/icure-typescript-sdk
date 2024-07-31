@@ -125,7 +125,7 @@ export class SmartAuthProvider implements AuthenticationProvider {
     login: string,
     secretProvider: AuthSecretProvider,
     props: {
-      initialSecret?: { plainSecret: string } | { oauthToken: string; oauthType: OAuthThirdParty }
+      initialSecret?: { password: string } | { longToken: string } | { oauthToken: string; oauthType: OAuthThirdParty }
       initialAuthToken?: string
       initialRefreshToken?: string
       loginGroupId?: string
@@ -133,8 +133,10 @@ export class SmartAuthProvider implements AuthenticationProvider {
   ): SmartAuthProvider {
     let initialSecret: CachedSecretType | undefined = undefined
     if (props.initialSecret) {
-      if ('plainSecret' in props.initialSecret) {
-        initialSecret = { value: props.initialSecret.plainSecret, type: undefined }
+      if ('password' in props.initialSecret) {
+        initialSecret = { value: props.initialSecret.password, type: ServerAuthenticationClass.PASSWORD }
+      } else if ('longToken' in props.initialSecret) {
+        initialSecret = { value: props.initialSecret.longToken, type: ServerAuthenticationClass.LONG_LIVED_TOKEN }
       } else {
         initialSecret = {
           value: props.initialSecret.oauthToken,

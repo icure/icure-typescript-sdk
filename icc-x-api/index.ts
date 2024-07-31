@@ -497,7 +497,17 @@ export type AuthenticationDetails =
 export type SmartAuthenticationDetails = {
   username: string
   secretProvider: AuthSecretProvider
-  initialSecret?: { plainSecret: string } | { oauthToken: string; oauthType: OAuthThirdParty }
+  initialSecret?:
+    | {
+        password: string
+      }
+    | {
+        longToken: string
+      }
+    | {
+        oauthToken: string
+        oauthType: OAuthThirdParty
+      }
   initialAuthToken?: string
   initialRefreshToken?: string
 }
