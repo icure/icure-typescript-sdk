@@ -233,7 +233,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     throw new Error('Cannot call a method that returns contacts without providing a user for de/encryption')
   }
 
-  listContactsByOpeningDate(startKey: number, endKey: number, hcpartyid: string, startDocumentId?: string, limit?: number): never {
+  listContactsByOpeningDate(startDate: number, endDate: number, hcpartyid: string, startKey?: string, startDocumentId?: string, limit?: number): never {
     throw new Error('Cannot call a method that returns contacts without providing a user for de/encryption')
   }
 
@@ -306,14 +306,15 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
 
   listContactsByOpeningDateWithUser(
     user: models.User,
-    startKey: number,
-    endKey: number,
+    startDate: number,
+    endDate: number,
     hcpartyid: string,
+    startKey?: string,
     startDocumentId?: string,
     limit?: number
   ): Promise<PaginatedListContact | any> {
     return super
-      .listContactsByOpeningDate(startKey, endKey, hcpartyid, startDocumentId, limit)
+      .listContactsByOpeningDate(startDate, endDate, hcpartyid, startKey, startDocumentId, limit)
       .then((ctcs) =>
         this.decrypt(user.healthcarePartyId! || user.patientId!, ctcs.rows!).then((decryptedRows) => Object.assign(ctcs, { rows: decryptedRows }))
       )

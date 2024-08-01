@@ -506,9 +506,10 @@ export class IccContactApi {
    * @param limit Number of rows
    */
   async listContactsByOpeningDate(
-    startKey: number,
-    endKey: number,
+    startDate: number,
+    endDate: number,
     hcpartyid: string,
+    startKey?: string,
     startDocumentId?: string,
     limit?: number
   ): Promise<PaginatedListContact> {
@@ -519,9 +520,10 @@ export class IccContactApi {
       `/contact/byOpeningDate` +
       '?ts=' +
       new Date().getTime() +
-      (startKey ? '&startKey=' + encodeURIComponent(String(startKey)) : '') +
-      (endKey ? '&endKey=' + encodeURIComponent(String(endKey)) : '') +
+      (startDate ? '&startDate=' + encodeURIComponent(String(startDate)) : '') +
+      (endDate ? '&endDate=' + encodeURIComponent(String(endDate)) : '') +
       (hcpartyid ? '&hcpartyid=' + encodeURIComponent(String(hcpartyid)) : '') +
+      (startKey ? '&startKey=' + encodeURIComponent(String(startKey)) : '') +
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = await this.headers

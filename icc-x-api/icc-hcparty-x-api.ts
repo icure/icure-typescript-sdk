@@ -142,13 +142,6 @@ export class IccHcpartyXApi extends IccHcpartyApi {
     return super.getCurrentHealthcareParty().then((hcp) => this.putHcPartyInCache(hcp.id!, Promise.resolve(hcp)))
   }
 
-  getHcPartyKeysForDelegate(healthcarePartyId: string, bypassCache = false): Promise<{ [key: string]: string }> {
-    const cached = bypassCache ? null : this.hcPartyKeysCache[healthcarePartyId]
-    return cached
-      ? Promise.resolve(cached)
-      : super.getHcPartyKeysForDelegate(healthcarePartyId).then((r) => (this.hcPartyKeysCache[healthcarePartyId] = r))
-  }
-
   isValidCbe(cbe: string) {
     cbe = cbe.replace(new RegExp('[^(0-9)]', 'g'), '')
     cbe = cbe.length == 9 ? '0' + cbe : cbe

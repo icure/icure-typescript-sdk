@@ -169,13 +169,6 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     throw new Error('Cannot call a method that returns health element without providing a user for de/encryption')
   }
 
-  newHealthElementDelegationsWithUser(user: models.User, healthElementId: string, body?: Array<models.Delegation>): Promise<models.HealthElement> {
-    return super
-      .newHealthElementDelegations(healthElementId, body)
-      .then((he) => this.decryptWithUser(user, [he]))
-      .then((he) => he[0])
-  }
-
   findHealthElementsByHCPartyPatientForeignKeys(hcPartyId: string, secretFKeys: string): never {
     throw new Error('Cannot call a method that returns health element without providing a user for de/encryption')
   }
