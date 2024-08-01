@@ -349,41 +349,6 @@ export class IccHelementApi {
   }
 
   /**
-   * It delegates a healthcare element to a healthcare party (By current healthcare party). Returns the element with new delegations.
-   * @summary Delegates a healthcare element to a healthcare party
-   * @param body
-   * @param healthElementId
-   */
-  async newHealthElementDelegations(healthElementId: string, body?: Array<Delegation>): Promise<HealthElement> {
-    let _body = null
-    _body = body
-
-    const _url = this.host + `/helement/${encodeURIComponent(String(healthElementId))}/delegate` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new HealthElement(doc.body as JSON))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
-   * Keys must be delimited by coma
-   * @summary Update delegations in healthElements.
-   * @param body
-   */
-  async setHealthElementsDelegations(body?: Array<IcureStub>): Promise<Array<HealthElement>> {
-    let _body = null
-    _body = body
-
-    const _url = this.host + `/helement/delegations` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new HealthElement(it)))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
    * @internal this method is for internal use only and may be changed without notice
    */
   async bulkShareHealthElements(request: BulkShareOrUpdateMetadataParams): Promise<EntityBulkShareResult<HealthElement>[]> {

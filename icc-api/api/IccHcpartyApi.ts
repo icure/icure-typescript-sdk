@@ -307,21 +307,6 @@ export class IccHcpartyApi {
   }
 
   /**
-   * (key, value) of the map is as follows: (ID of the owner of the encrypted AES key, encrypted AES key)
-   * @summary Get the HcParty encrypted AES keys indexed by owner. As a HCp may now have multiple AES keys, this service is deprecated. Use /{healthcarePartyId}/aesExchangeKeys
-   * @param healthcarePartyId
-   */
-  getHcPartyKeysForDelegate(healthcarePartyId: string): Promise<{ [key: string]: string }> {
-    let _body = null
-
-    const _url = this.host + `/hcparty/${encodeURIComponent(String(healthcarePartyId))}/keys` + '?ts=' + new Date().getTime()
-    let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => JSON.parse(JSON.stringify(doc.body)))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
    * General information about the healthcare Party
    * @summary Get healthcareParties by their IDs
    */

@@ -324,23 +324,6 @@ export class IccCalendarItemApi {
   }
 
   /**
-   *
-   * @summary Update delegations in calendarItems
-   * @param body
-   */
-  async setCalendarItemsDelegations(body?: Array<IcureStub>): Promise<Array<CalendarItem>> {
-    let _body = null
-    _body = body
-
-    const _url = this.host + `/calendarItem/delegations` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new CalendarItem(it)))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
    * @internal this method is for internal use only and may be changed without notice
    */
   async bulkShareCalendarItems(request: BulkShareOrUpdateMetadataParams): Promise<EntityBulkShareResult<CalendarItem>[]> {

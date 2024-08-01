@@ -73,23 +73,6 @@ export class IccPatientApi {
   }
 
   /**
-   * Returns the id and _rev of created patients
-   * @summary Create patients in bulk
-   * @param body
-   */
-  async bulkCreatePatients1(body?: Array<Patient>): Promise<Array<IdWithRev>> {
-    let _body = null
-    _body = body
-
-    const _url = this.host + `/patient/bulk` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new IdWithRev(it)))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
    * Returns the id and _rev of modified patients
    * @summary Modify patients in bulk
    * @param body
@@ -99,23 +82,6 @@ export class IccPatientApi {
     _body = body
 
     const _url = this.host + `/patient/batch` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new IdWithRev(it)))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
-   * Returns the id and _rev of modified patients
-   * @summary Modify patients in bulk
-   * @param body
-   */
-  async bulkUpdatePatients1(body?: Array<Patient>): Promise<Array<IdWithRev>> {
-    let _body = null
-    _body = body
-
-    const _url = this.host + `/patient/bulk` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
@@ -504,7 +470,7 @@ export class IccPatientApi {
   ): Promise<PaginatedListPatient> {
     const _url =
       this.host +
-      `/patient/deleted/by_date` +
+      `/patient/deleted/byDate` +
       '?ts=' +
       new Date().getTime() +
       (startDate ? '&startDate=' + encodeURIComponent(startDate) : '') +
@@ -667,7 +633,7 @@ export class IccPatientApi {
 
     const _url =
       this.host +
-      `/patient/idsPages` +
+      `/patient/byHcPartyId` +
       '?ts=' +
       new Date().getTime() +
       (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
@@ -787,24 +753,6 @@ export class IccPatientApi {
       (end ? '&end=' + encodeURIComponent(String(end)) : '')
     let headers = await this.headers
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new Patient(doc.body as JSON))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
-   * It delegates a patient to a healthcare party (By current healthcare party). A modified patient with new delegation gets returned.
-   * @summary Delegates a patients to a healthcare party
-   * @param body
-   * @param patientId
-   */
-  async newPatientDelegations(patientId: string, body?: Array<Delegation>): Promise<Patient> {
-    let _body = null
-    _body = body
-
-    const _url = this.host + `/patient/${encodeURIComponent(String(patientId))}/delegate` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Patient(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }

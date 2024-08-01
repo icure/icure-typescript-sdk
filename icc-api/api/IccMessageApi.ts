@@ -84,26 +84,6 @@ export class IccMessageApi {
   }
 
   /**
-   *
-   * @summary Deletes a message delegation
-   * @param messageId
-   * @param delegateId
-   */
-  async deleteDelegation(messageId: string, delegateId: string): Promise<Message> {
-    let _body = null
-
-    const _url =
-      this.host +
-      `/message/${encodeURIComponent(String(messageId))}/delegate/${encodeURIComponent(String(delegateId))}` +
-      '?ts=' +
-      new Date().getTime()
-    let headers = await this.headers
-    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new Message(doc.body as JSON))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
    * @summary Deletes a batch of messages.
    *
    * @param messageIds a ListOfIds containing the ids of the messages to delete.
@@ -439,7 +419,7 @@ export class IccMessageApi {
     const _url = this.host + `/message/byIds` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('GET', _url, headers, messageIds, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, messageIds, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Message(it)))
       .catch((err) => this.handleError(err))
   }
@@ -453,7 +433,7 @@ export class IccMessageApi {
     let _body = null
     _body = body
 
-    const _url = this.host + `/message/byInvoiceId` + '?ts=' + new Date().getTime()
+    const _url = this.host + `/message/byInvoice` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
@@ -494,24 +474,6 @@ export class IccMessageApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Message(doc.body as JSON))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
-   *
-   * @summary Adds a delegation to a message
-   * @param body
-   * @param messageId
-   */
-  async newMessageDelegations(messageId: string, body?: Array<Delegation>): Promise<IcureStub> {
-    let _body = null
-    _body = body
-
-    const _url = this.host + `/message/${encodeURIComponent(String(messageId))}/delegate` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new IcureStub(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 
