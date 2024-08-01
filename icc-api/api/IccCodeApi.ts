@@ -271,7 +271,7 @@ export class IccCodeApi {
 
     const _url =
       this.host +
-      `/code/link/${encodeURIComponent(String(linkType))}` +
+      `/code/byLink/${encodeURIComponent(String(linkType))}` +
       '?ts=' +
       new Date().getTime() +
       (linkedId ? '&linkedId=' + encodeURIComponent(String(linkedId)) : '') +

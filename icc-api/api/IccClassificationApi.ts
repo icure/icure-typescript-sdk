@@ -209,41 +209,6 @@ export class IccClassificationApi {
   }
 
   /**
-   * It delegates a classification to a healthcare party (By current healthcare party). Returns the element with new delegations.
-   * @summary Delegates a classification to a healthcare party
-   * @param body
-   * @param classificationId
-   */
-  async newClassificationDelegations(classificationId: string, body?: Array<Delegation>): Promise<Classification> {
-    let _body = null
-    _body = body
-
-    const _url = this.host + `/classification/${encodeURIComponent(String(classificationId))}/delegate` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new Classification(doc.body as JSON))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
-   * Keys must be delimited by coma
-   * @summary Update delegations in classification
-   * @param body
-   */
-  async setClassificationsDelegations(body?: Array<IcureStub>): Promise<Array<IcureStub>> {
-    let _body = null
-    _body = body
-
-    const _url = this.host + `/classification/delegations` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
    * @internal this method is for internal use only and may be changed without notice
    */
   async bulkShareClassifications(request: BulkShareOrUpdateMetadataParams): Promise<EntityBulkShareResult<Classification>[]> {

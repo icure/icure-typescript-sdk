@@ -541,7 +541,7 @@ export class IccContactApi {
     let _body = null
     _body = body
 
-    const _url = this.host + `/contact/service/byIds` + '?ts=' + new Date().getTime()
+    const _url = this.host + `/contact/service` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
@@ -677,40 +677,6 @@ export class IccContactApi {
       .catch((err) => this.handleError(err))
   }
 
-  /**
-   * It delegates a contact to a healthcare party (By current healthcare party). Returns the contact with new delegations.
-   * @summary Delegates a contact to a healthcare party
-   * @param body
-   * @param contactId
-   */
-  async newContactDelegations(contactId: string, body?: Delegation): Promise<Contact> {
-    let _body = null
-    _body = body
-
-    const _url = this.host + `/contact/${encodeURIComponent(String(contactId))}/delegate` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new Contact(doc.body as JSON))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
-   * Keys must be delimited by comma
-   * @summary Update delegations in healthElements.
-   * @param body
-   */
-  async setContactsDelegations(body?: Array<IcureStub>): Promise<Array<Contact>> {
-    let _body = null
-    _body = body
-
-    const _url = this.host + `/contact/delegations` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new Contact(it)))
-      .catch((err) => this.handleError(err))
-  }
 
   /**
    * @summary List Contact ids by data owner and a set of secret foreign key. The ids will be sorted by Contact openingDate, in ascending or descending

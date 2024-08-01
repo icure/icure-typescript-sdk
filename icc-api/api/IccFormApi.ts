@@ -530,41 +530,6 @@ export class IccFormApi {
   }
 
   /**
-   * It delegates a form to a healthcare party. Returns the form with the new delegations.
-   * @summary Delegates a form to a healthcare party
-   * @param body
-   * @param formId
-   */
-  async newFormDelegations(formId: string, body?: Array<Delegation>): Promise<Form> {
-    let _body = null
-    _body = body
-
-    const _url = this.host + `/form/delegate/${encodeURIComponent(String(formId))}` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new Form(doc.body as JSON))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
-   * Keys must be delimited by coma
-   * @summary Update delegations in form.
-   * @param body
-   */
-  async setFormsDelegations(body?: Array<IcureStub>): Promise<Array<IcureStub>> {
-    let _body = null
-    _body = body
-
-    const _url = this.host + `/form/delegations` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
    *
    * @summary Update a form template's layout
    * @param attachment
