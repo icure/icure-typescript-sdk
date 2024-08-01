@@ -419,23 +419,6 @@ export class IccDocumentApi {
   }
 
   /**
-   * Keys must be delimited by coma
-   * @summary Update delegations in healthElements.
-   * @param body
-   */
-  async setDocumentsDelegations(body?: Array<IcureStub>): Promise<Array<IcureStub>> {
-    let _body = null
-    _body = body
-
-    const _url = this.host + `/document/delegations` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
    * Creates or updates a secondary attachment for a document and returns the modified document instance afterward
    * @summary Creates or modifies a secondary attachment for a document
    * @param documentId id of the document to update

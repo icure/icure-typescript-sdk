@@ -151,7 +151,7 @@ export class IccReceiptApi {
   async listByReference(ref: string): Promise<Array<Receipt>> {
     let _body = null
 
-    const _url = this.host + `/receipt/byref/${encodeURIComponent(String(ref))}` + '?ts=' + new Date().getTime()
+    const _url = this.host + `/receipt/byRef/${encodeURIComponent(String(ref))}` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Receipt(it)))
