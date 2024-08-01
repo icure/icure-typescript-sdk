@@ -136,7 +136,7 @@ export { StorageFacade } from './storage/StorageFacade'
 export { KeyStorageImpl } from './storage/KeyStorageImpl'
 export { CryptoStrategies } from './crypto/CryptoStrategies'
 export { NativeCryptoPrimitivesBridge } from './crypto/NativeCryptoPrimitivesBridge'
-export { getShaVersionForKey } from './crypto/utils'
+export { hexPublicKeysWithSha1Of, hexPublicKeysWithSha256Of, getShaVersionForKey } from './crypto/utils'
 
 export interface BasicApis {
   readonly authApi: IccAuthApi
