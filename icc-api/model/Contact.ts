@@ -113,6 +113,10 @@ export class Contact {
    * Set of all services provided to the patient during the contact.
    */
   services?: Array<Service>
+  /**
+   * The participants to the contact. The key is the type of participant, the value is the id of the participant data owner id
+   */
+  participants?: Record<ParticipantType, string>
   healthcarePartyId?: string
   modifiedContactId?: string
   /**
@@ -141,3 +145,18 @@ export class Contact {
    */
   notes?: Array<Annotation>
 }
+
+export type ParticipantType =
+  | 'admitter'
+  | 'attender'
+  | 'callback'
+  | 'consultant'
+  | 'discharger'
+  | 'escort'
+  | 'referrer'
+  | 'secondaryPerformer'
+  | 'primaryPerformer'
+  | 'participation'
+  | 'translator'
+  | 'emergency'
+  | 'location'
