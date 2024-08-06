@@ -21,6 +21,19 @@ import {CalendarItemByPeriodAndDataOwnerIdFilter} from "../../icc-x-api/filters/
 setLocalStorage(fetch)
 let env: TestVars
 
+function formatDate(date: Date) : string {
+  const pad = (num: number) => (num < 10 ? '0' + num : num.toString())
+
+  const year = date.getFullYear()
+  const month = pad(date.getMonth() + 1)
+  const day = pad(date.getDate())
+  const hours = pad(date.getHours())
+  const minutes = pad(date.getMinutes())
+  const seconds = pad(date.getSeconds())
+
+  return `${year}${month}${day}${hours}${minutes}${seconds}`
+}
+
 describe('icc-calendar-item-x-api Tests', () => {
   before(async function () {
     this.timeout(600000)
@@ -179,6 +192,43 @@ describe('icc-calendar-item-x-api Tests', () => {
     expect(sharedInfo.permissionsByDataOwnerId[user2.healthcarePartyId!]).to.equal(AccessLevelEnum.WRITE)
     expect(sharedInfo.permissionsByDataOwnerId[user3.healthcarePartyId!]).to.equal(AccessLevelEnum.READ)
   })
+
+  it('Should be able to match calendar items by period and data owner id', async () => {
+    const { userApi: userApiForHcp, calendarItemApi: calendarItemApiForHcp, patientApi: patientApiForHcp } = await initApi(env!, hcp1Username)
+
+    const currentDate = new Date()
+    const datePlusOneHour = new Date(currentDate.getTime() + 60 * 60 * 1000)
+    const datePlusTwoHours = new Date(currentDate.getTime() + 2 * 60 * 60 * 1000)
+    const datePlusThreeHours = new Date(currentDate.getTime() + 3 * 60 * 60 * 1000)
+
+    const loggedUser = await userApiForHcp.getCurrentUser()
+
+    const calendarItem: CalendarItem = await calendarItemApiForHcp.createCalendarItemWithHcParty(
+      loggedUser,
+      await calendarItemApiForHcp.newInstance(
+        loggedUser,
+        new CalendarItem({
+          id: randomUUID(),
+          created: new Date().getTime(),
+          modified: new Date().getTime(),
+          startTime: formatDate(datePlusOneHour),
+          endTime: formatDate(datePlusTwoHours),
+          responsible: loggedUser.healthcarePartyId!,
+        })
+      )
+    )
+
+    const filter = new CalendarItemByPeriodAndDataOwnerIdFilter({
+      dataOwnerId: loggedUser.healthcarePartyId!,
+      startTime: formatDate(currentDate),
+      endTime: formatDate(datePlusThreeHours),
+    })
+
+    const calendarItems = await calendarItemApiForHcp.matchCalendarItemsBy(filter)
+
+    expect(calendarItems).to.have.length.greaterThanOrEqual(1)
+    expect(calendarItems).to.contains(calendarItem.id)
+  })
 })
 
 describeNoLite('icc-calendarItem-x-api websocket Tests', () => {
@@ -216,19 +266,6 @@ describeNoLite('icc-calendarItem-x-api websocket Tests', () => {
 
   const subscribeAndCreateCalendarItem = async (options: SubscriptionOptions, eventTypes: ('CREATE' | 'DELETE' | 'UPDATE')[]) => {
     const { userApi: userApiForHcp, calendarItemApi: calendarItemApiForHcp, patientApi: patientApiForHcp } = await initApi(env!, hcp1Username)
-
-    function formatDate(date: Date) : string {
-      const pad = (num: number) => (num < 10 ? '0' + num : num.toString())
-
-      const year = date.getFullYear()
-      const month = pad(date.getMonth() + 1)
-      const day = pad(date.getDate())
-      const hours = pad(date.getHours())
-      const minutes = pad(date.getMinutes())
-      const seconds = pad(date.getSeconds())
-
-      return `${year}${month}${day}${hours}${minutes}${seconds}`
-    }
 
     const currentDate = new Date()
     const datePlusOneHour = new Date(currentDate.getTime() + 60 * 60 * 1000)

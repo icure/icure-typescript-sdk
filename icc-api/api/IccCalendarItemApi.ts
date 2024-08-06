@@ -21,6 +21,10 @@ import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { MinimalEntityBulkShareResult } from '../model/requests/MinimalEntityBulkShareResult'
 import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
 import { PaginatedListCalendarItem } from '../model/PaginatedListCalendarItem'
+import {AbstractFilterCalendarItem} from "../model/AbstractFilterCalendarItem"
+import {FilterChainHealthElement} from "../model/FilterChainHealthElement"
+import {PaginatedListHealthElement} from "../model/PaginatedListHealthElement"
+import {FilterChainCalendarItem} from "../model/FilterChainCalendarItem"
 
 export class IccCalendarItemApi {
   host: string
@@ -320,6 +324,20 @@ export class IccCalendarItemApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new CalendarItem(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
+   * @summary Get ids of calendarItems matching the provided filter for the current user (HcParty)
+   * @param body
+   */
+  async matchCalendarItemsBy(body?: AbstractFilterCalendarItem): Promise<Array<string>> {
+    const _url = this.host + `/calendarItem/match` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
       .catch((err) => this.handleError(err))
   }
 
