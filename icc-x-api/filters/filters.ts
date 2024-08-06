@@ -37,11 +37,17 @@ import {User} from '../../icc-api/model/User'
 import {AbstractFilterUser} from '../../icc-api/model/AbstractFilterUser'
 import {HealthcareParty} from "../../icc-api/model/HealthcareParty"
 import {AbstractFilterHealthcareParty} from "../../icc-api/model/AbstractFilterHealthcareParty"
+import {CalendarItem} from "../../icc-api/model/CalendarItem"
+import {AbstractFilterCalendarItem} from "../../icc-api/model/AbstractFilterCalendarItem"
 
 export * from './AllCodesFilter'
 export * from './AllDevicesFilter'
 export * from './AllHealthcarePartiesFilter'
 export * from './AllUsersFilter'
+export * from './CalendarItemByDataOwnerPatientStartTimeFilter'
+export * from './CalendarItemByRecurrenceIdFilter'
+export * from './CalendarItemByPeriodAndDataOwnerIdFilter'
+export * from './CalendarItemByPeriodAndAgendaIdFilter'
 export * from './CodeByIdsFilter'
 export * from './CodeByRegionTypeLabelLanguageFilter'
 export * from './ComplementFilter'
@@ -121,7 +127,10 @@ export type AbstractFilter<T> =
                   ? AbstractFilterInvoice
                   : T extends User
                     ? AbstractFilterUser
-                    : never)
+                    : T extends CalendarItem
+                      ? AbstractFilterCalendarItem
+                      : never)
+
   | ConstantFilter<T>
   | IntersectionFilter<T>
   | UnionFilter<T>

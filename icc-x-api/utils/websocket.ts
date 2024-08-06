@@ -12,6 +12,7 @@ import { Device } from '../../icc-api/model/Device'
 import { Contact } from '../../icc-api/model/Contact'
 import { Message } from '../../icc-api/model/Message'
 import { Topic } from '../../icc-api/model/Topic'
+import { CalendarItem } from "../../icc-api/model/CalendarItem"
 
 export type EventTypes = 'CREATE' | 'UPDATE' | 'DELETE'
 type Subscribable =
@@ -25,7 +26,19 @@ type Subscribable =
   | 'Contact'
   | 'Message'
   | 'Topic'
-type SubscribableEntity = Patient | Service | User | HealthElement | MaintenanceTask | HealthcareParty | Device | Contact | Message | Topic
+  | 'CalendarItem'
+type SubscribableEntity =
+  | Patient
+  | Service
+  | User
+  | HealthElement
+  | MaintenanceTask
+  | HealthcareParty
+  | Device
+  | Contact
+  | Message
+  | Topic
+  | CalendarItem
 export type SubscriptionOptions = {
   connectionMaxRetry?: number
   connectionRetryIntervalMs?: number
@@ -129,6 +142,16 @@ export function subscribeToEntityEvents(
   eventFired: (entity: Device) => Promise<void>,
   options: SubscriptionOptions
 ): Promise<WebSocketWrapper>
+export function subscribeToEntityEvents(
+  basePath: string,
+  authApi: IccAuthApi,
+  entityClass: 'CalendarItem',
+  eventTypes: EventTypes[],
+  filter: AbstractFilter<CalendarItem> | undefined,
+  eventFired: (entity: CalendarItem) => Promise<void>,
+  options: SubscriptionOptions,
+  decryptor: (encrypted: CalendarItem) => Promise<CalendarItem>
+): Promise<WebSocketWrapper>
 
 export function subscribeToEntityEvents<T extends SubscribableEntity>(
   basePath: string,
@@ -180,6 +203,10 @@ export function subscribeToEntityEvents<T extends SubscribableEntity>(
     Contact: {
       qualifiedName: 'org.taktik.icure.entities.Contact',
       decryptor: (data: Contact) => decryptor!(data as Contact as T),
+    },
+    CalendarItem: {
+      qualifiedName: 'org.taktik.icure.entities.CalendarItem',
+      decryptor: (data: CalendarItem) => decryptor!(CalendarItem as CalendarItem as T),
     },
   }
 

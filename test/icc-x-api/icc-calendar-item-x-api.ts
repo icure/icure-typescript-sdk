@@ -1,8 +1,8 @@
 import 'isomorphic-fetch'
-import { getEnvironmentInitializer, hcp1Username, hcp2Username, hcp3Username, setLocalStorage, TestUtils } from '../utils/test_utils'
-import { before } from 'mocha'
-import { IccPatientXApi, IccUserXApi } from '../../icc-x-api'
-import { IccCalendarItemApi } from '../../icc-api'
+import {describeNoLite, getEnvironmentInitializer, hcp1Username, hcp2Username, hcp3Username, setLocalStorage, TestUtils} from '../utils/test_utils'
+import {before, it} from 'mocha'
+import {IccPatientXApi, IccUserXApi, sleep, SubscriptionOptions} from '../../icc-x-api'
+import {IccCalendarItemApi, IccTopicApi} from '../../icc-api'
 import { Patient } from '../../icc-api/model/Patient'
 import { User } from '../../icc-api/model/User'
 import { randomUUID } from 'crypto'
@@ -12,7 +12,11 @@ import initApi = TestUtils.initApi
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import { SecureDelegation } from '../../icc-api/model/SecureDelegation'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
-import { BasicAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
+import { BasicAuthenticationProvider } from '../../icc-x-api'
+import {TopicByHcPartyFilter} from "../../icc-x-api/filters/TopicByHcPartyFilter"
+import {Connection} from "../../icc-api/model/Connection"
+import {CalendarItemByDataOwnerPatientStartTimeFilter} from "../../icc-x-api/filters/CalendarItemByDataOwnerPatientStartTimeFilter"
+import {CalendarItemByPeriodAndDataOwnerIdFilter} from "../../icc-x-api/filters/CalendarItemByPeriodAndDataOwnerIdFilter"
 
 setLocalStorage(fetch)
 let env: TestVars
@@ -176,3 +180,136 @@ describe('icc-calendar-item-x-api Tests', () => {
     expect(sharedInfo.permissionsByDataOwnerId[user3.healthcarePartyId!]).to.equal(AccessLevelEnum.READ)
   })
 })
+
+describeNoLite('icc-calendarItem-x-api websocket Tests', () => {
+  before(async function () {
+    this.timeout(600000)
+    const initializer = await getEnvironmentInitializer()
+    env = await initializer.execute(getEnvVariables())
+  })
+
+  async function doXOnYAndSubscribe<Y>(
+    connectionPromise: Promise<Connection>,
+    x: () => Promise<Y>,
+    statusListener: (status: string) => void,
+    eventReceivedPromiseReject: (reason?: any) => void,
+    eventReceivedPromise: Promise<void>
+  ) {
+    const connection = (await connectionPromise)
+      .onClosed(async () => {
+        statusListener('CLOSED')
+        await sleep(3_000)
+      })
+      .onConnected(async () => {
+        statusListener('CONNECTED')
+        await sleep(2_000)
+        await x()
+      })
+
+    const timeout = setTimeout(eventReceivedPromiseReject, 20_000)
+    await eventReceivedPromise.then(() => clearTimeout(timeout)).catch(() => {})
+
+    connection.close()
+
+    await sleep(3_000)
+  }
+
+  const subscribeAndCreateCalendarItem = async (options: SubscriptionOptions, eventTypes: ('CREATE' | 'DELETE' | 'UPDATE')[]) => {
+    const { userApi: userApiForHcp, calendarItemApi: calendarItemApiForHcp, patientApi: patientApiForHcp } = await initApi(env!, hcp1Username)
+
+    function formatDate(date: Date) : string {
+      const pad = (num: number) => (num < 10 ? '0' + num : num.toString())
+
+      const year = date.getFullYear()
+      const month = pad(date.getMonth() + 1)
+      const day = pad(date.getDate())
+      const hours = pad(date.getHours())
+      const minutes = pad(date.getMinutes())
+      const seconds = pad(date.getSeconds())
+
+      return `${year}${month}${day}${hours}${minutes}${seconds}`
+    }
+
+    const currentDate = new Date()
+    const datePlusOneHour = new Date(currentDate.getTime() + 60 * 60 * 1000)
+    const datePlusTwoHours = new Date(currentDate.getTime() + 2 * 60 * 60 * 1000)
+    const datePlusThreeHours = new Date(currentDate.getTime() + 3 * 60 * 60 * 1000)
+
+    const loggedUser = await userApiForHcp.getCurrentUser()
+    const connectionPromise = async (options: SubscriptionOptions, eventListener: (calendarItem: CalendarItem) => Promise<void>) =>
+      calendarItemApiForHcp.subscribeToCalendarItemEvents(
+        eventTypes,
+        new CalendarItemByPeriodAndDataOwnerIdFilter({
+          dataOwnerId: loggedUser!.healthcarePartyId!,
+          startTime: formatDate(currentDate),
+          endTime: formatDate(datePlusThreeHours),
+
+        }),
+        eventListener,
+        options
+      )
+
+    const events: CalendarItem[] = []
+    const statuses: string[] = []
+
+    let eventReceivedPromiseResolve!: (value: void | PromiseLike<void>) => void
+    let eventReceivedPromiseReject!: (reason?: any) => void
+    const eventReceivedPromise = new Promise<void>((res, rej) => {
+      eventReceivedPromiseResolve = res
+      eventReceivedPromiseReject = rej
+    })
+
+    await doXOnYAndSubscribe(
+      connectionPromise(options, async (healthcareElement) => {
+        events.push(healthcareElement)
+        eventReceivedPromiseResolve()
+      }),
+      async () => {
+
+        await calendarItemApiForHcp.createCalendarItemWithHcParty(
+          loggedUser,
+          await calendarItemApiForHcp.newInstance(
+            loggedUser,
+            new CalendarItem({
+              id: randomUUID(),
+              created: new Date().getTime(),
+              modified: new Date().getTime(),
+              startTime: formatDate(datePlusOneHour),
+              endTime: formatDate(datePlusTwoHours),
+              responsible: loggedUser.healthcarePartyId!,
+              author: loggedUser.id,
+              codes: [],
+              tags: [],
+            })
+          )
+        )
+      },
+      (status) => {
+        statuses.push(status)
+      },
+      eventReceivedPromiseReject,
+      eventReceivedPromise
+    )
+
+    events?.forEach((event) => console.log(`Event : ${event}`))
+    statuses?.forEach((status) => console.log(`Status : ${status}`))
+
+    expect(statuses).to.have.length(2)
+    expect(events).to.have.length(1)
+  }
+
+  it('CREATE CalendarItem without options', async () => {
+    await subscribeAndCreateCalendarItem({}, ['CREATE'])
+  }).timeout(60000)
+
+  it('CREATE CalendarItem with options', async () => {
+    await subscribeAndCreateCalendarItem(
+      {
+        connectionRetryIntervalMs: 10_000,
+        connectionMaxRetry: 5,
+      },
+      ['CREATE']
+    )
+  }).timeout(60000)
+})
+

@@ -2,9 +2,9 @@ import * as i18n from './rsrc/contact.i18n'
 
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import { CalendarItem, User } from '../icc-api/model/models'
+import {CalendarItem, Connection, ConnectionImpl, User} from '../icc-api/model/models'
 import { IccCryptoXApi } from './icc-crypto-x-api'
-import { IccCalendarItemApi } from '../icc-api'
+import {IccAuthApi, IccCalendarItemApi} from '../icc-api'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
@@ -12,16 +12,16 @@ import { ShareResult } from './utils/ShareResult'
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
 import { XHR } from '../icc-api/api/XHR'
-import { EncryptedFieldsManifest, EntityWithDelegationTypeName, parseEncryptedFields } from './utils'
+import {EncryptedFieldsManifest, EntityWithDelegationTypeName, parseEncryptedFields, subscribeToEntityEvents, SubscriptionOptions} from './utils'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import { PaginatedListCalendarItem } from '../icc-api/model/PaginatedListCalendarItem'
+import {AbstractFilter} from "./filters/filters"
+import {IccUserXApi} from "./icc-user-x-api"
 
 export class IccCalendarItemXApi extends IccCalendarItemApi implements EncryptedEntityXApi<models.CalendarItem> {
   i18n: any = i18n
-  crypto: IccCryptoXApi
-  dataOwnerApi: IccDataOwnerXApi
   private readonly encryptedFields: EncryptedFieldsManifest
 
   get headers(): Promise<Array<XHR.Header>> {
@@ -31,8 +31,10 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
   constructor(
     host: string,
     headers: { [key: string]: string },
-    crypto: IccCryptoXApi,
-    dataOwnerApi: IccDataOwnerXApi,
+    private readonly crypto: IccCryptoXApi,
+    private readonly userApi: IccUserXApi,
+    private readonly authApi: IccAuthApi,
+    private readonly dataOwnerApi: IccDataOwnerXApi,
     private readonly autofillAuthor: boolean,
     encryptedKeys: Array<string> = ['details', 'title', 'patientId'],
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
@@ -43,8 +45,6 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
       : fetch
   ) {
     super(host, headers, authenticationProvider, fetchImpl)
-    this.crypto = crypto
-    this.dataOwnerApi = dataOwnerApi
     this.encryptedFields = parseEncryptedFields(encryptedKeys, 'CalendarItem.')
   }
 
@@ -495,6 +495,27 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
     const sharedDecrypted = (await this.decrypt(self, [shared.updatedEntities[0]]))[0]
     const withSfk = await this.modifyAs(self, { ...sharedDecrypted, secretForeignKeys: [sfk] })
     return (await this.decrypt(self, [withSfk]))[0]
+  }
+
+  async subscribeToCalendarItemEvents(
+    eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
+    filter: AbstractFilter<CalendarItem>,
+    eventFired: (dataSample: CalendarItem) => Promise<void>,
+    options: SubscriptionOptions = {}
+  ): Promise<Connection> {
+    const currentUser = await this.userApi.getCurrentUser()
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(currentUser)
+
+    return subscribeToEntityEvents(
+      this.host,
+      this.authApi,
+      EntityWithDelegationTypeName.CalendarItem,
+      eventTypes,
+      filter,
+      eventFired,
+      options,
+      async (encrypted: CalendarItem) => (await this.decrypt(dataOwnerId, [encrypted]))[0]
+    ).then((rs) => new ConnectionImpl(rs))
   }
 
   createDelegationDeAnonymizationMetadata(entity: CalendarItem, delegates: string[]): Promise<void> {
