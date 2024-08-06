@@ -12,29 +12,19 @@
 import { XHR } from './XHR'
 import { CalendarItem } from '../model/CalendarItem'
 import { DocIdentifier } from '../model/DocIdentifier'
-import { IcureStub } from '../model/IcureStub'
 import { ListOfIds } from '../model/ListOfIds'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
-import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { MinimalEntityBulkShareResult } from '../model/requests/MinimalEntityBulkShareResult'
 import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
 import { PaginatedListCalendarItem } from '../model/PaginatedListCalendarItem'
-import {AbstractFilterCalendarItem} from "../model/AbstractFilterCalendarItem"
-import {FilterChainHealthElement} from "../model/FilterChainHealthElement"
-import {PaginatedListHealthElement} from "../model/PaginatedListHealthElement"
-import {FilterChainCalendarItem} from "../model/FilterChainCalendarItem"
+import { AbstractFilterCalendarItem } from '../model/AbstractFilterCalendarItem'
 
 export class IccCalendarItemApi {
   host: string
-  _headers: Array<XHR.Header>
   authenticationProvider: AuthenticationProvider
   fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
-
-  get headers(): Promise<Array<XHR.Header>> {
-    return Promise.resolve(this._headers)
-  }
 
   constructor(
     host: string,
@@ -46,6 +36,12 @@ export class IccCalendarItemApi {
     this._headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
     this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
     this.fetchImpl = fetchImpl
+  }
+
+  _headers: Array<XHR.Header>
+
+  get headers(): Promise<Array<XHR.Header>> {
+    return Promise.resolve(this._headers)
   }
 
   setHeaders(h: Array<XHR.Header>) {

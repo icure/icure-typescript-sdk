@@ -2,9 +2,9 @@ import * as i18n from './rsrc/contact.i18n'
 
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import {CalendarItem, Connection, ConnectionImpl, User} from '../icc-api/model/models'
+import { CalendarItem, Connection, ConnectionImpl, User } from '../icc-api/model/models'
 import { IccCryptoXApi } from './icc-crypto-x-api'
-import {IccAuthApi, IccCalendarItemApi} from '../icc-api'
+import { IccAuthApi, IccCalendarItemApi } from '../icc-api'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
@@ -12,21 +12,17 @@ import { ShareResult } from './utils/ShareResult'
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
 import { XHR } from '../icc-api/api/XHR'
-import {EncryptedFieldsManifest, EntityWithDelegationTypeName, parseEncryptedFields, subscribeToEntityEvents, SubscriptionOptions} from './utils'
+import { EncryptedFieldsManifest, EntityWithDelegationTypeName, parseEncryptedFields, subscribeToEntityEvents, SubscriptionOptions } from './utils'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
+import { PaginatedListCalendarItem } from '../icc-api/model/PaginatedListCalendarItem'
+import { AbstractFilter } from './filters/filters'
+import { IccUserXApi } from './icc-user-x-api'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
-import { PaginatedListCalendarItem } from '../icc-api/model/PaginatedListCalendarItem'
-import {AbstractFilter} from "./filters/filters"
-import {IccUserXApi} from "./icc-user-x-api"
 
 export class IccCalendarItemXApi extends IccCalendarItemApi implements EncryptedEntityXApi<models.CalendarItem> {
   i18n: any = i18n
   private readonly encryptedFields: EncryptedFieldsManifest
-
-  get headers(): Promise<Array<XHR.Header>> {
-    return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, EntityWithDelegationTypeName.CalendarItem))
-  }
 
   constructor(
     host: string,
@@ -46,6 +42,10 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
   ) {
     super(host, headers, authenticationProvider, fetchImpl)
     this.encryptedFields = parseEncryptedFields(encryptedKeys, 'CalendarItem.')
+  }
+
+  get headers(): Promise<Array<XHR.Header>> {
+    return super.headers.then((h) => this.crypto.accessControlKeysHeaders.addAccessControlKeysHeaders(h, EntityWithDelegationTypeName.CalendarItem))
   }
 
   newInstance(
@@ -291,30 +291,8 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
     return body ? this.modifyAs(this.dataOwnerApi.getDataOwnerIdOf(user)!, _.cloneDeep(body)) : null
   }
 
-  private modifyAs(dataOwner: string, body: models.CalendarItem): Promise<models.CalendarItem> {
-    return this.encryptAs(dataOwner, [_.cloneDeep(body)])
-      .then((items) => super.modifyCalendarItem(items[0]))
-      .then((ci) => this.decrypt(dataOwner, [ci]))
-      .then((cis) => cis[0])
-  }
-
   encrypt(user: models.User, calendarItems: Array<models.CalendarItem>): Promise<Array<models.CalendarItem>> {
     return this.encryptAs(this.dataOwnerApi.getDataOwnerIdOf(user)!, calendarItems)
-  }
-
-  private encryptAs(dataOwner: string, calendarItems: Array<models.CalendarItem>): Promise<Array<models.CalendarItem>> {
-    return Promise.all(
-      calendarItems.map((x) =>
-        this.crypto.xapi.tryEncryptEntity(
-          x,
-          EntityWithDelegationTypeName.CalendarItem,
-          this.encryptedFields,
-          false,
-          false,
-          (json) => new CalendarItem(json)
-        )
-      )
-    )
   }
 
   decrypt(hcpId: string, calendarItems: Array<models.CalendarItem>): Promise<Array<models.CalendarItem>> {
@@ -522,6 +500,28 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
     return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo(
       { entity, type: EntityWithDelegationTypeName.CalendarItem },
       delegates
+    )
+  }
+
+  private modifyAs(dataOwner: string, body: models.CalendarItem): Promise<models.CalendarItem> {
+    return this.encryptAs(dataOwner, [_.cloneDeep(body)])
+      .then((items) => super.modifyCalendarItem(items[0]))
+      .then((ci) => this.decrypt(dataOwner, [ci]))
+      .then((cis) => cis[0])
+  }
+
+  private encryptAs(dataOwner: string, calendarItems: Array<models.CalendarItem>): Promise<Array<models.CalendarItem>> {
+    return Promise.all(
+      calendarItems.map((x) =>
+        this.crypto.xapi.tryEncryptEntity(
+          x,
+          EntityWithDelegationTypeName.CalendarItem,
+          this.encryptedFields,
+          false,
+          false,
+          (json) => new CalendarItem(json)
+        )
+      )
     )
   }
 }
