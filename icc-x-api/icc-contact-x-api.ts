@@ -6,7 +6,7 @@ import i18n from './rsrc/contact.i18n'
 import * as moment from 'moment'
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import { Contact, FilterChainService, ListOfIds, Service } from '../icc-api/model/models'
+import {Connection, ConnectionImpl, Contact, FilterChainService, ListOfIds, Service} from '../icc-api/model/models'
 import { PaginatedListContact } from '../icc-api/model/PaginatedListContact'
 import { utf8_2ua } from './utils/binary-utils'
 import { ServiceByIdsFilter } from './filters/ServiceByIdsFilter'
@@ -30,7 +30,6 @@ import { XHR } from '../icc-api/api/XHR'
 import { IccUserXApi } from './icc-user-x-api'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 import { AbstractFilter } from './filters/filters'
-import { Connection, ConnectionImpl } from '../icc-api/model/Connection'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 

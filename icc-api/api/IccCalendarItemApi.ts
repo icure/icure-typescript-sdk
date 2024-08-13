@@ -12,25 +12,19 @@
 import { XHR } from './XHR'
 import { CalendarItem } from '../model/CalendarItem'
 import { DocIdentifier } from '../model/DocIdentifier'
-import { IcureStub } from '../model/IcureStub'
 import { ListOfIds } from '../model/ListOfIds'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
-import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { MinimalEntityBulkShareResult } from '../model/requests/MinimalEntityBulkShareResult'
 import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
 import { PaginatedListCalendarItem } from '../model/PaginatedListCalendarItem'
+import { AbstractFilterCalendarItem } from '../model/AbstractFilterCalendarItem'
 
 export class IccCalendarItemApi {
   host: string
-  _headers: Array<XHR.Header>
   authenticationProvider: AuthenticationProvider
   fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
-
-  get headers(): Promise<Array<XHR.Header>> {
-    return Promise.resolve(this._headers)
-  }
 
   constructor(
     host: string,
@@ -42,6 +36,12 @@ export class IccCalendarItemApi {
     this._headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
     this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
     this.fetchImpl = fetchImpl
+  }
+
+  _headers: Array<XHR.Header>
+
+  get headers(): Promise<Array<XHR.Header>> {
+    return Promise.resolve(this._headers)
   }
 
   setHeaders(h: Array<XHR.Header>) {
@@ -320,6 +320,20 @@ export class IccCalendarItemApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new CalendarItem(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
+   * @summary Get ids of calendarItems matching the provided filter for the current user (HcParty)
+   * @param body
+   */
+  async matchCalendarItemsBy(body?: AbstractFilterCalendarItem): Promise<Array<string>> {
+    const _url = this.host + `/calendarItem/match` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
       .catch((err) => this.handleError(err))
   }
 

@@ -1138,6 +1138,8 @@ class IcureApiImpl implements IcureApi {
         this.host,
         this.cryptoInitInfos.headers,
         this.cryptoApi,
+        this.userApi,
+        this.authApi,
         this.dataOwnerApi,
         !this.cryptoInitInfos.dataOwnerRequiresAnonymousDelegation,
         this.params.encryptedFieldsConfig.calendarItem ?? EncryptedFieldsConfig.Defaults.calendarItem,
