@@ -14,7 +14,7 @@ import { Vmp } from './Vmp'
 
 export class PaginatedListVmp {
   constructor(json: JSON | any) {
-    Object.assign(this as PaginatedListVmp, json)
+    Object.assign(this as PaginatedListVmp, {...json, rows: json.rows?.map((r: any) => new Vmp(r))})
   }
 
   pageSize?: number

@@ -3,7 +3,7 @@ import { Keyword } from './Keyword'
 
 export class PaginatedListKeyword {
   constructor(json: JSON | any) {
-    Object.assign(this as PaginatedListKeyword, json)
+    Object.assign(this as PaginatedListKeyword, {...json, rows: json.rows?.map((r: any) => new Keyword(r))})
   }
 
   pageSize?: number

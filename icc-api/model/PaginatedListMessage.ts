@@ -14,7 +14,7 @@ import { PaginatedDocumentKeyIdPairObject } from './PaginatedDocumentKeyIdPairOb
 
 export class PaginatedListMessage {
   constructor(json: JSON | any) {
-    Object.assign(this as PaginatedListMessage, json)
+    Object.assign(this as PaginatedListMessage, {...json, rows: json.rows?.map((r: any) => new Message(r))})
   }
 
   pageSize?: number

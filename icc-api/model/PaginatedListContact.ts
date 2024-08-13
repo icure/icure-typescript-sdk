@@ -14,7 +14,7 @@ import { PaginatedDocumentKeyIdPairObject } from './PaginatedDocumentKeyIdPairOb
 
 export class PaginatedListContact {
   constructor(json: JSON | any) {
-    Object.assign(this as PaginatedListContact, json)
+    Object.assign(this as PaginatedListContact, {...json, rows: json.rows?.map((r: any) => new Contact(r))})
   }
 
   pageSize?: number

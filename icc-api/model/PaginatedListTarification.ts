@@ -14,7 +14,7 @@ import { Tarification } from './Tarification'
 
 export class PaginatedListTarification {
   constructor(json: JSON | any) {
-    Object.assign(this as PaginatedListTarification, json)
+    Object.assign(this as PaginatedListTarification, {...json, rows: json.rows?.map((r: any) => new Tarification(r))})
   }
 
   pageSize?: number

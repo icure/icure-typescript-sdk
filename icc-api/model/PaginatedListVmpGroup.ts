@@ -14,7 +14,7 @@ import { VmpGroup } from './VmpGroup'
 
 export class PaginatedListVmpGroup {
   constructor(json: JSON | any) {
-    Object.assign(this as PaginatedListVmpGroup, json)
+    Object.assign(this as PaginatedListVmpGroup, {...json, rows: json.rows?.map((r: any) => new VmpGroup(r))})
   }
 
   pageSize?: number
