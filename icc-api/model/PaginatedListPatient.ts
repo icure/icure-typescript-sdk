@@ -14,7 +14,7 @@ import { Patient } from './Patient'
 
 export class PaginatedListPatient {
   constructor(json: JSON | any) {
-    Object.assign(this as PaginatedListPatient, json)
+    Object.assign(this as PaginatedListPatient, {...json, rows: json.rows?.map((r: any) => new Patient(r))})
   }
 
   pageSize?: number

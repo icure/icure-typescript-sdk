@@ -14,7 +14,7 @@ import { User } from './User'
 
 export class PaginatedListUser {
   constructor(json: JSON | any) {
-    Object.assign(this as PaginatedListUser, json)
+    Object.assign(this as PaginatedListUser, {...json, rows: json.rows?.map((r: any) => new User(r))})
   }
 
   pageSize?: number

@@ -14,7 +14,7 @@ import { PaginatedDocumentKeyIdPairObject } from './PaginatedDocumentKeyIdPairOb
 
 export class PaginatedListMaintenanceTask {
   constructor(json: JSON | any) {
-    Object.assign(this as PaginatedListMaintenanceTask, json)
+    Object.assign(this as PaginatedListMaintenanceTask, {...json, rows: json.rows?.map((r: any) => new MaintenanceTask(r))})
   }
 
   pageSize?: number

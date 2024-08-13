@@ -14,7 +14,7 @@ import { PaginatedDocumentKeyIdPairObject } from './PaginatedDocumentKeyIdPairOb
 
 export class PaginatedListEntityTemplate {
   constructor(json: JSON | any) {
-    Object.assign(this as PaginatedListEntityTemplate, json)
+    Object.assign(this as PaginatedListEntityTemplate, {...json, rows: json.rows?.map((r: any) => new EntityTemplate(r))})
   }
 
   pageSize?: number
