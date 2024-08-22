@@ -18,6 +18,7 @@ export class Valorisation {
   startOfValidity?: number
   endOfValidity?: number
   predicate?: string
+  reference?: Array<number>
   totalAmount?: number
   reimbursement?: number
   patientIntervention?: number
