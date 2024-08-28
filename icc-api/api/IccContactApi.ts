@@ -522,7 +522,7 @@ export class IccContactApi {
       new Date().getTime() +
       (startDate ? '&startDate=' + encodeURIComponent(String(startDate)) : '') +
       (endDate ? '&endDate=' + encodeURIComponent(String(endDate)) : '') +
-      (hcpartyid ? '&hcpartyid=' + encodeURIComponent(String(hcpartyid)) : '') +
+      (hcpartyid ? '&hcPartyId=' + encodeURIComponent(String(hcpartyid)) : '') +
       (startKey ? '&startKey=' + encodeURIComponent(String(startKey)) : '') +
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
@@ -676,7 +676,6 @@ export class IccContactApi {
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Contact(it)))
       .catch((err) => this.handleError(err))
   }
-
 
   /**
    * @summary List Contact ids by data owner and a set of secret foreign key. The ids will be sorted by Contact openingDate, in ascending or descending
