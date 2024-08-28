@@ -494,7 +494,7 @@ export class IccContactApi {
       new Date().getTime() +
       (startKey ? '&startKey=' + encodeURIComponent(String(startKey)) : '') +
       (endKey ? '&endKey=' + encodeURIComponent(String(endKey)) : '') +
-      (hcpartyid ? '&hcpartyid=' + encodeURIComponent(String(hcpartyid)) : '') +
+      (hcpartyid ? '&hcPartyId=' + encodeURIComponent(String(hcpartyid)) : '') +
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
