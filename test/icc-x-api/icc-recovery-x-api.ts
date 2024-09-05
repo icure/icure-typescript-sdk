@@ -15,6 +15,8 @@ import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import { RecoveryDataUseFailureReason } from '../../icc-x-api/icc-recovery-x-api'
 import { KeyPairRecoverer } from '../../icc-x-api/crypto/KeyPairRecoverer'
 import { delay } from 'lodash'
+import { FilterChainHealthElement } from '../../icc-api/model/FilterChainHealthElement'
+import { HealthElementByHcPartyFilter } from '../../icc-x-api/filters/HealthElementByHcPartyFilter'
 
 chaiUse(chaiAsPromised)
 setLocalStorage(fetch)
@@ -94,6 +96,18 @@ describe('Recovery api use scenarios', () => {
     expect(await patientApi.recoveryApi.recoverExchangeData(recoveryKey + 'aa')).to.equal(RecoveryDataUseFailureReason.Missing) // User put in the wrong key
     expect(await patientApi.recoveryApi.recoverExchangeData(recoveryKey)).to.be.null
     expect(await patientApi.recoveryApi.recoverExchangeData(recoveryKey)).to.equal(RecoveryDataUseFailureReason.Missing) // After use it is automatically deleted
+    expect(
+      (
+        await patientApi.healthcareElementApi.filterByWithUser(
+          patientUser,
+          undefined,
+          10000,
+          new FilterChainHealthElement({
+            filter: new HealthElementByHcPartyFilter({ hcpId: patientUser.patientId }),
+          })
+        )
+      ).rows![0]
+    ).to.be.deep.equal(sharedHealthData)
     expect(await patientApi.healthcareElementApi.getHealthElementWithUser(patientUser, sharedHealthData.id!)).to.be.deep.equal(sharedHealthData)
     await hcp.api.cryptoApi.forceReload()
     const healthData2 = await hcp.api.healthcareElementApi.createHealthElementWithUser(
