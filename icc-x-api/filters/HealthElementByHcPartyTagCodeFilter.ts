@@ -20,7 +20,7 @@ export class HealthElementByHcPartyTagCodeFilter extends AbstractFilterHealthEle
   }
 
   desc?: string
-  healthCarePartyId?: string
+  healthcarePartyId?: string
   codeType?: string
   codeCode?: string
   tagType?: string
