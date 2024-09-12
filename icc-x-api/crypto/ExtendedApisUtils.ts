@@ -108,7 +108,6 @@ export interface ExtendedApisUtils {
    * @param owningEntitySecretId secret id of the parent entity, to use in the secret foreign keys for the provided entity, if any.
    * @param initialiseEncryptionKey if false this method will not initialize an encryption key for the entity. Use only for entities which use
    * delegations for access control but don't actually have any encrypted content.
-   * @param initialiseSecretId if false this method will not initialize any secret id, use it for entities which can not be 'owning entities' (e.g.
    * HealthcareElement).
    * @param autoDelegations automatically shares the metadata with the provided data owners, with the provided access level.
    * @throws if the entity already has non-empty values for encryption metadata.
@@ -120,13 +119,8 @@ export interface ExtendedApisUtils {
     owningEntity: string | undefined,
     owningEntitySecretId: string | undefined,
     initialiseEncryptionKey: boolean,
-    initialiseSecretId: boolean,
-    autoDelegations: { [dataOwnerId: string]: AccessLevelEnum }
-  ): Promise<{
-    updatedEntity: T
-    rawEncryptionKey: string | undefined
-    secretId: string | undefined
-  }>
+    autoDelegations: { [p: string]: SecureDelegation.AccessLevelEnum }
+  ): Promise<{ updatedEntity: T; rawEncryptionKey: string | undefined; secretId: string | undefined }>
 
   /**
    * Updates encryption metadata for an entity in order to share it with a delegate or in order to add additional encrypted metadata for an existing
@@ -220,7 +214,6 @@ export interface ExtendedApisUtils {
    * and owning entity ids if requested. NOTE: this method can only be used with entities which already exist in the cloud (the entity must have
    * been saved).
    * @param entity an entity.
-   * @param unusedSecretIds specifies if the entity should not actually use secret ids but may have some if it was created using older iCure sdk
    * versions. If true the method expects `shareSecretIds` options to always be undefined and will always share any available secret ids. If false
    * it expects `shareSecretIds` options to always be defined and will only share the secret ids specified in the options.
    * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
@@ -237,13 +230,12 @@ export interface ExtendedApisUtils {
    */
   simpleShareOrUpdateEncryptedEntityMetadata<T extends EncryptedEntityStub>(
     entity: { entity: T; type: EntityWithDelegationTypeName },
-    unusedSecretIds: boolean,
     delegates: {
-      [delegateId: string]: {
+      [p: string]: {
         shareSecretIds: string[] | undefined
         shareEncryptionKeys: ShareMetadataBehaviour | undefined
         shareOwningEntityIds: ShareMetadataBehaviour | undefined
-        requestedPermissions: RequestedPermissionEnum | undefined
+        requestedPermissions: EntityShareRequest.RequestedPermissionEnum | undefined
       }
     },
     doRequestBulkShareOrUpdate: (request: BulkShareOrUpdateMetadataParams) => Promise<EntityBulkShareResult<T>[]>

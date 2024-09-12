@@ -91,7 +91,6 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
           undefined,
           undefined,
           true,
-          false,
           extraDelegations
         )
         .then((x) => x.updatedEntity)
@@ -214,6 +213,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
    * @param delegateId the id of the data owner which will be granted access to the maintenance task.
    * @param maintenanceTask the maintenance task to share.
    * @param options optional parameters to customize the sharing behaviour:
+   * - shareSecretIds: specifies which secret ids of the entity should be shared. If not provided all secret ids available to the current user will be shared
    * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
    * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
    * maintenance task does not have encrypted content.
@@ -224,6 +224,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
     delegateId: string,
     maintenanceTask: models.MaintenanceTask,
     options: {
+      shareSecretIds?: string[]
       requestedPermissions?: RequestedPermissionEnum
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
@@ -236,6 +237,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
    * the encrypted content, with read-only or read-write permissions.
    * @param maintenanceTask the maintenance task to share.
    * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareSecretIds: specifies which secret ids of the entity should be shared. If not provided all secret ids available to the current user will be shared
    * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
    * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
    * maintenance task does not have encrypted content.
@@ -246,6 +248,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
     maintenanceTask: models.MaintenanceTask,
     delegates: {
       [delegateId: string]: {
+        shareSecretIds?: string[]
         requestedPermissions?: RequestedPermissionEnum
         shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
       }
@@ -259,6 +262,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
    * the encrypted content, with read-only or read-write permissions.
    * @param maintenanceTask the maintenance task to share.
    * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareSecretIds: specifies which secret ids of the entity should be shared. If not provided all secret ids available to the current user will be shared
    * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
    * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
    * maintenance task does not have encrypted content.
@@ -270,6 +274,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
     maintenanceTask: models.MaintenanceTask,
     delegates: {
       [delegateId: string]: {
+        shareSecretIds?: string[]
         requestedPermissions?: RequestedPermissionEnum
         shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
       }
@@ -284,8 +289,10 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
     const updatedEntity = entityWithEncryptionKey ? await this.modifyMaintenanceTaskAs(self, entityWithEncryptionKey) : maintenanceTask
     return this.crypto.xapi
       .simpleShareOrUpdateEncryptedEntityMetadata(
-        { entity: updatedEntity, type: EntityWithDelegationTypeName.MaintenanceTask },
-        true,
+        {
+          entity: updatedEntity,
+          type: EntityWithDelegationTypeName.MaintenanceTask,
+        },
         Object.fromEntries(
           Object.entries(delegates).map(([delegateId, options]) => [
             delegateId,
@@ -293,7 +300,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
               requestedPermissions: options.requestedPermissions,
               shareEncryptionKeys: options.shareEncryptionKey,
               shareOwningEntityIds: ShareMetadataBehaviour.NEVER,
-              shareSecretIds: undefined,
+              shareSecretIds: options.shareSecretIds,
             },
           ])
         ),

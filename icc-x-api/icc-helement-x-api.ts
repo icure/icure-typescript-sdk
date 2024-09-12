@@ -112,7 +112,6 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
       patient.id,
       sfk,
       true,
-      false,
       extraDelegations
     )
     return new models.HealthElement(initialisationInfo.updatedEntity)
@@ -397,6 +396,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
    * @param delegateId the id of the data owner which will be granted access to the health element.
    * @param healthElement the health element to share.
    * @param options optional parameters to customize the sharing behaviour:
+   * - shareSecretIds: specifies which secret ids of the entity should be shared. If not provided all secret ids available to the current user will be shared
    * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
    * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
    * health element does not have encrypted content.
@@ -409,6 +409,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     delegateId: string,
     healthElement: models.HealthElement,
     options: {
+      shareSecretIds?: string[]
       requestedPermissions?: RequestedPermissionEnum
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
       sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
@@ -422,6 +423,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
    * @param delegateId the id of the data owner which will be granted access to the health element.
    * @param healthElement the health element to share.
    * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareSecretIds: specifies which secret ids of the entity should be shared. If not provided all secret ids available to the current user will be shared
    * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
    * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
    * health element does not have encrypted content.
@@ -434,6 +436,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     healthElement: models.HealthElement,
     delegates: {
       [delegateId: string]: {
+        shareSecretIds?: string[]
         requestedPermissions?: RequestedPermissionEnum
         shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
         sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
@@ -447,6 +450,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
    * the encrypted content, with read-only or read-write permissions.
    * @param healthElement the health element to share.
    * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareSecretIds: specifies which secret ids of the entity should be shared. If not provided all secret ids available to the current user will be shared
    * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
    * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
    * health element does not have encrypted content.
@@ -460,6 +464,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     healthElement: models.HealthElement,
     delegates: {
       [delegateId: string]: {
+        shareSecretIds?: string[]
         requestedPermissions?: RequestedPermissionEnum
         shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
         sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
@@ -472,8 +477,10 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     const updatedEntity = entityWithEncryptionKey ? await this.modifyHealthElementAs(self, entityWithEncryptionKey) : healthElement
     return this.crypto.xapi
       .simpleShareOrUpdateEncryptedEntityMetadata(
-        { entity: updatedEntity, type: EntityWithDelegationTypeName.HealthElement },
-        true,
+        {
+          entity: updatedEntity,
+          type: EntityWithDelegationTypeName.HealthElement,
+        },
         Object.fromEntries(
           Object.entries(delegates).map(([delegateId, options]) => [
             delegateId,
@@ -481,7 +488,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
               requestedPermissions: options.requestedPermissions,
               shareEncryptionKeys: options.shareEncryptionKey,
               shareOwningEntityIds: options.sharePatientId,
-              shareSecretIds: undefined,
+              shareSecretIds: options.shareSecretIds,
             },
           ])
         ),

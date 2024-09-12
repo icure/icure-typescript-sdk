@@ -83,15 +83,7 @@ export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntity
 
     return new models.TimeTable(
       await this.crypto.xapi
-        .entityWithInitialisedEncryptedMetadata(
-          timeTable,
-          EntityWithDelegationTypeName.TimeTable,
-          undefined,
-          undefined,
-          true,
-          false,
-          extraDelegations
-        )
+        .entityWithInitialisedEncryptedMetadata(timeTable, EntityWithDelegationTypeName.TimeTable, undefined, undefined, true, extraDelegations)
         .then((x) => x.updatedEntity)
     )
   }
@@ -109,6 +101,7 @@ export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntity
    * @param delegateId the id of the data owner which will be granted access to the time table.
    * @param timeTable the time table to share.
    * @param options optional parameters to customize the sharing behaviour:
+   * - shareSecretIds: specifies which secret ids of the entity should be shared. If not provided all secret ids available to the current user will be shared
    * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
    * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
    * time table does not have encrypted content.
@@ -119,6 +112,7 @@ export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntity
     delegateId: string,
     timeTable: models.TimeTable,
     options: {
+      shareSecretIds?: string[]
       requestedPermissions?: RequestedPermissionEnum
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
@@ -131,6 +125,7 @@ export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntity
    * the encrypted content, with read-only or read-write permissions.
    * @param timeTable the time table to share.
    * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareSecretIds: specifies which secret ids of the entity should be shared. If not provided all secret ids available to the current user will be shared
    * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
    * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
    * time table does not have encrypted content.
@@ -141,6 +136,7 @@ export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntity
     timeTable: models.TimeTable,
     delegates: {
       [delegateId: string]: {
+        shareSecretIds?: string[]
         requestedPermissions?: RequestedPermissionEnum
         shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
       }
@@ -154,6 +150,7 @@ export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntity
    * the encrypted content, with read-only or read-write permissions.
    * @param timeTable the time table to share.
    * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareSecretIds: specifies which secret ids of the entity should be shared. If not provided all secret ids available to the current user will be shared
    * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
    * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
    * time table does not have encrypted content.
@@ -165,6 +162,7 @@ export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntity
     timeTable: models.TimeTable,
     delegates: {
       [delegateId: string]: {
+        shareSecretIds?: string[]
         requestedPermissions?: RequestedPermissionEnum
         shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
       }
@@ -174,8 +172,10 @@ export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntity
     const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(timeTable, EntityWithDelegationTypeName.TimeTable)
     const updatedEntity = entityWithEncryptionKey ? await this.modifyTimeTable(entityWithEncryptionKey) : timeTable
     return this.crypto.xapi.simpleShareOrUpdateEncryptedEntityMetadata(
-      { entity: updatedEntity, type: EntityWithDelegationTypeName.TimeTable },
-      true,
+      {
+        entity: updatedEntity,
+        type: EntityWithDelegationTypeName.TimeTable,
+      },
       Object.fromEntries(
         Object.entries(delegates).map(([delegateId, options]) => [
           delegateId,
@@ -183,7 +183,7 @@ export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntity
             requestedPermissions: options.requestedPermissions,
             shareEncryptionKeys: options.shareEncryptionKey,
             shareOwningEntityIds: ShareMetadataBehaviour.NEVER,
-            shareSecretIds: undefined,
+            shareSecretIds: options.shareSecretIds,
           },
         ])
       ),

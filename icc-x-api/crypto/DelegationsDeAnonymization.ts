@@ -217,8 +217,10 @@ export class DelegationsDeAnonymization {
     if (dataOwnersNeedingShare.length) {
       ;(
         await this.xapis.simpleShareOrUpdateEncryptedEntityMetadata(
-          { entity: keyMap, type: entityType },
-          false,
+          {
+            entity: keyMap,
+            type: entityType,
+          },
           Object.fromEntries(
             dataOwnersNeedingShare.map((x) => [
               x,
@@ -265,7 +267,6 @@ export class DelegationsDeAnonymization {
       undefined,
       undefined,
       true,
-      false,
       Object.fromEntries(initialDelegates.map((x) => [x, AccessLevelEnum.READ]))
     )
     const encryptedKeyMap = await this.xapis.tryEncryptEntity(

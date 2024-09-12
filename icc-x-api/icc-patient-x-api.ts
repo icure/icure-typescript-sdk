@@ -114,7 +114,6 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
       undefined,
       undefined,
       true,
-      true,
       extraDelegations
     )
     return new models.Patient(initialisationInfo.updatedEntity)
@@ -1146,8 +1145,10 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     const updatedEntity = entityWithEncryptionKey ? await this.modifyPatientAs(self, entityWithEncryptionKey) : patient
     return this.crypto.xapi
       .simpleShareOrUpdateEncryptedEntityMetadata(
-        { entity: updatedEntity, type: EntityWithDelegationTypeName.Patient },
-        false,
+        {
+          entity: updatedEntity,
+          type: EntityWithDelegationTypeName.Patient,
+        },
         Object.fromEntries(
           Object.entries(delegates).map(([delegateId, options]) => [
             delegateId,

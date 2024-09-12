@@ -46,7 +46,6 @@ export class ConfidentialEntities {
     return (
       await this.entitiesEncryption.simpleShareOrUpdateEncryptedEntityMetadata(
         { entity, type: entityType },
-        false,
         {
           [await this.dataOwnerApi.getCurrentDataOwnerId()]: {
             shareEncryptionKeys: ShareMetadataBehaviour.NEVER,

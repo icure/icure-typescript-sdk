@@ -100,7 +100,7 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     }
     return new models.Message(
       await this.crypto.xapi
-        .entityWithInitialisedEncryptedMetadata(message, EntityWithDelegationTypeName.Message, patient?.id, sfk, true, true, extraDelegations)
+        .entityWithInitialisedEncryptedMetadata(message, EntityWithDelegationTypeName.Message, patient?.id, sfk, true, extraDelegations)
         .then((x) => x.updatedEntity)
     )
   }
@@ -224,8 +224,10 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(message, EntityWithDelegationTypeName.Message)
     const updatedEntity = entityWithEncryptionKey ? await this.modifyMessage(entityWithEncryptionKey) : message
     return this.crypto.xapi.simpleShareOrUpdateEncryptedEntityMetadata(
-      { entity: updatedEntity, type: EntityWithDelegationTypeName.Message },
-      false,
+      {
+        entity: updatedEntity,
+        type: EntityWithDelegationTypeName.Message,
+      },
       Object.fromEntries(
         Object.entries(delegates).map(([delegateId, options]) => [
           delegateId,

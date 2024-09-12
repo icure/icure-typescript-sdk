@@ -101,7 +101,7 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
 
     return new models.Topic(
       await this.crypto.xapi
-        .entityWithInitialisedEncryptedMetadata(topic, EntityWithDelegationTypeName.Topic, patient?.id, sfk, true, false, extraDelegations)
+        .entityWithInitialisedEncryptedMetadata(topic, EntityWithDelegationTypeName.Topic, patient?.id, sfk, true, extraDelegations)
         .then((x) => x.updatedEntity)
     )
   }
@@ -156,6 +156,7 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
    * @param delegateId the id of the data owner which will be granted access to the topic.
    * @param topic the topic to share.
    * @param options optional parameters to customize the sharing behaviour:
+   * - shareSecretIds: specifies which secret ids of the entity should be shared. If not provided all secret ids available to the current user will be shared
    * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
    * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}).
    * - sharePatientId: specifies if the id of the patient that this topic refers to should be shared with the delegate (defaults to
@@ -167,6 +168,7 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
     delegateId: string,
     topic: models.Topic,
     options: {
+      shareSecretIds?: string[]
       requestedPermissions?: RequestedPermissionEnum
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
       sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
@@ -180,6 +182,7 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
    * the encrypted content, with read-only or read-write permissions.
    * @param topic the topic to share.
    * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareSecretIds: specifies which secret ids of the entity should be shared. If not provided all secret ids available to the current user will be shared
    * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
    * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
    * topic does not have encrypted content.
@@ -192,6 +195,7 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
     topic: models.Topic,
     delegates: {
       [delegateId: string]: {
+        shareSecretIds?: string[]
         requestedPermissions?: RequestedPermissionEnum
         shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
         sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
@@ -206,6 +210,7 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
    * the encrypted content, with read-only or read-write permissions.
    * @param topic the topic to share.
    * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareSecretIds: specifies which secret ids of the entity should be shared. If not provided all secret ids available to the current user will be shared
    * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
    * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
    * topic does not have encrypted content.
@@ -219,6 +224,7 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
     topic: models.Topic,
     delegates: {
       [delegateId: string]: {
+        shareSecretIds?: string[]
         requestedPermissions?: RequestedPermissionEnum
         shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
         sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
@@ -230,8 +236,10 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
     const updatedEntity = entityWithEncryptionKey ? await this.modifyTopic(entityWithEncryptionKey) : topic
     return this.crypto.xapi
       .simpleShareOrUpdateEncryptedEntityMetadata(
-        { entity: updatedEntity, type: EntityWithDelegationTypeName.Topic },
-        true,
+        {
+          entity: updatedEntity,
+          type: EntityWithDelegationTypeName.Topic,
+        },
         Object.fromEntries(
           Object.entries(delegates).map(([delegateId, options]) => [
             delegateId,
@@ -239,7 +247,7 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
               requestedPermissions: options.requestedPermissions,
               shareEncryptionKeys: options.shareEncryptionKey,
               shareOwningEntityIds: options.sharePatientId,
-              shareSecretIds: undefined,
+              shareSecretIds: options.shareSecretIds,
             },
           ])
         ),

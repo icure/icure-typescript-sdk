@@ -91,13 +91,12 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     owningEntity: string | undefined,
     owningEntitySecretId: string | undefined,
     initialiseEncryptionKey: boolean,
-    initialiseSecretId: boolean,
     autoDelegations: { [p: string]: SecureDelegation.AccessLevelEnum }
-  ): Promise<{ updatedEntity: T; rawEncryptionKey: string | undefined; secretId: string | undefined }> {
+  ): Promise<{ updatedEntity: T; rawEncryptionKey: string | undefined; secretId: string }> {
     this.throwDetailedExceptionForInvalidParameter('entity.id', entity.id, 'entityWithInitialisedEncryptedMetadata', arguments)
     this.checkEmptyEncryptionMetadata(entity)
     const newRawKey = initialiseEncryptionKey ? await this.primitives.AES.generateCryptoKey(true) : undefined
-    const newSecretId = initialiseSecretId ? this.primitives.randomUuid() : undefined
+    const newSecretId = this.primitives.randomUuid()
     return {
       updatedEntity: await this.secureDelegationsManager.entityWithInitialisedEncryptedMetadata(
         {
@@ -374,23 +373,18 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
 
   async simpleShareOrUpdateEncryptedEntityMetadata<T extends EncryptedEntityStub>(
     entity: { entity: T; type: EntityWithDelegationTypeName },
-    unusedSecretIds: boolean,
     delegates: {
-      [delegateId: string]: {
+      [p: string]: {
         shareSecretIds: string[] | undefined
         shareEncryptionKeys: ShareMetadataBehaviour | undefined
         shareOwningEntityIds: ShareMetadataBehaviour | undefined
-        requestedPermissions: RequestedPermissionEnum | undefined
+        requestedPermissions: EntityShareRequest.RequestedPermissionEnum | undefined
       }
     },
     doRequestBulkShareOrUpdate: (request: BulkShareOrUpdateMetadataParams) => Promise<EntityBulkShareResult<T>[]>
   ): Promise<ShareResult<T>> {
     const availableEncryptionKeys = await this.encryptionKeysOf(entity)
     const availableOwningEntityIds = await this.owningEntityIdsOf(entity)
-    let availableSecretIds: string[] | undefined
-    if (unusedSecretIds) {
-      availableSecretIds = await this.secretIdsOf(entity)
-    }
     const dataForDelegates: {
       [delegateId: string]: {
         shareSecretIds: string[]
@@ -414,13 +408,8 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
           )} has no owning entity ids or the current data owner can't access any owning entity ids, but sharing is required.`
         )
       }
-      if (!delegateRequests.shareSecretIds && !unusedSecretIds) {
-        throw new Error(`Share secret ids parameter is mandatory for entities of type ${entity.type}.`)
-      } else if (delegateRequests.shareSecretIds && unusedSecretIds) {
-        throw new Error(`Share secret ids parameter must not be unused with entities of type ${entity.type}.`)
-      }
       dataForDelegates[delegateId] = {
-        shareSecretIds: delegateRequests.shareSecretIds ?? availableSecretIds!,
+        shareSecretIds: delegateRequests.shareSecretIds ?? (await this.secretIdsOf(entity)),
         shareEncryptionKeys: delegateRequests.shareEncryptionKeys === ShareMetadataBehaviour.NEVER ? [] : availableEncryptionKeys,
         shareOwningEntityIds: delegateRequests.shareOwningEntityIds === ShareMetadataBehaviour.NEVER ? [] : availableOwningEntityIds,
         requestedPermissions: delegateRequests.requestedPermissions ?? RequestedPermissionEnum.MAX_WRITE,

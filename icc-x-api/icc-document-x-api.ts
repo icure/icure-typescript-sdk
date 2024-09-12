@@ -629,7 +629,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     }
     return new models.Document(
       await this.crypto.xapi
-        .entityWithInitialisedEncryptedMetadata(document, EntityWithDelegationTypeName.Document, message?.id, sfk, true, false, extraDelegations)
+        .entityWithInitialisedEncryptedMetadata(document, EntityWithDelegationTypeName.Document, message?.id, sfk, true, extraDelegations)
         .then((x) => x.updatedEntity)
     )
   }
@@ -949,6 +949,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
    * @param delegateId the id of the data owner which will be granted access to the document.
    * @param document the document to share.
    * @param options optional parameters to customize the sharing behaviour:
+   * - shareSecretIds: specifies which secret ids of the entity should be shared. If not provided all secret ids available to the current user will be shared
    * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
    * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}).
    * - shareMessageId: specifies if the id of the message that this document refers to should be shared with the delegate (defaults to
@@ -960,6 +961,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     delegateId: string,
     document: models.Document,
     options: {
+      shareSecretIds?: string[]
       requestedPermissions?: RequestedPermissionEnum
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
       shareMessageId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
@@ -973,6 +975,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
    * the encrypted content, with read-only or read-write permissions.
    * @param document the document to share.
    * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareSecretIds: specifies which secret ids of the entity should be shared. If not provided all secret ids available to the current user will be shared
    * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
    * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}).
    * - shareMessageId: specifies if the id of the message that this document refers to should be shared with the delegate (defaults to
@@ -984,6 +987,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     document: models.Document,
     delegates: {
       [delegateId: string]: {
+        shareSecretIds?: string[]
         requestedPermissions?: RequestedPermissionEnum
         shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
         shareMessageId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
@@ -997,6 +1001,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
    * the encrypted content, with read-only or read-write permissions.
    * @param document the document to share.
    * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareSecretIds: specifies which secret ids of the entity should be shared. If not provided all secret ids available to the current user will be shared
    * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
    * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}).
    * - shareMessageId: specifies if the id of the message that this document refers to should be shared with the delegate (defaults to
@@ -1009,6 +1014,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     document: models.Document,
     delegates: {
       [delegateId: string]: {
+        shareSecretIds?: string[]
         requestedPermissions?: RequestedPermissionEnum
         shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
         shareMessageId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
@@ -1021,8 +1027,10 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     const updatedEntity = entityWithEncryptionKey ? await this.modifyDocument(entityWithEncryptionKey) : document
     return this.crypto.xapi
       .simpleShareOrUpdateEncryptedEntityMetadata(
-        { entity: updatedEntity, type: EntityWithDelegationTypeName.Document },
-        true,
+        {
+          entity: updatedEntity,
+          type: EntityWithDelegationTypeName.Document,
+        },
         Object.fromEntries(
           Object.entries(delegates).map(([delegateId, options]) => [
             delegateId,
@@ -1030,7 +1038,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
               requestedPermissions: options.requestedPermissions,
               shareEncryptionKeys: options.shareEncryptionKey,
               shareOwningEntityIds: options.shareMessageId,
-              shareSecretIds: undefined,
+              shareSecretIds: options.shareSecretIds,
             },
           ])
         ),

@@ -75,7 +75,7 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
     }
     return new models.Receipt(
       await this.crypto.xapi
-        .entityWithInitialisedEncryptedMetadata(receipt, EntityWithDelegationTypeName.Receipt, undefined, undefined, true, false, extraDelegations)
+        .entityWithInitialisedEncryptedMetadata(receipt, EntityWithDelegationTypeName.Receipt, undefined, undefined, true, extraDelegations)
         .then((x) => x.updatedEntity)
     )
   }
@@ -164,6 +164,7 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
    * @param delegateId the id of the data owner which will be granted access to the receipt.
    * @param receipt the receipt to share.
    * @param options optional parameters to customize the sharing behaviour:
+   * - shareSecretIds: specifies which secret ids of the entity should be shared. If not provided all secret ids available to the current user will be shared
    * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
    * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
    * receipt does not have encrypted content.
@@ -174,6 +175,7 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
     delegateId: string,
     receipt: models.Receipt,
     options: {
+      shareSecretIds?: string[]
       requestedPermissions?: RequestedPermissionEnum
       shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
     } = {}
@@ -186,6 +188,7 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
    * the encrypted content, with read-only or read-write permissions.
    * @param receipt the receipt to share.
    * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareSecretIds: specifies which secret ids of the entity should be shared. If not provided all secret ids available to the current user will be shared
    * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
    * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
    * receipt does not have encrypted content.
@@ -196,6 +199,7 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
     receipt: models.Receipt,
     delegates: {
       [delegateId: string]: {
+        shareSecretIds?: string[]
         requestedPermissions?: RequestedPermissionEnum
         shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
       }
@@ -209,6 +213,7 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
    * the encrypted content, with read-only or read-write permissions.
    * @param receipt the receipt to share.
    * @param delegates associates the id of data owners which will be granted access to the entity, to the following sharing options:
+   * - shareSecretIds: specifies which secret ids of the entity should be shared. If not provided all secret ids available to the current user will be shared
    * - shareEncryptionKey: specifies if the encryption key of the access log should be shared with the delegate, giving access to all encrypted
    * content of the entity, excluding other encrypted metadata (defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}). Note that by default a
    * receipt does not have encrypted content.
@@ -220,6 +225,7 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
     receipt: models.Receipt,
     delegates: {
       [delegateId: string]: {
+        shareSecretIds?: string[]
         requestedPermissions?: RequestedPermissionEnum
         shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
       }
@@ -229,8 +235,10 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
     const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(receipt, EntityWithDelegationTypeName.Receipt)
     const updatedEntity = entityWithEncryptionKey ? await this.modifyReceipt(entityWithEncryptionKey) : receipt
     return this.crypto.xapi.simpleShareOrUpdateEncryptedEntityMetadata(
-      { entity: updatedEntity, type: EntityWithDelegationTypeName.Receipt },
-      true,
+      {
+        entity: updatedEntity,
+        type: EntityWithDelegationTypeName.Receipt,
+      },
       Object.fromEntries(
         Object.entries(delegates).map(([delegateId, options]) => [
           delegateId,
@@ -238,7 +246,7 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
             requestedPermissions: options.requestedPermissions,
             shareEncryptionKeys: options.shareEncryptionKey,
             shareOwningEntityIds: ShareMetadataBehaviour.NEVER,
-            shareSecretIds: undefined,
+            shareSecretIds: options.shareSecretIds,
           },
         ])
       ),

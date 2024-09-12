@@ -114,14 +114,15 @@ export async function ensureDelegationForSelf(
           undefined,
           undefined,
           true,
-          true,
           {}
         )
         return { dataOwner: await patientApi.modifyPatient(updatedPatient.updatedEntity), type: DataOwnerTypeEnum.Patient }
       } else {
         const updatedPatient = await xapi.simpleShareOrUpdateEncryptedEntityMetadata(
-          { entity: patient, type: EntityWithDelegationTypeName.Patient },
-          false,
+          {
+            entity: patient,
+            type: EntityWithDelegationTypeName.Patient,
+          },
           {
             [patient.id!]: {
               shareEncryptionKeys: ShareMetadataBehaviour.IF_AVAILABLE,
