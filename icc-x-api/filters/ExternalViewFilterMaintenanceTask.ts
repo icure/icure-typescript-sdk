@@ -1,8 +1,8 @@
-import { AbstractFilterMaintenanceTask } from '../icc-api/model/AbstractFilterMaintenanceTask'
-import { ExternalFilterKey } from '../icc-api/model/ExternalFilterKey'
+import { AbstractFilterMaintenanceTask } from '../../icc-api/model/AbstractFilterMaintenanceTask'
+import { ExternalFilterKey } from '../../icc-api/model/ExternalFilterKey'
 
 export class ExternalViewFilterMaintenanceTask extends AbstractFilterMaintenanceTask {
-  $type: string = 'ExternalViewFilterDto'
+  $type: string = 'ExternalViewFilter'
   entityQualifiedName: string = 'org.taktik.icure.entities.MaintenanceTask'
   constructor(json: JSON | any) {
     super(json)
