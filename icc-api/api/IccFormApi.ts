@@ -198,6 +198,7 @@ export class IccFormApi {
 
   /**
    * Keys must be delimited by coma
+   * @deprecated use {@link findFormIdsByDataOwnerPatientOpeningDate} instead.
    * @summary List forms found By Healthcare Party and secret foreign keys.
    * @param hcPartyId
    * @param healthElementId
@@ -233,6 +234,7 @@ export class IccFormApi {
 
   /**
    * Keys must be delimited by commas.
+   * @deprecated use {@link findFormIdsByDataOwnerPatientOpeningDate} instead.
    * @summary List forms found By Healthcare Party and secret foreign keys.
    * @param hcPartyId
    * @param secretFKeys
@@ -300,6 +302,7 @@ export class IccFormApi {
 
   /**
    * Keys must be delimited by coma
+   * @deprecated use {@link findFormsDelegationsStubsByIds} instead.
    * @summary List form stubs found By Healthcare Party and secret foreign keys.
    * @param body
    * @param hcPartyId
@@ -322,7 +325,7 @@ export class IccFormApi {
   }
 
   /**
-   *
+   * @deprecated use {@link findFormsDelegationsStubsByIds} instead.
    * @summary List form stubs found By Healthcare Party and secret foreign keys.
    * @param hcPartyId
    * @param secretFKeys
@@ -339,6 +342,18 @@ export class IccFormApi {
       (secretFKeys ? '&secretFKeys=' + encodeURIComponent(String(secretFKeys)) : '')
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary List form stubs by form ids.
+   */
+  async findFormsDelegationsStubsByIds(formIds: string[]): Promise<Array<IcureStub>> {
+    const _url = this.host + `/form/delegations`
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, { ids: formIds }, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
       .catch((err) => this.handleError(err))
   }

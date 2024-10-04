@@ -113,7 +113,7 @@ export class IccCalendarItemApi {
   }
 
   /**
-   *
+   * @deprecated use {@link findCalendarItemIdsByDataOwnerPatientStartTime} instead.
    * @summary Find CalendarItems by hcparty and patient
    * @param body
    * @param hcPartyId
@@ -133,7 +133,7 @@ export class IccCalendarItemApi {
   }
 
   /**
-   *
+   * @deprecated use {@link findCalendarItemIdsByDataOwnerPatientStartTime} instead.
    * @summary Find CalendarItems by hcparty and patient
    * @param hcPartyId
    * @param secretFKeys

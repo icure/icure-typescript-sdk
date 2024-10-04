@@ -193,7 +193,7 @@ export class IccInvoiceApi {
   }
 
   /**
-   * Keys have to delimited by coma
+   * @deprecated use {@link findInvoiceIdsByDataOwnerPatientInvoiceDate} instead.
    * @summary List invoices found By Healthcare Party and secret foreign patient keys.
    * @param body
    * @param hcPartyId
@@ -217,6 +217,7 @@ export class IccInvoiceApi {
 
   /**
    * Keys have to delimited by commas.
+   * @deprecated use {@link findInvoiceIdsByDataOwnerPatientInvoiceDate} instead.
    * @summary List invoices found By Healthcare Party and secret foreign patient keys.
    * @param hcPartyId
    * @param secretFKeys
@@ -271,7 +272,7 @@ export class IccInvoiceApi {
   }
 
   /**
-   *
+   * @deprecated use {@link findInvoicesDelegationsStubsByIds} instead.
    * @summary List helement stubs found By Healthcare Party and secret foreign keys.
    * @param body
    * @param hcPartyId
@@ -294,7 +295,8 @@ export class IccInvoiceApi {
   }
 
   /**
-   * Keys must be delimited by coma
+   * Keys must be delimited by commas.
+   * @deprecated use {@link findInvoicesDelegationsStubsByIds} instead.
    * @summary List helement stubs found By Healthcare Party and secret foreign keys.
    * @param hcPartyId
    * @param secretFKeys
@@ -311,6 +313,15 @@ export class IccInvoiceApi {
       (secretFKeys ? '&secretFKeys=' + encodeURIComponent(String(secretFKeys)) : '')
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  async findInvoicesDelegationsStubsByIds(invoiceIds: string[]): Promise<Array<IcureStub>> {
+    const _url = this.host + `/invoice/delegations`
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, { ids: invoiceIds }, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
       .catch((err) => this.handleError(err))
   }
@@ -657,7 +668,6 @@ export class IccInvoiceApi {
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
       .catch((err) => this.handleError(err))
   }
-
 
   /**
    *

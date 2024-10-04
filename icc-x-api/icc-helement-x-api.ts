@@ -243,7 +243,6 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
    * @param keepObsoleteVersions
    * @param usingPost
    */
-
   findBy(hcpartyId: string, patient: models.Patient, keepObsoleteVersions = false, usingPost = false) {
     return this.crypto.xapi
       .secretIdsForHcpHierarchyOf({ entity: patient, type: EntityWithDelegationTypeName.Patient })
@@ -287,10 +286,42 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
       })
   }
 
+  /**
+   * Same as {@link findBy} but it will only return the ids of the health elements. It can also filter the health elements where HealthElement.openingDate is between
+   * startDate and endDate in ascending or descending order by that field. (default: ascending).
+   */
+  async findIdsBy(hcpartyId: string, patient: models.Patient, startDate?: number, endDate?: number, descending?: boolean) {
+    return this.crypto.xapi.secretIdsForHcpHierarchyOf({ entity: patient, type: EntityWithDelegationTypeName.Patient }).then((secretForeignKeys) =>
+      secretForeignKeys && secretForeignKeys.length > 0
+        ? Promise.all(
+            secretForeignKeys
+              .reduce((acc, level) => {
+                return acc.concat([
+                  {
+                    hcpartyId: level.ownerId,
+                    extractedKeys: level.extracted.filter((key) => !acc.some((previousLevel) => previousLevel.extractedKeys.includes(key))),
+                  },
+                ])
+              }, [] as Array<{ hcpartyId: string; extractedKeys: Array<string> }>)
+              .filter((l) => l.extractedKeys.length > 0)
+              .map(({ hcpartyId, extractedKeys }) =>
+                this.findHealthElementIdsByDataOwnerPatientOpeningDate(hcpartyId, extractedKeys, startDate, endDate, descending)
+              )
+          ).then((results) => _.uniq(_.flatMap(results)))
+        : Promise.resolve([])
+    )
+  }
+
+  /**
+   * @deprecated use {@link findHealthElementsDelegationsStubsByIds} instead.
+   */
   findByHCPartyPatientSecretFKeys(hcPartyId: string, secretFKeys: string): Promise<Array<models.Contact> | any> {
     return super.findHealthElementsByHCPartyPatientForeignKeys(hcPartyId, secretFKeys).then((helements) => this.decrypt(hcPartyId, helements))
   }
 
+  /**
+   * @deprecated use {@link findHealthElementsDelegationsStubsByIds} instead.
+   */
   findByHCPartyPatientSecretFKeysArray(hcPartyId: string, secretFKeys: string[]): Promise<Array<models.Contact> | any> {
     return super
       .findHealthElementsByHCPartyPatientForeignKeysUsingPost(hcPartyId, secretFKeys)

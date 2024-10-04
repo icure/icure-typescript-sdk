@@ -109,7 +109,7 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
    * 6. Do the REST call to get all contacts with (allSecretForeignKeysDelimitedByComa, hcpartyId)
    *
    * After these painful steps, you have the contacts of the patient.
-   *
+   * @deprecated use {@link findIdsBy} instead.
    * @param hcpartyId
    * @param patient
    * @param usingPost (Promise)
@@ -121,6 +121,15 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
       ? this.findFormsByHCPartyPatientForeignKeysUsingPost(hcpartyId!, undefined, undefined, undefined, _.uniq(extractedKeys))
       : this.findFormsByHCPartyPatientForeignKeys(hcpartyId!, _.uniq(extractedKeys).join(',')))
     return await this.decrypt(hcpartyId, forms)
+  }
+
+  /**
+   * Same as {@link findBy} but it will only return the ids of the forms. It can also filter the forms where Form.openingDate is between
+   * startDate and endDate in ascending or descending order by that field. (default: ascending).
+   */
+  async findIdsBy(hcpartyId: string, patient: models.Patient, startDate?: number, endDate?: number, descending?: boolean) {
+    const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: EntityWithDelegationTypeName.Patient }, hcpartyId)
+    return this.findFormIdsByDataOwnerPatientOpeningDate(hcpartyId, _.uniq(extractedKeys), startDate, endDate, descending)
   }
 
   decrypt(hcpartyId: string, forms: Array<models.Form>) {

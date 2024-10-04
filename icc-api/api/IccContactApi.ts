@@ -244,6 +244,7 @@ export class IccContactApi {
 
   /**
    * Keys must be delimited by coma
+   * @deprecated use {@link findContactIdsByDataOwnerPatientOpeningDate} instead.
    * @summary Get a list of contacts found by Healthcare Party and secret foreign keys.
    * @param hcPartyId
    * @param planOfActionsIds
@@ -276,6 +277,7 @@ export class IccContactApi {
 
   /**
    * Keys must be delimited by coma
+   * @deprecated use {@link findContactIdsByDataOwnerPatientOpeningDate} instead.
    * @summary Get a list of contacts found by Healthcare Party and secret foreign keys.
    * @param hcPartyId
    * @param secretFKeys
@@ -348,7 +350,7 @@ export class IccContactApi {
   }
 
   /**
-   *
+   * @deprecated use {@link findContactIdsByDataOwnerPatientOpeningDate} instead.
    * @summary Get a list of contacts found by Healthcare Party and Patient foreign keys.
    * @param body
    * @param hcPartyId
@@ -371,7 +373,21 @@ export class IccContactApi {
   }
 
   /**
+   * Retrieves the delegation stub of the Contact which ids are passed as parameter.
+   * @param contactIds the ids of the contact for which the stub should be retrieved
+   */
+  async findContactsDelegationsStubsByIds(contactIds: []): Promise<IcureStub[]> {
+    const _url = this.host + `/contact/delegations`
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, { ids: contactIds }, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    * Keys must be delimited by coma
+   * @deprecated use {@link findContactsDelegationsStubsByIds} instead.
    * @summary List contacts found By Healthcare Party and secret foreign keys.
    * @param body
    * @param hcPartyId
@@ -394,7 +410,7 @@ export class IccContactApi {
   }
 
   /**
-   *
+   * @deprecated use {@link findContactsDelegationsStubsByIds} instead.
    * @summary List contacts found By Healthcare Party and secret foreign keys.
    * @param hcPartyId
    * @param secretFKeys

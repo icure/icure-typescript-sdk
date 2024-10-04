@@ -124,11 +124,17 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
       : Promise.resolve([])
   }
 
+  /**
+   * @deprecated use {@link findCalendarItemIdsByDataOwnerPatientStartTime} instead.
+   */
   async findByHCPartyPatientSecretFKeys(hcPartyId: string, secretFKeys: string): Promise<Array<models.CalendarItem>> {
     const calendarItems = await super.findCalendarItemsByHCPartyPatientForeignKeys(hcPartyId, secretFKeys)
     return await this.decrypt(hcPartyId, calendarItems)
   }
 
+  /**
+   * @deprecated use {@link findCalendarItemIdsByDataOwnerPatientStartTime} instead.
+   */
   findByHCPartyPatientSecretFKeysArray(hcPartyId: string, secretFKeys: string[]): Promise<Array<models.CalendarItem> | any> {
     return super
       .findCalendarItemsByHCPartyPatientForeignKeysUsingPost(hcPartyId, secretFKeys)

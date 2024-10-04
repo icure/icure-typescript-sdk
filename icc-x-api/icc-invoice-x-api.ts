@@ -149,8 +149,9 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
    * 5. Decrypt and collect all keys (secretForeignKeys) within delegations of previous step (with obtained AES key of step 4)
    * 6. Do the REST call to get all invoices with (allSecretForeignKeysDelimitedByComa, hcpartyId)
    *
-   * After these painful steps, you have the invoices of the patient.
+   * After these painful steps, you have the invoices for the patient.
    *
+   * @deprecated use {@link findIdsBy} instead
    * @param hcpartyId
    * @param patient (Promise)
    * @param usingPost
@@ -162,6 +163,12 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
       ? await this.findInvoicesByHCPartyPatientForeignKeysUsingPost(hcpartyId!, _.uniq(extractedKeys))
       : await this.findInvoicesByHCPartyPatientForeignKeys(hcpartyId!, _.uniq(extractedKeys).join(','))
     return await this.decrypt(hcpartyId, invoices)
+  }
+
+  async findIdsBy(hcpartyId: string, patient: models.Patient, startDate?: number, endDate?: number, descending?: boolean): Promise<string[]> {
+    const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: EntityWithDelegationTypeName.Patient }, hcpartyId)
+    const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
+    return this.findInvoiceIdsByDataOwnerPatientInvoiceDate(hcpartyId!, _.uniq(extractedKeys), startDate, endDate, descending)
   }
 
   encrypt(user: models.User, invoices: Array<models.Invoice>) {
