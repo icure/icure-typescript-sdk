@@ -12,6 +12,7 @@
 import { NoGenericPrescriptionReason } from './NoGenericPrescriptionReason'
 import { NoSwitchReason } from './NoSwitchReason'
 import { SamText } from './SamText'
+import { StandardDosage } from './StandardDosage'
 
 export class VmpGroup {
   constructor(json: JSON | any) {
@@ -31,4 +32,5 @@ export class VmpGroup {
   name?: SamText
   noGenericPrescriptionReason?: NoGenericPrescriptionReason
   noSwitchReason?: NoSwitchReason
+  standardDosage?: Array<StandardDosage>
 }

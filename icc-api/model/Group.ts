@@ -67,5 +67,5 @@ export class Group {
    */
   sharedEntities?: { [key: string]: string }
   superGroup?: string
-  defaultUserRoles?: { [key in UserTypeEnum]: Array<String> }
+  defaultUserRoles?: { [key in UserTypeEnum]: Array<string> }
 }

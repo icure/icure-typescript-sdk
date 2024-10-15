@@ -1,6 +1,6 @@
 {
   "name": "@icure/api",
-  "version": "8.0.51",
+  "version": "8.0.53",
   "description": "Typescript version of iCure standalone API client",
   "types": "dist/index.d.ts",
   "dependencies": {
@@ -15,7 +15,7 @@
   },
   "devDependencies": {
     "@icure/apiV6": "npm:@icure/api@6.4.4",
-    "@icure/apiV7": "npm:@icure/api@7.1.31",
+    "@icure/apiV7": "npm:@icure/api@7.1.32",
     "@icure/test-setup": "0.0.68",
     "@types/chai": "^4.3.0",
     "@types/chai-as-promised": "^7.1.1",
@@ -47,13 +47,13 @@
     "typescript": "^4.5.5"
   },
   "scripts": {
-    "gen": "java -classpath swagger-codegen-generators.jar io.swagger.codegen.v3.cli.SwaggerCodegen generate -i https://kraken.svc.icure.cloud/v3/api-docs/v1 -l typescript --additional-properties classPrefix=Icc skipPathPrefix=/rest/v1 -o ./icc-api/",
-    "genloc": "java -classpath swagger-codegen-generators.jar io.swagger.codegen.v3.cli.SwaggerCodegen generate -i http://127.0.0.1:16043/v3/api-docs/v1 -l typescript --additional-properties classPrefix=Icc skipPathPrefix=/rest/v1 -o ./icc-api/",
-    "gendev": "java -classpath swagger-codegen-generators.jar io.swagger.codegen.v3.cli.SwaggerCodegen generate -i https://kraken.icure.dev/v3/api-docs/v1 -l typescript --additional-properties classPrefix=Icc skipPathPrefix=/rest/v1 -o ./icc-api/",
+    "gen": "java -classpath swagger-codegen-generators.jar io.swagger.codegen.v3.cli.SwaggerCodegen generate -i https://api.icure.cloud/v3/api-docs/v2 -l typescript --additional-properties classPrefix=Icc skipPathPrefix=/rest/v2 -o ./icc-api/",
+    "genloc": "java -classpath swagger-codegen-generators.jar io.swagger.codegen.v3.cli.SwaggerCodegen generate -i http://127.0.0.1:16043/v3/api-docs/v2 -l typescript --additional-properties classPrefix=Icc skipPathPrefix=/rest/v2 -o ./icc-api/",
+    "gendev": "java -classpath swagger-codegen-generators.jar io.swagger.codegen.v3.cli.SwaggerCodegen generate -i https://api.icure.dev/v3/api-docs/v2 -l typescript --additional-properties classPrefix=Icc skipPathPrefix=/rest/v2 -o ./icc-api/",
     "eslint": "eslint --fix icc-api/* icc-x-api/*",
     "build": "tsc",
     "prepare": "rimraf dist && npm run build && jq '{name:.name, version:.version, description:.description, main:\"index.js\", types:\"index.d.ts\", dependencies:.dependencies, author:.author, license:.license, bugs:.bugs, homepage:.homepage}' < package.json > dist/package.json",
-    "publish": "yarn version && yarn run prepare && cd dist && yarn publish --no-git-tag-version --new-version `git describe --abbrev=0 --tags` && cd ..",
+    "publish": "yarn version patch && yarn run prepare && cd dist && yarn publish --no-git-tag-version --new-version `git describe --abbrev=0 --tags` && cd ..",
     "precommit": "pretty-quick --staged",
     "test": "nyc mocha \"test/**/*.ts\" --require ts-node/register --require source-map-support/register --timeout=60000 --recursive",
     "clean": "npx ts-node test-scripts/cleanup.ts"
@@ -86,5 +86,6 @@
   "bugs": {
     "url": "https://github.com/taktik/icc-api/issues"
   },
-  "homepage": "https://github.com/taktik/icc-api#readme"
+  "homepage": "https://github.com/taktik/icc-api#readme",
+  "packageManager": "yarn@3.8.5"
 }

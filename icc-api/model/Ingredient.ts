@@ -11,6 +11,8 @@
  */
 import { Quantity } from './Quantity'
 import { SubstanceStub } from './SubstanceStub'
+import { SamText } from './SamText'
+import { ComplexStrength } from './ComplexStrength'
 
 export class Ingredient {
   constructor(json: JSON | any) {
@@ -23,8 +25,8 @@ export class Ingredient {
   type?: Ingredient.TypeEnum
   knownEffect?: boolean
   strengthDescription?: string
-  strength?: Quantity
-  additionalInformation?: string
+  strength?: ComplexStrength
+  additionalInformation?: SamText
   substance?: SubstanceStub
 }
 export namespace Ingredient {

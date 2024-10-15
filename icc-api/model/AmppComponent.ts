@@ -11,6 +11,7 @@
  */
 import { DeviceType } from './DeviceType'
 import { PackagingType } from './PackagingType'
+import { SamText } from './SamText'
 
 export class AmppComponent {
   constructor(json: JSON | any) {
@@ -21,7 +22,7 @@ export class AmppComponent {
   to?: number
   contentType?: AmppComponent.ContentTypeEnum
   contentMultiplier?: number
-  packSpecification?: string
+  packSpecification?: SamText
   deviceType?: DeviceType
   packagingType?: PackagingType
 }

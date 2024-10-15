@@ -36,7 +36,7 @@ export class Ampp {
   parallelDistributor?: string
   packMultiplier?: number
   packAmount?: Quantity
-  packDisplayValue?: string
+  packDisplayValue?: SamText
   status?: Ampp.StatusEnum
   atcs?: Array<Atc>
   crmLink?: SamText
@@ -64,7 +64,10 @@ export class Ampp {
   supplyProblems?: Array<SupplyProblem>
   dmpps?: Array<Dmpp>
   vaccineIndicationCodes?: Array<string>
+  rmaKeyMessages?: SamText
+  genericPrescriptionRequired?: boolean
 }
+
 export namespace Ampp {
   export type StatusEnum = 'AUTHORIZED' | 'SUSPENDED' | 'REVOKED'
   export const StatusEnum = {
