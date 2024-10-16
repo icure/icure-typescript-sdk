@@ -105,7 +105,7 @@ export class IccAccesslogApi {
   }
 
   /**
-   *
+   * @deprecated use {@link findAccessLogIdsByDataOwnerPatientDate} instead.
    * @summary List access logs found by Healthcare Party and secret foreign keyelementIds.
    * @param body
    * @param hcPartyId
@@ -158,7 +158,7 @@ export class IccAccesslogApi {
   }
 
   /**
-   *
+   * @deprecated use {@link findAccessLogIdsByDataOwnerPatientDate} instead
    * @summary List access logs found by Healthcare Party and secret foreign keyelementIds.
    * @param hcPartyId
    * @param secretFKeys

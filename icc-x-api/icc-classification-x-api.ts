@@ -99,11 +99,22 @@ export class IccClassificationXApi extends IccClassificationApi implements Encry
     )
   }
 
+  /**
+   * @deprecated use {@link findIdsBy} instead.
+   */
   async findBy(hcpartyId: string, patient: models.Patient) {
     const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: EntityWithDelegationTypeName.Patient }, hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     return extractedKeys && extractedKeys.length > 0
       ? this.findClassificationsByHCPartyPatientForeignKeys(topmostParentId, _.uniq(extractedKeys).join(','))
+      : Promise.resolve([])
+  }
+
+  async findIdsBy(hcpartyId: string, patient: models.Patient, startDate?: number, endDate?: number, descending?: boolean) {
+    const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: EntityWithDelegationTypeName.Patient }, hcpartyId)
+    const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
+    return extractedKeys && extractedKeys.length > 0
+      ? this.findClassificationIdsByDataOwnerPatientCreated(topmostParentId, _.uniq(extractedKeys), startDate, endDate, descending)
       : Promise.resolve([])
   }
 

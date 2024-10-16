@@ -183,6 +183,7 @@ export class IccMessageApi {
   }
 
   /**
+   * @deprecated use {@link listMessageIdsByDataOwnerPatientSentDate} instead.
    * @summary List messages found By Healthcare Party and secret foreign keys.
    * @param body
    */
@@ -200,6 +201,7 @@ export class IccMessageApi {
 
   /**
    * Keys must be delimited by commas.
+   * @deprecated use {@link listMessageIdsByDataOwnerPatientSentDate} instead.
    * @summary List messages found By Healthcare Party and secret foreign keys.
    * @param secretFKeys
    */

@@ -635,11 +635,24 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
   }
 
   // noinspection JSUnusedGlobalSymbols
+  /**
+   * @deprecated use {@link findIdsByMessage} instead.
+   */
   async findByMessage(hcpartyId: string, message: models.Message) {
     const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: message, type: EntityWithDelegationTypeName.Message }, hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     let documents: Array<models.Document> = await this.findDocumentsByHCPartyPatientForeignKeys(topmostParentId, _.uniq(extractedKeys))
     return await this.decrypt(hcpartyId, documents)
+  }
+
+  /**
+   * Same as {@link findBy} but it will only return the ids of the contacts. It can also filter the documents where Document.created is between
+   * startDate and endDate in ascending or descending order by that field. (default: ascending).
+   */
+  async findIdsByMessage(hcpartyId: string, message: models.Message, startDate?: number, endDate?: number, descending?: boolean) {
+    const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: message, type: EntityWithDelegationTypeName.Message }, hcpartyId)
+    const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
+    return this.findDocumentIdsByDataOwnerSecretForeignKey(topmostParentId, _.uniq(extractedKeys), startDate, endDate, descending)
   }
 
   // Note: this is only for dealing with legacy documents: new document are not encrypted, only their attachments are

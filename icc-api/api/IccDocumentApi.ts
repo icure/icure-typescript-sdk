@@ -146,6 +146,7 @@ export class IccDocumentApi {
 
   /**
    * Keys must be delimited by commas.
+   * @deprecated use {@link findDocumentsByHCPartyPatientForeignKey} instead.
    * @summary List documents found By Healthcare Party and secret foreign keys.
    * @param hcPartyId
    * @param secretFKeys
@@ -167,6 +168,7 @@ export class IccDocumentApi {
 
   /**
    * @summary List documents found By Healthcare Party and a single secret foreign key with pagination.
+   * @deprecated use {@link findDocumentIdsByDataOwnerSecretForeignKey} instead.
    * @param hcPartyId the healthcare party id.
    * @param secretFKey the secret foreign key.
    * @param startKey the startKey provided by the previous page or undefined for the first page.
@@ -191,6 +193,27 @@ export class IccDocumentApi {
       (!!limit ? `&limit=${limit}` : '')
     const headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListDocument(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  async findDocumentIdsByDataOwnerSecretForeignKey(
+    dataOwnerId: string,
+    secretForeignKeys: string[],
+    startDate?: number,
+    endDate?: number,
+    descending?: boolean
+  ): Promise<PaginatedListDocument> {
+    const _url =
+      this.host +
+      `/document/byDataOwnerPatientCreated` +
+      `&dataOwnerId=${encodeURIComponent(dataOwnerId)}` +
+      (!!startDate ? `&startDate=${encodeURIComponent(startDate)}` : '') +
+      (!!endDate ? `&endDate=${encodeURIComponent(endDate)}` : '') +
+      (!!descending ? `&descending=${descending}` : '')
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, { ids: secretForeignKeys }, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListDocument(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }

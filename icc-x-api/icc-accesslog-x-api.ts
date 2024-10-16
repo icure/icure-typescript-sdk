@@ -117,16 +117,15 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
    *      3.2.  if it doesn't exist in the cache, it has to be loaded from Browser Local store, and then import it to WebCrypto
    * 4. Obtain the array of delegations which are delegated to his ID (hcpartyId) in this patient
    * 5. Decrypt and collect all keys (secretForeignKeys) within delegations of previous step (with obtained AES key of step 4)
-   * 6. Do the REST call to get all helements with (allSecretForeignKeysDelimitedByComa, hcpartyId)
+   * 6. Do the REST call to get all access logs with (allSecretForeignKeysDelimitedByComma, hcpartyId)
    *
-   * After these painful steps, you have the helements of the patient.
+   * After these painful steps, you have the access logs of the patient.
    *
+   * @deprecated use {@link findIdsBy} instead
    * @param hcpartyId
    * @param patient (Promise)
-   * @param keepObsoleteVersions
    * @param usingPost
    */
-
   async findBy(hcpartyId: string, patient: models.Patient, usingPost: boolean = false): Promise<models.AccessLog[]> {
     const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: EntityWithDelegationTypeName.Patient }, hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
@@ -137,11 +136,28 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
       : Promise.resolve([])
   }
 
+  /**
+   * Same as `findBy` but it will only return the ids of the access logs. It can also filter the access logs where AccessLog.date is between
+   * startDate and endDate in ascending or descending order by that field. (default: ascending).
+   */
+  async findIdsBy(hcpartyId: string, patient: models.Patient, startDate?: number, endDate?: number, descending?: boolean): Promise<string[]> {
+    const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: EntityWithDelegationTypeName.Patient }, hcpartyId)
+    return extractedKeys && extractedKeys.length > 0
+      ? this.findAccessLogIdsByDataOwnerPatientDate(hcpartyId, _.uniq(extractedKeys), startDate, endDate, descending)
+      : Promise.resolve([])
+  }
+
+  /**
+   * @deprecated use {@link findAccessLogIdsByDataOwnerPatientDate} instead
+   */
   async findByHCPartyPatientSecretFKeys(hcPartyId: string, secretFKeys: string): Promise<AccessLog[]> {
     const accessLogs = await super.findAccessLogsByHCPartyPatientForeignKeys(hcPartyId, secretFKeys)
     return await this.decrypt(hcPartyId, accessLogs)
   }
 
+  /**
+   * @deprecated use {@link findAccessLogIdsByDataOwnerPatientDate} instead
+   */
   findByHCPartyPatientSecretFKeysArray(hcPartyId: string, secretFKeys: string[]): Promise<Array<AccessLog> | any> {
     return super.findAccessLogsByHCPartyPatientForeignKeysUsingPost(hcPartyId, secretFKeys).then((accesslogs) => this.decrypt(hcPartyId, accesslogs))
   }
