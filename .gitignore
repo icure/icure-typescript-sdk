@@ -8,3 +8,6 @@ coverage/
 custom-docker-compose-cloud.yaml
 .DS_Store
 .vscode/launch.json
+.yarn/*
+.yarnrc*
+.pnp*
