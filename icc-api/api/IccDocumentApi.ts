@@ -203,7 +203,7 @@ export class IccDocumentApi {
     startDate?: number,
     endDate?: number,
     descending?: boolean
-  ): Promise<PaginatedListDocument> {
+  ): Promise<string[]> {
     const _url =
       this.host +
       `/document/byDataOwnerPatientCreated` +
@@ -214,7 +214,7 @@ export class IccDocumentApi {
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, { ids: secretForeignKeys }, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new PaginatedListDocument(doc.body as JSON))
+      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
       .catch((err) => this.handleError(err))
   }
 
