@@ -66,21 +66,6 @@ export class IccUserApi {
 
   /**
    *
-   * @param password
-   */
-  checkPassword(password: string): Promise<boolean> {
-    let _body = null
-
-    const _url = this.host + `/user/checkPassword` + '?ts=' + new Date().getTime()
-    let headers = this.headers
-    password && (headers = headers.concat(new XHR.Header('password', password)))
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => JSON.parse(JSON.stringify(doc.body)))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
-   *
    * @summary Check token validity
    * @param userId
    * @param token

@@ -3,9 +3,11 @@ import { AuthenticationProvider, NoAuthenticationProvider } from './auth/Authent
 import { AbstractFilter } from './filters/filters'
 import { User } from '../icc-api/model/User'
 import { Connection, ConnectionImpl } from '../icc-api/model/Connection'
-import { subscribeToEntityEvents, SubscriptionOptions } from './utils'
+import { a2b, subscribeToEntityEvents, SubscriptionOptions } from './utils'
 import { IccAuthApi } from '../icc-api'
 import { objectEquals } from './utils/collection-utils'
+import { XHR } from '../icc-api/api/XHR'
+import XHRError = XHR.XHRError
 
 export class IccUserXApi extends IccUserApi {
   fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response>
@@ -63,5 +65,35 @@ export class IccUserXApi extends IccUserApi {
   ): Promise<Connection> {
     const rs = await subscribeToEntityEvents(this.host, this.authApi, 'User', eventTypes, filter, eventFired, options)
     return new ConnectionImpl(rs)
+  }
+
+  async checkPassword(password: string): Promise<boolean> {
+    const userInfo = await this.getGroupAndUserIdFromToken()
+    if (!!userInfo) {
+      console.log(this.authApi)
+      const loginUserId = !!userInfo.groupId ? `${userInfo.groupId}/${userInfo.userId}` : userInfo.userId
+      try {
+        return (await this.authApi.login({ username: loginUserId, password: password })).successful ?? false
+      } catch (e) {
+        return e instanceof XHRError && e.statusCode == 417
+      }
+    }
+    throw Error('Could not get current group and user from jwt')
+  }
+
+  private async getGroupAndUserIdFromToken(): Promise<{ groupId: string | undefined; userId: string } | undefined> {
+    const token = (await this.authenticationProvider.getIcureTokens())?.token
+    if (!token) return undefined
+    const splitToken = token.split('.')
+    if (splitToken.length != 3) return undefined
+    try {
+      const tokenString = a2b(splitToken[1])
+      const parsedClaims = JSON.parse(tokenString)
+      if (!!parsedClaims['u']) {
+        return { groupId: parsedClaims['g'], userId: parsedClaims['u'] }
+      } else return undefined
+    } catch {
+      return undefined
+    }
   }
 }
