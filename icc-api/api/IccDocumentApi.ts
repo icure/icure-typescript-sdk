@@ -123,6 +123,7 @@ export class IccDocumentApi {
 
   /**
    * Keys must be delimited by coma
+   * @deprecated use {@link findDocumentIdsByDataOwnerSecretForeignKey} instead.
    * @summary List documents found By type, By Healthcare Party and secret foreign keys.
    * @param documentTypeCode
    * @param hcPartyId
@@ -146,7 +147,7 @@ export class IccDocumentApi {
 
   /**
    * Keys must be delimited by commas.
-   * @deprecated use {@link findDocumentsByHCPartyPatientForeignKey} instead.
+   * @deprecated use {@link findDocumentIdsByDataOwnerSecretForeignKey} instead.
    * @summary List documents found By Healthcare Party and secret foreign keys.
    * @param hcPartyId
    * @param secretFKeys

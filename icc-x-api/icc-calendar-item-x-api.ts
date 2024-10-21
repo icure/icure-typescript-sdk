@@ -114,6 +114,9 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
     )
   }
 
+  /**
+   * @deprecated use {@link findIdsBy} instead.
+   */
   async findBy(hcpartyId: string, patient: models.Patient, usingPost: boolean = false) {
     const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: EntityWithDelegationTypeName.Patient }, hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
@@ -121,6 +124,17 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
       ? usingPost
         ? this.findByHCPartyPatientSecretFKeysArray(hcpartyId!, _.uniq(extractedKeys))
         : this.findByHCPartyPatientSecretFKeys(hcpartyId!, _.uniq(extractedKeys).join(','))
+      : Promise.resolve([])
+  }
+
+  /**
+   * Same as `findBy` but it will only return the ids of the calendar items. It can also filter the access logs where CalendarItem.date is between
+   * startDate and endDate in ascending or descending order by that field. (default: ascending).
+   */
+  async findIdsBy(hcpartyId: string, patient: models.Patient, startDate?: number, endDate?: number, descending?: boolean): Promise<string[]> {
+    const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: EntityWithDelegationTypeName.Patient }, hcpartyId)
+    return extractedKeys && extractedKeys.length > 0
+      ? this.findCalendarItemIdsByDataOwnerPatientStartTime(hcpartyId, _.uniq(extractedKeys), startDate, endDate, descending)
       : Promise.resolve([])
   }
 

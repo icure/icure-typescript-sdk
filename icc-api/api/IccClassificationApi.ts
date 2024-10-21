@@ -111,7 +111,7 @@ export class IccClassificationApi {
   /**
    * Keys have to be delimited by comma
    * @deprecated use {@link findClassificationIdsByDataOwnerPatientCreated} instead.
-   * @summary List classification Templates found By Healthcare Party and secret foreign keyelementIds.
+   * @summary List classification Templates found By Healthcare Party and secret foreign keys.
    * @param hcPartyId
    * @param secretFKeys
    */
