@@ -646,7 +646,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
   }
 
   /**
-   * Same as {@link findBy} but it will only return the ids of the contacts. It can also filter the documents where Document.created is between
+   * Same as {@link findByMessage} but it will only return the ids of the contacts. It can also filter the documents where Document.created is between
    * startDate and endDate in ascending or descending order by that field. (default: ascending).
    */
   async findIdsByMessage(hcpartyId: string, message: models.Message, startDate?: number, endDate?: number, descending?: boolean): Promise<string[]> {
