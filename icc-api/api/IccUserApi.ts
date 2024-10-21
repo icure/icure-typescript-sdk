@@ -21,7 +21,9 @@ import { User } from '../model/User'
 import { UserGroup } from '../model/UserGroup'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { ListOfIds } from '../model/ListOfIds'
-import { ro } from 'date-fns/locale'
+import { a2b } from '../../icc-x-api'
+import { LoginCredentials } from '../model/LoginCredentials'
+import XHRError = XHR.XHRError
 
 export class IccUserApi {
   host: string
@@ -68,7 +70,46 @@ export class IccUserApi {
    *
    * @param password
    */
-  checkPassword(password: string): Promise<boolean> {
+  async checkPassword(password: string): Promise<boolean> {
+    const userInfo = await this.getGroupAndUserIdFromToken()
+    if (!!userInfo) {
+      const loginUserId = !!userInfo.groupId ? `${userInfo.groupId}/${userInfo.userId}` : userInfo.userId
+      const body: LoginCredentials = { username: loginUserId, password: password }
+      const url = this.host + `/auth/login` + '?ts=' + new Date().getTime()
+      const headers = this.headers
+        .filter((h) => h.header !== 'Content-Type' && h.header?.toLowerCase() !== 'authorization')
+        .concat(new XHR.Header('Content-Type', 'application/json'))
+      try {
+        await XHR.sendCommand('POST', url, headers, body, this.fetchImpl, undefined)
+        return true
+      } catch (e) {
+        if (e instanceof XHRError && e.statusCode == 417) {
+          // Case missing 2fa but password ok
+          return true
+        } else return false
+      }
+    } else {
+      return await this.checkPasswordEndpoint(password)
+    }
+  }
+
+  private async getGroupAndUserIdFromToken(): Promise<{ groupId: string | undefined; userId: string } | undefined> {
+    const token = (await this.authenticationProvider.getIcureTokens())?.token
+    if (!token) return undefined
+    const splitToken = token.split('.')
+    if (splitToken.length != 3) return undefined
+    try {
+      const tokenString = a2b(splitToken[1])
+      const parsedClaims = JSON.parse(tokenString)
+      if (!!parsedClaims['u']) {
+        return { groupId: parsedClaims['g'], userId: parsedClaims['u'] }
+      } else return undefined
+    } catch {
+      return undefined
+    }
+  }
+
+  private checkPasswordEndpoint(password: string): Promise<boolean> {
     let _body = null
 
     const _url = this.host + `/user/checkPassword` + '?ts=' + new Date().getTime()
