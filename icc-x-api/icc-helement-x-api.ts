@@ -315,7 +315,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
   /**
    * @deprecated use {@link findHealthElementsDelegationsStubsByIds} instead.
    */
-  findByHCPartyPatientSecretFKeys(hcPartyId: string, secretFKeys: string): Promise<Array<models.Contact> | any> {
+  findByHCPartyPatientSecretFKeys(hcPartyId: string, secretFKeys: string): Promise<Array<models.HealthElement> | any> {
     return super.findHealthElementsByHCPartyPatientForeignKeys(hcPartyId, secretFKeys).then((helements) => this.decrypt(hcPartyId, helements))
   }
 
