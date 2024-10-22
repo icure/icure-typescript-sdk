@@ -207,7 +207,7 @@ export class IccDocumentApi {
   ): Promise<string[]> {
     const _url =
       this.host +
-      `/document/byDataOwnerPatientCreated` +
+      `/document/byDataOwnerPatientCreated?ts=${new Date().getTime()}` +
       `&dataOwnerId=${encodeURIComponent(dataOwnerId)}` +
       (!!startDate ? `&startDate=${encodeURIComponent(startDate)}` : '') +
       (!!endDate ? `&endDate=${encodeURIComponent(endDate)}` : '') +
