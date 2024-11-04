@@ -239,7 +239,7 @@ export class IccAccesslogApi {
    */
   async getAccessLogs(ids: ListOfIds): Promise<AccessLog[]> {
     const _url = this.host + `/accesslog/byIds` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
+    const headers = (await this.headers).filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
 
     return XHR.sendCommand('POST', _url, headers, ids, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new AccessLog(it)))
