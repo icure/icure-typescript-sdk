@@ -439,13 +439,10 @@ export class IccPatientApi {
    * @param body
    */
   async getPatients(body?: ListOfIds): Promise<Array<Patient>> {
-    let _body = null
-    _body = body
-
     const _url = this.host + `/patient/byIds` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Patient(it)))
       .catch((err) => this.handleError(err))
   }
@@ -688,13 +685,10 @@ export class IccPatientApi {
    * @param body
    */
   async matchPatientsBy(body?: AbstractFilterPatient): Promise<Array<string>> {
-    let _body = null
-    _body = body
-
     const _url = this.host + `/patient/match` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
       .catch((err) => this.handleError(err))
   }
