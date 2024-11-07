@@ -1,5 +1,8 @@
 name: Licenses report
 on:
+  push:
+    branches:
+      - 'v8/ci/add-license-report-probe'
   pull_request:
     types:
       - closed
