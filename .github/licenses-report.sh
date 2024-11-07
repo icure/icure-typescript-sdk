@@ -5,10 +5,10 @@ report='[]'
 
 # Install dependencies in all workspaces
 yarn install > /dev/null 2>&1
-echo here
+
 # Get the list of workspaces and extract their locations
 workspaces=$(yarn workspaces list --json | awk -F\" '/location/ {print $4}')
-echo workspaces
+
 # Iterate through each workspace
 for workspace in $workspaces; do
   # Change to the workspace directory
