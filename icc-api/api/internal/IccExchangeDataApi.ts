@@ -3,6 +3,7 @@ import { AuthenticationProvider, NoAuthenticationProvider } from '../../../icc-x
 import { ExchangeData } from '../../model/internal/ExchangeData'
 import { PaginatedListExchangeData } from '../../model/PaginatedListExchangeData'
 import { iccRestApiPath } from '../IccRestApiPath'
+import { ListOfIds } from '../../model/ListOfIds'
 
 export class IccExchangeDataApi {
   host: string
@@ -54,6 +55,15 @@ export class IccExchangeDataApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new ExchangeData(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  async getExchangeDataByIds(body: ListOfIds): Promise<ExchangeData[]> {
+    const _url = this.host + `/exchangedata/byIds` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new ExchangeData(it)))
       .catch((err) => this.handleError(err))
   }
 

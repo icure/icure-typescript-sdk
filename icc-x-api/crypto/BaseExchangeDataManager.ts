@@ -64,6 +64,10 @@ export class BaseExchangeDataManager {
     })
   }
 
+  async getExchangeDataByIds(exchangeDataIds: string[]): Promise<ExchangeData[]> {
+    return await this.api.getExchangeDataByIds({ ids: exchangeDataIds })
+  }
+
   /**
    * Verifies the authenticity of the exchange data by checking the signature.
    * Note that all exchange data created by data owners other than the current data owner (including members of his hierarchy)
