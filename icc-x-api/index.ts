@@ -71,14 +71,12 @@ import { TransferKeysManager } from './crypto/TransferKeysManager'
 import { IccIcureMaintenanceXApi } from './icc-icure-maintenance-x-api'
 import { ConfidentialEntities } from './crypto/ConfidentialEntities'
 import { ensureDelegationForSelf } from './crypto/utils'
-import { SecureDelegationsSecurityMetadataDecryptor } from './crypto/SecureDelegationsSecurityMetadataDecryptor'
 import { initialiseExchangeDataManagerForCurrentDataOwner } from './crypto/ExchangeDataManager'
 import { BaseExchangeDataManager } from './crypto/BaseExchangeDataManager'
 import { IccExchangeDataApi } from '../icc-api/api/internal/IccExchangeDataApi'
 import { UserSignatureKeysManager } from './crypto/UserSignatureKeysManager'
 import { AccessControlSecretUtils } from './crypto/AccessControlSecretUtils'
 import { SecureDelegationsEncryption } from './crypto/SecureDelegationsEncryption'
-import { LegacyDelegationSecurityMetadataDecryptor } from './crypto/LegacyDelegationSecurityMetadataDecryptor'
 import { ExtendedApisUtilsImpl } from './crypto/ExtendedApisUtilsImpl'
 import { SecureDelegationsManager } from './crypto/SecureDelegationsManager'
 import { AccessControlKeysHeadersProvider } from './crypto/AccessControlKeysHeadersProvider'
@@ -99,6 +97,7 @@ import { IccRecoveryDataApi } from '../icc-api/api/internal/IccRecoveryDataApi'
 import { RecoveryDataEncryption } from './crypto/RecoveryDataEncryption'
 import { IccRecoveryXApi } from './icc-recovery-x-api'
 import { getGroupOfJwt } from './auth/JwtUtils'
+import { SecurityMetadataDecryptor } from './crypto/SecurityMetadataDecryptor'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -789,7 +788,9 @@ async function initialiseCryptoWithProvider(
     new IccExchangeDataMapApi(host, updatedHeaders, groupSpecificAuthenticationProvider, fetchImpl)
   )
   const secureDelegationsEncryption = new SecureDelegationsEncryption(userEncryptionKeysManager, cryptoPrimitives)
-  const secureDelegationsSecurityMetadataEncryption = new SecureDelegationsSecurityMetadataDecryptor(
+  const secureDelegationsSecurityMetadataEncryption = new SecurityMetadataDecryptor(
+    exchangeKeysManager,
+    cryptoPrimitives,
     exchangeDataManager,
     exchangeDataMapManager,
     secureDelegationsEncryption,
@@ -798,7 +799,6 @@ async function initialiseCryptoWithProvider(
   const xApiUtils = new ExtendedApisUtilsImpl(
     cryptoPrimitives,
     dataOwnerApi,
-    new LegacyDelegationSecurityMetadataDecryptor(exchangeKeysManager, cryptoPrimitives),
     secureDelegationsSecurityMetadataEncryption,
     new SecureDelegationsManager(
       exchangeDataManager,

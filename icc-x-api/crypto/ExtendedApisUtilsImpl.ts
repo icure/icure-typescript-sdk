@@ -1,86 +1,87 @@
 import { EncryptedEntity, EncryptedEntityStub } from '../../icc-api/model/models'
 import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
-import { b2a, encryptObject, decryptObject, hex2ua, truncateTrailingNulls, ua2utf8, utf8_2ua, EncryptedFieldsManifest } from '../utils'
+import {
+  b2a,
+  decryptObject,
+  EncryptedEntityWithType,
+  EncryptedFieldsManifest,
+  encryptObject,
+  EntityWithDelegationTypeName,
+  hex2ua,
+  truncateTrailingNulls,
+  ua2utf8,
+  utf8_2ua,
+} from '../utils'
 import { CryptoPrimitives } from './CryptoPrimitives'
-import { asyncGeneratorToArray } from '../utils/collection-utils'
-import { SecurityMetadataDecryptor, SecurityMetadataDecryptorChain } from './SecurityMetadataDecryptor'
-import { EncryptedEntityWithType, EntityWithDelegationTypeName } from '../utils/EntityWithDelegationTypeName'
+import { SecurityMetadataDecryptor, SecurityMetadataType } from './SecurityMetadataDecryptor'
 import { SecureDelegation } from '../../icc-api/model/SecureDelegation'
 import { ExtendedApisUtils } from './ExtendedApisUtils'
 import { EntityShareOrMetadataUpdateRequest } from '../../icc-api/model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../../icc-api/model/requests/EntityBulkShareResult'
 import { EntityShareRequest } from '../../icc-api/model/requests/EntityShareRequest'
 import { SecureDelegationsManager } from './SecureDelegationsManager'
-import { LegacyDelegationSecurityMetadataDecryptor } from './LegacyDelegationSecurityMetadataDecryptor'
-import { SecureDelegationsSecurityMetadataDecryptor } from './SecureDelegationsSecurityMetadataDecryptor'
 import { ShareResult, ShareResultFailure, ShareResultSuccess } from '../utils/ShareResult'
 import { ShareMetadataBehaviour } from './ShareMetadataBehaviour'
 import { IccUserXApi } from '../icc-user-x-api'
 import { MinimalEntityBulkShareResult } from '../../icc-api/model/requests/MinimalEntityBulkShareResult'
+import { BulkShareOrUpdateMetadataParams, EntityRequestInformation } from '../../icc-api/model/requests/BulkShareOrUpdateMetadataParams'
+import * as _ from 'lodash'
 import AccessLevel = SecureDelegation.AccessLevelEnum
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import RequestedPermissionInternal = EntityShareRequest.RequestedPermissionInternal
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
-import { BulkShareOrUpdateMetadataParams, EntityRequestInformation } from '../../icc-api/model/requests/BulkShareOrUpdateMetadataParams'
 
 /**
  * @internal this class is for internal use only and may be changed without notice.
  * Methods to support extended apis.
  */
 export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
-  private readonly allSecurityMetadataDecryptor: SecurityMetadataDecryptor
-
   constructor(
     private readonly primitives: CryptoPrimitives,
     private readonly dataOwnerApi: IccDataOwnerXApi,
-    private readonly legacyDelMetadataDecryptor: LegacyDelegationSecurityMetadataDecryptor,
-    private readonly secDelMetadataDecryptor: SecureDelegationsSecurityMetadataDecryptor,
+    private readonly securityMetadataDecryptor: SecurityMetadataDecryptor,
     private readonly secureDelegationsManager: SecureDelegationsManager,
     private readonly userApi: IccUserXApi,
     private readonly useParentKeys: boolean
-  ) {
-    this.allSecurityMetadataDecryptor = new SecurityMetadataDecryptorChain([legacyDelMetadataDecryptor, secDelMetadataDecryptor])
-  }
+  ) {}
 
   async encryptionKeysOf(entity: EncryptedEntityWithType, dataOwnerId?: string): Promise<string[]> {
-    return await this.decryptAndMergeHierarchy(entity, dataOwnerId, (entityWithType, hierarchy) =>
-      this.allSecurityMetadataDecryptor.decryptEncryptionKeysOf(entityWithType, hierarchy)
+    return await this.decryptAndMergeHierarchy(dataOwnerId, (hierarchy) =>
+      this.securityMetadataDecryptor.decryptAll(entity.entity, hierarchy, SecurityMetadataType.EncryptionKey)
     )
   }
 
   async encryptionKeysForHcpHierarchyOf(entity: EncryptedEntityWithType): Promise<{ ownerId: string; extracted: string[] }[]> {
-    return this.decryptHierarchy(entity, (entityWithType, hierarchy) =>
-      this.allSecurityMetadataDecryptor.decryptEncryptionKeysOf(entityWithType, hierarchy)
+    return this.decryptHierarchy((hierarchy) =>
+      this.securityMetadataDecryptor.decryptAll(entity.entity, hierarchy, SecurityMetadataType.EncryptionKey)
     )
   }
 
   async secretIdsOf(entity: EncryptedEntityWithType, dataOwnerId?: string): Promise<string[]> {
-    return await this.decryptAndMergeHierarchy(entity, dataOwnerId, (entityWithType, hierarchy) =>
-      this.allSecurityMetadataDecryptor.decryptSecretIdsOf(entityWithType, hierarchy)
+    return await this.decryptAndMergeHierarchy(dataOwnerId, (hierarchy) =>
+      this.securityMetadataDecryptor.decryptAll(entity.entity, hierarchy, SecurityMetadataType.SecretId)
     )
   }
 
   async secretIdsForHcpHierarchyOf(entity: EncryptedEntityWithType): Promise<{ ownerId: string; extracted: string[] }[]> {
-    return this.decryptHierarchy(entity, (entityWithType, hierarchy) =>
-      this.allSecurityMetadataDecryptor.decryptSecretIdsOf(entityWithType, hierarchy)
-    )
+    return this.decryptHierarchy((hierarchy) => this.securityMetadataDecryptor.decryptAll(entity.entity, hierarchy, SecurityMetadataType.SecretId))
   }
 
   async owningEntityIdsOf(entity: EncryptedEntityWithType, dataOwnerId?: string): Promise<string[]> {
-    return await this.decryptAndMergeHierarchy(entity, dataOwnerId, (entityWithType, hierarchy) =>
-      this.allSecurityMetadataDecryptor.decryptOwningEntityIdsOf(entityWithType, hierarchy)
+    return await this.decryptAndMergeHierarchy(dataOwnerId, (hierarchy) =>
+      this.securityMetadataDecryptor.decryptAll(entity.entity, hierarchy, SecurityMetadataType.OwningEntityId)
     )
   }
 
   async owningEntityIdsForHcpHierarchyOf(entity: EncryptedEntityWithType): Promise<{ ownerId: string; extracted: string[] }[]> {
-    return this.decryptHierarchy(entity, (entityWithType, hierarchy) =>
-      this.allSecurityMetadataDecryptor.decryptOwningEntityIdsOf(entityWithType, hierarchy)
+    return this.decryptHierarchy((hierarchy) =>
+      this.securityMetadataDecryptor.decryptAll(entity.entity, hierarchy, SecurityMetadataType.OwningEntityId)
     )
   }
 
   async hasWriteAccess(entity: EncryptedEntityWithType): Promise<boolean> {
     return (
-      (await this.allSecurityMetadataDecryptor.getEntityAccessLevel(entity, await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())) ===
+      (await this.securityMetadataDecryptor.getEntityAccessLevel(entity.entity, await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())) ===
       AccessLevel.WRITE
     )
   }
@@ -353,7 +354,7 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
         }
       }
       if (Object.keys(currentRequests).length > 0) {
-        const existingDelegationMembersDetails = await this.secDelMetadataDecryptor.getDelegationMemberDetails(entityWithType)
+        const existingDelegationMembersDetails = await this.securityMetadataDecryptor.getDelegationMemberDetails(entityWithType)
         const accessibleMembers = new Set(
           this.useParentKeys ? await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds() : [await this.dataOwnerApi.getCurrentDataOwnerId()]
         )
@@ -457,9 +458,17 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     const hierarchy = this.useParentKeys
       ? await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
       : [await this.dataOwnerApi.getCurrentDataOwnerId()]
-    const legacySecretIds = await asyncGeneratorToArray(this.legacyDelMetadataDecryptor.decryptSecretIdsOf(entity, hierarchy))
-    const legacyEncryptionKeys = await asyncGeneratorToArray(this.legacyDelMetadataDecryptor.decryptEncryptionKeysOf(entity, hierarchy))
-    const legacyOwningEntityIds = await asyncGeneratorToArray(this.legacyDelMetadataDecryptor.decryptOwningEntityIdsOf(entity, hierarchy))
+    const legacySecretIds = await this.securityMetadataDecryptor.decryptAllLegacyDelegations(entity.entity, hierarchy, SecurityMetadataType.SecretId)
+    const legacyEncryptionKeys = await this.securityMetadataDecryptor.decryptAllLegacyDelegations(
+      entity.entity,
+      hierarchy,
+      SecurityMetadataType.OwningEntityId
+    )
+    const legacyOwningEntityIds = await this.securityMetadataDecryptor.decryptAllLegacyDelegations(
+      entity.entity,
+      hierarchy,
+      SecurityMetadataType.OwningEntityId
+    )
     const res = {} as { [delegateId: string]: EntityShareOrMetadataUpdateRequest }
     const selfId = await this.dataOwnerApi.getCurrentDataOwnerId()
     for (const hierarchyMember of hierarchy) {
@@ -501,7 +510,7 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     const legacyAccess =
       selfId === entity.entity.id && currMemberId === selfId
         ? AccessLevel.WRITE
-        : await this.legacyDelMetadataDecryptor.getEntityAccessLevel(entity, subHierarchy)
+        : await this.securityMetadataDecryptor.getEntityLegacyDelegationAccessLevel(entity.entity, subHierarchy)
     if (!legacyAccess) return undefined
     const selfLegacySecretIds = legacySecretIds.filter((x) => x.dataOwnersWithAccess.some((d) => subHierarchySet.has(d))).map((x) => x.decrypted)
     const selfLegacyEncryptionKeys = legacyEncryptionKeys
@@ -515,24 +524,32 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     let missingOwningEntityIds: string[] = []
     if (selfLegacySecretIds.length > 0) {
       const currentSecretIds = new Set(
-        (await asyncGeneratorToArray(this.secDelMetadataDecryptor.decryptSecretIdsOf(entity, [currMemberId]))).map((x) => x.decrypted)
+        (await this.securityMetadataDecryptor.decryptAllSecureDelegations(entity.entity, [currMemberId], SecurityMetadataType.SecretId)).map(
+          (x) => x.decrypted
+        )
       )
       missingSecretIds = selfLegacySecretIds.filter((x) => !currentSecretIds.has(x))
     }
     if (selfLegacyEncryptionKeys.length > 0) {
       const currentEncryptionKeys = new Set(
-        (await asyncGeneratorToArray(this.secDelMetadataDecryptor.decryptEncryptionKeysOf(entity, [currMemberId]))).map((x) => x.decrypted)
+        (await this.securityMetadataDecryptor.decryptAllSecureDelegations(entity.entity, [currMemberId], SecurityMetadataType.EncryptionKey)).map(
+          (x) => x.decrypted
+        )
       )
       missingEncryptionKeys = selfLegacyEncryptionKeys.filter((x) => !currentEncryptionKeys.has(x))
     }
     if (selfLegacyOwningEntityIds.length > 0) {
       const currentOwningEntityIds = new Set(
-        (await asyncGeneratorToArray(this.secDelMetadataDecryptor.decryptOwningEntityIdsOf(entity, [currMemberId]))).map((x) => x.decrypted)
+        (await this.securityMetadataDecryptor.decryptAllSecureDelegations(entity.entity, [currMemberId], SecurityMetadataType.OwningEntityId)).map(
+          (x) => x.decrypted
+        )
       )
       missingOwningEntityIds = selfLegacyOwningEntityIds.filter((x) => !currentOwningEntityIds.has(x))
     }
     const mustCreateRootDelegation =
-      selfId === entity.entity.id && currMemberId === selfId && !(await this.secDelMetadataDecryptor.getEntityAccessLevel(entity, subHierarchy))
+      selfId === entity.entity.id &&
+      currMemberId === selfId &&
+      !(await this.securityMetadataDecryptor.getEntitySecureDelegationAccessLevel(entity.entity, subHierarchy))
     if (missingSecretIds.length > 0 || missingEncryptionKeys.length > 0 || missingOwningEntityIds.length > 0 || mustCreateRootDelegation) {
       let requestedPermissions: RequestedPermissionInternal
       if (currMemberId === selfId) {
@@ -556,26 +573,26 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     content: ArrayBuffer | Uint8Array,
     validator: (decryptedData: ArrayBuffer) => Promise<boolean> | undefined
   ): Promise<{ data: ArrayBuffer; wasDecrypted: boolean }> {
-    const dataOwnerIds = this.useParentKeys
-      ? await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
-      : [await this.dataOwnerApi.getCurrentDataOwnerId()]
-
-    const decryptedKeys = this.allSecurityMetadataDecryptor.decryptEncryptionKeysOf(entity, dataOwnerIds)
     const triedKeys: Set<string> = new Set()
-    let latest = await decryptedKeys.next()
-    while (!latest.done) {
-      if (!triedKeys.has(latest.value.decrypted)) {
-        triedKeys.add(latest.value.decrypted)
-        try {
-          const decrypted = await this.primitives.AES.decryptWithRawKey(latest.value.decrypted, content)
-          if (!validator || (await validator(decrypted))) return { data: decrypted, wasDecrypted: true }
-        } catch (e) {
-          console.warn(`Error while decrypting with raw key ${latest.value}: ${e}`)
+    const result = await this.doIncrementallyDecryptingKeys(entity.entity, entity.type, async (e, t, keys) => {
+      for (const k of keys) {
+        if (!triedKeys.has(k.raw)) {
+          triedKeys.add(k.raw)
+          try {
+            const decrypted = await this.primitives.AES.decrypt(k.key, content)
+            if (!validator || (await validator(decrypted))) return { success: decrypted }
+          } catch (e) {
+            console.warn(`Error while attempting to decrypt attachment of ${entity.entity.id} with raw key ${k.raw}: ${e}`)
+          }
         }
       }
-      latest = await decryptedKeys.next()
+      return null
+    })
+    if (result != null) {
+      return { data: result.success, wasDecrypted: true }
+    } else {
+      return { data: content, wasDecrypted: false }
     }
-    return { data: content, wasDecrypted: false }
   }
 
   async encryptDataOf<T extends EncryptedEntityStub>(
@@ -589,113 +606,155 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     if (!!ensureInitialisedKeysResult) {
       updatedEntity = await saveEntity(ensureInitialisedKeysResult)
     }
-
-    const dataOwnerIds = this.useParentKeys
-      ? await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
-      : [await this.dataOwnerApi.getCurrentDataOwnerId()]
-
-    const decryptedKeys = this.allSecurityMetadataDecryptor.decryptEncryptionKeysOf({ entity: updatedEntity ?? entity, type }, dataOwnerIds)
-    let latest = await decryptedKeys.next()
-    while (!latest.done) {
-      try {
-        return { encryptedData: await this.primitives.AES.encryptWithRawKey(latest.value.decrypted, content), updatedEntity: updatedEntity }
-      } catch (e) {
-        console.warn(`Error while encrypting with raw key ${latest.value}: ${e}`)
+    const encrypted = await this.doIncrementallyDecryptingKeys(entity, type, async (e, t, keys) => {
+      for (const k of keys) {
+        try {
+          return {
+            success: {
+              encryptedData: await this.primitives.AES.encrypt(k.key, content),
+              updatedEntity: updatedEntity,
+            },
+          }
+        } catch (e) {
+          console.warn(`Error while encrypting with raw key ${k.raw}: ${e}`)
+        }
       }
-      latest = await decryptedKeys.next()
-    }
+      return null
+    })
+    if (encrypted != null) return encrypted.success
     throw new Error(`Could not extract any valid encryption keys for entity ${JSON.stringify(entity)}.`)
   }
 
-  async decryptEntity<T extends EncryptedEntity>(
-    entity: T,
+  async tryDecryptEntities<T extends EncryptedEntity>(
+    entities: T[],
     entityType: EntityWithDelegationTypeName,
     constructor: (json: any) => T
-  ): Promise<{ entity: T; decrypted: boolean }> {
-    if (!entity.encryptedSelf) return { entity, decrypted: true }
-    const encryptionKeys = await this.decryptAndImportAllDecryptionKeys({ entity: entity, type: entityType })
-    if (!encryptionKeys.length) return { entity, decrypted: false }
-    return {
-      entity: constructor(
-        await decryptObject(entity, async (encrypted) => {
-          return (await this.tryDecryptJson(encryptionKeys, encrypted, false)) ?? {}
-        })
-      ),
-      decrypted: true,
+  ): Promise<{ entity: T; decrypted: boolean }[]> {
+    const nothingToDecryptResults = new Map<string, T>()
+    for (const entity of entities) {
+      const nothingToDecrypt = await decryptObject(entity, async (encrypted) => {
+        return null
+      })
+      if (nothingToDecrypt != null) {
+        nothingToDecryptResults.set(entity.id!, constructor(nothingToDecrypt))
+      }
     }
+    const actuallyDecryptedResults = await this.doManyIncrementallyDecryptingKeys(
+      entities.filter((e) => !nothingToDecryptResults.has(e.id!)),
+      entityType,
+      async (entity, t, keys) => {
+        // The decrypt object will try all keys on each of the sub-objects; this is intentional because even though it
+        // shouldn't happen, but it is still possible that some entity could be accidentally merged badly and the merged
+        // entity has multiple encryptedSelf (on different sub-entities) that use different keys.
+        const decrypted = await decryptObject(entity, (encrypted) => this.tryDecryptJson(keys, encrypted, false))
+        if (decrypted != null) {
+          return { success: constructor(decrypted) }
+        } else {
+          return null
+        }
+      }
+    )
+    const res = []
+    for (const entity of entities) {
+      const decrypted = actuallyDecryptedResults.get(entity.id!) ?? nothingToDecryptResults.get(entity.id!)
+      if (!decrypted) {
+        res.push({ entity: entity, decrypted: false })
+      } else {
+        res.push({ entity: decrypted, decrypted: true })
+      }
+    }
+    return res
   }
 
   async tryDecryptJson(
     potentialKeys: { key: CryptoKey; raw: string }[],
     encrypted: Uint8Array,
     truncateTrailingDecryptedNulls: boolean
-  ): Promise<{} | undefined> {
+  ): Promise<{} | null> {
     for (const key of potentialKeys) {
       try {
-        const decrypted = (await this.primitives.AES.decrypt(key.key, encrypted, key.raw)) ?? encrypted
+        const decrypted = await this.primitives.AES.decrypt(key.key, encrypted, key.raw)
         return JSON.parse(ua2utf8(truncateTrailingDecryptedNulls ? truncateTrailingNulls(new Uint8Array(decrypted)) : decrypted))
       } catch (e) {}
     }
-    return undefined
+    return null
   }
 
-  async tryEncryptEntity<T extends EncryptedEntity>(
-    entity: T,
+  async tryEncryptEntities<T extends EncryptedEntity>(
+    entities: T[],
     entityType: EntityWithDelegationTypeName,
     fieldsToEncrypt: EncryptedFieldsManifest,
     encodeBinaryData: boolean,
     requireEncryption: boolean,
     constructor: (json: any) => T
-  ): Promise<T> {
-    const entityWithInitialisedEncryptionKeys = await this.ensureEncryptionKeysInitialised(entity, entityType)
-    const updatedEntity = entityWithInitialisedEncryptionKeys ? entityWithInitialisedEncryptionKeys : entity
-    const encryptionKey = await this.tryImportFirstValidKey({ entity, type: entityType })
-    if (!!encryptionKey) {
-      return constructor(
-        await encryptObject(
-          updatedEntity,
-          (obj) => {
-            // TODO should encoding of binary data should probably be applied to everything?
-            const json = encodeBinaryData
-              ? JSON.stringify(obj, (k, v) => {
-                  return v instanceof ArrayBuffer || ArrayBuffer.isView(v)
-                    ? b2a(new Uint8Array(v as ArrayBufferLike).reduce((d, b) => d + String.fromCharCode(b), ''))
-                    : v
-                })
-              : JSON.stringify(obj)
-            return this.primitives.AES.encrypt(encryptionKey.key, utf8_2ua(json), encryptionKey.raw)
-          },
-          fieldsToEncrypt,
-          entityType
-        )
-      )
-    } else if (requireEncryption) {
-      throw new Error(`No key found for encryption of entity ${entity}`)
-    } else {
-      await encryptObject(
-        entity,
-        async (obj: { [key: string]: any }) => {
-          const hasNonEmptyValues = Object.values(obj).some(
-            (v) => v !== undefined && (typeof v !== 'object' || (Array.isArray(v) && v.length > 0) || Object.keys(v).length > 0)
-          )
-          if (hasNonEmptyValues) {
-            throw new Error(
-              `Impossible to modify encrypted content of an entity if no encryption key is known.\nEntity: ${JSON.stringify(
-                entity
-              )}\nTo encrypt: ${JSON.stringify(obj)}`
-            )
-          }
-          return Promise.resolve(new ArrayBuffer(1))
-        },
-        fieldsToEncrypt,
-        'entity'
-      )
-      return entity
+  ): Promise<T[]> {
+    const entitiesWithInitialisedEncryptionKeys: T[] = []
+    for (const entity of entities) {
+      entitiesWithInitialisedEncryptionKeys.push((await this.ensureEncryptionKeysInitialised(entity, entityType)) ?? entity)
     }
+    const results = await this.doManyIncrementallyDecryptingKeys(entitiesWithInitialisedEncryptionKeys, entityType, async (e, t, keys) => {
+      for (const k of keys) {
+        try {
+          const encrypted = await encryptObject(
+            e,
+            (obj) => {
+              // TODO encoding of binary data should probably be applied to everything?
+              const json = encodeBinaryData
+                ? JSON.stringify(obj, (k, v) => {
+                    return v instanceof ArrayBuffer || ArrayBuffer.isView(v)
+                      ? b2a(new Uint8Array(v as ArrayBufferLike).reduce((d, b) => d + String.fromCharCode(b), ''))
+                      : v
+                  })
+                : JSON.stringify(obj)
+
+              return this.primitives.AES.encrypt(k.key, utf8_2ua(json), k.raw)
+            },
+            fieldsToEncrypt,
+            entityType
+          )
+          return { success: constructor(encrypted) }
+        } catch (e) {
+          console.warn(`Error while encrypting with raw key ${k.raw}: ${e}`)
+        }
+      }
+      return null
+    })
+    if (results.size != entitiesWithInitialisedEncryptionKeys.length) {
+      if (requireEncryption) {
+        throw new Error(
+          `Could not encrypt entities ${entitiesWithInitialisedEncryptionKeys.flatMap((e): string[] => (results.has(e.id!) ? [] : [e.id!]))}`
+        )
+      } else {
+        for (const e of entitiesWithInitialisedEncryptionKeys) {
+          if (!results.has(e.id!)) {
+            await encryptObject(
+              e,
+              async (obj: { [key: string]: any }) => {
+                const hasNonEmptyValues = Object.values(obj).some(
+                  (v) => v !== undefined && (typeof v !== 'object' || (Array.isArray(v) && v.length > 0) || Object.keys(v).length > 0)
+                )
+                if (hasNonEmptyValues) {
+                  throw new Error(
+                    `Impossible to modify encrypted content of an entity if no encryption key is known.\nEntity: ${JSON.stringify(
+                      e
+                    )}\nTo encrypt: ${JSON.stringify(obj)}`
+                  )
+                }
+                return Promise.resolve(new ArrayBuffer(1))
+              },
+              fieldsToEncrypt,
+              'entity'
+            )
+            results.set(e.id!, e)
+          }
+        }
+      }
+    }
+    return entitiesWithInitialisedEncryptionKeys.map((e) => results.get(e.id!)!)
   }
 
   async ensureEncryptionKeysInitialised<T extends EncryptedEntity>(entity: T, entityType: EntityWithDelegationTypeName): Promise<T | undefined> {
-    if (this.allSecurityMetadataDecryptor.hasAnyEncryptionKeys(entity)) return undefined
+    if (this.securityMetadataDecryptor.hasAnyEncryptionKeys(entity)) return undefined
     if (!entity.rev) {
       throw new Error(
         'New encrypted entity is lacking encryption metadata. ' +
@@ -727,37 +786,26 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
   }
 
   private async decryptHierarchy(
-    entity: EncryptedEntityWithType,
-    decryptedDataGeneratorProvider: (
-      entityWithType: EncryptedEntityWithType,
-      dataOwners: string[]
-    ) => AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never>
+    decryptedDataProvider: (dataOwners: string[]) => Promise<{ ownerId: string; extracted: string[] }[]>
   ): Promise<{ ownerId: string; extracted: string[] }[]> {
     const canDecryptOwnerIds = this.useParentKeys
       ? await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
       : [await this.dataOwnerApi.getCurrentDataOwnerId()]
-    const decryptedData = await asyncGeneratorToArray(decryptedDataGeneratorProvider(entity, canDecryptOwnerIds))
-    return canDecryptOwnerIds.map((ownerId) => {
-      const extracted = this.deduplicate(decryptedData.filter((x) => x.dataOwnersWithAccess.some((o) => o === ownerId)).map((x) => x.decrypted))
-      return { ownerId, extracted }
-    })
+    return await decryptedDataProvider(canDecryptOwnerIds)
   }
 
   private async decryptAndMergeHierarchy(
-    entity: EncryptedEntityWithType,
     dataOwnerId: string | undefined,
-    decryptedDataGeneratorProvider: (
-      entityWithType: EncryptedEntityWithType,
-      dataOwners: string[]
-    ) => AsyncGenerator<{ decrypted: string; dataOwnersWithAccess: string[] }, void, never>
+    decryptedDataProvider: (dataOwners: string[]) => Promise<{ ownerId: string; extracted: string[] }[]>
   ): Promise<string[]> {
     const hierarchy = this.useParentKeys
       ? dataOwnerId
         ? await this.dataOwnerApi.getCurrentDataOwnerHierarchyIdsFrom(dataOwnerId)
         : await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
       : [dataOwnerId ?? (await this.dataOwnerApi.getCurrentDataOwnerId())]
-    const decryptedData = await asyncGeneratorToArray(decryptedDataGeneratorProvider(entity, hierarchy))
-    return this.deduplicate(decryptedData.map((x) => x.decrypted))
+    const decryptedData = await decryptedDataProvider(hierarchy)
+    const merged = decryptedData.flatMap((x) => x.extracted)
+    return this.deduplicate(merged)
   }
 
   private async tryImportKey(key: string): Promise<CryptoKey | undefined> {
@@ -770,41 +818,118 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     }
   }
 
-  async decryptAndImportAllDecryptionKeys(entity: EncryptedEntityWithType): Promise<{ key: CryptoKey; raw: string }[]> {
-    const keys = this.allSecurityMetadataDecryptor.hasAnyEncryptionKeys(entity.entity)
-      ? await this.encryptionKeysOf(entity)
-      : this.deduplicate(
-          await asyncGeneratorToArray(
-            this.legacyDelMetadataDecryptor.decryptSecretIdsOf(entity, await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())
-          ).then((secretIdsInfo) => secretIdsInfo.map(({ decrypted }) => decrypted))
-        )
-    const res = []
-    for (const key of keys) {
-      const imported = await this.tryImportKey(key)
-      if (imported) res.push({ key: imported, raw: key })
+  async doIncrementallyDecryptingKeys<E extends EncryptedEntity | EncryptedEntityStub, T>(
+    entity: E,
+    entityType: EntityWithDelegationTypeName,
+    action: (entity: E, entityType: EntityWithDelegationTypeName, keys: { key: CryptoKey; raw: string }[]) => Promise<{ success: T } | null>
+  ): Promise<{ success: T } | null> {
+    const res = await this.doManyIncrementallyDecryptingKeys([entity], entityType, (e, t, ks) => action(e, t, ks))
+    if (res.has(entity.id!)) {
+      return { success: res.get(entity.id!)! }
+    } else {
+      return null
     }
-    return res
   }
 
-  async decryptAndImportAnyEncryptionKey(entity: EncryptedEntityWithType): Promise<{ key: CryptoKey; raw: string }> {
-    const res = await this.tryImportFirstValidKey(entity)
-    if (!res) throw new Error(`Could not find any valid key for entity ${entity.entity.id} (${entity.type}).`)
-    return res
-  }
-
-  private async tryImportFirstValidKey(entity: EncryptedEntityWithType): Promise<{ key: CryptoKey; raw: string } | undefined> {
-    const dataOwnerIds = this.useParentKeys
-      ? await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
-      : [await this.dataOwnerApi.getCurrentDataOwnerId()]
-
-    const generator = this.allSecurityMetadataDecryptor.decryptEncryptionKeysOf(entity, dataOwnerIds)
-    let latest = await generator.next()
-    while (!latest.done) {
-      const imported = await this.tryImportKey(latest.value.decrypted)
-      if (imported) return { key: imported, raw: latest.value.decrypted }
-      latest = await generator.next()
+  async doManyIncrementallyDecryptingKeys<E extends EncryptedEntity | EncryptedEntityStub, T>(
+    entities: E[],
+    entitiesType: EntityWithDelegationTypeName,
+    action: (entity: E, entityType: EntityWithDelegationTypeName, keys: { key: CryptoKey; raw: string }[]) => Promise<{ success: T } | null>
+  ): Promise<Map<string, T>> {
+    if (entities.length == 0) return new Map()
+    if (new Set(entities.map((e) => e.id)).size != entities.length) {
+      throw new Error(`Duplicate entries in entities ${entities.map((x) => x.id)}`)
     }
-    return undefined
+    const hierarchy = await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
+    const allExtractedKeysForEntities = Object.fromEntries(entities.map((x) => [x.id!, new Set<string>()] as [string, Set<string>]))
+    const newlyExtractedKeysForEntities = Object.fromEntries(entities.map((x) => [x.id!, new Set<string>()] as [string, Set<string>]))
+    const results = new Map<string, T>()
+    const remainingEntitiesById = Object.fromEntries(entities.map((x) => [x.id!, x] as [string, E]))
+    const importedKeysByRaw = new Map<string, CryptoKey>()
+    const primitives = this.primitives
+
+    async function updateExtractedKeysAndDoActionIfNecessary(
+      newKeys: { [entityId: string]: string[] },
+      forceUpdateOnEntitiesWithNewExtractedKeys: boolean
+    ): Promise<void> {
+      for (const [entityId, keys] of Object.entries(newKeys)) {
+        const newlyExtractedSet = newlyExtractedKeysForEntities[entityId]
+        const alreadyExtractedSet = allExtractedKeysForEntities[entityId]
+        for (const k of keys) {
+          if (!alreadyExtractedSet.has(k)) {
+            newlyExtractedSet.add(k)
+            if (!importedKeysByRaw.has(k)) {
+              importedKeysByRaw.set(k, await primitives.AES.importKey('raw', hex2ua(k)))
+            }
+          }
+        }
+      }
+      if (
+        forceUpdateOnEntitiesWithNewExtractedKeys ||
+        Object.keys(remainingEntitiesById).every((eId) => newlyExtractedKeysForEntities[eId].size > 0)
+      ) {
+        for (const entity of Object.values(remainingEntitiesById)) {
+          const currId = entity.id!
+          const currNewlyExtracted = newlyExtractedKeysForEntities[currId]
+          if (currNewlyExtracted.size > 0) {
+            const currAllExtracted = allExtractedKeysForEntities[currId]
+            currNewlyExtracted.forEach((k) => currAllExtracted.add(k))
+            currNewlyExtracted.clear()
+            const actionResult = await action(
+              entity,
+              entitiesType,
+              [...currAllExtracted].map((raw): { raw: string; key: CryptoKey } => ({
+                raw: raw,
+                key: importedKeysByRaw.get(raw)!,
+              }))
+            )
+            if (actionResult != null) {
+              delete remainingEntitiesById[currId]
+              results.set(currId, actionResult.success)
+            }
+          }
+        }
+      }
+    }
+
+    await updateExtractedKeysAndDoActionIfNecessary(
+      await this.securityMetadataDecryptor.decryptLegacyDelegations(
+        Object.values(remainingEntitiesById),
+        hierarchy,
+        SecurityMetadataType.EncryptionKey
+      ),
+      false
+    )
+    if (Object.keys(remainingEntitiesById).length == 0) return results
+    await updateExtractedKeysAndDoActionIfNecessary(
+      await this.securityMetadataDecryptor.decryptSecureDelegationsUsingCache(
+        Object.values(remainingEntitiesById),
+        hierarchy,
+        SecurityMetadataType.EncryptionKey
+      ),
+      false
+    )
+    if (Object.keys(remainingEntitiesById).length == 0) return results
+    await updateExtractedKeysAndDoActionIfNecessary(
+      await this.securityMetadataDecryptor.decryptSecureDelegationsUsingKnownExchangeData(
+        Object.values(remainingEntitiesById),
+        hierarchy,
+        SecurityMetadataType.EncryptionKey
+      ),
+      false
+    )
+    if (Object.keys(remainingEntitiesById).length == 0) return results
+    await updateExtractedKeysAndDoActionIfNecessary(
+      await this.securityMetadataDecryptor.decryptSecureDelegationsUsingExchangeDataMap(
+        Object.values(remainingEntitiesById),
+        hierarchy,
+        SecurityMetadataType.EncryptionKey
+      ),
+      false
+    )
+    if (Object.keys(remainingEntitiesById).length == 0) return results
+    await updateExtractedKeysAndDoActionIfNecessary({}, true)
+    return results
   }
 
   private deduplicate<T>(values: T[]): T[] {

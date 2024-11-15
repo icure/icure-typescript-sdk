@@ -474,26 +474,42 @@ function isPojo(value: any): boolean {
  * Decrypt object graph recursively.
  *
  * @param obj the object to decrypt
- * @param decryptor the decryptor function (returns a promise)
- * @return a deep copy of the object with the decrypted fields and removed encryptedSelf field
+ * @param decryptor the decryptor function (returns a promise); the decryptor returns the decrypted input or null if
+ * the decryption fails
+ * @return a deep copy of the object with the decrypted fields and removed encryptedSelf field, or null if the
+ * decryption failed
  */
 export async function decryptObject(
   obj: { [key: string]: any },
-  decryptor: (obj: Uint8Array) => Promise<{ [key: string]: any }>
-): Promise<{ [key: string]: any }> {
+  decryptor: (obj: Uint8Array) => Promise<{ [key: string]: any } | null>
+): Promise<{ [key: string]: any } | null> {
   const copy: { [key: string]: any } = {}
   for (const [key, value] of Object.entries(obj)) {
     if (key === 'encryptedSelf') {
       copy[key] = value
     } else if (typeof value === 'object' && value !== null) {
       if (Array.isArray(value)) {
-        // Note: nested arrays (and primitives) are returned as is and not they are not recursively decrypted. This is because we currently do not
-        // support encryption of elements from arrays in arrays (we only support arrays in objects in arrays). In future this may change.
-        copy[key] = await Promise.all(value.map((v) => (isPojo(v) ? decryptObject(v, decryptor) : v)))
+        // Note: nested arrays (and primitives) are returned as is, and they aren't recursively decrypted.
+        // This is because we currently don't support encryption of elements from arrays in arrays (we only support
+        // arrays in objects in arrays).
+        // In future this may change.
+        const decryptedElements = []
+        for (const element of value) {
+          if (isPojo(element)) {
+            const decrypted = await decryptObject(element, decryptor)
+            if (decrypted == null) return null
+            decryptedElements.push(decrypted)
+          } else {
+            decryptedElements.push(element)
+          }
+        }
+        copy[key] = decryptedElements
       } else if (value instanceof ArrayBuffer || ArrayBuffer.isView(value)) {
         copy[key] = value // No direct decryption of array buffer data. Array buffer should be converted to b64 string and encrypted as json data.
       } else {
-        copy[key] = await decryptObject(value, decryptor)
+        const decrypted = await decryptObject(value, decryptor)
+        if (decrypted == null) return null
+        copy[key] = decrypted
       }
     } else {
       copy[key] = value
@@ -501,6 +517,7 @@ export async function decryptObject(
   }
   if (obj.encryptedSelf) {
     const decrypted = await decryptor(string2ua(a2b(obj.encryptedSelf)))
+    if (decrypted == null) return null
     return { ...copy, ...decrypted }
   } else return copy
 }
