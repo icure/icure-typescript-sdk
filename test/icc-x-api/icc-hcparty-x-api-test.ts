@@ -44,5 +44,16 @@ describe('icc-hcparty-x-api Tests', () => {
 
     const hcp = await hcpApi.getHealthcareParty(user.healthcarePartyId!)
     expect(hcp.id).to.be.equal(user.healthcarePartyId!)
+
+    await hcpApi.getHealthcareParty(user.id!).then(
+      (_) => {
+        throw new Error('This promise should not resolve')
+      },
+      (e) => {
+        expect(JSON.parse(e.message)['message']).to.be.equal(
+          `Object with ID ${user.id!} is not of expected type org.taktik.icure.entities.HealthcareParty but of type org.taktik.icure.entities.User`
+        )
+      }
+    )
   })
 })
