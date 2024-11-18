@@ -125,17 +125,9 @@ export class IccHcpartyXApi extends IccHcpartyApi {
       return Promise.all(cached.map((x) => x[1]!))
     }
 
-    const prom: Promise<HealthcareParty[]> = super.getHealthcareParties(new ListOfIds({ ids: toFetch }))
-    return Promise.all(
-      cached.map(
-        (x) =>
-          x[1] ||
-          this.putHcPartyInCache(
-            x[0],
-            prom.then((hcps) => hcps.find((h) => h.id === x[0])!)
-          )
-      )
-    )
+    return super.getHealthcareParties(new ListOfIds({ ids: toFetch })).then((hcps) => {
+      return Promise.all(cached.map((x) => x[1] || this.putHcPartyInCache(x[0], Promise.resolve(hcps.find((h) => h.id === x[0])!))))
+    })
   }
 
   getCurrentHealthcareParty(): Promise<HealthcareParty> {
