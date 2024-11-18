@@ -760,19 +760,8 @@ async function initialiseCryptoWithProvider(
     icureStorage
   ).updateTransferKeys(await dataOwnerApi.getCurrentDataOwnerStub())
   // TODO customise cache size?
-  const exchangeKeysManager = new ExchangeKeysManager(
-    100,
-    500,
-    600000,
-    60000,
-    cryptoStrategies,
-    cryptoPrimitives,
-    userEncryptionKeysManager,
-    baseExchangeKeysManager,
-    dataOwnerApi,
-    !params.disableParentKeysInitialisation,
-    icureStorage
-  )
+  const exchangeKeysManager = new ExchangeKeysManager(userEncryptionKeysManager, baseExchangeKeysManager, dataOwnerApi)
+  await exchangeKeysManager.reloadCache()
   const accessControlSecretUtils = new AccessControlSecretUtils(cryptoPrimitives)
   const exchangeDataManager = await initialiseExchangeDataManagerForCurrentDataOwner(
     baseExchangeDataManager,

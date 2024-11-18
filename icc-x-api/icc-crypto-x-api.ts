@@ -114,7 +114,7 @@ export class IccCryptoXApi {
    * the current user for the first time.
    */
   async forceReload() {
-    this._exchangeKeysManager.clearCache(true)
+    await this._exchangeKeysManager.reloadCache()
     this._dataOwnerApi.clearCurrentDataOwnerIdsCache()
     await this._keyManager.reloadKeys()
     await this._exchangeDataManager.clearOrRepopulateCache()

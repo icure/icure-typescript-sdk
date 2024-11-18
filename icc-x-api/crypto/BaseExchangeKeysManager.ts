@@ -80,23 +80,25 @@ export class BaseExchangeKeysManager {
   /**
    * Get all exchange keys where the provided data owner is involved either as the delegator or as the delegate.
    * @param dataOwnerId id of a data owner.
-   * @param otherOwnerTypes only exchange keys between the current data owner and data owners of this type will be included in the result.
+   * @param otherOwnerTypes only exchange keys between the current data owner and data owners of this type will be included in the result. If null considers all delegates
    * @return all exchange keys involving the provided data owner. Note that there may be an overlap between some keys to and from the data owner.
    */
   async getAllExchangeKeysWith(
     dataOwnerId: string,
-    otherOwnerTypes: DataOwnerTypeEnum[]
+    otherOwnerTypes: DataOwnerTypeEnum[] | null
   ): Promise<{
     keysToOwner: { [delegatorId: string]: { [delegatorFp: string]: { [entryFp: string]: string } } }
     keysFromOwner: { [delegatorFp: string]: { [delegateId: string]: { [entryFp: string]: string } } }
   }> {
-    if (otherOwnerTypes.length === 0) throw new Error('otherOwnerTypes must not be empty!')
+    if (otherOwnerTypes != null && otherOwnerTypes.length === 0) throw new Error('otherOwnerTypes must not be empty!')
     const keysToOwner = await Promise.all([
-      otherOwnerTypes.find((x) => x === 'hcp') ? this.hcpartyBaseApi.getAesExchangeKeysForDelegate(dataOwnerId).catch(() => {}) : Promise.resolve({}),
-      otherOwnerTypes.find((x) => x === 'patient')
+      otherOwnerTypes == null || otherOwnerTypes.find((x) => x === 'hcp')
+        ? this.hcpartyBaseApi.getAesExchangeKeysForDelegate(dataOwnerId).catch(() => {})
+        : Promise.resolve({}),
+      otherOwnerTypes == null || otherOwnerTypes.find((x) => x === 'patient')
         ? this.patientBaseApi.getPatientAesExchangeKeysForDelegate(dataOwnerId).catch(() => {})
         : Promise.resolve({}),
-      otherOwnerTypes.find((x) => x === 'device')
+      otherOwnerTypes == null || otherOwnerTypes.find((x) => x === 'device')
         ? this.deviceBaseApi.getDeviceAesExchangeKeysForDelegate(dataOwnerId).catch(() => {})
         : Promise.resolve({}),
     ]).then(([a, b, c]) => ({ ...a, ...b, ...c } as { [delegatorId: string]: { [delegatorFp: string]: { [entryFp: string]: string } } }))
@@ -105,7 +107,7 @@ export class BaseExchangeKeysManager {
     const filteredDelegates = new Set(
       await Array.from(new Set(Object.values(allOwnerKeys).flatMap((x) => Object.keys(x)))).reduce(async (acc, ownerId) => {
         const awaitedAcc = await acc
-        if (ownerId === dataOwnerId) {
+        if (ownerId === dataOwnerId || otherOwnerTypes == null) {
           return [...awaitedAcc, ownerId]
         } else {
           const dataOwnerType: DataOwnerTypeEnum = (await this.dataOwnerApi.getCryptoActorStub(ownerId)).type
@@ -284,22 +286,6 @@ export class BaseExchangeKeysManager {
       }
     }
   }
-
-  private updateLegacyExchangeKeys(
-    delegator: CryptoActorStubWithType,
-    delegate: CryptoActorStubWithType,
-    encryptedKeyMap: { [fp: string]: string }
-  ): { [delegateId: string]: string[] } | undefined {
-    const legacyEncryptedKeyDelegator = delegator.stub.publicKey ? encryptedKeyMap[delegator.stub.publicKey] : undefined
-    const legacyEncryptedKeyDelegate = delegate.stub.publicKey ? encryptedKeyMap[delegate.stub.publicKey] : undefined
-    if (legacyEncryptedKeyDelegator && legacyEncryptedKeyDelegate) {
-      return {
-        ...(delegator.stub.hcPartyKeys ?? {}),
-        [delegate.stub.id!]: [legacyEncryptedKeyDelegator, legacyEncryptedKeyDelegate],
-      }
-    } else return delegator.stub.hcPartyKeys
-  }
-
   // Copy all legacy hcp exchange keys into the new aes exchange keys
   private async combineLegacyHcpKeysWithAesExchangeKeys(
     owner: CryptoActorStub,
