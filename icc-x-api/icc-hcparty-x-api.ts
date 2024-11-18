@@ -72,14 +72,9 @@ export class IccHcpartyXApi extends IccHcpartyApi {
     return finalHcParty
   }
 
-  putHcPartyInCache(key: string, value: Promise<HealthcareParty> | null = null): Promise<HealthcareParty> {
-    const hcp = (value || super.getHealthcareParty(key)).catch((e) => {
-      console.log(`Evict key ${key} because of error`)
-      delete this.hcPartyCache[key]
-      throw e
-    })
-    this.hcPartyCache[key] = [Date.now() + this.CACHE_RETENTION_IN_MS, hcp]
-    return hcp
+  putHcPartyInCache(key: string, hcpPromise: Promise<HealthcareParty>): Promise<HealthcareParty> {
+    this.hcPartyCache[key] = [Date.now() + this.CACHE_RETENTION_IN_MS, hcpPromise]
+    return hcpPromise
   }
 
   createHealthcareParty(body?: HealthcareParty): Promise<HealthcareParty> {
@@ -99,18 +94,26 @@ export class IccHcpartyXApi extends IccHcpartyApi {
     return super.modifyHealthcareParty(this.completeNames(body)).then((hcp) => this.putHcPartyInCache(hcp.id!, Promise.resolve(hcp)))
   }
 
-  getHealthcareParty(healthcarePartyId: string, bypassCache = false): Promise<HealthcareParty | any> {
+  async getHealthcareParty(healthcarePartyId: string, bypassCache = false): Promise<HealthcareParty | any> {
     const fromCache = bypassCache ? undefined : this.getHcPartyFromCache(healthcarePartyId)
-    return fromCache?.catch(() => this.putHcPartyInCache(healthcarePartyId)) || this.putHcPartyInCache(healthcarePartyId)
+    if (fromCache) {
+      try {
+        return await fromCache
+      } catch {
+        if (this.hcPartyCache[healthcarePartyId][1] === fromCache) {
+          delete this.hcPartyCache[healthcarePartyId]
+        }
+        return this.getHealthcareParty(healthcarePartyId, bypassCache)
+      }
+    } else {
+      return await this.putHcPartyInCache(healthcarePartyId, super.getHealthcareParty(healthcarePartyId))
+    }
   }
 
   getHealthcarePartyHierarchyIds(healthcarePartyId: string, bypassCache = false): Promise<string[]> {
-    const fromCache = bypassCache ? undefined : this.getHcPartyFromCache(healthcarePartyId)
-    return (fromCache?.catch(() => this.putHcPartyInCache(healthcarePartyId)) || this.putHcPartyInCache(healthcarePartyId)).then(
-      async (hcp: HealthcareParty) => {
-        return hcp ? (hcp.parentId ? (await this.getHealthcarePartyHierarchyIds(hcp.parentId!, bypassCache)).concat([hcp.id!]) : [hcp.id!]) : []
-      }
-    )
+    return this.getHealthcareParty(healthcarePartyId, bypassCache).then(async (hcp: HealthcareParty) => {
+      return hcp ? (hcp.parentId ? (await this.getHealthcarePartyHierarchyIds(hcp.parentId!, bypassCache)).concat([hcp.id!]) : [hcp.id!]) : []
+    })
   }
 
   async getHealthcareParties(healthcarePartyIds: ListOfIds): Promise<Array<HealthcareParty> | any> {
@@ -120,7 +123,13 @@ export class IccHcpartyXApi extends IccHcpartyApi {
     }
     const cached: Array<[string, HealthcareParty | null]> = []
     for (const id of ids) {
-      const hcp = await (this.getHcPartyFromCache(id)?.catch(() => null) ?? null)
+      let hcp
+      try {
+        hcp = await this.getHcPartyFromCache(id)
+      } catch {
+        hcp = null
+        delete this.hcPartyCache[id]
+      }
       cached.push([id, hcp])
     }
     const toFetch = cached.filter((x) => !x[1]).map((x) => x[0])
@@ -133,7 +142,7 @@ export class IccHcpartyXApi extends IccHcpartyApi {
     return Promise.all(
       cached.map(
         (x) =>
-          x[1] ||
+          x[1] ??
           this.putHcPartyInCache(
             x[0],
             prom.then((hcps) => {
