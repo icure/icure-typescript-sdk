@@ -3,6 +3,7 @@ import { HealthcareParty } from '../icc-api/model/HealthcareParty'
 import * as models from '../icc-api/model/models'
 import { findName, garnishPersonWithName, hasName } from './utils/person-util'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
+import { ListOfIds } from '../icc-api/model/models'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccHcpartyXApi extends IccHcpartyApi {
@@ -117,17 +118,9 @@ export class IccHcpartyXApi extends IccHcpartyApi {
       return Promise.all(cached.map((x) => x[1]!))
     }
 
-    const prom: Promise<HealthcareParty[]> = super.getHealthcareParties(toFetch.join(','))
-    return Promise.all(
-      cached.map(
-        (x) =>
-          x[1] ||
-          this.putHcPartyInCache(
-            x[0],
-            prom.then((hcps) => hcps.find((h) => h.id === x[0])!)
-          )
-      )
-    )
+    return super.getHealthcareParties(toFetch.join(',')).then((hcps) => {
+      return Promise.all(cached.map((x) => x[1] || this.putHcPartyInCache(x[0], Promise.resolve(hcps.find((h) => h.id === x[0])!))))
+    })
   }
 
   getCurrentHealthcareParty(): Promise<HealthcareParty | any> {
