@@ -6,14 +6,14 @@ import * as _ from 'lodash'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
-import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
-import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { ShareResult } from './utils/ShareResult'
 import { XHR } from '../icc-api/api/XHR'
 import { EncryptedFieldsManifest, EntityWithDelegationTypeName, parseEncryptedFields } from './utils'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
+import AccessLevelEnum = SecureDelegation.AccessLevelEnum
+import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 
 export interface AccessLogWithPatientId extends AccessLog {
   patientId: string
@@ -162,11 +162,9 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
     return super.findAccessLogsByHCPartyPatientForeignKeysUsingPost(hcPartyId, secretFKeys).then((accesslogs) => this.decrypt(hcPartyId, accesslogs))
   }
 
-  decrypt(hcpId: string, accessLogs: Array<models.AccessLog>): Promise<Array<models.AccessLog>> {
-    return Promise.all(
-      accessLogs.map((x) =>
-        this.crypto.xapi.decryptEntity(x, EntityWithDelegationTypeName.AccessLog, (json) => new AccessLog(json)).then(({ entity }) => entity)
-      )
+  async decrypt(hcpId: string, accessLogs: Array<models.AccessLog>): Promise<Array<models.AccessLog>> {
+    return (await this.crypto.xapi.tryDecryptEntities(accessLogs, EntityWithDelegationTypeName.AccessLog, (json) => new AccessLog(json))).map(
+      ({ entity }) => entity
     )
   }
 
@@ -175,18 +173,14 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
     return this.encryptAs(owner, accessLogs)
   }
 
-  private encryptAs(dataOwner: string, accessLogs: Array<models.AccessLog>): Promise<Array<models.AccessLog>> {
-    return Promise.all(
-      accessLogs.map((x) =>
-        this.crypto.xapi.tryEncryptEntity(
-          x,
-          EntityWithDelegationTypeName.AccessLog,
-          this.encryptedFields,
-          false,
-          false,
-          (json) => new AccessLog(json)
-        )
-      )
+  private async encryptAs(dataOwner: string, accessLogs: Array<models.AccessLog>): Promise<Array<models.AccessLog>> {
+    return this.crypto.xapi.tryEncryptEntities(
+      accessLogs,
+      EntityWithDelegationTypeName.AccessLog,
+      this.encryptedFields,
+      false,
+      false,
+      (json) => new AccessLog(json)
     )
   }
 

@@ -490,92 +490,56 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     return this.encryptAs(this.dataOwnerApi.getDataOwnerIdOf(user)!, ctcs)
   }
 
-  private encryptAs(hcpartyId: string, ctcs: Array<models.Contact>) {
-    const bypassEncryption = false //Used for debug
-
-    return Promise.all(
-      ctcs.map(async (ctc) => {
-        let initialisedCtc = ctc
-        if (!bypassEncryption) {
-          const contactWithKeys = await this.crypto.xapi.ensureEncryptionKeysInitialised(ctc, EntityWithDelegationTypeName.Contact)
-          if (contactWithKeys) {
-            initialisedCtc = contactWithKeys
+  private async encryptAs(hcpartyId: string, ctcs: Array<models.Contact>): Promise<models.Contact[]> {
+    const initializedContacts: models.Contact[] = []
+    for (const ctc of ctcs) {
+      initializedContacts.push((await this.crypto.xapi.ensureEncryptionKeysInitialised(ctc, EntityWithDelegationTypeName.Contact)) ?? ctc)
+    }
+    const allEncrypted = await this.crypto.xapi.doManyIncrementallyDecryptingKeys(
+      initializedContacts,
+      EntityWithDelegationTypeName.Contact,
+      async (entity, t, keys) => {
+        for (const k of keys) {
+          try {
+            const encrypted = new Contact(
+              await encryptObject(
+                {
+                  ...entity,
+                  services: entity.services ? await this.encryptServices(k.key, k.raw, entity.services) : [],
+                },
+                (obj) => {
+                  return this.crypto.primitives.AES.encrypt(k.key, utf8_2ua(JSON.stringify(obj)), k.raw)
+                },
+                this.contactEncryptedFields,
+                EntityWithDelegationTypeName.Contact
+              )
+            )
+            return { success: encrypted }
+          } catch (e) {
+            console.warn(`Failed to encrypt contact ${entity.id} with key ${k.raw}`)
           }
         }
-
-        const encryptionKey = await this.crypto.xapi.decryptAndImportAnyEncryptionKey({
-          entity: initialisedCtc,
-          type: EntityWithDelegationTypeName.Contact,
-        })
-
-        return new Contact(
-          await encryptObject(
-            {
-              ...initialisedCtc,
-              services: initialisedCtc.services ? await this.encryptServices(encryptionKey.key, encryptionKey.raw, initialisedCtc.services) : [],
-            },
-            (obj) => {
-              return this.crypto.primitives.AES.encrypt(encryptionKey.key, utf8_2ua(JSON.stringify(obj)), encryptionKey.raw)
-            },
-            this.contactEncryptedFields,
-            EntityWithDelegationTypeName.Contact
-          )
-        )
-      })
+        return null
+      }
     )
+    if (ctcs.length != allEncrypted.size) {
+      throw new Error(`Couldn't encrypt contacts ${ctcs.flatMap((e) => (allEncrypted.has(e.id!) ? [] : [e.id!]))}`)
+    }
+    return ctcs.map((e) => allEncrypted.get(e.id!)!)
   }
 
-  decrypt(hcpartyId: string, ctcs: Array<models.Contact>): Promise<Array<models.Contact>> {
-    return Promise.all(
-      ctcs.map(async (ctc) => {
-        const keys = await this.crypto.xapi.decryptAndImportAllDecryptionKeys({ entity: ctc, type: EntityWithDelegationTypeName.Contact })
-        if (!keys || !keys.length) {
-          console.log('Cannot decrypt contact', ctc.id)
-          return ctc
-        }
-        return new Contact(
-          await decryptObject(ctc, async (encrypted) => {
-            return (await this.crypto.xapi.tryDecryptJson(keys, encrypted, false)) ?? {}
-          })
-        )
-      })
-    )
+  async decrypt(hcpartyId: string, ctcs: Array<models.Contact>): Promise<Array<models.Contact>> {
+    return (await this.crypto.xapi.tryDecryptEntities(ctcs, EntityWithDelegationTypeName.Contact, (x) => new Contact(x))).map(({ entity }) => entity)
   }
 
-  decryptServices(hcpartyId: string, svcs: Array<models.Service>): Promise<Array<models.Service>> {
-    return this.doDecryptServices(svcs, {})
-  }
-
-  private async doDecryptServices(
-    svcs: Array<models.Service>,
-    initialKeysCache: { [contactId: string]: { key: CryptoKey; raw: string }[] }
-  ): Promise<Array<models.Service>> {
-    const contactIdToService = Object.fromEntries(svcs.flatMap((svc) => (svc.contactId ? [[svc.contactId, svc]] : [])))
-    const keysCache = Object.fromEntries(
-      await Promise.all(
-        Object.entries(contactIdToService).map(async ([contactId, service]) => {
-          const initial = initialKeysCache[contactId]
-          const keys = !initial
-            ? await this.crypto.xapi.decryptAndImportAllDecryptionKeys({ entity: service, type: EntityWithDelegationTypeName.Contact })
-            : initial
-          return [contactId, keys] as [string, { key: CryptoKey; raw: string }[]]
-        })
-      )
-    )
-    return await Promise.all(
-      svcs.map(async (svc) => {
-        const cachedKeys = keysCache[svc.contactId!]
-        const keys = !cachedKeys
-          ? // Fallback in case for some reason the service is not associated with a contact
-            await this.crypto.xapi.decryptAndImportAllDecryptionKeys({ entity: svc, type: EntityWithDelegationTypeName.Contact })
-          : cachedKeys
-        return new Service(
-          await decryptObject(svc, async (encrypted) => {
-            return (await this.crypto.xapi.tryDecryptJson(keys!, encrypted, false)) ?? {}
-          })
-        )
-      })
-    )
+  async decryptServices(hcpartyId: string, svcs: Array<models.Service>): Promise<Array<models.Service>> {
+    /*TODO
+     * not super efficient, re-decrypts the encryption key metadata of services multiple times, but should mostly rely
+     * on cached exchange data after the first decryption and should not do any extra requests to the db.
+     * We could ensure to use only cached exchange data by doing limited-size batches of services from the same contact
+     * id.
+     */
+    return (await this.crypto.xapi.tryDecryptEntities(svcs, EntityWithDelegationTypeName.Contact, (x) => new Service(x))).map(({ entity }) => entity)
   }
 
   contactOfService(ctcs: Array<models.Contact>, svcId: string): models.Contact | undefined {

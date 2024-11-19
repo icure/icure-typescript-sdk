@@ -6,21 +6,22 @@ import { PaginatedDocumentKeyIdPairObject } from '../../icc-api/model/PaginatedD
 import * as _ from 'lodash'
 import { expect } from 'chai'
 import base = Mocha.reporters.base
+import { ListOfIds } from '../../icc-api/model/ListOfIds'
 
 export type CallCount = {
-  getExchangeDataById: number
   createExchangeData: number
   modifyExchangeData: number
   getExchangeDataByParticipant: number
   getExchangeDataByDelegatorDelegate: number
+  getExchangeDataByIds: number
 }
 
 export type ExpectedCallCount = {
-  getExchangeDataById?: number
   createExchangeData?: number
   modifyExchangeData?: number
   getExchangeDataByParticipant?: number
   getExchangeDataByDelegatorDelegate?: number
+  getExchangeDataByIds?: number
 }
 
 export class FakeExchangeDataApi extends IccExchangeDataApi {
@@ -28,9 +29,9 @@ export class FakeExchangeDataApi extends IccExchangeDataApi {
   private _callCount: CallCount = {
     createExchangeData: 0,
     modifyExchangeData: 0,
-    getExchangeDataById: 0,
     getExchangeDataByDelegatorDelegate: 0,
     getExchangeDataByParticipant: 0,
+    getExchangeDataByIds: 0,
   }
 
   public get callCount(): CallCount {
@@ -67,10 +68,19 @@ export class FakeExchangeDataApi extends IccExchangeDataApi {
   }
 
   getExchangeDataById(exchangeDataId: string): Promise<ExchangeData> {
-    this._callCount.getExchangeDataById += 1
-    const retrieved = this.data.getById(exchangeDataId)
-    if (!retrieved) throw new Error(`Exchange data with id ${exchangeDataId} does not exist`)
-    return Promise.resolve(new ExchangeData(retrieved))
+    throw new Error('Individual retrieve should not be used anymore')
+  }
+
+  async getExchangeDataByIds(body: ListOfIds): Promise<ExchangeData[]> {
+    this._callCount.getExchangeDataByIds += 1
+    const allRetrieved: ExchangeData[] = []
+    for (const id of body.ids!) {
+      const retrieved = this.data.getById(id)
+      if (retrieved) {
+        allRetrieved.push(new ExchangeData(retrieved))
+      }
+    }
+    return Promise.resolve(allRetrieved)
   }
 
   getExchangeDataByDelegatorDelegate(delegatorId: string, delegateId: string): Promise<ExchangeData[]> {

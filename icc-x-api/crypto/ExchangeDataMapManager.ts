@@ -25,12 +25,14 @@ export class ExchangeDataMapManager {
         entriesToCreate[k] = v
       }
     }
-    await this.api.createExchangeDataMapBatch(new ExchangeDataMapCreationBatch({ batch: entriesToCreate }))
-    await Promise.all(
-      Object.keys(entriesToCreate).map(async (entry) => {
-        await this.exchangeDataMapCache.get(entry, () => Promise.resolve({ item: null }))
-      })
-    )
+    if (Object.keys(entriesToCreate).length > 0) {
+      await this.api.createExchangeDataMapBatch(new ExchangeDataMapCreationBatch({ batch: entriesToCreate }))
+      await Promise.all(
+        Object.keys(entriesToCreate).map(async (entry) => {
+          await this.exchangeDataMapCache.get(entry, () => Promise.resolve({ item: null }))
+        })
+      )
+    }
   }
 
   /**

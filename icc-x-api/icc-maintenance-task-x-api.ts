@@ -173,17 +173,13 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
   }
 
   private encryptAs(dataOwner: string, maintenanceTasks: Array<models.MaintenanceTask>): Promise<Array<models.MaintenanceTask>> {
-    return Promise.all(
-      maintenanceTasks.map((m) =>
-        this.crypto.xapi.tryEncryptEntity(
-          m,
-          EntityWithDelegationTypeName.MaintenanceTask,
-          this.encryptedFields,
-          true,
-          false,
-          (x) => new models.MaintenanceTask(x)
-        )
-      )
+    return this.crypto.xapi.tryEncryptEntities(
+      maintenanceTasks,
+      EntityWithDelegationTypeName.MaintenanceTask,
+      this.encryptedFields,
+      true,
+      false,
+      (x) => new models.MaintenanceTask(x)
     )
   }
 
@@ -192,12 +188,10 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
     return this.decryptAs(dataOwnerId, maintenanceTasks)
   }
 
-  private decryptAs(dataOwner: string, maintenanceTasks: Array<models.MaintenanceTask>): Promise<Array<models.MaintenanceTask>> {
-    return Promise.all(
-      maintenanceTasks.map(async (mT) =>
-        this.crypto.xapi.decryptEntity(mT, EntityWithDelegationTypeName.MaintenanceTask, (x) => new MaintenanceTask(x)).then(({ entity }) => entity)
-      )
-    )
+  private async decryptAs(dataOwner: string, maintenanceTasks: Array<models.MaintenanceTask>): Promise<Array<models.MaintenanceTask>> {
+    return (
+      await this.crypto.xapi.tryDecryptEntities(maintenanceTasks, EntityWithDelegationTypeName.MaintenanceTask, (x) => new MaintenanceTask(x))
+    ).map(({ entity }) => entity)
   }
 
   /**

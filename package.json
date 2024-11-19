@@ -4,6 +4,7 @@
   "description": "Typescript version of iCure standalone API client",
   "types": "dist/index.d.ts",
   "dependencies": {
+    "async-mutex": "^0.5.0",
     "big-integer": "^1.6.52",
     "browser-or-node": "^3.0.0",
     "date-fns": "^2.23.0",
@@ -12,7 +13,8 @@
     "moment": "^2.22.1",
     "text-encoding": "^0.7.0",
     "uuid": "^8.3.2",
-    "uuid-encoder": "^1.1.0"
+    "uuid-encoder": "^1.1.0",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "@icure/apiV6": "npm:@icure/api@6.4.4",

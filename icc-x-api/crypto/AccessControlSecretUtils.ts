@@ -1,5 +1,5 @@
 import { CryptoPrimitives } from './CryptoPrimitives'
-import { EntityWithDelegationTypeName } from '../utils/EntityWithDelegationTypeName'
+import { EntityWithDelegationTypeName, entityWithDelegationTypeNames } from '../utils/EntityWithDelegationTypeName'
 import { ua2b64, ua2hex, utf8_2ua } from '../utils'
 
 const ACCESS_CONTROL_KEY_LENGTH_BYTES = 16
@@ -24,30 +24,17 @@ export class AccessControlSecretUtils {
    * These keys will be sent to the icure server for access control of data owners which require anonymous delegations.
    * @param accessControlSecret an access control secret
    * @param entityTypeName an entity type name
-   * @param secretForeignKey optionally a secret foreign key to include in the secret. "" and undefined are equivalent.
    */
-  async accessControlKeyFor(
-    accessControlSecret: string,
-    entityTypeName: EntityWithDelegationTypeName,
-    secretForeignKey: string | undefined
-  ): Promise<ArrayBuffer> {
-    // Usage of sfks in secure delegation key should be configurable: it is not necessary for all users and it has some performance impact
-    // Ignore secret foreign key for now
-    return (await this.primitives.sha256(utf8_2ua(accessControlSecret + entityTypeName /* + (secretForeignKey ?? '')*/))).slice(
-      0,
-      ACCESS_CONTROL_KEY_LENGTH_BYTES
-    )
+  async accessControlKeyFor(accessControlSecret: string, entityTypeName: EntityWithDelegationTypeName): Promise<ArrayBuffer> {
+    return (await this.primitives.sha256(utf8_2ua(accessControlSecret + entityTypeName))).slice(0, ACCESS_CONTROL_KEY_LENGTH_BYTES)
   }
 
-  /**
-   * Get the access control keys for proving access to an entity of provided type with the provided secret foreign keys.
-   */
-  async accessControlKeysFor(
-    accessControlSecret: string,
-    entityTypeName: EntityWithDelegationTypeName,
-    secretForeignKeys: string[]
-  ): Promise<ArrayBuffer[]> {
-    return await this.getKeys(accessControlSecret, entityTypeName, secretForeignKeys, (a, b, c) => this.accessControlKeyFor(a, b, c))
+  async allAccessControlKeyFor(accessControlSecret: string): Promise<ArrayBuffer[]> {
+    const res: ArrayBuffer[] = []
+    for (const entityTypeName of entityWithDelegationTypeNames) {
+      res.push((await this.primitives.sha256(utf8_2ua(accessControlSecret + entityTypeName))).slice(0, ACCESS_CONTROL_KEY_LENGTH_BYTES))
+    }
+    return res
   }
 
   /**
@@ -57,49 +44,27 @@ export class AccessControlSecretUtils {
    * These keys will be used in the secure delegations map of security metadata.
    * @param accessControlSecret an access control secret
    * @param entityTypeName an entity type name
-   * @param secretForeignKey optionally a secret foreign key to include in the secret. "" and undefined are equivalent.
    */
-  async secureDelegationKeyFor(
-    accessControlSecret: string,
-    entityTypeName: EntityWithDelegationTypeName,
-    secretForeignKey: string | undefined
-  ): Promise<string> {
-    return ua2hex(await this.primitives.sha256(await this.accessControlKeyFor(accessControlSecret, entityTypeName, secretForeignKey)))
+  async secureDelegationKeyFor(accessControlSecret: string, entityTypeName: EntityWithDelegationTypeName): Promise<string> {
+    return ua2hex(await this.primitives.sha256(await this.accessControlKeyFor(accessControlSecret, entityTypeName)))
   }
 
-  /**
-   * Get the secure delegations keys which can be used on an entity of provided type with the provided secret foreign keys.
-   */
-  async secureDelegationKeysFor(
-    accessControlSecret: string,
-    entityTypeName: EntityWithDelegationTypeName,
-    secretForeignKeys: string[]
-  ): Promise<string[]> {
-    return await this.getKeys(accessControlSecret, entityTypeName, secretForeignKeys, (a, b, c) => this.secureDelegationKeyFor(a, b, c))
+  async allSecureDelegationKeysFor(accessControlSecret: string): Promise<string[]> {
+    const accessControlKeys = await this.allAccessControlKeyFor(accessControlSecret)
+    const res: string[] = []
+    for (const accessControlKey of accessControlKeys) {
+      res.push(ua2hex(await this.primitives.sha256(accessControlKey)))
+    }
+    return res
   }
 
   async getEncodedAccessControlKeys(accessControlSecrets: string[], entityTypeName: EntityWithDelegationTypeName): Promise<string> {
     const fullBuffer = new Uint8Array(accessControlSecrets.length * this.accessControlKeyLengthBytes)
     for (let i = 0; i < accessControlSecrets.length; i++) {
       const accessControlSecret = accessControlSecrets[i]
-      const key = await this.accessControlKeyFor(accessControlSecret, entityTypeName, undefined)
+      const key = await this.accessControlKeyFor(accessControlSecret, entityTypeName)
       fullBuffer.set(new Uint8Array(key), i * this.accessControlKeyLengthBytes)
     }
     return ua2b64(fullBuffer)
-  }
-
-  private async getKeys<T>(
-    accessControlSecret: string,
-    entityTypeName: EntityWithDelegationTypeName,
-    secretForeignKeys: string[],
-    getKey: (accessControlSecret: string, entityTypeName: EntityWithDelegationTypeName, secretForeignKey: string | undefined) => Promise<T>
-  ): Promise<T[]> {
-    // Usage of sfks in secure delegation key should be configurable: it is not necessary for all users and it has some performance impact
-
-    // if (!secretForeignKeys.length) {
-    return [await getKey(accessControlSecret, entityTypeName, undefined)]
-    // } else {
-    //   return await Promise.all(secretForeignKeys.map((sfk) => getKey(accessControlSecret, entityTypeName, sfk)))
-    // }
   }
 }

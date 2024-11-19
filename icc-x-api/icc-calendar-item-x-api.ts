@@ -315,26 +315,20 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
   }
 
   private encryptAs(dataOwner: string, calendarItems: Array<models.CalendarItem>): Promise<Array<models.CalendarItem>> {
-    return Promise.all(
-      calendarItems.map((x) =>
-        this.crypto.xapi.tryEncryptEntity(
-          x,
-          EntityWithDelegationTypeName.CalendarItem,
-          this.encryptedFields,
-          false,
-          false,
-          (json) => new CalendarItem(json)
-        )
-      )
+    return this.crypto.xapi.tryEncryptEntities(
+      calendarItems,
+      EntityWithDelegationTypeName.CalendarItem,
+      this.encryptedFields,
+      false,
+      false,
+      (json) => new CalendarItem(json)
     )
   }
 
-  decrypt(hcpId: string, calendarItems: Array<models.CalendarItem>): Promise<Array<models.CalendarItem>> {
-    return Promise.all(
-      calendarItems.map((x) =>
-        this.crypto.xapi.decryptEntity(x, EntityWithDelegationTypeName.CalendarItem, (json) => new CalendarItem(json)).then(({ entity }) => entity)
-      )
-    )
+  async decrypt(hcpId: string, calendarItems: Array<models.CalendarItem>): Promise<Array<models.CalendarItem>> {
+    return (
+      await this.crypto.xapi.tryDecryptEntities(calendarItems, EntityWithDelegationTypeName.CalendarItem, (json) => new CalendarItem(json))
+    ).map(({ entity }) => entity)
   }
 
   /**

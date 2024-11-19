@@ -105,17 +105,18 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     )
   }
 
-  decrypt(messages: Array<models.Message>) {
-    return Promise.all(
-      messages.map((message) => this.crypto.xapi.decryptEntity(message, EntityWithDelegationTypeName.Message, (x) => new models.Message(x)))
-    )
+  async decrypt(messages: Array<models.Message>) {
+    return await this.crypto.xapi.tryDecryptEntities(messages, EntityWithDelegationTypeName.Message, (x) => new models.Message(x))
   }
 
   encrypt(messages: Array<models.Message>): Promise<Array<models.Message>> {
-    return Promise.all(
-      messages.map((p) =>
-        this.crypto.xapi.tryEncryptEntity(p, EntityWithDelegationTypeName.Message, this.encryptedFields, true, false, (x) => new models.Message(x))
-      )
+    return this.crypto.xapi.tryEncryptEntities(
+      messages,
+      EntityWithDelegationTypeName.Message,
+      this.encryptedFields,
+      true,
+      false,
+      (x) => new models.Message(x)
     )
   }
 

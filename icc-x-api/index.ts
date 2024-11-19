@@ -2,7 +2,6 @@ import {
   IccAgendaApi,
   IccAnonymousAccessApi,
   IccApplicationsettingsApi,
-  IccArticleApi,
   IccAuthApi,
   IccBeefactApi,
   IccBeresultexportApi,
@@ -71,14 +70,12 @@ import { TransferKeysManager } from './crypto/TransferKeysManager'
 import { IccIcureMaintenanceXApi } from './icc-icure-maintenance-x-api'
 import { ConfidentialEntities } from './crypto/ConfidentialEntities'
 import { ensureDelegationForSelf } from './crypto/utils'
-import { SecureDelegationsSecurityMetadataDecryptor } from './crypto/SecureDelegationsSecurityMetadataDecryptor'
 import { initialiseExchangeDataManagerForCurrentDataOwner } from './crypto/ExchangeDataManager'
 import { BaseExchangeDataManager } from './crypto/BaseExchangeDataManager'
 import { IccExchangeDataApi } from '../icc-api/api/internal/IccExchangeDataApi'
 import { UserSignatureKeysManager } from './crypto/UserSignatureKeysManager'
 import { AccessControlSecretUtils } from './crypto/AccessControlSecretUtils'
 import { SecureDelegationsEncryption } from './crypto/SecureDelegationsEncryption'
-import { LegacyDelegationSecurityMetadataDecryptor } from './crypto/LegacyDelegationSecurityMetadataDecryptor'
 import { ExtendedApisUtilsImpl } from './crypto/ExtendedApisUtilsImpl'
 import { SecureDelegationsManager } from './crypto/SecureDelegationsManager'
 import { AccessControlKeysHeadersProvider } from './crypto/AccessControlKeysHeadersProvider'
@@ -99,6 +96,7 @@ import { IccRecoveryDataApi } from '../icc-api/api/internal/IccRecoveryDataApi'
 import { RecoveryDataEncryption } from './crypto/RecoveryDataEncryption'
 import { IccRecoveryXApi } from './icc-recovery-x-api'
 import { getGroupOfJwt } from './auth/JwtUtils'
+import { SecurityMetadataDecryptor } from './crypto/SecurityMetadataDecryptor'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -173,7 +171,6 @@ export interface Apis extends BasicApis {
   readonly icureMaintenanceTaskApi: IccIcureMaintenanceXApi
   readonly anonymousAccessApi: IccAnonymousAccessApi
   readonly applicationSettingsApi: IccApplicationsettingsApi
-  readonly articleApi: IccArticleApi
   readonly bekmehrApi: IccBekmehrXApi
   readonly beefactApi: IccBeefactApi
   readonly beresultexportApi: IccBeresultexportApi
@@ -761,19 +758,8 @@ async function initialiseCryptoWithProvider(
     icureStorage
   ).updateTransferKeys(await dataOwnerApi.getCurrentDataOwnerStub())
   // TODO customise cache size?
-  const exchangeKeysManager = new ExchangeKeysManager(
-    100,
-    500,
-    600000,
-    60000,
-    cryptoStrategies,
-    cryptoPrimitives,
-    userEncryptionKeysManager,
-    baseExchangeKeysManager,
-    dataOwnerApi,
-    !params.disableParentKeysInitialisation,
-    icureStorage
-  )
+  const exchangeKeysManager = new ExchangeKeysManager(userEncryptionKeysManager, baseExchangeKeysManager, dataOwnerApi)
+  await exchangeKeysManager.reloadCache()
   const accessControlSecretUtils = new AccessControlSecretUtils(cryptoPrimitives)
   const exchangeDataManager = await initialiseExchangeDataManagerForCurrentDataOwner(
     baseExchangeDataManager,
@@ -789,7 +775,9 @@ async function initialiseCryptoWithProvider(
     new IccExchangeDataMapApi(host, updatedHeaders, groupSpecificAuthenticationProvider, fetchImpl)
   )
   const secureDelegationsEncryption = new SecureDelegationsEncryption(userEncryptionKeysManager, cryptoPrimitives)
-  const secureDelegationsSecurityMetadataEncryption = new SecureDelegationsSecurityMetadataDecryptor(
+  const secureDelegationsSecurityMetadataEncryption = new SecurityMetadataDecryptor(
+    exchangeKeysManager,
+    cryptoPrimitives,
     exchangeDataManager,
     exchangeDataMapManager,
     secureDelegationsEncryption,
@@ -798,7 +786,6 @@ async function initialiseCryptoWithProvider(
   const xApiUtils = new ExtendedApisUtilsImpl(
     cryptoPrimitives,
     dataOwnerApi,
-    new LegacyDelegationSecurityMetadataDecryptor(exchangeKeysManager, cryptoPrimitives),
     secureDelegationsSecurityMetadataEncryption,
     new SecureDelegationsManager(
       exchangeDataManager,
@@ -1272,15 +1259,6 @@ class IcureApiImpl implements IcureApi {
         this.groupSpecificAuthenticationProvider,
         this.fetch
       ))
-    )
-  }
-
-  private _articleApi: IccArticleApi | undefined
-
-  get articleApi(): IccArticleApi {
-    return (
-      this._articleApi ??
-      (this._articleApi = new IccArticleApi(this.host, this.cryptoInitInfos.headers, this.groupSpecificAuthenticationProvider, this.fetch))
     )
   }
 

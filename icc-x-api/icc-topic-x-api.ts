@@ -107,18 +107,19 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
   }
 
   async decrypt(topics: Array<models.Topic>) {
-    return await Promise.all(
-      topics.map((topic) =>
-        this.crypto.xapi.decryptEntity(topic, EntityWithDelegationTypeName.Topic, (x) => new models.Topic(x)).then(({ entity }) => entity)
-      )
+    return (await this.crypto.xapi.tryDecryptEntities(topics, EntityWithDelegationTypeName.Topic, (x) => new models.Topic(x))).map(
+      ({ entity }) => entity
     )
   }
 
   async encrypt(topics: Array<models.Topic>): Promise<Array<models.Topic>> {
-    return await Promise.all(
-      topics.map((p) =>
-        this.crypto.xapi.tryEncryptEntity(p, EntityWithDelegationTypeName.Topic, this.encryptedFields, true, false, (x) => new models.Topic(x))
-      )
+    return this.crypto.xapi.tryEncryptEntities(
+      topics,
+      EntityWithDelegationTypeName.Topic,
+      this.encryptedFields,
+      true,
+      false,
+      (x) => new models.Topic(x)
     )
   }
 

@@ -1,8 +1,7 @@
 import { describe } from 'mocha'
-import { CryptoPrimitives, WebCryptoPrimitives } from '../../../icc-x-api/crypto/CryptoPrimitives'
+import { WebCryptoPrimitives } from '../../../icc-x-api/crypto/CryptoPrimitives'
 import { webcrypto } from 'crypto'
 import { FakeEncryptionKeysManager } from '../../utils/FakeEncryptionKeysManager'
-import { SecureDelegationsSecurityMetadataDecryptor } from '../../../icc-x-api/crypto/SecureDelegationsSecurityMetadataDecryptor'
 import { SecureDelegationsEncryption } from '../../../icc-x-api/crypto/SecureDelegationsEncryption'
 import { EntityWithDelegationTypeName, hex2ua, ShaVersion, ua2hex } from '../../../icc-x-api'
 import { SecureDelegationsManager } from '../../../icc-x-api/crypto/SecureDelegationsManager'
@@ -24,6 +23,8 @@ import { EntitySharedMetadataUpdateRequest } from '../../../icc-api/model/reques
 import { fingerprintV1toV2, fingerprintV2 } from '../../../icc-x-api/crypto/utils'
 import { DataOwnerTypeEnum } from '../../../icc-api/model/DataOwnerTypeEnum'
 import { FakeExchangeDataMapManager } from '../../utils/FakeExchangeDataMapManager'
+import { SecurityMetadataDecryptor, SecurityMetadataType } from '../../../icc-x-api/crypto/SecurityMetadataDecryptor'
+import { BaseExchangeKeysManager } from '../../../icc-x-api/crypto/BaseExchangeKeysManager'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionInternal
 import EntryUpdateTypeEnum = EntitySharedMetadataUpdateRequest.EntryUpdateTypeEnum
 
@@ -38,10 +39,10 @@ describe('Secure delegations manager', async function () {
   let dataOwnerApi: FakeDataOwnerApi
   let exchangeDataMapManager: FakeExchangeDataMapManager
   let secureDelegationsEncryption: SecureDelegationsEncryption
-  let decryptor: SecureDelegationsSecurityMetadataDecryptor
   let manager: SecureDelegationsManager
   let exchangeData: ExchangeDataManager
   let accessControlSecretUtils: AccessControlSecretUtils
+  let decryptor: SecurityMetadataDecryptor
 
   async function initialiseComponents(explicitSelf: boolean, explicitDelegate: boolean) {
     selfId = primitives.randomUuid()
@@ -82,7 +83,25 @@ describe('Secure delegations manager', async function () {
     )
     exchangeDataMapManager = new FakeExchangeDataMapManager()
     secureDelegationsEncryption = new SecureDelegationsEncryption(encryptionKeysManager, primitives)
-    decryptor = new SecureDelegationsSecurityMetadataDecryptor(exchangeData, exchangeDataMapManager, secureDelegationsEncryption, dataOwnerApi)
+    decryptor = new SecurityMetadataDecryptor(
+      {
+        cache: {},
+        get base(): BaseExchangeKeysManager {
+          throw 'unused'
+        },
+        async getDecryptionExchangeKeysFor(delegatorId: string, delegateId: string): Promise<CryptoKey[]> {
+          return Promise.resolve([])
+        },
+        async reloadCache(): Promise<void> {
+          throw 'unused'
+        },
+      } as any,
+      primitives,
+      exchangeData,
+      exchangeDataMapManager,
+      secureDelegationsEncryption,
+      dataOwnerApi
+    )
     manager = new SecureDelegationsManager(
       exchangeData,
       exchangeDataMapManager,
@@ -154,9 +173,9 @@ describe('Secure delegations manager', async function () {
       }
       await exchangeDataMapManager.createExchangeDataMaps({ [secDelKey]: shareParams.encryptedExchangeDataId! })
       await exchangeData.clearOrRepopulateCache()
-      const decryptedSecretIds = (await asyncGeneratorToArray(decryptor.decryptSecretIdsOf(fakeEntity, [selfId]))).map((x) => x.decrypted)
-      const decryptedEncryptionKeys = (await asyncGeneratorToArray(decryptor.decryptEncryptionKeysOf(fakeEntity, [selfId]))).map((x) => x.decrypted)
-      const decryptedOwningEntityIds = (await asyncGeneratorToArray(decryptor.decryptOwningEntityIdsOf(fakeEntity, [selfId]))).map((x) => x.decrypted)
+      const decryptedSecretIds = (await decryptor.decryptAll(fakeEntity.entity, [selfId], SecurityMetadataType.SecretId))[0].extracted
+      const decryptedEncryptionKeys = (await decryptor.decryptAll(fakeEntity.entity, [selfId], SecurityMetadataType.EncryptionKey))[0].extracted
+      const decryptedOwningEntityIds = (await decryptor.decryptAll(fakeEntity.entity, [selfId], SecurityMetadataType.OwningEntityId))[0].extracted
       expect(decryptedSecretIds).to.have.length(secretIds.length)
       for (const secretId of secretIds) {
         expect(decryptedSecretIds).to.include(secretId)
@@ -185,16 +204,14 @@ describe('Secure delegations manager', async function () {
       await initialiseComponents(false, false)
       const canonicalSfk = primitives.randomUuid()
       const aliasSfk = primitives.randomUuid()
-      const exchangeDataInfo = await exchangeData.getOrCreateEncryptionDataTo(delegateId, EntityWithDelegationTypeName.Patient, [], false)
+      const exchangeDataInfo = await exchangeData.getOrCreateEncryptionDataTo(delegateId, false)
       const canonicalKey = await accessControlSecretUtils.secureDelegationKeyFor(
         exchangeDataInfo.accessControlSecret,
-        EntityWithDelegationTypeName.Patient,
-        canonicalSfk
+        EntityWithDelegationTypeName.Patient
       )
       const aliasKey = await accessControlSecretUtils.secureDelegationKeyFor(
         exchangeDataInfo.accessControlSecret,
-        EntityWithDelegationTypeName.Patient,
-        aliasSfk
+        EntityWithDelegationTypeName.Patient
       )
       const existingSecretIds = [ua2hex(primitives.randomBytes(16))]
       const newSecretIds = [ua2hex(primitives.randomBytes(16))]
@@ -257,11 +274,10 @@ describe('Secure delegations manager', async function () {
   it('should return undefined for existing secure delegations if it contains all entries.', async function () {
     await initialiseComponents(false, false)
     const canonicalSfk = primitives.randomUuid()
-    const exchangeDataInfo = await exchangeData.getOrCreateEncryptionDataTo(delegateId, EntityWithDelegationTypeName.Patient, [], false)
+    const exchangeDataInfo = await exchangeData.getOrCreateEncryptionDataTo(delegateId, false)
     const canonicalKey = await accessControlSecretUtils.secureDelegationKeyFor(
       exchangeDataInfo.accessControlSecret,
-      EntityWithDelegationTypeName.Patient,
-      canonicalSfk
+      EntityWithDelegationTypeName.Patient
     )
     const existingSecretIds = [ua2hex(primitives.randomBytes(16))]
     const existingEncryptionKeys: string[] = []

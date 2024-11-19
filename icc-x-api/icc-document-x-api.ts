@@ -9,14 +9,13 @@ import { a2b, hex2ua, string2ua, ua2string, ua2utf8 } from './utils/binary-utils
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
-import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 import { ShareResult } from './utils/ShareResult'
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
-import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
-import { AccessLog } from '../icc-api/model/models'
 import { EntityWithDelegationTypeName } from './utils'
+import AccessLevelEnum = SecureDelegation.AccessLevelEnum
+import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 
 // noinspection JSUnusedGlobalSymbols
 export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXApi<models.Document> {
@@ -656,54 +655,51 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
   }
 
   // Note: this is only for dealing with legacy documents: new document are not encrypted, only their attachments are
-  decrypt(hcpartyId: string, documents: Array<models.Document>): Promise<Array<models.Document>> {
-    return Promise.all(
-      documents.map((document) =>
-        this.crypto.xapi.decryptAndImportAllDecryptionKeys({ entity: document, type: EntityWithDelegationTypeName.Document }).then((keys) => {
-          if (!keys.length) {
-            console.log('Cannot decrypt document', document.id)
-            return Promise.resolve(document)
-          }
-
-          if (keys.length && (document.encryptedSelf || document.encryptedAttachment)) {
-            const key = keys[0].key
-            return Promise.all([
-              document.encryptedSelf
-                ? new Promise((resolve: (value: ArrayBuffer | null) => any) => {
-                    this.crypto.primitives.AES.decrypt(key, string2ua(a2b(document.encryptedSelf!))).then(resolve, () => {
-                      console.log('Cannot decrypt document', document.id)
-                      resolve(null)
-                    })
+  async decrypt(hcpartyId: string, documents: Array<models.Document>): Promise<Array<models.Document>> {
+    const res: models.Document[] = []
+    for (const document of documents) {
+      const keys = await this.crypto.xapi.encryptionKeysOf({ entity: document, type: EntityWithDelegationTypeName.Document }, undefined)
+      if (!keys.length) {
+        console.log('Cannot decrypt document', document.id)
+        res.push(document)
+      } else if (keys.length && (document.encryptedSelf || document.encryptedAttachment)) {
+        const key = await this.crypto.primitives.AES.importKey('raw', hex2ua(keys[0]))
+        res.push(
+          await Promise.all([
+            document.encryptedSelf
+              ? new Promise((resolve: (value: ArrayBuffer | null) => any) => {
+                  this.crypto.primitives.AES.decrypt(key, string2ua(a2b(document.encryptedSelf!))).then(resolve, () => {
+                    console.log('Cannot decrypt document', document.id)
+                    resolve(null)
                   })
-                : Promise.resolve(null),
-              document.encryptedAttachment
-                ? new Promise((resolve: (value: ArrayBuffer | null) => any) => {
-                    this.crypto.primitives.AES.decrypt(key, document.encryptedAttachment!).then(resolve, () => {
-                      console.log('Cannot decrypt document', document.id)
-                      resolve(null)
-                    })
+                })
+              : Promise.resolve(null),
+            document.encryptedAttachment
+              ? new Promise((resolve: (value: ArrayBuffer | null) => any) => {
+                  this.crypto.primitives.AES.decrypt(key, document.encryptedAttachment!).then(resolve, () => {
+                    console.log('Cannot decrypt document', document.id)
+                    resolve(null)
                   })
-                : Promise.resolve(null),
-            ]).then((decrypted: [ArrayBuffer | null, ArrayBuffer | null]) => {
-              if (decrypted) {
-                if (decrypted[0]) {
-                  document = _.extend(document, JSON.parse(ua2string(decrypted[0])))
-                }
-                if (decrypted[1]) {
-                  document.decryptedAttachment = decrypted[1]
-                }
+                })
+              : Promise.resolve(null),
+          ]).then((decrypted: [ArrayBuffer | null, ArrayBuffer | null]) => {
+            let updatedDocument = { ...document }
+            if (decrypted) {
+              if (decrypted[0]) {
+                updatedDocument = _.extend(document, JSON.parse(ua2string(decrypted[0])))
               }
-              return document
-            })
-          } else {
-            return Promise.resolve(document)
-          }
-        })
-      )
-    ).catch(function (e: Error) {
-      console.log(e)
-      return Promise.resolve(documents)
-    })
+              if (decrypted[1]) {
+                updatedDocument.decryptedAttachment = decrypted[1]
+              }
+            }
+            return updatedDocument
+          })
+        )
+      } else {
+        res.push(document)
+      }
+    }
+    return res
   }
 
   //prettier-ignore
@@ -1057,7 +1053,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
         ),
         (x) => this.bulkShareDocument(x)
       )
-      .then((r) => r.mapSuccessAsync((e) => this.decrypt(self, [e]).then((es) => es[0])))
+      .then((r) => r)
   }
 
   getDataOwnersWithAccessTo(

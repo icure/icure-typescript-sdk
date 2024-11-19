@@ -27,7 +27,6 @@ import { expect } from 'chai'
 import { EntityShareRequest } from '../../../icc-api/model/requests/EntityShareRequest'
 import initMasterApi = TestUtils.initMasterApi
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
-import { SecureDelegationsSecurityMetadataDecryptor } from '../../../icc-x-api/crypto/SecureDelegationsSecurityMetadataDecryptor'
 
 setLocalStorage(fetch)
 

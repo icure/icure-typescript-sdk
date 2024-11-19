@@ -132,11 +132,9 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
     return this.findFormIdsByDataOwnerPatientOpeningDate(hcpartyId, _.uniq(extractedKeys), startDate, endDate, descending)
   }
 
-  decrypt(hcpartyId: string, forms: Array<models.Form>) {
-    return Promise.all(
-      forms.map((form) =>
-        this.crypto.xapi.decryptEntity(form, EntityWithDelegationTypeName.Form, (x) => new models.Form(x)).then(({ entity }) => entity)
-      )
+  async decrypt(hcpartyId: string, forms: Array<models.Form>) {
+    return (await this.crypto.xapi.tryDecryptEntities(forms, EntityWithDelegationTypeName.Form, (x) => new models.Form(x))).map(
+      ({ entity }) => entity
     )
   }
 

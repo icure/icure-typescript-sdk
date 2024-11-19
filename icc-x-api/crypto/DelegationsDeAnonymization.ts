@@ -1,7 +1,6 @@
 import { EncryptedEntityWithType, EntityWithDelegationTypeName } from '../utils/EntityWithDelegationTypeName'
 import { SecureDelegation } from '../../icc-api/model/SecureDelegation'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
-import { DelegationMembersDetails, SecureDelegationsSecurityMetadataDecryptor } from './SecureDelegationsSecurityMetadataDecryptor'
 import { SecureDelegationKeyMap } from '../../icc-api/model/internal/SecureDelegationKeyMap'
 import { ExtendedApisUtils } from './ExtendedApisUtils'
 import { ShareMetadataBehaviour } from './ShareMetadataBehaviour'
@@ -15,6 +14,7 @@ import { AuthenticationProvider, NoAuthenticationProvider } from '../auth/Authen
 import { ACCESS_CONTROL_KEYS_HEADER, AccessControlKeysHeadersProvider } from './AccessControlKeysHeadersProvider'
 import { AccessControlSecretUtils } from './AccessControlSecretUtils'
 import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
+import { DelegationMembersDetails, SecurityMetadataDecryptor } from './SecurityMetadataDecryptor'
 
 // TODO could be optimised using bulk methods
 export class DelegationsDeAnonymization {
@@ -23,7 +23,7 @@ export class DelegationsDeAnonymization {
 
   constructor(
     private readonly dataOwnerApi: IccDataOwnerXApi,
-    private readonly secureDelegationsMetadataDecryptor: SecureDelegationsSecurityMetadataDecryptor,
+    private readonly securityMetadataDecryptor: SecurityMetadataDecryptor,
     private readonly xapis: ExtendedApisUtils,
     private readonly cryptoPrimitives: CryptoPrimitives,
     private readonly accessControlSecretUtils: AccessControlSecretUtils,
@@ -47,7 +47,7 @@ export class DelegationsDeAnonymization {
    * Note that the delegation de-anonymization information may be used also with other entities of the same type.
    */
   async createOrUpdateDeAnonymizationInfo(entityWithType: EncryptedEntityWithType, shareWithDataOwners: string[]) {
-    const delegationsDetails = Object.entries(await this.secureDelegationsMetadataDecryptor.getDelegationMemberDetails(entityWithType)).flatMap(
+    const delegationsDetails = Object.entries(await this.securityMetadataDecryptor.getDelegationMemberDetails(entityWithType)).flatMap(
       ([canonicalKey, delegation]) => {
         const aliases = Object.entries(entityWithType.entity.securityMetadata?.keysEquivalences ?? {}).flatMap(([alias, canon]) => {
           if (canon == canonicalKey) {
@@ -103,7 +103,7 @@ export class DelegationsDeAnonymization {
     permissionsByDataOwnerId: { [dataOwnerId: string]: AccessLevelEnum }
     hasUnknownAnonymousDataOwners: boolean
   }> {
-    const secureDelegationDetails = await this.secureDelegationsMetadataDecryptor.getDelegationMemberDetails(entityWithType)
+    const secureDelegationDetails = await this.securityMetadataDecryptor.getDelegationMemberDetails(entityWithType)
     const secureDelegationWithUnknownMembers = Object.entries(secureDelegationDetails).flatMap(([canonicalKey, delegation]) => {
       if (!delegation.delegate || !delegation.delegator) {
         const aliases = Object.entries(entityWithType.entity.securityMetadata?.keysEquivalences ?? {}).flatMap(([alias, canon]) => {
@@ -190,7 +190,7 @@ export class DelegationsDeAnonymization {
       const res: SecureDelegationKeyMap[] = []
       for (const encryptedMap of encryptedMaps) {
         // Use the original entity type
-        const decryptionResult = await this.xapis.decryptEntity(encryptedMap, entityType, (x) => new SecureDelegationKeyMap(x))
+        const decryptionResult = (await this.xapis.tryDecryptEntities([encryptedMap], entityType, (x) => new SecureDelegationKeyMap(x)))[0]
         if (decryptionResult.decrypted) {
           res.push(decryptionResult.entity)
         }
@@ -204,7 +204,7 @@ export class DelegationsDeAnonymization {
   private async ensureDelegationKeyMapSharedWith(entityType: EntityWithDelegationTypeName, keyMap: SecureDelegationKeyMap, delegates: string[]) {
     if (!keyMap.delegator || !keyMap.delegate) throw new Error('Illegal state: key map is missing delegator or delegate info.')
     const dataOwnersWithAccessToMapThroughDelegation = Object.values(
-      await this.secureDelegationsMetadataDecryptor.getDelegationMemberDetails({
+      await this.securityMetadataDecryptor.getDelegationMemberDetails({
         type: entityType,
         entity: keyMap,
       })
@@ -269,14 +269,16 @@ export class DelegationsDeAnonymization {
       true,
       Object.fromEntries(initialDelegates.map((x) => [x, AccessLevelEnum.READ]))
     )
-    const encryptedKeyMap = await this.xapis.tryEncryptEntity(
-      initalisedMapInfo.updatedEntity,
-      entityType,
-      this.delegationKeyMapFieldsToEncrypt,
-      false,
-      true,
-      (x) => new SecureDelegationKeyMap(x)
-    )
+    const encryptedKeyMap = (
+      await this.xapis.tryEncryptEntities(
+        [initalisedMapInfo.updatedEntity],
+        entityType,
+        this.delegationKeyMapFieldsToEncrypt,
+        false,
+        true,
+        (x) => new SecureDelegationKeyMap(x)
+      )
+    )[0]
     await this.delegationKeyMapApi.create(
       encryptedKeyMap,
       new XHR.Header(

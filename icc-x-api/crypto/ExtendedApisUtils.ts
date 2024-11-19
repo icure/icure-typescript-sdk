@@ -282,24 +282,16 @@ export interface ExtendedApisUtils {
     validator: (decryptedData: ArrayBuffer) => Promise<boolean> | undefined
   ): Promise<{ data: ArrayBuffer; wasDecrypted: boolean }>
 
-  /**
-   * TODO work on this
-   * Decrypts the content of an encrypted entity.
-   */
-  decryptEntity<T extends EncryptedEntity>(
-    entity: T,
+  tryDecryptEntities<T extends EncryptedEntity>(
+    entities: T[],
     entityType: EntityWithDelegationTypeName,
     constructor: (json: any) => T
-  ): Promise<{ entity: T; decrypted: boolean }>
+  ): Promise<{ entity: T; decrypted: boolean }[]>
 
   /**
    * Tries to decrypt data to a json object using the provided keys.
    */
-  tryDecryptJson(
-    potentialKeys: { key: CryptoKey; raw: string }[],
-    encrypted: Uint8Array,
-    truncateTrailingDecryptedNulls: boolean
-  ): Promise<{} | undefined>
+  tryDecryptJson(potentialKeys: { key: CryptoKey; raw: string }[], encrypted: Uint8Array, truncateTrailingDecryptedNulls: boolean): Promise<{} | null>
 
   /**
    * Tries to encrypt the content of an encrypted entity.
@@ -309,28 +301,14 @@ export interface ExtendedApisUtils {
    * for fields which should be encrypted according to cryptedKeys (e.g. note in a patient using the default configuration). If the entity specifies
    * a value for any field which should be encrypted the method throws an error, otherwise the method returns the original entity.
    */
-  tryEncryptEntity<T extends EncryptedEntity>(
-    entity: T,
+  tryEncryptEntities<T extends EncryptedEntity>(
+    entities: T[],
     entityType: EntityWithDelegationTypeName,
     fieldsToEncrypt: EncryptedFieldsManifest,
     encodeBinaryData: boolean,
     requireEncryption: boolean,
     constructor: (json: any) => T
-  ): Promise<T>
-
-  /**
-   * Returns the first encryption key which could be properly decrypted from the entity using the current data owner.
-   * @throws if no key could be decrypted.
-   */
-  decryptAndImportAnyEncryptionKey(entity: EncryptedEntityWithType): Promise<{ key: CryptoKey; raw: string }>
-
-  /**
-   * Returns all encryption keys which could be properly decrypted from the entity using the current data owner. The keys returned by this method
-   * should not be used for encryption of the entity, but only for decryption.
-   * This is because this for data from pre-2018 users this method may return also keys from old formats of entities which are not safe anymore for
-   * encryption.
-   */
-  decryptAndImportAllDecryptionKeys(entity: EncryptedEntityWithType): Promise<{ key: CryptoKey; raw: string }[]>
+  ): Promise<T[]>
 
   /**
    * Verifies if the entity has valid encryption keys (regardless of whether the current data owner has access to them or not). If not this method
@@ -339,5 +317,47 @@ export interface ExtendedApisUtils {
    * After this method is called, if it returns an entity it should also be re-encrypted (using the new key) and saved to the cloud.
    */
   ensureEncryptionKeysInitialised<T extends EncryptedEntity>(entity: T, entityType: EntityWithDelegationTypeName): Promise<T | undefined>
+
+  /**
+   * Attempts to do the action providing "incrementally decrypted" keys as input; stops the first time the action
+   * completes successfully.
+   * The method tries to decrypt encryption keys for the entity "incrementally", trying first to decrypt keys that
+   * require less effort for decryption (e.g. using already cached exchange data or using exchange data for which the
+   * id is known without going through the exchange data map). Each time one or more new keys are decrypted the action
+   * is called providing ALL keys decrypted up to that point.
+   * If no key can be decrypted at all the method returns null without ever attempting the action (the action always
+   * receives at least a key in input or is not called).
+   * @param entity the entity from which to decrypt the encryption keys.
+   * @param entityType the type of entity
+   * @param action the action that consumes the encryption key.
+   * @return the wrapped result of the first successful action invocation, or null if the action never succeeded or if
+   * no key could be decrypted
+   */
+  doIncrementallyDecryptingKeys<E extends EncryptedEntity | EncryptedEntityStub, T>(
+    entity: E,
+    entityType: EntityWithDelegationTypeName,
+    action: (entity: E, entityType: EntityWithDelegationTypeName, keys: { key: CryptoKey; raw: string }[]) => Promise<{ success: T } | null>
+  ): Promise<{ success: T } | null>
+
+  /**
+   * Bulk version of {@link doIncrementallyDecryptingKeys}.
+   * Differences:
+   * - The action is called until it succeeds for all entities or until all decryptable keys have been tried.
+   * - For each input the action must return an entry for that entity id with the result if successful or not include
+   *   the entity id in the result keys if unsuccessful.
+   * - An attempt on the action is done only if new keys could be decrypted for all the entities.
+   *   Additionally, there will be a final attempt after attempting all decryption steps if at least a new key could be
+   *   decrypted for an entity since the last attempt.
+   *   In this case entities for which no new key could be decrypted are omitted from the input.
+   * @param entities
+   * @param entitiesType
+   * @param action
+   * @return all entities id for which the action completed successfully associated to the result.
+   */
+  doManyIncrementallyDecryptingKeys<E extends EncryptedEntity | EncryptedEntityStub, T>(
+    entities: E[],
+    entitiesType: EntityWithDelegationTypeName,
+    action: (entity: E, entityType: EntityWithDelegationTypeName, keys: { key: CryptoKey; raw: string }[]) => Promise<{ success: T } | null>
+  ): Promise<Map<string, T>>
   // endregion
 }

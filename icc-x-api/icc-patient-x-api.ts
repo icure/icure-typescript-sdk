@@ -506,10 +506,13 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
   }
 
   private encryptAs(dataOwner: string, pats: Array<models.Patient>): Promise<Array<models.Patient>> {
-    return Promise.all(
-      pats.map((p) =>
-        this.crypto.xapi.tryEncryptEntity(p, EntityWithDelegationTypeName.Patient, this.encryptedFields, true, false, (x) => new models.Patient(x))
-      )
+    return this.crypto.xapi.tryEncryptEntities(
+      pats,
+      EntityWithDelegationTypeName.Patient,
+      this.encryptedFields,
+      true,
+      false,
+      (x) => new models.Patient(x)
     )
   }
 
@@ -522,25 +525,18 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     return this.tryDecryptOrReturnOriginal(patients).then((ps) => ps.map((p) => p.entity))
   }
 
-  tryDecryptOrReturnOriginal(patients: Array<models.Patient>): Promise<{ entity: models.Patient; decrypted: boolean }[]> {
-    return Promise.all(
-      patients.map(
-        async (p) =>
-          await this.crypto.xapi
-            .decryptEntity(p, EntityWithDelegationTypeName.Patient, (x) => new models.Patient(x))
-            .then((p) => {
-              if (p.entity.picture && !(p.entity.picture instanceof ArrayBuffer)) {
-                return {
-                  entity: new models.Patient({
-                    ...p.entity,
-                    picture: b64_2ab(p.entity.picture),
-                  }),
-                  decrypted: p.decrypted,
-                }
-              } else return p
-            })
-      )
-    )
+  async tryDecryptOrReturnOriginal(patients: Array<models.Patient>): Promise<{ entity: models.Patient; decrypted: boolean }[]> {
+    return (await this.crypto.xapi.tryDecryptEntities(patients, EntityWithDelegationTypeName.Patient, (x) => new models.Patient(x))).map((p) => {
+      if (p.entity.picture && !(p.entity.picture instanceof ArrayBuffer)) {
+        return {
+          entity: new models.Patient({
+            ...p.entity,
+            picture: b64_2ab(p.entity.picture),
+          }),
+          decrypted: p.decrypted,
+        }
+      } else return p
+    })
   }
 
   /**
@@ -1288,7 +1284,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
   async forceInitialiseExchangeDataToNewlyInvitedPatient(patientId: string): Promise<boolean> {
     const patient = await super.getPatient(patientId)
     if (this.dataOwnerApi.getHexPublicKeysOf(patient).size) return false
-    await this.crypto.exchangeData.getOrCreateEncryptionDataTo(patientId, undefined, undefined, true)
+    await this.crypto.exchangeData.getOrCreateEncryptionDataTo(patientId, true)
     return true
   }
 }
