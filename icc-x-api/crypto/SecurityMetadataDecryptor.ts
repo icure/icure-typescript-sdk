@@ -141,7 +141,7 @@ export class SecurityMetadataDecryptor {
         if (
           !delegation.delegator ||
           !delegation.delegate ||
-          dataOwnersHierarchySubset.some((it) => it == delegation.delegator || it == delegation.delegator)
+          dataOwnersHierarchySubset.some((it) => it == delegation.delegator || it == delegation.delegate)
         ) {
           if (delegation.exchangeDataId) {
             toSearchById.add(delegation.exchangeDataId)
@@ -193,7 +193,7 @@ export class SecurityMetadataDecryptor {
     const toSearchById: Set<string> = new Set([])
     for (const e of entities) {
       for (const delegation of Object.values(e.securityMetadata?.secureDelegations ?? {})) {
-        if (dataOwnersHierarchySubset.some((it) => it == delegation.delegator || it == delegation.delegator)) {
+        if (dataOwnersHierarchySubset.some((it) => it == delegation.delegator || it == delegation.delegate)) {
           if (delegation.exchangeDataId && this.hasSecurityMetadataOfType(delegation, metadataType)) {
             toSearchById.add(delegation.exchangeDataId)
           }
@@ -225,7 +225,7 @@ export class SecurityMetadataDecryptor {
     const toSearchByExchangeDataMap: Set<string> = new Set([])
     for (const e of entities) {
       for (const [delegationKey, delegation] of Object.entries(e.securityMetadata?.secureDelegations ?? {})) {
-        if (dataOwnersHierarchySubset.some((it) => it == delegation.delegator || it == delegation.delegator)) {
+        if (dataOwnersHierarchySubset.some((it) => it == delegation.delegator || it == delegation.delegate)) {
           if (!delegation.exchangeDataId && this.hasSecurityMetadataOfType(delegation, metadataType)) {
             toSearchByExchangeDataMap.add(delegationKey)
           }
@@ -309,7 +309,7 @@ export class SecurityMetadataDecryptor {
       if (
         !delegation.exchangeDataId &&
         dataOwnersHierarchySubset.some((it) => delegation.delegate == it || delegation.delegator == it) &&
-        !exchangeDataIdByDelegationKey[delegationKey] &&
+        !exchangeDataByDelegationKey[delegationKey] &&
         this.hasSecurityMetadataOfType(delegation, metadataType)
       ) {
         return [delegationKey]
@@ -330,7 +330,7 @@ export class SecurityMetadataDecryptor {
       if (
         delegation.exchangeDataId &&
         dataOwnersHierarchySubset.some((it) => delegation.delegate == it || delegation.delegator == it) &&
-        !exchangeDataIdByDelegationKey[delegationKey] &&
+        !exchangeDataByDelegationKey[delegationKey] &&
         this.hasSecurityMetadataOfType(delegation, metadataType)
       ) {
         return [delegation.exchangeDataId]
@@ -416,12 +416,18 @@ export class SecurityMetadataDecryptor {
     updatedRemainingDelegations = []
     // 3. Attempt to identify the anonymous data owner of remaining delegations between us (or one of our parents) and an anonymous data owner
     const hierarchy = await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
-    const remainingExchangeDataMaps = await this.exchangeDataMap.getExchangeDataMapBatch(remainingDelegations.map(([hash, _]) => hash))
+    const remainingExchangeDataMaps = await this.exchangeDataMap.getExchangeDataMapBatch(
+      remainingDelegations
+        .filter(([_, delegation]) => hierarchy.some((x) => x == delegation.delegator || x == delegation.delegate))
+        .map(([hash, _]) => hash)
+    )
     const exchangeDataIdByDelegationKey: { [delegationKey: string]: string } = {}
     for (const exchangeDataMap of remainingExchangeDataMaps) {
-      const decrypted = await this.secureDelegationsEncryption.decryptExchangeDataId(exchangeDataMap.encryptedExchangeDataIds)
-      if (decrypted) {
-        exchangeDataIdByDelegationKey[exchangeDataMap.id] = decrypted
+      if (!!exchangeDataMap.encryptedExchangeDataIds) {
+        const decrypted = await this.secureDelegationsEncryption.decryptExchangeDataId(exchangeDataMap.encryptedExchangeDataIds)
+        if (decrypted) {
+          exchangeDataIdByDelegationKey[exchangeDataMap.id] = decrypted
+        }
       }
     }
     const exchangeDataByIds = await this.exchangeData.getDecryptionDataKeyByIds(Object.values(exchangeDataIdByDelegationKey), true)
