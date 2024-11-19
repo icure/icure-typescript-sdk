@@ -65,13 +65,6 @@ export const entities: { [key: string]: CRUDInterface } = {
     deleteMany: async (api: IcureApi, ids: IdWithRev[]) => api.agendaApi.deleteAgendas(new ListOfIds({ ids: ids.map((it) => it.id!) })),
     delete: async (api: IcureApi, id: IdWithRev) => api.agendaApi.deleteAgenda(id.id!),
   },
-  Article: {
-    encryptable: false,
-    create: async (api: IcureApi, _: Patient) => api.articleApi.createArticle(new Article({ id: randomUUID(), name: randomUUID() })),
-    share: async (_: IcureApi, __: IcureApi, entity: any) => entity,
-    deleteMany: async (api: IcureApi, ids: IdWithRev[]) => api.articleApi.deleteArticles(new ListOfIds({ ids: ids.map((it) => it.id!) })),
-    delete: async (api: IcureApi, id: IdWithRev) => api.articleApi.deleteArticle(id.id!),
-  },
   CalendarItem: {
     encryptable: true,
     create: async (api: IcureApi, _: Patient) => {

@@ -2,7 +2,6 @@ import {
   IccAgendaApi,
   IccAnonymousAccessApi,
   IccApplicationsettingsApi,
-  IccArticleApi,
   IccAuthApi,
   IccBeefactApi,
   IccBeresultexportApi,
@@ -172,7 +171,6 @@ export interface Apis extends BasicApis {
   readonly icureMaintenanceTaskApi: IccIcureMaintenanceXApi
   readonly anonymousAccessApi: IccAnonymousAccessApi
   readonly applicationSettingsApi: IccApplicationsettingsApi
-  readonly articleApi: IccArticleApi
   readonly bekmehrApi: IccBekmehrXApi
   readonly beefactApi: IccBeefactApi
   readonly beresultexportApi: IccBeresultexportApi
@@ -1261,15 +1259,6 @@ class IcureApiImpl implements IcureApi {
         this.groupSpecificAuthenticationProvider,
         this.fetch
       ))
-    )
-  }
-
-  private _articleApi: IccArticleApi | undefined
-
-  get articleApi(): IccArticleApi {
-    return (
-      this._articleApi ??
-      (this._articleApi = new IccArticleApi(this.host, this.cryptoInitInfos.headers, this.groupSpecificAuthenticationProvider, this.fetch))
     )
   }
 
