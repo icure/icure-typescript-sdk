@@ -46,7 +46,7 @@ export class SimpleLruCache<K, V> {
   }
 
   evictLeastRecentlyUsed(): V {
-    const node = this.lastNode
+    const node = this.firstNode
     if (node == null) throw new Error('Internal error: no node left to evict')
     this.evict(node.key, node)
     return node.value
