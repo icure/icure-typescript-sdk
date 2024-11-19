@@ -462,7 +462,7 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     const legacyEncryptionKeys = await this.securityMetadataDecryptor.decryptAllLegacyDelegations(
       entity.entity,
       hierarchy,
-      SecurityMetadataType.OwningEntityId
+      SecurityMetadataType.EncryptionKey
     )
     const legacyOwningEntityIds = await this.securityMetadataDecryptor.decryptAllLegacyDelegations(
       entity.entity,

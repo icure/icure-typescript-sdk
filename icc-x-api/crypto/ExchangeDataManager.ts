@@ -379,6 +379,7 @@ class FullyCachedExchangeDataManager extends AbstractExchangeDataManager {
   ): Promise<{ exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey }> {
     const initialCached = await this.getCachedEncryptionDataTo(delegateId)
     if (initialCached) return initialCached
+    const id = this.primitives.randomUuid()
     const release = await this.createExchangeDataMutex.acquire()
     try {
       const cachedAfterMutex = await this.getCachedEncryptionDataTo(delegateId)
