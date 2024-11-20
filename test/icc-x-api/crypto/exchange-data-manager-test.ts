@@ -10,9 +10,8 @@ import { BaseExchangeDataManager } from '../../../icc-x-api/crypto/BaseExchangeD
 import { FakeExchangeDataApi } from '../../utils/FakeExchangeDataApi'
 import { FakeDataOwnerApi } from '../../utils/FakeDataOwnerApi'
 import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
-import { EntityWithDelegationTypeName, IcureApi, ShaVersion, ua2b64, ua2hex } from '../../../icc-x-api'
+import { EntityWithDelegationTypeName, ShaVersion, ua2b64, ua2hex } from '../../../icc-x-api'
 import { FakeEncryptionKeysManager } from '../../utils/FakeEncryptionKeysManager'
-import { FakeSignatureKeysManager } from '../../utils/FakeSignatureKeysManager'
 import { AccessControlSecretUtils } from '../../../icc-x-api/crypto/AccessControlSecretUtils'
 import { ExchangeData } from '../../../icc-api/model/internal/ExchangeData'
 import { expect } from 'chai'
@@ -25,6 +24,7 @@ import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import { createNewHcpApi, getEnvironmentInitializer, setLocalStorage } from '../../utils/test_utils'
 import 'isomorphic-fetch'
 import { IccExchangeDataApi } from '../../../icc-api/api/internal/IccExchangeDataApi'
+
 setLocalStorage(fetch)
 
 describe('Exchange data manager - unit', async function () {
@@ -45,7 +45,6 @@ describe('Exchange data manager - unit', async function () {
   let baseExchangeData: BaseExchangeDataManager
   let exchangeData: ExchangeDataManager
   let encryptionKeysManager: FakeEncryptionKeysManager
-  let signatureKeysManager: FakeSignatureKeysManager
 
   async function initialiseComponents(
     allowFullExchangeDataLoad: boolean,
@@ -85,11 +84,9 @@ describe('Exchange data manager - unit', async function () {
     exchangeDataApi = new FakeExchangeDataApi()
     baseExchangeData = new BaseExchangeDataManager(exchangeDataApi, dataOwnerApi, primitives, allowFullExchangeDataLoad)
     encryptionKeysManager = await FakeEncryptionKeysManager.create(primitives, [selfKeypair])
-    signatureKeysManager = new FakeSignatureKeysManager(primitives)
     exchangeData = await initialiseExchangeDataManagerForCurrentDataOwner(
       baseExchangeData,
       encryptionKeysManager,
-      signatureKeysManager,
       accessControlSecretUtils,
       cryptoStrategies,
       dataOwnerApi,
@@ -125,7 +122,7 @@ describe('Exchange data manager - unit', async function () {
   async function createDataFromRandomToSelf(): Promise<{ exchangeData: ExchangeData; exchangeKey: CryptoKey; accessControlSecret: string }> {
     const encryptionKey = await primitives.RSA.generateKeyPair(ShaVersion.Sha256)
     const encryptionFp = ua2hex(await primitives.RSA.exportKey(encryptionKey.publicKey, 'spki')).slice(-32)
-    const signatureKey = await primitives.RSA.generateSignatureKeyPair()
+    const signatureKey = await primitives.RSA.generateKeyPair(ShaVersion.Sha1)
     const signatureFp = ua2hex(await primitives.RSA.exportKey(signatureKey.publicKey, 'spki')).slice(-32)
     const created = await baseExchangeData.createExchangeData(
       selfId,
@@ -320,9 +317,8 @@ describe('Exchange data manager - unit', async function () {
   it('should create new exchange data for encryption when the existing data can not be verified due to unavailable verification key', async function () {
     async function doTest(allowFullExchangeDataLoad: boolean) {
       await initialiseComponents(allowFullExchangeDataLoad)
-      const sfk = primitives.randomUuid()
       const createdData = await exchangeData.getOrCreateEncryptionDataTo(delegateId, false)
-      signatureKeysManager.clearKeys()
+      await encryptionKeysManager.unverifyExistingKeysAndCreateNewVerified(primitives)
       await exchangeData.clearOrRepopulateCache()
       const countAfterCacheClear = exchangeDataApi.callCount
       const newData = await exchangeData.getOrCreateEncryptionDataTo(delegateId, false)
@@ -421,7 +417,6 @@ describe('Exchange data manager - unit', async function () {
   it('should create new exchange data for encryption when the existing data can not be verified due to tampering of the delegate id', async function () {
     async function doTest(allowFullExchangeDataLoad: boolean) {
       await initialiseComponents(allowFullExchangeDataLoad)
-      const sfk = primitives.randomUuid()
       const createdData = await exchangeData.getOrCreateEncryptionDataTo(delegateId, false)
       // Tamper with exchange data
       await exchangeDataApi.modifyExchangeData({
@@ -471,10 +466,9 @@ describe('Exchange data manager - unit', async function () {
   it('should return existing exchange data keys for decryption even if the data authenticity could not be verified', async function () {
     async function doTest(allowFullExchangeDataLoad: boolean) {
       await initialiseComponents(allowFullExchangeDataLoad)
-      const sfk = primitives.randomUuid()
       const createdData1 = await exchangeData.getOrCreateEncryptionDataTo(delegateId, false)
       const createdData2 = await createDataFromRandomToSelf()
-      signatureKeysManager.clearKeys()
+      await encryptionKeysManager.unverifyExistingKeysAndCreateNewVerified(primitives)
       await exchangeData.clearOrRepopulateCache()
       await checkDataEqual(
         (
@@ -661,7 +655,6 @@ describe('Exchange data manager - unit', async function () {
     const recreatedExchangeData = await initialiseExchangeDataManagerForCurrentDataOwner(
       baseExchangeData,
       encryptionKeysManager,
-      signatureKeysManager,
       accessControlSecretUtils,
       new TestCryptoStrategies(),
       dataOwnerApi,

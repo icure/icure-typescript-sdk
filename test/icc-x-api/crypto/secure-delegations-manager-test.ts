@@ -11,7 +11,6 @@ import { BaseExchangeDataManager } from '../../../icc-x-api/crypto/BaseExchangeD
 import { FakeExchangeDataApi } from '../../utils/FakeExchangeDataApi'
 import { FakeDataOwnerApi } from '../../utils/FakeDataOwnerApi'
 import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
-import { FakeSignatureKeysManager } from '../../utils/FakeSignatureKeysManager'
 import { KeyPair } from '../../../icc-x-api/crypto/RSA'
 import { EntityShareRequest } from '../../../icc-api/model/requests/EntityShareRequest'
 import { expect } from 'chai'
@@ -69,12 +68,10 @@ describe('Secure delegations manager', async function () {
     const exchangeDataApi = new FakeExchangeDataApi()
     accessControlSecretUtils = new AccessControlSecretUtils(primitives)
     const encryptionKeysManager = await FakeEncryptionKeysManager.create(primitives, [selfKeypair])
-    const signatureKeysManager = new FakeSignatureKeysManager(primitives)
     const baseExchangeData = new BaseExchangeDataManager(exchangeDataApi, dataOwnerApi, primitives, !explicitSelf)
     exchangeData = await initialiseExchangeDataManagerForCurrentDataOwner(
       baseExchangeData,
       encryptionKeysManager,
-      signatureKeysManager,
       accessControlSecretUtils,
       cryptoStrategies,
       dataOwnerApi,

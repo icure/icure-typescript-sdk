@@ -1,7 +1,9 @@
+import { ua2hex } from '../utils'
+
 export interface HMACUtils {
   generateKey(): Promise<CryptoKey>
   exportKey(key: CryptoKey): Promise<ArrayBuffer>
-  importKey(key: ArrayBuffer): Promise<CryptoKey>
+  importKey(key: ArrayBuffer, requireRecommendedKeySize?: Boolean): Promise<CryptoKey>
   sign(key: CryptoKey, data: ArrayBuffer): Promise<ArrayBuffer>
   verify(key: CryptoKey, data: ArrayBuffer, signature: ArrayBuffer): Promise<boolean>
 }
@@ -12,7 +14,6 @@ export class HMACUtilsImpl implements HMACUtils {
   private readonly params: HmacKeyGenParams = {
     name: 'HMAC',
     hash: 'SHA-512',
-    length: this.recommendedKeyLengthBytes * 8, // Recommended length in bits. Adding this because not all implementations behave well.
   }
 
   constructor(crypto: Crypto) {
@@ -32,11 +33,20 @@ export class HMACUtilsImpl implements HMACUtils {
     return this._crypto.subtle.exportKey('raw', key)
   }
 
-  async importKey(key: ArrayBuffer): Promise<CryptoKey> {
-    if (key.byteLength !== this.recommendedKeyLengthBytes) {
+  async importKey(key: ArrayBuffer, requireRecommendedKeySize?: Boolean): Promise<CryptoKey> {
+    if (requireRecommendedKeySize != false && key.byteLength !== this.recommendedKeyLengthBytes) {
       throw new Error(`Key has unexpected length - expected ${this.recommendedKeyLengthBytes} bytes, got ${key.byteLength} bytes`)
     }
-    return this._crypto.subtle.importKey('raw', key, { ...this.params }, true, ['sign', 'verify'])
+    return await this._crypto.subtle.importKey(
+      'raw',
+      key,
+      {
+        ...this.params,
+        length: key.byteLength * 8,
+      },
+      true,
+      ['sign', 'verify']
+    )
   }
 
   async sign(key: CryptoKey, data: ArrayBuffer): Promise<ArrayBuffer> {

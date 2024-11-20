@@ -7,7 +7,6 @@ import { fingerprintToPublicKeysMapOf, fingerprintV1, loadPublicKeys, transferKe
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { IcureStorageFacade } from '../storage/IcureStorageFacade'
 import { BaseExchangeDataManager } from './BaseExchangeDataManager'
-import { UserSignatureKeysManager } from './UserSignatureKeysManager'
 import { CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
 
 /**
@@ -20,7 +19,6 @@ export class TransferKeysManager {
     private readonly baseExchangeDataManager: BaseExchangeDataManager,
     private readonly dataOwnerApi: IccDataOwnerXApi,
     private readonly encryptionKeysManager: UserEncryptionKeysManager,
-    private readonly userSignatureKeysManager: UserSignatureKeysManager,
     private readonly icureStorage: IcureStorageFacade
   ) {}
 
@@ -37,7 +35,6 @@ export class TransferKeysManager {
     const selfId = self.stub.id!
     const fpToPublicKey = fingerprintToPublicKeysMapOf(self.stub, ShaVersion.Sha1)
     const fpToPublicKeyWithSha256 = fingerprintToPublicKeysMapOf(self.stub, ShaVersion.Sha256)
-    const signatureKeyPair = await this.userSignatureKeysManager.getOrCreateSignatureKeyPair()
     const verifiedFps = new Set(this.encryptionKeysManager.getSelfVerifiedKeys().map((x) => x.fingerprint))
     const allVerifiedSourcesAndTarget = Array.from(
       new Set(
@@ -51,7 +48,7 @@ export class TransferKeysManager {
     const newExchangeKeyPublicKeysWithSha256 = allVerifiedSourcesAndTarget.map((fp) => fpToPublicKeyWithSha256[fp]).filter((key) => !!key)
     const createdExchangeData = await this.baseExchangeDataManager.createExchangeData(
       selfId,
-      { [signatureKeyPair.fingerprint]: signatureKeyPair.keyPair.privateKey },
+      Object.fromEntries(this.encryptionKeysManager.getSelfVerifiedKeys().map((x): [string, CryptoKey] => [x.fingerprint, x.pair.privateKey])),
       {
         ...(await loadPublicKeys(this.primitives.RSA, newExchangeKeyPublicKeys, ShaVersion.Sha1)),
         ...(await loadPublicKeys(this.primitives.RSA, newExchangeKeyPublicKeysWithSha256, ShaVersion.Sha256)),

@@ -1,6 +1,6 @@
 import { UserEncryptionKeysManager } from '../../icc-x-api/crypto/UserEncryptionKeysManager'
 import { DataOwner } from '../../icc-x-api/icc-data-owner-x-api'
-import { KeyPair } from '../../icc-x-api/crypto/RSA'
+import { KeyPair, ShaVersion } from '../../icc-x-api/crypto/RSA'
 import { CryptoPrimitives } from '../../icc-x-api/crypto/CryptoPrimitives'
 import { ua2hex } from '../../icc-x-api'
 import * as _ from 'lodash'
@@ -71,5 +71,14 @@ export class FakeEncryptionKeysManager extends UserEncryptionKeysManager {
   async addOrUpdateKey(primitives: CryptoPrimitives, pair: KeyPair<CryptoKey>, verified: boolean) {
     const fp = fingerprintV1(ua2hex(await primitives.RSA.exportKey(pair.publicKey, 'spki')))
     this.keys[fp] = { pair, verified }
+  }
+
+  async unverifyExistingKeysAndCreateNewVerified(primitives: CryptoPrimitives) {
+    Object.values(this.keys).map((x) => {
+      x.verified = false
+    })
+    const newKey = await primitives.RSA.generateKeyPair(ShaVersion.Sha256)
+    const newKeyFp = fingerprintV1(ua2hex(await primitives.RSA.exportKey(newKey.publicKey, 'spki')))
+    this.keys[newKeyFp] = { pair: newKey, verified: true }
   }
 }

@@ -73,7 +73,6 @@ import { ensureDelegationForSelf } from './crypto/utils'
 import { initialiseExchangeDataManagerForCurrentDataOwner } from './crypto/ExchangeDataManager'
 import { BaseExchangeDataManager } from './crypto/BaseExchangeDataManager'
 import { IccExchangeDataApi } from '../icc-api/api/internal/IccExchangeDataApi'
-import { UserSignatureKeysManager } from './crypto/UserSignatureKeysManager'
 import { AccessControlSecretUtils } from './crypto/AccessControlSecretUtils'
 import { SecureDelegationsEncryption } from './crypto/SecureDelegationsEncryption'
 import { ExtendedApisUtilsImpl } from './crypto/ExtendedApisUtilsImpl'
@@ -747,16 +746,10 @@ async function initialiseCryptoWithProvider(
     !params.disableParentKeysInitialisation,
     keyPairRecoverer
   )
-  const userSignatureKeysManager = new UserSignatureKeysManager(icureStorage, dataOwnerApi, cryptoPrimitives)
   const newKey = await userEncryptionKeysManager.initialiseKeys()
-  await new TransferKeysManager(
-    cryptoPrimitives,
-    baseExchangeDataManager,
-    dataOwnerApi,
-    userEncryptionKeysManager,
-    userSignatureKeysManager,
-    icureStorage
-  ).updateTransferKeys(await dataOwnerApi.getCurrentDataOwnerStub())
+  await new TransferKeysManager(cryptoPrimitives, baseExchangeDataManager, dataOwnerApi, userEncryptionKeysManager, icureStorage).updateTransferKeys(
+    await dataOwnerApi.getCurrentDataOwnerStub()
+  )
   // TODO customise cache size?
   const exchangeKeysManager = new ExchangeKeysManager(userEncryptionKeysManager, baseExchangeKeysManager, dataOwnerApi)
   await exchangeKeysManager.reloadCache()
@@ -764,7 +757,6 @@ async function initialiseCryptoWithProvider(
   const exchangeDataManager = await initialiseExchangeDataManagerForCurrentDataOwner(
     baseExchangeDataManager,
     userEncryptionKeysManager,
-    userSignatureKeysManager,
     accessControlSecretUtils,
     cryptoStrategies,
     dataOwnerApi,

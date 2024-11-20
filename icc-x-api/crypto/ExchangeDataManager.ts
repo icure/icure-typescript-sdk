@@ -2,7 +2,6 @@ import { ExchangeData } from '../../icc-api/model/internal/ExchangeData'
 import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { BaseExchangeDataManager } from './BaseExchangeDataManager'
 import { UserEncryptionKeysManager } from './UserEncryptionKeysManager'
-import { UserSignatureKeysManager } from './UserSignatureKeysManager'
 import { AccessControlSecretUtils } from './AccessControlSecretUtils'
 import { CryptoStrategies } from './CryptoStrategies'
 import { fingerprintV1, getShaVersionForKey, hexPublicKeysWithSha1Of, hexPublicKeysWithSha256Of } from './utils'
@@ -25,7 +24,6 @@ export type ExchangeDataManagerOptionalParameters = {
 export async function initialiseExchangeDataManagerForCurrentDataOwner(
   base: BaseExchangeDataManager,
   encryptionKeys: UserEncryptionKeysManager,
-  signatureKeys: UserSignatureKeysManager,
   accessControlSecret: AccessControlSecretUtils,
   cryptoStrategies: CryptoStrategies,
   dataOwnerApi: IccDataOwnerXApi,
@@ -38,7 +36,6 @@ export async function initialiseExchangeDataManagerForCurrentDataOwner(
     const res = new FullyCachedExchangeDataManager(
       base,
       encryptionKeys,
-      signatureKeys,
       accessControlSecret,
       cryptoStrategies,
       dataOwnerApi,
@@ -51,7 +48,6 @@ export async function initialiseExchangeDataManagerForCurrentDataOwner(
     return new LimitedLruCacheExchangeDataManager(
       base,
       encryptionKeys,
-      signatureKeys,
       accessControlSecret,
       cryptoStrategies,
       dataOwnerApi,
@@ -103,7 +99,6 @@ export interface ExchangeDataManager {
   /**
    * Retrieve the cached decrypted exchange data key associated with any of the provided hashes/entry keys of secure delegations.
    * @param hashes hashes of access control secrets for a specific entity, as they appear in the key of secure delegation entries
-   * @param entityType type of the entity containing the metadata for which you are retrieving the encryption key.
    * @return the exchange data and decrypted key associated to that hash if cached
    */
   getCachedDecryptionDataKeyByAccessControlHash(
@@ -114,8 +109,6 @@ export interface ExchangeDataManager {
    * Retrieves the exchange data with the provided id (from the cache if available or from the server otherwise if allowed by
    * and attempts to decrypt it, then caches the result.
    * @param ids ids of the exchange datas to retrieve
-   * @param knownDelegationKeys can be used to fill the cache by delegation key even if the exchange data couldn't be
-   * decrypted (but the exchange data map could).
    * @param retrieveIfNotCached if false only cached data will be returned, and the access control hases options will be
    * ignored
    * @return a map containing the exchange data id associated with:
@@ -151,7 +144,6 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
   constructor(
     readonly base: BaseExchangeDataManager,
     protected readonly encryptionKeys: UserEncryptionKeysManager,
-    protected readonly signatureKeys: UserSignatureKeysManager,
     protected readonly accessControlSecret: AccessControlSecretUtils,
     protected readonly cryptoStrategies: CryptoStrategies,
     protected readonly dataOwnerApi: IccDataOwnerXApi,
@@ -168,6 +160,9 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
     | undefined
   > {
     const decryptionKeys = this.encryptionKeys.getDecryptionKeys()
+    const encryptionKeys = Object.fromEntries(
+      this.encryptionKeys.getSelfVerifiedKeys().map((x): [string, CryptoKey] => [x.fingerprint, x.pair.privateKey])
+    )
     const decryptedExchangeKey = (await this.base.tryDecryptExchangeKeys([data], decryptionKeys)).successfulDecryptions[0]
     if (!decryptedExchangeKey) return undefined
     const decryptedAccessControlSecret = (await this.base.tryDecryptAccessControlSecret([data], decryptionKeys)).successfulDecryptions[0]
@@ -186,7 +181,7 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
           decryptedExchangeKey,
           decryptedSharedSignatureKey,
         },
-        (fp) => this.signatureKeys.getSignatureVerificationKey(fp),
+        encryptionKeys,
         true
       ),
     }
@@ -200,7 +195,8 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
     }
   ): Promise<{ exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey }> {
     const encryptionKeys: { [fp: string]: CryptoKey } = {}
-    this.encryptionKeys.getSelfVerifiedKeys().forEach(({ fingerprint, pair }) => {
+    const selfVerifiedKeys = this.encryptionKeys.getSelfVerifiedKeys()
+    selfVerifiedKeys.forEach(({ fingerprint, pair }) => {
       encryptionKeys[fingerprint] = pair.publicKey
     })
     if (delegateId != (await this.dataOwnerApi.getCurrentDataOwnerId())) {
@@ -236,10 +232,9 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
         } else throw new Error('Illegal state: verified keys should contain only keys for OAPE-SHA1 or OAPE-SHA256.')
       }
     }
-    const signatureKey = await this.signatureKeys.getOrCreateSignatureKeyPair()
     const newData = await this.base.createExchangeData(
       delegateId,
-      { [signatureKey.fingerprint]: signatureKey.keyPair.privateKey },
+      Object.fromEntries(selfVerifiedKeys.map((x): [string, CryptoKey] => [x.fingerprint, x.pair.privateKey])),
       encryptionKeys,
       options.newDataId ? { id: options.newDataId } : {}
     )
@@ -257,7 +252,6 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
     const newKeyHashVersion = getShaVersionForKey(other.stub, newDataOwnerPublicKey)
     if (!newKeyHashVersion) throw new Error(`Public key not found for data owner ${otherDataOwner}`)
     const importedNewKey = await this.primitives.RSA.importKey('spki', hex2ua(newDataOwnerPublicKey), ['encrypt'], newKeyHashVersion)
-    const signatureKey = await this.signatureKeys.getOrCreateSignatureKeyPair()
     const decryptionKeys = this.encryptionKeys.getDecryptionKeys()
     const allExchangeDataToUpdate =
       self == otherDataOwner
@@ -379,7 +373,6 @@ class FullyCachedExchangeDataManager extends AbstractExchangeDataManager {
   ): Promise<{ exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey }> {
     const initialCached = await this.getCachedEncryptionDataTo(delegateId)
     if (initialCached) return initialCached
-    const id = this.primitives.randomUuid()
     const release = await this.createExchangeDataMutex.acquire()
     try {
       const cachedAfterMutex = await this.getCachedEncryptionDataTo(delegateId)
@@ -507,7 +500,6 @@ class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
   constructor(
     base: BaseExchangeDataManager,
     encryptionKeys: UserEncryptionKeysManager,
-    signatureKeys: UserSignatureKeysManager,
     accessControlSecret: AccessControlSecretUtils,
     cryptoStrategies: CryptoStrategies,
     dataOwnerApi: IccDataOwnerXApi,
@@ -517,7 +509,7 @@ class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
       lruCacheSize?: number
     }
   ) {
-    super(base, encryptionKeys, signatureKeys, accessControlSecret, cryptoStrategies, dataOwnerApi, primitives, useParentKeys)
+    super(base, encryptionKeys, accessControlSecret, cryptoStrategies, dataOwnerApi, primitives, useParentKeys)
     this.maxCachedExchangeData = optionalParameters.lruCacheSize ?? 2000
   }
 

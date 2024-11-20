@@ -17,6 +17,7 @@ export interface CryptoPrimitives {
    * @return the sha256 hash of {@link data}
    */
   sha256(data: ArrayBuffer | Uint8Array): Promise<ArrayBuffer>
+  sha512(data: ArrayBuffer | Uint8Array): Promise<ArrayBuffer>
   /**
    * @param n how many bytes to generate
    * @return an array with n random bytes
@@ -72,6 +73,10 @@ export class WebCryptoPrimitives implements CryptoPrimitives {
 
   sha256(data: ArrayBuffer | Uint8Array): Promise<ArrayBuffer> {
     return this.crypto.subtle.digest('SHA-256', data)
+  }
+
+  sha512(data: ArrayBuffer | Uint8Array): Promise<ArrayBuffer> {
+    return this.crypto.subtle.digest('SHA-512', data)
   }
 
   randomBytes(n: number): Uint8Array {

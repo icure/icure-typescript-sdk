@@ -36,6 +36,10 @@ export class NativeCryptoPrimitivesBridge implements CryptoPrimitives {
   async sha256(data: ArrayBuffer | Uint8Array): Promise<ArrayBuffer> {
     return await this.digest.sha256(data instanceof ArrayBuffer ? new Uint8Array(data) : data)
   }
+
+  async sha512(data: ArrayBuffer | Uint8Array): Promise<ArrayBuffer> {
+    throw new Error('Not yet implemented')
+  }
 }
 
 class StrongRandomShamir extends ShamirClass {

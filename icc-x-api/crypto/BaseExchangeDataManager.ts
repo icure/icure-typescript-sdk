@@ -3,11 +3,11 @@ import { KeyPair } from './RSA'
 import { ExchangeData } from '../../icc-api/model/internal/ExchangeData'
 import { IccExchangeDataApi } from '../../icc-api/api/internal/IccExchangeDataApi'
 import { XHR } from '../../icc-api/api/XHR'
-import XHRError = XHR.XHRError
 import { CryptoPrimitives } from './CryptoPrimitives'
-import { b64_2ua, hex2ua, ua2b64, ua2hex, ua2utf8, utf8_2ua } from '../utils'
+import { b64_2ua, hex2ua, ua2b64, ua2hex, utf8_2ua } from '../utils'
 import * as _ from 'lodash'
-import { fingerprintV1toV2, fingerprintIsV1 } from './utils'
+import { fingerprintIsV1, fingerprintV1toV2 } from './utils'
+import XHRError = XHR.XHRError
 
 /**
  * @internal this class is intended for internal use only and may be modified without notice
@@ -77,7 +77,7 @@ export class BaseExchangeDataManager {
    * - decryptedAccessControlSecret the access control secret decrypted from the exchange data.
    * - decryptedExchangeKey the exchange key decrypted from the exchange data.
    * - decryptedSharedSignatureKey the shared signature key decrypted from the exchange data.
-   * @param getVerificationKey function to retrieve keys to use for verification by fingerprint.
+   * @param verificationKeys verification keys for delegator signature by fingerprint.
    * @param verifyAsDelegator if true the method will also verify that the hmac key used for the signature was created by the delegator of the
    * exchange data. If true and the data was not created by the current data owner this method will return false.
    * @return the exchange data which could be verified given his signature and the available verification keys.
@@ -90,11 +90,11 @@ export class BaseExchangeDataManager {
       decryptedExchangeKey: CryptoKey
       decryptedSharedSignatureKey: CryptoKey
     },
-    getVerificationKey: (publicKeyFingerprint: string) => Promise<CryptoKey | undefined>,
+    verificationKeys: { [fp: string]: CryptoKey },
     verifyAsDelegator: boolean
   ): Promise<boolean> {
     if (verifyAsDelegator && data.exchangeData.delegator !== (await this.dataOwnerApi.getCurrentDataOwnerId())) return false
-    if (verifyAsDelegator && !(await this.verifyDelegatorSignature(data.exchangeData, data.decryptedSharedSignatureKey, getVerificationKey)))
+    if (verifyAsDelegator && !(await this.verifyDelegatorSignature(data.exchangeData, data.decryptedSharedSignatureKey, verificationKeys)))
       return false
     const sharedSignatureData = await this.bytesToSignForSharedSignature({
       decryptedAccessControlSecret: data.decryptedAccessControlSecret,
@@ -393,7 +393,7 @@ export class BaseExchangeDataManager {
         decryptedExchangeKey: exchangeKey,
         decryptedSharedSignatureKey: sharedSignatureKey,
       },
-      () => Promise.resolve(undefined),
+      {},
       false
     )
     if (isVerified) {
@@ -502,13 +502,22 @@ export class BaseExchangeDataManager {
     return res
   }
 
+  private async extractHmacFromRsaPrivate(privateRsaKey: CryptoKey): Promise<CryptoKey> {
+    if (privateRsaKey.algorithm.name != 'RSA-OAEP' && !privateRsaKey.usages.includes('decrypt')) {
+      throw new Error('Internal error: got unexpected key for signature/verification')
+    }
+    const keyBytes = await this.primitives.RSA.exportKey(privateRsaKey, 'pkcs8')
+    const keyAsHmacBytes = await this.primitives.sha512(keyBytes)
+    return await this.primitives.HMAC.importKey(keyAsHmacBytes, false)
+  }
+
   private async signDataWithDelegatorKeys(
     rawData: ArrayBuffer,
     keys: { [keyPairFingerprint: string]: CryptoKey }
   ): Promise<{ [keyPairFingerprint: string]: string }> {
     const res: { [keyPairFingerprint: string]: string } = {}
     for (const [fp, key] of Object.entries(keys)) {
-      res[fp] = ua2b64(await this.primitives.RSA.sign(key, new Uint8Array(rawData)))
+      res[fingerprintV1toV2(fp)] = ua2b64(await this.primitives.HMAC.sign(await this.extractHmacFromRsaPrivate(key), new Uint8Array(rawData)))
     }
     return res
   }
@@ -516,14 +525,19 @@ export class BaseExchangeDataManager {
   private async verifyDelegatorSignature(
     exchangeData: ExchangeData,
     decryptedSharedSignatureKey: CryptoKey,
-    getVerificationKey: (publicKeyFingerprint: string) => Promise<CryptoKey | undefined>
+    verificationKeys: { [keyPairFingerprint: string]: CryptoKey }
   ): Promise<Boolean> {
     const delegatorSignatureData = await this.bytesToSignForDelegatorSignature({
       sharedSignatureKey: decryptedSharedSignatureKey,
     })
+    const keysByV2Fp = Object.fromEntries(Object.entries(verificationKeys).map(([fp, key]): [string, CryptoKey] => [fingerprintV1toV2(fp), key]))
     for (const [fp, signature] of Object.entries(exchangeData.delegatorSignature)) {
-      const verificationKey = await getVerificationKey(fp)
-      if (verificationKey && (await this.primitives.RSA.verifySignature(verificationKey, b64_2ua(signature), delegatorSignatureData))) return true
+      const verificationKey = keysByV2Fp[fp]
+      if (
+        verificationKey &&
+        (await this.primitives.HMAC.verify(await this.extractHmacFromRsaPrivate(verificationKey), delegatorSignatureData, b64_2ua(signature)))
+      )
+        return true
     }
     return false
   }
