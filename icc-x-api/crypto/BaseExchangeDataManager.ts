@@ -19,7 +19,8 @@ export class BaseExchangeDataManager {
     readonly api: IccExchangeDataApi,
     private readonly dataOwnerApi: IccDataOwnerXApi,
     private readonly primitives: CryptoPrimitives,
-    private readonly selfRequiresAnonymousDelegations: boolean
+    private readonly selfRequiresAnonymousDelegations: boolean,
+    private readonly doNotUseBulkGet: boolean
   ) {}
 
   /**
@@ -65,7 +66,20 @@ export class BaseExchangeDataManager {
   }
 
   async getExchangeDataByIds(exchangeDataIds: string[]): Promise<ExchangeData[]> {
-    return await this.api.getExchangeDataByIds({ ids: exchangeDataIds })
+    if (this.doNotUseBulkGet) {
+      const res: ExchangeData[] = []
+      for (const exchangeDataId of exchangeDataIds) {
+        const curr = await this.api.getExchangeDataById(exchangeDataId).catch((e) => {
+          if (e instanceof XHRError && (e.statusCode === 404 || e.statusCode === 403)) {
+            return undefined
+          } else throw e
+        })
+        if (curr) res.push(curr)
+      }
+      return res
+    } else {
+      return await this.api.getExchangeDataByIds({ ids: exchangeDataIds })
+    }
   }
 
   /**

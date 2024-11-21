@@ -110,10 +110,14 @@ export class BaseExchangeKeysManager {
         if (ownerId === dataOwnerId || otherOwnerTypes == null) {
           return [...awaitedAcc, ownerId]
         } else {
-          const dataOwnerType: DataOwnerTypeEnum = (await this.dataOwnerApi.getCryptoActorStub(ownerId)).type
-          if (otherOwnerTypes.some((x) => x === dataOwnerType)) {
-            return [...awaitedAcc, ownerId]
-          } else return awaitedAcc
+          try {
+            const dataOwnerType: DataOwnerTypeEnum = (await this.dataOwnerApi.getCryptoActorStub(ownerId)).type
+            if (otherOwnerTypes.some((x) => x === dataOwnerType)) {
+              return [...awaitedAcc, ownerId]
+            } else return awaitedAcc
+          } catch (_) {
+            return awaitedAcc
+          }
         }
       }, Promise.resolve([] as string[]))
     )

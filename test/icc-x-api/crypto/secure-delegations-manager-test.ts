@@ -68,7 +68,7 @@ describe('Secure delegations manager', async function () {
     const exchangeDataApi = new FakeExchangeDataApi()
     accessControlSecretUtils = new AccessControlSecretUtils(primitives)
     const encryptionKeysManager = await FakeEncryptionKeysManager.create(primitives, [selfKeypair])
-    const baseExchangeData = new BaseExchangeDataManager(exchangeDataApi, dataOwnerApi, primitives, !explicitSelf)
+    const baseExchangeData = new BaseExchangeDataManager(exchangeDataApi, dataOwnerApi, primitives, !explicitSelf, false)
     exchangeData = await initialiseExchangeDataManagerForCurrentDataOwner(
       baseExchangeData,
       encryptionKeysManager,

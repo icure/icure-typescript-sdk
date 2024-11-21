@@ -251,6 +251,11 @@ export interface IcureApiOptions {
    * @default false, equivalent to previous behaviour.
    */
   readonly disableParentKeysInitialisation?: boolean
+  /**
+   * If true the Api will not use some endpoints that are available only in the latest versions of kraken lite.
+   * Set it to true only for connecting to kraken-lite versions < 0.1.187
+   */
+  readonly useLiteCompatibilityMode?: boolean
 }
 
 namespace IcureApiOptions {
@@ -561,7 +566,8 @@ export namespace IcureApi {
       authenticationProviderInfo.groupSpecificAuthenticationProvider,
       params,
       cryptoStrategies,
-      crypto
+      crypto,
+      options.useLiteCompatibilityMode ?? false
     )
     return new IcureApiImpl(
       cryptoInitInfo,
@@ -572,7 +578,8 @@ export namespace IcureApi {
       authenticationProviderInfo.matches,
       authenticationProviderInfo.matches.find((match) => match.groupId === authenticationProviderInfo.chosenGroupId),
       params,
-      cryptoStrategies
+      cryptoStrategies,
+      options.useLiteCompatibilityMode ?? false
     )
   }
 }
@@ -699,7 +706,8 @@ async function initialiseCryptoWithProvider(
   groupSpecificAuthenticationProvider: AuthenticationProvider,
   params: IcureApiOptions.WithDefaults,
   cryptoStrategies: CryptoStrategies,
-  crypto: Crypto | CryptoPrimitives
+  crypto: Crypto | CryptoPrimitives,
+  useLiteCompatibilityMode: boolean
 ): Promise<CryptoInitialisationInfo> {
   const initialDataOwnerStub = await new IccDataOwnerXApi(
     host,
@@ -733,7 +741,13 @@ async function initialiseCryptoWithProvider(
   const icureStorage = new IcureStorageFacade(params.keyStorage, params.storage, params.entryKeysFactory)
   const cryptoPrimitives = 'AES' in crypto && 'RSA' in crypto && 'HMAC' in crypto ? crypto : new WebCryptoPrimitives(crypto)
   const baseExchangeKeysManager = new BaseExchangeKeysManager(cryptoPrimitives, dataOwnerApi, healthcarePartyApi, basePatientApi, deviceApi)
-  const baseExchangeDataManager = new BaseExchangeDataManager(exchangeDataApi, dataOwnerApi, cryptoPrimitives, dataOwnerRequiresAnonymousDelegation)
+  const baseExchangeDataManager = new BaseExchangeDataManager(
+    exchangeDataApi,
+    dataOwnerApi,
+    cryptoPrimitives,
+    dataOwnerRequiresAnonymousDelegation,
+    useLiteCompatibilityMode
+  )
   const keyRecovery = new KeyRecovery(cryptoPrimitives, dataOwnerApi, baseExchangeKeysManager, baseExchangeDataManager)
   const recoveryDataEncryption = new RecoveryDataEncryption(cryptoPrimitives, baseRecoveryDataApi)
   const keyPairRecoverer = new KeyPairRecoverer(recoveryDataEncryption)
@@ -874,7 +888,8 @@ class IcureApiImpl implements IcureApi {
     latestMatches: UserGroup[],
     private readonly currentGroupInfo: UserGroup | undefined,
     private readonly params: IcureApiOptions.WithDefaults,
-    private readonly cryptoStrategies: CryptoStrategies
+    private readonly cryptoStrategies: CryptoStrategies,
+    private readonly useLiteCompatibilityMode: boolean
   ) {
     this.latestGroupsRequest = Promise.resolve(latestMatches)
   }
@@ -1487,7 +1502,8 @@ class IcureApiImpl implements IcureApi {
       switchedProvider,
       this.params,
       this.cryptoStrategies,
-      this.cryptoApi.primitives
+      this.cryptoApi.primitives,
+      this.useLiteCompatibilityMode
     )
     return new IcureApiImpl(
       cryptoInitInfos,
@@ -1498,7 +1514,8 @@ class IcureApiImpl implements IcureApi {
       availableGroups,
       availableGroups.find((x) => x.groupId === newGroupId)!,
       this.params,
-      this.cryptoStrategies
+      this.cryptoStrategies,
+      this.useLiteCompatibilityMode
     )
   }
 }
