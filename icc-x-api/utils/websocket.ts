@@ -301,7 +301,7 @@ export class WebSocketWrapper {
             Authorization: bearerToken,
           },
         })
-      : new WebSocket(`${this.url}?jwt=${bearerToken}`)
+      : new WebSocket(`${this.url}?jwt=${bearerToken.slice(7) /* "Bearer ".length */}`)
 
     this.socket = new WebsocketAdapter(socket)
 
