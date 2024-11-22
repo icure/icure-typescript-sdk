@@ -291,17 +291,17 @@ export class WebSocketWrapper {
 
     const bearerToken = await this.authProvider.getBearerToken()
 
-    const socket =
-      isNode && !!bearerToken
-        ? new WebSocketNode(this.url, {
-            headers: {
-              Authorization: bearerToken,
-            },
-          })
-        : await this.authProvider.getIcureOtt(this.methodPath).then((icureOttToken) => {
-            const address = `${this.url};tokenid=${icureOttToken}`
-            return isNode ? new WebSocketNode(address) : new WebSocket(address)
-          })
+    if (!bearerToken) {
+      throw new Error('Cannot obtain JWT for the user')
+    }
+
+    const socket = isNode
+      ? new WebSocketNode(this.url, {
+          headers: {
+            Authorization: bearerToken,
+          },
+        })
+      : new WebSocket(`${this.url}?jwt=${bearerToken}`)
 
     this.socket = new WebsocketAdapter(socket)
 
@@ -392,8 +392,6 @@ export class WebSocketWrapper {
 
 interface WebSocketAuthProvider {
   getBearerToken(): Promise<string | undefined>
-
-  getIcureOtt(icureMethodPath: string): Promise<string>
 }
 
 class WebSocketAuthProviderImpl {
@@ -402,10 +400,6 @@ class WebSocketAuthProviderImpl {
   async getBearerToken(): Promise<string | undefined> {
     const headers = await this.authApi.authenticationProvider.getAuthService().getAuthHeaders()
     return headers.find((header) => header.header === 'Authorization' && header.data.startsWith('Bearer '))?.data
-  }
-
-  async getIcureOtt(icureMethodPath: string): Promise<string> {
-    return await this.authApi.token('GET', icureMethodPath)
   }
 }
 
