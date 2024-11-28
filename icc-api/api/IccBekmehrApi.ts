@@ -246,7 +246,7 @@ export class IccBekmehrApi {
     language: string,
     recipientSafe: string,
     xTimezoneOffset?: string,
-    version?: number,
+    version: number = 0,
     body?: MedicationSchemeExportInfo
   ): Promise<ArrayBuffer> {
     let _body = null
@@ -259,7 +259,7 @@ export class IccBekmehrApi {
       new Date().getTime() +
       (language ? '&language=' + encodeURIComponent(String(language)) : '') +
       (recipientSafe ? '&recipientSafe=' + encodeURIComponent(String(recipientSafe)) : '') +
-      (version ? '&version=' + encodeURIComponent(String(version)) : '')
+      ('&version=' + encodeURIComponent(String(version ?? 0)))
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     xTimezoneOffset && (headers = headers.concat(new XHR.Header('X-Timezone-Offset', xTimezoneOffset)))
