@@ -103,7 +103,7 @@ export class BaseExchangeKeysManager {
         : Promise.resolve({}),
     ]).then(([a, b, c]) => ({ ...a, ...b, ...c } as { [delegatorId: string]: { [delegatorFp: string]: { [entryFp: string]: string } } }))
     const dataOwner = await this.dataOwnerApi.getCryptoActorStub(dataOwnerId)
-    const allOwnerKeys = await this.combineLegacyHcpKeysWithAesExchangeKeys(dataOwner.stub, undefined)
+    const allOwnerKeys = await this.combineLegacyHcpKeysWithAesExchangeKeys(dataOwner.stub, undefined, false)
     const filteredDelegates = new Set(
       await Array.from(new Set(Object.values(allOwnerKeys).flatMap((x) => Object.keys(x)))).reduce(async (acc, ownerId) => {
         const awaitedAcc = await acc
@@ -175,7 +175,7 @@ export class BaseExchangeKeysManager {
       const delegator = await this.dataOwnerApi.getCryptoActorStub(delegatorId)
       const delegate = await this.dataOwnerApi.getCryptoActorStub(delegateId)
       let didUpdateSomeKey = false
-      const combinedKeys = await this.combineLegacyHcpKeysWithAesExchangeKeys(delegator.stub, delegate.stub)
+      const combinedKeys = await this.combineLegacyHcpKeysWithAesExchangeKeys(delegator.stub, delegate.stub, true)
       const updatedExchangeKeys: { [delegatorKey: string]: { [delegateId: string]: { [keyFp: string]: string } } } = {}
       const newEncryptionKeys = { [newPublicKeyFp]: newPublicKey }
       for (const [currDelegatorKey, currDelegatesToKeys] of Object.entries(combinedKeys)) {
@@ -293,24 +293,30 @@ export class BaseExchangeKeysManager {
   // Copy all legacy hcp exchange keys into the new aes exchange keys
   private async combineLegacyHcpKeysWithAesExchangeKeys(
     owner: CryptoActorStub,
-    delegate: CryptoActorStub | undefined
+    delegate: CryptoActorStub | undefined,
+    fillDelegateLegacyKey: boolean
   ): Promise<{ [ownerPublicKey: string]: { [delegateId: string]: { [fingerprint: string]: string } } }> {
     const ownerLegacyPublicKey = owner.publicKey
-    if (ownerLegacyPublicKey && !(owner.aesExchangeKeys ?? {})[ownerLegacyPublicKey]) {
+    if (ownerLegacyPublicKey != undefined && !(owner.aesExchangeKeys ?? {})[ownerLegacyPublicKey]) {
       /*
        * This condition would technically prevent new updates to the hcPartyKeys to be migrated to the aes exchange keys, but since I can only update
        * data for self data owner and parent entities this is not an issue, because I will always be using the new api from now on and I won't have
        * a situation where the legacy keys are updated but the aes exchange keys are not.
        */
-      const unknownDataOwnerCounterPartIds = Object.keys(owner.hcPartyKeys ?? {}).filter((x) => x !== owner.id && x !== delegate?.id)
-      const counterPartsById = [
-        owner,
-        ...(delegate ? [delegate] : []),
-        ...(await Promise.all(unknownDataOwnerCounterPartIds.map(async (cpid) => (await this.dataOwnerApi.getCryptoActorStub(cpid)).stub))),
-      ].reduce((acc, dataOwner) => {
-        acc[dataOwner.id!] = dataOwner
-        return acc
-      }, {} as { [id: string]: CryptoActorStub })
+      const counterPartsById: { [id: string]: CryptoActorStub } = {}
+      if (fillDelegateLegacyKey) {
+        counterPartsById[owner.id!] = owner
+        if (delegate) {
+          counterPartsById[delegate.id!] = delegate
+        }
+        for (const other of Object.keys(owner.hcPartyKeys ?? {}).filter((x) => x !== owner.id && x !== delegate?.id)) {
+          try {
+            counterPartsById[other] = (await this.dataOwnerApi.getCryptoActorStub(other)).stub
+          } catch {
+            // ignore
+          }
+        }
+      }
       return {
         [ownerLegacyPublicKey]: Object.entries(owner.hcPartyKeys ?? {}).reduce((acc, [hcpId, keys]) => {
           const counterpartKey = counterPartsById[hcpId]?.publicKey
