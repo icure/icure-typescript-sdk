@@ -19,7 +19,6 @@ import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { EntityWithDelegationTypeName } from './utils/EntityWithDelegationTypeName'
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
-import { EntityShareOrMetadataUpdateRequest } from '../icc-api/model/requests/EntityShareOrMetadataUpdateRequest'
 import { MinimalEntityBulkShareResult } from '../icc-api/model/requests/MinimalEntityBulkShareResult'
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
@@ -201,8 +200,31 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     return body
       ? this.encrypt(user, [_.cloneDeep(this.completeNames(body))])
           .then((pats) => super.createPatient(pats[0]))
-          .then((p) => this.decrypt(user, [p]))
-          .then((pats) => pats[0])
+          .then(async (patient: Patient) => {
+            /**
+             * This code is a workaround for the fact that the backend is adding empty delegations to the patient when it is created.
+             */
+
+            const patientDelegations = patient.delegations
+
+            if (patientDelegations != undefined && Object.keys(patientDelegations).length > 0) {
+              const areDelegationsEmpty = Object
+                .values(patientDelegations)
+                .every((delegation) => delegation.length === 0)
+
+              if (areDelegationsEmpty) {
+                return await this.modifyPatientRaw(
+                  new Patient({
+                    ...patient,
+                    delegations: {},
+                  })
+                )
+              }
+            }
+            return patient
+          })
+        .then((p) => this.decrypt(user, [p]))
+        .then((pats) => pats[0])
       : Promise.resolve(null)
   }
 
