@@ -191,4 +191,14 @@ describe('icc-x-patient-api Tests', () => {
       expect(decodedPicture[i]).to.equal(pictureAB[i])
     }
   })
+
+  it('A patient created with v8 + should have no auto-fixed delegations', async () => {
+    const api = await initApi(env!, hcp1Username)
+    const user = await api.userApi.getCurrentUser()
+    const patient: Patient = await api.patientApi.createPatientWithUser(
+      user,
+      await api.patientApi.newInstance(user, { firstName: 'Giovanni', lastName: 'Giorgio', preferredUserId: user.id })
+    )
+    expect(Object.keys(patient.delegations ?? {}).length == 0).to.be.true
+  })
 })
