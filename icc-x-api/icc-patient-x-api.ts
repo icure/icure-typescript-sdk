@@ -202,7 +202,30 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
       ? this.encrypt(user, [_.cloneDeep(this.completeNames(body))])
           .then((pats) => super.createPatient(pats[0]))
           .then((p) => this.decrypt(user, [p]))
-          .then((pats) => pats[0])
+          .then(async (pats) => {
+            /**
+             * This code is a workaround for the fact that the backend is adding empty delegations to the patient when it is created.
+             */
+
+            const patientDelegations = pats[0].delegations
+
+            if (patientDelegations != undefined && Object.keys(patientDelegations).length > 0) {
+              const areDelegationsEmpty = Object
+                .values(patientDelegations)
+                .every((delegation) => delegation.length === 0)
+
+              if (areDelegationsEmpty) {
+                return await this.modifyPatientWithUser(
+                  user,
+                  new Patient({
+                    ...pats[0],
+                    delegations: {},
+                  })
+                )
+              }
+            }
+            return pats[0]
+          })
       : Promise.resolve(null)
   }
 
