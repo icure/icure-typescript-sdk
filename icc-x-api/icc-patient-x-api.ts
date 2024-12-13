@@ -224,6 +224,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
             return patient
           })
         .then((p) => this.decrypt(user, [p]))
+        .then((pats) => pats[0])
       : Promise.resolve(null)
   }
 
