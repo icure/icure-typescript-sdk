@@ -10,6 +10,9 @@
  * Do not edit the class manually.
  */
 import { Telecom } from './Telecom'
+import { Annotation } from './Annotation'
+import { CodeStub } from "./CodeStub"
+import { Identifier } from "./Identifier"
 
 /**
  * This entity represents an Address
@@ -18,6 +21,19 @@ export class Address {
   constructor(json: JSON | any) {
     Object.assign(this as Address, json)
   }
+
+  /**
+   * A tag is an item from a codification system that qualifies an entity as being member of a certain class, whatever the value it might have taken. If the tag qualifies the content of a field, it means that whatever the content of the field, the tag will always apply.
+   */
+  tags?: Array<CodeStub>
+  /**
+   * A code is an item from a codification system that qualifies the content of this entity.
+   */
+  codes?: Array<CodeStub>
+  /**
+   * The identifiers of the Address
+   */
+  identifier?: Array<Identifier>
 
   /**
    * The type of place the address represents, ex: home, office, hospital, clinic, etc.
@@ -57,8 +73,13 @@ export class Address {
   country?: string
   /**
    * Additional notes
+   * @deprecated replaced by notes
    */
   note?: string
+  /**
+   * Additional notes
+   */
+  notes?: Annotation[]
   /**
    * List of other contact details available through telecom services, ex: email, phone number, fax, etc.
    */

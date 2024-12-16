@@ -23,9 +23,7 @@ import { b2a, b64_2uas, hex2ua, string2ua, ua2hex, ua2string, ua2utf8, utf8_2ua 
 import { fold, foldAsync, jwk2spki, notConcurrent, pkcs8ToJwk, retry, spkiToJwk } from './utils'
 import { IccMaintenanceTaskXApi } from './icc-maintenance-task-x-api'
 import { StorageFacade } from './storage/StorageFacade'
-import { LocalStorageImpl } from './storage/LocalStorageImpl'
 import { KeyStorageFacade } from './storage/KeyStorageFacade'
-import { KeyStorageImpl } from './storage/KeyStorageImpl'
 import { ErrorReporting } from './utils/error-reporting'
 
 /**
@@ -1755,7 +1753,7 @@ export class IccCryptoXApi {
         const updatedGetterKeys = await giveAccessBackToExchangeKey(getterDo.dataOwner.aesExchangeKeys ?? {}, ownerId, giverDoId)
         await this._saveDataOwner({
           type: getterDo.type,
-          dataOwner: { ...getterDo.dataOwner, aesExchangeKeys: updatedGetterKeys },
+          dataOwner: { ...getterDo.dataOwner, aesExchangeKeys: updatedGetterKeys } as any,
         })
       },
       3,
@@ -1856,7 +1854,7 @@ export class IccCryptoXApi {
         : dataOwnerWithUpdatedAesKeys
     )
 
-    const modifiedDataOwnerAndType = await this._saveDataOwner({ type: ownerType, dataOwner: ownerToUpdate })
+    const modifiedDataOwnerAndType = await this._saveDataOwner({ type: ownerType, dataOwner: ownerToUpdate as any })
     const sentMaintenanceTasks = sendMaintenanceTasks
       ? await this.sendMaintenanceTasks(maintenanceTasksApi, user, modifiedDataOwnerAndType.dataOwner, keypair.publicKey)
       : []
@@ -2145,14 +2143,14 @@ export class IccCryptoXApi {
             ? (this.dataOwnerCache[owner.id!] = this.hcpartyBaseApi
                 .modifyHealthcareParty(owner as HealthcareParty)
                 .then((x) => ({ type: 'hcp', dataOwner: x } as CachedDataOwner)))
-                .then((x) => resolve(['hcp', x.dataOwner]))
+                .then((x) => resolve(['hcp', x.dataOwner as HealthcareParty]))
                 .catch((e) => reject(e))
             : ownerType === 'patient'
             ? (this.dataOwnerCache[owner.id!] = this.patientBaseApi.modifyPatient(owner as Patient).then((x) => ({ type: 'patient', dataOwner: x })))
-                .then((x) => resolve(['patient', x.dataOwner]))
+                .then((x) => resolve(['patient', x.dataOwner as Patient]))
                 .catch((e) => reject(e))
             : (this.dataOwnerCache[owner.id!] = this.deviceBaseApi.updateDevice(owner as Device).then((x) => ({ type: 'device', dataOwner: x })))
-                .then((x) => resolve(['device', x.dataOwner]))
+                .then((x) => resolve(['device', x.dataOwner as Device]))
                 .catch((e) => reject(e))
         })
       })

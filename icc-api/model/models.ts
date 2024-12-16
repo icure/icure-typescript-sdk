@@ -207,7 +207,9 @@ export * from './PropertyStub'
 export * from './PropertyTypeStub'
 export * from './PublicKey'
 export * from './Quantity'
+export * from './Range'
 export * from './Receipt'
+export * from './ReferenceRange'
 export * from './ReferralPeriod'
 export * from './RegimenItem'
 export * from './RegistrationInformation'
@@ -275,6 +277,7 @@ export * from './VmpStub'
 export * from './Vtm'
 export * from './Wada'
 export * from './Weekday'
+export * from './ISO639_1'
 
 export type EncryptedEntity =
   | AccessLog
