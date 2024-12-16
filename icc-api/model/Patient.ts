@@ -22,7 +22,6 @@ import { PatientHealthCareParty } from './PatientHealthCareParty'
 import { PersonName } from './PersonName'
 import { PropertyStub } from './PropertyStub'
 import { SchoolingInfo } from './SchoolingInfo'
-import { Annotation } from './Annotation'
 
 /**
  * This entity is a root level object. It represents a patient It is serialized in JSON and saved in the underlying icure-patient CouchDB database.
