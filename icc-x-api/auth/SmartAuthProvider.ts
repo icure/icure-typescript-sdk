@@ -44,10 +44,11 @@ export interface AuthSecretProvider {
    * method is called for a given operation, but it may contain multiple elements if the SDK has already called this method multiple times because the
    * previously returned secrets were not valid. The first element is the first secret that was attempted, and the last element is the most recently
    * attempted.
+   * @param isUpgradeRequest specifies if the secret was requested to upgrade an existing and valid jwt.
    * @return a promise that resolves with the secret and the secret type to use for authentication. If the promise rejects then the ongoing SDK
    * operation will fail without being re-attempted.
    */
-  getSecret(acceptedSecrets: AuthSecretType[], previousAttempts: AuthSecretDetails[]): Promise<AuthSecretDetails>
+  getSecret(acceptedSecrets: AuthSecretType[], previousAttempts: AuthSecretDetails[], isUpgradeRequest: boolean): Promise<AuthSecretDetails>
 }
 
 // We may want to add some onSuccess callback in future or similar
@@ -129,6 +130,7 @@ export class SmartAuthProvider implements AuthenticationProvider {
       initialAuthToken?: string
       initialRefreshToken?: string
       loginGroupId?: string
+      debugLog?: boolean
     } = {}
   ): SmartAuthProvider {
     let initialSecret: CachedSecretType | undefined = undefined
@@ -146,7 +148,16 @@ export class SmartAuthProvider implements AuthenticationProvider {
       }
     }
     return new SmartAuthProvider(
-      new TokenProvider(login, props.loginGroupId, initialSecret, props.initialAuthToken, props.initialRefreshToken, authApi, secretProvider),
+      new TokenProvider(
+        login,
+        props.loginGroupId,
+        initialSecret,
+        props.initialAuthToken,
+        props.initialRefreshToken,
+        authApi,
+        secretProvider,
+        props.debugLog != undefined ? props.debugLog : true
+      ),
       props.loginGroupId
     )
   }
@@ -193,8 +204,15 @@ class TokenProvider {
     private cachedToken: string | undefined,
     private cachedRefreshToken: string | undefined,
     private readonly authApi: IccAuthApi,
-    private readonly authSecretProvider: AuthSecretProvider
+    private readonly authSecretProvider: AuthSecretProvider,
+    private readonly debugLog: boolean
   ) {}
+
+  private debugCacheInfo(): String {
+    return `\n\tcached bearer exp: ${this.cachedToken ? decodeJwtClaims(this.cachedToken)['exp'] : 'none'}\n\tcached refresh exp ${
+      this.cachedRefreshToken ? decodeJwtClaims(this.cachedRefreshToken)['exp'] : 'none'
+    }\n\tcached secret: ${this.currentLongLivedSecret?.value != undefined}\n\tcached secret type: ${this.currentLongLivedSecret?.type}`
+  }
 
   async getCachedOrRefreshedOrNewToken(): Promise<{ token: string; type: RetrievedTokenType }> {
     if (!!this.cachedToken && !isJwtInvalidOrExpired(this.cachedToken)) {
@@ -225,6 +243,7 @@ class TokenProvider {
   }
 
   private async refreshAndCacheToken(refreshToken: string): Promise<{ token: string; type: RetrievedTokenType }> {
+    if (this.debugLog) console.log(`Attempting to refresh bearer token ${this.debugCacheInfo()}`)
     return await this.authApi.refreshAuthenticationJWT(refreshToken).then(
       (authResult) => {
         if (!authResult.token) throw new Error('Internal error: refresh succeeded but no token was returned. Unsupported backend version?')
@@ -236,17 +255,25 @@ class TokenProvider {
   }
 
   private async getNewToken(minimumAuthenticationClassLevel: number): Promise<{ token: string; refreshToken: string }> {
+    if (this.debugLog) console.log(`Attempting to get new token for auth class ${minimumAuthenticationClassLevel} ${this.debugCacheInfo()}`)
     if (!!this.currentLongLivedSecret && (!this.currentLongLivedSecret.type || this.currentLongLivedSecret.type >= minimumAuthenticationClassLevel)) {
+      if (this.debugLog) console.log('Using cached secret')
       const resultWithCachedSecret = await this.doGetTokenWithSecret(this.currentLongLivedSecret, minimumAuthenticationClassLevel)
       if ('success' in resultWithCachedSecret) {
+        if (this.debugLog) console.log('New token using cached secret success')
         return resultWithCachedSecret.success
       } else if (
         resultWithCachedSecret.failure === DoGetTokenResultFailureReason.NEEDS_2FA &&
         minimumAuthenticationClassLevel <= ServerAuthenticationClass.TWO_FACTOR_AUTHENTICATION
       ) {
+        if (this.debugLog) console.log('New token using cached secret requires 2fa')
         return this.askTotpAndGetToken(this.currentLongLivedSecret.value, minimumAuthenticationClassLevel)
-      } else return this.askSecretAndGetToken(minimumAuthenticationClassLevel, true)
+      } else {
+        if (this.debugLog) console.log('New token using cached secret failed')
+        return this.askSecretAndGetToken(minimumAuthenticationClassLevel, true)
+      }
     } else {
+      if (this.debugLog) console.log('No cached credentials of correct auth class found')
       return this.askSecretAndGetToken(minimumAuthenticationClassLevel, true)
     }
   }
@@ -266,8 +293,9 @@ class TokenProvider {
     if (!acceptedSecrets.length)
       throw new Error('Internal error: no secret type is accepted for this request. Group may be misconfigured, or client may be outdated.')
     const attempts: AuthSecretDetails[] = []
+    if (this.debugLog) console.log(`Asking for secret and getting token for auth class ${minimumAuthenticationClassLevel} ${this.debugCacheInfo()}`)
     while (true) {
-      const secretDetails = await this.authSecretProvider.getSecret([...acceptedSecrets], attempts)
+      const secretDetails = await this.authSecretProvider.getSecret([...acceptedSecrets], attempts, minimumAuthenticationClassLevel > 0)
       if (!acceptedSecrets.includes(secretDetails.secretType))
         throw new Error(`Accepted secret types are ${JSON.stringify(acceptedSecrets)}, but got a secret of type ${secretDetails.secretType}.`)
       attempts.push(secretDetails)
@@ -291,7 +319,7 @@ class TokenProvider {
       )
     const attempts: AuthSecretDetails[] = []
     while (true) {
-      const details = await this.authSecretProvider.getSecret([AuthSecretType.TWO_FACTOR_AUTHENTICATION_TOKEN], attempts)
+      const details = await this.authSecretProvider.getSecret([AuthSecretType.TWO_FACTOR_AUTHENTICATION_TOKEN], attempts, false)
       if (details.secretType != AuthSecretType.TWO_FACTOR_AUTHENTICATION_TOKEN)
         throw new Error(`Was expecting a 2fa token but got a secret of type ${details.secretType}.`)
       attempts.push(details)
@@ -366,7 +394,8 @@ class TokenProvider {
       groupSwitchedTokens.token,
       groupSwitchedTokens.refreshToken,
       this.authApi,
-      this.authSecretProvider
+      this.authSecretProvider,
+      this.debugLog
     )
   }
 
