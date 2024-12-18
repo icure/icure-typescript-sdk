@@ -19,6 +19,7 @@ export class CodeStub {
   context?: string
   type?: string
   code?: string
+  contextLabel?: String
   version?: string
   label?: { [key: string]: string }
 }
