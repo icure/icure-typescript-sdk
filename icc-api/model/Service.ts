@@ -20,7 +20,16 @@ import { Identifier } from './Identifier'
  */
 export class Service {
   constructor(json: JSON | any) {
-    Object.assign(this as Service, json)
+    Object.assign(
+      this as Service,
+      json
+    )
+
+    if (!!this.content) {
+      this.content = Object.fromEntries(
+        Object.entries(this.content).map(([key, value]) => [key, new Content(value)])
+      )
+    }
   }
 
   /**

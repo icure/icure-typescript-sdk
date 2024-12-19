@@ -15,6 +15,7 @@ import { Delegation } from './Delegation'
 import { Episode } from './Episode'
 import { Identifier } from './Identifier'
 import { PlanOfAction } from './PlanOfAction'
+import { Annotation } from './Annotation'
 
 /**
  * This entity is a root level object. It represents a healthcare element. It is serialized in JSON and saved in the underlying CouchDB database.
@@ -91,8 +92,15 @@ export class HealthElement {
   descr?: string
   /**
    * A text note (can be confidential, encrypted by default).
+   * @deprecated Use notes instead
    */
   note?: string
+
+  /**
+   * Localized text notes (can be confidential, encrypted by default).
+   */
+  notes?: Annotation[]
+
   /**
    * If the healthcare element is relevant or not (Set relevant by default).
    */

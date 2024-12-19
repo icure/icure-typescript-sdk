@@ -12,6 +12,7 @@
 import { AuthenticationToken } from './AuthenticationToken'
 import { Permission } from './Permission'
 import { PropertyStub } from './PropertyStub'
+import { Identifier } from './Identifier'
 
 /**
  * This entity is a root level object. It represents an user that can log in to the iCure platform. It is serialized in JSON and saved in the underlying icure-base CouchDB database.
@@ -29,6 +30,7 @@ export class User {
    * the revision of the user in the database, used for conflict management / optimistic locking.
    */
   rev?: string
+  identifier?: Array<Identifier>
   /**
    * hard delete (unix epoch in ms) timestamp of the object. Filled automatically when deletePatient is called.
    */

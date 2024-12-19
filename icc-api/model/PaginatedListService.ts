@@ -14,7 +14,13 @@ import { Service } from './Service'
 
 export class PaginatedListService {
   constructor(json: JSON | any) {
-    Object.assign(this as PaginatedListService, json)
+    Object.assign(
+      this as PaginatedListService,
+      json,
+      json.rows ? {
+        rows: json.rows.map((row: any) => new Service(row)),
+      } : {}
+    )
   }
 
   pageSize?: number

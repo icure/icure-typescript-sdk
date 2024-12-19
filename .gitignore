@@ -5,3 +5,4 @@ scratchDir/
 coverage/
 .nyc_output/
 /test/scratch/
+.DS_Store
