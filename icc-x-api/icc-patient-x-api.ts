@@ -999,7 +999,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
   checkInami(inami: string): boolean {
     const num_inami = inami.replace(new RegExp('[^(0-9)]', 'g'), '')
 
-    const checkDigit = num_inami.substring(6, 2)
+    const checkDigit = num_inami.substring(6, 8)
     const numSansCheck = num_inami.substring(0, 6)
     let retour = false
 
@@ -1028,9 +1028,9 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
 
     if (normalNumber || bisNumber || terNumber) {
       isValidNiss =
-        97 - (Number(ssin.substring(0, 9)) % 97) === Number(ssin.substring(9, 2))
+        97 - (Number(ssin.substring(0, 9)) % 97) === Number(ssin.substring(9, 11))
           ? true
-          : 97 - (Number('2' + ssin.substring(0, 9)) % 97) === Number(ssin.substring(9, 2))
+          : 97 - (Number('2' + ssin.substring(0, 9)) % 97) === Number(ssin.substring(9, 11))
     }
 
     return isValidNiss
