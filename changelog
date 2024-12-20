@@ -1,4 +1,0 @@
-v8.0.74
-+ Fixed bug in the constructor of Content for binaryValue [#171](https://github.com/icure/icure-typescript-sdk/commit/8fa652396fdf6e815a3d0ad38727889f022056c2)
-+ Prevented empty request to bulkShare when the entity is already shared with the target [#172](https://github.com/icure/icure-typescript-sdk/commit/738827207498383a6f6cbe7a5f8ab4bb9d1d7913)
-+ Renamed parameter in DiaryNoteExportInfo to reflect the V2 entity [#171](https://github.com/icure/icure-typescript-sdk/commit/8fa652396fdf6e815a3d0ad38727889f022056c2)
