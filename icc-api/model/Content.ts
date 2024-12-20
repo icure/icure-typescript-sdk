@@ -20,11 +20,17 @@ import { TimeSeries } from './TimeSeries'
 import { b64_2ab } from './ModelHelper'
 export class Content {
   constructor(json: JSON | any) {
-    Object.assign(
-      this as Content,
-      json,
-      !!json?.binaryValue ? { binaryValue: b64_2ab(json.binaryValue) } : undefined,
-    )
+    let binaryData: { binaryValue?: ArrayBuffer } = {}
+    if (!!json.binaryValue) {
+      if (typeof json.binaryValue === 'string') {
+        binaryData.binaryValue = b64_2ab(json.binaryValue)
+      } else if (json.binaryValue instanceof ArrayBuffer || ArrayBuffer.isView(json.binaryValue)) {
+        binaryData.binaryValue = json.binaryValue
+      } else {
+        throw new Error(`Invalid type for binaryValue: ${typeof json.binaryValue}`)
+      }
+    }
+    Object.assign(this as Content, json, binaryData)
 
     if (!!json?.measureValue) {
       this.measureValue = new Measure(json.measureValue)
