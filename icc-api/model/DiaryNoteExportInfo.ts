@@ -16,7 +16,7 @@ export class DiaryNoteExportInfo {
     Object.assign(this as DiaryNoteExportInfo, json)
   }
 
-  secretForeignKeys?: Array<string>
+  encryptionDecryptionKeys?: Array<string>
   excludedIds?: Array<string>
   recipient?: HealthcareParty
   softwareName?: string
