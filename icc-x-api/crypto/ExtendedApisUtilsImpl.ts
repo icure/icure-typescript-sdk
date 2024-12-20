@@ -150,7 +150,8 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
       entitiesType,
       entitiesUpdates
     )
-    const results = await doRequestBulkShareOrUpdate({ requestsByEntityId: allRequestsByEntityId })
+    const results =
+      Object.keys(allRequestsByEntityId).length > 0 ? await doRequestBulkShareOrUpdate({ requestsByEntityId: allRequestsByEntityId }) : []
     const updatedEntities: T[] = []
     const updateErrors: {
       entityId: string
