@@ -27,7 +27,9 @@ export function hexPublicKeysWithSha256Of(dataOwner: DataOwner) {
  * @param dataOwner
  */
 export function hexPublicKeysWithSha1Of(dataOwner: DataOwner) {
-  return new Set([dataOwner.publicKey, ...Object.keys(dataOwner.aesExchangeKeys ?? {})].filter((pubKey) => !!pubKey) as string[])
+  return new Set(
+    [dataOwner.publicKey, ...Object.keys(dataOwner.aesExchangeKeys ?? {}).filter((k) => k[0] != 'x')].filter((pubKey) => !!pubKey) as string[]
+  )
 }
 
 /**

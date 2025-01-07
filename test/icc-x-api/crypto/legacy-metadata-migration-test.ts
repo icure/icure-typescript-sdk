@@ -46,7 +46,9 @@ describe('Legacy delegations migration test', () => {
    * X, X2 are external hcps, not related to A/B/P.
    */
   // prettier-ignore
-  async function createTestDataAndApis(): Promise<{
+  async function createTestDataAndApis(
+    useFakeKeyForAesExchangeKeyEntry: boolean = false
+  ): Promise<{
     patientConfidentialSecretId: string
     apis: { a: IcureApi; b: IcureApi; p: IcureApi; x: IcureApi; x2: IcureApi }
     users: { a: User; b: User; p: User; x: User; x2: User }
@@ -87,7 +89,7 @@ describe('Legacy delegations migration test', () => {
       firstName: '6ca3b4',
       parentId: pId,
       aesExchangeKeys: {
-        '30820122300d06092a864886f70d01010105000382010f003082010a0282010100e92f6acc40dbf839fa26e14579fcb68b5e8530f7bfada96338d4f986936cf177e242a458cb1811c2c49c469fa84d2c6ba0c0f34ba6e28babfaff863ff9f3938741d4a41b936143adcff5b396ce12f253e1af424ebd75aa133bdf606b1be51142ee4f5310f4ab46b7a7d706034028f81c462a758f0243d3791d27758bcc8af8010116ee70f1e61eb4526d05d245d631459974eea86b500ad0083e7f196ab9c4926487d92aa2849878f2e4093691d0539b9e880ff6717dbe5e7903141aaf796d74100c42c4d33ac2356df7e3e037accf4495c05f2caf57ae47130b1833f95397e1e9324f2abc1e6af56d7297cf48ea2ba0d990cff2f3b59b1e44efebd4db537ced0203010001': // pragma: allowlist secret
+        [useFakeKeyForAesExchangeKeyEntry ? 'x0' : '30820122300d06092a864886f70d01010105000382010f003082010a0282010100e92f6acc40dbf839fa26e14579fcb68b5e8530f7bfada96338d4f986936cf177e242a458cb1811c2c49c469fa84d2c6ba0c0f34ba6e28babfaff863ff9f3938741d4a41b936143adcff5b396ce12f253e1af424ebd75aa133bdf606b1be51142ee4f5310f4ab46b7a7d706034028f81c462a758f0243d3791d27758bcc8af8010116ee70f1e61eb4526d05d245d631459974eea86b500ad0083e7f196ab9c4926487d92aa2849878f2e4093691d0539b9e880ff6717dbe5e7903141aaf796d74100c42c4d33ac2356df7e3e037accf4495c05f2caf57ae47130b1833f95397e1e9324f2abc1e6af56d7297cf48ea2ba0d990cff2f3b59b1e44efebd4db537ced0203010001']: // pragma: allowlist secret
           {
             [pId]: {
               '3b42514690fbb161a5179d0203010001': // pragma: allowlist secret
@@ -127,7 +129,7 @@ describe('Legacy delegations migration test', () => {
       firstName: '2af696',
       parentId: pId,
       aesExchangeKeys: {
-        '30820122300d06092a864886f70d01010105000382010f003082010a0282010100982330dc464b3e9c583affbfece209976bc045f07b22fb44bcb0ebc27bc9d8406b54e380d195e107c1728499a64012b3251c1c85a2516e73b89a07b1929f0c12d44828677135082e8170b9831dd4ff9e988d098731eadd1443813cb5f6af2fe4c2a2706ba6aeb5bb6bb7889be51eebd83bebbb2a0b55a6d69fdeb66894af47edd6f82a8d30629814b82f17cfd1ef75f47d192eb9577c58f14a5e0d2782b13b796b5a3be780a38b0f69f3d00179d13cc23fcec1e919ac05d88c08c693c711384ad9fc7a21ed28d0e5d3865c15db239a5d727d4c52a344975c97379cc5a195ff4f8c1aacbaa67d6d0fd358b6b5d1a4d0575bc57b2d7736108978e3371e9aa0ae8f0203010001': // pragma: allowlist secret
+        [useFakeKeyForAesExchangeKeyEntry ? 'x0' : '30820122300d06092a864886f70d01010105000382010f003082010a0282010100982330dc464b3e9c583affbfece209976bc045f07b22fb44bcb0ebc27bc9d8406b54e380d195e107c1728499a64012b3251c1c85a2516e73b89a07b1929f0c12d44828677135082e8170b9831dd4ff9e988d098731eadd1443813cb5f6af2fe4c2a2706ba6aeb5bb6bb7889be51eebd83bebbb2a0b55a6d69fdeb66894af47edd6f82a8d30629814b82f17cfd1ef75f47d192eb9577c58f14a5e0d2782b13b796b5a3be780a38b0f69f3d00179d13cc23fcec1e919ac05d88c08c693c711384ad9fc7a21ed28d0e5d3865c15db239a5d727d4c52a344975c97379cc5a195ff4f8c1aacbaa67d6d0fd358b6b5d1a4d0575bc57b2d7736108978e3371e9aa0ae8f0203010001']: // pragma: allowlist secret
           {
             [pId]: {
               '3b42514690fbb161a5179d0203010001': // pragma: allowlist secret
@@ -398,5 +400,16 @@ describe('Legacy delegations migration test', () => {
     expect(await apis.b.patientApi.decryptSecretIdsOf(sharedPatientWithoutLegacyDetails)).to.have.members([...secretIdsKnownByB])
     expect(await apis.x.patientApi.decryptSecretIdsOf(sharedPatient)).to.have.members([...secretIdsKnownByB])
     console.log(JSON.stringify(sharedPatient, undefined, 2))
+  })
+
+  it('should be able to use aesExchangeKeysEntries with fake public key', async () => {
+    console.log('Creating test data')
+    const { apis, ids, patient, patientConfidentialSecretId, users, patientNote } = await createTestDataAndApis(true)
+    console.log('Starting test')
+    console.log(users.a.healthcarePartyId)
+    console.log(users.b.healthcarePartyId)
+    console.log(patient.id)
+    expect((await apis.a.patientApi.getPatientWithUser(users.a, patient.id!)).note).to.equal(patientNote)
+    expect((await apis.b.patientApi.getPatientWithUser(users.a, patient.id!)).note).to.equal(patientNote)
   })
 })
