@@ -7,6 +7,8 @@ import { AbstractFilter } from './filters/filters'
 import { subscribeToEntityEvents, SubscriptionOptions } from './utils'
 import { Connection, ConnectionImpl } from '../icc-api/model/Connection'
 import { ListOfIds } from '../icc-api/model/models'
+import { XHR } from '../icc-api/api/XHR'
+import XHRError = XHR.XHRError
 
 // noinspection JSUnusedGlobalSymbols
 export class IccHcpartyXApi extends IccHcpartyApi {
@@ -153,7 +155,12 @@ export class IccHcpartyXApi extends IccHcpartyApi {
                 throw new Error(`Hcp with id ${x[0]} not found`)
               }
             })
-          ).catch(() => null)
+          ).catch((e) => {
+            if (e instanceof XHRError) {
+              throw e
+            }
+            return null
+          })
       )
     ).then((results) => results.filter((it) => it != null))
   }
