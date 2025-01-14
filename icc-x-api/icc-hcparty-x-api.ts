@@ -4,6 +4,8 @@ import * as models from '../icc-api/model/models'
 import { findName, garnishPersonWithName, hasName } from './utils/person-util'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ListOfIds } from '../icc-api/model/models'
+import { XHR } from '../icc-api/api/XHR'
+import XHRError = XHR.XHRError
 
 // noinspection JSUnusedGlobalSymbols
 export class IccHcpartyXApi extends IccHcpartyApi {
@@ -151,9 +153,14 @@ export class IccHcpartyXApi extends IccHcpartyApi {
                 throw new Error(`Hcp with id ${x[0]} not found`)
               }
             })
-          )
+          ).catch((e) => {
+            if (e instanceof XHRError) {
+              throw e
+            }
+            return null
+          })
       )
-    )
+    ).then((result) => result.filter((it) => it != null))
   }
 
   getCurrentHealthcareParty(): Promise<HealthcareParty | any> {
