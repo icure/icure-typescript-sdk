@@ -153,9 +153,9 @@ export class IccHcpartyXApi extends IccHcpartyApi {
                 throw new Error(`Hcp with id ${x[0]} not found`)
               }
             })
-          )
+          ).catch(() => null)
       )
-    )
+    ).then((results) => results.filter((it) => it != null))
   }
 
   getCurrentHealthcareParty(): Promise<HealthcareParty> {
