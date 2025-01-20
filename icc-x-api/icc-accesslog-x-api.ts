@@ -12,6 +12,7 @@ import { ShareResult } from './utils/ShareResult'
 import { XHR } from '../icc-api/api/XHR'
 import { EncryptedFieldsManifest, EntityWithDelegationTypeName, parseEncryptedFields } from './utils'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
+import { SecretIdUseOption } from './crypto/SecretIdUseOption'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 
@@ -68,11 +69,10 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
     h: any,
     options: {
       additionalDelegates?: { [dataOwnerId: string]: AccessLevelEnum }
-      preferredSfk?: string
+      sfkOption?: SecretIdUseOption
     } = {}
   ) {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
-
     const accessLog = {
       ...(h ?? {}),
       _type: 'org.taktik.icure.entities.AccessLog',
@@ -91,10 +91,10 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
-    const sfk =
-      options.preferredSfk ??
-      (await this.crypto.confidential.getAnySecretIdSharedWithParents({ entity: patient, type: EntityWithDelegationTypeName.Patient }))
-    if (!sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id}`)
+    const sfk = await this.crypto.xapi.resolveSecretIdUseOptions(
+      { entity: patient, type: EntityWithDelegationTypeName.Patient },
+      options.sfkOption ?? SecretIdUseOption.UseAnySharedWithParent
+    )
     const extraDelegations = {
       ...Object.fromEntries(
         [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.administrativeData ?? [])].map((x) => [x, AccessLevelEnum.WRITE])

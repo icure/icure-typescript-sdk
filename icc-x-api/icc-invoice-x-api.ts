@@ -15,6 +15,7 @@ import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 import { EntityWithDelegationTypeName } from './utils'
+import { SecretIdUseOption } from './crypto/SecretIdUseOption'
 
 export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi<models.Invoice> {
   get headers(): Promise<Array<XHR.Header>> {
@@ -58,7 +59,7 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
     inv: any = {},
     options: {
       additionalDelegates?: { [dataOwnerId: string]: AccessLevelEnum }
-      preferredSfk?: string
+      sfkOption?: SecretIdUseOption
     } = {}
   ): Promise<models.Invoice> {
     const invoice = new models.Invoice({
@@ -77,10 +78,10 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
-    const sfk =
-      options.preferredSfk ??
-      (await this.crypto.confidential.getAnySecretIdSharedWithParents({ entity: patient, type: EntityWithDelegationTypeName.Patient }))
-    if (!sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id}`)
+    const sfk = await this.crypto.xapi.resolveSecretIdUseOptions(
+      { entity: patient, type: EntityWithDelegationTypeName.Patient },
+      options.sfkOption ?? SecretIdUseOption.UseAnySharedWithParent
+    )
     const extraDelegations = {
       ...Object.fromEntries(
         [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.financialInformation ?? [])].map((d) => [d, AccessLevelEnum.WRITE])

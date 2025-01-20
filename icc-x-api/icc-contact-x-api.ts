@@ -33,6 +33,7 @@ import { AbstractFilter } from './filters/filters'
 import { Connection, ConnectionImpl } from '../icc-api/model/Connection'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
+import { SecretIdUseOption } from './crypto/SecretIdUseOption'
 
 export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi<models.Contact> {
   i18n: any = i18n
@@ -106,8 +107,8 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     c: any,
     options: {
       additionalDelegates?: { [dataOwnerId: string]: AccessLevelEnum }
-      preferredSfk?: string
-      confidential?: boolean
+      sfkOption?: SecretIdUseOption
+      ignoreAutoDelegation?: boolean // default is considered false
     } = {}
   ): Promise<models.Contact> {
     const contact = new models.Contact({
@@ -128,14 +129,12 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
-    const sfk =
-      options.preferredSfk ??
-      (options?.confidential
-        ? await this.crypto.confidential.getConfidentialSecretId({ entity: patient, type: EntityWithDelegationTypeName.Patient })
-        : await this.crypto.confidential.getAnySecretIdSharedWithParents({ entity: patient, type: EntityWithDelegationTypeName.Patient }))
-    if (!sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id} for confidential=${options.confidential ?? false}`)
+    const sfk = await this.crypto.xapi.resolveSecretIdUseOptions(
+      { entity: patient, type: EntityWithDelegationTypeName.Patient },
+      options.sfkOption ?? SecretIdUseOption.UseAnySharedWithParent
+    )
     const extraDelegations = {
-      ...(options.confidential
+      ...(options.ignoreAutoDelegation
         ? {}
         : Object.fromEntries(
             [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])].map((d) => [d, AccessLevelEnum.WRITE])

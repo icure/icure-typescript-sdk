@@ -4,6 +4,12 @@ import { expect } from 'chai'
 import 'isomorphic-fetch'
 import { SecureDelegation } from '../../icc-api/model/SecureDelegation'
 import { EntityWithDelegationTypeName } from '../../icc-x-api'
+import { SecretIdUseOption } from '../../icc-x-api/crypto/SecretIdUseOption'
+import UseAnyConfidential = SecretIdUseOption.UseAnyConfidential
+import UseAnySharedWithParent = SecretIdUseOption.UseAnySharedWithParent
+import { randomUUID } from 'crypto'
+import UseAllConfidential = SecretIdUseOption.UseAllConfidential
+import UseAllSharedWithParent = SecretIdUseOption.UseAllSharedWithParent
 
 setLocalStorage(fetch)
 
@@ -32,12 +38,22 @@ describe('test confidential helement', () => {
 
     const confidentialHe = await childApi.healthcareElementApi.createHealthElementWithUser(
       childUser,
-      await childApi.healthcareElementApi.newInstance(childUser, modifiedPatient, { descr: 'Confidential info' }, { confidential: true })
+      await childApi.healthcareElementApi.newInstance(
+        childUser,
+        modifiedPatient,
+        { descr: 'Confidential info' },
+        { sfkOption: UseAnyConfidential, ignoreAutoDelegations: true }
+      )
     )
     expect(confidentialHe.descr).to.eq('Confidential info')
     const nonConfidentialHe = await childApi.healthcareElementApi.createHealthElementWithUser(
       childUser,
-      await childApi.healthcareElementApi.newInstance(childUser, modifiedPatient, { descr: 'Non confidential info' }, { confidential: false })
+      await childApi.healthcareElementApi.newInstance(
+        childUser,
+        modifiedPatient,
+        { descr: 'Non confidential info' },
+        { sfkOption: UseAnySharedWithParent }
+      )
     )
     expect(nonConfidentialHe.descr).to.eq('Non confidential info')
 
@@ -78,7 +94,12 @@ describe('test confidential helement', () => {
     )
     let failed = false
     try {
-      await childApi.healthcareElementApi.newInstance(childUser, pat, { descr: 'Confidential info' }, { confidential: true })
+      await childApi.healthcareElementApi.newInstance(
+        childUser,
+        pat,
+        { descr: 'Confidential info' },
+        { sfkOption: UseAnyConfidential, ignoreAutoDelegations: true }
+      )
     } catch {
       failed = true
     }
@@ -95,7 +116,7 @@ describe('test confidential helement', () => {
     )
     let failed = false
     try {
-      await childApi.healthcareElementApi.newInstance(childUser, pat, { descr: 'Confidential info' }, { confidential: false })
+      await childApi.healthcareElementApi.newInstance(childUser, pat, { descr: 'Confidential info' }, { sfkOption: UseAnySharedWithParent })
     } catch {
       failed = true
     }
@@ -110,12 +131,17 @@ describe('test confidential helement', () => {
 
     const confidentialHe = await childApi.healthcareElementApi.createHealthElementWithUser(
       childUser,
-      await childApi.healthcareElementApi.newInstance(childUser, pat, { descr: 'Confidential info' }, { confidential: true })
+      await childApi.healthcareElementApi.newInstance(
+        childUser,
+        pat,
+        { descr: 'Confidential info' },
+        { sfkOption: UseAnyConfidential, ignoreAutoDelegations: true }
+      )
     )
     expect(confidentialHe.descr).to.eq('Confidential info')
     const nonConfidentialHe = await childApi.healthcareElementApi.createHealthElementWithUser(
       childUser,
-      await childApi.healthcareElementApi.newInstance(childUser, pat, { descr: 'Non confidential info' }, { confidential: false })
+      await childApi.healthcareElementApi.newInstance(childUser, pat, { descr: 'Non confidential info' }, { sfkOption: UseAnySharedWithParent })
     )
     expect(nonConfidentialHe.descr).to.eq('Non confidential info')
 
@@ -128,5 +154,55 @@ describe('test confidential helement', () => {
     expect(retrievedNonConfidential).to.deep.eq(nonConfidentialHe)
 
     await parentApi.patientApi.decryptSecretIdsOf(pat)
+  })
+
+  it('sfk confidential option should use one or all secret ids as requested', async () => {
+    // Use only the top of the hierarchy for simplicity of the test
+    const { parentApi: childApi, parentUser: childUser, grandApi: parentApi, grandUser: parentUser } = await createHcpHierarchyApis(env!)
+
+    const pat = await childApi.patientApi.newInstance(childUser, { firstName: 'John', lastName: 'Doe' })
+    let modifiedPatient = (await childApi.patientApi.initConfidentialSecretId(pat, childUser))!
+    modifiedPatient = await childApi.patientApi.shareWith(childUser.healthcarePartyId!, modifiedPatient, [randomUUID()])
+    modifiedPatient = await childApi.patientApi.shareWith(parentUser.healthcarePartyId!, modifiedPatient, [randomUUID()])
+
+    const patientSecretIdsForParent = await parentApi.patientApi.decryptSecretIdsOf(modifiedPatient)
+    const patientSecretIdsForChild = await childApi.patientApi.decryptSecretIdsOf(modifiedPatient)
+    expect(patientSecretIdsForParent).to.have.length(2)
+    expect(patientSecretIdsForChild).to.have.length(4)
+    const confidentialSecretIds = patientSecretIdsForChild.filter((x) => !patientSecretIdsForParent.includes(x))
+    const nonConfidentialSecretIds = patientSecretIdsForParent
+    expect(confidentialSecretIds).to.have.length(2)
+    expect(await childApi.patientApi.decryptConfidentialSecretIdsOf(modifiedPatient)).to.have.members(confidentialSecretIds)
+    expect(await childApi.patientApi.decryptNonConfidentialSecretIdsOf(modifiedPatient)).to.have.members(nonConfidentialSecretIds)
+    const anyConfidentialHe = await childApi.healthcareElementApi.newInstance(
+      childUser,
+      modifiedPatient,
+      { descr: 'Confidential info' },
+      { sfkOption: UseAnyConfidential, ignoreAutoDelegations: true }
+    )
+    expect(anyConfidentialHe.secretForeignKeys).to.have.length(1)
+    expect(confidentialSecretIds).to.include(anyConfidentialHe.secretForeignKeys![0])
+    const allConfidentialHe = await childApi.healthcareElementApi.newInstance(
+      childUser,
+      modifiedPatient,
+      { descr: 'Confidential info' },
+      { sfkOption: UseAllConfidential, ignoreAutoDelegations: true }
+    )
+    expect(allConfidentialHe.secretForeignKeys).to.have.members(confidentialSecretIds)
+    const anyNonConfidentialHe = await childApi.healthcareElementApi.newInstance(
+      childUser,
+      modifiedPatient,
+      { descr: 'Confidential info' },
+      { sfkOption: UseAnySharedWithParent }
+    )
+    expect(anyNonConfidentialHe.secretForeignKeys).to.have.length(1)
+    expect(nonConfidentialSecretIds).to.include(anyNonConfidentialHe.secretForeignKeys![0])
+    const allNonConfidentialHe = await childApi.healthcareElementApi.newInstance(
+      childUser,
+      modifiedPatient,
+      { descr: 'Confidential info' },
+      { sfkOption: UseAllSharedWithParent }
+    )
+    expect(allNonConfidentialHe.secretForeignKeys).to.have.members(confidentialSecretIds)
   })
 })

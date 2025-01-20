@@ -17,6 +17,7 @@ import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { AbstractFilter } from './filters/filters'
 import { EncryptedFieldsManifest, EntityWithDelegationTypeName, parseEncryptedFields, subscribeToEntityEvents, SubscriptionOptions } from './utils'
 import { Connection, ConnectionImpl } from '../icc-api/model/Connection'
+import { SecretIdUseOption } from './crypto/SecretIdUseOption'
 
 export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi<models.Message> {
   private readonly encryptedFields: EncryptedFieldsManifest
@@ -69,10 +70,9 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     m: any = {},
     options: {
       additionalDelegates?: { [dataOwnerId: string]: AccessLevelEnum }
-      preferredSfk?: string
+      sfkOption?: SecretIdUseOption
     } = {}
   ) {
-    if (!patient && options.preferredSfk) throw new Error('You need to specify parent patient in order to use secret foreign keys.')
     const message = {
       ...(m ?? {}),
       _type: 'org.taktik.icure.entities.Message',
@@ -88,8 +88,10 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
     const sfk = patient
-      ? options.preferredSfk ??
-        (await this.crypto.confidential.getAnySecretIdSharedWithParents({ entity: patient, type: EntityWithDelegationTypeName.Patient }))
+      ? await this.crypto.xapi.resolveSecretIdUseOptions(
+          { entity: patient, type: EntityWithDelegationTypeName.Patient },
+          options.sfkOption ?? SecretIdUseOption.UseAnySharedWithParent
+        )
       : undefined
     if (patient && !sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id}`)
     const extraDelegations = {

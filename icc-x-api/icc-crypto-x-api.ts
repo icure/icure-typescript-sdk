@@ -6,7 +6,6 @@ import { UserEncryptionKeysManager } from './crypto/UserEncryptionKeysManager'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { ExtendedApisUtils } from './crypto/ExtendedApisUtils'
 import { ShamirKeysManager } from './crypto/ShamirKeysManager'
-import { ConfidentialEntities } from './crypto/ConfidentialEntities'
 import { ExchangeDataManager } from './crypto/ExchangeDataManager'
 import { AccessControlKeysHeadersProvider } from './crypto/AccessControlKeysHeadersProvider'
 import { KeyPair } from './crypto/RSA'
@@ -58,13 +57,6 @@ export class IccCryptoXApi {
   /**
    * @internal this is for internal use only and may be changed without notice.
    */
-  get confidential(): ConfidentialEntities {
-    return this._confidentialEntities
-  }
-
-  /**
-   * @internal this is for internal use only and may be changed without notice.
-   */
   get accessControlKeysHeaders(): AccessControlKeysHeadersProvider {
     return this._accessControlKeysHeaders
   }
@@ -102,7 +94,6 @@ export class IccCryptoXApi {
     private readonly _shamirManager: ShamirKeysManager,
     private readonly _storage: StorageFacade<string>,
     private readonly _keyStorage: KeyStorageFacade,
-    private readonly _confidentialEntities: ConfidentialEntities,
     private readonly _exchangeDataManager: ExchangeDataManager,
     private readonly _accessControlKeysHeaders: AccessControlKeysHeadersProvider,
     private readonly _delegationsDeAnonymisation: DelegationsDeAnonymization

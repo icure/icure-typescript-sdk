@@ -15,6 +15,7 @@ import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 import { EntityWithDelegationTypeName } from './utils'
+import { SecretIdUseOption } from './crypto/SecretIdUseOption'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<models.Form> {
@@ -63,7 +64,7 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
     c: any = {},
     options: {
       additionalDelegates?: { [dataOwnerId: string]: AccessLevelEnum }
-      preferredSfk?: string
+      sfkOption?: SecretIdUseOption
     } = {}
   ) {
     const form = {
@@ -80,10 +81,10 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
-    const sfk =
-      options.preferredSfk ??
-      (await this.crypto.confidential.getAnySecretIdSharedWithParents({ entity: patient, type: EntityWithDelegationTypeName.Patient }))
-    if (!sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id}`)
+    const sfk = await this.crypto.xapi.resolveSecretIdUseOptions(
+      { entity: patient, type: EntityWithDelegationTypeName.Patient },
+      options.sfkOption ?? SecretIdUseOption.UseAnySharedWithParent
+    )
     const extraDelegations = {
       ...Object.fromEntries(
         [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])].map((d) => [d, AccessLevelEnum.WRITE])

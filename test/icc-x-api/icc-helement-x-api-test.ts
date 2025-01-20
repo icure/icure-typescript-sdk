@@ -14,6 +14,8 @@ import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import { HealthElementByIdsFilter } from '../../icc-x-api/filters/HealthElementByIdsFilter'
 import { FilterChainHealthElement } from '../../icc-api/model/FilterChainHealthElement'
 import initApi = TestUtils.initApi
+import { SecretIdUseOption } from '../../icc-x-api/crypto/SecretIdUseOption'
+import UseAnyConfidential = SecretIdUseOption.UseAnyConfidential
 
 setLocalStorage(fetch)
 let env: TestVars
@@ -42,7 +44,7 @@ function healthElementToCreate(hElementApiForHcp: IccHelementXApi, hcpUser: User
       codes: [new Code({ system: 'LOINC', code: '95209', version: '3' })],
       note: 'SARS-V2',
     }),
-    { confidential: true }
+    { sfkOption: UseAnyConfidential, ignoreAutoDelegations: true }
   )
 }
 

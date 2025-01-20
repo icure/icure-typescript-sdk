@@ -20,6 +20,8 @@ import { ServiceByHcPartyHealthElementIdsFilter } from '../../icc-x-api/filters/
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import { Measure } from '../../icc-api/model/Measure'
 import initApi = TestUtils.initApi
+import { SecretIdUseOption } from '../../icc-x-api/crypto/SecretIdUseOption'
+import UseAnyConfidential = SecretIdUseOption.UseAnyConfidential
 
 setLocalStorage(fetch)
 let env: TestVars
@@ -63,7 +65,7 @@ async function createHealthElement(healthElementApi: IccHelementXApi, hcpUser: U
           }),
         ],
       }),
-      { confidential: true }
+      { sfkOption: UseAnyConfidential, ignoreAutoDelegations: true }
     )
   )
 }
@@ -94,7 +96,7 @@ function createBasicContact(contactApiForHcp: IccContactXApi, hcpUser: User, pat
       ],
       descr: 'Weight value',
     }),
-    { confidential: true }
+    { sfkOption: UseAnyConfidential, ignoreAutoDelegations: true }
   )
 }
 

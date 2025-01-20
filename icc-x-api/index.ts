@@ -68,7 +68,6 @@ import { ExchangeKeysManager } from './crypto/ExchangeKeysManager'
 import { ShamirKeysManager } from './crypto/ShamirKeysManager'
 import { TransferKeysManager } from './crypto/TransferKeysManager'
 import { IccIcureMaintenanceXApi } from './icc-icure-maintenance-x-api'
-import { ConfidentialEntities } from './crypto/ConfidentialEntities'
 import { ensureDelegationForSelf } from './crypto/utils'
 import { initialiseExchangeDataManagerForCurrentDataOwner } from './crypto/ExchangeDataManager'
 import { BaseExchangeDataManager } from './crypto/BaseExchangeDataManager'
@@ -808,7 +807,6 @@ async function initialiseCryptoWithProvider(
     !params.disableParentKeysInitialisation
   )
   const shamirManager = new ShamirKeysManager(cryptoPrimitives, dataOwnerApi, userEncryptionKeysManager, exchangeDataManager)
-  const confidentialEntitites = new ConfidentialEntities(xApiUtils, cryptoPrimitives, dataOwnerApi)
   await ensureDelegationForSelf(dataOwnerApi, xApiUtils, basePatientApi, cryptoPrimitives)
   const accessControlKeysHeadersProvider = new AccessControlKeysHeadersProvider(exchangeDataManager)
   const delegationsDeAnonymisation = new DelegationsDeAnonymization(
@@ -832,7 +830,6 @@ async function initialiseCryptoWithProvider(
     shamirManager,
     params.storage,
     params.keyStorage,
-    confidentialEntitites,
     exchangeDataManager,
     accessControlKeysHeadersProvider,
     delegationsDeAnonymisation

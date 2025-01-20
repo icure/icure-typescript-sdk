@@ -16,6 +16,7 @@ import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 import { EntityWithDelegationTypeName } from './utils'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
+import { SecretIdUseOption } from './crypto/SecretIdUseOption'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXApi<models.Document> {
@@ -597,10 +598,9 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     c: any = {},
     options: {
       additionalDelegates?: { [dataOwnerId: string]: AccessLevelEnum }
-      preferredSfk?: string
+      sfkOption?: SecretIdUseOption
     } = {}
   ) {
-    if (!message && options.preferredSfk) throw new Error('You need to specify parent message in order to use secret foreign keys.')
     const document = {
       ...(c ?? {}),
       _type: 'org.taktik.icure.entities.Document',
@@ -616,10 +616,11 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
     const sfk = message
-      ? options.preferredSfk ??
-        (await this.crypto.confidential.getAnySecretIdSharedWithParents({ entity: message, type: EntityWithDelegationTypeName.Message }))
-      : undefined
-    if (message && !sfk) throw new Error(`Couldn't find any sfk of parent message ${message.id}`)
+      ? await this.crypto.xapi.resolveSecretIdUseOptions(
+          { entity: message, type: EntityWithDelegationTypeName.Message },
+          options.sfkOption ?? SecretIdUseOption.UseAnySharedWithParent
+        )
+      : []
     const extraDelegations = {
       ...Object.fromEntries(
         [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])].map((d) => [d, AccessLevelEnum.WRITE])

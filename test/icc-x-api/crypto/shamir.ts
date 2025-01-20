@@ -23,6 +23,8 @@ import { KeyPairUpdateRequest } from '../../../icc-x-api/maintenance/KeyPairUpda
 import { RSAUtils } from '../../../icc-x-api/crypto/RSA'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import { fingerprintV1, fingerprintV1toV2, fingerprintV2 } from '../../../icc-x-api/crypto/utils'
+import { SecretIdUseOption } from '../../../icc-x-api/crypto/SecretIdUseOption'
+import UseAnyConfidential = SecretIdUseOption.UseAnyConfidential
 
 // Data was randomly generated, not based on any real key
 const data =
@@ -100,7 +102,7 @@ describe('Shamir key recovery', async function () {
     const descr = 'Confidential info'
     const confidentialData = await api.healthcareElementApi.createHealthElementWithUser(
       user,
-      await api.healthcareElementApi.newInstance(user, pat, { descr }, { confidential: true })
+      await api.healthcareElementApi.newInstance(user, pat, { descr }, { sfkOption: UseAnyConfidential, ignoreAutoDelegations: true })
     )
     await api.cryptoApi.shamirKeysManager.updateSelfSplits(
       { [fingerprintV1(hierarchyApis.childCredentials.publicKey)]: { notariesIds, minShares: 3 } },

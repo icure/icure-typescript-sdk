@@ -16,6 +16,8 @@ import {
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import { BasicAuthenticationProvider, EntityWithDelegationTypeName } from '../../../icc-x-api'
 import initApi = TestUtils.initApi
+import { SecretIdUseOption } from '../../../icc-x-api/crypto/SecretIdUseOption'
+import UseAnyConfidential = SecretIdUseOption.UseAnyConfidential
 
 chaiUse(require('chai-as-promised'))
 
@@ -268,7 +270,12 @@ describe('test that confidential helement information cannot be retrieved at MH 
 
     const confidentialHe = await childApi.healthcareElementApi.createHealthElementWithUser(
       childUser,
-      await childApi.healthcareElementApi.newInstance(childUser, modifiedPatient, { descr: 'Confidential info' }, { confidential: true })
+      await childApi.healthcareElementApi.newInstance(
+        childUser,
+        modifiedPatient,
+        { descr: 'Confidential info' },
+        { sfkOption: UseAnyConfidential, ignoreAutoDelegations: true }
+      )
     )
 
     const retrievedHesAsUser = await childApi.healthcareElementApi.findBy(childUser.healthcarePartyId!, modifiedPatient)
@@ -320,18 +327,13 @@ describe('test that confidential contact information cannot be retrieved at MH l
         modifiedPatient,
 
         { descr: 'Confidential info', services: [], subContacts: [] },
-        { confidential: true }
+        { sfkOption: UseAnyConfidential, ignoreAutoDelegations: true }
       )
     )
 
     await childApi.contactApi.createContactWithUser(
       childUser,
-      await childApi.contactApi.newInstance(
-        childUser,
-        modifiedPatient,
-        { descr: 'Non confidential info', services: [], subContacts: [] },
-        { confidential: false }
-      )
+      await childApi.contactApi.newInstance(childUser, modifiedPatient, { descr: 'Non confidential info', services: [], subContacts: [] })
     )
 
     const retrievedCtcsAsUser = await childApi.contactApi.findBy(childUser.healthcarePartyId!, modifiedPatient)

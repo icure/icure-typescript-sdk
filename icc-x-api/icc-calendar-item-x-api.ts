@@ -17,6 +17,7 @@ import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import { PaginatedListCalendarItem } from '../icc-api/model/PaginatedListCalendarItem'
+import { SecretIdUseOption } from './crypto/SecretIdUseOption'
 
 export class IccCalendarItemXApi extends IccCalendarItemApi implements EncryptedEntityXApi<models.CalendarItem> {
   i18n: any = i18n
@@ -78,10 +79,9 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
     ci: any,
     options: {
       additionalDelegates?: { [dataOwnerId: string]: AccessLevelEnum }
-      preferredSfk?: string
+      sfkOption?: SecretIdUseOption
     } = {}
   ): Promise<models.CalendarItem> {
-    if (!patient && options.preferredSfk) throw new Error('You need to specify parent patient in order to use secret foreign keys.')
     const calendarItem = {
       ...(ci ?? {}),
       _type: 'org.taktik.icure.entities.CalendarItem',
@@ -96,11 +96,13 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
-    const sfk = patient
-      ? options?.preferredSfk ??
-        (await this.crypto.confidential.getAnySecretIdSharedWithParents({ entity: patient, type: EntityWithDelegationTypeName.Patient }))
-      : undefined
-    if (patient && !sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id}`)
+    const sfk =
+      patient != undefined
+        ? await this.crypto.xapi.resolveSecretIdUseOptions(
+            { entity: patient, type: EntityWithDelegationTypeName.Patient },
+            options.sfkOption ?? SecretIdUseOption.UseAnySharedWithParent
+          )
+        : undefined
     const extraDelegations = {
       ...Object.fromEntries(
         [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])].map((d) => [d, AccessLevelEnum.WRITE])
@@ -477,7 +479,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
   async linkToPatient(calendarItem: models.CalendarItem, patient: models.Patient, shareLinkWithDelegates: string[]): Promise<models.CalendarItem> {
     if (!!calendarItem.secretForeignKeys?.length) throw new Error(`Calendar item ${calendarItem.id} is already linked to a patient`)
     const delegates = [...new Set([await this.dataOwnerApi.getCurrentDataOwnerId(), ...shareLinkWithDelegates])]
-    const sfk = await this.crypto.confidential.getAnySecretIdSharedWithParents({ entity: patient, type: EntityWithDelegationTypeName.Patient })
+    const sfk = await this.crypto.xapi.getAnySecretIdSharedWithParents({ entity: patient, type: EntityWithDelegationTypeName.Patient })
     if (!sfk) {
       throw new Error(`Could not find any secret id for patient ${patient.id} which is shared with the topmost ancestor of the current data owner`)
     }

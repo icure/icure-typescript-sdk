@@ -19,6 +19,7 @@ import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { EncryptedFieldsManifest, EntityWithDelegationTypeName, parseEncryptedFields, subscribeToEntityEvents, SubscriptionOptions } from './utils'
 import { AbstractFilter } from './filters/filters'
 import { Connection, ConnectionImpl } from '../icc-api/model/Connection'
+import { SecretIdUseOption } from './crypto/SecretIdUseOption'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<models.Topic> {
@@ -68,10 +69,10 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
     c: Topic = {}, // TODO: Why this isn't Topic?
     options: {
       additionalDelegates?: { [dataOwnerId: string]: AccessLevelEnum }
-      preferredSfk?: string
+      sfkOption?: SecretIdUseOption
     } = {}
   ) {
-    if (!patient && options.preferredSfk) throw new Error('preferredSfk can only be specified if patient is specified.')
+    if (!patient && options.sfkOption) throw new Error('preferredSfk can only be specified if patient is specified.')
 
     const topic = {
       ...(c ?? {}),
@@ -93,8 +94,10 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
     const sfk = patient
-      ? options.preferredSfk ??
-        (await this.crypto.confidential.getAnySecretIdSharedWithParents({ entity: patient, type: EntityWithDelegationTypeName.Patient }))
+      ? await this.crypto.xapi.resolveSecretIdUseOptions(
+          { entity: patient, type: EntityWithDelegationTypeName.Patient },
+          options.sfkOption ?? SecretIdUseOption.UseAnySharedWithParent
+        )
       : undefined
 
     if (patient && !sfk) throw new Error(`Couldn't find any sfk of parent patient ${patient.id}`)

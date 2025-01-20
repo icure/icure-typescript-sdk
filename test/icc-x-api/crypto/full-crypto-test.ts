@@ -122,14 +122,12 @@ const entities: EntityCreators = {
       new Contact({ id, services: [new Service({ label: 'svc', content: { fr: { stringValue: 'data' } } })] }),
       {
         additionalDelegates: Object.fromEntries(delegateIds?.map((id) => [id, AccessLevel.WRITE]) ?? []),
-        confidential: false,
       }
     )
   },
   HealthElement: ({ healthcareElementApi }, id, user, patient, delegateIds) => {
     return healthcareElementApi.newInstance(user, patient!, new HealthElement({ id, descr: 'HE' }), {
       additionalDelegates: Object.fromEntries(delegateIds?.map((id) => [id, AccessLevel.WRITE]) ?? []),
-      confidential: false,
     })
   },
   CalendarItem: ({ calendarItemApi }, id, user, patient, delegateIds) => {

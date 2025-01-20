@@ -11,6 +11,7 @@ import { ShareResult } from '../utils/ShareResult'
 import { MinimalEntityBulkShareResult } from '../../icc-api/model/requests/MinimalEntityBulkShareResult'
 import { EncryptedFieldsManifest } from '../utils'
 import { BulkShareOrUpdateMetadataParams } from '../../icc-api/model/requests/BulkShareOrUpdateMetadataParams'
+import { SecretIdUseOption } from './SecretIdUseOption'
 
 /**
  * @internal this interface is meant only for internal use and may be changed without notice.
@@ -98,6 +99,8 @@ export interface ExtendedApisUtils {
   // endregion
 
   // region metadata initialisation and share
+  resolveSecretIdUseOptions(entity: EncryptedEntityWithType, option: SecretIdUseOption): Promise<string[]>
+
   /**
    * Initializes encryption metadata for an entity. This includes the encrypted secret id, owning entity id, encryption key for the entity, and
    * the clear text secret foreign key of the parent entity.
@@ -105,7 +108,7 @@ export interface ExtendedApisUtils {
    * @param entity entity which requires encryption metadata initialisation.
    * @param entityType type of the entity.
    * @param owningEntity id of the owning entity, if any (e.g. patient id for Contact/HealtchareElement, message id for Document, ...).
-   * @param owningEntitySecretId secret id of the parent entity, to use in the secret foreign keys for the provided entity, if any.
+   * @param owningEntitySecretIds secret id of the parent entity, to use in the secret foreign keys for the provided entity, if any.
    * @param initialiseEncryptionKey if false this method will not initialize an encryption key for the entity. Use only for entities which use
    * delegations for access control but don't actually have any encrypted content.
    * HealthcareElement).
@@ -117,7 +120,7 @@ export interface ExtendedApisUtils {
     entity: T,
     entityType: EntityWithDelegationTypeName,
     owningEntity: string | undefined,
-    owningEntitySecretId: string | undefined,
+    owningEntitySecretIds: string[] | undefined,
     initialiseEncryptionKey: boolean,
     autoDelegations: { [p: string]: SecureDelegation.AccessLevelEnum }
   ): Promise<{ updatedEntity: T; rawEncryptionKey: string | undefined; secretId: string | undefined }>
@@ -359,5 +362,60 @@ export interface ExtendedApisUtils {
     entitiesType: EntityWithDelegationTypeName,
     action: (entity: E, entityType: EntityWithDelegationTypeName, keys: { key: CryptoKey; raw: string }[]) => Promise<{ success: T } | null>
   ): Promise<Map<string, T>>
+  // endregion
+
+  // region confidential ids
+
+  /**
+   * Ensures that the current data owner has access to a confidential secret id for the provided entity: this is an id that is known to the data owner
+   * but is not known by any of his parents. If there is currently no confidential secret id for this entity the method returns a copy of the entity
+   * with a new confidential secret id for the current data owner (the entity in the database won't be updated), else this method returns undefined.
+   * New confidential secret ids will have an appropriate tag, but existing confidential secret ids may not necessarily have it.
+   * @param entity an entity which needs to have a confidential secret id for the current data owner
+   * @param entityType the type of the entity
+   * @param doRequestBulkShareOrUpdate perform the request to share or update an entity encrypted metadata on the cloud API (and save to DB).
+   * @return undefined if the entity already had a confidential secret id for the current user, or the updated AND SAVED entity with the new
+   * confidential secret id.
+   */
+  initialiseConfidentialSecretId<T extends EncryptedEntity>(
+    entity: T,
+    entityType: EntityWithDelegationTypeName,
+    doRequestBulkShareOrUpdate: (request: BulkShareOrUpdateMetadataParams) => Promise<EntityBulkShareResult<T>[]>
+  ): Promise<T | undefined>
+
+  /**
+   * Get an existing confidential secret id of the provided entity for the provided data owner (current data owner by default). A confidential secret
+   * id is a secret id known by the data owner but not known by any of his parents: note however that children will know confidential secret ids.
+   * @param entity an entity for which you want to retrieve the confidential secret id.
+   * @param dataOwnerId (current data owner by default) a data owner for which you want to get a confidential secret id.
+   * @return the confidential secret id or undefined if there is no confidential secret id for the provided data owner.
+   */
+  getConfidentialSecretId(entity: EncryptedEntityWithType, dataOwnerId?: string): Promise<string | undefined>
+
+  /**
+   * Get all existing confidential secret ids of the provided entity for the provided data owner (current data owner by default). A confidential secret
+   * id is a secret id known by the data owner but not known by any of his parents: note however that children will know confidential secret ids.
+   * @param entity an entity for which you want to retrieve the confidential secret id.
+   * @param dataOwnerId (current data owner by default) a data owner for which you want to get a confidential secret id.
+   * @return the confidential secret ids for the data owner (may be empty).
+   */
+  getConfidentialSecretIds(entity: EncryptedEntityWithType, dataOwnerId?: string): Promise<string[]>
+
+  /**
+   * Gets a secret id known by the topmost parent of the current data owner hierarchy. If there is multiple secret ids shared with the topmost parent
+   * there is no guarantee on which one will be chosen.
+   * @param entity an entity.
+   * @return a secret id known by the topmost parent of the current data owner hierarchy, or undefined if there is no secret id currently available
+   * for the topmost parent.
+   */
+  getAnySecretIdSharedWithParents(entity: EncryptedEntityWithType): Promise<string | undefined>
+
+  /**
+   * Gets all secret ids known by the topmost parent of the current data owner hierarchy (or all secret ids known by the current data owner if he is
+   * not part of any data owner hierarchy).
+   * @param entity an entity.
+   * @return all secret ids known by the topmost parent of the current data owner hierarchy, may be empty.
+   */
+  getSecretIdsSharedWithParents(entity: EncryptedEntityWithType): Promise<string[]>
   // endregion
 }

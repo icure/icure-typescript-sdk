@@ -182,7 +182,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
       updatedPatient = await this.createPatientWithUser(user, patient)
       if (!updatedPatient) throw new Error('Could not create patient')
     }
-    const initialised = await this.crypto.confidential.initialiseConfidentialSecretId(updatedPatient, EntityWithDelegationTypeName.Patient, (x) =>
+    const initialised = await this.crypto.xapi.initialiseConfidentialSecretId(updatedPatient, EntityWithDelegationTypeName.Patient, (x) =>
       this.bulkSharePatients(x)
     )
     if (initialised) {
@@ -208,9 +208,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
             const patientDelegations = patient.delegations
 
             if (patientDelegations != undefined && Object.keys(patientDelegations).length > 0) {
-              const areDelegationsEmpty = Object
-                .values(patientDelegations)
-                .every((delegation) => delegation.length === 0)
+              const areDelegationsEmpty = Object.values(patientDelegations).every((delegation) => delegation.length === 0)
 
               if (areDelegationsEmpty) {
                 return await this.modifyPatientRaw(
@@ -223,8 +221,8 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
             }
             return patient
           })
-        .then((p) => this.decrypt(user, [p]))
-        .then((pats) => pats[0])
+          .then((p) => this.decrypt(user, [p]))
+          .then((pats) => pats[0])
       : Promise.resolve(null)
   }
 
@@ -1198,7 +1196,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
    * patient is the 'owning entity', or in the {@link shareWith} method in order to share it with other data owners.
    */
   decryptConfidentialSecretIdsOf(patient: models.Patient): Promise<string[]> {
-    return this.crypto.confidential.getConfidentialSecretIds({ entity: patient, type: EntityWithDelegationTypeName.Patient }, undefined)
+    return this.crypto.xapi.getConfidentialSecretIds({ entity: patient, type: EntityWithDelegationTypeName.Patient }, undefined)
   }
 
   /**
@@ -1207,7 +1205,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
    * patient is the 'owning entity', or in the {@link shareWith} method in order to share it with other data owners.
    */
   decryptNonConfidentialSecretIdsOf(patient: models.Patient): Promise<string[]> {
-    return this.crypto.confidential.getSecretIdsSharedWithParents({ entity: patient, type: EntityWithDelegationTypeName.Patient })
+    return this.crypto.xapi.getSecretIdsSharedWithParents({ entity: patient, type: EntityWithDelegationTypeName.Patient })
   }
 
   getDataOwnersWithAccessTo(

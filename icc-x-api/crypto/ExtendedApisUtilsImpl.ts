@@ -30,6 +30,7 @@ import AccessLevel = SecureDelegation.AccessLevelEnum
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import RequestedPermissionInternal = EntityShareRequest.RequestedPermissionInternal
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
+import { SecretIdUseOption } from './SecretIdUseOption'
 
 /**
  * @internal this class is for internal use only and may be changed without notice.
@@ -90,7 +91,7 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     entity: T,
     entityType: EntityWithDelegationTypeName,
     owningEntity: string | undefined,
-    owningEntitySecretId: string | undefined,
+    owningEntitySecretIds: string[] | undefined,
     initialiseEncryptionKey: boolean,
     autoDelegations: { [p: string]: SecureDelegation.AccessLevelEnum }
   ): Promise<{ updatedEntity: T; rawEncryptionKey: string | undefined; secretId: string }> {
@@ -102,7 +103,7 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
       updatedEntity: await this.secureDelegationsManager.entityWithInitialisedEncryptedMetadata(
         {
           ...entity,
-          secretForeignKeys: owningEntitySecretId ? [owningEntitySecretId] : [],
+          secretForeignKeys: owningEntitySecretIds ?? [],
         },
         entityType,
         newSecretId ? [newSecretId] : [],
@@ -978,5 +979,76 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
       } else return false
     }
     return true
+  }
+
+  async initialiseConfidentialSecretId<T extends EncryptedEntity>(
+    entity: T,
+    entityType: EntityWithDelegationTypeName,
+    doRequestBulkShareOrUpdate: (request: BulkShareOrUpdateMetadataParams) => Promise<EntityBulkShareResult<T>[]>
+  ): Promise<T | undefined> {
+    if (await this.getConfidentialSecretId({ entity, type: entityType })) return undefined
+    const confidentialSecretId = this.primitives.randomUuid()
+    return (
+      await this.simpleShareOrUpdateEncryptedEntityMetadata(
+        { entity, type: entityType },
+        {
+          [await this.dataOwnerApi.getCurrentDataOwnerId()]: {
+            shareEncryptionKeys: ShareMetadataBehaviour.NEVER,
+            shareOwningEntityIds: ShareMetadataBehaviour.NEVER,
+            shareSecretIds: [confidentialSecretId],
+            requestedPermissions: RequestedPermissionEnum.MAX_WRITE,
+          },
+        },
+        (request) => doRequestBulkShareOrUpdate(request)
+      )
+    ).updatedEntityOrThrow
+  }
+
+  async getConfidentialSecretId(entity: EncryptedEntityWithType, dataOwnerId?: string): Promise<string | undefined> {
+    return this.getConfidentialSecretIds(entity, dataOwnerId).then((x) => x[0])
+  }
+
+  async getConfidentialSecretIds(entity: EncryptedEntityWithType, dataOwnerId?: string): Promise<string[]> {
+    const chosenDataOwnerId = dataOwnerId ?? (await this.dataOwnerApi.getCurrentDataOwnerId())
+    const dataOwnerHierarchy = await this.dataOwnerApi.getCurrentDataOwnerHierarchyIdsFrom(chosenDataOwnerId)
+    const hierarchySecretIds = (await this.secretIdsForHcpHierarchyOf(entity)).filter((x) => dataOwnerHierarchy.includes(x.ownerId))
+    const keysForDataOwner = hierarchySecretIds.find((x) => x.ownerId === chosenDataOwnerId)
+
+    if (!keysForDataOwner) return []
+    return keysForDataOwner.extracted.filter((k) => !hierarchySecretIds.some((x) => x.ownerId !== chosenDataOwnerId && x.extracted.includes(k)))
+  }
+
+  async getAnySecretIdSharedWithParents(entity: EncryptedEntityWithType): Promise<string | undefined> {
+    return (await this.getSecretIdsSharedWithParents(entity))[0]
+  }
+
+  async getSecretIdsSharedWithParents(entity: EncryptedEntityWithType): Promise<string[]> {
+    return (await this.secretIdsForHcpHierarchyOf(entity))[0].extracted
+  }
+
+  async resolveSecretIdUseOptions(entity: EncryptedEntityWithType, option: SecretIdUseOption): Promise<string[]> {
+    if (option == SecretIdUseOption.UseNone) {
+      return []
+    } else if (option == SecretIdUseOption.UseAnyConfidential) {
+      const all = await this.getConfidentialSecretIds(entity, undefined)
+      if (all.length == 0) throw new Error("Couldn't find any confidential secret id")
+      return [all[0]]
+    } else if (option == SecretIdUseOption.UseAllConfidential) {
+      const all = await this.getConfidentialSecretIds(entity, undefined)
+      if (all.length == 0) throw new Error("Couldn't find any confidential secret id")
+      return all
+    } else if (option == SecretIdUseOption.UseAnySharedWithParent) {
+      const all = await this.getSecretIdsSharedWithParents(entity)
+      if (all.length == 0) throw new Error("Couldn't find any secret id shared with parent")
+      return [all[0]]
+    } else if (option == SecretIdUseOption.UseAllSharedWithParent) {
+      const all = await this.getSecretIdsSharedWithParents(entity)
+      if (all.length == 0) throw new Error("Couldn't find any secret id shared with parent")
+      return all
+    } else if (option instanceof SecretIdUseOption.Use) {
+      return [...new Set(option.secretIds)]
+    } else {
+      throw new Error(`Unrecognized SecretIdUseOption ${option}`)
+    }
   }
 }
