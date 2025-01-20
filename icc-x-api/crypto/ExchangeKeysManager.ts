@@ -6,6 +6,14 @@ import { CryptoStrategies } from './CryptoStrategies'
 import { IcureStorageFacade } from '../storage/IcureStorageFacade'
 import { DataOwnerTypeEnum } from '../../icc-api/model/DataOwnerTypeEnum'
 
+type CacheValue =
+  | {
+      encrypted: { [fp: string]: string }[]
+    }
+  | {
+      decrypted: Promise<CryptoKey[]>
+    }
+
 /**
  * @internal This class is meant only for internal use and may be changed without notice.
  * More powerful version of {@link BaseExchangeKeysManager} with a simplified interface. Has the following functionalities:
@@ -15,7 +23,7 @@ import { DataOwnerTypeEnum } from '../../icc-api/model/DataOwnerTypeEnum'
  * - Automatically retrieves the private keys to use during decryption.
  */
 export class ExchangeKeysManager {
-  private cache: { [delegator: string]: { [delegate: string]: CryptoKey[] } } = {}
+  private cache: { [delegator: string]: { [delegate: string]: CacheValue } } = {}
 
   get base(): BaseExchangeKeysManager {
     return this.baseExchangeKeysManager
@@ -36,7 +44,23 @@ export class ExchangeKeysManager {
    * @return all available exchange keys from the delegator-delegate pair.
    */
   async getDecryptionExchangeKeysFor(delegatorId: string, delegateId: string): Promise<CryptoKey[]> {
-    return this.cache[delegatorId]?.[delegateId] ?? []
+    const entry = this.cache[delegatorId]?.[delegateId]
+    if (entry != undefined) {
+      if ('decrypted' in entry) {
+        return await entry.decrypted
+      } else {
+        const decryptedPromise = this.decryptChunk(entry.encrypted)
+        this.cache[delegatorId][delegateId] = { decrypted: decryptedPromise }
+        return await decryptedPromise
+      }
+    } else {
+      return []
+    }
+  }
+
+  private async decryptChunk(encryptedKeys: { [fp: string]: string }[]): Promise<CryptoKey[]> {
+    const decryptionKeys = this.keyManager.getDecryptionKeys()
+    return (await this.base.tryDecryptExchangeKeys(encryptedKeys, decryptionKeys)).successfulDecryptions
   }
 
   /**
@@ -61,18 +85,18 @@ export class ExchangeKeysManager {
         )
       )
     )
-    const encryptedKeys: { [delegator: string]: { [delegate: string]: { [pubFp: string]: string }[] } } = {}
+    const encryptedKeys: { [delegator: string]: { [delegate: string]: { encrypted: { [pubFp: string]: string }[] } } } = {}
     for (const [dataOwner, info] of Object.entries(encryptedKeysDataByHierarchyMember)) {
       for (const [delegator, encryptedByDelegatorFp] of Object.entries(info.keysToOwner)) {
         if (!encryptedKeys[delegator]) {
           encryptedKeys[delegator] = {}
         }
         if (!encryptedKeys[delegator][dataOwner]) {
-          encryptedKeys[delegator][dataOwner] = []
+          encryptedKeys[delegator][dataOwner] = { encrypted: [] }
         }
         const keysForDelegatorDelegate = encryptedKeys[delegator][dataOwner]
         for (const encryptedEntries of Object.values(encryptedByDelegatorFp)) {
-          keysForDelegatorDelegate.push(encryptedEntries)
+          keysForDelegatorDelegate.encrypted.push(encryptedEntries)
         }
       }
       for (const encryptedByDelegateId of Object.values(info.keysFromOwner)) {
@@ -81,21 +105,12 @@ export class ExchangeKeysManager {
             encryptedKeys[dataOwner] = {}
           }
           if (!encryptedKeys[dataOwner][delegate]) {
-            encryptedKeys[dataOwner][delegate] = []
+            encryptedKeys[dataOwner][delegate] = { encrypted: [] }
           }
-          encryptedKeys[dataOwner][delegate].push(encryptedEntries)
+          encryptedKeys[dataOwner][delegate].encrypted.push(encryptedEntries)
         }
       }
     }
-    const decryptionKeys = this.keyManager.getDecryptionKeys()
-    const decrypted: { [delegator: string]: { [delegate: string]: CryptoKey[] } } = {}
-    for (const [delegator, keysByDelegate] of Object.entries(encryptedKeys)) {
-      const currDelegatorData: { [delegate: string]: CryptoKey[] } = {}
-      for (const [delegate, keys] of Object.entries(keysByDelegate)) {
-        currDelegatorData[delegate] = (await this.base.tryDecryptExchangeKeys(keys, decryptionKeys)).successfulDecryptions
-      }
-      decrypted[delegator] = currDelegatorData
-    }
-    this.cache = decrypted
+    this.cache = encryptedKeys
   }
 }
