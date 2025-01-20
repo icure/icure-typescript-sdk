@@ -108,7 +108,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     options: {
       additionalDelegates?: { [dataOwnerId: string]: AccessLevelEnum }
       sfkOption?: SecretIdUseOption
-      ignoreAutoDelegation?: boolean // default is considered false
+      ignoreAutoDelegations?: boolean // default is considered false
     } = {}
   ): Promise<models.Contact> {
     const contact = new models.Contact({
@@ -134,7 +134,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       options.sfkOption ?? SecretIdUseOption.UseAnySharedWithParent
     )
     const extraDelegations = {
-      ...(options.ignoreAutoDelegation
+      ...(options.ignoreAutoDelegations
         ? {}
         : Object.fromEntries(
             [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])].map((d) => [d, AccessLevelEnum.WRITE])
