@@ -17,7 +17,7 @@ export namespace SecretIdUseOption {
    * secret id".
    * Guarantees that a secret id is used: if no secret id is found, the initialization method will fail.
    */
-  export const UseAnyConfidential: { readonly kind: symbol } = { kind: Symbol('SecretIdUseOption.UseAnyConfidential') }
+  export const UseAnyConfidential: { readonly kind: 'SecretIdUseOption.UseAnyConfidential' } = { kind: 'SecretIdUseOption.UseAnyConfidential' }
 
   /**
    * This will use all secret ids that aren't known by any parent hcp of the current data owner.
@@ -25,7 +25,7 @@ export namespace SecretIdUseOption {
    * id".
    * Guarantees that a secret id is used: if no secret id is found, the initialization method will fail.
    */
-  export const UseAllConfidential: { readonly kind: symbol } = { kind: Symbol('SecretIdUseOption.UseAllConfidential') }
+  export const UseAllConfidential: { readonly kind: 'SecretIdUseOption.UseAllConfidential' } = { kind: 'SecretIdUseOption.UseAllConfidential' }
 
   /**
    * This will use one secret id that is known by the topmost ancestor in the current data owner hierarchy.
@@ -33,7 +33,9 @@ export namespace SecretIdUseOption {
    * secret id".
    * Guarantees that a secret id is used: if no secret id is found, the initialization method will fail.
    */
-  export const UseAnySharedWithParent: { readonly kind: symbol } = { kind: Symbol('SecretIdUseOption.UseAnySharedWithParent') }
+  export const UseAnySharedWithParent: { readonly kind: 'SecretIdUseOption.UseAnySharedWithParent' } = {
+    kind: 'SecretIdUseOption.UseAnySharedWithParent',
+  }
 
   /**
    * This will use all secret id that is known by the topmost ancestor in the current data owner hierarchy.
@@ -41,7 +43,9 @@ export namespace SecretIdUseOption {
    * id".
    * Guarantees that a secret id is used: if no secret id is found, the initialization method will fail.
    */
-  export const UseAllSharedWithParent: { readonly kind: symbol } = { kind: Symbol('SecretIdUseOption.UseAllSharedWithParent') }
+  export const UseAllSharedWithParent: { readonly kind: 'SecretIdUseOption.UseAllSharedWithParent' } = {
+    kind: 'SecretIdUseOption.UseAllSharedWithParent',
+  }
 
   /**
    * Specify explicitly which secret ids to use. The secretIds can also be empty, in which case the value is
@@ -57,5 +61,5 @@ export namespace SecretIdUseOption {
    * The new entity will still have a link to the owning entity, but there will be no link from the owning entity to
    * the new entity.
    */
-  export const UseNone: { readonly kind: symbol } = { kind: Symbol('SecretIdUseOption.UseNone') }
+  export const UseNone: { readonly kind: 'SecretIdUseOption.UseNone' } = { kind: 'SecretIdUseOption.UseNone' }
 }
