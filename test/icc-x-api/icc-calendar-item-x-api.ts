@@ -147,7 +147,7 @@ describe('icc-calendar-item-x-api Tests', () => {
     expect((await api1.calendarItemApi.getCalendarItemWithUser(user1, calendarItem.id)).title).to.equal(itemTitle)
     expect(await api1.calendarItemApi.decryptPatientIdOf(calendarItem)).to.have.length(0)
     expect(calendarItem.secretForeignKeys ?? []).to.have.length(0)
-    const linked = await api1.calendarItemApi.linkToPatient(calendarItem, patient, [user2.healthcarePartyId!, user3.healthcarePartyId!])
+    const linked = await api1.calendarItemApi.linkWithPatient(calendarItem, patient, [user2.healthcarePartyId!, user3.healthcarePartyId!])
     expect(linked.title).to.equal(itemTitle)
     expect(linked.secretForeignKeys ?? []).to.have.length(1)
     expect(linked.secretForeignKeys![0]).to.equal(patientSecretIds[0])

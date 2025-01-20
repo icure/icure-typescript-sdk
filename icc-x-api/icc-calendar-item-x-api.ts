@@ -468,21 +468,28 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
   }
 
   /**
-   * Links a calendar item with a patient. Note that this operation is not reversible: it is not possible to change the patient linked to a calendar
+   * Adds a bidirectional link between a calendar item with a patient.
+   * Note that this operation is not reversible: it is not possible to change the patient linked to a calendar
    * item.
    * @param calendarItem a calendar item
    * @param patient the patient which will be linked to the calendar item.
    * @param shareLinkWithDelegates data owners other than the current data owner which will also be able to decrypt the id of the newly linked
    * patient. If any of these data owners do not already have access to the calendar item, they will be granted read access (no write).
+   * @param sfkOption specify how to create the link from the patient
    * @return the updated calendar item
    */
-  async linkToPatient(calendarItem: models.CalendarItem, patient: models.Patient, shareLinkWithDelegates: string[]): Promise<models.CalendarItem> {
-    if (!!calendarItem.secretForeignKeys?.length) throw new Error(`Calendar item ${calendarItem.id} is already linked to a patient`)
+  async linkWithPatient(
+    calendarItem: models.CalendarItem,
+    patient: models.Patient,
+    shareLinkWithDelegates: string[],
+    sfkOption?: SecretIdUseOption
+  ): Promise<models.CalendarItem> {
+    if (this.hasLinkFromPatient(calendarItem)) throw new Error(`Calendar item ${calendarItem.id} is already linked to a patient`)
     const delegates = [...new Set([await this.dataOwnerApi.getCurrentDataOwnerId(), ...shareLinkWithDelegates])]
-    const sfk = await this.crypto.xapi.getAnySecretIdSharedWithParents({ entity: patient, type: EntityWithDelegationTypeName.Patient })
-    if (!sfk) {
-      throw new Error(`Could not find any secret id for patient ${patient.id} which is shared with the topmost ancestor of the current data owner`)
-    }
+    const sfk = await this.crypto.xapi.resolveSecretIdUseOptions(
+      { entity: patient, type: EntityWithDelegationTypeName.Patient },
+      sfkOption ?? SecretIdUseOption.UseAnySharedWithParent
+    )
     const individualShareData = {
       shareSecretIds: [] as string[],
       shareEncryptionKeys: [] as string[],
@@ -509,8 +516,47 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
     }
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     const sharedDecrypted = (await this.decrypt(self, [shared.updatedEntities[0]]))[0]
-    const withSfk = await this.modifyAs(self, { ...sharedDecrypted, secretForeignKeys: [sfk] })
-    return (await this.decrypt(self, [withSfk]))[0]
+    if (sfk.length > 0) {
+      return await this.modifyAs(self, { ...sharedDecrypted, secretForeignKeys: sfk })
+    } else {
+      return sharedDecrypted
+    }
+  }
+
+  /**
+   * Checks if a calendar item has an (encrypted) link from a patient.
+   * Calendar item where this method returns false won't be findable when searching for them by patient.
+   * If this method returns false there may still be a link to the patient; you can check for it by using the method
+   * {@link decryptPatientIdOf}.
+   *
+   * Note: this method only checks the presence of a link, it doesn't verify that it is valid (for example, this method
+   * doesn't check if the link from the patient matches the link to the patient).
+   */
+  hasLinkFromPatient(calendarItem: CalendarItem): boolean {
+    return (calendarItem.secretForeignKeys ?? []).length > 0
+  }
+
+  /**
+   * Adds a link to a calendar item allowing it to be found from the patient.
+   * This method only adds a partial link; if the calendar item is not already linked to the patient you should
+   * instead use the {@link linkWithPatient}
+   * @param calendarItem the calendar item to update.
+   * @param patient the patient to link with the calendar item.
+   * @param sfkOption customize how to create the link.
+   * @return the updated calendar item
+   */
+  async addLinkFromPatient(calendarItem: CalendarItem, patient: models.Patient, sfkOption?: SecretIdUseOption): Promise<CalendarItem> {
+    if (this.hasLinkFromPatient(calendarItem)) throw new Error(`Calendar item ${calendarItem.id} is already linked to a patient`)
+    const self = await this.dataOwnerApi.getCurrentDataOwnerId()
+    const sfk = await this.crypto.xapi.resolveSecretIdUseOptions(
+      { entity: patient, type: EntityWithDelegationTypeName.Patient },
+      sfkOption ?? SecretIdUseOption.UseAnySharedWithParent
+    )
+    if (sfk.length > 0) {
+      return await this.modifyAs(self, { ...calendarItem, secretForeignKeys: sfk })
+    } else {
+      return calendarItem
+    }
   }
 
   createDelegationDeAnonymizationMetadata(entity: CalendarItem, delegates: string[]): Promise<void> {

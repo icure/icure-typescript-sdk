@@ -10,6 +10,7 @@ import UseAnySharedWithParent = SecretIdUseOption.UseAnySharedWithParent
 import { randomUUID } from 'crypto'
 import UseAllConfidential = SecretIdUseOption.UseAllConfidential
 import UseAllSharedWithParent = SecretIdUseOption.UseAllSharedWithParent
+import UseNone = SecretIdUseOption.UseNone
 
 setLocalStorage(fetch)
 
@@ -204,5 +205,21 @@ describe('test confidential helement', () => {
       { sfkOption: UseAllSharedWithParent }
     )
     expect(allNonConfidentialHe.secretForeignKeys).to.have.members(confidentialSecretIds)
+  })
+
+  it('Should allow creation of half-links by using no sfk', async () => {
+    const { parentApi: childApi, parentUser: childUser, grandApi: parentApi, grandUser: parentUser } = await createHcpHierarchyApis(env!)
+
+    const pat = await childApi.patientApi.newInstance(childUser, { firstName: 'John', lastName: 'Doe' })
+    const halfLinkedHe = await childApi.healthcareElementApi.newInstance(
+      childUser,
+      pat,
+      { descr: 'Confidential info' },
+      { sfkOption: UseNone, ignoreAutoDelegations: true }
+    )
+    expect(halfLinkedHe.secretForeignKeys).to.have.length(0)
+    const decryptedPatientId = await childApi.healthcareElementApi.decryptPatientIdOf(halfLinkedHe)
+    expect(decryptedPatientId).to.have.length(1)
+    expect(decryptedPatientId[0]).to.equal(pat.id)
   })
 })
