@@ -300,4 +300,54 @@ export class IccIcureApi {
       .then((doc) => JSON.parse(JSON.stringify(doc.body)))
       .catch((err) => this.handleError(err))
   }
+
+  /**
+   * Gets the value of a property in the CouchDB configuration.
+   * WARNING: this method only works with a local installation of CouchDB.
+   * @param section the section of the configuration.
+   * @param key the specific key to get the value.
+   */
+  getCouchDbConfigProperty(section: string, key: string): Promise<string> {
+    const _url = this.host + `/icure/couchdb/config/${encodeURIComponent(section)}/${encodeURIComponent(key)}` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => JSON.parse(JSON.stringify(doc.body)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Sets the value of a property in the CouchDB configuration.
+   * WARNING: this method only works with a local installation of CouchDB.
+   * @param section the section of the configuration.
+   * @param key the specific key to get the value.
+   * @param value the value to set for the property.
+   */
+  setCouchDbConfigProperty(section: string, key: string, value: string): Promise<string> {
+    const _url =
+      this.host +
+      `/icure/couchdb/config/${encodeURIComponent(section)}/${encodeURIComponent(key)}` +
+      '?ts=' +
+      new Date().getTime() +
+      `&value=${encodeURIComponent(value)}`
+    let headers = this.headers
+    return XHR.sendCommand('PUT', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => JSON.parse(JSON.stringify(doc.body)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Sets the value of a property in kraken. The current supported properties are:
+   * - `useDataOwnerPartition` values: true/false
+   * - `useObsoleteViews` values: true/false
+   * WARNING: this method only works Kraken lite.
+   * @param property the name of the property to set.
+   * @param value the value to set for the property.
+   */
+  setLiteConfigProperty(property: string, value: string): Promise<string> {
+    const _url = this.host + `/icure/lite/config/${encodeURIComponent(property)}/${encodeURIComponent(value)}` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('PUT', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => JSON.parse(JSON.stringify(doc.body)))
+      .catch((err) => this.handleError(err))
+  }
 }
