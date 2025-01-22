@@ -26,7 +26,7 @@ import { Patient } from './Patient'
 export class HealthcareParty {
   constructor(json: JSON | any) {
     let pictureData: { picture?: ArrayBuffer } = {}
-    if (!!json.picture) {
+    if (!!json?.picture) {
       if (typeof json.picture === 'string') {
         pictureData.picture = b64_2ab(json.picture)
       } else if (json.picture instanceof ArrayBuffer || ArrayBuffer.isView(json.picture)) {

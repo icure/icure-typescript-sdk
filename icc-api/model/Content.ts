@@ -21,7 +21,7 @@ import { b64_2ab } from './ModelHelper'
 export class Content {
   constructor(json: JSON | any) {
     let binaryData: { binaryValue?: ArrayBuffer } = {}
-    if (!!json.binaryValue) {
+    if (!!json?.binaryValue) {
       if (typeof json.binaryValue === 'string') {
         binaryData.binaryValue = b64_2ab(json.binaryValue)
       } else if (json.binaryValue instanceof ArrayBuffer || ArrayBuffer.isView(json.binaryValue)) {
