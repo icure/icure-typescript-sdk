@@ -33,7 +33,7 @@ import { EntityWithDelegationTypeName } from '../../icc-x-api/utils/EntityWithDe
 export class Patient {
   constructor(json: JSON | any) {
     let pictureData: { picture?: ArrayBuffer } = {}
-    if (!!json.picture) {
+    if (!!json?.picture) {
       if (typeof json.picture === 'string') {
         pictureData.picture = b64_2ab(json.picture)
       } else if (json.picture instanceof ArrayBuffer || ArrayBuffer.isView(json.picture)) {
@@ -328,7 +328,6 @@ export class Patient {
   schoolingInfos?: Array<SchoolingInfo>
   employementInfos?: Array<EmploymentInfo>
   securityMetadata?: SecurityMetadata
-  
 }
 export namespace Patient {
   export type GenderEnum = 'male' | 'female' | 'indeterminate' | 'changed' | 'changedToMale' | 'changedToFemale' | 'unknown'
