@@ -204,7 +204,7 @@ describe('test confidential helement', () => {
       { descr: 'Confidential info' },
       { sfkOption: UseAllSharedWithParent }
     )
-    expect(allNonConfidentialHe.secretForeignKeys).to.have.members(confidentialSecretIds)
+    expect(allNonConfidentialHe.secretForeignKeys).to.have.members(nonConfidentialSecretIds)
   })
 
   it('Should allow creation of half-links by using no sfk', async () => {
@@ -221,5 +221,42 @@ describe('test confidential helement', () => {
     const decryptedPatientId = await childApi.healthcareElementApi.decryptPatientIdOf(halfLinkedHe)
     expect(decryptedPatientId).to.have.length(1)
     expect(decryptedPatientId[0]).to.equal(pat.id)
+  })
+
+  it('Should allow creation of links using the provided sfks', async () => {
+    const { parentApi: childApi, parentUser: childUser, grandApi: parentApi, grandUser: parentUser } = await createHcpHierarchyApis(env!)
+
+    const pat = await childApi.patientApi.newInstance(childUser, { firstName: 'John', lastName: 'Doe' })
+    const modifiedPatient = (await childApi.patientApi.initConfidentialSecretId(pat, childUser))!
+    const secretIds = await childApi.patientApi.decryptSecretIdsOf(modifiedPatient)
+    expect(secretIds).to.have.length(2)
+    const halfLinkedHe = await childApi.healthcareElementApi.newInstance(
+      childUser,
+      pat,
+      { descr: 'Confidential info' },
+      { sfkOption: new SecretIdUseOption.Use([]), ignoreAutoDelegations: true }
+    )
+    expect(halfLinkedHe.secretForeignKeys).to.have.length(0)
+    const linkedHeSfk0 = await childApi.healthcareElementApi.newInstance(
+      childUser,
+      pat,
+      { descr: 'Confidential info' },
+      { sfkOption: new SecretIdUseOption.Use([secretIds[0]]), ignoreAutoDelegations: true }
+    )
+    expect(linkedHeSfk0.secretForeignKeys).to.have.members([secretIds[0]])
+    const linkedHeSfk1 = await childApi.healthcareElementApi.newInstance(
+      childUser,
+      pat,
+      { descr: 'Confidential info' },
+      { sfkOption: new SecretIdUseOption.Use([secretIds[1]]), ignoreAutoDelegations: true }
+    )
+    expect(linkedHeSfk1.secretForeignKeys).to.have.members([secretIds[1]])
+    const linkedHeSfkBoth = await childApi.healthcareElementApi.newInstance(
+      childUser,
+      pat,
+      { descr: 'Confidential info' },
+      { sfkOption: new SecretIdUseOption.Use(secretIds), ignoreAutoDelegations: true }
+    )
+    expect(linkedHeSfkBoth.secretForeignKeys).to.have.members(secretIds)
   })
 })
