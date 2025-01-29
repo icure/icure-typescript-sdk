@@ -92,6 +92,7 @@ export class Invoice {
    */
   recipientId?: string
   invoiceReference?: string
+  decisionReference?: string
   thirdPartyReference?: string
   thirdPartyPaymentJustification?: string
   thirdPartyPaymentReason?: string
@@ -168,7 +169,6 @@ export class Invoice {
    */
   encryptedSelf?: string
   securityMetadata?: SecurityMetadata
-  
 }
 export namespace Invoice {
   export type InvoiceTypeEnum = 'patient' | 'mutualfund' | 'payingagency' | 'insurance' | 'efact' | 'other'
