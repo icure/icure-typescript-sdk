@@ -26,6 +26,8 @@ import { Vmp } from '../model/Vmp'
 import { VmpGroup } from '../model/VmpGroup'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
+import { SamV2UpdateTaskLogItem } from '../model/SamV2UpdateTaskLogItem'
+import { SamV2Update } from '../model/SamV2Update'
 
 export class IccBesamv2Api {
   host: string
@@ -51,6 +53,65 @@ export class IccBesamv2Api {
 
   handleError(e: XHR.XHRError): never {
     throw e
+  }
+
+  /**
+   * Warning: this function will work only with a single node installation of CouchDB
+   *
+   * Starts a new task on the backend that will retrieve all the missing updates on the drugs and ChapIV databases, and
+   * it will apply them.
+   * This method will fail if an update task is currently running or if the backend was not configured to run the update task.
+   * As the operation may last several minutes, this process will not return the task status.
+   * Instead, it is possible to check the status of the task using the {@link getSamUpdateTaskStatus} method.
+   * @param apiToken a token from a cloud installation of the kraken.
+   */
+  triggerSamUpdateTask(apiToken: string): Promise<string> {
+    const _url = this.host + `/be_samv2/patch?apiToken=${encodeURIComponent(apiToken)}`
+    let headers = this.headers
+    return XHR.sendCommand('POST', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => doc.body as string)
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Warning: this function will work only with a single node installation of CouchDB
+   * Returns the log of a SAM update operation that is running on the backend or the last the completed.
+   * Starting a new task will erase the log of the previous task.
+   * The item in the array are sorted from most recent to last recent.
+   * This method will fail if the backend was not configured to run the update task.
+   */
+  getSamUpdateTaskStatus(): Promise<SamV2UpdateTaskLogItem[]> {
+    const _url = this.host + `/be_samv2/patch`
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new SamV2UpdateTaskLogItem(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Warning: this function will work only with a single node installation of CouchDB
+   * Returns all the SamV2 updates successfully applied to the drugs and ChapIV databases.
+   * This method will fail if the backend was not configured to run the update task.
+   */
+  getSamUpdateTaskHistory(): Promise<SamV2Update[]> {
+    const _url = this.host + `/be_samv2/patch/history`
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new SamV2Update(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Warning: this function will work only with a single node installation of CouchDB
+   * Stops the current sam update task on the backend.
+   * This method will fail if there is no method currently running on the backend or if the backend was not configured to run the update task.
+   */
+  stopCurrentSamUpdateTask(): Promise<string> {
+    const _url = this.host + `/be_samv2/patch`
+    let headers = this.headers
+    return XHR.sendCommand('DELETE', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => doc.body as string)
+      .catch((err) => this.handleError(err))
   }
 
   /**
