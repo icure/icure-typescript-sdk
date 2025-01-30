@@ -69,7 +69,7 @@ export class IccBesamv2Api {
     const _url = this.host + `/be_samv2/patch?apiToken=${encodeURIComponent(apiToken)}`
     let headers = this.headers
     return XHR.sendCommand('POST', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => doc.body as string)
+      .then((doc) => JSON.stringify(doc.body))
       .catch((err) => this.handleError(err))
   }
 
@@ -110,7 +110,7 @@ export class IccBesamv2Api {
     const _url = this.host + `/be_samv2/patch`
     let headers = this.headers
     return XHR.sendCommand('DELETE', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => doc.body as string)
+      .then((doc) => JSON.stringify(doc.body))
       .catch((err) => this.handleError(err))
   }
 
