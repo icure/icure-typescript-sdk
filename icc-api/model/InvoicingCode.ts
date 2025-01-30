@@ -31,6 +31,7 @@ export class InvoicingCode {
   patientIntervention?: number
   doctorSupplement?: number
   conventionAmount?: number
+  productLabel?: string
   vat?: number
   error?: string
   contract?: string

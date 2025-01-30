@@ -272,6 +272,25 @@ export class IccInvoiceApi {
   }
 
   /**
+   * @summary List Invoice ids by data owner and a decision reference
+   *
+   * @param dataOwnerId the data owner id.
+   * @param decisionReference the decision reference to search.
+   * @return a promise that will resolve in an Array of Invoice ids.
+   */
+  async findInvoiceIdsByDataOwnerDecisionReference(dataOwnerId: string, decisionReference: string): Promise<string[]> {
+    const _url =
+      this.host +
+      `/invoice/byDecisionReference?ts=${new Date().getTime()}` +
+      `&dataOwnerId=${encodeURIComponent(dataOwnerId)}` +
+      `&decisionReference=${encodeURIComponent(decisionReference)}`
+    const headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    * @deprecated use {@link findInvoicesDelegationsStubsByIds} instead.
    * @summary List helement stubs found By Healthcare Party and secret foreign keys.
    * @param body
