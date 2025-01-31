@@ -85,7 +85,6 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
       codes: h?.codes ?? [],
       tags: h?.tags ?? [],
       user: h?.user ?? user.id,
-      patientId: h?.patientId ?? patient.id,
       accessType: h?.accessType ?? 'USER_ACCESS',
     }
 
