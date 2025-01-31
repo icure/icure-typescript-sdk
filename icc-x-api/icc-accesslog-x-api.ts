@@ -103,6 +103,55 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
     )
   }
 
+  /**
+   * Creates a new instance of access log with initialised encryption metadata (not in the database).
+   * @param user the current user.
+   * @param h initialised data for the access log. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
+   * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
+   * @param options optional parameters:
+   * - additionalDelegates: delegates which will have access to the entity in addition to the current data owner and delegates from the
+   * auto-delegations. Must be an object which associates each data owner id with the access level to give to that data owner. May overlap with
+   * auto-delegations, in such case the access level specified here will be used.
+   * @return a new instance of access log.
+   */
+  async newInstanceNoPatient(
+    user: models.User,
+    h: any,
+    options: {
+      additionalDelegates?: { [dataOwnerId: string]: AccessLevelEnum }
+    } = {}
+  ) {
+    const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
+    const accessLog = {
+      ...(h ?? {}),
+      _type: 'org.taktik.icure.entities.AccessLog',
+      id: h?.id ?? this.crypto.primitives.randomUuid(),
+      created: h?.created ?? new Date().getTime(),
+      modified: h?.modified ?? new Date().getTime(),
+      date: h?.date ?? new Date().getTime(),
+      responsible: h?.responsible ?? (this.autofillAuthor ? dataOwnerId : undefined),
+      author: h?.author ?? (this.autofillAuthor ? user.id : undefined),
+      codes: h?.codes ?? [],
+      tags: h?.tags ?? [],
+      user: h?.user ?? user.id,
+      accessType: h?.accessType ?? 'USER_LOGIN',
+    }
+
+    const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
+    if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
+    const extraDelegations = {
+      ...Object.fromEntries(
+        [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.administrativeData ?? [])].map((x) => [x, AccessLevelEnum.WRITE])
+      ),
+      ...(options.additionalDelegates ?? {}),
+    }
+    return new AccessLog(
+      await this.crypto.xapi
+        .entityWithInitialisedEncryptedMetadata(accessLog, EntityWithDelegationTypeName.AccessLog, undefined, undefined, true, extraDelegations)
+        .then((x) => x.updatedEntity)
+    )
+  }
+
   // noinspection JSUnusedGlobalSymbols
   /**
    * 1. Check whether there is a delegation with 'hcpartyId' or not.
