@@ -623,4 +623,16 @@ export class IccUserApi {
       .then(() => {})
       .catch((err) => this.handleError(err))
   }
+
+  async getUsers(body?: ListOfIds): Promise<Array<User>> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/user/byIds` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new User(it)))
+      .catch((err) => this.handleError(err))
+  }
 }

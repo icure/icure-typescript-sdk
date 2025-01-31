@@ -2,7 +2,6 @@ import { createHcpHierarchyApis, getEnvironmentInitializer, isLiteTest, setLocal
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import { expect } from 'chai'
 import 'isomorphic-fetch'
-import { SecureDelegation } from '../../icc-api/model/SecureDelegation'
 import { EntityWithDelegationTypeName } from '../../icc-x-api'
 import { SecretIdUseOption } from '../../icc-x-api/crypto/SecretIdUseOption'
 import UseAnyConfidential = SecretIdUseOption.UseAnyConfidential
