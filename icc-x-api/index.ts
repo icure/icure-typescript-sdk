@@ -133,6 +133,7 @@ export { KeyStorageImpl } from './storage/KeyStorageImpl'
 export { CryptoStrategies } from './crypto/CryptoStrategies'
 export { NativeCryptoPrimitivesBridge } from './crypto/NativeCryptoPrimitivesBridge'
 export { hexPublicKeysWithSha1Of, hexPublicKeysWithSha256Of, getShaVersionForKey } from './crypto/utils'
+export { SecretIdUseOption } from './crypto/SecretIdUseOption'
 
 export interface BasicApis {
   readonly authApi: IccAuthApi
