@@ -305,7 +305,7 @@ __metadata:
     "@types/lodash": ^4.14.182
     "@types/md5": ^2.3.2
     "@types/mocha": ^9.1.0
-    "@types/node": ^16.11.41
+    "@types/node": ^18.19.75
     "@types/node-localstorage": ^1.3.0
     "@types/react-dom": ^18.0.8
     "@types/rsocket-core": ^0.0.7
@@ -597,10 +597,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:^16.11.41":
-  version: 16.18.11
-  resolution: "@types/node@npm:16.18.11"
-  checksum: 2a3b1da13063debe6e26f732defb5f03ef4ef732c3e08daba838d8850433bd00e537ce1a97ce9bcfc4b15db5218d701d1265fae94e0d6926906bec157e6b46e0
+"@types/node@npm:^18.19.75":
+  version: 18.19.75
+  resolution: "@types/node@npm:18.19.75"
+  dependencies:
+    undici-types: ~5.26.4
+  checksum: 8f780a51a2dc1d597b104a2c33a2ab175fda492defbaab2cbb5fd098124d867ebed7cda0eaf80309bba25fbd4e41b4a04c91b7f14b50547b4377a39ccf749a7c
   languageName: node
   linkType: hard
 
@@ -3260,6 +3262,13 @@ __metadata:
     tsc: bin/tsc
     tsserver: bin/tsserver
   checksum: 2160f7ad975c59b2f5816817d3916be1d156c5688a7517602b3b640c5015e740f4ba933996ac85371d68f7bbdd41602150fb8b68334122ac637fdb5418085e7a
+  languageName: node
+  linkType: hard
+
+"undici-types@npm:~5.26.4":
+  version: 5.26.5
+  resolution: "undici-types@npm:5.26.5"
+  checksum: 3192ef6f3fd5df652f2dc1cd782b49d6ff14dc98e5dced492aa8a8c65425227da5da6aafe22523c67f035a272c599bb89cfe803c1db6311e44bed3042fc25487
   languageName: node
   linkType: hard
 
