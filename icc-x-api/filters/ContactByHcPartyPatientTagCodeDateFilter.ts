@@ -21,7 +21,6 @@ export class ContactByHcPartyPatientTagCodeDateFilter extends AbstractFilterCont
 
   desc?: string
   healthcarePartyId?: string
-  patientSecretForeignKey?: string
   patientSecretForeignKeys?: Array<string>
   tagType?: string
   tagCode?: string

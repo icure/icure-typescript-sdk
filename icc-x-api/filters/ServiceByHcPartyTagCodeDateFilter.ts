@@ -21,7 +21,7 @@ export class ServiceByHcPartyTagCodeDateFilter extends AbstractFilterService {
 
   desc?: string
   healthcarePartyId?: string
-  patientSecretForeignKey?: string
+  patientSecretForeignKeys?: string[]
   tagType?: string
   tagCode?: string
   codeType?: string
