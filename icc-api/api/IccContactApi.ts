@@ -243,71 +243,6 @@ export class IccContactApi {
   }
 
   /**
-   * Keys must be delimited by coma
-   * @deprecated use {@link findContactIdsByDataOwnerPatientOpeningDate} instead.
-   * @summary Get a list of contacts found by Healthcare Party and secret foreign keys.
-   * @param hcPartyId
-   * @param planOfActionsIds
-   * @param skipClosedContacts
-    @param body
-   */
-  async findByHCPartyPatientSecretFKeysUsingPost(
-    hcPartyId: string,
-    planOfActionsIds?: string,
-    skipClosedContacts?: boolean,
-    body?: Array<string>
-  ): Promise<Array<Contact>> {
-    let _body = null
-    _body = body
-
-    const _url =
-      this.host +
-      `/contact/byHcPartySecretForeignKeys` +
-      '?ts=' +
-      new Date().getTime() +
-      (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
-      (planOfActionsIds ? '&planOfActionsIds=' + encodeURIComponent(String(planOfActionsIds)) : '') +
-      (skipClosedContacts ? '&skipClosedContacts=' + encodeURIComponent(String(skipClosedContacts)) : '')
-    let headers = await this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new Contact(it)))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
-   * Keys must be delimited by coma
-   * @deprecated use {@link findContactIdsByDataOwnerPatientOpeningDate} instead.
-   * @summary Get a list of contacts found by Healthcare Party and secret foreign keys.
-   * @param hcPartyId
-   * @param secretFKeys
-   * @param planOfActionsIds
-   * @param skipClosedContacts
-   */
-  async findByHCPartyPatientSecretFKeys(
-    hcPartyId: string,
-    secretFKeys: string,
-    planOfActionsIds?: string,
-    skipClosedContacts?: boolean
-  ): Promise<Array<Contact>> {
-    let _body = null
-
-    const _url =
-      this.host +
-      `/contact/byHcPartySecretForeignKeys` +
-      '?ts=' +
-      new Date().getTime() +
-      (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
-      (secretFKeys ? '&secretFKeys=' + encodeURIComponent(String(secretFKeys)) : '') +
-      (planOfActionsIds ? '&planOfActionsIds=' + encodeURIComponent(String(planOfActionsIds)) : '') +
-      (skipClosedContacts ? '&skipClosedContacts=' + encodeURIComponent(String(skipClosedContacts)) : '')
-    let headers = await this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new Contact(it)))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
    *
    * @summary List contacts found By Healthcare Party and service Id.
    * @param hcPartyId
@@ -350,29 +285,6 @@ export class IccContactApi {
   }
 
   /**
-   * @deprecated use {@link findContactIdsByDataOwnerPatientOpeningDate} instead.
-   * @summary Get a list of contacts found by Healthcare Party and Patient foreign keys.
-   * @param body
-   * @param hcPartyId
-   */
-  async findContactsByHCPartyPatientForeignKeys(hcPartyId: string, body?: ListOfIds): Promise<Array<Contact>> {
-    let _body = null
-    _body = body
-
-    const _url =
-      this.host +
-      `/contact/byHcPartyPatientForeignKeys` +
-      '?ts=' +
-      new Date().getTime() +
-      (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '')
-    let headers = await this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new Contact(it)))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
    * Retrieves the delegation stub of the Contact which ids are passed as parameter.
    * @param contactIds the ids of the contact for which the stub should be retrieved
    */
@@ -381,52 +293,6 @@ export class IccContactApi {
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, { ids: contactIds }, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
-   * Keys must be delimited by coma
-   * @deprecated use {@link findContactsDelegationsStubsByIds} instead.
-   * @summary List contacts found By Healthcare Party and secret foreign keys.
-   * @param body
-   * @param hcPartyId
-   */
-  async findContactsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(hcPartyId: string, body?: Array<string>): Promise<Array<IcureStub>> {
-    let _body = null
-    _body = body
-
-    const _url =
-      this.host +
-      `/contact/byHcPartySecretForeignKeys/delegations` +
-      '?ts=' +
-      new Date().getTime() +
-      (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '')
-    let headers = await this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
-   * @deprecated use {@link findContactsDelegationsStubsByIds} instead.
-   * @summary List contacts found By Healthcare Party and secret foreign keys.
-   * @param hcPartyId
-   * @param secretFKeys
-   */
-  async findContactsDelegationsStubsByHCPartyPatientForeignKeys(hcPartyId: string, secretFKeys: string): Promise<Array<IcureStub>> {
-    let _body = null
-
-    const _url =
-      this.host +
-      `/contact/byHcPartySecretForeignKeys/delegations` +
-      '?ts=' +
-      new Date().getTime() +
-      (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
-      (secretFKeys ? '&secretFKeys=' + encodeURIComponent(String(secretFKeys)) : '')
-    let headers = await this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
       .catch((err) => this.handleError(err))
   }

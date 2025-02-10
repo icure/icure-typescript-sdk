@@ -153,47 +153,6 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
   }
 
   /**
-   * 1. Check whether there is a delegation with 'hcpartyId' or not.
-   * 2. 'fetchHcParty[hcpartyId][1]': is encrypted AES exchange key by RSA public key of him.
-   * 3. Obtain the AES exchange key, by decrypting the previous step value with hcparty private key
-   *      3.1.  KeyPair should be fetch from cache (in jwk)
-   *      3.2.  if it doesn't exist in the cache, it has to be loaded from Browser Local store, and then import it to WebCrypto
-   * 4. Obtain the array of delegations which are delegated to his ID (hcpartyId) in this patient
-   * 5. Decrypt and collect all keys (secretForeignKeys) within delegations of previous step (with obtained AES key of step 4)
-   * 6. Do the REST call to get all contacts with (allSecretForeignKeysDelimitedByComa, hcpartyId)
-   *
-   * After these painful steps, you have the contacts of the patient.
-   *
-   * @deprecated use {@link findIdsBy} instead.
-   * @param hcpartyId
-   * @param patient (Promise)
-   * @param usingPost
-   */
-  async findBy(hcpartyId: string, patient: models.Patient, usingPost: boolean = false) {
-    return await this.crypto.xapi.secretIdsForHcpHierarchyOf({ entity: patient, type: EntityWithDelegationTypeName.Patient }).then((keysHierarchy) =>
-      keysHierarchy && keysHierarchy.length > 0
-        ? Promise.all(
-            keysHierarchy
-              .reduce((acc, level) => {
-                return acc.concat([
-                  {
-                    hcpartyId: level.ownerId,
-                    extractedKeys: level.extracted.filter((key) => !acc.some((previousLevel) => previousLevel.extractedKeys.includes(key))),
-                  },
-                ])
-              }, [] as Array<{ hcpartyId: string; extractedKeys: Array<string> }>)
-              .filter((l) => l.extractedKeys.length > 0)
-              .map(({ hcpartyId, extractedKeys }) =>
-                usingPost
-                  ? this.findByHCPartyPatientSecretFKeysArray(hcpartyId, _.uniq(extractedKeys))
-                  : this.findByHCPartyPatientSecretFKeys(hcpartyId, _.uniq(extractedKeys).join(','))
-              )
-          ).then((results) => _.uniqBy(_.flatMap(results), (x) => x.id))
-        : Promise.resolve([])
-    )
-  }
-
-  /**
    * Same as {@link findIdsBy} but it will only return the ids of the contacts. It can also filter the contacts where Contact.openingDate is between
    * startDate and endDate in ascending or descending order by that field. (default: ascending).
    */
@@ -216,41 +175,6 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
               )
           ).then((results) => _.uniq(_.flatMap(results)))
         : Promise.resolve([])
-    )
-  }
-
-  async findByPatientSFKs(hcpartyId: string, patients: Array<models.Patient>): Promise<Array<models.Contact>> {
-    const perHcpId: { [key: string]: string[] } = {}
-    for (const patient of patients) {
-      ;(await this.crypto.xapi.secretIdsForHcpHierarchyOf({ entity: patient, type: EntityWithDelegationTypeName.Patient }))
-        .reduce((acc, level) => {
-          return acc.concat([
-            {
-              hcpartyId: level.ownerId,
-              extractedKeys: level.extracted.filter((key) => !acc.some((previousLevel) => previousLevel.extractedKeys.includes(key))),
-            },
-          ])
-        }, [] as Array<{ hcpartyId: string; extractedKeys: Array<string> }>)
-        .filter((l) => l.extractedKeys.length > 0)
-        .forEach(({ hcpartyId, extractedKeys }) => {
-          ;(perHcpId[hcpartyId] || (perHcpId[hcpartyId] = [])).push(...extractedKeys)
-        })
-    }
-
-    return _.uniqBy(
-      _.flatMap(
-        await Promise.all(
-          Object.keys(perHcpId).map((hcpId) =>
-            this.findContactsByHCPartyPatientForeignKeys(
-              hcpartyId,
-              new models.ListOfIds({
-                ids: perHcpId[hcpId],
-              })
-            )
-          )
-        )
-      ),
-      (x) => x.id
     )
   }
 
@@ -299,34 +223,6 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
 
   createContact(body?: Contact): never {
     throw new Error('Cannot call a method that modify contacts without providing a user for de/encryption')
-  }
-
-  /**
-   * @deprecated use {@link findContactIdsByDataOwnerPatientOpeningDate} instead.
-   */
-  findByHCPartyPatientSecretFKeys(
-    hcPartyId: string,
-    secretFKeys: string,
-    planOfActionIds?: string,
-    skipClosedContacts?: boolean
-  ): Promise<Array<models.Contact>> {
-    return super
-      .findByHCPartyPatientSecretFKeys(hcPartyId, secretFKeys, planOfActionIds, skipClosedContacts)
-      .then((contacts) => this.decrypt(hcPartyId, contacts))
-  }
-
-  /**
-   * @deprecated use {@link findContactIdsByDataOwnerPatientOpeningDate} instead.
-   */
-  findByHCPartyPatientSecretFKeysArray(
-    hcPartyId: string,
-    secretFKeys: string[],
-    planOfActionIds?: string,
-    skipClosedContacts?: boolean
-  ): Promise<Array<models.Contact> | any> {
-    return super
-      .findByHCPartyPatientSecretFKeysUsingPost(hcPartyId, planOfActionIds, skipClosedContacts, secretFKeys)
-      .then((contacts) => this.decrypt(hcPartyId, contacts))
   }
 
   filterByWithUser(
