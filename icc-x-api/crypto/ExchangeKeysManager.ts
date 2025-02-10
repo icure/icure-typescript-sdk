@@ -23,7 +23,7 @@ type CacheValue =
  * - Automatically retrieves the private keys to use during decryption.
  */
 export class ExchangeKeysManager {
-  private cache: { [delegator: string]: { [delegate: string]: CacheValue } } = {}
+  private cache: Promise<{ [delegator: string]: { [delegate: string]: CacheValue } }> = Promise.reject(new Error('Cache not initialized'))
 
   get base(): BaseExchangeKeysManager {
     return this.baseExchangeKeysManager
@@ -44,13 +44,14 @@ export class ExchangeKeysManager {
    * @return all available exchange keys from the delegator-delegate pair.
    */
   async getDecryptionExchangeKeysFor(delegatorId: string, delegateId: string): Promise<CryptoKey[]> {
-    const entry = this.cache[delegatorId]?.[delegateId]
+    const cache = await this.cache
+    const entry = cache[delegatorId]?.[delegateId]
     if (entry != undefined) {
       if ('decrypted' in entry) {
         return await entry.decrypted
       } else {
         const decryptedPromise = this.decryptChunk(entry.encrypted)
-        this.cache[delegatorId][delegateId] = { decrypted: decryptedPromise }
+        cache[delegatorId][delegateId] = { decrypted: decryptedPromise }
         return await decryptedPromise
       }
     } else {
@@ -67,6 +68,10 @@ export class ExchangeKeysManager {
    * Reloads all exchange keys for the cache.
    */
   async reloadCache(): Promise<void> {
+    this.cache = this.doGetCache()
+  }
+
+  private async doGetCache() {
     const hierarchy = await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
     const encryptedKeysDataByHierarchyMember = Object.fromEntries(
       await Promise.all(
@@ -111,6 +116,6 @@ export class ExchangeKeysManager {
         }
       }
     }
-    this.cache = encryptedKeys
+    return encryptedKeys
   }
 }

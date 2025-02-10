@@ -766,7 +766,8 @@ async function initialiseCryptoWithProvider(
   )
   // TODO customise cache size?
   const exchangeKeysManager = new ExchangeKeysManager(userEncryptionKeysManager, baseExchangeKeysManager, dataOwnerApi)
-  await exchangeKeysManager.reloadCache()
+  // noinspection ES6MissingAwait
+  exchangeKeysManager.reloadCache() // Intentionally not awaited to make login feel faster
   const accessControlSecretUtils = new AccessControlSecretUtils(cryptoPrimitives)
   const exchangeDataManager = await initialiseExchangeDataManagerForCurrentDataOwner(
     baseExchangeDataManager,
