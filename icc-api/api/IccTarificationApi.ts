@@ -137,27 +137,6 @@ export class IccTarificationApi {
   }
 
   /**
-   * @deprecated Replace with `findPaginatedTarifications` (same but paginated)
-   */
-  findTarifications(region?: string, type?: string, tarification?: string, version?: string): Promise<Array<Tarification>> {
-    let _body = null
-
-    const _url =
-      this.host +
-      `/tarification/byRegionTypeTarification` +
-      '?ts=' +
-      new Date().getTime() +
-      (region ? '&region=' + encodeURIComponent(String(region)) : '') +
-      (type ? '&type=' + encodeURIComponent(String(type)) : '') +
-      (tarification ? '&tarification=' + encodeURIComponent(String(tarification)) : '') +
-      (version ? '&version=' + encodeURIComponent(String(version)) : '')
-    let headers = this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new Tarification(it)))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
    * Get a tarification based on ID or (tarification,type,version) as query strings. (tarification,type,version) is unique.
    * @summary Get a tarification
    * @param tarificationId Tarification id
