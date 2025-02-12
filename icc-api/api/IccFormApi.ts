@@ -442,11 +442,11 @@ export class IccFormApi {
   }
 
   /**
-   *
-   * @summary Gets a form template
-   * @param formTemplateGuid
-   * @param specialityCode
-   * @param raw
+   * @deprecated This method behavior is not intuitive.
+   * If there is any form template with author=currentUser and guid={@link formTemplateGuid} returns them, regardless of
+   * {@link specialityCode}.
+   * Else returns all form templates with specialty.code={@link specialityCode} and guid={@link formTemplateGuid}
+   * regardless of the currentUser.
    */
   async getFormTemplatesByGuid(formTemplateGuid: string, specialityCode: string, raw?: boolean): Promise<Array<FormTemplate>> {
     let _body = null
