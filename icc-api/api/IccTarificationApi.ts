@@ -137,12 +137,7 @@ export class IccTarificationApi {
   }
 
   /**
-   * Returns a list of tarifications matched with given input.
-   * @summary Finding tarifications by tarification, type and version
-   * @param region Tarification region
-   * @param type Tarification type
-   * @param tarification Tarification tarification
-   * @param version Tarification version
+   * @deprecated Replace with `findPaginatedTarifications` (same but paginated)
    */
   findTarifications(region?: string, type?: string, tarification?: string, version?: string): Promise<Array<Tarification>> {
     let _body = null
