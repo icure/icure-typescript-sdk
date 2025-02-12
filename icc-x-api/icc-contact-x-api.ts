@@ -219,6 +219,10 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     )
   }
 
+  /**
+   * @deprecated Unused method, bugged: won't work if `hcpartyId` is not the parent hcp and doesn't decrypt contacts.
+   * Will be permanently removed in version 8.2.0
+   */
   async findByPatientSFKs(hcpartyId: string, patients: Array<models.Patient>): Promise<Array<models.Contact>> {
     const perHcpId: { [key: string]: string[] } = {}
     for (const patient of patients) {
