@@ -35,7 +35,7 @@ const nothingKeyRecovererAndVerifier: KeyRecovererAndVerifier = (x) =>
       }
     )
   )
-type CurrentOwnerKeyGenerator = (self: DataOwnerWithType) => Promise<KeyPair<CryptoKey> | boolean>
+type CurrentOwnerKeyGenerator = (self: DataOwnerWithType) => Promise<KeyPair<CryptoKey> | boolean | 'keyless'>
 
 /**
  * Allows to manage public and private keys for the current user and his parent hierarchy.
@@ -307,6 +307,9 @@ export class UserEncryptionKeysManager {
       const whatToDo = await currentOwnerKeyGenerator(self)
       if (whatToDo === false) {
         throw new Error(`No verified key found for ${self.dataOwner.id} and settings do not allow creation of a new key.`)
+      } else if (whatToDo == 'keyless') {
+        this.keysCache = keysCache
+        return undefined
       } else {
         const updateInfo = await this.createAndSaveNewKeyPair(whatToDo === true ? undefined : whatToDo, self)
         // self may be outdated now

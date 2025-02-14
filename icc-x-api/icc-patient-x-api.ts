@@ -1304,7 +1304,9 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
   async forceInitialiseExchangeDataToNewlyInvitedPatient(patientId: string): Promise<boolean> {
     const patient = await super.getPatient(patientId)
     if (this.dataOwnerApi.getHexPublicKeysOf(patient).size) return false
-    await this.crypto.exchangeData.getOrCreateEncryptionDataTo(patientId, true)
+    await this.crypto.exchangeData.getOrCreateEncryptionDataTo(patientId, {
+      allowCreationWithoutDelegateKey: true,
+    })
     return true
   }
 }

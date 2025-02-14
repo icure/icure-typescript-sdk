@@ -162,4 +162,50 @@ export class IccCryptoXApi {
   async getCurrentUserAvailablePublicKeysHex(verifiedOnly: boolean): Promise<string[]> {
     return this._keyManager.getCurrentUserAvailablePublicKeysHex(verifiedOnly)
   }
+
+  /**
+   * The only way of creating exchange data to a delegate when the SDK runs in keyless mode.
+   * @param delegate a delegate, can't be the current data owner
+   * @return the created exchange data details. They can be used to inject the data in a separate instance of the SDK,
+   * allowing the data created by this instance to be retrieved.
+   */
+  async keylessCreateExchangeDataTo(delegate: string): Promise<{
+    exchangeDataId: string
+    accessControlSecret: ArrayBuffer
+    exchangeKey: ArrayBuffer
+    sharedSignatureKey: ArrayBuffer
+  }> {
+    if (delegate == (await this._dataOwnerApi.getCurrentDataOwnerId())) throw new Error("Can't create exchange data to yourself in keyless mode.")
+    if (this.userKeysManager.getSelfVerifiedKeys().length > 0) throw new Error('This method can only be used in keyless mode.')
+    const created = await this.exchangeData.getOrCreateEncryptionDataTo(delegate, { allowCreationWithoutDelegatorKey: true })
+    return {
+      exchangeDataId: created.exchangeData.id!,
+      accessControlSecret: await this.exchangeData.base.exportAccessControlSecret(created.accessControlSecret),
+      exchangeKey: await this.exchangeData.base.exportExchangeKey(created.exchangeKey),
+      sharedSignatureKey: await this.exchangeData.base.exportSharedSignatureKey(created.sharedSignatureKey),
+    }
+  }
+
+  /**
+   * Allows injecting exchange data that would not be readable or decryptable by the SDK otherwise.
+   * IMPORTANT: the SDK will not check that the provided exchange data details are valid for the provided exchange data
+   * id. Providing invalid details could cause permanent corruption of data.
+   * @param details the details of the exchange data to inject. Set verified to true to allow this data to be used for
+   * encryption of new entity.
+   * @param reEncryptWithOwnKeys can only be true if the api wasn't initialized in keyless mode. If true the injected
+   * data will be re-encrypted with also the current data owner key, allowing to access it in future instances without
+   * having to re-inject it (as long as the instance has access to the current private key).
+   */
+  async injectExchangeData(
+    details: {
+      exchangeDataId: string
+      accessControlSecret: ArrayBuffer
+      exchangeKey: ArrayBuffer
+      sharedSignatureKey: ArrayBuffer
+      verified: boolean
+    }[],
+    reEncryptWithOwnKeys: boolean
+  ) {
+    await this.exchangeData.injectDecryptedExchangeData(details, reEncryptWithOwnKeys)
+  }
 }

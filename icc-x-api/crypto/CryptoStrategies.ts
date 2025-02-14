@@ -67,8 +67,9 @@ export interface CryptoStrategies {
    * - If this method returns a key pair the crypto api loads the key pair and considers it as a device key.
    * - If this method returns false the initialisation will fail with a predefined error.
    * - If this method throws an error the initialisation will propagate the error.
+   * - If this method return the string "keyless" the api will be initialized in keyless mode.
    */
-  generateNewKeyForDataOwner(self: DataOwnerWithType, cryptoPrimitives: CryptoPrimitives): Promise<KeyPair<CryptoKey> | boolean>
+  generateNewKeyForDataOwner(self: DataOwnerWithType, cryptoPrimitives: CryptoPrimitives): Promise<KeyPair<CryptoKey> | boolean | 'keyless'>
 
   /**
    * Verifies if the public keys of a data owner which will be the delegate of a new exchange key do actually belong to the person the data owner

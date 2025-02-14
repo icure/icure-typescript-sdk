@@ -132,7 +132,7 @@ export class SecureDelegationsManager {
     shareOwningEntityIds: string[],
     newDelegationPermissions: EntityShareRequest.RequestedPermissionInternal
   ): Promise<EntityShareOrMetadataUpdateRequest | undefined> {
-    const exchangeDataInfo = await this.exchangeDataManager.getOrCreateEncryptionDataTo(delegateId, false)
+    const exchangeDataInfo = await this.exchangeDataManager.getOrCreateEncryptionDataTo(delegateId)
     const secureDelegationKey = await this.accessControlSecretUtils.secureDelegationKeyFor(exchangeDataInfo.accessControlSecret, entityWithType.type)
     const existingSecureDelegation = entityWithType.entity.securityMetadata?.secureDelegations?.[secureDelegationKey]
     if (existingSecureDelegation) {
@@ -228,7 +228,7 @@ export class SecureDelegationsManager {
     encryptedExchangeDataId: { [fp: string]: string } | undefined
   }> {
     // Be wary of explicit delegator and explicit delegate
-    const exchangeDataInfo = await this.exchangeDataManager.getOrCreateEncryptionDataTo(delegateId, false)
+    const exchangeDataInfo = await this.exchangeDataManager.getOrCreateEncryptionDataTo(delegateId)
     const accessControlHash = await this.accessControlSecretUtils.secureDelegationKeyFor(exchangeDataInfo.accessControlSecret, entity.type)
     const accessControlKey = ua2hex(await this.accessControlSecretUtils.accessControlKeyFor(exchangeDataInfo.accessControlSecret, entity.type))
     const encryptedDelegationInfo = await this.makeSecureDelegationEncryptedData(
