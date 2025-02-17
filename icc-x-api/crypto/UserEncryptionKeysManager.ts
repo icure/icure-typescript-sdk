@@ -307,7 +307,7 @@ export class UserEncryptionKeysManager {
       const whatToDo = await currentOwnerKeyGenerator(self)
       if (whatToDo === false) {
         throw new Error(`No verified key found for ${self.dataOwner.id} and settings do not allow creation of a new key.`)
-      } else if (whatToDo == 'keyless') {
+      } else if (typeof whatToDo == 'string' && whatToDo == 'keyless') {
         this.keysCache = keysCache
         return undefined
       } else {
