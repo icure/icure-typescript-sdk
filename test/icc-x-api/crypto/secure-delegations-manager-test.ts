@@ -201,7 +201,7 @@ describe('Secure delegations manager', async function () {
       await initialiseComponents(false, false)
       const canonicalSfk = primitives.randomUuid()
       const aliasSfk = primitives.randomUuid()
-      const exchangeDataInfo = await exchangeData.getOrCreateEncryptionDataTo(delegateId, false)
+      const exchangeDataInfo = await exchangeData.getOrCreateEncryptionDataTo(delegateId)
       const canonicalKey = await accessControlSecretUtils.secureDelegationKeyFor(
         exchangeDataInfo.accessControlSecret,
         EntityWithDelegationTypeName.Patient
@@ -271,7 +271,7 @@ describe('Secure delegations manager', async function () {
   it('should return undefined for existing secure delegations if it contains all entries.', async function () {
     await initialiseComponents(false, false)
     const canonicalSfk = primitives.randomUuid()
-    const exchangeDataInfo = await exchangeData.getOrCreateEncryptionDataTo(delegateId, false)
+    const exchangeDataInfo = await exchangeData.getOrCreateEncryptionDataTo(delegateId)
     const canonicalKey = await accessControlSecretUtils.secureDelegationKeyFor(
       exchangeDataInfo.accessControlSecret,
       EntityWithDelegationTypeName.Patient

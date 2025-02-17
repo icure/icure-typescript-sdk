@@ -78,6 +78,8 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
    * - additionalDelegates: delegates which will have access to the entity in addition to the current data owner and delegates from the
    * auto-delegations. Must be an object which associates each data owner id with the access level to give to that data owner. May overlap with
    * auto-delegations, in such case the access level specified here will be used.
+   * - alternateRootDelegation: by default a new entity is created with a root delegation from self to self. In keyless mode this is not possible,
+   * and instead the root delegation will be from self to another. You have to specify which delegate will be part of the root delegation.
    * @return a new instance of patient.
    */
   async newInstance(
@@ -85,6 +87,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     p: any = {},
     options: {
       additionalDelegates?: { [dataOwnerId: string]: AccessLevelEnum }
+      alternateRootDelegation?: string
     } = {}
   ) {
     const patient = {
@@ -113,7 +116,8 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
       undefined,
       undefined,
       true,
-      extraDelegations
+      extraDelegations,
+      options.alternateRootDelegation
     )
     return new models.Patient(initialisationInfo.updatedEntity)
   }

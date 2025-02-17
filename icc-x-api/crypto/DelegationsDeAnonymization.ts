@@ -267,7 +267,8 @@ export class DelegationsDeAnonymization {
       undefined,
       undefined,
       true,
-      Object.fromEntries(initialDelegates.map((x) => [x, AccessLevelEnum.READ]))
+      Object.fromEntries(initialDelegates.map((x) => [x, AccessLevelEnum.READ])),
+      undefined
     )
     const encryptedKeyMap = (
       await this.xapis.tryEncryptEntities(

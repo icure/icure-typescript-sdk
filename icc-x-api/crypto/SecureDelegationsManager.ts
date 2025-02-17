@@ -52,6 +52,8 @@ export class SecureDelegationsManager {
    * @param encryptionKeys the initial encryption keys to include and share with the auto-delegations
    * @param autoDelegations the data owners which will initially have access to the entity in addition to the current data owner and the access level
    * they will have on the entity.
+   * @param alternateRootDelegation by default a new entity is created with a root delegation from self to self. In keyless mode this is not possible,
+   * and instead the root delegation will be from self to another. You have to specify which delegate will be part of the root delegation.
    * @return the entity with the security metadata initialised for the provided parameters.
    */
   async entityWithInitialisedEncryptedMetadata<T extends EncryptedEntity>(
@@ -60,19 +62,21 @@ export class SecureDelegationsManager {
     secretIds: string[],
     owningEntityIds: string[],
     encryptionKeys: string[],
-    autoDelegations: { [delegateId: string]: SecureDelegation.AccessLevelEnum }
+    autoDelegations: { [delegateId: string]: SecureDelegation.AccessLevelEnum },
+    alternateRootDelegation: string | undefined
   ): Promise<T> {
     const entityWithType: EncryptedEntityWithType = { entity, type: entityType }
+    const selfId = await this.dataOwnerApi.getCurrentDataOwnerId()
+    const rootDelegationDelegate = alternateRootDelegation ?? selfId
     const rootDelegationInfo = await this.makeSecureDelegationInfo(
       entityWithType,
-      await this.dataOwnerApi.getCurrentDataOwnerId(),
+      rootDelegationDelegate,
       secretIds,
       encryptionKeys,
       owningEntityIds,
       AccessLevelEnum.WRITE,
       undefined
     )
-    const selfId = await this.dataOwnerApi.getCurrentDataOwnerId()
     const otherDelegationsInfo: {
       delegationKey: string
       accessControlKeyHex: string
@@ -80,7 +84,7 @@ export class SecureDelegationsManager {
       encryptedExchangeDataId: { [fp: string]: string } | undefined
     }[] = []
     for (const [delegateId, permissions] of Object.entries(autoDelegations)) {
-      if (delegateId !== selfId) {
+      if (delegateId !== rootDelegationDelegate) {
         otherDelegationsInfo.push(
           await this.makeSecureDelegationInfo(
             entityWithType,
