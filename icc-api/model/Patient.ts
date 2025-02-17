@@ -328,6 +328,7 @@ export class Patient {
   schoolingInfos?: Array<SchoolingInfo>
   employementInfos?: Array<EmploymentInfo>
   securityMetadata?: SecurityMetadata
+  parentId?: never
 }
 export namespace Patient {
   export type GenderEnum = 'male' | 'female' | 'indeterminate' | 'changed' | 'changedToMale' | 'changedToFemale' | 'unknown'
