@@ -17,6 +17,7 @@ export class RouteOfAdministration {
     Object.assign(this as RouteOfAdministration, json)
   }
 
+  code?: string
   name?: SamText
   standardRoutes?: Array<CodeStub>
 }
