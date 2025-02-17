@@ -3,7 +3,8 @@ import { DataOwnerWithType } from './DataOwnerWithType'
 import { Patient } from './Patient'
 import { HealthcareParty } from './HealthcareParty'
 import { Device } from './Device'
-import {CodeStub} from "./CodeStub"
+import { CodeStub } from './CodeStub'
+import { da } from 'date-fns/locale'
 
 export class CryptoActorStub {
   constructor(json: JSON | any) {
@@ -21,6 +22,7 @@ export class CryptoActorStub {
       publicKeysForOaepWithSha256: dataOwnerWithType.publicKeysForOaepWithSha256,
       publicKey: dataOwnerWithType.publicKey,
       tags: dataOwnerWithType.tags,
+      parentId: dataOwnerWithType.parentId,
     })
   }
 
@@ -54,6 +56,7 @@ export class CryptoActorStub {
    * A tag is an item from a codification system that qualifies an entity as being member of a certain class, whatever the value it might have taken. If the tag qualifies the content of a field, it means that whatever the content of the field, the tag will always apply. For example, the label of a field is qualified using a tag. LOINC is a codification system typically used for tags.
    */
   tags?: Array<CodeStub>
+  parentId?: string
 }
 export class CryptoActorStubWithType {
   constructor(json: JSON | any) {
