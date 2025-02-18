@@ -1,22 +1,22 @@
 import {
-  BasicApis,
   BasicAuthenticationProvider,
   CryptoPrimitives,
-  WebCryptoPrimitives,
+  CryptoStrategies,
   hex2ua,
   IcureApi,
   IcureApiOptions,
+  IcureBasicApi,
+  KeyPair,
   retry,
-  RSAUtils,
   RSAUtilsImpl,
   ShaVersion,
   ua2hex,
-  IcureBasicApi,
+  WebCryptoPrimitives,
 } from '../../icc-x-api'
 import { tmpdir } from 'os'
 import { TextDecoder, TextEncoder } from 'util'
 import { v4 as uuid } from 'uuid'
-import { webcrypto } from 'crypto'
+import { randomUUID, webcrypto } from 'crypto'
 import { TestApi } from './TestApi'
 import { IcureApi as TestSetupApi } from '@icure/apiV7'
 import { testStorageWithKeys } from './TestStorage'
@@ -30,6 +30,12 @@ import { createPatientUser } from '@icure/test-setup/creation'
 import { IccUserApi } from '../../icc-api'
 import { Context, describe, Suite, Test } from 'mocha'
 import { Group } from '../../icc-api/model/Group'
+import { Patient } from '../../icc-api/model/Patient'
+import { CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
+import { DataOwnerTypeEnum } from '../../icc-api/model/DataOwnerTypeEnum'
+import { DataOwnerWithType } from '../../icc-api/model/DataOwnerWithType'
+import { KeyPairRecoverer } from '../../icc-x-api/crypto/KeyPairRecoverer'
+import { KeylessCryptoStrategies } from './KeylessCryptoStrategies'
 
 export function getTempEmail(): string {
   return `${uuid().substring(0, 8)}@icure.com`
@@ -201,6 +207,33 @@ export async function createNewPatientApi(env: TestVars): Promise<{
     }
   )
   return { api, credentials, user: await api.userApi.getCurrentUser() }
+}
+
+export async function createNewKeylessApi(env: TestVars): Promise<{
+  api: IcureApi
+  credentials: { username: string; password: string }
+}> {
+  const initialisationApi = await IcureBasicApi.initialise(env.iCureUrl, { username: env.masterHcp!.user, password: env.masterHcp!.password }, fetch)
+  const login = `${randomUUID()}@test.icure.com`
+  const password = randomUUID()
+  const patient = new Patient({
+    id: randomUUID(),
+    firstName: 'Gino',
+    lastName: 'Pino',
+  })
+  const user = new User({
+    id: randomUUID(),
+    login,
+    passwordHash: password,
+    patientId: patient.id,
+  })
+  await initialisationApi.userApi.createUser(user)
+  await initialisationApi.patientApi.createPatient(patient)
+  const credentials = { username: login, password }
+  const cryptoStrategies = new KeylessCryptoStrategies()
+  const api = await IcureApi.initialise(env.iCureUrl, credentials, cryptoStrategies, webcrypto as any, fetch, {})
+  if (!cryptoStrategies.requestedKey) throw new Error('Illegal state: did not request key')
+  return { api, credentials }
 }
 
 /**

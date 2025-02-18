@@ -5,6 +5,7 @@ import { getEnvironmentInitializer, hcp1Username, setLocalStorage, TestUtils } f
 import initApi = TestUtils.initApi
 import { expect } from 'chai'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
+import { HealthcareParty } from '../../icc-api/model/HealthcareParty'
 
 setLocalStorage(fetch)
 let env: TestVars
@@ -22,25 +23,8 @@ describe('icc-hcparty-x-api Tests', () => {
 
     const user = await userApi.getCurrentUser()
 
-    let promiseResolves: boolean
-    try {
-      await hcpApi.getHealthcareParties({ ids: [user.id!, user.healthcarePartyId!] })
-      promiseResolves = true
-    } catch {
-      promiseResolves = false
-    }
-
-    await hcpApi.getHealthcareParties({ ids: [user.id!, user.healthcarePartyId!] }).then(
-      (_) => {
-        throw new Error('This promise should not resolve')
-      },
-      (e) => {
-        expect(JSON.parse(e.message)['message']).to.be.equal(
-          `Object with ID ${user.id!} is not of expected type org.taktik.icure.entities.HealthcareParty but of type org.taktik.icure.entities.User`
-        )
-      }
-    )
-    expect(promiseResolves).to.be.false
+    const retrievedBoth: HealthcareParty[] = await hcpApi.getHealthcareParties({ ids: [user.id!, user.healthcarePartyId!] })
+    expect(retrievedBoth.map((x) => x.id)).to.have.members([user.healthcarePartyId])
 
     const hcp = await hcpApi.getHealthcareParty(user.healthcarePartyId!)
     expect(hcp.id).to.be.equal(user.healthcarePartyId!)
