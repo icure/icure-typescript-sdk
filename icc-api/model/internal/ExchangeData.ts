@@ -3,15 +3,7 @@
  */
 export class ExchangeData {
   constructor(json: JSON | any) {
-    if (
-      !json.delegator ||
-      !json.delegate ||
-      !json.exchangeKey ||
-      !json.accessControlSecret ||
-      !json.sharedSignatureKey ||
-      !json.sharedSignature ||
-      !json.delegatorSignature
-    )
+    if (!json.delegator || !json.delegate || !json.exchangeKey || !json.accessControlSecret || !json.sharedSignatureKey || !json.sharedSignature)
       throw new Error(`Exchange data json is missing required properties.\n${JSON.stringify(json, undefined, 2)}`)
     Object.assign(this as ExchangeData, json)
   }
@@ -69,7 +61,7 @@ export class ExchangeData {
    * sign it with his own private key.
    * This field will contain the signature by fingerprint of the public key to use for verification.
    */
-  delegatorSignature!: { [keyPairFingerprint: string]: string }
+  delegatorSignature?: { [keyPairFingerprint: string]: string }
   /**
    * Base 64 signature of the exchange data, to ensure it was not tampered by third parties. This signature validates:
    * - The (decrypted) exchange key

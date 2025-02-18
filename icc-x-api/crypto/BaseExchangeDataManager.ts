@@ -545,7 +545,7 @@ export class BaseExchangeDataManager {
       sharedSignatureKey: decryptedSharedSignatureKey,
     })
     const keysByV2Fp = Object.fromEntries(Object.entries(verificationKeys).map(([fp, key]): [string, CryptoKey] => [fingerprintV1toV2(fp), key]))
-    for (const [fp, signature] of Object.entries(exchangeData.delegatorSignature)) {
+    for (const [fp, signature] of Object.entries(exchangeData.delegatorSignature ?? {})) {
       const verificationKey = keysByV2Fp[fp]
       if (
         verificationKey &&
