@@ -257,6 +257,22 @@ export interface IcureApiOptions {
    */
   readonly useLiteCompatibilityMode?: boolean
   /**
+   * Allows injecting exchange data similarly to {@link IccCryptoXApi.injectExchangeData} but directly on
+   * initialization.
+   * When possible, this solution should be preferred as it allows minimizing proliferation of exchange data under
+   * certain circumstances.
+   */
+  readonly injectExchangeData?: {
+    details: {
+      exchangeDataId: string
+      accessControlSecret: ArrayBuffer
+      exchangeKey: ArrayBuffer
+      sharedSignatureKey: ArrayBuffer
+      verified: boolean
+    }[]
+    reEncryptWithOwnKeys: boolean
+  }
+  /**
    * If true, it will redirect all the request towards the sam and kmehr endpoints directly to the proper microservice,
    * without relying on the kraken proxy.
    * Activate only when not using kraken lite.
@@ -280,6 +296,7 @@ namespace IcureApiOptions {
     readonly encryptedFieldsConfig: EncryptedFieldsConfig
     readonly groupSelector: (availableGroupsInfo: UserGroup[]) => Promise<string>
     readonly disableParentKeysInitialisation: boolean
+    readonly injectExchangeData: IcureApiOptions['injectExchangeData'] | undefined
 
     constructor(custom: IcureApiOptions) {
       this.entryKeysFactory = custom.entryKeysFactory ?? Defaults.entryKeysFactory
@@ -290,6 +307,7 @@ namespace IcureApiOptions {
       this.encryptedFieldsConfig = custom.encryptedFieldsConfig ?? {}
       this.groupSelector = custom.groupSelector ?? ((groups) => Promise.resolve(groups[0].groupId!))
       this.disableParentKeysInitialisation = custom.disableParentKeysInitialisation ?? false
+      this.injectExchangeData = custom.injectExchangeData
     }
   }
 }
@@ -784,6 +802,9 @@ async function initialiseCryptoWithProvider(
     cryptoPrimitives,
     !params.disableParentKeysInitialisation
   )
+  if (params.injectExchangeData != null && params.injectExchangeData.details.length > 0) {
+    await exchangeDataManager.injectDecryptedExchangeData(params.injectExchangeData.details, params.injectExchangeData.reEncryptWithOwnKeys)
+  }
   const exchangeDataMapManager = new ExchangeDataMapManager(
     new IccExchangeDataMapApi(host, updatedHeaders, groupSpecificAuthenticationProvider, fetchImpl)
   )
@@ -815,7 +836,9 @@ async function initialiseCryptoWithProvider(
     !params.disableParentKeysInitialisation
   )
   const shamirManager = new ShamirKeysManager(cryptoPrimitives, dataOwnerApi, userEncryptionKeysManager, exchangeDataManager)
-  await ensureDelegationForSelf(dataOwnerApi, xApiUtils, basePatientApi, cryptoPrimitives)
+  if (userEncryptionKeysManager.getSelfVerifiedKeys().length > 0) {
+    await ensureDelegationForSelf(dataOwnerApi, xApiUtils, basePatientApi, cryptoPrimitives)
+  }
   const accessControlKeysHeadersProvider = new AccessControlKeysHeadersProvider(exchangeDataManager)
   const delegationsDeAnonymisation = new DelegationsDeAnonymization(
     dataOwnerApi,

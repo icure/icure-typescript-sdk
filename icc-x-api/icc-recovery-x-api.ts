@@ -158,13 +158,14 @@ export class IccRecoveryXApi {
       if (!retrievedData) {
         console.warn(`Could not recover exchange data with id ${exchangeDataInfo.exchangeDataId} as it was not found. Ignoring`)
       } else {
-        await this.exchangeData.base.updateExchangeDataWithRawDecryptedContent(
-          retrievedData,
-          selfEncryptionKeys,
-          exchangeDataInfo.rawExchangeKey,
-          exchangeDataInfo.rawAccessControlSecret,
-          exchangeDataInfo.rawSharedSignatureKey
-        )
+        await this.exchangeData.base.updateExchangeDataWithRawDecryptedContent({
+          exchangeData: retrievedData,
+          newEncryptionKeys: selfEncryptionKeys,
+          rawExchangeKey: exchangeDataInfo.rawExchangeKey,
+          rawAccessControlSecret: exchangeDataInfo.rawAccessControlSecret,
+          rawSharedSignatureKey: exchangeDataInfo.rawSharedSignatureKey,
+          newDelegatorSignatureKeys: {},
+        })
       }
     }
     await this.baseRecoveryApi.deleteRecoveryData(await this.recoveryDataEncryption.recoveryKeyToId(recoveryKey)).catch((e) => {
