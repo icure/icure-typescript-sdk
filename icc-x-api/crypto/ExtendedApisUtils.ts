@@ -113,6 +113,8 @@ export interface ExtendedApisUtils {
    * delegations for access control but don't actually have any encrypted content.
    * HealthcareElement).
    * @param autoDelegations automatically shares the metadata with the provided data owners, with the provided access level.
+   * @param alternateRootDelegation by default a new entity is created with a root delegation from self to self. In keyless mode this is not possible,
+   * and instead the root delegation will be from self to another. You have to specify which delegate will be part of the root delegation.
    * @throws if the entity already has non-empty values for encryption metadata.
    * @return an updated copy of the entity.
    */
@@ -122,7 +124,8 @@ export interface ExtendedApisUtils {
     owningEntity: string | undefined,
     owningEntitySecretIds: string[] | undefined,
     initialiseEncryptionKey: boolean,
-    autoDelegations: { [p: string]: SecureDelegation.AccessLevelEnum }
+    autoDelegations: { [p: string]: SecureDelegation.AccessLevelEnum },
+    alternateRootDelegation: string | undefined
   ): Promise<{ updatedEntity: T; rawEncryptionKey: string | undefined; secretId: string | undefined }>
 
   /**

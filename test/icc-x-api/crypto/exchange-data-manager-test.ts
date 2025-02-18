@@ -204,8 +204,8 @@ describe('Exchange data manager - unit', async function () {
       await initialiseComponents(allowFullExchangeDataLoad)
       const sfk = primitives.randomUuid()
       const initialisedCount = exchangeDataApi.callCount
-      const createdData = await exchangeData.getOrCreateEncryptionDataTo(delegateId, false)
-      const retrievedCachedData = await exchangeData.getOrCreateEncryptionDataTo(delegateId, false)
+      const createdData = await exchangeData.getOrCreateEncryptionDataTo(delegateId)
+      const retrievedCachedData = await exchangeData.getOrCreateEncryptionDataTo(delegateId)
       exchangeDataApi.compareCallCountFromBaseline(initialisedCount, {
         createExchangeData: 1,
         // If we could fully preload we already know whether the exchange key already exists or not, otherwise we have to request from the api
@@ -235,7 +235,7 @@ describe('Exchange data manager - unit', async function () {
   it('should create encryption keys to self when none is available', async function () {
     async function doTest(allowFullExchangeDataLoad: boolean) {
       await initialiseComponents(allowFullExchangeDataLoad)
-      const createdData = await exchangeData.getOrCreateEncryptionDataTo(selfId, false)
+      const createdData = await exchangeData.getOrCreateEncryptionDataTo(selfId)
       expect(createdData.exchangeData.delegator).to.equal(selfId)
       expect(createdData.exchangeData.delegate).to.equal(selfId)
       expect(Object.keys(createdData.exchangeData.delegatorSignature ?? {})).to.have.length(1)
@@ -265,7 +265,7 @@ describe('Exchange data manager - unit', async function () {
         await dataOwnerApi.addPublicKeyForOwner(selfId, keyData.pair)
         await encryptionKeysManager.addOrUpdateKey(primitives, keyData.pair, false)
       }
-      const created = await exchangeData.getOrCreateEncryptionDataTo(delegateId, false)
+      const created = await exchangeData.getOrCreateEncryptionDataTo(delegateId)
       expect(
         setEquals(new Set(Object.keys(created.exchangeData.exchangeKey)), new Set(Object.keys(created.exchangeData.accessControlSecret))),
         'Keys used for encryption of exchange key and access control secret must be the same.'
@@ -297,10 +297,10 @@ describe('Exchange data manager - unit', async function () {
   it('should reuse existing exchange data for encryption when it can be verified', async function () {
     async function doTest(allowFullExchangeDataLoad: boolean) {
       await initialiseComponents(allowFullExchangeDataLoad)
-      const createdData = await exchangeData.getOrCreateEncryptionDataTo(delegateId, false)
+      const createdData = await exchangeData.getOrCreateEncryptionDataTo(delegateId)
       await exchangeData.clearOrRepopulateCache()
       const countAfterCacheClear = exchangeDataApi.callCount
-      const reloadedData = await exchangeData.getOrCreateEncryptionDataTo(delegateId, false)
+      const reloadedData = await exchangeData.getOrCreateEncryptionDataTo(delegateId)
       exchangeDataApi.compareCallCountFromBaseline(countAfterCacheClear, {
         createExchangeData: 0,
         getExchangeDataByDelegatorDelegate: allowFullExchangeDataLoad ? 0 : 1,
@@ -317,11 +317,11 @@ describe('Exchange data manager - unit', async function () {
   it('should create new exchange data for encryption when the existing data can not be verified due to unavailable verification key', async function () {
     async function doTest(allowFullExchangeDataLoad: boolean) {
       await initialiseComponents(allowFullExchangeDataLoad)
-      const createdData = await exchangeData.getOrCreateEncryptionDataTo(delegateId, false)
+      const createdData = await exchangeData.getOrCreateEncryptionDataTo(delegateId)
       await encryptionKeysManager.unverifyExistingKeysAndCreateNewVerified(primitives)
       await exchangeData.clearOrRepopulateCache()
       const countAfterCacheClear = exchangeDataApi.callCount
-      const newData = await exchangeData.getOrCreateEncryptionDataTo(delegateId, false)
+      const newData = await exchangeData.getOrCreateEncryptionDataTo(delegateId)
       exchangeDataApi.compareCallCountFromBaseline(countAfterCacheClear, {
         createExchangeData: 1,
         getExchangeDataByDelegatorDelegate: allowFullExchangeDataLoad ? 0 : 1,
@@ -349,12 +349,12 @@ describe('Exchange data manager - unit', async function () {
     ) {
       await initialiseComponents(allowFullExchangeDataLoad)
       const sfk = primitives.randomUuid()
-      const createdData = await exchangeData.getOrCreateEncryptionDataTo(delegateId, false)
+      const createdData = await exchangeData.getOrCreateEncryptionDataTo(delegateId)
       // Tamper with exchange data
       await exchangeDataApi.modifyExchangeData(await tamper(createdData.exchangeData, selfKeypair, selfKeyFpV2))
       await exchangeData.clearOrRepopulateCache()
       const countAfterCacheClear = exchangeDataApi.callCount
-      const newData = await exchangeData.getOrCreateEncryptionDataTo(delegateId, false)
+      const newData = await exchangeData.getOrCreateEncryptionDataTo(delegateId)
       exchangeDataApi.compareCallCountFromBaseline(countAfterCacheClear, {
         createExchangeData: 1,
         getExchangeDataByDelegatorDelegate: allowFullExchangeDataLoad ? 0 : 1,
@@ -417,7 +417,7 @@ describe('Exchange data manager - unit', async function () {
   it('should create new exchange data for encryption when the existing data can not be verified due to tampering of the delegate id', async function () {
     async function doTest(allowFullExchangeDataLoad: boolean) {
       await initialiseComponents(allowFullExchangeDataLoad)
-      const createdData = await exchangeData.getOrCreateEncryptionDataTo(delegateId, false)
+      const createdData = await exchangeData.getOrCreateEncryptionDataTo(delegateId)
       // Tamper with exchange data
       await exchangeDataApi.modifyExchangeData({
         ...createdData.exchangeData,
@@ -425,8 +425,8 @@ describe('Exchange data manager - unit', async function () {
       })
       await exchangeData.clearOrRepopulateCache()
       const countAfterCacheClear = exchangeDataApi.callCount
-      const newDataToDelegate = await exchangeData.getOrCreateEncryptionDataTo(delegateId, false)
-      const newDataToDelegate2 = await exchangeData.getOrCreateEncryptionDataTo(delegate2Id, false)
+      const newDataToDelegate = await exchangeData.getOrCreateEncryptionDataTo(delegateId)
+      const newDataToDelegate2 = await exchangeData.getOrCreateEncryptionDataTo(delegate2Id)
       exchangeDataApi.compareCallCountFromBaseline(countAfterCacheClear, {
         createExchangeData: 2,
         getExchangeDataByDelegatorDelegate: allowFullExchangeDataLoad ? 0 : 2,
@@ -466,7 +466,7 @@ describe('Exchange data manager - unit', async function () {
   it('should return existing exchange data keys for decryption even if the data authenticity could not be verified', async function () {
     async function doTest(allowFullExchangeDataLoad: boolean) {
       await initialiseComponents(allowFullExchangeDataLoad)
-      const createdData1 = await exchangeData.getOrCreateEncryptionDataTo(delegateId, false)
+      const createdData1 = await exchangeData.getOrCreateEncryptionDataTo(delegateId)
       const createdData2 = await createDataFromRandomToSelf()
       await encryptionKeysManager.unverifyExistingKeysAndCreateNewVerified(primitives)
       await exchangeData.clearOrRepopulateCache()
@@ -490,7 +490,7 @@ describe('Exchange data manager - unit', async function () {
   it('newly created data or data retrieved by id should be cached and retrievable by hash', async function () {
     async function doTest(allowFullExchangeDataLoad: boolean) {
       await initialiseComponents(allowFullExchangeDataLoad)
-      const createdData1 = await exchangeData.getOrCreateEncryptionDataTo(delegateId, false)
+      const createdData1 = await exchangeData.getOrCreateEncryptionDataTo(delegateId)
       const hashes1 = await accessControlSecretUtils.allSecureDelegationKeysFor(createdData1.accessControlSecret)
       const retrievedKeys1 = await exchangeData.getCachedDecryptionDataKeyByAccessControlHash(hashes1)
       for (const hash of hashes1) {
@@ -518,7 +518,7 @@ describe('Exchange data manager - unit', async function () {
   it('if data can not be decrypted the retrieval method should return undefined', async function () {
     async function doTest(allowFullExchangeDataLoad: boolean) {
       await initialiseComponents(allowFullExchangeDataLoad)
-      const createdBySelf = await exchangeData.getOrCreateEncryptionDataTo(selfId, false)
+      const createdBySelf = await exchangeData.getOrCreateEncryptionDataTo(selfId)
       const createdByOther = await createDataFromRandomToSelf()
       const newKey = await primitives.RSA.generateKeyPair(ShaVersion.Sha256)
       await dataOwnerApi.addPublicKeyForOwner(selfId, newKey)
@@ -542,7 +542,7 @@ describe('Exchange data manager - unit', async function () {
   it('unverified keys should still be usable for decryption of data', async function () {
     async function doTest(allowFullExchangeDataLoad: boolean) {
       await initialiseComponents(allowFullExchangeDataLoad)
-      const createdBySelf = await exchangeData.getOrCreateEncryptionDataTo(selfId, false)
+      const createdBySelf = await exchangeData.getOrCreateEncryptionDataTo(selfId)
       const createdByOther = await createDataFromRandomToSelf()
       await encryptionKeysManager.addOrUpdateKey(primitives, selfKeypair, false)
       await exchangeData.clearOrRepopulateCache()
@@ -575,7 +575,7 @@ describe('Exchange data manager - unit', async function () {
         await checkDataEqual((await exchangeData.getCachedDecryptionDataKeyByAccessControlHash([hash]))[hash], data)
       }
       if (data.exchangeData.delegator === selfId) {
-        await checkDataEqual(await exchangeData.getOrCreateEncryptionDataTo(data.exchangeData.delegate, false), data)
+        await checkDataEqual(await exchangeData.getOrCreateEncryptionDataTo(data.exchangeData.delegate), data)
       }
       await checkDataEqual((await exchangeData.getDecryptionDataKeyByIds([data.exchangeData.id!], true))[data.exchangeData.id!], data)
       exchangeDataApi.compareCallCountFromBaseline(apiCallsBaseline, {
@@ -594,7 +594,7 @@ describe('Exchange data manager - unit', async function () {
         expect(Object.keys(await exchangeData.getCachedDecryptionDataKeyByAccessControlHash([hash]))).to.have.length(0)
       }
       if (data.exchangeData.delegator === selfId) {
-        await checkDataEqual(await exchangeData.getOrCreateEncryptionDataTo(data.exchangeData.delegate, false), data)
+        await checkDataEqual(await exchangeData.getOrCreateEncryptionDataTo(data.exchangeData.delegate), data)
         exchangeDataApi.compareCallCountFromBaseline(apiCallsBaseline, {
           getExchangeDataByIds: 0,
           createExchangeData: 0,
@@ -614,8 +614,8 @@ describe('Exchange data manager - unit', async function () {
       }
     }
 
-    const createdBySelf1 = await exchangeData.getOrCreateEncryptionDataTo(selfId, false)
-    const createdBySelf2 = await exchangeData.getOrCreateEncryptionDataTo(delegateId, false)
+    const createdBySelf1 = await exchangeData.getOrCreateEncryptionDataTo(selfId)
+    const createdBySelf2 = await exchangeData.getOrCreateEncryptionDataTo(delegateId)
     const createdByOther1 = await createDataFromRandomToSelf() // Not automatically cached: created by someone else
     const createdByOther2 = await createDataFromRandomToSelf() // Not automatically cached: created by someone else
     // noinspection DuplicatedCode
@@ -650,7 +650,7 @@ describe('Exchange data manager - unit', async function () {
 
   it('implementation with unlimited cache should preload all existing exchange data on creation', async function () {
     await initialiseComponents(true)
-    const createdBySelf = await exchangeData.getOrCreateEncryptionDataTo(selfId, false)
+    const createdBySelf = await exchangeData.getOrCreateEncryptionDataTo(selfId)
     const createdByOther = await createDataFromRandomToSelf()
     const recreatedExchangeData = await initialiseExchangeDataManagerForCurrentDataOwner(
       baseExchangeData,
@@ -696,8 +696,8 @@ describe('Exchange data manager - e2e', async function () {
   it('give access back should not invalidate existing and valid exchange data', async function () {
     const hcp1Details = await createNewHcpApi(env)
     const hcp2Details = await createNewHcpApi(env)
-    const ed1to2 = await hcp1Details.api.cryptoApi.exchangeData.getOrCreateEncryptionDataTo(hcp2Details.credentials.dataOwnerId, false)
-    const ed2to1 = await hcp2Details.api.cryptoApi.exchangeData.getOrCreateEncryptionDataTo(hcp1Details.credentials.dataOwnerId, false)
+    const ed1to2 = await hcp1Details.api.cryptoApi.exchangeData.getOrCreateEncryptionDataTo(hcp2Details.credentials.dataOwnerId)
+    const ed2to1 = await hcp2Details.api.cryptoApi.exchangeData.getOrCreateEncryptionDataTo(hcp1Details.credentials.dataOwnerId)
     await hcp1Details.api.cryptoApi.exchangeData.clearOrRepopulateCache()
     await hcp2Details.api.cryptoApi.exchangeData.clearOrRepopulateCache()
     const newKeyPair = await hcp1Details.api.cryptoApi.primitives.RSA.generateKeyPair(ShaVersion.Sha256)
@@ -710,8 +710,8 @@ describe('Exchange data manager - e2e', async function () {
     await hcp1Details.api.cryptoApi.exchangeData.giveAccessBackTo(hcp2Details.credentials.dataOwnerId, exportedPub)
     await hcp1Details.api.cryptoApi.exchangeData.clearOrRepopulateCache()
     await hcp2Details.api.cryptoApi.exchangeData.clearOrRepopulateCache()
-    const updatedEd1to2 = await hcp1Details.api.cryptoApi.exchangeData.getOrCreateEncryptionDataTo(hcp2Details.credentials.dataOwnerId, false)
-    const updatedEd2to1 = await hcp2Details.api.cryptoApi.exchangeData.getOrCreateEncryptionDataTo(hcp1Details.credentials.dataOwnerId, false)
+    const updatedEd1to2 = await hcp1Details.api.cryptoApi.exchangeData.getOrCreateEncryptionDataTo(hcp2Details.credentials.dataOwnerId)
+    const updatedEd2to1 = await hcp2Details.api.cryptoApi.exchangeData.getOrCreateEncryptionDataTo(hcp1Details.credentials.dataOwnerId)
     expect(updatedEd1to2.exchangeData.id).to.equal(ed1to2.exchangeData.id)
     expect(Object.keys(updatedEd2to1.exchangeData.exchangeKey).length).to.be.greaterThan(Object.keys(ed2to1.exchangeData.exchangeKey).length)
     expect(Object.keys(updatedEd2to1.exchangeData.exchangeKey).length).to.equal(Object.keys(updatedEd2to1.exchangeData.accessControlSecret).length)
@@ -725,8 +725,8 @@ describe('Exchange data manager - e2e', async function () {
   it('invalid exchange data should not be re-validated by give access back', async function () {
     const hcp1Details = await createNewHcpApi(env)
     const hcp2Details = await createNewHcpApi(env)
-    const ed1to2 = await hcp1Details.api.cryptoApi.exchangeData.getOrCreateEncryptionDataTo(hcp2Details.credentials.dataOwnerId, false)
-    const ed2to1 = await hcp2Details.api.cryptoApi.exchangeData.getOrCreateEncryptionDataTo(hcp1Details.credentials.dataOwnerId, false)
+    const ed1to2 = await hcp1Details.api.cryptoApi.exchangeData.getOrCreateEncryptionDataTo(hcp2Details.credentials.dataOwnerId)
+    const ed2to1 = await hcp2Details.api.cryptoApi.exchangeData.getOrCreateEncryptionDataTo(hcp1Details.credentials.dataOwnerId)
     await hcp1Details.api.cryptoApi.exchangeData.clearOrRepopulateCache()
     await hcp2Details.api.cryptoApi.exchangeData.clearOrRepopulateCache()
     const exchangeDataApi = new IccExchangeDataApi(env.iCureUrl, {}, hcp1Details.api.authApi.authenticationProvider, fetch)
@@ -763,8 +763,8 @@ describe('Exchange data manager - e2e', async function () {
     await hcp1Details.api.cryptoApi.exchangeData.giveAccessBackTo(hcp2Details.credentials.dataOwnerId, exportedPub)
     await hcp1Details.api.cryptoApi.exchangeData.clearOrRepopulateCache()
     await hcp2Details.api.cryptoApi.exchangeData.clearOrRepopulateCache()
-    const updatedEd1to2 = await hcp1Details.api.cryptoApi.exchangeData.getOrCreateEncryptionDataTo(hcp2Details.credentials.dataOwnerId, false)
-    const updatedEd2to1 = await hcp2Details.api.cryptoApi.exchangeData.getOrCreateEncryptionDataTo(hcp1Details.credentials.dataOwnerId, false)
+    const updatedEd1to2 = await hcp1Details.api.cryptoApi.exchangeData.getOrCreateEncryptionDataTo(hcp2Details.credentials.dataOwnerId)
+    const updatedEd2to1 = await hcp2Details.api.cryptoApi.exchangeData.getOrCreateEncryptionDataTo(hcp1Details.credentials.dataOwnerId)
     expect(updatedEd1to2.exchangeData.id).to.not.equal(ed1to2.exchangeData.id)
     expect(updatedEd2to1.exchangeData.id).to.not.equal(ed2to1.exchangeData.id)
     const decData1to2 = (await hcp1Details.api.cryptoApi.exchangeData.getDecryptionDataKeyByIds([ed1to2.exchangeData.id!], true))[

@@ -263,9 +263,10 @@ export class BaseExchangeDataManager {
     exchangeData: ExchangeData
     exchangeKey: CryptoKey
     accessControlSecret: string
+    sharedSignatureKey: CryptoKey
   }> {
-    if (!Object.keys(signatureKeys).length || !Object.keys(encryptionKeys).length) {
-      throw new Error('Must specify at least one signature key and ')
+    if (!Object.keys(encryptionKeys).length) {
+      throw new Error('Must specify at least one encryption key ')
     }
     const exchangeKey = await this.generateExchangeKey()
     const accessControlSecret = await this.generateAccessControlSecret()
@@ -302,6 +303,7 @@ export class BaseExchangeDataManager {
       exchangeData: await this.api.createExchangeData(exchangeData),
       exchangeKey: exchangeKey.key,
       accessControlSecret: accessControlSecret.secret,
+      sharedSignatureKey: sharedSignatureKey.key,
     }
   }
 
@@ -350,29 +352,39 @@ export class BaseExchangeDataManager {
     const rawAccessControlSecret = await this.tryDecrypt(exchangeData.accessControlSecret, decryptionKeys)
     const rawSharedSignatureKey = await this.tryDecrypt(exchangeData.sharedSignatureKey, decryptionKeys)
     if (!rawExchangeKey || !rawAccessControlSecret || !rawSharedSignatureKey) return undefined
-    return await this.updateExchangeDataWithRawDecryptedContent(
-      exchangeData,
-      newEncryptionKeys,
-      rawExchangeKey,
-      rawAccessControlSecret,
-      rawSharedSignatureKey
-    )
+    return await this.updateExchangeDataWithRawDecryptedContent({
+      exchangeData: exchangeData,
+      newEncryptionKeys: newEncryptionKeys,
+      rawExchangeKey: rawExchangeKey,
+      rawAccessControlSecret: rawAccessControlSecret,
+      rawSharedSignatureKey: rawSharedSignatureKey,
+      newDelegatorSignatureKeys: {},
+    })
   }
 
   /**
    * Same as [tryUpdateExchangeData] but the decrypted content is already provided.
    */
-  async updateExchangeDataWithRawDecryptedContent(
-    exchangeData: ExchangeData,
-    newEncryptionKeys: { [keyPairFingerprint: string]: CryptoKey },
-    rawExchangeKey: ArrayBuffer,
-    rawAccessControlSecret: ArrayBuffer,
+  async updateExchangeDataWithRawDecryptedContent({
+    exchangeData,
+    newEncryptionKeys,
+    rawExchangeKey,
+    rawAccessControlSecret,
+    rawSharedSignatureKey,
+    newDelegatorSignatureKeys,
+  }: {
+    exchangeData: ExchangeData
+    newEncryptionKeys: { [fp: string]: CryptoKey }
+    newDelegatorSignatureKeys: { [keyPairFingerprint: string]: CryptoKey }
+    rawExchangeKey: ArrayBuffer
+    rawAccessControlSecret: ArrayBuffer
     rawSharedSignatureKey: ArrayBuffer
-  ): Promise<{
+  }): Promise<{
     exchangeData: ExchangeData
     exchangeKey: CryptoKey
     accessControlSecret: string
   }> {
+    const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     const exchangeKey = await this.importExchangeKey(new Uint8Array(rawExchangeKey))
     const accessControlSecret = await this.importAccessControlSecret(new Uint8Array(rawAccessControlSecret))
     const sharedSignatureKey = await this.importSharedSignatureKey(new Uint8Array(rawSharedSignatureKey))
@@ -382,7 +394,10 @@ export class BaseExchangeDataManager {
     const missingEntries = Object.keys(newEncryptionKeys).filter(
       (fp) => !existingAcsEntries.has(fp) || !existingExchangeKeyEntries.has(fp) || !existingSharedSignatureKeyEntries.has(fp)
     )
-    if (!missingEntries.length) return { exchangeData, exchangeKey, accessControlSecret }
+    const existingDelegatorSignatureEntries = new Set(Object.keys(exchangeData.delegatorSignature ?? {}))
+    const missingDelegatorSignatureEntries =
+      exchangeData.delegator == self ? Object.keys(newDelegatorSignatureKeys).filter((fp) => !existingDelegatorSignatureEntries.has(fp)) : []
+    if (!missingEntries.length && !missingDelegatorSignatureEntries.length) return { exchangeData, exchangeKey, accessControlSecret }
     const encryptionKeysForMissingEntries = missingEntries.reduce((obj, fp) => {
       obj[fp] = newEncryptionKeys[fp]
       return obj
@@ -421,6 +436,20 @@ export class BaseExchangeDataManager {
         }),
         sharedSignatureKey
       )
+    }
+    if (missingDelegatorSignatureEntries.length > 0) {
+      const bytesToSign = await this.bytesToSignForDelegatorSignature({ sharedSignatureKey })
+      const newSigned = await this.signDataWithDelegatorKeys(
+        bytesToSign,
+        missingDelegatorSignatureEntries.reduce((obj, fp) => {
+          obj[fp] = newDelegatorSignatureKeys[fp]
+          return obj
+        }, {} as { [keyPairFingerprint: string]: CryptoKey })
+      )
+      updatedExchangeData.delegatorSignature = {
+        ...updatedExchangeData.delegatorSignature,
+        ...newSigned,
+      }
     }
     return { exchangeData: await this.api.modifyExchangeData(new ExchangeData(updatedExchangeData)), exchangeKey, accessControlSecret }
   }
@@ -461,11 +490,11 @@ export class BaseExchangeDataManager {
     }
   }
 
-  private async importExchangeKey(decryptedBytes: ArrayBuffer): Promise<CryptoKey> {
+  async importExchangeKey(decryptedBytes: ArrayBuffer): Promise<CryptoKey> {
     return await this.primitives.AES.importKey('raw', decryptedBytes)
   }
 
-  private async exportExchangeKey(key: CryptoKey): Promise<ArrayBuffer> {
+  async exportExchangeKey(key: CryptoKey): Promise<ArrayBuffer> {
     return await this.primitives.AES.exportKey(key, 'raw')
   }
 
@@ -477,11 +506,11 @@ export class BaseExchangeDataManager {
     return { key, rawBytes: await this.primitives.HMAC.exportKey(key) }
   }
 
-  private async importSharedSignatureKey(decryptedBytes: ArrayBuffer): Promise<CryptoKey> {
+  async importSharedSignatureKey(decryptedBytes: ArrayBuffer): Promise<CryptoKey> {
     return await this.primitives.HMAC.importKey(decryptedBytes)
   }
 
-  private async exportSharedSignatureKey(key: CryptoKey): Promise<ArrayBuffer> {
+  async exportSharedSignatureKey(key: CryptoKey): Promise<ArrayBuffer> {
     return await this.primitives.HMAC.exportKey(key)
   }
 
@@ -497,11 +526,11 @@ export class BaseExchangeDataManager {
     }
   }
 
-  private importAccessControlSecret(decryptedBytes: ArrayBuffer): Promise<string> {
+  importAccessControlSecret(decryptedBytes: ArrayBuffer): Promise<string> {
     return Promise.resolve(ua2hex(decryptedBytes))
   }
 
-  private exportAccessControlSecret(secret: string): Promise<ArrayBuffer> {
+  exportAccessControlSecret(secret: string): Promise<ArrayBuffer> {
     return Promise.resolve(hex2ua(secret))
   }
 

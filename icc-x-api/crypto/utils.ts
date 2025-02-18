@@ -116,7 +116,8 @@ export async function ensureDelegationForSelf(
           undefined,
           undefined,
           true,
-          {}
+          {},
+          undefined
         )
         return { dataOwner: await patientApi.modifyPatient(updatedPatient.updatedEntity), type: DataOwnerTypeEnum.Patient }
       } else {

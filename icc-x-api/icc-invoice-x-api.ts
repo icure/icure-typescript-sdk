@@ -51,6 +51,8 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
    * auto-delegations, in such case the access level specified here will be used.
    * - preferredSfk: secret id of the patient to use as the secret foreign key to use for the invoice. The default value will be a
    * secret id of patient known by the topmost parent in the current data owner hierarchy.
+   * - alternateRootDelegation: by default a new entity is created with a root delegation from self to self. In keyless mode this is not possible,
+   * and instead the root delegation will be from self to another. You have to specify which delegate will be part of the root delegation.
    * @return a new instance of invoice.
    */
   async newInstance(
@@ -60,6 +62,7 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
     options: {
       additionalDelegates?: { [dataOwnerId: string]: AccessLevelEnum }
       sfkOption?: SecretIdUseOption
+      alternateRootDelegation?: string
     } = {}
   ): Promise<models.Invoice> {
     const invoice = new models.Invoice({
@@ -90,7 +93,15 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
     }
     return new models.Invoice(
       await this.crypto.xapi
-        .entityWithInitialisedEncryptedMetadata(invoice, EntityWithDelegationTypeName.Invoice, patient.id, sfk, true, extraDelegations)
+        .entityWithInitialisedEncryptedMetadata(
+          invoice,
+          EntityWithDelegationTypeName.Invoice,
+          patient.id,
+          sfk,
+          true,
+          extraDelegations,
+          options.alternateRootDelegation
+        )
         .then((x) => x.updatedEntity)
     )
   }

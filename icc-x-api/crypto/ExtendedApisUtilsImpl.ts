@@ -93,7 +93,8 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     owningEntity: string | undefined,
     owningEntitySecretIds: string[] | undefined,
     initialiseEncryptionKey: boolean,
-    autoDelegations: { [p: string]: SecureDelegation.AccessLevelEnum }
+    autoDelegations: { [p: string]: SecureDelegation.AccessLevelEnum },
+    alternateRootDelegation: string | undefined
   ): Promise<{ updatedEntity: T; rawEncryptionKey: string | undefined; secretId: string }> {
     this.throwDetailedExceptionForInvalidParameter('entity.id', entity.id, 'entityWithInitialisedEncryptedMetadata', arguments)
     this.checkEmptyEncryptionMetadata(entity)
@@ -109,7 +110,8 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
         newSecretId ? [newSecretId] : [],
         !!owningEntity ? [owningEntity] : [],
         newRawKey ? [newRawKey] : [],
-        autoDelegations
+        autoDelegations,
+        alternateRootDelegation
       ),
       rawEncryptionKey: newRawKey,
       secretId: newSecretId,
@@ -783,7 +785,8 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
       [],
       [],
       [await this.primitives.AES.generateCryptoKey(true)],
-      usersWithAccessToNewKey
+      usersWithAccessToNewKey,
+      undefined
     )
   }
 

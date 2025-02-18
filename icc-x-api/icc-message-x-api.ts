@@ -62,6 +62,8 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
    * auto-delegations, in such case the access level specified here will be used.
    * - preferredSfk: secret id of the patient to use as the secret foreign key to use for the message. The default value will be a
    * secret id of patient known by the topmost parent in the current data owner hierarchy.
+   * - alternateRootDelegation: by default a new entity is created with a root delegation from self to self. In keyless mode this is not possible,
+   * and instead the root delegation will be from self to another. You have to specify which delegate will be part of the root delegation.
    * @return a new instance of message.
    */
   async newInstanceWithPatient(
@@ -71,6 +73,7 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     options: {
       additionalDelegates?: { [dataOwnerId: string]: AccessLevelEnum }
       sfkOption?: SecretIdUseOption
+      alternateRootDelegation?: string
     } = {}
   ) {
     const message = {
@@ -102,7 +105,15 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     }
     return new models.Message(
       await this.crypto.xapi
-        .entityWithInitialisedEncryptedMetadata(message, EntityWithDelegationTypeName.Message, patient?.id, sfk, true, extraDelegations)
+        .entityWithInitialisedEncryptedMetadata(
+          message,
+          EntityWithDelegationTypeName.Message,
+          patient?.id,
+          sfk,
+          true,
+          extraDelegations,
+          options.alternateRootDelegation
+        )
         .then((x) => x.updatedEntity)
     )
   }
