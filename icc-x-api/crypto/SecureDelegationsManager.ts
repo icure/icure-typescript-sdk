@@ -101,8 +101,9 @@ export class SecureDelegationsManager {
     const secureDelegations = Object.fromEntries(
       [rootDelegationInfo, ...otherDelegationsInfo].map(({ delegationKey, delegation }) => [delegationKey, delegation])
     )
+    const delegationForExchangeDataMaps = selfId == rootDelegationDelegate ? otherDelegationsInfo : [rootDelegationInfo, ...otherDelegationsInfo]
     const newExchangeDataMaps = Object.fromEntries(
-      otherDelegationsInfo
+      delegationForExchangeDataMaps
         .filter(({ encryptedExchangeDataId }) => !!encryptedExchangeDataId)
         .map(({ accessControlKeyHex, encryptedExchangeDataId }) => [accessControlKeyHex, encryptedExchangeDataId!])
     )
