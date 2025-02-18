@@ -15,6 +15,7 @@ import { VmpComponent } from './VmpComponent'
 import { VmpGroupStub } from './VmpGroupStub'
 import { Vtm } from './Vtm'
 import { Wada } from './Wada'
+import {Quantity} from "./Quantity"
 
 export class Vmp {
   constructor(json: JSON | any) {
@@ -31,6 +32,7 @@ export class Vmp {
   to?: number
   code?: string
   vmpGroup?: VmpGroupStub
+  singleAdministrationDose?: Quantity
   name?: SamText
   abbreviation?: SamText
   vtm?: Vtm
