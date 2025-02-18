@@ -3,7 +3,7 @@ import { IccBekmehrApi } from '../icc-api'
 import { IccContactXApi } from './icc-contact-x-api'
 import { IccDocumentXApi } from './icc-document-x-api'
 import { IccHelementXApi } from './icc-helement-x-api'
-import { string2ua, ua2string } from './utils/binary-utils'
+import { ua2string, utf8_2ua } from './utils/binary-utils'
 import { Contact, Document, HealthElement, Service } from '../icc-api/model/models'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 
@@ -79,7 +79,7 @@ export class IccBekmehrXApi extends IccBekmehrApi {
 
     const send = (command: string, uuid: string, body: any) => {
       const data = JSON.stringify({ command, uuid, body })
-      socket.send(data.length > 65000 ? string2ua(data).buffer : data)
+      socket.send(data.length > 65000 ? utf8_2ua(data).buffer : data)
     }
 
     const messageHandler = (msg: any, event: any) => {
