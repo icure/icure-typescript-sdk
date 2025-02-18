@@ -809,7 +809,9 @@ async function initialiseCryptoWithProvider(
     !params.disableParentKeysInitialisation
   )
   const shamirManager = new ShamirKeysManager(cryptoPrimitives, dataOwnerApi, userEncryptionKeysManager, exchangeDataManager)
-  await ensureDelegationForSelf(dataOwnerApi, xApiUtils, basePatientApi, cryptoPrimitives)
+  if (userEncryptionKeysManager.getSelfVerifiedKeys().length > 0) {
+    await ensureDelegationForSelf(dataOwnerApi, xApiUtils, basePatientApi, cryptoPrimitives)
+  }
   const accessControlKeysHeadersProvider = new AccessControlKeysHeadersProvider(exchangeDataManager)
   const delegationsDeAnonymisation = new DelegationsDeAnonymization(
     dataOwnerApi,
