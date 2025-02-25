@@ -52,7 +52,8 @@ export class UserEncryptionKeysManager {
     private readonly keyRecovery: KeyRecovery,
     private readonly strategies: CryptoStrategies,
     private readonly initialiseParentKeys: boolean,
-    private readonly keypairRecoverer: KeyPairRecoverer
+    private readonly keypairRecoverer: KeyPairRecoverer,
+    private readonly selfIsAnonymous: boolean
   ) {}
 
   /**
@@ -308,6 +309,17 @@ export class UserEncryptionKeysManager {
       if (whatToDo === false) {
         throw new Error(`No verified key found for ${self.dataOwner.id} and settings do not allow creation of a new key.`)
       } else if (typeof whatToDo == 'string' && whatToDo == 'keyless') {
+        /*
+         * Currently non-anonymous data owners aren't allowed to use keyless mode.
+         * Today the delegator is not emitted in views and is not used for access control: an entity without delegation
+         * self->self but only a delegation self->other would not be searchable by nor accessible to an explicit data
+         * owner.
+         * This is not a problem for anonymous data owner, since search and access control use the secure delegation
+         * key.
+         * Since keyless api was designed for use by patients this is not an issue at the time, but if in future we need
+         * to support keyless api for explicit data owner before updating views we can add stubs to legacy delegations.
+         */
+        if (!this.selfIsAnonymous) throw new Error('Keyless api mode is available only for anonymous data owners.')
         this.keysCache = keysCache
         return undefined
       } else {

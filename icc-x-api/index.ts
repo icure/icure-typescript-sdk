@@ -783,7 +783,8 @@ async function initialiseCryptoWithProvider(
     keyRecovery,
     cryptoStrategies,
     !params.disableParentKeysInitialisation,
-    keyPairRecoverer
+    keyPairRecoverer,
+    dataOwnerRequiresAnonymousDelegation
   )
   const newKey = await userEncryptionKeysManager.initialiseKeys()
   await new TransferKeysManager(cryptoPrimitives, baseExchangeDataManager, dataOwnerApi, userEncryptionKeysManager, icureStorage).updateTransferKeys(
