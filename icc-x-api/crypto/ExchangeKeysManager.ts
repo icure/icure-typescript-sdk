@@ -67,8 +67,8 @@ export class ExchangeKeysManager {
   /**
    * Reloads all exchange keys for the cache.
    */
-  async reloadCache(): Promise<void> {
-    this.cache = this.doGetCache()
+  reloadCache(): void {
+    this.cache = this.doGetCache() // Intentionally not awaited to make login feel faster
   }
 
   private async doGetCache() {

@@ -38,13 +38,14 @@ export class IccBekmehrXApi extends IccBekmehrApi {
     helementApi: IccHelementXApi,
     documentApi: IccDocumentXApi,
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
+    redirectToModule: boolean,
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
       ? self.fetch
       : fetch
   ) {
-    super(host, headers, authenticationProvider, fetchImpl)
+    super(host, headers, authenticationProvider, redirectToModule, fetchImpl)
     this.ctcApi = ctcApi
     this.helementApi = helementApi
     this.documentApi = documentApi

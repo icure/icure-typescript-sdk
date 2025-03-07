@@ -23,6 +23,7 @@ import { SumehrExportInfo } from '../model/SumehrExportInfo'
 import { SumehrValidity } from '../model/SumehrValidity'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
+import { mapKmehrHost } from '../../icc-x-api/utils/proxy-utils'
 
 export class IccBekmehrApi {
   host: string
@@ -34,9 +35,10 @@ export class IccBekmehrApi {
     host: string,
     headers: any,
     authenticationProvider?: AuthenticationProvider,
+    redirectToModule?: boolean,
     fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
   ) {
-    this.host = iccRestApiPath(host)
+    this.host = redirectToModule === true ? mapKmehrHost(iccRestApiPath(host)) : iccRestApiPath(host)
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
     this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
     this.fetchImpl = fetchImpl

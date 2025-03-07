@@ -28,6 +28,7 @@ import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-ap
 import { iccRestApiPath } from './IccRestApiPath'
 import { SamV2UpdateTaskLogItem } from '../model/SamV2UpdateTaskLogItem'
 import { SamV2Update } from '../model/SamV2Update'
+import { mapSamHost } from '../../icc-x-api/utils/proxy-utils'
 
 export class IccBesamv2Api {
   host: string
@@ -39,9 +40,10 @@ export class IccBesamv2Api {
     host: string,
     headers: any,
     authenticationProvider?: AuthenticationProvider,
+    redirectToModule?: boolean,
     fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
   ) {
-    this.host = iccRestApiPath(host)
+    this.host = redirectToModule === true ? mapSamHost(iccRestApiPath(host)) : iccRestApiPath(host)
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
     this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
     this.fetchImpl = fetchImpl
