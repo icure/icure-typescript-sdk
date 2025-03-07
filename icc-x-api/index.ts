@@ -271,12 +271,7 @@ export interface IcureApiOptions {
       verified: boolean
     }[]
     reEncryptWithOwnKeys: boolean
-  /**
-   * If true, it will redirect all the request towards the sam and kmehr endpoints directly to the proper microservice,
-   * without relying on the kraken proxy.
-   * Activate only when not using kraken lite.
-   */
-  readonly redirectKmehrAndSamRequests?: boolean
+  }
 }
 
 namespace IcureApiOptions {
@@ -602,8 +597,7 @@ export namespace IcureApi {
       authenticationProviderInfo.matches.find((match) => match.groupId === authenticationProviderInfo.chosenGroupId),
       params,
       cryptoStrategies,
-      options.useLiteCompatibilityMode ?? false,
-      options.redirectKmehrAndSamRequests ?? false
+      options.useLiteCompatibilityMode ?? false
     )
   }
 }
@@ -917,8 +911,7 @@ class IcureApiImpl implements IcureApi {
     private readonly currentGroupInfo: UserGroup | undefined,
     private readonly params: IcureApiOptions.WithDefaults,
     private readonly cryptoStrategies: CryptoStrategies,
-    private readonly useLiteCompatibilityMode: boolean,
-    private readonly redirectKmehrAndSamRequests: boolean
+    private readonly useLiteCompatibilityMode: boolean
   ) {
     this.latestGroupsRequest = Promise.resolve(latestMatches)
   }
@@ -1310,7 +1303,6 @@ class IcureApiImpl implements IcureApi {
         this.healthcareElementApi,
         this.documentApi,
         this.groupSpecificAuthenticationProvider,
-        this.redirectKmehrAndSamRequests,
         this.fetch
       ))
     )
@@ -1358,13 +1350,7 @@ class IcureApiImpl implements IcureApi {
   get besamv2Api(): IccBesamv2Api {
     return (
       this._besamv2Api ??
-      (this._besamv2Api = new IccBesamv2Api(
-        this.host,
-        this.cryptoInitInfos.headers,
-        this.groupSpecificAuthenticationProvider,
-        this.redirectKmehrAndSamRequests,
-        this.fetch
-      ))
+      (this._besamv2Api = new IccBesamv2Api(this.host, this.cryptoInitInfos.headers, this.groupSpecificAuthenticationProvider, this.fetch))
     )
   }
 
@@ -1551,8 +1537,7 @@ class IcureApiImpl implements IcureApi {
       availableGroups.find((x) => x.groupId === newGroupId)!,
       this.params,
       this.cryptoStrategies,
-      this.useLiteCompatibilityMode,
-      this.redirectKmehrAndSamRequests
+      this.useLiteCompatibilityMode
     )
   }
 }

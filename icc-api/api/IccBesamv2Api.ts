@@ -40,10 +40,9 @@ export class IccBesamv2Api {
     host: string,
     headers: any,
     authenticationProvider?: AuthenticationProvider,
-    redirectToModule?: boolean,
     fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
   ) {
-    this.host = redirectToModule === true ? mapSamHost(iccRestApiPath(host)) : iccRestApiPath(host)
+    this.host = mapSamHost(iccRestApiPath(host))
     this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
     this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
     this.fetchImpl = fetchImpl
