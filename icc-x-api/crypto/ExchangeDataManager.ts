@@ -11,7 +11,6 @@ import { CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
 import { ShaVersion } from './RSA'
 import { Mutex } from 'async-mutex'
 import { SimpleLruCache } from '../utils/simple-lru-cache'
-import * as console from 'node:console'
 
 export type ExchangeDataManagerOptionalParameters = {
   // Only for not fully cached implementation (data owner can't request all his exchange data), amount of exchange data which can be cached
