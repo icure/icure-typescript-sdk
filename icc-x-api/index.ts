@@ -271,7 +271,6 @@ export interface IcureApiOptions {
       verified: boolean
     }[]
     reEncryptWithOwnKeys: boolean
-  }
   /**
    * If true, it will redirect all the request towards the sam and kmehr endpoints directly to the proper microservice,
    * without relying on the kraken proxy.
