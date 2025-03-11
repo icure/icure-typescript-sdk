@@ -1,6 +1,6 @@
 {
   "name": "@icure/api",
-  "version": "8.1.6",
+  "version": "8.1.7",
   "description": "Typescript version of iCure standalone API client",
   "types": "dist/index.d.ts",
   "dependencies": {
@@ -87,8 +87,8 @@
   "author": "Taktik sa - B12 Consulting",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/taktik/icc-api/issues"
+    "url": "https://github.com/icure/icc-api/issues"
   },
-  "homepage": "https://github.com/taktik/icc-api#readme",
+  "homepage": "https://github.com/icure/icc-api#readme",
   "packageManager": "yarn@3.8.5"
 }

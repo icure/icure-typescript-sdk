@@ -5,16 +5,14 @@ import { DataOwnerWithType } from '../../icc-api/model/DataOwnerWithType'
 import { KeyPairRecoverer } from './KeyPairRecoverer'
 
 /**
- * Allows to customise the behaviour of the crypto api to better suit your needs.
- *
- * An important task which should be done in these crypto strategies is public key verification: in general there is no guarantee that the public keys
- * stored in the iCure database are authentic, i.e. created by the data owner they are associated to. This is because the database admins or a
- * malicious attacker may have added his own public keys to the data owner's public keys.
- * Sharing any kind of data using unverified public keys could potentially cause a data leak: this is why when creating new exchange keys or when
- * creating recovery data only verified keys will be considered. For decrypting existing data instead unverified keys will be used without issues.
+ * Allows to customise the behaviour of the crypto api to set keys management, keys recovery, keys trusting in a way that better suits your needs.
  */
 export interface CryptoStrategies {
   /**
+   *
+   * The iCure API has an internal mechanism to store private keys. This API stores the private keys in the storage facade you have provided.
+   * In a browser, you typically use the LocalStorageFacade, which stores the keys in the browser's local storage.
+   *
    * Method called during initialisation of the crypto API to validate keys recovered through iCure's recovery methods and/or to allow recovery of
    * missing keys using means external to iCure.
    * On startup the iCure sdk will try to load all keys for the current data owner and its parent hierarchy: if the sdk can't find some of the keys
