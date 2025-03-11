@@ -64,6 +64,7 @@ type CachedExchangeData = {
     accessControlSecret: string
     exchangeKey: CryptoKey
     verified: boolean
+    sharedSignatureKey: CryptoKey
   }
 }
 
@@ -87,14 +88,20 @@ export interface ExchangeDataManager {
    * Gets any existing and verified exchange data from the current data owner to the provided delegate or creates new data if no verified data is
    * available, then caches it.
    * @param delegateId the id of the delegate.
-   * @param allowCreationWithoutDelegateKey if true, when creating new exchange data, even if no verified key is available for the delegate the method
+   * @param options
+   * - allowCreationWithoutDelegatorKey if true, when creating new exchange data, even if no verified key is available for the delegator the method
+   * will create the new exchange data anyway (will not be usable by the delegate without additional steps).
+   * - allowCreationWithoutDelegateKey if true, when creating new exchange data, even if no verified key is available for the delegate the method
    * will create the new exchange data anyway (will not be usable by the delegate without additional steps).
    * @return the access control secret and key of the data to use for encryption.
    */
   getOrCreateEncryptionDataTo(
     delegateId: string,
-    allowCreationWithoutDelegateKey: boolean
-  ): Promise<{ exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey }>
+    options?: {
+      allowCreationWithoutDelegatorKey?: boolean
+      allowCreationWithoutDelegateKey?: boolean
+    }
+  ): Promise<{ exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey; sharedSignatureKey: CryptoKey }>
 
   /**
    * Retrieve the cached decrypted exchange data key associated with any of the provided hashes/entry keys of secure delegations.
@@ -138,6 +145,26 @@ export interface ExchangeDataManager {
    * data owner, which can be used to search for data.
    */
   getAllDelegationKeys(entityType: EntityWithDelegationTypeName): Promise<string[] | undefined>
+
+  /**
+   * Injects already decrypted exchange data, allowing it to be used by the sdk.
+   * @param exchangeDataDetails the exchange data to inject, with the decrypted content and verified status.
+   * Note that the SDK won't verify that the provided decrypted content actually matches what is stored in the exchange
+   * data.
+   * @param reEncryptWithOwnKeys if true all the provided exchange data that is not encrypted with any of the self
+   * verified keys of the user will be re-encrypted with them. In case the user is also the delegator and the data is
+   * verified the delegator signature will be updated.
+   */
+  injectDecryptedExchangeData(
+    exchangeDataDetails: {
+      exchangeDataId: string
+      accessControlSecret: ArrayBuffer
+      exchangeKey: ArrayBuffer
+      sharedSignatureKey: ArrayBuffer
+      verified: boolean
+    }[],
+    reEncryptWithOwnKeys: boolean
+  ): Promise<void>
 }
 
 abstract class AbstractExchangeDataManager implements ExchangeDataManager {
@@ -156,6 +183,7 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
         accessControlSecret: string
         exchangeKey: CryptoKey
         verified: boolean
+        sharedSignatureKey: CryptoKey
       }
     | undefined
   > {
@@ -174,6 +202,7 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
     return {
       accessControlSecret: decryptedAccessControlSecret,
       exchangeKey: decryptedExchangeKey,
+      sharedSignatureKey: decryptedSharedSignatureKey,
       verified: await this.base.verifyExchangeData(
         {
           exchangeData: data,
@@ -191,11 +220,16 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
     delegateId: string,
     options: {
       newDataId?: string
+      allowNoDelegatorKeys?: boolean
       allowNoDelegateKeys?: boolean
     }
-  ): Promise<{ exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey }> {
+  ): Promise<{ exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey; sharedSignatureKey: CryptoKey }> {
+    if (options.allowNoDelegateKeys && options.allowNoDelegatorKeys)
+      throw new Error('Illegal arguments: allow no delegator and no delegate keys should never both be true')
     const encryptionKeys: { [fp: string]: CryptoKey } = {}
     const selfVerifiedKeys = this.encryptionKeys.getSelfVerifiedKeys()
+    if (selfVerifiedKeys.length <= 0 && !options.allowNoDelegatorKeys)
+      throw new Error('If the sdk is initialized in keyless mode you must create exchange data explicitly')
     selfVerifiedKeys.forEach(({ fingerprint, pair }) => {
       encryptionKeys[fingerprint] = pair.publicKey
     })
@@ -242,6 +276,7 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
       exchangeData: newData.exchangeData,
       accessControlSecret: newData.accessControlSecret,
       exchangeKey: newData.exchangeKey,
+      sharedSignatureKey: newData.sharedSignatureKey,
     }
   }
 
@@ -276,8 +311,11 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
 
   getOrCreateEncryptionDataTo(
     delegateId: string,
-    allowCreationWithoutDelegateKey: boolean
-  ): Promise<{ exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey }> {
+    options?: {
+      allowCreationWithoutDelegatorKey?: boolean
+      allowCreationWithoutDelegateKey?: boolean
+    }
+  ): Promise<{ exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey; sharedSignatureKey: CryptoKey }> {
     throw new Error('Implemented by concrete class')
   }
 
@@ -307,6 +345,74 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
   getAllDelegationKeys(entityType: EntityWithDelegationTypeName): Promise<string[] | undefined> {
     throw new Error('Implemented by concrete class')
   }
+
+  async injectDecryptedExchangeData(
+    exchangeDataDetails: {
+      exchangeDataId: string
+      accessControlSecret: ArrayBuffer
+      exchangeKey: ArrayBuffer
+      sharedSignatureKey: ArrayBuffer
+      verified: boolean
+    }[],
+    reEncryptWithOwnKeys: boolean
+  ): Promise<void> {
+    const self = await this.dataOwnerApi.getCurrentDataOwnerId()
+    const retrievedExchangeData = await this.base.getExchangeDataByIds(exchangeDataDetails.map((x) => x.exchangeDataId))
+    if (retrievedExchangeData.some((x) => x.delegator != self && x.delegate != self))
+      throw new Error('Should only inject exchange date from/to the current user')
+    const exchangeDataById: { [id: string]: ExchangeData } = {}
+    retrievedExchangeData.forEach((x) => (exchangeDataById[x.id!] = x))
+    if (reEncryptWithOwnKeys) {
+      const selfVerifiedKeys = this.encryptionKeys.getSelfVerifiedKeys()
+      if (selfVerifiedKeys.length <= 0) throw new Error("Can't re-encrypt injected exchange data with own keys if in keyless mode")
+      const encryptionKeys: { [fp: string]: CryptoKey } = {}
+      selfVerifiedKeys.forEach(({ fingerprint, pair }) => {
+        encryptionKeys[fingerprint] = pair.publicKey
+      })
+      const signatureKeys = Object.fromEntries(selfVerifiedKeys.map((x): [string, CryptoKey] => [x.fingerprint, x.pair.privateKey]))
+      for (const details of exchangeDataDetails) {
+        const exchangeData = exchangeDataById[details.exchangeDataId]
+        if (exchangeData != null)
+          await this.base.updateExchangeDataWithRawDecryptedContent({
+            exchangeData,
+            newEncryptionKeys: encryptionKeys,
+            newDelegatorSignatureKeys: exchangeData.delegator == self && details.verified ? signatureKeys : {},
+            rawExchangeKey: details.exchangeKey,
+            rawAccessControlSecret: details.accessControlSecret,
+            rawSharedSignatureKey: details.sharedSignatureKey,
+          })
+      }
+    }
+    const importedDetails: {
+      exchangeData: ExchangeData
+      accessControlSecret: string
+      exchangeKey: CryptoKey
+      sharedSignatureKey: CryptoKey
+      verified: boolean
+    }[] = []
+    for (const details of exchangeDataDetails) {
+      const exchangeData = exchangeDataById[details.exchangeDataId]
+      if (exchangeData != undefined)
+        importedDetails.push({
+          exchangeData: exchangeData,
+          accessControlSecret: await this.base.importAccessControlSecret(details.accessControlSecret),
+          exchangeKey: await this.base.importExchangeKey(details.exchangeKey),
+          sharedSignatureKey: await this.base.importSharedSignatureKey(details.sharedSignatureKey),
+          verified: details.verified,
+        })
+    }
+    await this.cacheInjectedExchangeData(importedDetails)
+  }
+
+  protected abstract cacheInjectedExchangeData(
+    exchangeDataDetails: {
+      exchangeData: ExchangeData
+      accessControlSecret: string
+      exchangeKey: CryptoKey
+      sharedSignatureKey: CryptoKey
+      verified: boolean
+    }[]
+  ): Promise<void>
 }
 
 class FullyCachedExchangeDataManager extends AbstractExchangeDataManager {
@@ -352,7 +458,7 @@ class FullyCachedExchangeDataManager extends AbstractExchangeDataManager {
 
   private async getCachedEncryptionDataTo(
     delegateId: string
-  ): Promise<{ exchangeKey: CryptoKey; accessControlSecret: string; exchangeData: ExchangeData } | undefined> {
+  ): Promise<{ exchangeKey: CryptoKey; accessControlSecret: string; exchangeData: ExchangeData; sharedSignatureKey: CryptoKey } | undefined> {
     const caches = await this.caches
     const dataId = caches.delegateToVerifiedEncryptionDataId[delegateId]
     const cached = dataId ? caches.dataById[dataId] : undefined
@@ -361,6 +467,7 @@ class FullyCachedExchangeDataManager extends AbstractExchangeDataManager {
         exchangeData: cached.exchangeData,
         accessControlSecret: cached.decrypted.accessControlSecret,
         exchangeKey: cached.decrypted.exchangeKey,
+        sharedSignatureKey: cached.decrypted.sharedSignatureKey,
       }
     } else {
       return undefined
@@ -369,18 +476,25 @@ class FullyCachedExchangeDataManager extends AbstractExchangeDataManager {
 
   async getOrCreateEncryptionDataTo(
     delegateId: string,
-    allowCreationWithoutDelegateKey: boolean
-  ): Promise<{ exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey }> {
+    options?: {
+      allowCreationWithoutDelegatorKey?: boolean
+      allowCreationWithoutDelegateKey?: boolean
+    }
+  ): Promise<{ exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey; sharedSignatureKey: CryptoKey }> {
     const initialCached = await this.getCachedEncryptionDataTo(delegateId)
     if (initialCached) return initialCached
     const release = await this.createExchangeDataMutex.acquire()
     try {
       const cachedAfterMutex = await this.getCachedEncryptionDataTo(delegateId)
       if (cachedAfterMutex) return cachedAfterMutex
-      const created = await this.createNewExchangeData(delegateId, { allowNoDelegateKeys: allowCreationWithoutDelegateKey })
+      const created = await this.createNewExchangeData(delegateId, {
+        allowNoDelegateKeys: options?.allowCreationWithoutDelegateKey ?? false,
+        allowNoDelegatorKeys: options?.allowCreationWithoutDelegatorKey ?? false,
+      })
       this.cacheData(created.exchangeData, true, {
         accessControlSecret: created.accessControlSecret,
         exchangeKey: created.exchangeKey,
+        sharedSignatureKey: created.sharedSignatureKey,
         verified: true,
       })
       return created
@@ -423,7 +537,7 @@ class FullyCachedExchangeDataManager extends AbstractExchangeDataManager {
   private cacheData(
     exchangeData: ExchangeData,
     isNewData: boolean,
-    decrypted: { accessControlSecret: string; exchangeKey: CryptoKey; verified: boolean } | undefined
+    decrypted: { accessControlSecret: string; exchangeKey: CryptoKey; verified: boolean; sharedSignatureKey: CryptoKey } | undefined
   ): void {
     this.caches = this.caches.then(async (caches) => {
       caches.dataById[exchangeData.id!] = { exchangeData, decrypted }
@@ -487,6 +601,25 @@ class FullyCachedExchangeDataManager extends AbstractExchangeDataManager {
       res.push(await this.accessControlSecret.secureDelegationKeyFor(accessControlSecret, entityType))
     }
     return res
+  }
+
+  protected async cacheInjectedExchangeData(
+    exchangeDataDetails: {
+      exchangeData: ExchangeData
+      accessControlSecret: string
+      exchangeKey: CryptoKey
+      sharedSignatureKey: CryptoKey
+      verified: boolean
+    }[]
+  ): Promise<void> {
+    for (const details of exchangeDataDetails) {
+      this.cacheData(details.exchangeData, true, {
+        accessControlSecret: details.accessControlSecret,
+        exchangeKey: details.exchangeKey,
+        sharedSignatureKey: details.sharedSignatureKey,
+        verified: details.verified,
+      })
+    }
   }
 }
 
@@ -604,8 +737,11 @@ class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
 
   async getOrCreateEncryptionDataTo(
     delegateId: string,
-    allowCreationWithoutDelegateKey: boolean
-  ): Promise<{ exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey }> {
+    options?: {
+      allowCreationWithoutDelegatorKey?: boolean
+      allowCreationWithoutDelegateKey?: boolean
+    }
+  ): Promise<{ exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey; sharedSignatureKey: CryptoKey }> {
     const release = await this.cacheMutex.acquire()
     try {
       let existingId = this.delegateToVerifiedEncryptionDataId.get(delegateId)
@@ -621,11 +757,13 @@ class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
             exchangeData: cached.exchangeData,
             exchangeKey: cached.decrypted.exchangeKey,
             accessControlSecret: cached.decrypted.accessControlSecret,
+            sharedSignatureKey: cached.decrypted.sharedSignatureKey,
           }
         } else throw new Error(`Illegal state: cached verified data should be decrypted.`)
       } else {
         const created = await this.createNewExchangeData(delegateId, {
-          allowNoDelegateKeys: allowCreationWithoutDelegateKey,
+          allowNoDelegateKeys: options?.allowCreationWithoutDelegateKey ?? false,
+          allowNoDelegatorKeys: options?.allowCreationWithoutDelegatorKey ?? false,
         })
         const hashes = await this.accessControlSecret.allSecureDelegationKeysFor(created.accessControlSecret)
         const data = {
@@ -633,6 +771,7 @@ class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
           decrypted: {
             accessControlSecret: created.accessControlSecret,
             exchangeKey: created.exchangeKey,
+            sharedSignatureKey: created.sharedSignatureKey,
             verified: true,
           },
           hashes,
@@ -640,8 +779,9 @@ class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
         this.addToCache(data)
         return {
           exchangeData: data.exchangeData,
-          exchangeKey: data.decrypted!.exchangeKey,
-          accessControlSecret: data.decrypted!.accessControlSecret,
+          exchangeKey: data.decrypted.exchangeKey,
+          accessControlSecret: data.decrypted.accessControlSecret,
+          sharedSignatureKey: data.decrypted.sharedSignatureKey,
         }
       }
     } finally {
@@ -689,5 +829,30 @@ class LimitedLruCacheExchangeDataManager extends AbstractExchangeDataManager {
 
   getAllDelegationKeys(): Promise<string[] | undefined> {
     return Promise.resolve(undefined)
+  }
+
+  protected async cacheInjectedExchangeData(
+    exchangeDataDetails: {
+      exchangeData: ExchangeData
+      accessControlSecret: string
+      exchangeKey: CryptoKey
+      sharedSignatureKey: CryptoKey
+      verified: boolean
+    }[]
+  ): Promise<void> {
+    for (const details of exchangeDataDetails) {
+      const hashes = await this.accessControlSecret.allSecureDelegationKeysFor(details.accessControlSecret)
+      const data = {
+        exchangeData: details.exchangeData,
+        decrypted: {
+          accessControlSecret: details.accessControlSecret,
+          exchangeKey: details.exchangeKey,
+          sharedSignatureKey: details.sharedSignatureKey,
+          verified: details.verified,
+        },
+        hashes,
+      }
+      this.addToCache(data)
+    }
   }
 }

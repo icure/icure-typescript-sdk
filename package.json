@@ -1,6 +1,6 @@
 {
   "name": "@icure/api",
-  "version": "8.1.7",
+  "version": "8.2.3",
   "description": "Typescript version of iCure standalone API client",
   "types": "dist/index.d.ts",
   "dependencies": {
@@ -46,8 +46,11 @@
     "pretty-quick": "^3.1.3",
     "rimraf": "^3.0.2",
     "source-map-support": "^0.5.21",
+    "ts-loader": "^9.5.2",
     "ts-node": "^10.7.0",
-    "typescript": "^4.5.5"
+    "typescript": "^5.8.2",
+    "webpack": "^5.98.0",
+    "webpack-cli": "^6.0.1"
   },
   "scripts": {
     "gen": "java -classpath swagger-codegen-generators.jar io.swagger.codegen.v3.cli.SwaggerCodegen generate -i https://api.icure.cloud/v3/api-docs/v2 -l typescript --additional-properties classPrefix=Icc skipPathPrefix=/rest/v2 -o ./icc-api/",
@@ -55,7 +58,8 @@
     "gendev": "java -classpath swagger-codegen-generators.jar io.swagger.codegen.v3.cli.SwaggerCodegen generate -i https://api.icure.dev/v3/api-docs/v2 -l typescript --additional-properties classPrefix=Icc skipPathPrefix=/rest/v2 -o ./icc-api/",
     "eslint": "eslint --fix icc-api/* icc-x-api/*",
     "build": "tsc",
-    "prepare": "rimraf dist && npm run build && jq '{name:.name, version:.version, description:.description, main:\"index.js\", types:\"index.d.ts\", dependencies:.dependencies, author:.author, license:.license, bugs:.bugs, homepage:.homepage}' < package.json > dist/package.json",
+    "testwp": "echo 'Test webpack build' && yarn webpack --config buildconfig/webpack.config.js || rm -rf dist && rm -rf buildconfig/dist-wp",
+    "prepare": "rimraf dist && npm run build && jq '{name:.name, version:.version, description:.description, main:\"index.js\", types:\"index.d.ts\", dependencies:.dependencies, author:.author, license:.license, bugs:.bugs, homepage:.homepage}' < package.json > dist/package.json && yarn testwp",
     "publish": "yarn version patch && yarn run prepare && cd dist && yarn publish --no-git-tag-version --new-version `git describe --abbrev=0 --tags` && cd ..",
     "precommit": "pretty-quick --staged",
     "test": "nyc mocha \"test/**/*.ts\" --require ts-node/register --require source-map-support/register --timeout=60000 --recursive",

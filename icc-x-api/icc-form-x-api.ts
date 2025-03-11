@@ -56,6 +56,8 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
    * auto-delegations, in such case the access level specified here will be used.
    * - preferredSfk: secret id of the patient to use as the secret foreign key to use for the form. The default value will be a
    * secret id of patient known by the topmost parent in the current data owner hierarchy.
+   * - alternateRootDelegation: by default a new entity is created with a root delegation from self to self. In keyless mode this is not possible,
+   * and instead the root delegation will be from self to another. You have to specify which delegate will be part of the root delegation.
    * @return a new instance of form.
    */
   async newInstance(
@@ -65,6 +67,7 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
     options: {
       additionalDelegates?: { [dataOwnerId: string]: AccessLevelEnum }
       sfkOption?: SecretIdUseOption
+      alternateRootDelegation?: string
     } = {}
   ) {
     const form = {
@@ -93,7 +96,15 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
     }
     return new models.Form(
       await this.crypto.xapi
-        .entityWithInitialisedEncryptedMetadata(form, EntityWithDelegationTypeName.Form, patient.id, sfk, true, extraDelegations)
+        .entityWithInitialisedEncryptedMetadata(
+          form,
+          EntityWithDelegationTypeName.Form,
+          patient.id,
+          sfk,
+          true,
+          extraDelegations,
+          options.alternateRootDelegation
+        )
         .then((x) => x.updatedEntity)
     )
   }

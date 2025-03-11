@@ -590,6 +590,8 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
    * auto-delegations, in such case the access level specified here will be used.
    * - preferredSfk: secret id of the message to use as the secret foreign key to use for the document. The default value will be a
    * secret id of the message known by the topmost parent in the current data owner hierarchy.
+   * - alternateRootDelegation: by default a new entity is created with a root delegation from self to self. In keyless mode this is not possible,
+   * and instead the root delegation will be from self to another. You have to specify which delegate will be part of the root delegation.
    * @return a new instance of document.
    */
   async newInstance(
@@ -599,6 +601,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     options: {
       additionalDelegates?: { [dataOwnerId: string]: AccessLevelEnum }
       sfkOption?: SecretIdUseOption
+      alternateRootDelegation?: string
     } = {}
   ) {
     const document = {
@@ -629,7 +632,15 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     }
     return new models.Document(
       await this.crypto.xapi
-        .entityWithInitialisedEncryptedMetadata(document, EntityWithDelegationTypeName.Document, message?.id, sfk, true, extraDelegations)
+        .entityWithInitialisedEncryptedMetadata(
+          document,
+          EntityWithDelegationTypeName.Document,
+          message?.id,
+          sfk,
+          true,
+          extraDelegations,
+          options.alternateRootDelegation
+        )
         .then((x) => x.updatedEntity)
     )
   }

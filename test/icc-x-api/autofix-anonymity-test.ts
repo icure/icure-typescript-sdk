@@ -84,10 +84,23 @@ describe('Autofix anonymity tests', () => {
     )
     const createdByBackend = await api.agendaApi.createAgenda({ id: api.cryptoApi.primitives.randomUuid(), name: 'whatever' })
     if (isAnonymous) {
-      expect(createdWithNewInstance.author).to.eq('*')
-      expect(createdWithNewInstance.responsible).to.eq('*')
-      expect(createdByBackend.author).to.eq('*')
-      expect(createdByBackend.responsible).to.eq('*')
+      expect(createdWithNewInstance.author).to.eq(undefined)
+      expect(createdWithNewInstance.responsible).to.eq(undefined)
+      expect(createdByBackend.author).to.eq(undefined)
+      expect(createdByBackend.responsible).to.eq(undefined)
+    } else {
+      const doId = api.dataOwnerApi.getDataOwnerIdOf(user)
+      expect(createdWithNewInstance.author).to.eq(user.id)
+      expect(createdWithNewInstance.responsible).to.eq(doId)
+      expect(createdByBackend.author).to.eq(user.id)
+      expect(createdByBackend.responsible).to.eq(doId)
+    }
+    const modified = await api.agendaApi.modifyAgenda({ ...createdByBackend, name: 'whatever 2' })
+    if (isAnonymous) {
+      expect(createdWithNewInstance.author).to.eq(undefined)
+      expect(createdWithNewInstance.responsible).to.eq(undefined)
+      expect(createdByBackend.author).to.eq(undefined)
+      expect(createdByBackend.responsible).to.eq(undefined)
     } else {
       const doId = api.dataOwnerApi.getDataOwnerIdOf(user)
       expect(createdWithNewInstance.author).to.eq(user.id)

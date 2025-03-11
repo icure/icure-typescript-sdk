@@ -4,6 +4,7 @@ import { ExchangeData } from '../../icc-api/model/internal/ExchangeData'
 import { expect } from 'chai'
 import { BaseExchangeDataManager } from '../../icc-x-api/crypto/BaseExchangeDataManager'
 import { CryptoPrimitives } from '../../icc-x-api'
+import { id } from 'date-fns/locale'
 
 export class FakeDecryptionExchangeDataManager implements ExchangeDataManager {
   constructor(private readonly cryptoPrimitives: CryptoPrimitives) {}
@@ -48,7 +49,9 @@ export class FakeDecryptionExchangeDataManager implements ExchangeDataManager {
     return res
   }
 
-  getOrCreateEncryptionDataTo(delegateId: string): Promise<{ exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey }> {
+  getOrCreateEncryptionDataTo(
+    delegateId: string
+  ): Promise<{ exchangeData: ExchangeData; accessControlSecret: string; exchangeKey: CryptoKey; sharedSignatureKey: CryptoKey }> {
     throw new Error('This method should not be used with this fake exchange data manager: only retrieval decryption data is supported')
   }
 
@@ -86,6 +89,19 @@ export class FakeDecryptionExchangeDataManager implements ExchangeDataManager {
   }
 
   get base(): BaseExchangeDataManager {
+    throw new Error('This method should not be used with this fake exchange data manager: only retrieval decryption data is supported')
+  }
+
+  injectDecryptedExchangeData(
+    exchangeDataDetails: {
+      exchangeDataId: string
+      accessControlSecret: ArrayBuffer
+      exchangeKey: ArrayBuffer
+      sharedSignatureKey: ArrayBuffer
+      verified: boolean
+    }[],
+    reEncryptWithOwnKeys: boolean
+  ): Promise<void> {
     throw new Error('This method should not be used with this fake exchange data manager: only retrieval decryption data is supported')
   }
 }

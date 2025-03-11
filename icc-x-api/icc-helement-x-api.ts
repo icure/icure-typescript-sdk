@@ -64,6 +64,8 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
    * the data owner did not share with any of his parents.
    * - confidential: if true, the entity will be created as confidential. Confidential entities are not shared with auto-delegations, and the default
    * foreign key used is any key that is not shared with any of the data owner parents. By default entities are created as non-confidential.
+   * - alternateRootDelegation: by default a new entity is created with a root delegation from self to self. In keyless mode this is not possible,
+   * and instead the root delegation will be from self to another. You have to specify which delegate will be part of the root delegation.
    * @return a new instance of health element.
    */
   async newInstance(
@@ -74,6 +76,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
       additionalDelegates?: { [dataOwnerId: string]: AccessLevelEnum }
       sfkOption?: SecretIdUseOption
       ignoreAutoDelegations?: boolean
+      alternateRootDelegation?: string
     } = {}
   ) {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
@@ -111,7 +114,8 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
       patient.id,
       sfk,
       true,
-      extraDelegations
+      extraDelegations,
+      options.alternateRootDelegation
     )
     return new models.HealthElement(initialisationInfo.updatedEntity)
   }
