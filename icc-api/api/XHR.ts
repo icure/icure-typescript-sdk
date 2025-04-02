@@ -1,6 +1,7 @@
-import { ua2b64 } from '../model/ModelHelper'
-import { NoAuthService } from '../../icc-x-api/auth/NoAuthService'
-import { AuthService } from '../../icc-x-api/auth/AuthService'
+import {ua2b64, ua2string} from '../model/ModelHelper'
+import {NoAuthService} from '../../icc-x-api/auth/NoAuthService'
+import {AuthService} from '../../icc-x-api/auth/AuthService'
+import {ua2utf8} from "../../icc-x-api"
 
 export namespace XHR {
   export class Header {
@@ -49,12 +50,12 @@ export namespace XHR {
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
-      ? self.fetch
-      : fetch
+        ? self.fetch
+        : fetch
   ): Promise<Response> {
     return new Promise((resolve, reject) => {
       // Set timeout timer
-      let timer = setTimeout(() => reject({ message: 'Request timed out', status: 'Request timed out' }), timeout)
+      let timer = setTimeout(() => reject({message: 'Request timed out', status: 'Request timed out'}), timeout)
       fetchImpl(url, init)
         .then((response) => {
           clearTimeout(timer)
@@ -75,11 +76,12 @@ export namespace XHR {
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
-      ? self.fetch
-      : fetch,
+        ? self.fetch
+        : fetch,
     contentTypeOverride?: 'application/json' | 'text/plain' | 'application/octet-stream',
     headerProvider: AuthService = new NoAuthService(),
-    minimumAuthenticationClass: number | undefined = undefined
+    minimumAuthenticationClass: number | undefined = undefined,
+    tryHardToParseJson: boolean = false
   ): Promise<Data> {
     const authHeaders = await headerProvider.getAuthHeaders(minimumAuthenticationClass)
     const contentType = headers && headers.find((it) => (it.header ? it.header.toLowerCase() === 'content-type' : false))
@@ -104,18 +106,18 @@ export namespace XHR {
                 acc[h.header] = h.data
                 return acc
               },
-              { 'X-Requested-With': 'XMLHttpRequest' }
+              {'X-Requested-With': 'XMLHttpRequest'}
             ),
         },
         method === 'POST' || method === 'PUT'
           ? {
-              body:
-                !contentType || contentType.data === 'application/json'
-                  ? JSON.stringify(data, (k, v) => {
-                      return v instanceof ArrayBuffer || v instanceof Uint8Array ? ua2b64(v) : v
-                    })
-                  : data,
-            }
+            body:
+              !contentType || contentType.data === 'application/json'
+                ? JSON.stringify(data, (k, v) => {
+                  return v instanceof ArrayBuffer || v instanceof Uint8Array ? ua2b64(v) : v
+                })
+                : data,
+          }
           : {}
       ),
       timeout,
@@ -132,24 +134,32 @@ export namespace XHR {
           fetchImpl,
           contentTypeOverride,
           headerProvider,
-          requiredAuthLevelHeader ? parseInt(requiredAuthLevelHeader) : undefined
+          requiredAuthLevelHeader ? parseInt(requiredAuthLevelHeader) : undefined,
+          tryHardToParseJson
         )
       } else if (response.status >= 400) {
         const error: {
           error: string
           message: string
           status: number
-        } = { error: response.statusText, message: await response.text(), status: response.status }
+        } = {error: response.statusText, message: await response.text(), status: response.status}
         console.warn(`XHR Error: ${method} ${url} - ${error.status} - ${error.error}`, error.message)
         throw new XHRError(url, error.message, error.status, error.error, response.headers)
       } else {
         const ct = contentTypeOverride || response.headers.get('content-type') || 'text/plain'
         return (
           ct.startsWith('application/json')
-            ? response.json()
+            ? tryHardToParseJson ? response.arrayBuffer().then(async (ab) => {
+              try {
+                return JSON.parse(ua2utf8(ab))
+              } catch (e) {
+                console.warn('Error parsing JSON fallback on ua2string', e)
+                return JSON.parse(ua2string(ab).replace(/[\u0000-\u001F\u007F-\u009F]/g, ""))
+              }
+            }) : response.json()
             : ct.startsWith('application/xml') || ct.startsWith('text/')
-            ? response.text()
-            : response.arrayBuffer()
+              ? response.text()
+              : response.arrayBuffer()
         ).then((d) => new Data(response.status, ct, d))
       }
     })

@@ -1,6 +1,6 @@
 {
   "name": "@icure/api",
-  "version": "8.2.3",
+  "version": "8.2.7",
   "description": "Typescript version of iCure standalone API client",
   "types": "dist/index.d.ts",
   "dependencies": {
@@ -60,7 +60,7 @@
     "build": "tsc",
     "testwp": "echo 'Test webpack build' && yarn webpack --config buildconfig/webpack.config.js || rm -rf dist && rm -rf buildconfig/dist-wp",
     "prepare": "rimraf dist && npm run build && jq '{name:.name, version:.version, description:.description, main:\"index.js\", types:\"index.d.ts\", dependencies:.dependencies, author:.author, license:.license, bugs:.bugs, homepage:.homepage}' < package.json > dist/package.json && yarn testwp",
-    "publish": "yarn version patch && yarn run prepare && cd dist && yarn publish --no-git-tag-version --new-version `git describe --abbrev=0 --tags` && cd ..",
+    "publish": "yarn version patch && yarn run prepare && cd dist && npm publish && cd ..",
     "precommit": "pretty-quick --staged",
     "test": "nyc mocha \"test/**/*.ts\" --require ts-node/register --require source-map-support/register --timeout=60000 --recursive",
     "clean": "npx ts-node test-scripts/cleanup.ts"

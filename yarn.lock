@@ -348,7 +348,6 @@ __metadata:
     webpack: ^5.98.0
     webpack-cli: ^6.0.1
     ws: ^8.18.0
-    your-library-name: ^1.0.0
   languageName: unknown
   linkType: soft
 
@@ -4195,13 +4194,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"validator@npm:^13.6.0":
-  version: 13.12.0
-  resolution: "validator@npm:13.12.0"
-  checksum: fb8f070724770b1449ea1a968605823fdb112dbd10507b2802f8841cda3e7b5c376c40f18c84e6a7b59de320a06177e471554101a85f1fa8a70bac1a84e48adf
-  languageName: node
-  linkType: hard
-
 "watchpack@npm:^2.4.1":
   version: 2.4.2
   resolution: "watchpack@npm:2.4.2"
@@ -4565,14 +4557,5 @@ __metadata:
   version: 0.1.0
   resolution: "yocto-queue@npm:0.1.0"
   checksum: f77b3d8d00310def622123df93d4ee654fc6a0096182af8bd60679ddcdfb3474c56c6c7190817c84a2785648cdee9d721c0154eb45698c62176c322fb46fc700
-  languageName: node
-  linkType: hard
-
-"your-library-name@npm:^1.0.0":
-  version: 1.0.0
-  resolution: "your-library-name@npm:1.0.0"
-  dependencies:
-    validator: ^13.6.0
-  checksum: c832e194b616943b371d97bb664adf30d168136cd2e8bd32d749d205c70a955c1720d38bd5a3de98bc0cf7aaad70bcac4dc82a1946179c5d4e6447fedc49473a
   languageName: node
   linkType: hard

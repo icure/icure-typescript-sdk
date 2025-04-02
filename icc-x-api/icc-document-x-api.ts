@@ -741,12 +741,12 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
   //prettier-ignore
   getMainAttachmentAs(documentId: string, returnType: "text/plain"): Promise<string>
   //prettier-ignore
-  getMainAttachmentAs(documentId: string, returnType: "application/json"): Promise<any>
+  getMainAttachmentAs(documentId: string, returnType: "application/json", tryHardToParseJson?: boolean): Promise<any>
   //prettier-ignore
-  getMainAttachmentAs(documentId: string, returnType: 'application/octet-stream' | 'text/plain' | 'application/json'): Promise<any>
-  async getMainAttachmentAs(documentId: string, returnType: 'application/octet-stream' | 'text/plain' | 'application/json'): Promise<any> {
+  getMainAttachmentAs(documentId: string, returnType: 'application/octet-stream' | 'text/plain' | 'application/json', tryHardToParseJson?: boolean): Promise<any>
+  async getMainAttachmentAs(documentId: string, returnType: 'application/octet-stream' | 'text/plain' | 'application/json', tryHardToParseJson: boolean = false): Promise<any> {
     const url = this.host + `/document/${documentId}/attachment` + '?ts=' + new Date().getTime()
-    return XHR.sendCommand('GET', url, await this.headers, null, this.fetchImpl, returnType, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('GET', url, await this.headers, null, this.fetchImpl, returnType, this.authenticationProvider.getAuthService(), undefined, returnType == 'application/json' && tryHardToParseJson)
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
   }
