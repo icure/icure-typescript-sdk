@@ -59,11 +59,8 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
    * - additionalDelegates: delegates which will have access to the entity in addition to the current data owner and delegates from the
    * auto-delegations. Must be an object which associates each data owner id with the access level to give to that data owner. May overlap with
    * auto-delegations, in such case the access level specified here will be used.
-   * - preferredSfk: secret id of the patient to use as the secret foreign key to use for the health element. The default value will be a
-   * secret id of patient known by the topmost parent in the current data owner hierarchy if the confidential is set to false, else a secret id that
-   * the data owner did not share with any of his parents.
-   * - confidential: if true, the entity will be created as confidential. Confidential entities are not shared with auto-delegations, and the default
-   * foreign key used is any key that is not shared with any of the data owner parents. By default entities are created as non-confidential.
+   * - sfkOption: specifies which sfk of the owning entity to use.
+   * - ignoreAutoDelegations: if true the data won't be shared with the autodelegations of the user, but only with additional delegates
    * - alternateRootDelegation: by default a new entity is created with a root delegation from self to self. In keyless mode this is not possible,
    * and instead the root delegation will be from self to another. You have to specify which delegate will be part of the root delegation.
    * @return a new instance of health element.
@@ -101,7 +98,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
       options.sfkOption ?? SecretIdUseOption.UseAnySharedWithParent
     )
     const extraDelegations = {
-      ...(options.ignoreAutoDelegations
+      ...(options.ignoreAutoDelegations == true
         ? {}
         : Object.fromEntries(
             [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])].map((d) => [d, AccessLevelEnum.WRITE])

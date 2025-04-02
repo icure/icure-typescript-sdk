@@ -46,6 +46,7 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
    * - additionalDelegates: delegates which will have access to the entity in addition to the current data owner and delegates from the
    * auto-delegations. Must be an object which associates each data owner id with the access level to give to that data owner. May overlap with
    * auto-delegations, in such case the access level specified here will be used.
+   * - ignoreAutoDelegations: if true the data won't be shared with the autodelegations of the user, but only with additional delegates
    * - alternateRootDelegation: by default a new entity is created with a root delegation from self to self. In keyless mode this is not possible,
    * and instead the root delegation will be from self to another. You have to specify which delegate will be part of the root delegation.
    * @return a new instance of receipt.
@@ -55,6 +56,7 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
     r: any,
     options: {
       additionalDelegates?: { [dataOwnerId: string]: AccessLevelEnum }
+      ignoreAutoDelegations?: boolean
       alternateRootDelegation?: string
     } = {}
   ): Promise<models.Receipt> {
@@ -71,9 +73,11 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
     })
 
     const extraDelegations = {
-      ...Object.fromEntries(
-        [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])].map((d) => [d, AccessLevelEnum.WRITE])
-      ),
+      ...(options.ignoreAutoDelegations == true
+        ? Object.fromEntries(
+            [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])].map((d) => [d, AccessLevelEnum.WRITE])
+          )
+        : {}),
       ...(options?.additionalDelegates ?? {}),
     }
     return new models.Receipt(
