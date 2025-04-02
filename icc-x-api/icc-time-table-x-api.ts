@@ -80,10 +80,10 @@ export class IccTimeTableXApi extends IccTimeTableApi implements EncryptedEntity
 
     const extraDelegations = {
       ...(options.ignoreAutoDelegations == true
-        ? Object.fromEntries(
+        ? {}
+        : Object.fromEntries(
             [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.administrativeData ?? [])].map((d) => [d, AccessLevelEnum.WRITE])
-          )
-        : {}),
+          )),
       ...(options?.additionalDelegates ?? {}),
     }
 

@@ -88,10 +88,10 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
     )
     const extraDelegations = {
       ...(options.ignoreAutoDelegations == true
-        ? Object.fromEntries(
+        ? {}
+        : Object.fromEntries(
             [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.financialInformation ?? [])].map((d) => [d, AccessLevelEnum.WRITE])
-          )
-        : {}),
+          )),
       ...(options?.additionalDelegates ?? {}),
     }
     return new models.Invoice(

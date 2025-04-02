@@ -74,10 +74,10 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
 
     const extraDelegations = {
       ...(options.ignoreAutoDelegations == true
-        ? Object.fromEntries(
+        ? {}
+        : Object.fromEntries(
             [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])].map((d) => [d, AccessLevelEnum.WRITE])
-          )
-        : {}),
+          )),
       ...(options?.additionalDelegates ?? {}),
     }
     return new models.Receipt(

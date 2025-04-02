@@ -108,10 +108,10 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
     const extraDelegations = {
       ...(options.ignoreAutoDelegations == true
-        ? Object.fromEntries(
+        ? {}
+        : Object.fromEntries(
             [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])].map((d) => [d, AccessLevelEnum.WRITE])
-          )
-        : {}),
+          )),
       ...(options?.additionalDelegates ?? {}),
     }
     const initialisationInfo = await this.crypto.xapi.entityWithInitialisedEncryptedMetadata(

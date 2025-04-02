@@ -93,10 +93,10 @@ export class IccClassificationXApi extends IccClassificationApi implements Encry
     )
     const extraDelegations = {
       ...(options.ignoreAutoDelegations == true
-        ? Object.fromEntries(
+        ? {}
+        : Object.fromEntries(
             [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])].map((d) => [d, AccessLevelEnum.WRITE])
-          )
-        : {}),
+          )),
       ...(options?.additionalDelegates ?? {}),
     }
     return new models.Classification(

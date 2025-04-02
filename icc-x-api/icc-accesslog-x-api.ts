@@ -96,10 +96,10 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
     )
     const extraDelegations = {
       ...(options.ignoreAutoDelegations == true
-        ? Object.fromEntries(
+        ? {}
+        : Object.fromEntries(
             [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.administrativeData ?? [])].map((x) => [x, AccessLevelEnum.WRITE])
-          )
-        : {}),
+          )),
       ...(options.additionalDelegates ?? {}),
     }
     return new AccessLog(
@@ -160,10 +160,10 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
     if (ownerId !== (await this.dataOwnerApi.getCurrentDataOwnerId())) throw new Error('Can only initialise entities as current data owner.')
     const extraDelegations = {
       ...(options.ignoreAutoDelegations == true
-        ? Object.fromEntries(
+        ? {}
+        : Object.fromEntries(
             [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.administrativeData ?? [])].map((x) => [x, AccessLevelEnum.WRITE])
-          )
-        : {}),
+          )),
       ...(options.additionalDelegates ?? {}),
     }
     return new AccessLog(

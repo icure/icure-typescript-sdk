@@ -91,7 +91,7 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
     }
 
     const extraDelegations = {
-      ...(options.ignoreAutoDelegations == true ? Object.fromEntries((user.autoDelegations?.all ?? []).map((d) => [d, AccessLevelEnum.WRITE])) : {}),
+      ...(options.ignoreAutoDelegations == true ? {} : Object.fromEntries((user.autoDelegations?.all ?? []).map((d) => [d, AccessLevelEnum.WRITE]))),
       ...(options?.additionalDelegates ?? {}),
     }
 

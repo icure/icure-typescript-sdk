@@ -627,10 +627,10 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
       : []
     const extraDelegations = {
       ...(options.ignoreAutoDelegations == true
-        ? Object.fromEntries(
+        ? {}
+        : Object.fromEntries(
             [...(user.autoDelegations?.all ?? []), ...(user.autoDelegations?.medicalInformation ?? [])].map((d) => [d, AccessLevelEnum.WRITE])
-          )
-        : {}),
+          )),
       ...(options?.additionalDelegates ?? {}),
     }
     return new models.Document(
@@ -747,9 +747,23 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
   getMainAttachmentAs(documentId: string, returnType: "application/json", tryHardToParseJson?: boolean): Promise<any>
   //prettier-ignore
   getMainAttachmentAs(documentId: string, returnType: 'application/octet-stream' | 'text/plain' | 'application/json', tryHardToParseJson?: boolean): Promise<any>
-  async getMainAttachmentAs(documentId: string, returnType: 'application/octet-stream' | 'text/plain' | 'application/json', tryHardToParseJson: boolean = false): Promise<any> {
+  async getMainAttachmentAs(
+    documentId: string,
+    returnType: 'application/octet-stream' | 'text/plain' | 'application/json',
+    tryHardToParseJson: boolean = false
+  ): Promise<any> {
     const url = this.host + `/document/${documentId}/attachment` + '?ts=' + new Date().getTime()
-    return XHR.sendCommand('GET', url, await this.headers, null, this.fetchImpl, returnType, this.authenticationProvider.getAuthService(), undefined, returnType == 'application/json' && tryHardToParseJson)
+    return XHR.sendCommand(
+      'GET',
+      url,
+      await this.headers,
+      null,
+      this.fetchImpl,
+      returnType,
+      this.authenticationProvider.getAuthService(),
+      undefined,
+      returnType == 'application/json' && tryHardToParseJson
+    )
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
   }

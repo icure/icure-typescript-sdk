@@ -85,7 +85,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
     }
 
     const extraDelegations = {
-      ...(options.ignoreAutoDelegations == true ? Object.fromEntries((user.autoDelegations?.all ?? []).map((d) => [d, AccessLevelEnum.WRITE])) : {}),
+      ...(options.ignoreAutoDelegations == true ? {} : Object.fromEntries((user.autoDelegations?.all ?? []).map((d) => [d, AccessLevelEnum.WRITE]))),
       ...(options?.additionalDelegates ?? {}),
     }
     return new models.MaintenanceTask(
