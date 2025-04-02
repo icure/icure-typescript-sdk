@@ -41,7 +41,7 @@ function healthElementToCreate(hElementApiForHcp: IccHelementXApi, hcpUser: User
     patient,
     new HealthElement({
       id: randomUUID(),
-      codes: [new Code({ system: 'LOINC', code: '95209', version: '3' })],
+      codes: [new Code({ type: 'LOINC', code: '95209', version: '3' })],
       note: 'SARS-V2',
     }),
     { sfkOption: UseAnyConfidential, ignoreAutoDelegations: true }
