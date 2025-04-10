@@ -1,8 +1,8 @@
 import 'isomorphic-fetch'
 
 import { before } from 'mocha'
-import { getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils } from '../utils/test_utils'
-import { EntityWithDelegationTypeName, IccTimeTableXApi } from '../../icc-x-api'
+import { getEnvironmentInitializer, hcp1Username, setLocalStorage, TestUtils } from '../utils/test_utils'
+import { EntityWithDelegationTypeName } from '../../icc-x-api'
 import initApi = TestUtils.initApi
 import { User } from '../../icc-api/model/User'
 import { randomUUID } from 'crypto'
@@ -12,14 +12,13 @@ import { TimeTableItem } from '../../icc-api/model/TimeTableItem'
 import { TimeTableHour } from '../../icc-api/model/TimeTableHour'
 import { expect } from 'chai'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
+import {IccTimeTableApi} from "../../icc-api"
 
 setLocalStorage(fetch)
 let env: TestVars
 
-async function instanceTimeTableFor(timeTableApi: IccTimeTableXApi, user: User): Promise<TimeTable> {
-  return timeTableApi.newInstance(
-    user,
-    new TimeTable({
+async function instanceTimeTableFor(timeTableApi: IccTimeTableApi, user: User): Promise<TimeTable> {
+  return new TimeTable({
       id: randomUUID(),
       tags: [
         new Code({
@@ -46,7 +45,6 @@ async function instanceTimeTableFor(timeTableApi: IccTimeTableXApi, user: User):
         }),
       ],
     })
-  )
 }
 
 describe('icc-x-time-table-api Tests', () => {
@@ -81,22 +79,4 @@ describe('icc-x-time-table-api Tests', () => {
     ).to.have.length(0)
   })
 
-  it('Share with should work as expected', async () => {
-    const api1 = await initApi(env!, hcp1Username)
-    const user1 = await api1.userApi.getCurrentUser()
-    const api2 = await initApi(env!, hcp2Username)
-    const user2 = await api2.userApi.getCurrentUser()
-    const entity = (await api1.timetableApi.createTimeTable(await api1.timetableApi.newInstance(user1, {})))!
-    await api2.timetableApi
-      .getTimeTable(entity.id!)
-      .then(() => {
-        throw new Error('Should not be able to get the entity')
-      })
-      .catch(() => {
-        /* expected */
-      })
-    await api1.timetableApi.shareWith(user2.healthcarePartyId!, entity)
-    const retrieved = await api2.timetableApi.getTimeTable(entity.id!)
-    expect(retrieved.id).to.equal(entity.id)
-  })
 })

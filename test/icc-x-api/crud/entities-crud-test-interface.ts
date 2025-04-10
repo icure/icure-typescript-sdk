@@ -377,20 +377,13 @@ export const entities: { [key: string]: CRUDInterface } = {
     delete: async (api: IcureApi, id: IdWithRev) => api.receiptApi.deleteReceipt(id.id!),
   },
   TimeTable: {
-    encryptable: true,
+    encryptable: false,
     create: async (api: IcureApi, _: Patient) => {
       const currentUser = await api.userApi.getCurrentUser()
-      const item = await api.timetableApi.newInstance(currentUser, {})
+      const item = new TimeTable({})
       return api.timetableApi.createTimeTable(item)
     },
-    share: async (delegatorApi: IcureApi, delegateApi: IcureApi, entity: any) => {
-      const delegateUser = await delegateApi.userApi.getCurrentUser()
-      const delegateId = delegateUser.healthcarePartyId ?? delegateUser.patientId ?? delegateUser.deviceId
-      if (!delegateId) {
-        throw new Error('Cannot share with non data owner user')
-      }
-      return delegatorApi.timetableApi.shareWith(delegateId, entity as TimeTable)
-    },
+    share: async (_: IcureApi, __: IcureApi, entity: any) => entity,
     deleteMany: async (api: IcureApi, ids: IdWithRev[]) => api.timetableApi.deleteTimeTables(new ListOfIds({ ids: ids.map((it) => it.id!) })),
     delete: async (api: IcureApi, id: IdWithRev) => api.timetableApi.deleteTimeTable(id.id!),
   },

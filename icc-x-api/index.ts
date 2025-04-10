@@ -23,7 +23,7 @@ import {
   IccPlaceApi,
   IccPubsubApi,
   IccReplicationApi,
-  IccTarificationApi,
+  IccTarificationApi, IccTimeTableApi,
   IccTmpApi,
   IccUserApi,
   OAuthThirdParty,
@@ -42,7 +42,6 @@ import { IccPatientXApi } from './icc-patient-x-api'
 import { IccMessageXApi } from './icc-message-x-api'
 import { IccReceiptXApi } from './icc-receipt-x-api'
 import { IccAccesslogXApi } from './icc-accesslog-x-api'
-import { IccTimeTableXApi } from './icc-time-table-x-api'
 import { IccCodeXApi } from './icc-code-x-api'
 import { IccMaintenanceTaskXApi } from './icc-maintenance-task-x-api'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
@@ -112,7 +111,6 @@ export * from './icc-invoice-x-api'
 export * from './icc-message-x-api'
 export * from './icc-patient-x-api'
 export * from './icc-user-x-api'
-export * from './icc-time-table-x-api'
 export * from './icc-receipt-x-api'
 export * from './icc-data-owner-x-api'
 export * from './icc-icure-maintenance-x-api'
@@ -162,7 +160,7 @@ export interface Apis extends BasicApis {
   readonly classificationApi: IccClassificationXApi
   readonly calendarItemApi: IccCalendarItemXApi
   readonly receiptApi: IccReceiptXApi
-  readonly timetableApi: IccTimeTableXApi
+  readonly timetableApi: IccTimeTableApi
   readonly patientApi: IccPatientXApi
   readonly messageApi: IccMessageXApi
   readonly maintenanceTaskApi: IccMaintenanceTaskXApi
@@ -1180,17 +1178,14 @@ class IcureApiImpl implements IcureApi {
     )
   }
 
-  private _timetableApi: IccTimeTableXApi | undefined
+  private _timetableApi: IccTimeTableApi | undefined
 
-  get timetableApi(): IccTimeTableXApi {
+  get timetableApi(): IccTimeTableApi {
     return (
       this._timetableApi ??
-      (this._timetableApi = new IccTimeTableXApi(
+      (this._timetableApi = new IccTimeTableApi(
         this.host,
         this.cryptoInitInfos.headers,
-        this.cryptoApi,
-        this.dataOwnerApi,
-        !this.cryptoInitInfos.dataOwnerRequiresAnonymousDelegation,
         this.groupSpecificAuthenticationProvider,
         this.fetch
       ))
