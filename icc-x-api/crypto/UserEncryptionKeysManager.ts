@@ -270,7 +270,8 @@ export class UserEncryptionKeysManager {
       ? await keyRecovererAndVerifier(recoveryInfo)
       : await nothingKeyRecovererAndVerifier(recoveryInfo)
     const keysCache: { [dataOwnerId: string]: { [fp: string]: KeyPairData } } = {}
-    for (const keyData of keysData) {
+    for (let i = 0; i < keysData.length; i++) {
+      const keyData = keysData[i]
       const currAuthenticity = this.ensureFingerprintKeys(recoveryAndVerificationResult[keyData.dowt.dataOwner.id!].keyAuthenticity)
       const currExternallyRecovered = this.ensureFingerprintKeys(recoveryAndVerificationResult[keyData.dowt.dataOwner.id!].recoveredKeys)
       for (const [fp, keyPair] of Object.entries(currExternallyRecovered)) {
@@ -291,7 +292,20 @@ export class UserEncryptionKeysManager {
         ...keyData.availableKeys,
         ...Object.fromEntries(Object.entries(currExternallyRecovered).map(([k, v]) => [k, { pair: v, isDevice: false }])),
       }
-      const additionallyRecovered = await this.recoverAndCacheKeys(keyData.dowt, this.plainKeysByFingerprint(keysWithExternallyRecovered))
+      let parentKeysForRecovery: { [p: string]: { pair: KeyPair<CryptoKey>; isDevice: boolean } } = {}
+      for (let j = 0; j < i; j++) {
+        parentKeysForRecovery = {
+          ...keysCache[keysData[j].dowt.dataOwner.id!],
+          ...parentKeysForRecovery,
+        }
+      }
+      const additionallyRecovered = await this.recoverAndCacheKeys(
+        keyData.dowt,
+        this.plainKeysByFingerprint({
+          ...keysWithExternallyRecovered,
+          ...parentKeysForRecovery,
+        })
+      )
       const keys = {
         ...keysWithExternallyRecovered,
         ...Object.fromEntries(Object.entries(additionallyRecovered).map(([k, v]) => [k, { pair: v, isDevice: false }])),
