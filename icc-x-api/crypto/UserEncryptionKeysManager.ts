@@ -249,8 +249,17 @@ export class UserEncryptionKeysManager {
     const self = hierarchy[hierarchy.length - 1]
     this.selfId = self.dataOwner.id!
     const keysData = []
-    for (const dowt of this.initialiseParentKeys ? hierarchy : [self]) {
-      const availableKeys = await this.loadAndRecoverKeysFor(dowt)
+    const toInit = this.initialiseParentKeys ? hierarchy : [self]
+    for (let i = 0; i < toInit.length; i++) {
+      const dowt = toInit[i]
+      let parentKeysForRecovery: { [keyFp: string]: { pair: KeyPair<CryptoKey>; isDevice: boolean } } = {}
+      for (let j = 0; j < i; j++) {
+        parentKeysForRecovery = {
+          ...keysData[j].availableKeys,
+          ...parentKeysForRecovery,
+        }
+      }
+      const availableKeys = await this.loadAndRecoverKeysFor(dowt, parentKeysForRecovery)
       const availableKeysFpSet = new Set(Object.keys(availableKeys))
       const verifiedKeysMap = await this.icureStorage.loadSelfVerifiedKeys(dowt.dataOwner.id!)
       const allPublicKeys = new Set([
@@ -446,7 +455,10 @@ export class UserEncryptionKeysManager {
     return recoveredKeys
   }
 
-  private async loadAndRecoverKeysFor(dataOwner: DataOwnerWithType): Promise<{ [keyFp: string]: { pair: KeyPair<CryptoKey>; isDevice: boolean } }> {
+  private async loadAndRecoverKeysFor(
+    dataOwner: DataOwnerWithType,
+    ancestorsKeys: { [keyFp: string]: { pair: KeyPair<CryptoKey>; isDevice: boolean } }
+  ): Promise<{ [keyFp: string]: { pair: KeyPair<CryptoKey>; isDevice: boolean } }> {
     const pubKeysFingerprints = {
       'sha-1': [...new Set(this.dataOwnerApi.getHexPublicKeysWithSha1Of(dataOwner.dataOwner))].map((x) => fingerprintV1(x)),
       'sha-256': [...new Set(this.dataOwnerApi.getHexPublicKeysWithSha256Of(dataOwner.dataOwner))].map((x) => fingerprintV1(x)),
@@ -456,9 +468,9 @@ export class UserEncryptionKeysManager {
     const loadedKeysFingerprints = Object.keys(loadedKeys)
     if (
       loadedKeysFingerprints.length !== pubKeysFingerprints['sha-1'].length + pubKeysFingerprints['sha-256'].length &&
-      loadedKeysFingerprints.length > 0
+      (loadedKeysFingerprints.length > 0 || Object.keys(ancestorsKeys).length > 0)
     ) {
-      const recoveredKeys = await this.recoverAndCacheKeys(dataOwner, this.plainKeysByFingerprint(loadedKeys))
+      const recoveredKeys = await this.recoverAndCacheKeys(dataOwner, this.plainKeysByFingerprint({ ...loadedKeys, ...ancestorsKeys }))
       for (const [fp, pair] of Object.entries(recoveredKeys)) {
         loadedKeys[fp] = { pair, isDevice: false }
       }

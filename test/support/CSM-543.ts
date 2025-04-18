@@ -1,13 +1,12 @@
-import { createHcpHierarchyApis, getEnvironmentInitializer, setLocalStorage, TestUtils } from '../utils/test_utils'
-import { CryptoPrimitives, CryptoStrategies, IcureApi, KeyPair, ua2hex } from '../../icc-x-api'
+import { createHcpHierarchyApis, getEnvironmentInitializer, setLocalStorage } from '../utils/test_utils'
+import { CryptoPrimitives, CryptoStrategies, IcureApi, KeyPair, ShaVersion, ua2hex } from '../../icc-x-api'
 import { webcrypto } from 'crypto'
 import { expect, use as chaiUse } from 'chai'
 import 'isomorphic-fetch'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import * as chaiAsPromised from 'chai-as-promised'
 import { fingerprintV1 } from '../../icc-x-api/crypto/utils'
-import { TestCryptoStrategies } from '../utils/TestCryptoStrategies'
-import { TestKeyStorage, TestStorage } from '../utils/TestStorage'
+import { TestKeyStorage, TestStorage, testStorageWithKeys } from '../utils/TestStorage'
 import { KeyPairRecoverer } from '../../icc-x-api/crypto/KeyPairRecoverer'
 import { CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
 import { DataOwnerWithType } from '../../icc-api/model/DataOwnerWithType'
@@ -63,6 +62,49 @@ class RecoverParentKeyVerifySelfKeyStrategy implements CryptoStrategies {
   }
 }
 
+class VerifySelfKeyStrategy implements CryptoStrategies {
+  constructor(private readonly selfPub: string) {}
+
+  dataOwnerRequiresAnonymousDelegation(dataOwner: CryptoActorStubWithType): boolean {
+    return dataOwner.type != DataOwnerTypeEnum.Hcp
+  }
+
+  generateNewKeyForDataOwner(self: DataOwnerWithType, cryptoPrimitives: CryptoPrimitives): Promise<KeyPair<CryptoKey> | boolean | 'keyless'> {
+    return Promise.resolve(false)
+  }
+
+  async recoverAndVerifySelfHierarchyKeys(
+    keysData: {
+      dataOwner: DataOwnerWithType
+      unknownKeys: string[]
+      unavailableKeys: string[]
+    }[],
+    cryptoPrimitives: CryptoPrimitives,
+    keyPairRecoverer: KeyPairRecoverer
+  ): Promise<{
+    [p: string]: { recoveredKeys: { [p: string]: KeyPair<CryptoKey> }; keyAuthenticity: { [p: string]: boolean } }
+  }> {
+    expect(keysData).to.have.length(2)
+    expect(keysData.every((x) => x.unavailableKeys.length == 0)).to.be.true
+    expect(keysData[1].unknownKeys).to.have.length(1)
+    expect(keysData[1].unknownKeys[0]).to.eq(this.selfPub)
+    return {
+      [keysData[0].dataOwner.dataOwner.id!]: {
+        recoveredKeys: {},
+        keyAuthenticity: {},
+      },
+      [keysData[1].dataOwner.dataOwner.id!]: {
+        recoveredKeys: {},
+        keyAuthenticity: { [fingerprintV1(this.selfPub)]: true },
+      },
+    }
+  }
+
+  verifyDelegatePublicKeys(delegate: CryptoActorStubWithType, publicKeys: string[], cryptoPrimitives: CryptoPrimitives): Promise<string[]> {
+    return Promise.resolve(publicKeys)
+  }
+}
+
 describe('CSM-543', async function () {
   before(async function () {
     this.timeout(600000)
@@ -70,7 +112,7 @@ describe('CSM-543', async function () {
     env = await initializer.execute(getEnvVariables())
   })
 
-  it('Sdk should be able to use recovery data accessible with parent key to recover key of user', async function () {
+  async function init() {
     const {
       grandUser: parentUser,
       grandApi: parentApi,
@@ -90,10 +132,30 @@ describe('CSM-543', async function () {
       { [fingerprintV1(selfKeyPub)]: { notariesIds: [parentCredentials.dataOwnerId], minShares: 1 } },
       []
     )
+    return {
+      childCredentials,
+      selfKeyPub,
+      parentKey: initialKeys.parents[0].keys[0].pair,
+      parentCredentials,
+    }
+  }
+
+  async function checkKeys(api: IcureApi, expectedSelfKey: string) {
+    const recoveredKeys = await api.cryptoApi.getEncryptionDecryptionKeypairsForDataOwnerHierarchy()
+    expect(recoveredKeys.self.keys).to.have.length(1)
+    expect(recoveredKeys.self.keys[0].verified).to.eq(true)
+    expect(recoveredKeys.parents).to.have.length(1)
+    expect(recoveredKeys.parents[0].keys).to.have.length(1)
+    expect(recoveredKeys.parents[0].keys[0].verified).to.eq(true)
+    expect(ua2hex(await api.cryptoApi.primitives.RSA.exportKey(recoveredKeys.self.keys[0].pair.publicKey, 'spki'))).to.eq(expectedSelfKey)
+  }
+
+  it('Sdk should be able to use recovery data accessible with parent key to recover key of user - parent key recovered by crypto strategies', async function () {
+    const { childCredentials, selfKeyPub, parentKey } = await init()
     const apiWithLostKey = await IcureApi.initialise(
       env.iCureUrl,
       { username: childCredentials.user, password: childCredentials.password },
-      new RecoverParentKeyVerifySelfKeyStrategy(initialKeys.parents[0].keys[0].pair, selfKeyPub),
+      new RecoverParentKeyVerifySelfKeyStrategy(parentKey, selfKeyPub),
       webcrypto as any,
       fetch,
       {
@@ -101,12 +163,34 @@ describe('CSM-543', async function () {
         keyStorage: new TestKeyStorage(),
       }
     )
-    const recoveredKeys = await apiWithLostKey.cryptoApi.getEncryptionDecryptionKeypairsForDataOwnerHierarchy()
-    expect(recoveredKeys.self.keys).to.have.length(1)
-    expect(recoveredKeys.self.keys[0].verified).to.eq(true)
-    expect(recoveredKeys.parents).to.have.length(1)
-    expect(recoveredKeys.parents[0].keys).to.have.length(1)
-    expect(recoveredKeys.parents[0].keys[0].verified).to.eq(true)
-    expect(ua2hex(await childApi.cryptoApi.primitives.RSA.exportKey(recoveredKeys.self.keys[0].pair.publicKey, 'spki'))).to.eq(selfKeyPub)
+    await checkKeys(apiWithLostKey, selfKeyPub)
+  })
+
+  it('Sdk should be able to use recovery data accessible with parent key to recover key of user - parent key available in storage', async function () {
+    const { childCredentials, selfKeyPub, parentCredentials } = await init()
+    const storageWithParentKey = await testStorageWithKeys([
+      {
+        dataOwnerId: parentCredentials.dataOwnerId!,
+        pairs: [
+          {
+            keyPair: { privateKey: parentCredentials.privateKey, publicKey: parentCredentials.publicKey },
+            shaVersion: ShaVersion.Sha1,
+          },
+        ],
+      },
+    ])
+    const apiWithLostKey = await IcureApi.initialise(
+      env.iCureUrl,
+      { username: childCredentials.user, password: childCredentials.password },
+      new VerifySelfKeyStrategy(selfKeyPub),
+      webcrypto as any,
+      fetch,
+      {
+        storage: storageWithParentKey.storage,
+        keyStorage: storageWithParentKey.keyStorage,
+        entryKeysFactory: storageWithParentKey.keyFactory,
+      }
+    )
+    await checkKeys(apiWithLostKey, selfKeyPub)
   })
 })
