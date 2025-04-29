@@ -90,9 +90,9 @@ export class IccPatientApi {
   }
 
   /**
-   * Returns the count of patients
-   * @summary Get count of patients for a specific HcParty or for the current HcParty
-   * @param hcPartyId Healthcare party id
+   * Returns the count of patients shared directly with the provided hcp (ignoring hierarchies).
+   * WARNING: the current implementation can count some patients twice if they have both security metadata and legacy
+   * delegations from before v8.
    */
   async countOfPatients(hcPartyId: string): Promise<Content> {
     let _body = null
@@ -545,14 +545,20 @@ export class IccPatientApi {
   }
 
   /**
-   * Returns a list of patients along with next start keys and Document ID. If the nextStartKey is Null it means that this is the last page.
-   * @summary List patients for a specific HcParty
-   * @param hcPartyId Healthcare party id
-   * @param sortField Optional value for sorting results by a given field (&#x27;name&#x27;, &#x27;ssin&#x27;, &#x27;dateOfBirth&#x27;). Specifying this deactivates filtering
-   * @param startKey The start key for pagination: a JSON representation of an array containing all the necessary components to form the Complex Key&#x27;s startKey
-   * @param startDocumentId A patient document ID
-   * @param limit Number of rows
-   * @param sortDirection Optional value for providing a sorting direction (&#x27;asc&#x27;, &#x27;desc&#x27;). Set to &#x27;asc&#x27; by default.
+   * @deprecated This method is not intuitive and will be removed in a future version
+   * Currently there is no direct replacement that can do everything this method does.
+   * If you need all patients unsorted or sorted by ssin/date of birth use `PatientByHcPartyFilter`/`PatientByHcPartyDateOfBirthFilter`
+   * with {@link matchPatientsBy} to get the ids of all the patients shared directly with an HCP (ignoring hierarchies).
+   * Note that on databases with many patients (>50k) the matches request could take various seconds as it is not
+   * paginated.
+   * If you want to use pagination or need to sort by name instead you can use the {@link listPatientsSortedByName}.
+   * Usage of PatientByHcPartyNameFilter or PatientByHcPartyNameContainsFuzzyFilter as a replacement of this method is
+   * discouraged as the sorting done by those filter is unintuitive.
+   * Contact us if your use case is not covered by the suggested alternatives.
+   *
+   * This method returns all the patients (with pagination) that are shared directly with the parent of {@link hcPartyId},
+   * or if undefined the current user's parent. Note that this doesn't allow to get patients that are shared only with
+   * the current user and not its parent.
    */
   async listPatients(
     hcPartyId?: string,
@@ -575,6 +581,27 @@ export class IccPatientApi {
       (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '') +
       (sortDirection ? '&sortDirection=' + encodeURIComponent(String(sortDirection)) : '')
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new PaginatedListPatient(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Get all patients shared directly with the provided hcparty (ignoring hierarchies) sorted by lastName, firstName.
+   */
+  async listPatientsSortedByName(hcPartyId?: string, startKey?: string, startDocumentId?: string, limit?: number): Promise<PaginatedListPatient> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/patient/byHcPartyId` +
+      '?ts=' +
+      new Date().getTime() +
+      (hcPartyId ? '&hcPartyId=' + encodeURIComponent(String(hcPartyId)) : '') +
+      (startKey ? '&startKey=' + encodeURIComponent(String(startKey)) : '') +
+      (startDocumentId ? '&startDocumentId=' + encodeURIComponent(String(startDocumentId)) : '') +
+      (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListPatient(doc.body as JSON))
