@@ -615,7 +615,7 @@ export class IccUserApi {
       .catch((err) => this.handleError(err))
   }
 
-  enableFasAuthenticationForUser(fasJwtToken: string): Promise<User> {
+  enableFasAuthenticationForUser(fasJwtToken: string): Promise<boolean> {
     let _body = null
 
     const _url = this.host + `/user/current/be.fas` + '?ts=' + new Date().getTime()
@@ -624,7 +624,7 @@ export class IccUserApi {
     fasJwtToken && (headers = headers.concat(new XHR.Header('fasJwtToken', fasJwtToken)))
 
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new User(doc.body as JSON))
+      .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
   }
 

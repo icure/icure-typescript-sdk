@@ -194,5 +194,9 @@ export namespace User {
      * True if the content of roles is inherited from the user's group configuration, false if the roles are defined specifically for the use
      */
     inheritsRoles?: boolean
+    /**
+     * Identifiers of the user available for login
+     */
+    loginIdentifiers?: Identifier[]
   }
 }
