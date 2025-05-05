@@ -183,44 +183,6 @@ export class IccMessageApi {
   }
 
   /**
-   * @deprecated use {@link listMessageIdsByDataOwnerPatientSentDate} instead.
-   * @summary List messages found By Healthcare Party and secret foreign keys.
-   * @param body
-   */
-  async findMessagesByHCPartyPatientForeignKeysUsingPost(body?: Array<string>): Promise<Array<Message>> {
-    let _body = null
-    _body = body
-
-    const _url = this.host + `/message/byHcPartySecretForeignKeys` + '?ts=' + new Date().getTime()
-    let headers = await this.headers
-    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl)
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new Message(it)))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
-   * Keys must be delimited by commas.
-   * @deprecated use {@link listMessageIdsByDataOwnerPatientSentDate} instead.
-   * @summary List messages found By Healthcare Party and secret foreign keys.
-   * @param secretFKeys
-   */
-  async findMessagesByHCPartyPatientForeignKeys(secretFKeys: string): Promise<Array<Message>> {
-    let _body = null
-
-    const _url =
-      this.host +
-      `/message/byHcPartySecretForeignKeys` +
-      '?ts=' +
-      new Date().getTime() +
-      (secretFKeys ? '&secretFKeys=' + encodeURIComponent(String(secretFKeys)) : '')
-    let headers = await this.headers
-    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new Message(it)))
-      .catch((err) => this.handleError(err))
-  }
-
-  /**
    * @summary List Message ids by data owner and a set of secret foreign key. The ids will be sorted by Message sent, in ascending or descending
    * order according to the specified parameter value.
    *

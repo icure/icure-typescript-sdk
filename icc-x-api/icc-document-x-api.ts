@@ -650,18 +650,9 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
 
   // noinspection JSUnusedGlobalSymbols
   /**
-   * @deprecated use {@link findIdsByMessage} instead.
-   */
-  async findByMessage(hcpartyId: string, message: models.Message) {
-    const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: message, type: EntityWithDelegationTypeName.Message }, hcpartyId)
-    const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
-    let documents: Array<models.Document> = await this.findDocumentsByHCPartyPatientForeignKeys(topmostParentId, _.uniq(extractedKeys))
-    return await this.decrypt(hcpartyId, documents)
-  }
-
-  /**
-   * Same as {@link findByMessage} but it will only return the ids of the contacts. It can also filter the documents where Document.created is between
-   * startDate and endDate in ascending or descending order by that field. (default: ascending).
+   * The ids of the documents linked to a message.
+   * It can also filter the documents where `Document.created` is between startDate and endDate in ascending or
+   * descending order by that field (default: ascending).
    */
   async findIdsByMessage(hcpartyId: string, message: models.Message, startDate?: number, endDate?: number, descending?: boolean): Promise<string[]> {
     const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: message, type: EntityWithDelegationTypeName.Message }, hcpartyId)
@@ -715,28 +706,6 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
       }
     }
     return res
-  }
-
-  //prettier-ignore
-  getAttachmentAs(documentId: string, attachmentId: string, returnType: "application/octet-stream", enckeys?: string, fileName?: string): Promise<ArrayBuffer>
-  //prettier-ignore
-  getAttachmentAs(documentId: string, attachmentId: string, returnType: "text/plain", enckeys?: string, fileName?: string): Promise<string>
-  //prettier-ignore
-  getAttachmentAs(documentId: string, attachmentId: string, returnType: "application/json", enckeys?: string, fileName?: string): Promise<any>
-  /**
-   * @deprecated use getMainAttachmentAs instead
-   */
-  async getAttachmentAs(
-    documentId: string,
-    attachmentId: string,
-    returnType: 'application/octet-stream' | 'text/plain' | 'application/json',
-    enckeys?: string,
-    fileName?: string
-  ): Promise<any> {
-    if (!!enckeys || !!fileName) {
-      console.warn('Using getAttachmentAs method with a value for enckeys or fileName does nothing anymore.')
-    }
-    return this.getMainAttachmentAs(documentId, returnType)
   }
 
   //prettier-ignore
