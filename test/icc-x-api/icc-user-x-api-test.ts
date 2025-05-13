@@ -12,6 +12,7 @@ import initMasterApi = TestUtils.initMasterApi
 import { AuthSecretDetails, AuthSecretType, SmartAuthProvider } from '../../icc-x-api/auth/SmartAuthProvider'
 import { randomUUID } from 'crypto'
 import { IccAuthApi, IccUserApi } from '../../icc-api'
+import { random } from 'lodash'
 
 setLocalStorage(fetch)
 let env: TestVars
@@ -37,7 +38,7 @@ describe('icc-x-user-api Tests', () => {
 
   it('Can get an user by its phoneNumber', async () => {
     const primitives = new WebCryptoPrimitives(webcrypto as any)
-    const phoneNumber = `+${primitives.randomUuid()}`
+    const phoneNumber = `+${random(1_000_000, 9_999_999, false)}`
 
     const api = await initMasterApi(env)
 

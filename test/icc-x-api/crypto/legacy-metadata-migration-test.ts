@@ -75,8 +75,7 @@ describe('Legacy delegations migration test', () => {
       status: User.StatusEnum.ACTIVE,
       login: pLogin,
       passwordHash: pPassword,
-      healthcarePartyId: pId,
-      email: pLogin,
+      healthcarePartyId: pId
     }
     const aId = randomUUID()
     const aLogin = `childA-${randomUUID()}`
@@ -116,7 +115,6 @@ describe('Legacy delegations migration test', () => {
       autoDelegations: {
         all: [pId],
       },
-      email: aLogin,
     }
     const bId = randomUUID()
     const bLogin = `childB-${randomUUID()}`
@@ -153,7 +151,6 @@ describe('Legacy delegations migration test', () => {
       autoDelegations: {
         all: [pId],
       },
-      email: bLogin,
     }
     const patientConfidentialSecretId = '24cd8cf5-0958-4ee9-8e90-95f3d25a47d7'
     const patientBase: Patient = {

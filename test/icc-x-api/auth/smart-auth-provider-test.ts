@@ -60,8 +60,8 @@ describe('Smart authentication provider', () => {
       const { credentials, api } = await createNewHcpApi(env)
       const initialUser = await api.userApi.getCurrentUser()
       const masterApi = await initMasterApi(env)
-      const userToken = randomUUID()
-      const userPw = randomUUID()
+      const userToken = randomUUID().replace('-', '|')
+      const userPw = randomUUID().replace('-', '|')
       const userWithLongTokenAndPw = await masterApi.userApi.modifyUser({
         ...initialUser,
         passwordHash: userPw,
@@ -125,7 +125,7 @@ describe('Smart authentication provider', () => {
       period: 30,
       secret: totpSecret,
     })
-    const userPw = randomUUID()
+    const userPw = randomUUID().replace('-', '|')
     await masterApi.userApi.enable2fa(initialUser.id!, totpSecret)
     const userWithPwAnd2fa = await masterApi.userApi.modifyUser({
       ...initialUser,

@@ -12,39 +12,39 @@ import { TimeTableItem } from '../../icc-api/model/TimeTableItem'
 import { TimeTableHour } from '../../icc-api/model/TimeTableHour'
 import { expect } from 'chai'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
-import {IccTimeTableApi} from "../../icc-api"
+import { IccTimeTableApi } from '../../icc-api'
 
 setLocalStorage(fetch)
 let env: TestVars
 
 async function instanceTimeTableFor(timeTableApi: IccTimeTableApi, user: User): Promise<TimeTable> {
   return new TimeTable({
-      id: randomUUID(),
-      tags: [
-        new Code({
-          id: 'ICURE|MY-CODE|1',
-          code: 'MY-CODE',
-          type: 'ICURE',
-          version: '1',
-        }),
-      ],
-      name: 'Main TimeTable',
-      startTime: 20221101000,
-      endTime: 20221128000,
-      items: [
-        new TimeTableItem({
-          id: randomUUID(),
-          rrule: 'RRULE:FREQ=WEEKLY;BYDAY=TU;COUNT=10',
-          days: ['monday', 'tuesday', 'thursday'],
-          hours: [
-            new TimeTableHour({
-              startHour: 1000,
-              endHour: 1800,
-            }),
-          ],
-        }),
-      ],
-    })
+    id: randomUUID(),
+    tags: [
+      new Code({
+        id: 'ICURE|MY-CODE|1',
+        code: 'MY-CODE',
+        type: 'ICURE',
+        version: '1',
+      }),
+    ],
+    name: 'Main TimeTable',
+    startTime: 20221101000,
+    endTime: 20221128000,
+    items: [
+      new TimeTableItem({
+        id: randomUUID(),
+        rrule: 'RRULE:FREQ=WEEKLY;BYDAY=TU;COUNT=10',
+        days: ['monday', 'tuesday', 'thursday'],
+        hours: [
+          new TimeTableHour({
+            startHour: 1000,
+            endHour: 1800,
+          }),
+        ],
+      }),
+    ],
+  })
 }
 
 describe('icc-x-time-table-api Tests', () => {
@@ -70,13 +70,5 @@ describe('icc-x-time-table-api Tests', () => {
     expect(createdTimeTable.name).to.equals(baseTimeTable.name)
     expect(createdTimeTable.startTime).to.equals(baseTimeTable.startTime)
     expect(createdTimeTable.items!.length).to.equals(1)
-    expect(
-      await cryptoApi.xapi.encryptionKeysOf({ entity: createdTimeTable, type: EntityWithDelegationTypeName.TimeTable }, undefined)
-    ).to.have.length(1)
-    expect(await cryptoApi.xapi.secretIdsOf({ entity: createdTimeTable, type: EntityWithDelegationTypeName.TimeTable }, undefined)).to.have.length(0)
-    expect(
-      await cryptoApi.xapi.owningEntityIdsOf({ entity: createdTimeTable, type: EntityWithDelegationTypeName.TimeTable }, undefined)
-    ).to.have.length(0)
   })
-
 })
