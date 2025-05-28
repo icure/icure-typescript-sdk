@@ -26,6 +26,8 @@ export class Content {
         binaryData.binaryValue = b64_2ab(json.binaryValue)
       } else if (json.binaryValue instanceof ArrayBuffer || ArrayBuffer.isView(json.binaryValue)) {
         binaryData.binaryValue = json.binaryValue
+      } else if (typeof json.binaryValue === 'object' && Object.keys(json.binaryValue).length === 0) {
+        delete binaryData.binaryValue
       } else {
         throw new Error(`Invalid type for binaryValue: ${typeof json.binaryValue}`)
       }
