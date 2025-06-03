@@ -2,7 +2,7 @@ import { IccAuthApi, IccMessageApi } from '../icc-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 
 import * as models from '../icc-api/model/models'
-import { Message, MessagesReadStatusUpdate, PaginatedListMessage, Patient, User } from '../icc-api/model/models'
+import { DocIdentifier, ListOfIds, Message, MessagesReadStatusUpdate, PaginatedListMessage, Patient, User } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
@@ -18,6 +18,8 @@ import { AbstractFilter } from './filters/filters'
 import { EncryptedFieldsManifest, EntityWithDelegationTypeName, parseEncryptedFields, subscribeToEntityEvents, SubscriptionOptions } from './utils'
 import { Connection, ConnectionImpl } from '../icc-api/model/Connection'
 import { SecretIdUseOption } from './crypto/SecretIdUseOption'
+import { AbstractFilterMessage } from '../icc-api/model/AbstractFilterMessage'
+import { BulkShareOrUpdateMetadataParams } from '../icc-api/model/requests/BulkShareOrUpdateMetadataParams'
 
 export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi<models.Message> {
   private readonly encryptedFields: EncryptedFieldsManifest
@@ -236,25 +238,27 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
   ): Promise<ShareResult<models.Message>> {
     // All entities should have an encryption key.
     const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(message, EntityWithDelegationTypeName.Message)
-    const updatedEntity = entityWithEncryptionKey ? await this.modifyMessage(entityWithEncryptionKey) : message
-    return this.crypto.xapi.simpleShareOrUpdateEncryptedEntityMetadata(
-      {
-        entity: updatedEntity,
-        type: EntityWithDelegationTypeName.Message,
-      },
-      Object.fromEntries(
-        Object.entries(delegates).map(([delegateId, options]) => [
-          delegateId,
-          {
-            requestedPermissions: options.requestedPermissions,
-            shareEncryptionKeys: options.shareEncryptionKey,
-            shareOwningEntityIds: options.sharePatientId,
-            shareSecretIds: options.shareSecretIds,
-          },
-        ])
-      ),
-      (x) => this.bulkShareMessages(x)
-    )
+    const updatedEntity = entityWithEncryptionKey ? await this.modifyMessageWithUser(undefined, entityWithEncryptionKey) : message
+    return this.crypto.xapi
+      .simpleShareOrUpdateEncryptedEntityMetadata(
+        {
+          entity: updatedEntity,
+          type: EntityWithDelegationTypeName.Message,
+        },
+        Object.fromEntries(
+          Object.entries(delegates).map(([delegateId, options]) => [
+            delegateId,
+            {
+              requestedPermissions: options.requestedPermissions,
+              shareEncryptionKeys: options.shareEncryptionKey,
+              shareOwningEntityIds: options.sharePatientId,
+              shareSecretIds: options.shareSecretIds,
+            },
+          ])
+        ),
+        (x) => super.bulkShareMessages(x)
+      )
+      .then((r) => r.mapSuccessAsync(async (m) => (await this.decrypt([m]))[0].entity))
   }
 
   /**
@@ -266,6 +270,10 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     return this.crypto.xapi.secretIdsOf({ entity: message, type: EntityWithDelegationTypeName.Message }, undefined)
   }
 
+  createDelegationDeAnonymizationMetadata(entity: Message, delegates: string[]): Promise<void> {
+    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: EntityWithDelegationTypeName.Message }, delegates)
+  }
+
   getDataOwnersWithAccessTo(
     entity: models.Message
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
@@ -274,33 +282,6 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
 
   getEncryptionKeysOf(entity: models.Message): Promise<string[]> {
     return this.crypto.xapi.encryptionKeysOf({ entity, type: EntityWithDelegationTypeName.Message }, undefined)
-  }
-
-  override async filterMessagesBy(body: FilterChainMessage, startDocumentId?: string, limit?: number): Promise<PaginatedListMessage> {
-    const page = await super.filterMessagesBy(body, startDocumentId, limit)
-    const decryptedMessages = await this.decrypt(page.rows ?? [])
-    if (decryptedMessages.some((m) => !m.decrypted)) throw new Error('Some messages could not be decrypted')
-    return {
-      ...page,
-      rows: decryptedMessages.map((m) => m.entity),
-    }
-  }
-
-  async encryptAndCreateMessageInTopic(body: Message): Promise<Message> {
-    const encryptedMessage = await this.encrypt([body])
-    const createdMessage = await super.createMessageInTopic(encryptedMessage[0])
-    return (await this.decrypt([createdMessage]))[0].entity
-  }
-
-  async setMessagesReadStatus(body?: MessagesReadStatusUpdate): Promise<Array<Message>> {
-    return (await this.decrypt(await super.setMessagesReadStatus(body))).map((m) => m.entity)
-  }
-
-  async getAndDecryptMessage(messageId: string): Promise<Message> {
-    const encryptedMessage = await super.getMessage(messageId)
-    const decryptedMessage = await this.decrypt([encryptedMessage])
-    if (!decryptedMessage[0].decrypted) throw new Error('Message could not be decrypted')
-    return decryptedMessage[0].entity
   }
 
   async subscribeToMessageEvents(
@@ -321,7 +302,217 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     ).then((rs) => new ConnectionImpl(rs))
   }
 
-  createDelegationDeAnonymizationMetadata(entity: Message, delegates: string[]): Promise<void> {
-    return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: EntityWithDelegationTypeName.Message }, delegates)
+  private async decryptPage(page: PaginatedListMessage): Promise<PaginatedListMessage> {
+    return {
+      ...page,
+      rows: (await this.decrypt(page.rows ?? [])).map((x) => x.entity),
+    }
+  }
+
+  async createMessageWithUser(user: models.User | undefined, body: Message): Promise<Message> {
+    return (await this.decrypt([await super.createMessage((await this.encrypt([body]))[0])]))[0].entity
+  }
+
+  async findMessagesWithUser(
+    user: models.User | undefined,
+    startKey?: string,
+    startDocumentId?: string,
+    limit?: number
+  ): Promise<PaginatedListMessage> {
+    return await this.decryptPage(await super.findMessages(startKey, startDocumentId, limit))
+  }
+
+  async findMessagesByFromAddressWithUser(
+    user: models.User | undefined,
+    fromAddress?: string,
+    startKey?: string,
+    startDocumentId?: string,
+    limit?: number,
+    hcpId?: string
+  ): Promise<PaginatedListMessage> {
+    return await this.decryptPage(await super.findMessagesByFromAddress(fromAddress, startKey, startDocumentId, limit, hcpId))
+  }
+
+  /**
+   * @deprecated
+   */
+  async findMessagesByHCPartyPatientForeignKeysUsingPostWithUser(user: models.User | undefined, body?: Array<string>): Promise<Array<Message>> {
+    return (await this.decrypt(await super.findMessagesByHCPartyPatientForeignKeysUsingPost(body))).map((x) => x.entity)
+  }
+
+  /**
+   * @deprecated
+   */
+  async findMessagesByHCPartyPatientForeignKeysWithUser(user: models.User | undefined, secretFKeys: string): Promise<Array<Message>> {
+    return (await this.decrypt(await super.findMessagesByHCPartyPatientForeignKeys(secretFKeys))).map((x) => x.entity)
+  }
+
+  async findMessagesByToAddressWithUser(
+    user: models.User | undefined,
+    toAddress?: string,
+    startKey?: string,
+    startDocumentId?: string,
+    limit?: number,
+    reverse?: boolean,
+    hcpId?: string
+  ): Promise<PaginatedListMessage> {
+    return await this.decryptPage(await super.findMessagesByToAddress(toAddress, startKey, startDocumentId, limit, reverse, hcpId))
+  }
+
+  async findMessagesByTransportGuidWithUser(
+    user: models.User | undefined,
+    transportGuid?: string,
+    received?: boolean,
+    startKey?: string,
+    startDocumentId?: string,
+    limit?: number,
+    hcpId?: string
+  ): Promise<PaginatedListMessage> {
+    return await this.decryptPage(await super.findMessagesByTransportGuid(transportGuid, received, startKey, startDocumentId, limit, hcpId))
+  }
+
+  async findMessagesByTransportGuidSentDateWithUser(
+    user: models.User | undefined,
+    transportGuid?: string,
+    from?: number,
+    to?: number,
+    startKey?: string,
+    startDocumentId?: string,
+    limit?: number,
+    hcpId?: string
+  ): Promise<PaginatedListMessage> {
+    return await this.decryptPage(await super.findMessagesByTransportGuidSentDate(transportGuid, from, to, startKey, startDocumentId, limit, hcpId))
+  }
+
+  async getChildrenMessagesWithUser(user: models.User | undefined, messageId: string): Promise<Array<Message>> {
+    return (await this.decrypt(await super.getChildrenMessages(messageId))).map((x) => x.entity)
+  }
+
+  async getChildrenMessagesOfListWithUser(user: models.User | undefined, body?: ListOfIds): Promise<Array<Message>> {
+    return (await this.decrypt(await super.getChildrenMessagesOfList(body))).map((x) => x.entity)
+  }
+
+  async getMessageWithUser(user: models.User | undefined, messageId: string): Promise<Message> {
+    return (await this.decrypt([await super.getMessage(messageId)]))[0].entity
+  }
+
+  async getMessagesWithUser(user: models.User | undefined, messageIds: ListOfIds): Promise<Message[]> {
+    return (await this.decrypt(await super.getMessages(messageIds))).map((x) => x.entity)
+  }
+
+  async listMessagesByInvoiceIdsWithUser(user: models.User | undefined, body?: ListOfIds): Promise<Array<Message>> {
+    return (await this.decrypt(await super.listMessagesByInvoiceIds(body))).map((x) => x.entity)
+  }
+
+  async listMessagesByTransportGuidsWithUser(user: models.User | undefined, hcpId: string, body?: ListOfIds): Promise<Array<Message>> {
+    return (await this.decrypt(await super.listMessagesByTransportGuids(hcpId, body))).map((x) => x.entity)
+  }
+
+  async modifyMessageWithUser(user: models.User | undefined, body: Message): Promise<Message> {
+    return (await this.decrypt([await super.modifyMessage((await this.encrypt([body]))[0])]))[0].entity
+  }
+
+  async setMessagesStatusBitsWithUser(user: models.User | undefined, status: number, body?: ListOfIds): Promise<Array<Message>> {
+    return (await this.decrypt(await super.setMessagesStatusBits(status, body))).map((x) => x.entity)
+  }
+
+  async filterMessagesByWithUser(
+    user: models.User | undefined,
+    body: FilterChainMessage,
+    startDocumentId?: string,
+    limit?: number
+  ): Promise<PaginatedListMessage> {
+    return await this.decryptPage(await super.filterMessagesBy(body, startDocumentId, limit))
+  }
+
+  async setMessagesReadStatusWithUser(user: models.User | undefined, body?: MessagesReadStatusUpdate): Promise<Array<Message>> {
+    return (await this.decrypt(await super.setMessagesReadStatus(body))).map((x) => x.entity)
+  }
+
+  createMessage(body?: Message): never {
+    throw new Error('Use withUser method')
+  }
+
+  findMessages(startKey?: string, startDocumentId?: string, limit?: number): never {
+    throw new Error('Use withUser method')
+  }
+
+  findMessagesByFromAddress(fromAddress?: string, startKey?: string, startDocumentId?: string, limit?: number, hcpId?: string): never {
+    throw new Error('Use withUser method')
+  }
+
+  findMessagesByHCPartyPatientForeignKeysUsingPost(body?: Array<string>): never {
+    throw new Error('Use withUser method')
+  }
+
+  findMessagesByHCPartyPatientForeignKeys(secretFKeys: string): never {
+    throw new Error('Use withUser method')
+  }
+
+  findMessagesByToAddress(toAddress?: string, startKey?: string, startDocumentId?: string, limit?: number, reverse?: boolean, hcpId?: string): never {
+    throw new Error('Use withUser method')
+  }
+
+  findMessagesByTransportGuid(
+    transportGuid?: string,
+    received?: boolean,
+    startKey?: string,
+    startDocumentId?: string,
+    limit?: number,
+    hcpId?: string
+  ): never {
+    throw new Error('Use withUser method')
+  }
+
+  findMessagesByTransportGuidSentDate(
+    transportGuid?: string,
+    from?: number,
+    to?: number,
+    startKey?: string,
+    startDocumentId?: string,
+    limit?: number,
+    hcpId?: string
+  ): never {
+    throw new Error('Use withUser method')
+  }
+
+  getChildrenMessages(messageId: string): never {
+    throw new Error('Use withUser method')
+  }
+
+  getChildrenMessagesOfList(body?: ListOfIds): never {
+    throw new Error('Use withUser method')
+  }
+
+  getMessage(messageId: string): never {
+    throw new Error('Use withUser method')
+  }
+
+  getMessages(messageIds: ListOfIds): never {
+    throw new Error('Use withUser method')
+  }
+
+  listMessagesByInvoiceIds(body?: ListOfIds): never {
+    throw new Error('Use withUser method')
+  }
+
+  listMessagesByTransportGuids(hcpId: string, body?: ListOfIds): never {
+    throw new Error('Use withUser method')
+  }
+
+  modifyMessage(body?: Message): never {
+    throw new Error('Use withUser method')
+  }
+
+  setMessagesStatusBits(status: number, body?: ListOfIds): never {
+    throw new Error('Use withUser method')
+  }
+
+  filterMessagesBy(body: FilterChainMessage, startDocumentId?: string, limit?: number): never {
+    throw new Error('Use withUser method')
+  }
+
+  setMessagesReadStatus(body?: MessagesReadStatusUpdate): never {
+    throw new Error('Use withUser method')
   }
 }

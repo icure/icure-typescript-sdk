@@ -973,19 +973,21 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
                     c.services.forEach((s) => s.content && Object.values(s.content).forEach((c) => c && c.documentId && (docIds[c.documentId] = 1)))
                 )
 
-                return retry(() => this.documentApi.getDocuments(new ListOfIds({ ids: Object.keys(docIds) }))).then((docs: Array<Document>) => {
-                  return {
-                    id: patId,
-                    patient: patient,
-                    contacts: ctcs,
-                    forms: frms,
-                    healthElements: hes,
-                    invoices: ivs,
-                    classifications: cls,
-                    calItems: cis,
-                    documents: docs,
+                return retry(() => this.documentApi.getDocumentsWithUser(undefined, new ListOfIds({ ids: Object.keys(docIds) }))).then(
+                  (docs: Array<Document>) => {
+                    return {
+                      id: patId,
+                      patient: patient,
+                      contacts: ctcs,
+                      forms: frms,
+                      healthElements: hes,
+                      invoices: ivs,
+                      classifications: cls,
+                      calItems: cis,
+                      documents: docs,
+                    }
                   }
-                })
+                )
               })
             : Promise.resolve({
                 id: patId,

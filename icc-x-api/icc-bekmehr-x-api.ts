@@ -104,10 +104,8 @@ export class IccBekmehrXApi extends IccBekmehrApi {
             .then((res) => send('decryptResponse', msg.uuid, res))
         } else if (msg.type === 'DocumentDto') {
           that.documentApi
-            .decrypt(
-              healthcarePartyId,
-              msg.body.map((d: JSON) => new Document(d))
-            )
+            .decrypt(msg.body.map((d: JSON) => new Document(d)))
+            .then((res) => res.map((x) => x.entity))
             .then((res) =>
               patchers
                 .filter((p) => p.type === 'DocumentDto')

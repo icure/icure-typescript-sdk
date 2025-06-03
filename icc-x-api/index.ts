@@ -23,7 +23,8 @@ import {
   IccPlaceApi,
   IccPubsubApi,
   IccReplicationApi,
-  IccTarificationApi, IccTimeTableApi,
+  IccTarificationApi,
+  IccTimeTableApi,
   IccTmpApi,
   IccUserApi,
   OAuthThirdParty,
@@ -452,6 +453,12 @@ export interface EncryptedFieldsConfig {
    * @default ['description']
    */
   readonly topic?: string[]
+
+  /**
+   * Fields to encrypt for entities of type {@link Document}
+   * @default []
+   */
+  readonly document?: string[]
 }
 
 export namespace EncryptedFieldsConfig {
@@ -464,6 +471,7 @@ export namespace EncryptedFieldsConfig {
     maintenanceTask: ['properties'],
     patient: ['note', 'notes[].markdown'],
     message: [],
+    document: [],
     topic: ['description', 'linkedServices', 'linkedHealthElements'],
   }
 }
@@ -1101,6 +1109,7 @@ class IcureApiImpl implements IcureApi {
         this.dataOwnerApi,
         !this.cryptoInitInfos.dataOwnerRequiresAnonymousDelegation,
         this.groupSpecificAuthenticationProvider,
+        this.params.encryptedFieldsConfig.document ?? EncryptedFieldsConfig.Defaults.document,
         this.fetch
       ))
     )
@@ -1183,12 +1192,7 @@ class IcureApiImpl implements IcureApi {
   get timetableApi(): IccTimeTableApi {
     return (
       this._timetableApi ??
-      (this._timetableApi = new IccTimeTableApi(
-        this.host,
-        this.cryptoInitInfos.headers,
-        this.groupSpecificAuthenticationProvider,
-        this.fetch
-      ))
+      (this._timetableApi = new IccTimeTableApi(this.host, this.cryptoInitInfos.headers, this.groupSpecificAuthenticationProvider, this.fetch))
     )
   }
 
