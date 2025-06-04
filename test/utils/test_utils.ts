@@ -158,7 +158,7 @@ export async function createNewHcpApi(env: TestVars): Promise<{
 }> {
   const initialisationApi = await testSetupMasterApi(env)
   const primitives = new WebCryptoPrimitives(webcrypto as any)
-  const credentials = await createHealthcarePartyUser(initialisationApi, `user-${primitives.randomUuid()}`, primitives.randomUuid())
+  const credentials = await createHealthcarePartyUser(initialisationApi, `user-${primitives.randomUuid()}@icure.com`, primitives.randomUuid())
   const storage = await testStorageWithKeys([
     {
       dataOwnerId: credentials.dataOwnerId,

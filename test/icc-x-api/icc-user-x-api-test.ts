@@ -75,7 +75,7 @@ describe('icc-x-user-api Tests', () => {
       })
       let longLivedTokenRequested = false
       let shortLivedTokenRequested = false
-      const authProvider = SmartAuthProvider.initialise(authApi, credentials.user, {
+      const authProvider = await SmartAuthProvider.initialise(authApi, credentials.user, {
         getSecret: async (acceptedSecrets: AuthSecretType[], previousAttempts: AuthSecretDetails[]) => {
           if (acceptedSecrets.includes(AuthSecretType.LONG_LIVED_TOKEN)) {
             longLivedTokenRequested = true

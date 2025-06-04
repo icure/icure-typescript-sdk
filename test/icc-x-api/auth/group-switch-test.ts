@@ -36,20 +36,24 @@ describeNoLite('Authentication providers should be able to switch group', functi
     console.log('Users created')
   })
 
-  const authenticationProviders: [string, () => AuthenticationProvider][] = [
-    ['Basic', () => new BasicAuthenticationProvider(userDetails.userLogin, userDetails.userPw12)],
+  const authenticationProviders: [string, () => Promise<AuthenticationProvider>][] = [
+    ['Basic', () => Promise.resolve(new BasicAuthenticationProvider(userDetails.userLogin, userDetails.userPw12))],
     [
       'Jwt',
       () =>
-        new JwtAuthenticationProvider(new IccAuthApi(host, {}, new NoAuthenticationProvider(), fetch), userDetails.userLogin, userDetails.userPw12),
+        Promise.resolve(
+          new JwtAuthenticationProvider(new IccAuthApi(host, {}, new NoAuthenticationProvider(), fetch), userDetails.userLogin, userDetails.userPw12)
+        ),
     ],
     [
       'Ensemble',
       () =>
-        new EnsembleAuthenticationProvider(
-          new IccAuthApi(host, {}, new NoAuthenticationProvider(), fetch),
-          userDetails.userLogin,
-          userDetails.userPw12
+        Promise.resolve(
+          new EnsembleAuthenticationProvider(
+            new IccAuthApi(host, {}, new NoAuthenticationProvider(), fetch),
+            userDetails.userLogin,
+            userDetails.userPw12
+          )
         ),
     ],
     [
@@ -66,7 +70,7 @@ describeNoLite('Authentication providers should be able to switch group', functi
 
   for (const [providerType, providerFactory] of authenticationProviders) {
     it(`should be able to switch to another group if the username-password is the same in the new group (${providerType})`, async () => {
-      const provider = providerFactory()
+      const provider = await providerFactory()
       const initialUserApi = new IccUserApi(host, {}, provider, fetch)
       const initialUser = await initialUserApi.getCurrentUser()
       expect(initialUser.id).to.be.oneOf([userDetails.user1.id, userDetails.user2.id])
@@ -83,7 +87,7 @@ describeNoLite('Authentication providers should be able to switch group', functi
     })
 
     it(`should not be able to switch to another group if the username-password is different in the new group (${providerType})`, async () => {
-      const provider = providerFactory()
+      const provider = await providerFactory()
       const initialUserApi = new IccUserApi(host, {}, provider, fetch)
       const matches = await initialUserApi.getMatchingUsers()
       expect(matches.map((x) => x.userId)).to.not.contain(userDetails.user3.id)

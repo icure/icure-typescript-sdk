@@ -30,7 +30,7 @@ describe('Smart authentication provider', () => {
   it('Should automatically ask for secret to get a new token, and reasks the secret if it is not valid', async () => {
     const { credentials } = await createNewHcpApi(env)
     let calls = 0
-    const authProvider = SmartAuthProvider.initialise(authApi, credentials.user, {
+    const authProvider = await SmartAuthProvider.initialise(authApi, credentials.user, {
       getSecret: async (acceptedSecrets: AuthSecretType[], previousAttempts: AuthSecretDetails[]) => {
         expect(acceptedSecrets).to.include(AuthSecretType.PASSWORD)
         expect(acceptedSecrets).to.include(AuthSecretType.LONG_LIVED_TOKEN)
@@ -74,7 +74,7 @@ describe('Smart authentication provider', () => {
         },
       })
       let calls = 0
-      const authProvider = SmartAuthProvider.initialise(authApi, credentials.user, {
+      const authProvider = await SmartAuthProvider.initialise(authApi, credentials.user, {
         getSecret: async (acceptedSecrets: AuthSecretType[], previousAttempts: AuthSecretDetails[]) => {
           if (calls == 0) {
             expect(acceptedSecrets).to.include(AuthSecretType.PASSWORD)
@@ -132,7 +132,7 @@ describe('Smart authentication provider', () => {
       passwordHash: userPw,
     })
     let calls = 0
-    const authProvider = SmartAuthProvider.initialise(authApi, credentials.user, {
+    const authProvider = await SmartAuthProvider.initialise(authApi, credentials.user, {
       getSecret: async (acceptedSecrets: AuthSecretType[], previousAttempts: AuthSecretDetails[]) => {
         if (calls == 0) {
           expect(acceptedSecrets).to.include(AuthSecretType.PASSWORD)
@@ -175,7 +175,7 @@ describe('Smart authentication provider', () => {
       passwordHash: userPw,
     })
     let calls = 0
-    const authProvider = SmartAuthProvider.initialise(
+    const authProvider = await SmartAuthProvider.initialise(
       authApi,
       credentials.user,
       {
@@ -198,7 +198,7 @@ describe('Smart authentication provider', () => {
   itNoLite('Switched provider should keep cached secrets and should be able to have elevated security context', async () => {
     const details = await createUserInMultipleGroups(env)
     let calls = 0
-    const authProvider = SmartAuthProvider.initialise(authApi, details.userLogin, {
+    const authProvider = await SmartAuthProvider.initialise(authApi, details.userLogin, {
       getSecret: async (acceptedSecrets: AuthSecretType[], previousAttempts: AuthSecretDetails[]) => {
         expect(acceptedSecrets).to.have.include(AuthSecretType.PASSWORD)
         expect(previousAttempts).to.be.empty

@@ -205,7 +205,7 @@ describe('JWT provider resiliency test', () => {
 
   it('A SmartAuthService supports the jwtGetter', async () => {
     const authApi = new FakeAuthApi()
-    const authProvider = SmartAuthProvider.initialise(authApi, 'username', {
+    const authProvider = await SmartAuthProvider.initialise(authApi, 'username', {
       getSecret: async (acceptedSecrets: AuthSecretType[], previousAttempts: AuthSecretDetails[]) => {
         return { value: 'wrong', secretType: AuthSecretType.LONG_LIVED_TOKEN } // pragma: allowlist secret
       },
