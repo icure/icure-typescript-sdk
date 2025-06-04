@@ -23,7 +23,8 @@ import {
   IccPlaceApi,
   IccPubsubApi,
   IccReplicationApi,
-  IccTarificationApi, IccTimeTableApi,
+  IccTarificationApi,
+  IccTimeTableApi,
   IccTmpApi,
   IccUserApi,
   OAuthThirdParty,
@@ -87,7 +88,7 @@ import { IccRoleApi } from '../icc-api/api/IccRoleApi'
 import { DataOwnerTypeEnum } from '../icc-api/model/DataOwnerTypeEnum'
 import { DelegationsDeAnonymization } from './crypto/DelegationsDeAnonymization'
 import { JwtBridgedAuthService } from './auth/JwtBridgedAuthService'
-import { AuthSecretProvider, SmartAuthProvider } from './auth/SmartAuthProvider'
+import { AuthSecretProvider, SmartAuthProvider, SmartAuthProviderInitialSecret } from './auth/SmartAuthProvider'
 import { KeyPairRecoverer } from './crypto/KeyPairRecoverer'
 import { IccRecoveryDataApi } from '../icc-api/api/internal/IccRecoveryDataApi'
 import { RecoveryDataEncryption } from './crypto/RecoveryDataEncryption'
@@ -123,7 +124,7 @@ export * from './crypto/CryptoPrimitives'
 export * from './crypto/ShareMetadataBehaviour'
 export * from './auth/AuthenticationProvider'
 
-export { AuthSecretDetails, AuthSecretType, AuthSecretProvider } from './auth/SmartAuthProvider'
+export { AuthSecretDetails, AuthSecretType, AuthSecretProvider, SmartAuthProviderInitialSecret } from './auth/SmartAuthProvider'
 export { KeyStorageFacade } from './storage/KeyStorageFacade'
 export { LocalStorageImpl } from './storage/LocalStorageImpl'
 export { StorageFacade } from './storage/StorageFacade'
@@ -503,29 +504,20 @@ export type AuthenticationDetails =
  * automatically be retried with the new secret.
  *
  * You must provide the following information:
- * - username: any kind of value that can identify the user (userId, groupId/userId, username, email, ...). More generic identifiers, valid
- *   on multiple groups, allow for simpler group switching by using {@link IcureApi.switchGroup}.
  * - secretProvider: the secret provider to use for authentication. Will handle interaction with the gui.
  *
  * You can also provide the following optional information, which may allow to reduce the requests for secrets initially:
+ * - username: any kind of value that can identify the user (userId, groupId/userId, username, email, ...). More generic identifiers, valid
+ *   on multiple groups, allow for simpler group switching by using {@link IcureApi.switchGroup}.
+ *   This value, however, is mandatory if you want to use password or icure tokens.
  * - initialSecret: an initial secret (password, token, ...) that will be used to get new authentication tokens as needed. If it is expired it will be ignored.
  * - initialAuthToken: an initial authentication token used on each request. If it is expired it will be ignored.
  * - initialRefreshToken: an initial refresh token used to get new authentication tokens as needed. If it is expired it will be ignored.
  */
 export type SmartAuthenticationDetails = {
-  username: string
+  username?: string
   secretProvider: AuthSecretProvider
-  initialSecret?:
-    | {
-        password: string
-      }
-    | {
-        longToken: string
-      }
-    | {
-        oauthToken: string
-        oauthType: OAuthThirdParty
-      }
+  initialSecret?: SmartAuthProviderInitialSecret
   initialAuthToken?: string
   initialRefreshToken?: string
 }
@@ -645,8 +637,8 @@ async function getAuthenticationProvider(
         undefined
       )
     )
-  } else if ('username' in authenticationOptions && 'secretProvider' in authenticationOptions) {
-    authenticationProvider = SmartAuthProvider.initialise(
+  } else if ('secretProvider' in authenticationOptions) {
+    authenticationProvider = await SmartAuthProvider.initialise(
       new IccAuthApi(host, headers, new NoAuthenticationProvider(), fetchImpl),
       authenticationOptions.username,
       authenticationOptions.secretProvider,
@@ -1183,12 +1175,7 @@ class IcureApiImpl implements IcureApi {
   get timetableApi(): IccTimeTableApi {
     return (
       this._timetableApi ??
-      (this._timetableApi = new IccTimeTableApi(
-        this.host,
-        this.cryptoInitInfos.headers,
-        this.groupSpecificAuthenticationProvider,
-        this.fetch
-      ))
+      (this._timetableApi = new IccTimeTableApi(this.host, this.cryptoInitInfos.headers, this.groupSpecificAuthenticationProvider, this.fetch))
     )
   }
 

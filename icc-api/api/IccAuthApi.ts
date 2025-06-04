@@ -23,6 +23,10 @@ export enum OAuthThirdParty {
   GITHUB = 'github',
 }
 
+export enum DigitalIdProvider {
+  BE_FAS = 'be.fas',
+}
+
 export class IccAuthApi {
   host: string
   headers: Array<XHR.Header>
@@ -100,18 +104,40 @@ export class IccAuthApi {
    * @summary login
    * @param thirdParty The third party OAuth service used to authenticate the user
    * @param token The token returned by the third party OAuth service
+   * @param groupId the group id where to login to.
    */
-  loginWithThirdPartyToken(thirdParty: string, token: string): Promise<AuthenticationResponse> {
+  loginWithThirdPartyToken(thirdParty: string, token: string, groupId?: string): Promise<AuthenticationResponse> {
     let _body = null
     _body = token
 
-    const _url = this.host + `/auth/login/${thirdParty}` + '?ts=' + new Date().getTime()
+    const _url =
+      this.host + `/auth/login/${thirdParty}` + '?ts=' + new Date().getTime() + (groupId ? `&groupId=${encodeURIComponent(String(groupId))}` : '')
     let headers = this.headers
     headers = headers
       .filter((h) => h.header !== 'Content-Type' && h.header?.toLowerCase() !== 'authorization')
       .concat(new XHR.Header('Content-Type', 'application/json'))
       .concat(new XHR.Header('token', token))
     return XHR.sendCommand('POST', _url, headers, null, this.fetchImpl, undefined)
+      .then((doc) => new AuthenticationResponse(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Lite only
+   * /auth/
+   */
+  loginWithCloudToken(issuer: string, cloudJwt: string): Promise<AuthenticationResponse> {
+    let _body = null
+
+    const _url = this.host + `/auth/login/icureCloud` + '?ts=' + new Date().getTime() + `&issuer=${encodeURIComponent(String(issuer))}`
+    let headers = [...this.headers, new XHR.Header('Cloud-Auth-Token', cloudJwt)]
+    return XHR.sendCommand(
+      'POST',
+      _url,
+      headers.filter((h) => h.header?.toLowerCase() !== 'authorization'),
+      _body,
+      this.fetchImpl
+    )
       .then((doc) => new AuthenticationResponse(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
