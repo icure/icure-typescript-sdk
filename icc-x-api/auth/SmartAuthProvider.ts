@@ -1,7 +1,7 @@
 import { AuthenticationProvider } from './AuthenticationProvider'
 import { UserGroup } from '../../icc-api/model/UserGroup'
 import { AuthService } from './AuthService'
-import { IccAuthApi, OAuthThirdParty } from '../../icc-api'
+import { DigitalIdProvider, IccAuthApi, OAuthThirdParty } from '../../icc-api'
 import { XHR } from '../../icc-api/api/XHR'
 import XHRError = XHR.XHRError
 import { decodeJwtClaims, isJwtInvalidOrExpired } from './JwtUtils'
@@ -53,8 +53,13 @@ export interface AuthSecretProvider {
 
 // We may want to add some onSuccess callback in future or similar
 export type AuthSecretDetails =
-  | { value: string; secretType: Exclude<AuthSecretType, AuthSecretType.EXTERNAL_AUTHENTICATION> }
+  | {
+      value: string
+      secretType: Exclude<AuthSecretType, AuthSecretType.EXTERNAL_AUTHENTICATION | AuthSecretType.DIGITAL_ID | AuthSecretType.ICURE_CLOUD>
+    }
   | { value: string; secretType: AuthSecretType.EXTERNAL_AUTHENTICATION; oauthType: OAuthThirdParty }
+  | { value: string; secretType: AuthSecretType.DIGITAL_ID; provider: DigitalIdProvider }
+  | { value: string; secretType: AuthSecretType.ICURE_CLOUD; issuer: string }
 
 /**
  * Represents a type of secret that can be used for authentication with iCure.
@@ -86,10 +91,21 @@ export enum AuthSecretType {
   EXTERNAL_AUTHENTICATION = 'EXTERNAL_AUTHENTICATION',
   /**
    * A special case of external authentication where the provider is a digital identity provider.
-   * Not yet in use.
    */
-  // DIGITAL_ID = 'DIGITAL_ID',
+  DIGITAL_ID = 'DIGITAL_ID',
+  /**
+   * The secret is an authentication token for a cloud instance of icure (kraken-cloud).
+   * Supported only on lite instances.
+   */
+  ICURE_CLOUD = 'ICURE_CLOUD',
 }
+
+export type SmartAuthProviderInitialSecret =
+  | { password: string }
+  | { longToken: string }
+  | { oauthToken: string; oauthType: OAuthThirdParty }
+  | { digitalIdToken: string; provider: DigitalIdProvider }
+  | { cloudToken: string; issuer: string }
 
 // Here starts internal entities that should not be used directly.
 
@@ -121,29 +137,73 @@ export class SmartAuthProvider implements AuthenticationProvider {
    * @param secretProvider
    * @param props optional initialisation properties.
    */
-  static initialise(
+  static async initialise(
     authApi: IccAuthApi,
-    login: string,
+    login: string | undefined,
     secretProvider: AuthSecretProvider,
     props: {
-      initialSecret?: { password: string } | { longToken: string } | { oauthToken: string; oauthType: OAuthThirdParty }
+      initialSecret?: SmartAuthProviderInitialSecret
       initialAuthToken?: string
       initialRefreshToken?: string
       loginGroupId?: string
       debugLog?: boolean
     } = {}
-  ): SmartAuthProvider {
+  ): Promise<SmartAuthProvider> {
     let initialSecret: CachedSecretType | undefined = undefined
+    let initialAuthToken: string | undefined = props.initialAuthToken
+    let initialRefreshToken: string | undefined = props.initialRefreshToken
     if (props.initialSecret) {
       if ('password' in props.initialSecret) {
+        if (login == undefined) throw new Error('To use a password initial secret you must provide a login identifier')
         initialSecret = { value: props.initialSecret.password, type: ServerAuthenticationClass.PASSWORD }
       } else if ('longToken' in props.initialSecret) {
+        if (login == undefined) throw new Error('To use a password initial secret you must provide a login identifier')
         initialSecret = { value: props.initialSecret.longToken, type: ServerAuthenticationClass.LONG_LIVED_TOKEN }
+      } else if ('oauthToken' in props.initialSecret) {
+        if (longLivedOAuthTokens.has(props.initialSecret.oauthType)) {
+          initialSecret = {
+            value: props.initialSecret.oauthToken,
+            type: ServerAuthenticationClass.EXTERNAL_AUTHENTICATION,
+            oauthType: props.initialSecret.oauthType,
+          }
+        } else {
+          try {
+            const authResponse = await authApi.loginWithThirdPartyToken(
+              props.initialSecret.oauthType,
+              props.initialSecret.oauthToken,
+              props.loginGroupId
+            )
+            if (authResponse.token != undefined && authResponse.refreshToken != undefined) {
+              initialAuthToken = authResponse.token
+              initialRefreshToken = authResponse.refreshToken
+            }
+          } catch (_) {
+            /* ignored */
+          }
+        }
+      } else if ('digitalIdToken' in props.initialSecret) {
+        try {
+          const authResponse = await authApi.loginWithThirdPartyToken(
+            props.initialSecret.provider,
+            props.initialSecret.digitalIdToken,
+            props.loginGroupId
+          )
+          if (authResponse.token != undefined && authResponse.refreshToken != undefined) {
+            initialAuthToken = authResponse.token
+            initialRefreshToken = authResponse.refreshToken
+          }
+        } catch (_) {
+          /* ignored */
+        }
       } else {
-        initialSecret = {
-          value: props.initialSecret.oauthToken,
-          type: ServerAuthenticationClass.EXTERNAL_AUTHENTICATION,
-          oauthType: props.initialSecret.oauthType,
+        try {
+          const authResponse = await authApi.loginWithCloudToken(props.initialSecret.issuer, props.initialSecret.cloudToken)
+          if (authResponse.token != undefined && authResponse.refreshToken != undefined) {
+            initialAuthToken = authResponse.token
+            initialRefreshToken = authResponse.refreshToken
+          }
+        } catch (_) {
+          /* ignored */
         }
       }
     }
@@ -152,8 +212,8 @@ export class SmartAuthProvider implements AuthenticationProvider {
         login,
         props.loginGroupId,
         initialSecret,
-        props.initialAuthToken,
-        props.initialRefreshToken,
+        initialAuthToken,
+        initialRefreshToken,
         authApi,
         secretProvider,
         props.debugLog != undefined ? props.debugLog : true
@@ -181,7 +241,7 @@ export class SmartAuthProvider implements AuthenticationProvider {
 }
 
 enum ServerAuthenticationClass {
-  // DIGITAL_ID = 60,
+  DIGITAL_ID = 60,
   TWO_FACTOR_AUTHENTICATION = 50,
   SHORT_LIVED_TOKEN = 40,
   EXTERNAL_AUTHENTICATION = 30,
@@ -198,7 +258,7 @@ type CachedSecretType =
 const longLivedOAuthTokens = new Set([OAuthThirdParty.GOOGLE])
 class TokenProvider {
   constructor(
-    private login: string,
+    private login: string | undefined,
     private groupId: string | undefined,
     private currentLongLivedSecret: CachedSecretType | undefined,
     private cachedToken: string | undefined,
@@ -258,7 +318,7 @@ class TokenProvider {
     if (this.debugLog) console.log(`Attempting to get new token for auth class ${minimumAuthenticationClassLevel} ${this.debugCacheInfo()}`)
     if (!!this.currentLongLivedSecret && (!this.currentLongLivedSecret.type || this.currentLongLivedSecret.type >= minimumAuthenticationClassLevel)) {
       if (this.debugLog) console.log('Using cached secret')
-      const resultWithCachedSecret = await this.doGetTokenWithSecret(this.currentLongLivedSecret, minimumAuthenticationClassLevel)
+      const resultWithCachedSecret = await this.doGetTokenWithSecret({ cached: this.currentLongLivedSecret }, minimumAuthenticationClassLevel)
       if ('success' in resultWithCachedSecret) {
         if (this.debugLog) console.log('New token using cached secret success')
         return resultWithCachedSecret.success
@@ -283,12 +343,20 @@ class TokenProvider {
     passwordIsValidAs2fa: boolean
   ): Promise<{ token: string; refreshToken: string }> {
     const acceptedSecrets = [
-      minimumAuthenticationClassLevel <= ServerAuthenticationClass.LONG_LIVED_TOKEN ? [AuthSecretType.LONG_LIVED_TOKEN] : [],
-      minimumAuthenticationClassLevel <= ServerAuthenticationClass.SHORT_LIVED_TOKEN ? [AuthSecretType.SHORT_LIVED_TOKEN] : [],
+      minimumAuthenticationClassLevel <= ServerAuthenticationClass.LONG_LIVED_TOKEN && this.login != undefined
+        ? [AuthSecretType.LONG_LIVED_TOKEN]
+        : [],
+      minimumAuthenticationClassLevel <= ServerAuthenticationClass.SHORT_LIVED_TOKEN && this.login != undefined
+        ? [AuthSecretType.SHORT_LIVED_TOKEN]
+        : [],
       minimumAuthenticationClassLevel <= ServerAuthenticationClass.TWO_FACTOR_AUTHENTICATION &&
+      this.login != undefined &&
       (passwordIsValidAs2fa || minimumAuthenticationClassLevel <= ServerAuthenticationClass.PASSWORD)
         ? [AuthSecretType.PASSWORD]
         : [],
+      minimumAuthenticationClassLevel <= 0 ? [AuthSecretType.ICURE_CLOUD] : [],
+      minimumAuthenticationClassLevel <= ServerAuthenticationClass.DIGITAL_ID ? [AuthSecretType.DIGITAL_ID] : [],
+      minimumAuthenticationClassLevel <= ServerAuthenticationClass.EXTERNAL_AUTHENTICATION ? [AuthSecretType.EXTERNAL_AUTHENTICATION] : [],
     ].flat()
     if (!acceptedSecrets.length)
       throw new Error('Internal error: no secret type is accepted for this request. Group may be misconfigured, or client may be outdated.')
@@ -299,7 +367,7 @@ class TokenProvider {
       if (!acceptedSecrets.includes(secretDetails.secretType))
         throw new Error(`Accepted secret types are ${JSON.stringify(acceptedSecrets)}, but got a secret of type ${secretDetails.secretType}.`)
       attempts.push(secretDetails)
-      const result = await this.doGetTokenWithSecret(secretDetails, minimumAuthenticationClassLevel)
+      const result = await this.doGetTokenWithSecret({ new: secretDetails }, minimumAuthenticationClassLevel)
       if ('success' in result) {
         this.updateCachedSecret(secretDetails)
         return result.success
@@ -323,7 +391,10 @@ class TokenProvider {
       if (details.secretType != AuthSecretType.TWO_FACTOR_AUTHENTICATION_TOKEN)
         throw new Error(`Was expecting a 2fa token but got a secret of type ${details.secretType}.`)
       attempts.push(details)
-      const result = await this.doGetTokenWithSecret({ value: `${password}|${details.value}` }, minimumAuthenticationClassLevel)
+      const result = await this.doGetTokenWithSecret(
+        { new: { value: `${password}|${details.value}`, secretType: AuthSecretType.TWO_FACTOR_AUTHENTICATION_TOKEN } },
+        minimumAuthenticationClassLevel
+      )
       if ('success' in result) {
         this.updateCachedSecret({ value: password, secretType: AuthSecretType.PASSWORD })
         return result.success
@@ -334,14 +405,28 @@ class TokenProvider {
   }
 
   private async doGetTokenWithSecret(
-    secret: { value: string; oauthType?: OAuthThirdParty },
+    secretDetails: { new: AuthSecretDetails } | { cached: CachedSecretType },
     minimumAuthenticationClassLevel: number
   ): Promise<DoGetTokenResult> {
     let authResultPromise: Promise<AuthenticationResponse>
-    if ('oauthType' in secret && !!secret.oauthType) {
-      authResultPromise = this.authApi.loginWithThirdPartyToken(secret.oauthType, secret.value) // TODO add group id
+    if ('cached' in secretDetails) {
+      const secret = secretDetails.cached
+      if ('oauthType' in secret && !!secret.oauthType) {
+        authResultPromise = this.authApi.loginWithThirdPartyToken(secret.oauthType, secret.value, this.groupId)
+      } else {
+        authResultPromise = this.authApi.login({ username: this.login, password: secret.value }, this.groupId)
+      }
     } else {
-      authResultPromise = this.authApi.login({ username: this.login, password: secret.value }, this.groupId)
+      const secret = secretDetails.new
+      if (secret.secretType == AuthSecretType.DIGITAL_ID) {
+        authResultPromise = this.authApi.loginWithThirdPartyToken(secret.provider, secret.value, this.groupId)
+      } else if (secret.secretType == AuthSecretType.EXTERNAL_AUTHENTICATION) {
+        authResultPromise = this.authApi.loginWithThirdPartyToken(secret.oauthType, secret.value, this.groupId)
+      } else if (secret.secretType == AuthSecretType.ICURE_CLOUD) {
+        authResultPromise = this.authApi.loginWithCloudToken(secret.issuer, secret.value)
+      } else {
+        authResultPromise = this.authApi.login({ username: this.login, password: secret.value }, this.groupId)
+      }
     }
     return authResultPromise.then(
       (authResult) => {
