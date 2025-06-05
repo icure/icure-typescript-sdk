@@ -1,4 +1,4 @@
-import { before } from 'mocha'
+import { before, it } from 'mocha'
 
 import 'isomorphic-fetch'
 
@@ -6,7 +6,7 @@ import { EntityWithDelegationTypeName, IccContactXApi, IccHelementXApi, IccPatie
 import { Patient } from '../../icc-api/model/Patient'
 import { assert, expect } from 'chai'
 import { randomUUID } from 'crypto'
-import { getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils } from '../utils/test_utils'
+import { createNewHcpApi, getEnvironmentInitializer, hcp1Username, hcp2Username, setLocalStorage, TestUtils } from '../utils/test_utils'
 import { Code } from '../../icc-api/model/Code'
 import { Contact } from '../../icc-api/model/Contact'
 import { Service } from '../../icc-api/model/Service'
@@ -20,6 +20,7 @@ import { ServiceByHcPartyHealthElementIdsFilter } from '../../icc-x-api/filters/
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import { Measure } from '../../icc-api/model/Measure'
 import initApi = TestUtils.initApi
+import { IccDocumentApi, IccMessageApi } from '../../icc-api'
 
 setLocalStorage(fetch)
 let env: TestVars
@@ -36,7 +37,7 @@ describe('icc-x-document-api Tests', () => {
     const { documentApi, userApi } = await initApi(env!, hcp1Username)
 
     const currUser = await userApi.getCurrentUser()
-    const document = await documentApi.createDocument(await documentApi.newInstance(currUser, undefined, {}))
+    const document = await documentApi.createDocumentWithUser(undefined, await documentApi.newInstance(currUser, undefined, {}))
     const obj = { test: 'test' }
     await documentApi.encryptAndSetDocumentAttachment(document, utf8_2ua(JSON.stringify(obj)))
     const decrypted = await documentApi.getAndTryDecryptMainAttachmentAs(document, 'application/json')
@@ -48,12 +49,38 @@ describe('icc-x-document-api Tests', () => {
     const { documentApi, userApi } = await initApi(env!, hcp1Username)
 
     const currUser = await userApi.getCurrentUser()
-    const document = await documentApi.createDocument(await documentApi.newInstance(currUser, undefined, {}))
+    const document = await documentApi.createDocumentWithUser(undefined, await documentApi.newInstance(currUser, undefined, {}))
     const obj = 'Test'
     await documentApi.encryptAndSetDocumentAttachment(document, utf8_2ua(obj))
     const decrypted = await documentApi.getAndTryDecryptMainAttachmentAs(document, 'text/plain')
     expect(decrypted).to.deep.equal(obj)
     const decryptedAsJson = await documentApi.getAndTryDecryptMainAttachmentAs(document, 'application/json')
     expect(decryptedAsJson).to.be.undefined
+  })
+
+  it('Should be encrypted', async () => {
+    const hcp = await createNewHcpApi(env, {
+      encryptedFieldsConfig: {
+        document: ['name'],
+      },
+    })
+    const name = 'Private.txt'
+    const externalUuid = randomUUID()
+    const created = await hcp.api.documentApi.createDocumentWithUser(
+      undefined,
+      await hcp.api.documentApi.newInstance(hcp.user, undefined, {
+        id: randomUUID(),
+        name,
+        externalUuid,
+      })
+    )
+    expect(created.name).to.eq(name)
+    expect(created.externalUuid).to.eq(externalUuid)
+    const retrieved = await hcp.api.documentApi.getDocumentWithUser(undefined, created.id!)
+    expect(retrieved.name).to.eq(name)
+    expect(retrieved.externalUuid).to.eq(externalUuid)
+    const encrypted = await new IccDocumentApi(env.iCureUrl, {}, hcp.api.authApi.authenticationProvider, fetch).getDocument(created.id!)
+    expect(encrypted.name).to.be.undefined
+    expect(encrypted.externalUuid).to.eq(externalUuid)
   })
 })

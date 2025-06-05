@@ -863,143 +863,118 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
       })
   }
 
-  export(user: models.User, patId: string, ownerId: string, usingPost: boolean = false): Promise<{ id: string }> {
-    return this.hcpartyApi.getHealthcareParty(ownerId).then((hcp) => {
-      const parentId = hcp.parentId
-
-      return retry(() => this.getPatientWithUser(user, patId))
-        .then(async (patient: models.Patient) => {
-          const initialised = await this.crypto.xapi.ensureEncryptionKeysInitialised(patient, EntityWithDelegationTypeName.Patient)
-          if (!initialised) {
-            return patient
-          } else {
-            return await this.modifyPatientWithUser(user, initialised)
-          }
-        })
-        .then(async (patient: models.Patient | null) => {
-          if (!patient) {
-            return Promise.resolve({ id: patId })
-          }
-          const delSfks = await this.crypto.xapi.secretIdsOf({ entity: patient, type: EntityWithDelegationTypeName.Patient }, ownerId)
-          return delSfks.length
-            ? Promise.all([
-                retry(() =>
-                  (usingPost
-                    ? this.helementApi.findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
-                    : this.helementApi.findByHCPartyPatientSecretFKeysArray(ownerId, delSfks)
-                  ).then((hes) =>
-                    parentId
-                      ? (usingPost
-                          ? this.helementApi.findHealthElementsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(parentId, _.uniq(delSfks))
-                          : this.helementApi.findHealthElementsDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                        ).then((moreHes) => _.uniqBy(hes.concat(moreHes), 'id'))
-                      : hes
-                  )
-                ) as Promise<Array<models.IcureStub>>,
-                retry(() =>
-                  (usingPost
-                    ? this.formApi.findFormsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(ownerId, _.uniq(delSfks))
-                    : this.formApi.findFormsDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                  ).then((frms) =>
-                    parentId
-                      ? (usingPost
-                          ? this.formApi.findFormsDelegationsStubsByHCPartyPatientForeignKeysUsingPost(parentId, _.uniq(delSfks))
-                          : this.formApi.findFormsDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                        ).then((moreFrms) => _.uniqBy(frms.concat(moreFrms), 'id'))
-                      : frms
-                  )
-                ) as Promise<Array<models.Form>>,
-                retry(() =>
-                  (usingPost
-                    ? this.contactApi.findByHCPartyPatientSecretFKeysUsingPost(ownerId, undefined, undefined, _.uniq(delSfks))
-                    : this.contactApi.findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(','))
-                  ).then((ctcs) =>
-                    parentId
-                      ? (usingPost
-                          ? this.contactApi.findByHCPartyPatientSecretFKeysUsingPost(parentId, undefined, undefined, _.uniq(delSfks))
-                          : this.contactApi.findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(','))
-                        ).then((moreCtcs) => _.uniqBy(ctcs.concat(moreCtcs), 'id'))
-                      : ctcs
-                  )
-                ) as Promise<Array<models.Contact>>,
-                retry(() =>
-                  (usingPost
-                    ? this.invoiceApi.findInvoicesDelegationsStubsByHCPartyPatientForeignKeysUsingPost(ownerId, _.uniq(delSfks))
-                    : this.invoiceApi.findInvoicesDelegationsStubsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                  ).then((ivs) =>
-                    parentId
-                      ? this.invoiceApi
-                          .findInvoicesDelegationsStubsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                          .then((moreIvs) => _.uniqBy(ivs.concat(moreIvs), 'id'))
-                      : ivs
-                  )
-                ) as Promise<Array<models.IcureStub>>,
-                retry(() =>
-                  this.classificationApi
-                    .findClassificationsByHCPartyPatientForeignKeys(ownerId, _.uniq(delSfks).join(','))
-                    .then((cls) =>
-                      parentId
-                        ? this.classificationApi
-                            .findClassificationsByHCPartyPatientForeignKeys(parentId, _.uniq(delSfks).join(','))
-                            .then((moreCls) => _.uniqBy(cls.concat(moreCls), 'id'))
-                        : cls
-                    )
-                ) as Promise<Array<models.Classification>>,
-                retry(async () => {
-                  const delegationSFKs = _.uniq(delSfks).join(',')
-                  try {
-                    let calendarItems = await (usingPost
-                      ? this.calendarItemApi.findByHCPartyPatientSecretFKeysArray(ownerId, _.uniq(delSfks))
-                      : this.calendarItemApi.findByHCPartyPatientSecretFKeys(ownerId, _.uniq(delSfks).join(',')))
-
-                    if (parentId) {
-                      const moreCalendarItems = await (usingPost
-                        ? this.calendarItemApi.findByHCPartyPatientSecretFKeysArray(parentId, _.uniq(delSfks))
-                        : this.calendarItemApi.findByHCPartyPatientSecretFKeys(parentId, _.uniq(delSfks).join(',')))
-                      calendarItems = _.uniqBy(calendarItems.concat(moreCalendarItems), 'id')
-                    }
-
-                    return calendarItems
-                  } catch (ex) {
-                    console.log(`exception occured exporting calendarItem for ownerId: ${ownerId} - ${ex}`)
-                    //throw ex
-                  }
-                }) as Promise<Array<models.CalendarItem>>,
-              ]).then(([hes, frms, ctcs, ivs, cls, cis]) => {
-                const docIds: { [key: string]: number } = {}
-                ctcs.forEach(
-                  (c: models.Contact) =>
-                    c.services &&
-                    c.services.forEach((s) => s.content && Object.values(s.content).forEach((c) => c && c.documentId && (docIds[c.documentId] = 1)))
-                )
-
-                return retry(() => this.documentApi.getDocuments(new ListOfIds({ ids: Object.keys(docIds) }))).then((docs: Array<Document>) => {
-                  return {
-                    id: patId,
-                    patient: patient,
-                    contacts: ctcs,
-                    forms: frms,
-                    healthElements: hes,
-                    invoices: ivs,
-                    classifications: cls,
-                    calItems: cis,
-                    documents: docs,
-                  }
-                })
-              })
-            : Promise.resolve({
-                id: patId,
-                patient: patient,
-                contacts: [],
-                forms: [],
-                healthElements: [],
-                invoices: [],
-                classifications: [],
-                calItems: [],
-                documents: [],
-              })
-        })
+  async export(
+    user: models.User,
+    patId: string,
+    ownerId: string
+  ): Promise<{
+    id: string
+    patient: Patient | null
+    contacts: models.Contact[]
+    forms: models.Form[]
+    healthElements: models.HealthElement[]
+    invoices: models.Invoice[]
+    classifications: models.Classification[]
+    calItems: models.CalendarItem[]
+    documents: models.Document[]
+  }> {
+    const parentId = await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds().then((h) => (h.length - 2 >= 0 ? h[h.length - 2] : h[0]))
+    const patient = await retry(async () => {
+      const retrieved: Patient | undefined = await this.getPatientWithUser(user, patId)
+      if (retrieved != undefined) {
+        const initialised = await this.crypto.xapi.ensureEncryptionKeysInitialised(retrieved, EntityWithDelegationTypeName.Patient)
+        if (!initialised) {
+          return retrieved
+        } else {
+          return await this.modifyPatientWithUser(user, initialised)
+        }
+      } else {
+        return null
+      }
     })
+    const delSfks =
+      patient != null ? await this.crypto.xapi.secretIdsOf({ entity: patient, type: EntityWithDelegationTypeName.Patient }, ownerId) : []
+    if (delSfks.length <= 0) {
+      return {
+        id: patId,
+        patient,
+        contacts: [],
+        forms: [],
+        healthElements: [],
+        invoices: [],
+        classifications: [],
+        calItems: [],
+        documents: [],
+      }
+    }
+    const contactIds = new Set([
+      ...(await retry(() => this.contactApi.findContactIdsByDataOwnerPatientOpeningDate(ownerId, delSfks))),
+      ...(await retry(() => this.contactApi.findContactIdsByDataOwnerPatientOpeningDate(parentId, delSfks))),
+    ])
+    const formIds = new Set([
+      ...(await retry(() => this.formApi.findFormIdsByDataOwnerPatientOpeningDate(ownerId, delSfks))),
+      ...(await retry(() => this.formApi.findFormIdsByDataOwnerPatientOpeningDate(parentId, delSfks))),
+    ])
+    const healthElementIds = new Set([
+      ...(await retry(() => this.helementApi.findHealthElementIdsByDataOwnerPatientOpeningDate(ownerId, delSfks))),
+      ...(await retry(() => this.helementApi.findHealthElementIdsByDataOwnerPatientOpeningDate(parentId, delSfks))),
+    ])
+    const invoiceIds = new Set([
+      ...(await retry(() => this.invoiceApi.findInvoiceIdsByDataOwnerPatientInvoiceDate(ownerId, delSfks))),
+      ...(await retry(() => this.invoiceApi.findInvoiceIdsByDataOwnerPatientInvoiceDate(parentId, delSfks))),
+    ])
+    const classificationIds = new Set([
+      ...(await retry(() => this.classificationApi.findClassificationIdsByDataOwnerPatientCreated(ownerId, delSfks))),
+      ...(await retry(() => this.classificationApi.findClassificationIdsByDataOwnerPatientCreated(parentId, delSfks))),
+    ])
+    const calendarItemIds = new Set([
+      ...(await retry(() => this.calendarItemApi.findCalendarItemIdsByDataOwnerPatientStartTime(ownerId, delSfks))),
+      ...(await retry(() => this.calendarItemApi.findCalendarItemIdsByDataOwnerPatientStartTime(parentId, delSfks))),
+    ])
+    async function batchGet<T>(items: string[], get: (batch: string[]) => Promise<T[]>, batchSize: number = 1000): Promise<T[]> {
+      const results: T[] = []
+      for (let i = 0; i < items.length; i += batchSize) {
+        const batch = items.slice(i, i + batchSize)
+        const res = await retry(() => get(batch))
+        results.push(...res)
+      }
+      return results
+    }
+    const contacts = await batchGet([...contactIds], (x): Promise<models.Contact[]> => this.contactApi.getContactsWithUser(user, { ids: x }))
+    const forms = await batchGet([...formIds], (x): Promise<models.Form[]> => this.formApi.getForms({ ids: x }))
+    const healthElements = await batchGet(
+      [...healthElementIds],
+      (x): Promise<models.HealthElement[]> => this.helementApi.getHealthElementsWithUser(user, { ids: x })
+    )
+    const invoices = await batchGet([...invoiceIds], (x): Promise<models.Invoice[]> => this.invoiceApi.getInvoices({ ids: x }))
+    const classifications = await batchGet(
+      [...classificationIds],
+      (x): Promise<models.Classification[]> => this.classificationApi.getClassifications({ ids: x })
+    )
+    const calItems = await batchGet(
+      [...calendarItemIds],
+      (x): Promise<models.CalendarItem[]> => this.calendarItemApi.getCalendarItemsWithIdsWithUser(user, { ids: x })
+    )
+    const documentIds = new Set<string>()
+    contacts.forEach((contact) => {
+      contact.services?.forEach((service) => {
+        Object.values(service.content ?? {}).forEach((content) => {
+          if (!!content.documentId) documentIds.add(content.documentId)
+        })
+      })
+    })
+    const documents = await batchGet([...documentIds], (x): Promise<models.Document[]> => this.documentApi.getDocumentsWithUser(user, { ids: x }))
+    return {
+      id: patId,
+      patient,
+      calItems,
+      classifications,
+      contacts,
+      documents,
+      forms,
+      healthElements,
+      invoices,
+    }
   }
 
   checkInami(inami: string): boolean {

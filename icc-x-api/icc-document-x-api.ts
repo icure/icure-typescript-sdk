@@ -13,10 +13,11 @@ import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 import { ShareResult } from './utils/ShareResult'
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
-import { EntityWithDelegationTypeName } from './utils'
+import { EncryptedFieldsManifest, EntityWithDelegationTypeName, parseEncryptedFields } from './utils'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { SecretIdUseOption } from './crypto/SecretIdUseOption'
+import { ListOfIds, PaginatedListDocument, PaginatedListMessage } from '../icc-api/model/models'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXApi<models.Document> {
@@ -553,6 +554,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
   }
   dataOwnerApi: IccDataOwnerXApi
   authenticationProvider: AuthenticationProvider
+  private readonly encryptedFields: EncryptedFieldsManifest
 
   constructor(
     host: string,
@@ -562,6 +564,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     dataOwnerApi: IccDataOwnerXApi,
     private readonly autofillAuthor: boolean,
     authenticationProvider: AuthenticationProvider = new NoAuthenticationProvider(),
+    encryptedKeys: Array<string> = [],
     fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response> = typeof window !== 'undefined'
       ? window.fetch
       : typeof self !== 'undefined'
@@ -572,6 +575,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     this.fetchImpl = fetchImpl
     this.authenticationProvider = authenticationProvider
     this.dataOwnerApi = dataOwnerApi
+    this.encryptedFields = parseEncryptedFields(encryptedKeys, 'Document.')
   }
 
   override get headers(): Promise<Array<XHR.Header>> {
@@ -650,16 +654,6 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
 
   // noinspection JSUnusedGlobalSymbols
   /**
-   * @deprecated use {@link findIdsByMessage} instead.
-   */
-  async findByMessage(hcpartyId: string, message: models.Message) {
-    const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: message, type: EntityWithDelegationTypeName.Message }, hcpartyId)
-    const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
-    let documents: Array<models.Document> = await this.findDocumentsByHCPartyPatientForeignKeys(topmostParentId, _.uniq(extractedKeys))
-    return await this.decrypt(hcpartyId, documents)
-  }
-
-  /**
    * Same as {@link findByMessage} but it will only return the ids of the contacts. It can also filter the documents where Document.created is between
    * startDate and endDate in ascending or descending order by that field. (default: ascending).
    */
@@ -669,52 +663,19 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     return this.findDocumentIdsByDataOwnerSecretForeignKey(topmostParentId, _.uniq(extractedKeys), startDate, endDate, descending)
   }
 
-  // Note: this is only for dealing with legacy documents: new document are not encrypted, only their attachments are
-  async decrypt(hcpartyId: string, documents: Array<models.Document>): Promise<Array<models.Document>> {
-    const res: models.Document[] = []
-    for (const document of documents) {
-      const keys = await this.crypto.xapi.encryptionKeysOf({ entity: document, type: EntityWithDelegationTypeName.Document }, undefined)
-      if (!keys.length) {
-        console.log('Cannot decrypt document', document.id)
-        res.push(document)
-      } else if (keys.length && (document.encryptedSelf || document.encryptedAttachment)) {
-        const key = await this.crypto.primitives.AES.importKey('raw', hex2ua(keys[0]))
-        res.push(
-          await Promise.all([
-            document.encryptedSelf
-              ? new Promise((resolve: (value: ArrayBuffer | null) => any) => {
-                  this.crypto.primitives.AES.decrypt(key, string2ua(a2b(document.encryptedSelf!))).then(resolve, () => {
-                    console.log('Cannot decrypt document', document.id)
-                    resolve(null)
-                  })
-                })
-              : Promise.resolve(null),
-            document.encryptedAttachment
-              ? new Promise((resolve: (value: ArrayBuffer | null) => any) => {
-                  this.crypto.primitives.AES.decrypt(key, document.encryptedAttachment!).then(resolve, () => {
-                    console.log('Cannot decrypt document', document.id)
-                    resolve(null)
-                  })
-                })
-              : Promise.resolve(null),
-          ]).then((decrypted: [ArrayBuffer | null, ArrayBuffer | null]) => {
-            let updatedDocument = { ...document }
-            if (decrypted) {
-              if (decrypted[0]) {
-                updatedDocument = _.extend(document, JSON.parse(ua2string(decrypted[0])))
-              }
-              if (decrypted[1]) {
-                updatedDocument.decryptedAttachment = decrypted[1]
-              }
-            }
-            return updatedDocument
-          })
-        )
-      } else {
-        res.push(document)
-      }
-    }
-    return res
+  async decrypt(documents: Array<models.Document>): Promise<{ entity: models.Document; decrypted: boolean }[]> {
+    return await this.crypto.xapi.tryDecryptEntities(documents, EntityWithDelegationTypeName.Document, (x) => new models.Document(x))
+  }
+
+  encrypt(documents: Array<models.Document>): Promise<Array<models.Document>> {
+    return this.crypto.xapi.tryEncryptEntities(
+      documents,
+      EntityWithDelegationTypeName.Document,
+      this.encryptedFields,
+      true,
+      false,
+      (x) => new models.Document(x)
+    )
   }
 
   //prettier-ignore
@@ -831,9 +792,11 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
   async encryptAndSetDocumentAttachment(document: models.Document, attachment: ArrayBuffer | Uint8Array, utis?: string[]): Promise<models.Document> {
     if (!document.rev) throw new Error('Cannot set attachment on document without rev')
     const { encryptedData, updatedEntity } = await this.crypto.xapi.encryptDataOf(document, EntityWithDelegationTypeName.Document, attachment, (d) =>
-      this.modifyDocument(d)
+      this.modifyDocumentWithUser(undefined, d)
     )
-    return await this.setMainDocumentAttachment(document.id!, updatedEntity?.rev ?? document.rev, encryptedData, utis, true)
+    return (
+      await this.decrypt([await super.setMainDocumentAttachment(document.id!, updatedEntity?.rev ?? document.rev, encryptedData, utis, true)])
+    )[0].entity
   }
 
   /**
@@ -846,7 +809,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
    */
   async setClearDocumentAttachment(document: models.Document, attachment: ArrayBuffer | Uint8Array, utis?: string[]): Promise<models.Document> {
     if (!document.rev) throw new Error('Cannot set attachment on document without rev')
-    return await this.setMainDocumentAttachment(document.id!, document.rev, attachment, utis, false)
+    return (await this.decrypt([await super.setMainDocumentAttachment(document.id!, document.rev, attachment, utis, false)]))[0].entity
   }
 
   /**
@@ -866,9 +829,13 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
   ): Promise<models.Document> {
     if (!document.rev) throw new Error('Cannot set attachment on document without rev')
     const { encryptedData, updatedEntity } = await this.crypto.xapi.encryptDataOf(document, EntityWithDelegationTypeName.Document, attachment, (d) =>
-      this.modifyDocument()
+      this.modifyDocumentWithUser(undefined, d)
     )
-    return await this.setSecondaryAttachment(document.id!, secondaryAttachmentKey, updatedEntity?.rev ?? document.rev!, encryptedData, utis, true)
+    return (
+      await this.decrypt([
+        await super.setSecondaryAttachment(document.id!, secondaryAttachmentKey, updatedEntity?.rev ?? document.rev!, encryptedData, utis, true),
+      ])
+    )[0].entity
   }
 
   /**
@@ -886,7 +853,8 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     attachment: ArrayBuffer | Uint8Array,
     utis?: string[]
   ): Promise<models.Document> {
-    return await this.setSecondaryAttachment(document.id!, secondaryAttachmentKey, document.rev!, attachment, utis, false)
+    return (await this.decrypt([await super.setSecondaryAttachment(document.id!, secondaryAttachmentKey, document.rev!, attachment, utis, false)]))[0]
+      .entity
   }
 
   /**
@@ -920,7 +888,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
   ): Promise<{ data: ArrayBuffer; wasDecrypted: boolean }> {
     return await this.crypto.xapi.tryDecryptDataOf(
       { entity: document, type: EntityWithDelegationTypeName.Document },
-      await this.getRawMainDocumentAttachment(document.id!),
+      await super.getRawMainDocumentAttachment(document.id!),
       (x) => validator(x)
     )
   }
@@ -960,7 +928,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
   ): Promise<{ data: ArrayBuffer; wasDecrypted: boolean }> {
     return await this.crypto.xapi.tryDecryptDataOf(
       { entity: document, type: EntityWithDelegationTypeName.Document },
-      await this.getSecondaryAttachment(document.id!, secondaryAttachmentKey),
+      await super.getSecondaryAttachment(document.id!, secondaryAttachmentKey),
       (x) => validator(x)
     )
   }
@@ -1062,7 +1030,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
     // All entities should have an encryption key.
     const entityWithEncryptionKey = await this.crypto.xapi.ensureEncryptionKeysInitialised(document, EntityWithDelegationTypeName.Document)
-    const updatedEntity = entityWithEncryptionKey ? await this.modifyDocument(entityWithEncryptionKey) : document
+    const updatedEntity = entityWithEncryptionKey ? await this.modifyDocumentWithUser(undefined, entityWithEncryptionKey) : document
     return this.crypto.xapi
       .simpleShareOrUpdateEncryptedEntityMetadata(
         {
@@ -1080,9 +1048,9 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
             },
           ])
         ),
-        (x) => this.bulkShareDocument(x)
+        (x) => super.bulkShareDocument(x)
       )
-      .then((r) => r)
+      .then((r) => r.mapSuccessAsync(async (m) => (await this.decrypt([m]))[0].entity))
   }
 
   getDataOwnersWithAccessTo(
@@ -1100,5 +1068,184 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
       { entity, type: EntityWithDelegationTypeName.Document },
       delegates
     )
+  }
+
+  private async decryptPage(page: PaginatedListDocument): Promise<PaginatedListDocument> {
+    return {
+      ...page,
+      rows: (await this.decrypt(page.rows ?? [])).map((x) => x.entity),
+    }
+  }
+
+  async createDocumentWithUser(user: models.User | undefined, body: models.Document): Promise<models.Document> {
+    return (await this.decrypt([await super.createDocument((await this.encrypt([body]))[0])]))[0].entity
+  }
+
+  async deleteAttachmentWithUser(user: models.User | undefined, documentId: string): Promise<models.Document> {
+    return (await this.decrypt([await super.deleteAttachment(documentId)]))[0].entity
+  }
+
+  /**
+   * @deprecated
+   */
+  async findByTypeHCPartyMessageSecretFKeysWithUser(
+    user: models.User | undefined,
+    documentTypeCode: string,
+    hcPartyId: string,
+    secretFKeys: string[]
+  ): Promise<Array<models.Document>> {
+    return (await this.decrypt(await super.findByTypeHCPartyMessageSecretFKeys(documentTypeCode, hcPartyId, secretFKeys))).map((x) => x.entity)
+  }
+
+  /**
+   * @deprecated
+   */
+  async findDocumentsByHCPartyPatientForeignKeysWithUser(
+    user: models.User | undefined,
+    hcPartyId: string,
+    secretFKeys: string[]
+  ): Promise<Array<models.Document>> {
+    return (await this.decrypt(await super.findDocumentsByHCPartyPatientForeignKeys(hcPartyId, secretFKeys))).map((x) => x.entity)
+  }
+
+  /**
+   * @deprecated
+   */
+  async findDocumentsByHCPartyPatientForeignKeyWithUser(
+    user: models.User | undefined,
+    hcPartyId: string,
+    secretFKey: string,
+    startKey?: string,
+    startDocumentId?: string,
+    limit?: number
+  ): Promise<PaginatedListDocument> {
+    return await this.decryptPage(await super.findDocumentsByHCPartyPatientForeignKey(hcPartyId, secretFKey, startKey, startDocumentId, limit))
+  }
+
+  async findWithoutDelegationWithUser(user: models.User | undefined, limit?: number): Promise<Array<models.Document>> {
+    return (await this.decrypt(await super.findWithoutDelegation(limit))).map((x) => x.entity)
+  }
+
+  async getDocumentWithUser(user: models.User | undefined, documentId: string): Promise<models.Document> {
+    return (await this.decrypt([await super.getDocument(documentId)]))[0].entity
+  }
+
+  async getDocumentByExternalUuidWithUser(user: models.User | undefined, externalUuid: string): Promise<models.Document> {
+    return (await this.decrypt([await super.getDocumentByExternalUuid(externalUuid)]))[0].entity
+  }
+
+  async getDocumentsWithUser(user: models.User | undefined, body?: ListOfIds): Promise<Array<models.Document>> {
+    return (await this.decrypt(await super.getDocuments(body))).map((x) => x.entity)
+  }
+
+  async getDocumentsByExternalUuidWithUser(user: models.User | undefined, externalUuid: string): Promise<Array<models.Document>> {
+    return (await this.decrypt(await super.getDocumentsByExternalUuid(externalUuid))).map((x) => x.entity)
+  }
+
+  async modifyDocumentWithUser(user: models.User | undefined, body: models.Document): Promise<models.Document> {
+    return (await this.decrypt([await super.modifyDocument((await this.encrypt([body]))[0])]))[0].entity
+  }
+
+  async modifyDocumentsWithUser(user: models.User | undefined, body: Array<models.Document>): Promise<Array<models.Document>> {
+    return (await this.decrypt(await super.modifyDocuments(await this.encrypt(body)))).map((x) => x.entity)
+  }
+
+  async setMainDocumentAttachmentWithUser(
+    user: models.User | undefined,
+    documentId: string,
+    documentRev: string,
+    body: Object,
+    utis?: Array<string>,
+    dataIsEncrypted?: boolean
+  ): Promise<models.Document> {
+    return (await this.decrypt([await super.setMainDocumentAttachment(documentId, documentRev, body, utis, dataIsEncrypted)]))[0].entity
+  }
+
+  async setSecondaryAttachmentWithUser(
+    user: models.User | undefined,
+    documentId: string,
+    key: string,
+    rev: string,
+    attachment: Object,
+    utis?: Array<string>,
+    dataIsEncrypted?: boolean
+  ): Promise<models.Document> {
+    return (await this.decrypt([await super.setSecondaryAttachment(documentId, key, rev, attachment, utis, dataIsEncrypted)]))[0].entity
+  }
+
+  async deleteSecondaryAttachmentWithUser(user: models.User | undefined, documentId: string, key: string, rev: string): Promise<models.Document> {
+    return (await this.decrypt([await super.deleteSecondaryAttachment(documentId, key, rev)]))[0].entity
+  }
+
+  createDocument(body?: models.Document): never {
+    throw new Error('Use withUser method')
+  }
+
+  deleteAttachment(documentId: string): never {
+    throw new Error('Use withUser method')
+  }
+
+  findByTypeHCPartyMessageSecretFKeys(documentTypeCode: string, hcPartyId: string, secretFKeys: string[]): never {
+    throw new Error('Use withUser method')
+  }
+
+  findDocumentsByHCPartyPatientForeignKeys(hcPartyId: string, secretFKeys: string[]): never {
+    throw new Error('Use withUser method')
+  }
+
+  findDocumentsByHCPartyPatientForeignKey(hcPartyId: string, secretFKey: string, startKey?: string, startDocumentId?: string, limit?: number): never {
+    throw new Error('Use withUser method')
+  }
+
+  findWithoutDelegation(limit?: number): never {
+    throw new Error('Use withUser method')
+  }
+
+  getDocument(documentId: string): never {
+    throw new Error('Use withUser method')
+  }
+
+  getDocumentByExternalUuid(externalUuid: string): never {
+    throw new Error('Use withUser method')
+  }
+
+  getDocuments(body?: ListOfIds): never {
+    throw new Error('Use withUser method')
+  }
+
+  getDocumentsByExternalUuid(externalUuid: string): never {
+    throw new Error('Use withUser method')
+  }
+
+  modifyDocument(body?: models.Document): never {
+    throw new Error('Use withUser method')
+  }
+
+  modifyDocuments(body?: Array<models.Document>): never {
+    throw new Error('Use withUser method')
+  }
+
+  setMainDocumentAttachment(documentId: string, documentRev: string, body: Object, utis?: Array<string>, dataIsEncrypted?: boolean): never {
+    throw new Error('Use withUser method')
+  }
+
+  setDocumentAttachmentBody(documentId: string, documentRev: string, enckeys?: null, body?: Object, utis?: string[]): never {
+    throw new Error('Use withUser method')
+  }
+
+  setDocumentAttachment(documentId: string, documentRev: string, enckeys?: null, body?: Object, utis?: string[]): never {
+    throw new Error('Use withUser method')
+  }
+
+  setDocumentAttachmentMulti(attachment: ArrayBuffer, documentRev: string, documentId: string, enckeys?: null): never {
+    throw new Error('Use withUser method')
+  }
+
+  setSecondaryAttachment(documentId: string, key: string, rev: string, attachment: Object, utis?: Array<string>, dataIsEncrypted?: boolean): never {
+    throw new Error('Use withUser method')
+  }
+
+  deleteSecondaryAttachment(documentId: string, key: string, rev: string): never {
+    throw new Error('Use withUser method')
   }
 }

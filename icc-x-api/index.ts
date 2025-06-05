@@ -453,6 +453,12 @@ export interface EncryptedFieldsConfig {
    * @default ['description']
    */
   readonly topic?: string[]
+
+  /**
+   * Fields to encrypt for entities of type {@link Document}
+   * @default []
+   */
+  readonly document?: string[]
 }
 
 export namespace EncryptedFieldsConfig {
@@ -465,6 +471,7 @@ export namespace EncryptedFieldsConfig {
     maintenanceTask: ['properties'],
     patient: ['note', 'notes[].markdown'],
     message: [],
+    document: [],
     topic: ['description', 'linkedServices', 'linkedHealthElements'],
   }
 }
@@ -1093,6 +1100,7 @@ class IcureApiImpl implements IcureApi {
         this.dataOwnerApi,
         !this.cryptoInitInfos.dataOwnerRequiresAnonymousDelegation,
         this.groupSpecificAuthenticationProvider,
+        this.params.encryptedFieldsConfig.document ?? EncryptedFieldsConfig.Defaults.document,
         this.fetch
       ))
     )

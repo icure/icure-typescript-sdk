@@ -2,6 +2,7 @@ import {
   BasicAuthenticationProvider,
   CryptoPrimitives,
   CryptoStrategies,
+  EncryptedFieldsConfig,
   hex2ua,
   IcureApi,
   IcureApiOptions,
@@ -151,7 +152,12 @@ async function createHealthcarePartyUser(
   }
 }
 
-export async function createNewHcpApi(env: TestVars): Promise<{
+export async function createNewHcpApi(
+  env: TestVars,
+  options: {
+    encryptedFieldsConfig?: EncryptedFieldsConfig
+  } = {}
+): Promise<{
   api: IcureApi
   credentials: UserDetails
   user: User
@@ -175,6 +181,7 @@ export async function createNewHcpApi(env: TestVars): Promise<{
       storage: storage.storage,
       keyStorage: storage.keyStorage,
       entryKeysFactory: storage.keyFactory,
+      encryptedFieldsConfig: options.encryptedFieldsConfig,
     }
   )
   return { api, credentials, user: await api.userApi.getCurrentUser() }
