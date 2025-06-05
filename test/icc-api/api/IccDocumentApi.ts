@@ -7,6 +7,7 @@ import initApi = TestUtils.initApi
 import { Delegation } from '../../../icc-api/model/Delegation'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import 'isomorphic-fetch'
+import { User } from '../../../icc-api/model/User'
 
 setLocalStorage(fetch)
 const sampleKey = 'thumbnail'
@@ -43,6 +44,7 @@ async function assertRequestFails(request: Promise<any>, status: number) {
 let env: TestVars
 let documentApi: IccDocumentXApi
 let dataOwnerId: string
+let user: User
 
 describe('Document api', () => {
   before(async function () {
@@ -52,22 +54,19 @@ describe('Document api', () => {
     const api = await initApi(env!, hcp1Username)
     documentApi = api.documentApi
     dataOwnerId = await api.dataOwnerApi.getCurrentDataOwnerId()
+    user = await api.userApi.getCurrentUser()
   })
 
   async function createDocument(): Promise<Document> {
-    return await documentApi.createDocument(
-      new Document({
-        id: randomUUID(),
-        delegations: {
-          [dataOwnerId]: [
-            new Delegation({
-              owner: dataOwnerId,
-              delegatedTo: dataOwnerId,
-              key: 'fakekey',
-            }),
-          ],
-        },
-      })
+    return await documentApi.createDocumentWithUser(
+      undefined,
+      await documentApi.newInstance(
+        user,
+        undefined,
+        new Document({
+          id: randomUUID(),
+        })
+      )
     )
   }
 
@@ -75,7 +74,7 @@ describe('Document api', () => {
     const document = await createDocument()
     const data = randomBytes(32)
     expect(document.rev).to.not.be.undefined
-    const updated = await documentApi!.setMainDocumentAttachment(document.id!, document.rev!, data)
+    const updated = await documentApi!.setMainDocumentAttachmentWithUser(undefined, document.id!, document.rev!, data)
     expect(updated).to.not.be.undefined
     const retrievedData = await documentApi!.getMainDocumentAttachment(document.id!)
     assert(bufferEquals(retrievedData, data))
@@ -85,11 +84,11 @@ describe('Document api', () => {
     const document = await createDocument()
     const data1 = randomBytes(32)
     const data2 = randomBytes(32)
-    const updated = await documentApi!.setMainDocumentAttachment(document.id!, document.rev!, data1, sampleUti)
+    const updated = await documentApi!.setMainDocumentAttachmentWithUser(undefined, document.id!, document.rev!, data1, sampleUti)
     expect(updated.mainUti).to.equal(sampleUti[0])
     assert(arrayEquals(updated.otherUtis!, sampleUti.slice(1)))
     assert(bufferEquals(await documentApi!.getMainDocumentAttachment(document.id!), data1))
-    const updated2 = await documentApi!.setMainDocumentAttachment(document.id!, updated.rev!, data2)
+    const updated2 = await documentApi!.setMainDocumentAttachmentWithUser(undefined, document.id!, updated.rev!, data2)
     expect(updated2.mainUti).to.equal(sampleUti[0])
     assert(arrayEquals(updated2.otherUtis!, sampleUti.slice(1)))
     assert(bufferEquals(await documentApi!.getMainDocumentAttachment(document.id!), data2))
@@ -98,10 +97,10 @@ describe('Document api', () => {
   it('should allow to update utis in main attachment', async () => {
     const document = await createDocument()
     const data = randomBytes(32)
-    const updated = await documentApi!.setMainDocumentAttachment(document.id!, document.rev!, data, [])
+    const updated = await documentApi!.setMainDocumentAttachmentWithUser(undefined, document.id!, document.rev!, data, [])
     expect(updated.mainUti).to.be.undefined
     expect(updated.otherUtis ?? []).to.be.empty
-    const updated2 = await documentApi!.setMainDocumentAttachment(document.id!, updated.rev!, data, sampleUti)
+    const updated2 = await documentApi!.setMainDocumentAttachmentWithUser(undefined, document.id!, updated.rev!, data, sampleUti)
     expect(updated2.mainUti).to.equal(sampleUti[0])
     assert(arrayEquals(updated2.otherUtis!, sampleUti.slice(1)))
   })
@@ -109,7 +108,7 @@ describe('Document api', () => {
   it('should allow to create and retrieve secondary attachments', async () => {
     const document = await createDocument()
     const data = randomBytes(32)
-    const updated = await documentApi!.setSecondaryAttachment(document.id!, sampleKey, document.rev!, data)
+    const updated = await documentApi!.setSecondaryAttachmentWithUser(undefined, document.id!, sampleKey, document.rev!, data)
     expect(updated.secondaryAttachments).to.contain.keys([sampleKey])
     assert(arrayEquals(updated.secondaryAttachments![sampleKey].utis!, []))
     const retrievedData = await documentApi!.getSecondaryAttachment(document.id!, sampleKey)
@@ -119,7 +118,7 @@ describe('Document api', () => {
   it('should allow to initialise utis in secondary attachments', async () => {
     const document = await createDocument()
     const data = randomBytes(32)
-    const updated = await documentApi!.setSecondaryAttachment(document.id!, sampleKey, document.rev!, data, sampleUti)
+    const updated = await documentApi!.setSecondaryAttachmentWithUser(undefined, document.id!, sampleKey, document.rev!, data, sampleUti)
     assert(arrayEquals(updated.secondaryAttachments![sampleKey].utis!, sampleUti))
   })
 
@@ -127,10 +126,10 @@ describe('Document api', () => {
     const document = await createDocument()
     const data1 = randomBytes(32)
     const data2 = randomBytes(32)
-    const updated = await documentApi!.setSecondaryAttachment(document.id!, sampleKey, document.rev!, data1, sampleUti)
+    const updated = await documentApi!.setSecondaryAttachmentWithUser(undefined, document.id!, sampleKey, document.rev!, data1, sampleUti)
     assert(arrayEquals(updated.secondaryAttachments![sampleKey].utis!, sampleUti))
     assert(bufferEquals(await documentApi!.getSecondaryAttachment(document.id!, sampleKey), data1))
-    const updated2 = await documentApi!.setSecondaryAttachment(document.id!, sampleKey, updated.rev!, data2)
+    const updated2 = await documentApi!.setSecondaryAttachmentWithUser(undefined, document.id!, sampleKey, updated.rev!, data2)
     assert(arrayEquals(updated2.secondaryAttachments![sampleKey].utis!, sampleUti))
     assert(bufferEquals(await documentApi!.getSecondaryAttachment(document.id!, sampleKey), data2))
   })
@@ -138,19 +137,19 @@ describe('Document api', () => {
   it('should allow to update utis in secondary attachments', async () => {
     const document = await createDocument()
     const data = randomBytes(32)
-    const updated = await documentApi!.setSecondaryAttachment(document.id!, sampleKey, document.rev!, data)
+    const updated = await documentApi!.setSecondaryAttachmentWithUser(undefined, document.id!, sampleKey, document.rev!, data)
     assert(arrayEquals(updated.secondaryAttachments![sampleKey].utis!, []))
-    const updated2 = await documentApi!.setSecondaryAttachment(document.id!, sampleKey, updated.rev!, data, sampleUti)
+    const updated2 = await documentApi!.setSecondaryAttachmentWithUser(undefined, document.id!, sampleKey, updated.rev!, data, sampleUti)
     assert(arrayEquals(updated2.secondaryAttachments![sampleKey].utis!, sampleUti))
   })
 
   it('should allow to delete secondary attachments', async () => {
     const document = await createDocument()
     const data = randomBytes(32)
-    const updated = await documentApi!.setSecondaryAttachment(document.id!, sampleKey, document.rev!, data)
+    const updated = await documentApi!.setSecondaryAttachmentWithUser(undefined, document.id!, sampleKey, document.rev!, data)
     const originalAttachment = updated.secondaryAttachments![sampleKey]
     const timeBeforeDelete = Date.now() - 100
-    const deleted = await documentApi!.deleteSecondaryAttachment(document.id!, sampleKey, updated.rev!)
+    const deleted = await documentApi!.deleteSecondaryAttachmentWithUser(undefined, document.id!, sampleKey, updated.rev!)
     const timeAfterDelete = Date.now() + 100
     expect(deleted.deletedAttachments).to.have.length(1)
     const deletedAttachment = deleted.deletedAttachments![0]
@@ -167,21 +166,21 @@ describe('Document api', () => {
     const data2 = randomBytes(32)
     const data3 = randomBytes(32)
     assert(!bufferEquals(data1, data2))
-    const updated1 = await documentApi!.setSecondaryAttachment(document.id!, sampleKey, document.rev!, data1)
-    const updated2 = await documentApi!.setSecondaryAttachment(document.id!, sampleKey2, updated1.rev!, data2, sampleUti)
+    const updated1 = await documentApi!.setSecondaryAttachmentWithUser(undefined, document.id!, sampleKey, document.rev!, data1)
+    const updated2 = await documentApi!.setSecondaryAttachmentWithUser(undefined, document.id!, sampleKey2, updated1.rev!, data2, sampleUti)
     expect(updated2.secondaryAttachments).to.have.keys([sampleKey, sampleKey2])
     assert(arrayEquals(updated2.secondaryAttachments![sampleKey].utis!, []))
     assert(arrayEquals(updated2.secondaryAttachments![sampleKey2].utis!, sampleUti))
     assert(bufferEquals(await documentApi!.getSecondaryAttachment(document.id!, sampleKey), data1))
     assert(bufferEquals(await documentApi!.getSecondaryAttachment(document.id!, sampleKey2), data2))
-    const updated3 = await documentApi!.setSecondaryAttachment(document.id!, sampleKey, updated2.rev!, data3, sampleUti2)
+    const updated3 = await documentApi!.setSecondaryAttachmentWithUser(undefined, document.id!, sampleKey, updated2.rev!, data3, sampleUti2)
     expect(updated3.secondaryAttachments).to.have.keys([sampleKey, sampleKey2])
     assert(arrayEquals(updated3.secondaryAttachments![sampleKey].utis!, sampleUti2))
     assert(arrayEquals(updated3.secondaryAttachments![sampleKey2].utis!, sampleUti))
     assert(bufferEquals(await documentApi!.getSecondaryAttachment(document.id!, sampleKey), data3))
     assert(bufferEquals(await documentApi!.getSecondaryAttachment(document.id!, sampleKey2), data2))
     expect(updated3.deletedAttachments).to.have.length(1)
-    const updated4 = await documentApi!.deleteSecondaryAttachment(document.id!, sampleKey2, updated3.rev!)
+    const updated4 = await documentApi!.deleteSecondaryAttachmentWithUser(undefined, document.id!, sampleKey2, updated3.rev!)
     expect(updated4.secondaryAttachments).to.have.keys([sampleKey])
     expect(updated4.deletedAttachments).to.have.length(2)
     assert(bufferEquals(await documentApi!.getSecondaryAttachment(document.id!, sampleKey), data3))
@@ -191,16 +190,16 @@ describe('Document api', () => {
   it('should refuse update methods which do not provide the latest rev', async () => {
     const document = await createDocument()
     expect(document.rev).to.not.be.undefined
-    expect((await documentApi.modifyDocument({ ...document, name: 'new name' })).rev).to.not.equal(document.rev)
-    await assertRequestFails(documentApi!.setMainDocumentAttachment(document.id!, document.rev!, randomBytes(32)), 409)
-    await assertRequestFails(documentApi!.setSecondaryAttachment(document.id!, sampleKey, document.rev!, randomBytes(32)), 409)
-    await assertRequestFails(documentApi!.deleteSecondaryAttachment(document.id!, sampleKey, document.rev!), 409)
+    expect((await documentApi.modifyDocumentWithUser(undefined, { ...document, name: 'new name' })).rev).to.not.equal(document.rev)
+    await assertRequestFails(documentApi!.setMainDocumentAttachmentWithUser(undefined, document.id!, document.rev!, randomBytes(32)), 409)
+    await assertRequestFails(documentApi!.setSecondaryAttachmentWithUser(undefined, document.id!, sampleKey, document.rev!, randomBytes(32)), 409)
+    await assertRequestFails(documentApi!.deleteSecondaryAttachmentWithUser(undefined, document.id!, sampleKey, document.rev!), 409)
   })
 
   it('should prevent using the document id as an attachment key', async () => {
     const document = await createDocument()
-    await assertRequestFails(documentApi!.setSecondaryAttachment(document.id!, document.id!, document.rev!, randomBytes(32)), 400)
-    await assertRequestFails(documentApi!.deleteSecondaryAttachment(document.id!, document.id!, document.rev!), 400)
+    await assertRequestFails(documentApi!.setSecondaryAttachmentWithUser(undefined, document.id!, document.id!, document.rev!, randomBytes(32)), 400)
+    await assertRequestFails(documentApi!.deleteSecondaryAttachmentWithUser(undefined, document.id!, document.id!, document.rev!), 400)
     await assertRequestFails(documentApi!.getSecondaryAttachment(document.id!, document.id!, document.rev!), 400)
   })
 })
