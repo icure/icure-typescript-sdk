@@ -531,4 +531,21 @@ export class IccGroupApi {
       .then((doc) => (doc.body as Array<JSON>).map((it) => new IdWithRev(it)))
       .catch((err) => this.handleError(err))
   }
+
+
+  /**
+   * Update group application id
+   * @summary Set group password
+   * @param id The id of the group
+   * @param applicationId The new application id for the group
+   */
+  modifyGroupApplicationId(id: string, applicationId: string): Promise<Group> {
+    let _body = null
+
+    const _url = this.host + `/group/${encodeURIComponent(String(id))}/applicationId/${encodeURIComponent(String(applicationId))}` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new Group(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
 }
