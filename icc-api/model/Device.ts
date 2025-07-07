@@ -16,10 +16,10 @@ import { PropertyStub } from './PropertyStub'
 /**
  * This entity is a root level object. It represents a device. It is serialized in JSON and saved in the underlying icure-base CouchDB database.
  */
-import { b64_2ab } from './ModelHelper'
+import { decodeStringOrArrayBuffer} from './ModelHelper'
 export class Device {
   constructor(json: JSON | any) {
-    Object.assign(this as Device, json, json.picture ? { picture: b64_2ab(json.picture) } : {})
+    Object.assign(this as Device, json, json.picture ? { picture: decodeStringOrArrayBuffer(json.picture) } : {})
   }
 
   id?: string

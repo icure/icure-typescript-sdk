@@ -14,10 +14,10 @@ import { DocumentGroup } from './DocumentGroup'
 import { FormLayout } from './FormLayout'
 import { FormTemplateLayout } from './FormTemplateLayout'
 
-import { b64_2ab } from './ModelHelper'
+import { decodeStringOrArrayBuffer} from './ModelHelper'
 export class FormTemplate {
   constructor(json: JSON | any) {
-    Object.assign(this as FormTemplate, json, json.rawTemplateLayout ? { rawTemplateLayout: b64_2ab(json.rawTemplateLayout) } : {})
+    Object.assign(this as FormTemplate, json, json.rawTemplateLayout ? { rawTemplateLayout: decodeStringOrArrayBuffer(json.rawTemplateLayout) } : {})
   }
 
   id?: string

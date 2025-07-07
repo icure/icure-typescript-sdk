@@ -29,6 +29,16 @@ export function ua2ab(ua: Uint8Array): ArrayBuffer {
   return (buffer.byteLength > ua.byteLength ? buffer.slice(0, ua.byteLength) : buffer) as ArrayBuffer
 }
 
+export function decodeStringOrArrayBuffer(value: string | ArrayBuffer): ArrayBuffer {
+  if (typeof value === 'string') {
+    return b64_2ab(value)
+  } else if (value instanceof ArrayBuffer || ArrayBuffer.isView(value)) {
+    return value as ArrayBuffer
+  } else {
+    throw new Error(`Invalid type : ${typeof value}`)
+  }
+}
+
 export function b64_2ab(s: string): ArrayBuffer {
   return ua2ab(string2ua(a2b(s)))
 }

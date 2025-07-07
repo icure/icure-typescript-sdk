@@ -27,20 +27,14 @@ import { Annotation } from './Annotation'
 /**
  * This entity is a root level object. It represents a patient It is serialized in JSON and saved in the underlying icure-patient CouchDB database.
  */
-import { b64_2ab } from './ModelHelper'
+import { decodeStringOrArrayBuffer} from './ModelHelper'
 import { SecurityMetadata } from './SecurityMetadata'
-import { EntityWithDelegationTypeName } from '../../icc-x-api/utils/EntityWithDelegationTypeName'
+
 export class Patient {
   constructor(json: JSON | any) {
     let pictureData: { picture?: ArrayBuffer } = {}
     if (!!json?.picture) {
-      if (typeof json.picture === 'string') {
-        pictureData.picture = b64_2ab(json.picture)
-      } else if (json.picture instanceof ArrayBuffer || ArrayBuffer.isView(json.picture)) {
-        pictureData.picture = json.picture
-      } else {
-        throw new Error(`Invalid type for picture: ${typeof json.picture}`)
-      }
+      pictureData.picture = decodeStringOrArrayBuffer(json.picture)
     }
     Object.assign(this as Patient, json, pictureData)
   }

@@ -4,7 +4,6 @@ import { Patient } from './Patient'
 import { HealthcareParty } from './HealthcareParty'
 import { Device } from './Device'
 import { CodeStub } from './CodeStub'
-import { da } from 'date-fns/locale'
 
 export class CryptoActorStub {
   constructor(json: JSON | any) {

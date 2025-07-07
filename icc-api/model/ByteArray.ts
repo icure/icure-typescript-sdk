@@ -10,10 +10,10 @@
  * Do not edit the class manually.
  */
 
-import { b64_2ab } from './ModelHelper'
+import { decodeStringOrArrayBuffer} from './ModelHelper'
 export class ByteArray {
   constructor(json: JSON | any) {
-    Object.assign(this as ByteArray, json, json.data ? { data: b64_2ab(json.data) } : {})
+    Object.assign(this as ByteArray, json, json.data ? { data: decodeStringOrArrayBuffer(json.data) } : {})
   }
 
   data?: ArrayBuffer

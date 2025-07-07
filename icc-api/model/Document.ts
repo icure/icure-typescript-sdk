@@ -17,7 +17,7 @@ import { DeletedAttachment } from './DeletedAttachment'
 /**
  * This entity is a root level object. It represents a Document. It is serialized in JSON and saved in the underlying CouchDB database.
  */
-import { b64_2ab } from './ModelHelper'
+import { decodeStringOrArrayBuffer} from './ModelHelper'
 import { SecurityMetadata } from './SecurityMetadata'
 import { EntityWithDelegationTypeName } from '../../icc-x-api/utils/EntityWithDelegationTypeName'
 export class Document {
@@ -25,8 +25,8 @@ export class Document {
     Object.assign(
       this as Document,
       json,
-      json.encryptedAttachment ? { encryptedAttachment: b64_2ab(json.encryptedAttachment) } : {},
-      json.decryptedAttachment ? { decryptedAttachment: b64_2ab(json.decryptedAttachment) } : {}
+      json.encryptedAttachment ? { encryptedAttachment: decodeStringOrArrayBuffer(json.encryptedAttachment) } : {},
+      json.decryptedAttachment ? { decryptedAttachment: decodeStringOrArrayBuffer(json.decryptedAttachment) } : {}
     )
   }
 
@@ -165,7 +165,7 @@ export class Document {
    */
   encryptedSelf?: string
   securityMetadata?: SecurityMetadata
-  
+
 }
 export namespace Document {
   export type DocumentLocationEnum = 'annex' | 'body'

@@ -10,10 +10,10 @@
  * Do not edit the class manually.
  */
 
-import { b64_2ab } from './ModelHelper'
+import { decodeStringOrArrayBuffer} from './ModelHelper'
 export class Body3 {
   constructor(json: JSON | any) {
-    Object.assign(this as Body3, json, json.attachment ? { attachment: b64_2ab(json.attachment) } : {})
+    Object.assign(this as Body3, json, json.attachment ? { attachment: decodeStringOrArrayBuffer(json.attachment) } : {})
   }
 
   attachment?: ArrayBuffer
