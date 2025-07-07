@@ -27,12 +27,15 @@ export class Content {
       } else if (json.binaryValue instanceof ArrayBuffer || ArrayBuffer.isView(json.binaryValue)) {
         binaryData.binaryValue = json.binaryValue
       } else if (typeof json.binaryValue === 'object' && Object.keys(json.binaryValue).length === 0) {
-        delete binaryData.binaryValue
+        // ignore, will delete after
       } else {
         throw new Error(`Invalid type for binaryValue: ${typeof json.binaryValue}`)
       }
     }
     Object.assign(this as Content, json, binaryData)
+    if (binaryData.binaryValue === undefined) {
+      delete this.binaryValue
+    }
 
     if (!!json?.measureValue) {
       this.measureValue = new Measure(json.measureValue)
