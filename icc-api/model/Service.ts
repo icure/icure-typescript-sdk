@@ -28,10 +28,11 @@ export class Service {
     )
 
     if (!!this.content) {
+      const uppercasedIso639_1 = ISO639_1_VALUES_ARRAY.map((e) => e.toUpperCase())
       this.content = Object.fromEntries(
         Object.entries(
           this.content).map(([key, value]) => {
-            const isUppercasedIso = ISO639_1_VALUES_ARRAY.map((e) => e.toUpperCase()).includes(key)
+            const isUppercasedIso = uppercasedIso639_1.includes(key)
 
             let contentKey = key
             if (isUppercasedIso) {
