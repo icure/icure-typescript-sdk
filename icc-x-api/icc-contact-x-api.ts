@@ -633,7 +633,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     if (!e) {
       return null
     }
-    return e[lng] || e.fr || e.en || e.nl
+    return e[lng] || e.fr || e.FR || e.en || e.EN || e.nl || e.NL
   }
 
   /**

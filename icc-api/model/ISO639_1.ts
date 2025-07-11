@@ -5,188 +5,193 @@
  *
  * @see https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
  */
-export type ISO639_1 =
-  | 'ab'
-  | 'aa'
-  | 'af'
-  | 'ak'
-  | 'sq'
-  | 'am'
-  | 'ar'
-  | 'an'
-  | 'hy'
-  | 'av'
-  | 'ae'
-  | 'ay'
-  | 'az'
-  | 'as'
-  | 'bm'
-  | 'ba'
-  | 'eu'
-  | 'be'
-  | 'bn'
-  | 'bi'
-  | 'bs'
-  | 'br'
-  | 'bg'
-  | 'my'
-  | 'ca'
-  | 'ch'
-  | 'ce'
-  | 'ny'
-  | 'zh'
-  | 'cu'
-  | 'cv'
-  | 'kw'
-  | 'co'
-  | 'cr'
-  | 'hr'
-  | 'cs'
-  | 'da'
-  | 'dv'
-  | 'nl'
-  | 'dz'
-  | 'en'
-  | 'eo'
-  | 'et'
-  | 'ee'
-  | 'fo'
-  | 'fj'
-  | 'fi'
-  | 'fr'
-  | 'fy'
-  | 'ff'
-  | 'gd'
-  | 'gl'
-  | 'lg'
-  | 'ka'
-  | 'de'
-  | 'el'
-  | 'kl'
-  | 'gn'
-  | 'gu'
-  | 'ht'
-  | 'ha'
-  | 'he'
-  | 'hz'
-  | 'hi'
-  | 'ho'
-  | 'hu'
-  | 'is'
-  | 'io'
-  | 'ig'
-  | 'id'
-  | 'ia'
-  | 'ie'
-  | 'iu'
-  | 'ik'
-  | 'ga'
-  | 'it'
-  | 'ja'
-  | 'jv'
-  | 'kn'
-  | 'kr'
-  | 'ks'
-  | 'kk'
-  | 'km'
-  | 'ki'
-  | 'rw'
-  | 'ky'
-  | 'kv'
-  | 'kg'
-  | 'ko'
-  | 'kj'
-  | 'ku'
-  | 'lo'
-  | 'la'
-  | 'lv'
-  | 'li'
-  | 'ln'
-  | 'lt'
-  | 'lu'
-  | 'lb'
-  | 'mk'
-  | 'mg'
-  | 'ms'
-  | 'ml'
-  | 'mt'
-  | 'gv'
-  | 'mi'
-  | 'mr'
-  | 'mh'
-  | 'mn'
-  | 'na'
-  | 'nv'
-  | 'nd'
-  | 'nr'
-  | 'ng'
-  | 'ne'
-  | 'no'
-  | 'nb'
-  | 'nn'
-  | 'ii'
-  | 'oc'
-  | 'oj'
-  | 'or'
-  | 'om'
-  | 'os'
-  | 'pi'
-  | 'ps'
-  | 'fa'
-  | 'pl'
-  | 'pt'
-  | 'pa'
-  | 'qu'
-  | 'ro'
-  | 'rm'
-  | 'rn'
-  | 'ru'
-  | 'se'
-  | 'sm'
-  | 'sg'
-  | 'sa'
-  | 'sc'
-  | 'sr'
-  | 'sn'
-  | 'sd'
-  | 'si'
-  | 'sk'
-  | 'sl'
-  | 'so'
-  | 'st'
-  | 'es'
-  | 'su'
-  | 'sw'
-  | 'ss'
-  | 'sv'
-  | 'tl'
-  | 'ty'
-  | 'tg'
-  | 'ta'
-  | 'tt'
-  | 'te'
-  | 'th'
-  | 'bo'
-  | 'ti'
-  | 'to'
-  | 'ts'
-  | 'tn'
-  | 'tr'
-  | 'tk'
-  | 'tw'
-  | 'ug'
-  | 'uk'
-  | 'ur'
-  | 'uz'
-  | 've'
-  | 'vi'
-  | 'vo'
-  | 'wa'
-  | 'cy'
-  | 'wo'
-  | 'xh'
-  | 'yi'
-  | 'yo'
-  | 'za'
-  | 'zu'
-  | 'xx' // When undetermined
+export enum ISO639_1_VALUES {
+  ab = 'ab',
+  aa = 'aa',
+  af = 'af',
+  ak = 'ak',
+  sq = 'sq',
+  am = 'am',
+  ar = 'ar',
+  an = 'an',
+  hy = 'hy',
+  av = 'av',
+  ae = 'ae',
+  ay = 'ay',
+  az = 'az',
+  as = 'as',
+  bm = 'bm',
+  ba = 'ba',
+  eu = 'eu',
+  be = 'be',
+  bn = 'bn',
+  bi = 'bi',
+  bs = 'bs',
+  br = 'br',
+  bg = 'bg',
+  my = 'my',
+  ca = 'ca',
+  ch = 'ch',
+  ce = 'ce',
+  ny = 'ny',
+  zh = 'zh',
+  cu = 'cu',
+  cv = 'cv',
+  kw = 'kw',
+  co = 'co',
+  cr = 'cr',
+  hr = 'hr',
+  cs = 'cs',
+  da = 'da',
+  dv = 'dv',
+  nl = 'nl',
+  dz = 'dz',
+  en = 'en',
+  eo = 'eo',
+  et = 'et',
+  ee = 'ee',
+  fo = 'fo',
+  fj = 'fj',
+  fi = 'fi',
+  fr = 'fr',
+  fy = 'fy',
+  ff = 'ff',
+  gd = 'gd',
+  gl = 'gl',
+  lg = 'lg',
+  ka = 'ka',
+  de = 'de',
+  el = 'el',
+  kl = 'kl',
+  gn = 'gn',
+  gu = 'gu',
+  ht = 'ht',
+  ha = 'ha',
+  he = 'he',
+  hz = 'hz',
+  hi = 'hi',
+  ho = 'ho',
+  hu = 'hu',
+  is = 'is',
+  io = 'io',
+  ig = 'ig',
+  id = 'id',
+  ia = 'ia',
+  ie = 'ie',
+  iu = 'iu',
+  ik = 'ik',
+  ga = 'ga',
+  it = 'it',
+  ja = 'ja',
+  jv = 'jv',
+  kn = 'kn',
+  kr = 'kr',
+  ks = 'ks',
+  kk = 'kk',
+  km = 'km',
+  ki = 'ki',
+  rw = 'rw',
+  ky = 'ky',
+  kv = 'kv',
+  kg = 'kg',
+  ko = 'ko',
+  kj = 'kj',
+  ku = 'ku',
+  lo = 'lo',
+  la = 'la',
+  lv = 'lv',
+  li = 'li',
+  ln = 'ln',
+  lt = 'lt',
+  lu = 'lu',
+  lb = 'lb',
+  mk = 'mk',
+  mg = 'mg',
+  ms = 'ms',
+  ml = 'ml',
+  mt = 'mt',
+  gv = 'gv',
+  mi = 'mi',
+  mr = 'mr',
+  mh = 'mh',
+  mn = 'mn',
+  na = 'na',
+  nv = 'nv',
+  nd = 'nd',
+  nr = 'nr',
+  ng = 'ng',
+  ne = 'ne',
+  no = 'no',
+  nb = 'nb',
+  nn = 'nn',
+  ii = 'ii',
+  oc = 'oc',
+  oj = 'oj',
+  or = 'or',
+  om = 'om',
+  os = 'os',
+  pi = 'pi',
+  ps = 'ps',
+  fa = 'fa',
+  pl = 'pl',
+  pt = 'pt',
+  pa = 'pa',
+  qu = 'qu',
+  ro = 'ro',
+  rm = 'rm',
+  rn = 'rn',
+  ru = 'ru',
+  se = 'se',
+  sm = 'sm',
+  sg = 'sg',
+  sa = 'sa',
+  sc = 'sc',
+  sr = 'sr',
+  sn = 'sn',
+  sd = 'sd',
+  si = 'si',
+  sk = 'sk',
+  sl = 'sl',
+  so = 'so',
+  st = 'st',
+  es = 'es',
+  su = 'su',
+  sw = 'sw',
+  ss = 'ss',
+  sv = 'sv',
+  tl = 'tl',
+  ty = 'ty',
+  tg = 'tg',
+  ta = 'ta',
+  tt = 'tt',
+  te = 'te',
+  th = 'th',
+  bo = 'bo',
+  ti = 'ti',
+  to = 'to',
+  ts = 'ts',
+  tn = 'tn',
+  tr = 'tr',
+  tk = 'tk',
+  tw = 'tw',
+  ug = 'ug',
+  uk = 'uk',
+  ur = 'ur',
+  uz = 'uz',
+  ve = 've',
+  vi = 'vi',
+  vo = 'vo',
+  wa = 'wa',
+  cy = 'cy',
+  wo = 'wo',
+  xh = 'xh',
+  yi = 'yi',
+  yo = 'yo',
+  za = 'za',
+  zu = 'zu',
+  xx = 'xx', // When undetermined
+}
+
+export type ISO639_1 = (typeof ISO639_1_VALUES)[keyof typeof ISO639_1_VALUES]
+
+export const ISO639_1_VALUES_ARRAY: ISO639_1[] = Object.values(ISO639_1_VALUES)
