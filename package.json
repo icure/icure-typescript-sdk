@@ -1,6 +1,6 @@
 {
   "name": "@icure/api",
-  "version": "8.4.5",
+  "version": "8.4.6",
   "description": "Typescript version of iCure standalone API client",
   "types": "dist/index.d.ts",
   "dependencies": {
@@ -94,5 +94,5 @@
     "url": "https://github.com/icure/icc-api/issues"
   },
   "homepage": "https://github.com/icure/icc-api#readme",
-  "packageManager": "yarn@3.8.5"
+  "packageManager": "yarn@3.8.7"
 }
