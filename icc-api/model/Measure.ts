@@ -10,7 +10,8 @@
  * Do not edit the class manually.
  */
 import { CodeStub } from './CodeStub'
-import {ReferenceRange} from "./ReferenceRange"
+import { ReferenceRange } from './ReferenceRange'
+import { ValueWithPrecision } from './ValueWithPrecision'
 
 export class Measure {
   /**
@@ -20,14 +21,14 @@ export class Measure {
    * @param json
    */
   constructor(json: JSON | any) {
-    const measureValue = {...json}
+    const measureValue = { ...json }
 
     if (!!measureValue?.min || !!measureValue?.max) {
       measureValue.referenceRanges = [
         new ReferenceRange({
           low: measureValue.min,
-          high: measureValue.max
-        })
+          high: measureValue.max,
+        }),
       ]
       delete measureValue?.min
       delete measureValue?.max
@@ -37,6 +38,7 @@ export class Measure {
   }
 
   value?: number
+  valueWithPrecision?: ValueWithPrecision
   ref?: number
   severity?: number
   severityCode?: string
