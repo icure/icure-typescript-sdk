@@ -842,14 +842,17 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     action: (entity: E, entityType: EntityWithDelegationTypeName, keys: { key: CryptoKey; raw: string }[]) => Promise<{ success: T } | null>
   ): Promise<Map<string, T>> {
     if (entities.length == 0) return new Map()
-    if (new Set(entities.map((e) => e.id)).size != entities.length) {
-      throw new Error(`Duplicate entries in entities ${entities.map((x) => x.id)}`)
+    let deduplicatedEntities = entities
+    if (new Set(deduplicatedEntities.map((e) => e.id)).size != deduplicatedEntities.length) {
+      console.error(`Duplicate entries in entities ${deduplicatedEntities.map((x) => x.id)}`)
+      deduplicatedEntities = this.deduplicateById(deduplicatedEntities)
     }
+
     const hierarchy = await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds()
-    const allExtractedKeysForEntities = Object.fromEntries(entities.map((x) => [x.id!, new Set<string>()] as [string, Set<string>]))
-    const newlyExtractedKeysForEntities = Object.fromEntries(entities.map((x) => [x.id!, new Set<string>()] as [string, Set<string>]))
+    const allExtractedKeysForEntities = Object.fromEntries(deduplicatedEntities.map((x) => [x.id!, new Set<string>()] as [string, Set<string>]))
+    const newlyExtractedKeysForEntities = Object.fromEntries(deduplicatedEntities.map((x) => [x.id!, new Set<string>()] as [string, Set<string>]))
     const results = new Map<string, T>()
-    const remainingEntitiesById = Object.fromEntries(entities.map((x) => [x.id!, x] as [string, E]))
+    const remainingEntitiesById = Object.fromEntries(deduplicatedEntities.map((x) => [x.id!, x] as [string, E]))
     const importedKeysByRaw = new Map<string, CryptoKey>()
     const primitives = this.primitives
 
@@ -1053,5 +1056,14 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     } else {
       throw new Error(`Unrecognized SecretIdUseOption ${option}`)
     }
+  }
+
+  private deduplicateById<E extends { id?: string }>(entities: E[]) : E[] {
+    const seen = new Set<string | undefined>()
+    return entities.filter((e) => {
+      if (seen.has(e.id)) return false
+      seen.add(e.id)
+      return true
+    })
   }
 }
