@@ -1,11 +1,11 @@
 import { AbstractFilterMessage } from '../../icc-api/model/AbstractFilterMessage'
 
-export class MessageByHcPartyTransportGuidFilter extends AbstractFilterMessage {
-  $type: string = 'MessageByHcPartyTransportGuidFilter'
+export class MessageByDataOwnerTransportGuidSentDateFilter extends AbstractFilterMessage {
+  $type: string = 'MessageByDataOwnerTransportGuidSentDateFilter'
   constructor(json: JSON | any) {
     super(json)
 
-    Object.assign(this as MessageByHcPartyTransportGuidFilter, json)
+    Object.assign(this as MessageByDataOwnerTransportGuidSentDateFilter, json)
   }
 
   dataOwnerId?: string
