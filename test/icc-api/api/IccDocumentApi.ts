@@ -96,11 +96,10 @@ describe('Document api', () => {
 
   it('should allow to update utis in main attachment', async () => {
     const document = await createDocument()
-    const data = randomBytes(32)
-    const updated = await documentApi!.setMainDocumentAttachmentWithUser(undefined, document.id!, document.rev!, data, [])
+    const updated = await documentApi!.setMainDocumentAttachmentWithUser(undefined, document.id!, document.rev!, randomBytes(32), [])
     expect(updated.mainUti).to.be.undefined
     expect(updated.otherUtis ?? []).to.be.empty
-    const updated2 = await documentApi!.setMainDocumentAttachmentWithUser(undefined, document.id!, updated.rev!, data, sampleUti)
+    const updated2 = await documentApi!.setMainDocumentAttachmentWithUser(undefined, document.id!, updated.rev!, randomBytes(32), sampleUti)
     expect(updated2.mainUti).to.equal(sampleUti[0])
     assert(arrayEquals(updated2.otherUtis!, sampleUti.slice(1)))
   })
@@ -136,10 +135,9 @@ describe('Document api', () => {
 
   it('should allow to update utis in secondary attachments', async () => {
     const document = await createDocument()
-    const data = randomBytes(32)
-    const updated = await documentApi!.setSecondaryAttachmentWithUser(undefined, document.id!, sampleKey, document.rev!, data)
+    const updated = await documentApi!.setSecondaryAttachmentWithUser(undefined, document.id!, sampleKey, document.rev!, randomBytes(32))
     assert(arrayEquals(updated.secondaryAttachments![sampleKey].utis!, []))
-    const updated2 = await documentApi!.setSecondaryAttachmentWithUser(undefined, document.id!, sampleKey, updated.rev!, data, sampleUti)
+    const updated2 = await documentApi!.setSecondaryAttachmentWithUser(undefined, document.id!, sampleKey, updated.rev!, randomBytes(32), sampleUti)
     assert(arrayEquals(updated2.secondaryAttachments![sampleKey].utis!, sampleUti))
   })
 

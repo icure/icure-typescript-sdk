@@ -37,6 +37,8 @@ import { DataOwnerTypeEnum } from '../../icc-api/model/DataOwnerTypeEnum'
 import { DataOwnerWithType } from '../../icc-api/model/DataOwnerWithType'
 import { KeyPairRecoverer } from '../../icc-x-api/crypto/KeyPairRecoverer'
 import { KeylessCryptoStrategies } from './KeylessCryptoStrategies'
+import { XHR } from '../../icc-api/api/XHR'
+import { defaultRoles } from './roles'
 
 export function getTempEmail(): string {
   return `${uuid().substring(0, 8)}@icure.com`
@@ -64,6 +66,33 @@ export async function getEnvironmentInitializer(): Promise<EnvInitializer> {
   if (!cachedInitializer) {
     const env = getEnvVariables()
     const scratchDir = 'test/scratch'
+    if (env.testEnvironment == 'docker') {
+      const defaultRolesRequestBody = {
+        docs: Object.entries(defaultRoles).map(([roleName, permissions]) => {
+          return {
+            _id: roleName,
+            name: roleName,
+            permissions: permissions,
+            java_type: 'org.taktik.icure.entities.Role',
+          }
+        }),
+      }
+      try {
+        const res = await XHR.sendCommand(
+          'POST',
+          `${env.couchDbUrl}/icure-__-config/_bulk_docs`,
+          [new XHR.Header('Authorization', 'Basic aWN1cmU6aWN1cmU='), new XHR.Header('Content-Type', 'application/json')],
+          defaultRolesRequestBody,
+          fetch
+        )
+        if (res.statusCode < 200 || res.statusCode > 299) throw new Error(`Failed to setup initial roles ${res.body}`)
+      } catch (e) {
+        throw new Error(
+          'TODO: this request will fail if docker not yet initialised, env initialization fails if this is not done; current workaround: restart without this request to setup docker, then after restart with this request and it will work'
+        )
+      }
+    }
+
     const baseEnvironment =
       env.testEnvironment === 'docker' || env.testEnvironment === 'oss'
         ? new TestEnvironmentBuilder().setUpDockerEnvironment(scratchDir, ['mock'])
@@ -194,7 +223,7 @@ export async function createNewPatientApi(env: TestVars): Promise<{
 }> {
   const initialisationApi = await testSetupMasterApi(env)
   const primitives = new WebCryptoPrimitives(webcrypto as any)
-  const credentials = await createPatientUser(initialisationApi, `user-${primitives.randomUuid()}`, primitives.randomUuid())
+  const credentials = await createPatientUser(initialisationApi, `user-${primitives.randomUuid()}@icure.com`, primitives.randomUuid())
   const storage = await testStorageWithKeys([
     {
       dataOwnerId: credentials.dataOwnerId,
@@ -270,10 +299,10 @@ export async function createHcpHierarchyApis(
   const shaVersion = ShaVersion.Sha1
   const initialisationApi = await testSetupMasterApi(env)
   const primitives = new WebCryptoPrimitives(webcrypto as any)
-  const grandCredentials = await createHealthcarePartyUser(initialisationApi, `grand-${primitives.randomUuid()}`, primitives.randomUuid())
-  const parentCredentials = await createHealthcarePartyUser(initialisationApi, `parent-${primitives.randomUuid()}`, primitives.randomUuid())
-  const childCredentials = await createHealthcarePartyUser(initialisationApi, `child-${primitives.randomUuid()}`, primitives.randomUuid())
-  const child2Credentials = await createHealthcarePartyUser(initialisationApi, `child2-${primitives.randomUuid()}`, primitives.randomUuid())
+  const grandCredentials = await createHealthcarePartyUser(initialisationApi, `grand-${primitives.randomUuid()}@icure.com`, primitives.randomUuid())
+  const parentCredentials = await createHealthcarePartyUser(initialisationApi, `parent-${primitives.randomUuid()}@icure.com`, primitives.randomUuid())
+  const childCredentials = await createHealthcarePartyUser(initialisationApi, `child-${primitives.randomUuid()}@icure.com`, primitives.randomUuid())
+  const child2Credentials = await createHealthcarePartyUser(initialisationApi, `child2-${primitives.randomUuid()}@icure.com`, primitives.randomUuid())
   await initialisationApi.healthcarePartyApi.modifyHealthcareParty({
     ...(await initialisationApi.healthcarePartyApi.getHealthcareParty(parentCredentials.dataOwnerId)),
     parentId: grandCredentials.dataOwnerId,
@@ -428,7 +457,7 @@ export async function createNewHcpWithoutKeyAndParentWithKey(
 }> {
   const initialisationApi = await testSetupMasterApi(env)
   const primitives = new WebCryptoPrimitives(webcrypto as any)
-  const parentCredentials = await createHealthcarePartyUser(initialisationApi, `parent-${primitives.randomUuid()}`, primitives.randomUuid())
+  const parentCredentials = await createHealthcarePartyUser(initialisationApi, `parent-${primitives.randomUuid()}@icure.com`, primitives.randomUuid())
   const childUser = uuid() + '@email.com'
   const childPassword = uuid()
   const childHcp = {
