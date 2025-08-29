@@ -29,6 +29,7 @@ import { iccRestApiPath } from './IccRestApiPath'
 import { SamV2UpdateTaskLogItem } from '../model/SamV2UpdateTaskLogItem'
 import { SamV2Update } from '../model/SamV2Update'
 import { mapSamHost } from '../../icc-x-api/utils/proxy-utils'
+import { SamText } from '../model/SamText'
 
 export class IccBesamv2Api {
   host: string
@@ -142,6 +143,19 @@ export class IccBesamv2Api {
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Amp(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Returns a list of amp names with that match the provided CNK.
+   * @summary Finding AMPs names by CNK.
+   * @param dmppCode the dmppCode
+   */
+  findAmpNamesByDmppCode(dmppCode: string): Promise<Array<SamText>> {
+    const _url = this.host + `/be_samv2/amp/name/byDmppCode/${encodeURIComponent(dmppCode)}` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new SamText(it)))
       .catch((err) => this.handleError(err))
   }
 
