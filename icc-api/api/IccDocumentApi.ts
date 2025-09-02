@@ -123,6 +123,29 @@ export class IccDocumentApi {
   }
 
   /**
+   * @summary Purges a single document, also purging any attachment linked to it.
+   *
+   * @param document the document to purge.
+   * @return a DocIdentifier of the document.
+   */
+  async purgeDocument(document: Document): Promise<DocIdentifier> {
+    if (document.id == null || document.rev == null) {
+      throw new Error('Cannot purge document with null id or rev')
+    }
+    return XHR.sendCommand(
+      'DELETE',
+      this.host + `/document/purge/${encodeURIComponent(document.id)}?ts=${new Date().getTime()}&rev=${encodeURIComponent(document.rev)}`,
+      await this.headers,
+      null,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
+      .then((doc) => new DocIdentifier(doc.body))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    * Keys must be delimited by coma
    * @deprecated use {@link findDocumentIdsByDataOwnerSecretForeignKey} instead.
    * @summary List documents found By type, By Healthcare Party and secret foreign keys.
