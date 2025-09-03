@@ -22,6 +22,11 @@ import { Measure } from '../../icc-api/model/Measure'
 import initApi = TestUtils.initApi
 import { SecretIdUseOption } from '../../icc-x-api/crypto/SecretIdUseOption'
 import UseAnyConfidential = SecretIdUseOption.UseAnyConfidential
+import { random } from 'lodash'
+import { ServiceByHcPartyMonthTagPrefixFilter } from '../../icc-x-api/filters/ServiceByHcPartyMonthTagPrefixFilter'
+import { ServiceByHcPartyMonthCodePrefixFilter } from '../../icc-x-api/filters/ServiceByHcPartyMonthCodePrefixFilter'
+import { ServiceByHcPartyPatientCodePrefixFilter } from '../../icc-x-api/filters/ServiceByHcPartyPatientCodePrefixFilter'
+import { ServiceByHcPartyPatientTagPrefixFilter } from '../../icc-x-api/filters/ServiceByHcPartyPatientTagPrefixFilter'
 
 setLocalStorage(fetch)
 let env: TestVars
@@ -32,7 +37,7 @@ before(async function () {
   env = await initializer.execute(getEnvVariables())
 })
 
-async function createPatient(patientApiForHcp: IccPatientXApi, hcpUser: User) {
+async function createPatient(patientApiForHcp: IccPatientXApi, hcpUser: User): Promise<Patient> {
   return patientApiForHcp.createPatientWithUser(
     hcpUser,
     await patientApiForHcp.newInstance(
@@ -345,5 +350,92 @@ describe('icc-x-contact-api Tests', () => {
 
     expect(Object.keys(contact.services![0].content?.en?.measureValue!)).to.not.contain('min')
     expect(Object.keys(contact.services![0].content?.en?.measureValue!)).to.not.contain('max')
+  })
+
+  it('Service filters by prefix should work', async () => {
+    const codeType = `DEMO-${randomUUID()}`
+    const codeStub = {
+      id: `${codeType}|PREFIXED|1`,
+      code: 'PREFIXED',
+      type: codeType,
+      version: '1',
+    }
+    const serviceByTagMonth = {
+      id: randomUUID(),
+      valueDate: 20250101123000,
+      tags: [codeStub],
+    }
+    const serviceByCodeMonth = {
+      id: randomUUID(),
+      valueDate: 20250101123000,
+      codes: [codeStub],
+    }
+    const serviceByTagPatient = {
+      id: randomUUID(),
+      valueDate: 20250201123000,
+      tags: [codeStub],
+    }
+    const serviceByCodePatient = {
+      id: randomUUID(),
+      valueDate: 20250201123000,
+      codes: [codeStub],
+    }
+    const api = await initApi(env)
+    const user = await api.userApi.getCurrentUser()
+    const patient1 = await createPatient(api.patientApi, user)
+    const patient2 = await createPatient(api.patientApi, user)
+    await api.contactApi.createContactsWithUser(user, [
+      await api.contactApi.newInstance(user, patient1, {
+        id: randomUUID(),
+        services: [serviceByCodeMonth, serviceByTagMonth],
+      }),
+      await api.contactApi.newInstance(user, patient2, {
+        id: randomUUID(),
+        services: [serviceByCodePatient, serviceByTagPatient],
+      }),
+    ])
+    expect(
+      await api.contactApi.matchServicesBy(
+        new ServiceByHcPartyMonthTagPrefixFilter({
+          healthcarePartyId: user.healthcarePartyId!,
+          year: 2025,
+          month: 1,
+          tagType: codeType,
+          tagCodePrefix: 'PREFIX',
+        })
+      )
+    ).to.have.members([serviceByTagMonth.id])
+    expect(
+      await api.contactApi.matchServicesBy(
+        new ServiceByHcPartyMonthCodePrefixFilter({
+          healthcarePartyId: user.healthcarePartyId!,
+          year: 2025,
+          month: 1,
+          codeType: codeType,
+          codeCodePrefix: 'PREFIX',
+        })
+      )
+    ).to.have.members([serviceByCodeMonth.id])
+    const patientSfks = await api.patientApi.decryptSecretIdsOf(patient2)
+    expect(
+      await api.contactApi.matchServicesBy(
+        new ServiceByHcPartyPatientTagPrefixFilter({
+          healthcarePartyId: user.healthcarePartyId!,
+          patientSecretForeignKeys: patientSfks,
+          tagType: codeType,
+          tagCodePrefix: 'PREFIX',
+        })
+      )
+    ).to.have.members([serviceByTagPatient.id])
+    expect(
+      await api.contactApi.matchServicesBy(
+        new ServiceByHcPartyPatientCodePrefixFilter({
+          healthcarePartyId: user.healthcarePartyId!,
+          patientSecretForeignKeys: patientSfks,
+          codeType: codeType,
+          codeCodePrefix: 'PREFIX',
+        })
+      )
+    ).to.have.members([serviceByCodePatient.id])
   })
 })
