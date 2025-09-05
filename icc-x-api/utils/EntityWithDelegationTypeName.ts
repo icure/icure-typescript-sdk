@@ -4,6 +4,7 @@
 import { EncryptedEntity, EncryptedEntityStub } from '../../icc-api/model/models'
 
 export enum EntityWithDelegationTypeName {
+  ApplicationSettings = 'ApplicationSettings',
   Article = 'Article',
   AccessLog = 'AccessLog',
   CalendarItem = 'CalendarItem',
@@ -22,6 +23,7 @@ export enum EntityWithDelegationTypeName {
 }
 
 export const entityWithDelegationTypeNames: Set<EntityWithDelegationTypeName> = new Set([
+  EntityWithDelegationTypeName.ApplicationSettings,
   EntityWithDelegationTypeName.Article,
   EntityWithDelegationTypeName.AccessLog,
   EntityWithDelegationTypeName.CalendarItem,

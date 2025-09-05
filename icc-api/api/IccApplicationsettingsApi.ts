@@ -13,12 +13,20 @@ import { XHR } from './XHR'
 import { ApplicationSettings } from '../model/ApplicationSettings'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
+import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
+import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
+import { Classification } from '../model/Classification'
+import { MinimalEntityBulkShareResult } from '../model/requests/MinimalEntityBulkShareResult'
 
 export class IccApplicationsettingsApi {
   host: string
-  headers: Array<XHR.Header>
+  _headers: Array<XHR.Header>
   authenticationProvider: AuthenticationProvider
   fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
+
+  get headers(): Promise<Array<XHR.Header>> {
+    return Promise.resolve(this._headers)
+  }
 
   constructor(
     host: string,
@@ -27,13 +35,13 @@ export class IccApplicationsettingsApi {
     fetchImpl?: (input: RequestInfo, init?: RequestInit) => Promise<Response>
   ) {
     this.host = iccRestApiPath(host)
-    this.headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
+    this._headers = Object.keys(headers).map((k) => new XHR.Header(k, headers[k]))
     this.authenticationProvider = !!authenticationProvider ? authenticationProvider : new NoAuthenticationProvider()
     this.fetchImpl = fetchImpl
   }
 
   setHeaders(h: Array<XHR.Header>) {
-    this.headers = h
+    this._headers = h
   }
 
   handleError(e: XHR.XHRError): never {
@@ -45,12 +53,12 @@ export class IccApplicationsettingsApi {
    * @summary Create new application settings
    * @param body
    */
-  createApplicationSettings(body?: ApplicationSettings): Promise<ApplicationSettings> {
+  async createApplicationSettings(body?: ApplicationSettings): Promise<ApplicationSettings> {
     let _body = null
     _body = body
 
     const _url = this.host + `/appsettings` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new ApplicationSettings(doc.body as JSON))
@@ -61,11 +69,11 @@ export class IccApplicationsettingsApi {
    *
    * @summary Gets all application settings
    */
-  getApplicationSettings(): Promise<Array<ApplicationSettings>> {
+  async getApplicationSettings(): Promise<Array<ApplicationSettings>> {
     let _body = null
 
     const _url = this.host + `/appsettings` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new ApplicationSettings(it)))
       .catch((err) => this.handleError(err))
@@ -76,15 +84,39 @@ export class IccApplicationsettingsApi {
    * @summary Update application settings
    * @param body
    */
-  updateApplicationSettings(body?: ApplicationSettings): Promise<ApplicationSettings> {
+  async updateApplicationSettings(body?: ApplicationSettings): Promise<ApplicationSettings> {
     let _body = null
     _body = body
 
     const _url = this.host + `/appsettings` + '?ts=' + new Date().getTime()
-    let headers = this.headers
+    let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new ApplicationSettings(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @internal this method is for internal use only and may be changed without notice
+   */
+  async bulkShareApplicationSettings(request: BulkShareOrUpdateMetadataParams): Promise<EntityBulkShareResult<ApplicationSettings>[]> {
+    const _url = this.host + '/appsettings/bulkSharedMetadataUpdate' + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((x) => new EntityBulkShareResult<ApplicationSettings>(x, ApplicationSettings)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @internal this method is for internal use only and may be changed without notice
+   */
+  async bulkShareApplicationSettingsMinimal(request: BulkShareOrUpdateMetadataParams): Promise<MinimalEntityBulkShareResult[]> {
+    const _url = this.host + '/appsettings/bulkSharedMetadataUpdateMinimal' + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((x) => new MinimalEntityBulkShareResult(x)))
       .catch((err) => this.handleError(err))
   }
 }

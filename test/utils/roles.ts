@@ -33,6 +33,10 @@ export const defaultRoles = {
     'GroupManagement.Read.BasicInfo',
   ],
   HIERARCHICAL_DATA_OWNER: [
+    'ApplicationSettingsManagement.Create',
+    'ApplicationSettingsManagement.ExtendedRead.DelegatedToParents',
+    'ApplicationSettingsManagement.ExtendedUpdate.DelegatedToParents',
+    'ApplicationSettingsManagement.ExtendedPurge.DelegatedToParents',
     'ExtendedEncryptionMetadataEntitiesManagement.ForParent',
     'CryptoActorManagement.ExtendedExchangeKeysSearch.DelegatedToParents',
     'HealthElementManagement.ExtendedRead.DelegatedToParents',
@@ -168,6 +172,10 @@ export const defaultRoles = {
   TOPIC_MANAGER: ['TopicManagement.Create'],
   LEGACY_MESSAGE_MANAGER: ['MessageManagement.Create', 'MessageManagement.Purge'],
   LEGACY_HCP: [
+    'ApplicationSettingsManagement.Create',
+    'ApplicationSettingsManagement.ExtendedRead.DelegatedToParents',
+    'ApplicationSettingsManagement.ExtendedUpdate.DelegatedToParents',
+    'ApplicationSettingsManagement.ExtendedPurge.DelegatedToParents',
     'ExtendedEncryptionMetadataEntitiesManagement.ForParent',
     'UserManagement.Update.Own.LoginIdentifiers',
     'AgendaManagement.Create',

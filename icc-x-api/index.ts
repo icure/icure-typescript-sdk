@@ -95,6 +95,7 @@ import { RecoveryDataEncryption } from './crypto/RecoveryDataEncryption'
 import { IccRecoveryXApi } from './icc-recovery-x-api'
 import { getGroupOfJwt } from './auth/JwtUtils'
 import { SecurityMetadataDecryptor } from './crypto/SecurityMetadataDecryptor'
+import { IccApplicationSettingsXApi } from './icc-application-settings-x-api'
 
 export * from './icc-accesslog-x-api'
 export * from './icc-bekmehr-x-api'
@@ -168,7 +169,7 @@ export interface Apis extends BasicApis {
   readonly dataOwnerApi: IccDataOwnerXApi
   readonly icureMaintenanceTaskApi: IccIcureMaintenanceXApi
   readonly anonymousAccessApi: IccAnonymousAccessApi
-  readonly applicationSettingsApi: IccApplicationsettingsApi
+  readonly applicationSettingsApi: IccApplicationSettingsXApi
   readonly bekmehrApi: IccBekmehrXApi
   readonly beefactApi: IccBeefactApi
   readonly beresultexportApi: IccBeresultexportApi
@@ -1267,14 +1268,18 @@ class IcureApiImpl implements IcureApi {
     )
   }
 
-  private _applicationSettingsApi: IccApplicationsettingsApi | undefined
+  private _applicationSettingsApi: IccApplicationSettingsXApi | undefined
 
-  get applicationSettingsApi(): IccApplicationsettingsApi {
+  get applicationSettingsApi(): IccApplicationSettingsXApi {
     return (
       this._applicationSettingsApi ??
-      (this._applicationSettingsApi = new IccApplicationsettingsApi(
+      (this._applicationSettingsApi = new IccApplicationSettingsXApi(
         this.host,
         this.cryptoInitInfos.headers,
+        this.cryptoInitInfos.cryptoApi,
+        this.cryptoInitInfos.dataOwnerApi,
+        !this.cryptoInitInfos.dataOwnerRequiresAnonymousDelegation,
+        ['encryptedSettings'],
         this.groupSpecificAuthenticationProvider,
         this.fetch
       ))
