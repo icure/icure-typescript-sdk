@@ -23,7 +23,7 @@ type CacheValue =
  * - Automatically retrieves the private keys to use during decryption.
  */
 export class ExchangeKeysManager {
-  private cache: Promise<{ [delegator: string]: { [delegate: string]: CacheValue } }> = Promise.reject(new Error('Cache not initialized'))
+  private cache: Promise<{ [delegator: string]: { [delegate: string]: CacheValue } }>
 
   get base(): BaseExchangeKeysManager {
     return this.baseExchangeKeysManager
@@ -33,7 +33,9 @@ export class ExchangeKeysManager {
     private readonly keyManager: UserEncryptionKeysManager,
     private readonly baseExchangeKeysManager: BaseExchangeKeysManager,
     private readonly dataOwnerApi: IccDataOwnerXApi
-  ) {}
+  ) {
+    this.cache = this.doGetCache() // Intentionally not awaited to make login feel faster
+  }
 
   /**
    * Get all keys currently available for a delegator-delegate pair. At least one of the two data owners must be part of the hierarchy for the current
@@ -68,7 +70,7 @@ export class ExchangeKeysManager {
    * Reloads all exchange keys for the cache.
    */
   reloadCache(): void {
-    this.cache = this.doGetCache() // Intentionally not awaited to make login feel faster
+    this.cache = this.doGetCache() // Intentionally not awaited to make reload feel faster
   }
 
   private async doGetCache() {

@@ -783,7 +783,6 @@ async function initialiseCryptoWithProvider(
   )
   // TODO customise cache size?
   const exchangeKeysManager = new ExchangeKeysManager(userEncryptionKeysManager, baseExchangeKeysManager, dataOwnerApi)
-  exchangeKeysManager.reloadCache()
   const accessControlSecretUtils = new AccessControlSecretUtils(cryptoPrimitives)
   const exchangeDataManager = await initialiseExchangeDataManagerForCurrentDataOwner(
     baseExchangeDataManager,
