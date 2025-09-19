@@ -27,7 +27,7 @@ import { Annotation } from './Annotation'
 /**
  * This entity is a root level object. It represents a patient It is serialized in JSON and saved in the underlying icure-patient CouchDB database.
  */
-import { decodeStringOrArrayBuffer} from './ModelHelper'
+import { decodeStringOrArrayBuffer } from './ModelHelper'
 import { SecurityMetadata } from './SecurityMetadata'
 
 export class Patient {
@@ -345,11 +345,12 @@ export namespace Patient {
     ChangedToFemale: 'changedToFemale' as BirthSexEnum,
     Unknown: 'unknown' as BirthSexEnum,
   }
-  export type DeactivationReasonEnum = 'deceased' | 'moved' | 'other_doctor' | 'retired' | 'no_contact' | 'unknown' | 'none'
+  export type DeactivationReasonEnum = 'deceased' | 'moved' | 'other_doctor' | 'left_structure' | 'retired' | 'no_contact' | 'unknown' | 'none'
   export const DeactivationReasonEnum = {
     Deceased: 'deceased' as DeactivationReasonEnum,
     Moved: 'moved' as DeactivationReasonEnum,
     OtherDoctor: 'other_doctor' as DeactivationReasonEnum,
+    LeftStructure: 'left_structure' as DeactivationReasonEnum,
     Retired: 'retired' as DeactivationReasonEnum,
     NoContact: 'no_contact' as DeactivationReasonEnum,
     Unknown: 'unknown' as DeactivationReasonEnum,
