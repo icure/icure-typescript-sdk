@@ -98,6 +98,7 @@ import { SecurityMetadataDecryptor } from './crypto/SecurityMetadataDecryptor'
 import { IccApplicationSettingsXApi } from './icc-application-settings-x-api'
 
 export * from './icc-accesslog-x-api'
+export * from './icc-application-settings-x-api'
 export * from './icc-bekmehr-x-api'
 export * from './icc-calendar-item-x-api'
 export * from './icc-classification-x-api'
