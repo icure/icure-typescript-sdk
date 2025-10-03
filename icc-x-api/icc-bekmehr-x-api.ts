@@ -111,15 +111,24 @@ export class IccBekmehrXApi extends IccBekmehrApi {
                 .filter((p) => p.type === 'DocumentDto')
                 .reduce(async (p, patcher) => (patcher as DocumentPatcher).patch(await p), Promise.resolve(res))
             )
-            .then((res) =>
+            .then(async (res) =>
               send(
                 'decryptResponse',
                 msg.uuid,
-                res?.map((d) => {
-                  const de = d.decryptedAttachment
+                await Promise.all(res?.map(async (d) => {
                   const { encryptedAttachment, ...stripped } = d
-                  return de ? { ...stripped, decryptedAttachment: btoa(ua2string(de)) } : stripped
-                })
+
+                  let de = d.decryptedAttachment
+                  if (de) {
+                    return { ...stripped, decryptedAttachment: btoa(ua2string(de)) }
+                  }
+
+                  const possiblyDecryptedAttachment = await this.documentApi.getAndTryDecryptDocumentAttachment(d)
+                  if (possiblyDecryptedAttachment.wasDecrypted) {
+                    return { ...stripped, decryptedAttachment: btoa(ua2string(possiblyDecryptedAttachment.data)) }
+                  }
+                  return stripped
+                }))
               )
             )
         } else if (msg.type === 'ServiceDto') {
