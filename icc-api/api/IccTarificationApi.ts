@@ -15,6 +15,7 @@ import { PaginatedListTarification } from '../model/PaginatedListTarification'
 import { Tarification } from '../model/Tarification'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
+import {Code} from "../model/Code"
 
 export class IccTarificationApi {
   host: string
@@ -224,6 +225,46 @@ export class IccTarificationApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Tarification(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  modifyTarificationsInGroup(groupId: string, tarifications?: Array<Tarification>): Promise<Array<Tarification>> {
+    let _body = null
+    _body = tarifications
+
+    const _url = this.host + `/tarification/inGroup/${encodeURIComponent(String(groupId))}/batch` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Tarification(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  createTarificationsInGroup(groupId: string, tarifications?: Array<Tarification>): Promise<Array<Tarification>> {
+    let _body = null
+    _body = tarifications
+
+    const _url = this.host + `/tarification/inGroup/${encodeURIComponent(String(groupId))}/batch` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Tarification(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Get a list of tarifications by ids/keys.
+   * @summary Gets a list of tarifications by ids
+   * @param tarificationIds
+   */
+  async getTarificationsInGroup(groupId: string, tarificationIds: string[]): Promise<Array<Tarification>> {
+    const body = new ListOfIds({ ids: tarificationIds })
+
+    const _url = this.host + `/tarification/inGroup/${encodeURIComponent(String(groupId))}/byIds` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Tarification(it)))
       .catch((err) => this.handleError(err))
   }
 }
