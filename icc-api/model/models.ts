@@ -15,6 +15,7 @@ import { Delegation } from './Delegation'
 import { SecurityMetadata } from './SecurityMetadata'
 import { IcureStub } from './IcureStub'
 import { Topic } from './Topic'
+import { ApplicationSettings } from './ApplicationSettings'
 
 export * from './AbstractFilterCode'
 export * from './AbstractFilterContact'
@@ -294,6 +295,7 @@ export * from './ISO639_1'
 
 export type EncryptedEntity =
   | AccessLog
+  | ApplicationSettings
   | Article
   | CalendarItem
   | Classification
