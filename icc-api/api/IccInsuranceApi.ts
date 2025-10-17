@@ -11,11 +11,11 @@
  */
 import { XHR } from './XHR'
 import { DocIdentifier } from '../model/DocIdentifier'
-import { Insurance } from '../model/Insurance'
 import { ListOfIds } from '../model/ListOfIds'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 import { PaginatedListInsurance } from '../model/PaginatedListInsurance'
+import { Insurance } from "../model/Insurance"
 
 export class IccInsuranceApi {
   host: string
@@ -157,6 +157,46 @@ export class IccInsuranceApi {
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new PaginatedListInsurance(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  modifyInsurancesInGroup(groupId: string, insurances?: Array<Insurance>): Promise<Array<Insurance>> {
+    let _body = null
+    _body = insurances
+
+    const _url = this.host + `/insurance/inGroup/${encodeURIComponent(String(groupId))}/batch` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Insurance(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  createInsurancesInGroup(groupId: string, insurances?: Array<Insurance>): Promise<Array<Insurance>> {
+    let _body = null
+    _body = insurances
+
+    const _url = this.host + `/insurance/inGroup/${encodeURIComponent(String(groupId))}/batch` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Insurance(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Get a list of insurances by ids/keys.
+   * @summary Gets a list of insurances by ids
+   * @param insuranceIds
+   */
+  async getInsurancesInGroup(groupId: string, insuranceIds: string[]): Promise<Array<Insurance>> {
+    const body = new ListOfIds({ ids: insuranceIds })
+
+    const _url = this.host + `/insurance/inGroup/${encodeURIComponent(String(groupId))}/byIds` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Insurance(it)))
       .catch((err) => this.handleError(err))
   }
 }
