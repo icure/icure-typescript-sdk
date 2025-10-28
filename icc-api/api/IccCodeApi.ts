@@ -463,4 +463,21 @@ export class IccCodeApi {
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Code(it)))
       .catch((err) => this.handleError(err))
   }
+
+  /**
+   *
+   * @summary Get ids of code matching the provided filter for the current user (HcParty)
+   * @param body
+   */
+  async matchCodesByInGroup(groupId: string, body?: AbstractFilterCode): Promise<Array<string>> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/code/inGroup/${encodeURIComponent(String(groupId))}/match` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
+      .catch((err) => this.handleError(err))
+  }
 }

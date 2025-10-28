@@ -15,7 +15,7 @@ import { PaginatedListTarification } from '../model/PaginatedListTarification'
 import { Tarification } from '../model/Tarification'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
-import {Code} from "../model/Code"
+import {AbstractFilterPricing} from "../model/AbstractFilterPricing"
 
 export class IccTarificationApi {
   host: string
@@ -265,6 +265,23 @@ export class IccTarificationApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Tarification(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
+   * @summary Get ids of tarification matching the provided filter for the current user (HcParty)
+   * @param body
+   */
+  async matchTarificationsByInGroup(groupId: string, body?: AbstractFilterPricing): Promise<Array<string>> {
+    let _body = null
+    _body = body
+
+    const _url = this.host + `/tarification/inGroup/${encodeURIComponent(String(groupId))}/match` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
       .catch((err) => this.handleError(err))
   }
 }
