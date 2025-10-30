@@ -37,14 +37,18 @@ import { User } from '../../icc-api/model/User'
 import { AbstractFilterUser } from '../../icc-api/model/AbstractFilterUser'
 import { HealthcareParty } from '../../icc-api/model/HealthcareParty'
 import { AbstractFilterHealthcareParty } from '../../icc-api/model/AbstractFilterHealthcareParty'
+import {Tarification} from "../../icc-api/model/Tarification"
+import {AbstractFilterPricing} from "../../icc-api/model/AbstractFilterPricing"
 
 export * from './AllCodesFilter'
 export * from './AllDevicesFilter'
 export * from './AllDocumentsFilter'
 export * from './AllHealthcarePartiesFilter'
 export * from './AllUsersFilter'
+export * from './AllPricingFilter'
 export * from './CodeByIdsFilter'
-export * from './CodeByRegionTypeLabelLanguageFilter'
+export * from './CodeByRegionTypeCodeVersionFilter'
+ export * from './CodeByRegionTypeLabelLanguageFilter'
 export * from './ComplementFilter'
 export * from './ConstantFilter'
 export * from './ContactByHcPartyFilter'
@@ -124,6 +128,8 @@ export type AbstractFilter<T> =
       ? AbstractFilterInvoice
       : T extends User
       ? AbstractFilterUser
+      : T extends Tarification
+      ? AbstractFilterPricing
       : never)
   | ConstantFilter<T>
   | IntersectionFilter<T>
