@@ -39,11 +39,14 @@ import { HealthcareParty } from '../../icc-api/model/HealthcareParty'
 import { AbstractFilterHealthcareParty } from '../../icc-api/model/AbstractFilterHealthcareParty'
 import {Tarification} from "../../icc-api/model/Tarification"
 import {AbstractFilterPricing} from "../../icc-api/model/AbstractFilterPricing"
+import {Insurance} from "../../icc-api/model/Insurance"
+import {AbstractFilterInsurance} from "../../icc-api/model/AbstractFilterInsurance"
 
 export * from './AllCodesFilter'
 export * from './AllDevicesFilter'
 export * from './AllDocumentsFilter'
 export * from './AllHealthcarePartiesFilter'
+export * from './AllInsurancesFilter'
 export * from './AllUsersFilter'
 export * from './AllPricingFilter'
 export * from './CodeByIdsFilter'
@@ -124,6 +127,8 @@ export type AbstractFilter<T> =
       ? AbstractFilterCode
       : T extends HealthElement
       ? AbstractFilterHealthElement
+      : T extends Insurance
+      ? AbstractFilterInsurance
       : T extends Invoice
       ? AbstractFilterInvoice
       : T extends User
