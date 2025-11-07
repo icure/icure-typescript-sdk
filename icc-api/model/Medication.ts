@@ -9,6 +9,7 @@
  * https://github.com/swagger-api/swagger-codegen.git
  * Do not edit the class manually.
  */
+import { Address } from './Address'
 import { CodeStub } from './CodeStub'
 import { Content } from './Content'
 import { Duration } from './Duration'
@@ -73,4 +74,5 @@ export class Medication {
   suspension?: Array<Suspension>
   prescriptionRID?: string
   status?: number
+  stockLocation?: Address
 }
