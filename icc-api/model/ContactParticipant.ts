@@ -6,5 +6,5 @@ export class ContactParticipant {
   }
 
   type?: ParticipantType
-  hcpId?: String
+  hcpId?: string
 }
