@@ -138,18 +138,21 @@ export { hexPublicKeysWithSha1Of, hexPublicKeysWithSha256Of, getShaVersionForKey
 export { SecretIdUseOption } from './crypto/SecretIdUseOption'
 
 export interface BasicApis {
+  readonly accessLogApi: IccAccesslogApi
+  readonly agendaApi: IccAgendaApi
   readonly authApi: IccAuthApi
   readonly codeApi: IccCodeXApi
-  readonly userApi: IccUserXApi
-  readonly permissionApi: IccPermissionApi
-  readonly insuranceApi: IccInsuranceApi
+  readonly deviceApi: IccDeviceXApi
   readonly entityReferenceApi: IccEntityrefApi
-  readonly agendaApi: IccAgendaApi
   readonly groupApi: IccGroupApi
   readonly healthcarePartyApi: IccHcpartyXApi
-  readonly deviceApi: IccDeviceXApi
+  readonly icureApi: IccIcureApi
+  readonly insuranceApi: IccInsuranceApi
   readonly patientApi: IccPatientApi
+  readonly permissionApi: IccPermissionApi
+  readonly pricingApi: IccTarificationApi
   readonly roleApi: IccRoleApi
+  readonly userApi: IccUserXApi
 }
 export interface Apis extends BasicApis {
   readonly calendarItemTypeApi: IccCalendarItemTypeApi
@@ -913,6 +916,15 @@ class IcureApiImpl implements IcureApi {
     private readonly useLiteCompatibilityMode: boolean
   ) {
     this.latestGroupsRequest = Promise.resolve(latestMatches)
+  }
+
+  private _pricingApi: IccTarificationApi | undefined
+
+  get pricingApi(): IccTarificationApi {
+    return (
+      this._pricingApi ??
+      (this._pricingApi = new IccTarificationApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
   }
 
   private _authApi: IccAuthApi | undefined
