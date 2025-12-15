@@ -1,4 +1,5 @@
 import {
+  IccAccesslogApi,
   IccAgendaApi,
   IccAnonymousAccessApi,
   IccApplicationsettingsApi,
@@ -1558,6 +1559,7 @@ export interface IcureBasicApi extends BasicApis {
 
 class IcureBasicApiImpl implements IcureBasicApi {
   private latestGroupsRequest: Promise<UserGroup[]>
+  private _accessLogApi: IccAccesslogApi | undefined
   private _agendaApi: IccAgendaApi | undefined
   private _authApi: IccAuthApi | undefined
   private _codeApi: IccCodeXApi | undefined
@@ -1565,11 +1567,32 @@ class IcureBasicApiImpl implements IcureBasicApi {
   private _entityReferenceApi: IccEntityrefApi | undefined
   private _groupApi: IccGroupApi | undefined
   private _healthcarePartyApi: IccHcpartyXApi | undefined
+  private _icureApi: IccIcureApi | undefined
   private _insuranceApi: IccInsuranceApi | undefined
   private _permissionApi: IccPermissionApi | undefined
   private _userApi: IccUserXApi | undefined
   private _patientApi: IccPatientApi | undefined
+  private _pricingApi: IccTarificationApi | undefined
   private _roleApi: IccRoleApi | undefined
+
+  get accessLogApi(): IccAccesslogApi {
+    return (
+      this._accessLogApi ?? (this._accessLogApi = new IccAccesslogApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
+  }
+
+  get pricingApi(): IccTarificationApi {
+    return (
+      this._pricingApi ??
+      (this._pricingApi = new IccTarificationApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
+  }
+
+  get icureApi(): IccIcureApi {
+    return (
+      this._icureApi ?? (this._icureApi = new IccIcureApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+    )
+  }
 
   get agendaApi(): IccAgendaApi {
     return (
