@@ -6,7 +6,7 @@ import { AccessControlSecretUtils } from './AccessControlSecretUtils'
 import { CryptoStrategies } from './CryptoStrategies'
 import { fingerprintV1, getShaVersionForKey, hexPublicKeysWithSha1Of, hexPublicKeysWithSha256Of } from './utils'
 import { CryptoPrimitives } from './CryptoPrimitives'
-import { EntityWithDelegationTypeName, hex2ua } from '../utils'
+import { EntityWithDelegationTypeName, hex2ua, ua2ab } from '../utils'
 import { CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
 import { ShaVersion } from './RSA'
 import { Mutex } from 'async-mutex'
@@ -255,11 +255,16 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
         throw new Error(`Could not create exchange data to ${delegateId} as no public key for the delegate could be verified.`)
       for (const delegateKey of allVerifiedDelegateKeys) {
         if (sha1KeysOfDelegate.has(delegateKey)) {
-          encryptionKeys[fingerprintV1(delegateKey)] = await this.primitives.RSA.importKey('spki', hex2ua(delegateKey), ['encrypt'], ShaVersion.Sha1)
+          encryptionKeys[fingerprintV1(delegateKey)] = await this.primitives.RSA.importKey(
+            'spki',
+            ua2ab(hex2ua(delegateKey)),
+            ['encrypt'],
+            ShaVersion.Sha1
+          )
         } else if (sha256KeysOfDelegate.has(delegateKey)) {
           encryptionKeys[fingerprintV1(delegateKey)] = await this.primitives.RSA.importKey(
             'spki',
-            hex2ua(delegateKey),
+            ua2ab(hex2ua(delegateKey)),
             ['encrypt'],
             ShaVersion.Sha256
           )
@@ -286,7 +291,7 @@ abstract class AbstractExchangeDataManager implements ExchangeDataManager {
     const other = await this.dataOwnerApi.getCryptoActorStub(otherDataOwner)
     const newKeyHashVersion = getShaVersionForKey(other.stub, newDataOwnerPublicKey)
     if (!newKeyHashVersion) throw new Error(`Public key not found for data owner ${otherDataOwner}`)
-    const importedNewKey = await this.primitives.RSA.importKey('spki', hex2ua(newDataOwnerPublicKey), ['encrypt'], newKeyHashVersion)
+    const importedNewKey = await this.primitives.RSA.importKey('spki', ua2ab(hex2ua(newDataOwnerPublicKey)), ['encrypt'], newKeyHashVersion)
     const decryptionKeys = this.encryptionKeys.getDecryptionKeys()
     const allExchangeDataToUpdate =
       self == otherDataOwner

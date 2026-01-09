@@ -1,16 +1,14 @@
 import {
   BasicAuthenticationProvider,
-  CryptoPrimitives,
-  CryptoStrategies,
   EncryptedFieldsConfig,
   hex2ua,
   IcureApi,
   IcureApiOptions,
   IcureBasicApi,
-  KeyPair,
   retry,
   RSAUtilsImpl,
   ShaVersion,
+  ua2ab,
   ua2hex,
   WebCryptoPrimitives,
 } from '../../icc-x-api'
@@ -138,8 +136,8 @@ export namespace TestUtils {
 export async function getApiAndAddPrivateKeysForUser(iCureUrl: string, details: UserDetails, options?: IcureApiOptions) {
   const RSA = new RSAUtilsImpl(webcrypto as any)
   const keys = {
-    publicKey: await RSA.importKey('spki', hex2ua(details.publicKey), ['encrypt'], ShaVersion.Sha1),
-    privateKey: await RSA.importKey('pkcs8', hex2ua(details.privateKey), ['decrypt'], ShaVersion.Sha1),
+    publicKey: await RSA.importKey('spki', ua2ab(hex2ua(details.publicKey)), ['encrypt'], ShaVersion.Sha1),
+    privateKey: await RSA.importKey('pkcs8', ua2ab(hex2ua(details.privateKey)), ['decrypt'], ShaVersion.Sha1),
   }
   return await TestApi(iCureUrl, details.user, details.password, webcrypto as any, keys, options)
 }

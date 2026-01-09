@@ -2,7 +2,7 @@ import { IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { KeyPair, ShaVersion } from './RSA'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { BaseExchangeKeysManager } from './BaseExchangeKeysManager'
-import { hex2ua, ua2hex } from '../utils'
+import { hex2ua, ua2ab, ua2hex } from '../utils'
 import { fingerprintToPublicKeysMapOf, fingerprintV1, getShaVersionForKey } from './utils'
 import { BaseExchangeDataManager } from './BaseExchangeDataManager'
 import { DataOwnerWithType } from '../../icc-api/model/DataOwnerWithType'
@@ -125,7 +125,7 @@ export class KeyRecovery {
           try {
             res[fp] = {
               privateKey: recovered,
-              publicKey: await this.primitives.RSA.importKey('spki', hex2ua(pub), ['encrypt'], shaVersion),
+              publicKey: await this.primitives.RSA.importKey('spki', ua2ab(hex2ua(pub)), ['encrypt'], shaVersion),
             }
           } catch (e) {
             console.warn(`Failed to import public key ${pub}`, e)
@@ -163,7 +163,7 @@ export class KeyRecovery {
       }
       try {
         const combinedKey = hex2ua(this.primitives.shamir.combine(decryptedSplits))
-        return await this.primitives.RSA.importKey('pkcs8', combinedKey, ['decrypt'], shaVersion)
+        return await this.primitives.RSA.importKey('pkcs8', ua2ab(combinedKey), ['decrypt'], shaVersion)
       } catch (e) {
         // Could be not enough splits decrypted
         return undefined
@@ -254,7 +254,7 @@ export class KeyRecovery {
       if (decryptedTransferKey != undefined)
         return {
           privateKey: decryptedTransferKey,
-          publicKey: await this.primitives.RSA.importKey('spki', hex2ua(transferData.publicKey), ['encrypt'], shaVersion),
+          publicKey: await this.primitives.RSA.importKey('spki', ua2ab(hex2ua(transferData.publicKey)), ['encrypt'], shaVersion),
         }
     }
     return undefined

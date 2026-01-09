@@ -10,6 +10,7 @@ import {
   RSAUtilsImpl,
   ShaVersion,
   ua2hex,
+  ua2ab,
 } from '../../icc-x-api'
 import { getEnvironmentInitializer, setLocalStorage } from '../utils/test_utils'
 import { KeyPair } from '../../icc-x-api/crypto/RSA'
@@ -216,8 +217,8 @@ class ApiFactoryV7 implements ApiFactory {
 
   async masterApi(env: TestVars): Promise<UniformizedMasterApi> {
     const key = {
-      privateKey: await cryptoPrimitives.RSA.importKey('pkcs8', hex2ua(env.masterHcp!.privateKey), ['decrypt'], ShaVersion.Sha1),
-      publicKey: await cryptoPrimitives.RSA.importKey('spki', hex2ua(env.masterHcp!.publicKey), ['encrypt'], ShaVersion.Sha1),
+      privateKey: await cryptoPrimitives.RSA.importKey('pkcs8', ua2ab(hex2ua(env.masterHcp!.privateKey)), ['decrypt'], ShaVersion.Sha1),
+      publicKey: await cryptoPrimitives.RSA.importKey('spki', ua2ab(hex2ua(env.masterHcp!.publicKey)), ['encrypt'], ShaVersion.Sha1),
     }
     const apis = await ApiV7.initialise(
       env.iCureUrl,
@@ -330,8 +331,8 @@ class ApiFactoryV8 implements ApiFactory {
 
   async masterApi(env: TestVars): Promise<UniformizedMasterApi> {
     const key = {
-      privateKey: await cryptoPrimitives.RSA.importKey('pkcs8', hex2ua(env.masterHcp!.privateKey), ['decrypt'], ShaVersion.Sha1),
-      publicKey: await cryptoPrimitives.RSA.importKey('spki', hex2ua(env.masterHcp!.publicKey), ['encrypt'], ShaVersion.Sha1),
+      privateKey: await cryptoPrimitives.RSA.importKey('pkcs8', ua2ab(hex2ua(env.masterHcp!.privateKey)), ['decrypt'], ShaVersion.Sha1),
+      publicKey: await cryptoPrimitives.RSA.importKey('spki', ua2ab(hex2ua(env.masterHcp!.publicKey)), ['encrypt'], ShaVersion.Sha1),
     }
     const apis = await ApiV8.initialise(
       env.iCureUrl,

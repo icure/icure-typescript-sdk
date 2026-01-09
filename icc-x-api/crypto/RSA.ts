@@ -1,4 +1,4 @@
-import { ua2utf8, utf8_2ua } from '../utils'
+import { ua2ab, ua2utf8, utf8_2ua } from '../utils'
 
 /**
  * Represents an RSA KeyPair in a generic format.
@@ -242,7 +242,7 @@ export class RSAUtilsImpl implements RSAUtils {
    */
   encrypt(publicKey: CryptoKey, plainData: Uint8Array): Promise<ArrayBuffer> {
     return new Promise((resolve: (value: ArrayBuffer) => any, reject) => {
-      this.crypto.subtle.encrypt(this.rsaParams, publicKey, plainData.buffer ? plainData.buffer : plainData).then(resolve, reject) //Node prefers arrayBuffer
+      this.crypto.subtle.encrypt(this.rsaParams, publicKey, ua2ab(plainData)).then(resolve, reject)
     })
   }
 
@@ -253,7 +253,7 @@ export class RSAUtilsImpl implements RSAUtils {
    */
   decrypt(privateKey: CryptoKey, encryptedData: Uint8Array): Promise<ArrayBuffer> {
     return new Promise((resolve: (value: ArrayBuffer) => any, reject) => {
-      this.crypto.subtle.decrypt(this.rsaParams, privateKey, encryptedData).then(resolve, reject)
+      this.crypto.subtle.decrypt(this.rsaParams, privateKey, ua2ab(encryptedData)).then(resolve, reject)
     })
   }
 

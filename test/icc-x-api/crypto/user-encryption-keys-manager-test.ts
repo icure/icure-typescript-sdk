@@ -9,7 +9,7 @@ import { createHcpHierarchyApis, createNewHcpWithoutKeyAndParentWithKey, getEnvi
 import { TestKeyStorage, TestStorage, testStorageWithKeys } from '../../utils/TestStorage'
 import { TestCryptoStrategies } from '../../utils/TestCryptoStrategies'
 import { getEnvVariables, TestVars, UserDetails } from '@icure/test-setup/types'
-import { CryptoPrimitives, CryptoStrategies, hex2ua, IcureApi, KeyPair, ShaVersion } from '../../../icc-x-api'
+import { CryptoPrimitives, CryptoStrategies, hex2ua, IcureApi, KeyPair, ShaVersion, ua2ab } from '../../../icc-x-api'
 import { ua2hex } from '@icure/apiV6'
 import { DataOwnerWithType } from '../../../icc-api/model/DataOwnerWithType'
 import { CryptoActorStubWithType } from '../../../icc-api/model/CryptoActorStub'
@@ -173,9 +173,9 @@ describe('Key manager', async function () {
             recoveredKeys: {
               [hcpsInfo.parentCredentials.publicKey.slice(-32)]: await cryptoPrimitives.RSA.importKeyPair(
                 'pkcs8',
-                hex2ua(hcpsInfo.parentCredentials.privateKey),
+                ua2ab(hex2ua(hcpsInfo.parentCredentials.privateKey)),
                 'spki',
-                hex2ua(hcpsInfo.parentCredentials.publicKey),
+                ua2ab(hex2ua(hcpsInfo.parentCredentials.publicKey)),
                 ShaVersion.Sha1
               ),
             },

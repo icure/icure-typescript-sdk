@@ -2,7 +2,7 @@ import { CryptoStrategies } from '../../icc-x-api/crypto/CryptoStrategies'
 import { KeyPair, RSAUtils, RSAUtilsImpl, ShaVersion } from '../../icc-x-api/crypto/RSA'
 import { hexPublicKeysWithSha1Of, hexPublicKeysWithSha256Of } from '../../icc-x-api/crypto/utils'
 import { webcrypto } from 'crypto'
-import { CryptoPrimitives, hex2ua, ua2hex } from '../../icc-x-api'
+import { CryptoPrimitives, hex2ua, ua2ab, ua2hex } from '../../icc-x-api'
 import { CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
 import { DataOwnerWithType } from '../../icc-api/model/DataOwnerWithType'
 
@@ -44,9 +44,9 @@ export class TestCryptoStrategies implements CryptoStrategies {
                   ? {
                       [recoveredKey.pair.publicKey.slice(-32)]: await cryptoPrimitives.RSA.importKeyPair(
                         'pkcs8',
-                        hex2ua(recoveredKey.pair.privateKey),
+                        ua2ab(hex2ua(recoveredKey.pair.privateKey)),
                         'spki',
-                        hex2ua(recoveredKey.pair.publicKey),
+                        ua2ab(hex2ua(recoveredKey.pair.publicKey)),
                         recoveredKey.shaVersion
                       ),
                     }

@@ -151,7 +151,7 @@ export function ua2b64Url(ua: Uint8Array | ArrayBuffer): string {
 }
 
 export function b64Url2ua(ua: string): ArrayBuffer {
-  return b64_2ua(ua.replace(/-/g, '+').replace(/_/g, '/').replace(/=/g, '') + (ua.length % 4 === 3 ? '=' : ua.length % 4 === 2 ? '==' : ''))
+  return ua2ab(b64_2ua(ua.replace(/-/g, '+').replace(/_/g, '/').replace(/=/g, '') + (ua.length % 4 === 3 ? '=' : ua.length % 4 === 2 ? '==' : '')))
 }
 
 export function hex2string(hexStr: string): string {

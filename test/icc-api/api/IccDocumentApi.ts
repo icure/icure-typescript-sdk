@@ -1,4 +1,4 @@
-import { IccDocumentXApi } from '../../../icc-x-api'
+import { IccDocumentXApi, ua2ab } from '../../../icc-x-api'
 import { Document } from '../../../icc-api/model/Document'
 import { assert, expect } from 'chai'
 import { randomBytes, randomUUID } from 'crypto'
@@ -77,7 +77,7 @@ describe('Document api', () => {
     const updated = await documentApi!.setMainDocumentAttachmentWithUser(undefined, document.id!, document.rev!, data)
     expect(updated).to.not.be.undefined
     const retrievedData = await documentApi!.getMainDocumentAttachment(document.id!)
-    assert(bufferEquals(retrievedData, data))
+    assert(bufferEquals(retrievedData, ua2ab(data)))
   })
 
   it('should allow to update main attachment', async () => {
@@ -87,11 +87,11 @@ describe('Document api', () => {
     const updated = await documentApi!.setMainDocumentAttachmentWithUser(undefined, document.id!, document.rev!, data1, sampleUti)
     expect(updated.mainUti).to.equal(sampleUti[0])
     assert(arrayEquals(updated.otherUtis!, sampleUti.slice(1)))
-    assert(bufferEquals(await documentApi!.getMainDocumentAttachment(document.id!), data1))
+    assert(bufferEquals(await documentApi!.getMainDocumentAttachment(document.id!), ua2ab(data1)))
     const updated2 = await documentApi!.setMainDocumentAttachmentWithUser(undefined, document.id!, updated.rev!, data2)
     expect(updated2.mainUti).to.equal(sampleUti[0])
     assert(arrayEquals(updated2.otherUtis!, sampleUti.slice(1)))
-    assert(bufferEquals(await documentApi!.getMainDocumentAttachment(document.id!), data2))
+    assert(bufferEquals(await documentApi!.getMainDocumentAttachment(document.id!), ua2ab(data2)))
   })
 
   it('should allow to update utis in main attachment', async () => {
@@ -111,7 +111,7 @@ describe('Document api', () => {
     expect(updated.secondaryAttachments).to.contain.keys([sampleKey])
     assert(arrayEquals(updated.secondaryAttachments![sampleKey].utis!, []))
     const retrievedData = await documentApi!.getSecondaryAttachment(document.id!, sampleKey)
-    assert(bufferEquals(retrievedData, data))
+    assert(bufferEquals(retrievedData, ua2ab(data)))
   })
 
   it('should allow to initialise utis in secondary attachments', async () => {
@@ -127,10 +127,10 @@ describe('Document api', () => {
     const data2 = randomBytes(32)
     const updated = await documentApi!.setSecondaryAttachmentWithUser(undefined, document.id!, sampleKey, document.rev!, data1, sampleUti)
     assert(arrayEquals(updated.secondaryAttachments![sampleKey].utis!, sampleUti))
-    assert(bufferEquals(await documentApi!.getSecondaryAttachment(document.id!, sampleKey), data1))
+    assert(bufferEquals(await documentApi!.getSecondaryAttachment(document.id!, sampleKey), ua2ab(data1)))
     const updated2 = await documentApi!.setSecondaryAttachmentWithUser(undefined, document.id!, sampleKey, updated.rev!, data2)
     assert(arrayEquals(updated2.secondaryAttachments![sampleKey].utis!, sampleUti))
-    assert(bufferEquals(await documentApi!.getSecondaryAttachment(document.id!, sampleKey), data2))
+    assert(bufferEquals(await documentApi!.getSecondaryAttachment(document.id!, sampleKey), ua2ab(data2)))
   })
 
   it('should allow to update utis in secondary attachments', async () => {
@@ -163,25 +163,25 @@ describe('Document api', () => {
     const data1 = randomBytes(32)
     const data2 = randomBytes(32)
     const data3 = randomBytes(32)
-    assert(!bufferEquals(data1, data2))
+    assert(!bufferEquals(ua2ab(data1), ua2ab(data2)))
     const updated1 = await documentApi!.setSecondaryAttachmentWithUser(undefined, document.id!, sampleKey, document.rev!, data1)
     const updated2 = await documentApi!.setSecondaryAttachmentWithUser(undefined, document.id!, sampleKey2, updated1.rev!, data2, sampleUti)
     expect(updated2.secondaryAttachments).to.have.keys([sampleKey, sampleKey2])
     assert(arrayEquals(updated2.secondaryAttachments![sampleKey].utis!, []))
     assert(arrayEquals(updated2.secondaryAttachments![sampleKey2].utis!, sampleUti))
-    assert(bufferEquals(await documentApi!.getSecondaryAttachment(document.id!, sampleKey), data1))
-    assert(bufferEquals(await documentApi!.getSecondaryAttachment(document.id!, sampleKey2), data2))
+    assert(bufferEquals(await documentApi!.getSecondaryAttachment(document.id!, sampleKey), ua2ab(data1)))
+    assert(bufferEquals(await documentApi!.getSecondaryAttachment(document.id!, sampleKey2), ua2ab(data2)))
     const updated3 = await documentApi!.setSecondaryAttachmentWithUser(undefined, document.id!, sampleKey, updated2.rev!, data3, sampleUti2)
     expect(updated3.secondaryAttachments).to.have.keys([sampleKey, sampleKey2])
     assert(arrayEquals(updated3.secondaryAttachments![sampleKey].utis!, sampleUti2))
     assert(arrayEquals(updated3.secondaryAttachments![sampleKey2].utis!, sampleUti))
-    assert(bufferEquals(await documentApi!.getSecondaryAttachment(document.id!, sampleKey), data3))
-    assert(bufferEquals(await documentApi!.getSecondaryAttachment(document.id!, sampleKey2), data2))
+    assert(bufferEquals(await documentApi!.getSecondaryAttachment(document.id!, sampleKey), ua2ab(data3)))
+    assert(bufferEquals(await documentApi!.getSecondaryAttachment(document.id!, sampleKey2), ua2ab(data2)))
     expect(updated3.deletedAttachments).to.have.length(1)
     const updated4 = await documentApi!.deleteSecondaryAttachmentWithUser(undefined, document.id!, sampleKey2, updated3.rev!)
     expect(updated4.secondaryAttachments).to.have.keys([sampleKey])
     expect(updated4.deletedAttachments).to.have.length(2)
-    assert(bufferEquals(await documentApi!.getSecondaryAttachment(document.id!, sampleKey), data3))
+    assert(bufferEquals(await documentApi!.getSecondaryAttachment(document.id!, sampleKey), ua2ab(data3)))
     await assertRequestFails(documentApi!.getSecondaryAttachment(document.id!, sampleKey2), 404)
   })
 

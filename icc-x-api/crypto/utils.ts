@@ -2,7 +2,7 @@
 import { acyclic, graphFromEdges, StronglyConnectedGraph } from '../utils/graph-utils'
 import { DataOwner, DataOwnerOrStub, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { RSAUtils, ShaVersion } from './RSA'
-import { EntityWithDelegationTypeName, hex2ua } from '../utils'
+import { EntityWithDelegationTypeName, hex2ua, ua2ab } from '../utils'
 import { Patient } from '../../icc-api/model/Patient'
 import { ExtendedApisUtils } from './ExtendedApisUtils'
 import { CryptoPrimitives } from './CryptoPrimitives'
@@ -85,7 +85,7 @@ export async function loadPublicKeys(
   shaVersion: ShaVersion
 ): Promise<{ [publicKeyFingerprint: string]: CryptoKey }> {
   return Object.fromEntries(
-    await Promise.all(publicKeysSpkiHex.map(async (x) => [fingerprintV1(x), await rsa.importKey('spki', hex2ua(x), ['encrypt'], shaVersion)]))
+    await Promise.all(publicKeysSpkiHex.map(async (x) => [fingerprintV1(x), await rsa.importKey('spki', ua2ab(hex2ua(x)), ['encrypt'], shaVersion)]))
   )
 }
 

@@ -2,6 +2,7 @@ import { RSAUtils, RSAUtilsImpl } from './RSA'
 import { AESUtils, AESUtilsImpl } from './AES'
 import { ShamirClass, WebcryptoShamir } from './shamir'
 import { HMACUtils, HMACUtilsImpl } from './HMACUtils'
+import { ua2ab } from '../utils'
 
 export interface CryptoPrimitives {
   readonly shamir: ShamirClass
@@ -72,11 +73,11 @@ export class WebCryptoPrimitives implements CryptoPrimitives {
   }
 
   sha256(data: ArrayBuffer | Uint8Array): Promise<ArrayBuffer> {
-    return this.crypto.subtle.digest('SHA-256', data)
+    return this.crypto.subtle.digest('SHA-256', ua2ab(data))
   }
 
   sha512(data: ArrayBuffer | Uint8Array): Promise<ArrayBuffer> {
-    return this.crypto.subtle.digest('SHA-512', data)
+    return this.crypto.subtle.digest('SHA-512', ua2ab(data))
   }
 
   randomBytes(n: number): Uint8Array {

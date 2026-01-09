@@ -97,6 +97,7 @@ export class User {
    */
   autoDelegations?: { [key in User.AutoDelegationTagEnum]?: Array<string> }
   /**
+   * @deprecated use created instead
    * the timestamp (unix epoch in ms) of creation of the user, will be filled automatically if missing. Not enforced by the application server.
    */
   createdDate?: number
