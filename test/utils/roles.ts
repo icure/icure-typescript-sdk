@@ -1,4 +1,5 @@
 export const defaultRoles = {
+  ANY_ACTING_SCOPE: ['DataOwner.ActingScope.OfChildren'],
   BASIC_DATA_OWNER: [
     'HealthElementManagement.Create',
     'HealthElementManagement.Purge',
