@@ -1,5 +1,5 @@
 import { KeyPair } from './RSA'
-import { hex2ua, notConcurrent, ua2hex } from '../utils'
+import { hex2ua, notConcurrent, ua2ab, ua2hex } from '../utils'
 import { DataOwner, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { IccDeviceApi, IccHcpartyApi, IccPatientApi } from '../../icc-api'
@@ -51,7 +51,7 @@ export class BaseExchangeKeysManager {
     const other = await this.dataOwnerApi.getCryptoActorStub(otherDataOwner)
     const newKeyHashVersion = getShaVersionForKey(other.stub, newDataOwnerPublicKey)
     if (!newKeyHashVersion) throw new Error(`Public key not found for data owner ${otherDataOwner}`)
-    const newPublicKey = await this.primitives.RSA.importKey('spki', hex2ua(newDataOwnerPublicKey), ['encrypt'], newKeyHashVersion)
+    const newPublicKey = await this.primitives.RSA.importKey('spki', ua2ab(hex2ua(newDataOwnerPublicKey)), ['encrypt'], newKeyHashVersion)
     await this.extendForGiveAccessBackTo(selfId, otherDataOwner, fingerprintV1(newDataOwnerPublicKey), newPublicKey, keyPairsByFingerprint)
     await this.extendForGiveAccessBackTo(otherDataOwner, selfId, fingerprintV1(newDataOwnerPublicKey), newPublicKey, keyPairsByFingerprint)
   }

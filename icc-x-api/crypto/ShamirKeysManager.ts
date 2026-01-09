@@ -2,7 +2,7 @@ import { DataOwnerOrStub, IccDataOwnerXApi } from '../icc-data-owner-x-api'
 import { UserEncryptionKeysManager } from './UserEncryptionKeysManager'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { KeyPair } from './RSA'
-import { hex2ua, ua2hex } from '../utils'
+import { hex2ua, ua2ab, ua2hex } from '../utils'
 import { ExchangeDataManager } from './ExchangeDataManager'
 import { CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
 import { fingerprintV1 } from './utils'
@@ -141,7 +141,7 @@ export class ShamirKeysManager {
         if (share !== ua2hex(hex2ua(share))) throw new Error('Unexpected result with encoding-decoding share')
       }
       return await this.encryptShares(
-        paddedStringShares.map((x) => hex2ua(x)),
+        paddedStringShares.map((x) => ua2ab(hex2ua(x))),
         delegateIds,
         delegatesKeys
       )

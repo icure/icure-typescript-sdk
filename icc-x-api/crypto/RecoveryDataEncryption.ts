@@ -3,7 +3,7 @@ import { CryptoPrimitives } from './CryptoPrimitives'
 import { IccRecoveryDataApi } from '../../icc-api/api/internal/IccRecoveryDataApi'
 import { IccExchangeDataApi } from '../../icc-api/api/internal/IccExchangeDataApi'
 import { RecoveryData } from '../../icc-api/model/internal/RecoveryData'
-import { a2b, b2a, b64_2ua, hex2ua, string2ua, ua2b64, ua2hex, ua2string, ua2utf8, utf8_2ua } from '../utils'
+import { a2b, b2a, b64_2ua, hex2ua, string2ua, ua2ab, ua2b64, ua2hex, ua2string, ua2utf8, utf8_2ua } from '../utils'
 import { XHR } from '../../icc-api/api/XHR'
 import XHRError = XHR.XHRError
 import { ExchangeData } from '../../icc-api/model/internal/ExchangeData'
@@ -88,8 +88,8 @@ export class RecoveryDataEncryption {
         const delegateKeys: { [publicKeySpki: string]: KeyPair<CryptoKey> } = {}
         for (const { pair, algorithm } of pairs) {
           delegateKeys[ua2hex(b64_2ua(pair.publicKey))] = {
-            privateKey: await this.primitives.RSA.importKey('pkcs8', b64_2ua(pair.privateKey), ['decrypt'], algorithm),
-            publicKey: await this.primitives.RSA.importKey('spki', b64_2ua(pair.publicKey), ['encrypt'], algorithm),
+            privateKey: await this.primitives.RSA.importKey('pkcs8', ua2ab(b64_2ua(pair.privateKey)), ['decrypt'], algorithm),
+            publicKey: await this.primitives.RSA.importKey('spki', ua2ab(b64_2ua(pair.publicKey)), ['encrypt'], algorithm),
           }
         }
         recoveredKeys[delegateId] = delegateKeys
@@ -137,9 +137,9 @@ export class RecoveryDataEncryption {
     return {
       success: (getRecoveryDataResult.decryptedJson as ExchangeDataRecoveryDataContent).map((x) => ({
         exchangeDataId: x.exchangeDataId,
-        rawAccessControlSecret: b64_2ua(x.rawAccessControlSecret),
-        rawSharedSignatureKey: b64_2ua(x.rawSharedSignatureKey),
-        rawExchangeKey: b64_2ua(x.rawExchangeKey),
+        rawAccessControlSecret: ua2ab(b64_2ua(x.rawAccessControlSecret)),
+        rawSharedSignatureKey: ua2ab(b64_2ua(x.rawSharedSignatureKey)),
+        rawExchangeKey: ua2ab(b64_2ua(x.rawExchangeKey)),
       })),
     }
   }

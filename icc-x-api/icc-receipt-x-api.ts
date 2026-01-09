@@ -13,7 +13,7 @@ import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import { XHR } from '../icc-api/api/XHR'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 import { MaintenanceTask } from '../icc-api/model/models'
-import { EntityWithDelegationTypeName } from './utils'
+import { EntityWithDelegationTypeName, ua2ab } from './utils'
 
 export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi<models.Receipt> {
   get headers(): Promise<Array<XHR.Header>> {
@@ -123,7 +123,7 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
    * @return the updated receipt.
    */
   async setClearReceiptAttachment(receipt: models.Receipt, blobType: string, attachment: ArrayBuffer | Uint8Array): Promise<models.Receipt> {
-    return await this.setReceiptAttachmentForBlobType(receipt.id!, receipt.rev!, blobType, attachment)
+    return await this.setReceiptAttachmentForBlobType(receipt.id!, receipt.rev!, blobType, ua2ab(attachment))
   }
 
   /**

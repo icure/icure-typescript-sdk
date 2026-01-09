@@ -3,7 +3,7 @@ import 'mocha'
 import { createNewHcpApi, getEnvironmentInitializer, setLocalStorage, TestUtils } from '../../utils/test_utils'
 import { before } from 'mocha'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
-import { CryptoPrimitives, hex2ua, IcureApi, ShaVersion, ua2hex } from '../../../icc-x-api'
+import { CryptoPrimitives, hex2ua, IcureApi, ShaVersion, ua2ab, ua2hex } from '../../../icc-x-api'
 import { randomUUID, webcrypto } from 'crypto'
 import { HealthcareParty } from '../../../icc-api/model/HealthcareParty'
 import { TestApi } from '../../utils/TestApi'
@@ -85,7 +85,7 @@ describe('SDL in an environment with soft-deleted data owners', async function (
       passwordHash: userPw,
       healthcarePartyId: hcp.id!,
     })
-    const hcpKeypair = await primitives.RSA.importKeyPair('pkcs8', hex2ua(privKeyHex), 'spki', hex2ua(pubKeyHex), ShaVersion.Sha1)
+    const hcpKeypair = await primitives.RSA.importKeyPair('pkcs8', ua2ab(hex2ua(privKeyHex)), 'spki', ua2ab(hex2ua(pubKeyHex)), ShaVersion.Sha1)
     const testApi = await TestApi(env.iCureUrl, user.email!, userPw, webcrypto as any, hcpKeypair)
     const selfKeys = await testApi.cryptoApi.exchangeKeys.getDecryptionExchangeKeysFor(hcp.id!, hcp.id!)
     expect(selfKeys.length).to.eq(1)

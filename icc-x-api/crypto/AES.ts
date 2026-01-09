@@ -1,4 +1,4 @@
-import { appendBuffer, hex2ua, ua2hex } from '../utils'
+import { appendBuffer, hex2ua, ua2ab, ua2hex } from '../utils'
 
 export interface AESUtils {
   encryptWithRawKey(rawKey: string, plainData: ArrayBuffer | Uint8Array): Promise<ArrayBuffer>
@@ -165,7 +165,7 @@ export class AESUtilsImpl implements AESUtils {
          */
       }
       this._debug && console.log(`decrypt ${ua2hex(encryptedData)} with ${rawKey}`)
-      this.crypto.subtle.decrypt(aesAlgorithmEncrypt, cryptoKey, encryptedDataUint8.subarray(this.ivLength, encryptedDataUint8.length)).then(
+      this.crypto.subtle.decrypt(aesAlgorithmEncrypt, cryptoKey, ua2ab(encryptedDataUint8.subarray(this.ivLength, encryptedDataUint8.length))).then(
         (decipheredData) => {
           this._debug && console.log(`decipheredData: ${ua2hex(decipheredData)}`)
           resolve(decipheredData)

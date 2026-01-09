@@ -11,7 +11,7 @@ import {
   TestUtils,
 } from '../../utils/test_utils'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
-import { hex2ua, IcureApi, RSAUtils, RSAUtilsImpl, ShaVersion } from '../../../icc-x-api'
+import { hex2ua, IcureApi, RSAUtils, RSAUtilsImpl, ShaVersion, ua2ab } from '../../../icc-x-api'
 import * as chaiAsPromised from 'chai-as-promised'
 import { expect, use as chaiUse } from 'chai'
 import { entities } from './entities-crud-test-interface'
@@ -53,8 +53,8 @@ describe('CRUD Test', () => {
 
     const RSA = new RSAUtilsImpl(webcrypto as any)
     const keys = {
-      publicKey: await RSA.importKey('spki', hex2ua(credentials.publicKey), ['encrypt'], ShaVersion.Sha1),
-      privateKey: await RSA.importKey('pkcs8', hex2ua(credentials.privateKey), ['decrypt'], ShaVersion.Sha1),
+      publicKey: await RSA.importKey('spki', ua2ab(hex2ua(credentials.publicKey)), ['encrypt'], ShaVersion.Sha1),
+      privateKey: await RSA.importKey('pkcs8', ua2ab(hex2ua(credentials.privateKey)), ['decrypt'], ShaVersion.Sha1),
     }
 
     noPermissionsApi = await IcureApi.initialise(

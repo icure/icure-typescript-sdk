@@ -40,7 +40,7 @@ describeNoLite('Anonymous Access', () => {
       })
     )
 
-    const groupId = getEnvVariables().testGroupId
+    const groupId = env.testGroupId
 
     const paginatedMedicalLocations = await anonymousAccessApi.getPublicMedicalLocationsByGroupId(groupId)
 

@@ -1,3 +1,5 @@
+import { readUInt24BE } from 'rsocket-core'
+
 export function ua2string(_ua: Uint8Array | ArrayBuffer): string {
   let str = ''
   const ab = new Uint8Array(_ua)
@@ -24,9 +26,24 @@ export function string2ab(s: string): ArrayBuffer {
   return ua2ab(string2ua(s))
 }
 
-export function ua2ab(ua: Uint8Array): ArrayBuffer {
-  const buffer = ua.buffer
-  return (buffer.byteLength > ua.byteLength ? buffer.slice(0, ua.byteLength) : buffer) as ArrayBuffer
+// Get an array buffer matching the content of the input, copying only when necessary
+export function ua2ab(ua: ArrayBuffer | Uint8Array): ArrayBuffer {
+  if (ua instanceof ArrayBuffer) return ua
+  const { buffer, byteOffset, byteLength } = ua
+
+  if (buffer instanceof ArrayBuffer) {
+    if (byteOffset === 0 && byteLength === buffer.byteLength) {
+      // zero-copy fast path
+      return buffer
+    }
+
+    return buffer.slice(byteOffset, byteOffset + byteLength)
+  }
+
+  // buffer is SharedArrayBuffer → must copy
+  const copy = new Uint8Array(byteLength)
+  copy.set(ua)
+  return copy.buffer
 }
 
 export function decodeStringOrArrayBuffer(value: string | ArrayBuffer): ArrayBuffer {

@@ -9,7 +9,7 @@ import { ExchangeDataManager } from './ExchangeDataManager'
 import { ExchangeData } from '../../icc-api/model/internal/ExchangeData'
 import { SecureDelegationsEncryption } from './SecureDelegationsEncryption'
 import { CryptoPrimitives } from './CryptoPrimitives'
-import { hex2ua, ua2hex } from '../utils'
+import { hex2ua, ua2ab, ua2hex } from '../utils'
 import { AccessControlSecretUtils } from './AccessControlSecretUtils'
 import { EntityShareOrMetadataUpdateRequest } from '../../icc-api/model/requests/EntityShareOrMetadataUpdateRequest'
 import { EncryptedEntity, EncryptedEntityStub } from '../../icc-api/model/models'
@@ -328,7 +328,7 @@ export class SecureDelegationsManager {
         const currFp = fingerprintV2(keyHex)
         const shaVersion = delegateInfo.availablePublicKeysHexWithSha1.includes(keyHex) ? ShaVersion.Sha1 : ShaVersion.Sha256
         if (fingerprintsOfVerifiedExchangeData.has(currFp)) {
-          delegateVerifiedKeys[currFp] = await this.primitives.RSA.importKey('spki', hex2ua(keyHex), ['encrypt'], shaVersion)
+          delegateVerifiedKeys[currFp] = await this.primitives.RSA.importKey('spki', ua2ab(hex2ua(keyHex)), ['encrypt'], shaVersion)
         }
       }
       if (!Object.keys(delegateVerifiedKeys).length)

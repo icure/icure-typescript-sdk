@@ -4,7 +4,7 @@ import { ExchangeData } from '../../icc-api/model/internal/ExchangeData'
 import { IccExchangeDataApi } from '../../icc-api/api/internal/IccExchangeDataApi'
 import { XHR } from '../../icc-api/api/XHR'
 import { CryptoPrimitives } from './CryptoPrimitives'
-import { b64_2ua, hex2ua, ua2b64, ua2hex, utf8_2ua } from '../utils'
+import { b64_2ua, hex2ua, ua2ab, ua2b64, ua2hex, utf8_2ua } from '../utils'
 import * as _ from 'lodash'
 import { fingerprintIsV1, fingerprintV1toV2 } from './utils'
 import XHRError = XHR.XHRError
@@ -147,7 +147,7 @@ export class BaseExchangeDataManager {
       exchangeData,
       decryptionKeys,
       (ed) => ed.accessControlSecret,
-      (d) => this.importAccessControlSecret(new Uint8Array(d))
+      (d) => this.importAccessControlSecret(new Uint8Array(d).buffer)
     )
   }
 
@@ -170,7 +170,7 @@ export class BaseExchangeDataManager {
       exchangeData,
       decryptionKeys,
       (ed) => ed.exchangeKey,
-      (d) => this.importExchangeKey(new Uint8Array(d))
+      (d) => this.importExchangeKey(new Uint8Array(d).buffer)
     )
   }
 
@@ -193,7 +193,7 @@ export class BaseExchangeDataManager {
       exchangeData,
       decryptionKeys,
       (ed) => ed.sharedSignatureKey,
-      (d) => this.importSharedSignatureKey(new Uint8Array(d))
+      (d) => this.importSharedSignatureKey(new Uint8Array(d).buffer)
     )
   }
 
@@ -385,9 +385,9 @@ export class BaseExchangeDataManager {
     accessControlSecret: string
   }> {
     const self = await this.dataOwnerApi.getCurrentDataOwnerId()
-    const exchangeKey = await this.importExchangeKey(new Uint8Array(rawExchangeKey))
-    const accessControlSecret = await this.importAccessControlSecret(new Uint8Array(rawAccessControlSecret))
-    const sharedSignatureKey = await this.importSharedSignatureKey(new Uint8Array(rawSharedSignatureKey))
+    const exchangeKey = await this.importExchangeKey(new Uint8Array(rawExchangeKey).buffer)
+    const accessControlSecret = await this.importAccessControlSecret(new Uint8Array(rawAccessControlSecret).buffer)
+    const sharedSignatureKey = await this.importSharedSignatureKey(new Uint8Array(rawSharedSignatureKey).buffer)
     const existingExchangeKeyEntries = new Set(Object.keys(exchangeData.exchangeKey))
     const existingAcsEntries = new Set(Object.keys(exchangeData.accessControlSecret))
     const existingSharedSignatureKeyEntries = new Set(Object.keys(exchangeData.sharedSignatureKey))
@@ -471,7 +471,7 @@ export class BaseExchangeDataManager {
       ['publicKeysFingerprints', data.publicKeysFingerprintsV2.sort()],
     ]
     const signJson = JSON.stringify(signObject)
-    return utf8_2ua(signJson)
+    return ua2ab(utf8_2ua(signJson))
   }
 
   private async bytesToSignForDelegatorSignature(data: { sharedSignatureKey: CryptoKey }): Promise<ArrayBuffer> {
@@ -483,7 +483,7 @@ export class BaseExchangeDataManager {
     key: CryptoKey // the imported key
     rawBytes: ArrayBuffer // the bytes to encrypt for in the exchange data
   }> {
-    const rawBytes = await this.primitives.randomBytes(32)
+    const rawBytes = ua2ab(this.primitives.randomBytes(32))
     return {
       key: await this.importExchangeKey(rawBytes),
       rawBytes,
@@ -519,7 +519,7 @@ export class BaseExchangeDataManager {
     secret: string // the imported secret
     rawBytes: ArrayBuffer // the bytes to encrypt for in the exchange data
   }> {
-    const rawBytes = this.primitives.randomBytes(16)
+    const rawBytes = ua2ab(this.primitives.randomBytes(16))
     return {
       secret: await this.importAccessControlSecret(rawBytes),
       rawBytes,
@@ -531,7 +531,7 @@ export class BaseExchangeDataManager {
   }
 
   exportAccessControlSecret(secret: string): Promise<ArrayBuffer> {
-    return Promise.resolve(hex2ua(secret))
+    return Promise.resolve(ua2ab(hex2ua(secret)))
   }
 
   private async encryptDataWithKeys(
@@ -560,7 +560,7 @@ export class BaseExchangeDataManager {
   ): Promise<{ [keyPairFingerprint: string]: string }> {
     const res: { [keyPairFingerprint: string]: string } = {}
     for (const [fp, key] of Object.entries(keys)) {
-      res[fingerprintV1toV2(fp)] = ua2b64(await this.primitives.HMAC.sign(await this.extractHmacFromRsaPrivate(key), new Uint8Array(rawData)))
+      res[fingerprintV1toV2(fp)] = ua2b64(await this.primitives.HMAC.sign(await this.extractHmacFromRsaPrivate(key), new Uint8Array(rawData).buffer))
     }
     return res
   }
@@ -578,7 +578,7 @@ export class BaseExchangeDataManager {
       const verificationKey = keysByV2Fp[fp]
       if (
         verificationKey &&
-        (await this.primitives.HMAC.verify(await this.extractHmacFromRsaPrivate(verificationKey), delegatorSignatureData, b64_2ua(signature)))
+        (await this.primitives.HMAC.verify(await this.extractHmacFromRsaPrivate(verificationKey), delegatorSignatureData, ua2ab(b64_2ua(signature))))
       )
         return true
     }
@@ -586,10 +586,10 @@ export class BaseExchangeDataManager {
   }
 
   private async signDataWithSharedKey(rawData: ArrayBuffer, key: CryptoKey): Promise<string> {
-    return ua2b64(await this.primitives.HMAC.sign(key, new Uint8Array(rawData)))
+    return ua2b64(await this.primitives.HMAC.sign(key, new Uint8Array(rawData).buffer))
   }
 
   private async verifyDataWithSharedKey(rawData: ArrayBuffer, key: CryptoKey, signature: string): Promise<boolean> {
-    return await this.primitives.HMAC.verify(key, new Uint8Array(rawData), b64_2ua(signature))
+    return await this.primitives.HMAC.verify(key, new Uint8Array(rawData).buffer, ua2ab(b64_2ua(signature)))
   }
 }

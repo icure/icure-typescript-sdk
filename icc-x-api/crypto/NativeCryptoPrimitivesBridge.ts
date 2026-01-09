@@ -3,7 +3,7 @@ import { HMACUtils } from './HMACUtils'
 import { ShamirClass } from './shamir'
 import { AESUtils } from './AES'
 import { KeyPair, RSAUtils, ShaVersion } from './RSA'
-import { b64_2ua, hex2ua, ua2b64, ua2hex, ua2utf8, utf8_2ua } from '../utils'
+import { b64_2ua, hex2ua, ua2ab, ua2b64, ua2hex, ua2utf8, utf8_2ua } from '../utils'
 
 /**
  * Allows to use the expo-kryptom module as crypto primitives. This is necessary when building expo (react native) apps.
@@ -34,7 +34,7 @@ export class NativeCryptoPrimitivesBridge implements CryptoPrimitives {
   }
 
   async sha256(data: ArrayBuffer | Uint8Array): Promise<ArrayBuffer> {
-    return await this.digest.sha256(data instanceof ArrayBuffer ? new Uint8Array(data) : data)
+    return ua2ab(await this.digest.sha256(data instanceof ArrayBuffer ? new Uint8Array(data) : data))
   }
 
   async sha512(data: ArrayBuffer | Uint8Array): Promise<ArrayBuffer> {
@@ -58,7 +58,7 @@ class NativeAesBridge implements AESUtils {
   constructor(private readonly aes: AesService, private readonly random: StrongRandomService) {}
 
   async decrypt(cryptoKey: CryptoKey, encryptedData: ArrayBuffer | Uint8Array): Promise<ArrayBuffer> {
-    return await this.aes.decrypt(new Uint8Array(encryptedData), getKryptomKey(cryptoKey))
+    return ua2ab(await this.aes.decrypt(new Uint8Array(encryptedData), getKryptomKey(cryptoKey)))
   }
 
   decryptSome(cryptoKeys: CryptoKey[], uint8Array: Uint8Array): Promise<ArrayBuffer> {
@@ -79,7 +79,7 @@ class NativeAesBridge implements AESUtils {
   }
 
   async encrypt(cryptoKey: CryptoKey, plainData: ArrayBuffer | Uint8Array): Promise<ArrayBuffer> {
-    return await this.aes.encrypt(new Uint8Array(plainData), getKryptomKey(cryptoKey), null)
+    return ua2ab(await this.aes.encrypt(new Uint8Array(plainData), getKryptomKey(cryptoKey), null))
   }
 
   async encryptWithRawKey(rawKey: string, plainData: ArrayBuffer | Uint8Array): Promise<ArrayBuffer> {
@@ -91,7 +91,7 @@ class NativeAesBridge implements AESUtils {
   exportKey(cryptoKey: CryptoKey, format: 'jwk'): Promise<JsonWebKey>
   async exportKey(cryptoKey: CryptoKey, format: 'jwk' | 'raw'): Promise<ArrayBuffer | JsonWebKey> {
     const rawKey = await this.aes.exportRawKey(getKryptomKey(cryptoKey))
-    if (format == 'raw') return rawKey
+    if (format == 'raw') return ua2ab(rawKey)
     return {
       kty: 'oct',
       alg: rawKey.byteLength == 32 ? 'A256CBC' : 'A128CBC',
@@ -174,7 +174,7 @@ class NativeHmacBridge implements HMACUtils {
   constructor(private readonly hmac: HmacService) {}
 
   async exportKey(key: CryptoKey): Promise<ArrayBuffer> {
-    return await this.hmac.exportRawKey(getKryptomKey(key))
+    return ua2ab(await this.hmac.exportRawKey(getKryptomKey(key)))
   }
 
   async generateKey(): Promise<CryptoKey> {
@@ -188,7 +188,7 @@ class NativeHmacBridge implements HMACUtils {
   }
 
   async sign(key: CryptoKey, data: ArrayBuffer): Promise<ArrayBuffer> {
-    return await this.hmac.sign(new Uint8Array(data), getKryptomKey(key))
+    return ua2ab(await this.hmac.sign(new Uint8Array(data), getKryptomKey(key)))
   }
 
   async verify(key: CryptoKey, data: ArrayBuffer, signature: ArrayBuffer): Promise<boolean> {
@@ -232,11 +232,11 @@ class NativeRsaBridge implements RSAUtils {
   }
 
   async decrypt(privateKey: CryptoKey, encryptedData: Uint8Array): Promise<ArrayBuffer> {
-    return await this.rsa.decrypt(encryptedData, getKryptomKey(privateKey))
+    return ua2ab(await this.rsa.decrypt(encryptedData, getKryptomKey(privateKey)))
   }
 
   async encrypt(publicKey: CryptoKey, plainData: Uint8Array): Promise<ArrayBuffer> {
-    return await this.rsa.encrypt(plainData, getKryptomKey(publicKey))
+    return ua2ab(await this.rsa.encrypt(plainData, getKryptomKey(publicKey)))
   }
 
   exportKey(cryptoKey: CryptoKey, format: 'jwk'): Promise<JsonWebKey>
@@ -250,9 +250,9 @@ class NativeRsaBridge implements RSAUtils {
         return await this.rsa.exportPublicKeyJwk(getKryptomKey(cryptoKey))
       }
     } else if (format === 'spki') {
-      return await this.rsa.exportPublicKeySpki(getKryptomKey(cryptoKey))
+      return ua2ab(await this.rsa.exportPublicKeySpki(getKryptomKey(cryptoKey)))
     } else if (format === 'pkcs8') {
-      return await this.rsa.exportPrivateKeyPkcs8(getKryptomKey(cryptoKey))
+      return ua2ab(await this.rsa.exportPrivateKeyPkcs8(getKryptomKey(cryptoKey)))
     } else throw new Error(`Invalid format ${format}`)
   }
 
@@ -267,13 +267,13 @@ class NativeRsaBridge implements RSAUtils {
     if (privKeyFormat === 'jwk') {
       privateKey = await this.rsa.exportPrivateKeyJwk(getKryptomKey(keyPair.privateKey))
     } else {
-      privateKey = await this.rsa.exportPrivateKeyPkcs8(getKryptomKey(keyPair.privateKey))
+      privateKey = ua2ab(await this.rsa.exportPrivateKeyPkcs8(getKryptomKey(keyPair.privateKey)))
     }
     let publicKey: JsonWebKey | ArrayBuffer
     if (pubKeyFormat === 'jwk') {
       publicKey = await this.rsa.exportPublicKeyJwk(getKryptomKey(keyPair.publicKey))
     } else {
-      publicKey = await this.rsa.exportPublicKeySpki(getKryptomKey(keyPair.publicKey))
+      publicKey = ua2ab(await this.rsa.exportPublicKeySpki(getKryptomKey(keyPair.publicKey)))
     }
     return { privateKey, publicKey }
   }
@@ -375,7 +375,7 @@ class NativeRsaBridge implements RSAUtils {
   }
 
   async sign(privateKey: CryptoKey, data: ArrayBuffer): Promise<ArrayBuffer> {
-    return await this.rsa.signature(new Uint8Array(data), getKryptomKey(privateKey))
+    return ua2ab(await this.rsa.signature(new Uint8Array(data), getKryptomKey(privateKey)))
   }
 
   async verifySignature(publicKey: CryptoKey, signature: ArrayBuffer, data: ArrayBuffer): Promise<boolean> {

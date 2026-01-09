@@ -9,6 +9,7 @@ import {
   EntityWithDelegationTypeName,
   hex2ua,
   truncateTrailingNulls,
+  ua2ab,
   ua2utf8,
   utf8_2ua,
 } from '../utils'
@@ -595,7 +596,7 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     if (result != null) {
       return { data: result.success, wasDecrypted: true }
     } else {
-      return { data: content, wasDecrypted: false }
+      return { data: ua2ab(content), wasDecrypted: false }
     }
   }
 
@@ -1058,7 +1059,7 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     }
   }
 
-  private deduplicateById<E extends { id?: string }>(entities: E[]) : E[] {
+  private deduplicateById<E extends { id?: string }>(entities: E[]): E[] {
     const seen = new Set<string | undefined>()
     return entities.filter((e) => {
       if (seen.has(e.id)) return false
