@@ -30,7 +30,8 @@ export interface CryptoStrategies {
    *   (partially or completely) with `unknownKeys`.
    *
    * The returned value must be an object associating to each data owner id an object with:
-   * - `recoveredKeys`: all recovered keys (will be automatically considered as verified), by fingerprint.
+   * - `recoveredKeys`: all recovered keys, by fingerprint. Will be automatically considered as authentic/trusted unless explicitly marked as unverified in
+   *   the `keyAuthenticity` object.
    * - `keyAuthenticity`: an object associating to each public key fingerprint its authenticity. Note that if any of the keys from `unknownKeys` is
    *   completely missing from this object the key will be considered as unverified in this api instance (same as if associated to false), but this
    *   value won't be cached (will be again part of `unknownKeys` in future instances.
