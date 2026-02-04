@@ -323,6 +323,7 @@ export class Patient {
   employementInfos?: Array<EmploymentInfo>
   securityMetadata?: SecurityMetadata
   parentId?: never
+  cryptoActorProperties?: Array<PropertyStub>
 }
 export namespace Patient {
   export type GenderEnum = 'male' | 'female' | 'indeterminate' | 'changed' | 'changedToMale' | 'changedToFemale' | 'unknown'
