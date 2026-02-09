@@ -16,6 +16,7 @@ import { Form } from '../model/Form'
 import { FormTemplate } from '../model/FormTemplate'
 import { IcureStub } from '../model/IcureStub'
 import { ListOfIds } from '../model/ListOfIds'
+import { IdWithRev } from '../model/IdWithRev'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
@@ -582,6 +583,216 @@ export class IccFormApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new FormTemplate(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Returns a list of form templates for the specified user in a group.
+   * @summary Get form templates by user in a group
+   * @param groupId the id of the group
+   * @param userId the id of the user
+   * @param loadLayout whether to load the layout of the form templates
+   */
+  async getFormTemplatesByUserInGroup(groupId: string, userId: string, loadLayout?: boolean): Promise<Array<FormTemplate>> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/form/template/inGroup/${encodeURIComponent(String(groupId))}/byUser/${encodeURIComponent(String(userId))}` +
+      '?ts=' +
+      new Date().getTime() +
+      (loadLayout !== undefined ? '&loadLayout=' + encodeURIComponent(String(loadLayout)) : '')
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new FormTemplate(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Returns an instance of created form template.
+   * @summary Create a form template in a group
+   * @param groupId the id of the group
+   * @param body the form template to create
+   */
+  async createFormTemplateInGroup(groupId: string, body?: FormTemplate): Promise<FormTemplate> {
+    const _url = this.host + `/form/template/inGroup/${encodeURIComponent(String(groupId))}` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new FormTemplate(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Delete a form template in a group
+   * @param groupId the id of the group
+   * @param formTemplateId the id of the form template to delete
+   * @param rev the revision of the form template to delete
+   */
+  async deleteFormTemplateInGroup(groupId: string, formTemplateId: string, rev: string): Promise<DocIdentifier> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/form/template/inGroup/${encodeURIComponent(String(groupId))}/${encodeURIComponent(String(formTemplateId))}?rev=${encodeURIComponent(String(rev))}` +
+      '&ts=' +
+      new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new DocIdentifier(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Returns an instance of modified form template.
+   * @summary Modify a form template in a group
+   * @param groupId the id of the group
+   * @param formTemplateId the id of the form template to modify
+   * @param body the form template with updated data
+   */
+  async updateFormTemplateInGroup(groupId: string, formTemplateId: string, body?: FormTemplate): Promise<FormTemplate> {
+    let _body = null
+    _body = body
+
+    const _url =
+      this.host +
+      `/form/template/inGroup/${encodeURIComponent(String(groupId))}` +
+      '?ts=' +
+      new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new FormTemplate(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Update a form template's layout in a group using multipart upload
+   * @param groupId the id of the group
+   * @param attachment the layout data
+   * @param formTemplateId the id of the form template
+   */
+  async setTemplateAttachmentMultiInGroup(groupId: string, attachment: ArrayBuffer, formTemplateId: string): Promise<string> {
+    let _body = null
+    if (attachment && !_body) {
+      const parts = Array.isArray(attachment) ? (attachment as any[]) : [attachment as ArrayBuffer]
+      const _blob = new Blob(parts, { type: 'application/octet-stream' })
+      _body = new FormData()
+      _body.append('attachment', _blob)
+    }
+
+    const _url =
+      this.host +
+      `/form/template/inGroup/${encodeURIComponent(String(groupId))}/${encodeURIComponent(String(formTemplateId))}/attachment/multipart` +
+      '?ts=' +
+      new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'multipart/form-data'))
+    return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => JSON.parse(JSON.stringify(doc.body)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Update a form template's layout in a group
+   * @param groupId the id of the group
+   * @param formTemplateId the id of the form template
+   * @param payload the layout data as binary
+   */
+  async setTemplateAttachmentInGroup(groupId: string, formTemplateId: string, payload: ArrayBuffer): Promise<string> {
+    const _url =
+      this.host +
+      `/form/template/inGroup/${encodeURIComponent(String(groupId))}/${encodeURIComponent(String(formTemplateId))}/attachment` +
+      '?ts=' +
+      new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
+    return XHR.sendCommand('PUT', _url, headers, payload, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => JSON.parse(JSON.stringify(doc.body)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Create a batch of form templates in a group
+   * @param groupId the id of the group
+   * @param formTemplates the form templates to create
+   */
+  async createFormTemplatesInGroup(groupId: string, formTemplates: FormTemplate[]): Promise<FormTemplate[]> {
+    const _url = this.host + `/form/template/inGroup/${encodeURIComponent(String(groupId))}/batch` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, formTemplates, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new FormTemplate(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Modify a batch of form templates in a group
+   * @param groupId the id of the group
+   * @param formTemplates the form templates to modify
+   */
+  async modifyFormTemplatesInGroup(groupId: string, formTemplates: FormTemplate[]): Promise<FormTemplate[]> {
+    const _url = this.host + `/form/template/inGroup/${encodeURIComponent(String(groupId))}/batch` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('PUT', _url, headers, formTemplates, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new FormTemplate(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Get form templates in a group by their ids
+   * @param groupId the id of the group
+   * @param formTemplateIds the list of form template ids
+   */
+  async getFormTemplatesInGroup(groupId: string, formTemplateIds: string[]): Promise<FormTemplate[]> {
+    const _url = this.host + `/form/template/inGroup/${encodeURIComponent(String(groupId))}/byIds` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, { ids: formTemplateIds }, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new FormTemplate(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Delete a batch of form templates in a group
+   * @param groupId the id of the group
+   * @param formTemplateIdsAndRevs the list of form template ids and revisions
+   */
+  async deleteFormTemplatesInGroup(groupId: string, formTemplateIdsAndRevs: IdWithRev[]): Promise<DocIdentifier[]> {
+    const _url = this.host + `/form/template/inGroup/${encodeURIComponent(String(groupId))}/delete/batch` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, { ids: formTemplateIdsAndRevs }, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Undelete a batch of form templates in a group
+   * @param groupId the id of the group
+   * @param formTemplateIdsAndRevs the list of form template ids and revisions
+   */
+  async undeleteFormTemplatesInGroup(groupId: string, formTemplateIdsAndRevs: IdWithRev[]): Promise<FormTemplate[]> {
+    const _url = this.host + `/form/template/inGroup/${encodeURIComponent(String(groupId))}/undelete/batch` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, { ids: formTemplateIdsAndRevs }, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new FormTemplate(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Purge a batch of form templates in a group
+   * @param groupId the id of the group
+   * @param formTemplateIdsAndRevs the list of form template ids and revisions
+   */
+  async purgeFormTemplatesInGroup(groupId: string, formTemplateIdsAndRevs: IdWithRev[]): Promise<DocIdentifier[]> {
+    const _url = this.host + `/form/template/inGroup/${encodeURIComponent(String(groupId))}/purge/batch` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, { ids: formTemplateIdsAndRevs }, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
       .catch((err) => this.handleError(err))
   }
 
