@@ -4,6 +4,7 @@ import { Patient } from './Patient'
 import { HealthcareParty } from './HealthcareParty'
 import { Device } from './Device'
 import { CodeStub } from './CodeStub'
+import { PropertyStub } from './PropertyStub'
 
 export class CryptoActorStub {
   constructor(json: JSON | any) {
@@ -56,6 +57,7 @@ export class CryptoActorStub {
    */
   tags?: Array<CodeStub>
   parentId?: string
+  cryptoActorProperties?: Array<PropertyStub>
 }
 export class CryptoActorStubWithType {
   constructor(json: JSON | any) {

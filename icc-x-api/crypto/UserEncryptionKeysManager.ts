@@ -285,14 +285,14 @@ export class UserEncryptionKeysManager {
       const currExternallyRecovered = this.ensureFingerprintKeys(recoveryAndVerificationResult[keyData.dowt.dataOwner.id!].recoveredKeys)
       for (const [fp, keyPair] of Object.entries(currExternallyRecovered)) {
         const jwkPair = await this.primitives.RSA.exportKeys(keyPair, 'jwk', 'jwk')
-        await this.icureStorage.saveKey(keyData.dowt.dataOwner.id!, fp, jwkPair, true)
+        await this.icureStorage.saveKey(keyData.dowt.dataOwner.id!, fp, jwkPair, currAuthenticity[fp] != undefined ? currAuthenticity[fp] : true)
       }
       const updatedVerifiedMap = await this.icureStorage.saveSelfVerifiedKeys(
         keyData.dowt.dataOwner.id!,
         [...Object.keys(currAuthenticity), ...Object.keys(currExternallyRecovered)].reduce(
           (acc, currFp) => ({
             ...acc,
-            [currFp]: currFp in currExternallyRecovered || currAuthenticity[currFp],
+            [currFp]: currAuthenticity[currFp] != undefined ? currAuthenticity[currFp] : currFp in currExternallyRecovered ? true : undefined,
           }),
           {}
         )

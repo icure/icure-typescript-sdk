@@ -16,7 +16,7 @@ import { PropertyStub } from './PropertyStub'
 /**
  * This entity is a root level object. It represents a device. It is serialized in JSON and saved in the underlying icure-base CouchDB database.
  */
-import { decodeStringOrArrayBuffer} from './ModelHelper'
+import { decodeStringOrArrayBuffer } from './ModelHelper'
 export class Device {
   constructor(json: JSON | any) {
     Object.assign(this as Device, json, json.picture ? { picture: decodeStringOrArrayBuffer(json.picture) } : {})
@@ -94,4 +94,5 @@ export class Device {
    * The public keys of this actor that are generates using the OAEP Sha-256 standard
    */
   publicKeysForOaepWithSha256?: Array<string>
+  cryptoActorProperties?: Array<PropertyStub>
 }
