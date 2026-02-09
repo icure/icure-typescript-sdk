@@ -64,32 +64,6 @@ export async function getEnvironmentInitializer(): Promise<EnvInitializer> {
   if (!cachedInitializer) {
     const env = getEnvVariables()
     const scratchDir = 'test/scratch'
-    if (env.testEnvironment == 'docker') {
-      const defaultRolesRequestBody = {
-        docs: Object.entries(defaultRoles).map(([roleName, permissions]) => {
-          return {
-            _id: roleName,
-            name: roleName,
-            permissions: permissions,
-            java_type: 'org.taktik.icure.entities.Role',
-          }
-        }),
-      }
-      try {
-        const res = await XHR.sendCommand(
-          'POST',
-          `${env.couchDbUrl}/icure-__-config/_bulk_docs`,
-          [new XHR.Header('Authorization', 'Basic aWN1cmU6aWN1cmU='), new XHR.Header('Content-Type', 'application/json')],
-          defaultRolesRequestBody,
-          fetch
-        )
-        if (res.statusCode < 200 || res.statusCode > 299) throw new Error(`Failed to setup initial roles ${res.body}`)
-      } catch (e) {
-        throw new Error(
-          'TODO: this request will fail if docker not yet initialised, env initialization fails if this is not done; current workaround: restart without this request to setup docker, then after restart with this request and it will work'
-        )
-      }
-    }
 
     const baseEnvironment =
       env.testEnvironment === 'docker' || env.testEnvironment === 'oss'
@@ -111,6 +85,7 @@ export async function getEnvironmentInitializer(): Promise<EnvInitializer> {
         user: ['BASIC_USER'],
       })
       .withMasterUser(fetch)
+      .withRoles(defaultRoles)
       .addHcp({ login: hcp1Username })
       .addHcp({ login: hcp2Username })
       .addHcp({ login: hcp3Username })

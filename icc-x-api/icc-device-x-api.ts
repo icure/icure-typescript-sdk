@@ -29,6 +29,14 @@ export class IccDeviceXApi extends IccDeviceApi {
     this.authApi = authApi
   }
 
+  /**
+   * Subscribes to real-time device events using a WebSocket connection.
+   * @param eventTypes the types of events to listen for (e.g. 'CREATE', 'UPDATE', 'DELETE').
+   * @param filter an optional filter to restrict which device events trigger the callback.
+   * @param eventFired the callback function invoked when a matching device event is received.
+   * @param options optional subscription configuration such as connection parameters and retry behaviour.
+   * @return a connection object that can be used to manage the WebSocket subscription lifecycle.
+   */
   async subscribeToDeviceEvents(
     eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
     filter: AbstractFilter<Device> | undefined,

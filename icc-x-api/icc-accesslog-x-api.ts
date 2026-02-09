@@ -235,12 +235,24 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
     return super.findAccessLogsByHCPartyPatientForeignKeysUsingPost(hcPartyId, secretFKeys).then((accesslogs) => this.decrypt(hcPartyId, accesslogs))
   }
 
+  /**
+   * Decrypts a list of access logs using the current data owner's keys.
+   * @param hcpId the id of the healthcare party performing the decryption.
+   * @param accessLogs the access logs to decrypt.
+   * @return the decrypted access logs.
+   */
   async decrypt(hcpId: string, accessLogs: Array<models.AccessLog>): Promise<Array<models.AccessLog>> {
     return (await this.crypto.xapi.tryDecryptEntities(accessLogs, EntityWithDelegationTypeName.AccessLog, (json) => new AccessLog(json))).map(
       ({ entity }) => entity
     )
   }
 
+  /**
+   * Encrypts the encrypted fields of a list of access logs.
+   * @param user the current user, used to determine the data owner for encryption.
+   * @param accessLogs the access logs to encrypt.
+   * @return the encrypted access logs.
+   */
   encrypt(user: models.User, accessLogs: Array<models.AccessLog>): Promise<Array<models.AccessLog>> {
     const owner = this.dataOwnerApi.getDataOwnerIdOf(user)
     return this.encryptAs(owner, accessLogs)
@@ -257,10 +269,19 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
     )
   }
 
+  /**
+   * @throws always. Use {@link createAccessLogWithUser} instead.
+   */
   createAccessLog(body?: models.AccessLog): never {
     throw new Error('Cannot call a method that returns access logs without providing a user for de/encryption')
   }
 
+  /**
+   * Creates an access log after encrypting its content.
+   * @param user the current user, used for encryption.
+   * @param body the access log to create.
+   * @return the created and decrypted access log.
+   */
   createAccessLogWithUser(user: models.User, body?: models.AccessLog): Promise<models.AccessLog | any> {
     return body
       ? this.encrypt(user, [_.cloneDeep(body)])
@@ -270,10 +291,19 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
       : Promise.resolve()
   }
 
+  /**
+   * @throws always. Use {@link getAccessLogWithUser} instead.
+   */
   getAccessLog(accessLogId: string): never {
     throw new Error('Cannot call a method that returns access logs without providing a user for de/encryption')
   }
 
+  /**
+   * Retrieves an access log by id and decrypts it.
+   * @param user the current user, used for decryption.
+   * @param accessLogId the id of the access log to retrieve.
+   * @return the decrypted access log.
+   */
   getAccessLogWithUser(user: models.User, accessLogId: string): Promise<models.AccessLog | any> {
     return super
       .getAccessLog(accessLogId)
@@ -281,18 +311,41 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
       .then((als) => als[0])
   }
 
+  /**
+   * @throws always. Use {@link getAccessLogsWithUser} instead.
+   */
   async getAccessLogs(ids: ListOfIds): Promise<AccessLog[]> {
     throw new Error('Cannot call a method that returns access logs without providing a user for de/encryption')
   }
 
+  /**
+   * Retrieves multiple access logs by their ids and decrypts them.
+   * @param user the current user, used for decryption.
+   * @param ids the list of access log ids to retrieve.
+   * @return the decrypted access logs.
+   */
   getAccessLogsWithUser(user: models.User, ids: ListOfIds): Promise<AccessLog[]> {
     return super.getAccessLogs(ids).then((accessLogs) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, accessLogs))
   }
 
+  /**
+   * @throws always. Use {@link listAccessLogsWithUser} instead.
+   */
   listAccessLogs(fromEpoch?: number, toEpoch?: number, startKey?: number, startDocumentId?: string, limit?: number): never {
     throw new Error('Cannot call a method that returns access logs without providing a user for de/encryption')
   }
 
+  /**
+   * Lists access logs within a date range and decrypts them.
+   * @param user the current user, used for decryption.
+   * @param fromEpoch the start of the date range (epoch in ms).
+   * @param toEpoch the end of the date range (epoch in ms).
+   * @param startKey the pagination start key.
+   * @param startDocumentId the pagination start document id.
+   * @param limit the maximum number of results to return.
+   * @param descending if true, results are returned in descending order.
+   * @return a paginated list of decrypted access logs.
+   */
   listAccessLogsWithUser(
     user: models.User,
     fromEpoch?: number,
@@ -309,10 +362,19 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
       )
   }
 
+  /**
+   * @throws always. Use {@link modifyAccessLogWithUser} instead.
+   */
   modifyAccessLog(body?: models.AccessLog): never {
     throw new Error('Cannot call a method that returns access logs without providing a user for de/encryption')
   }
 
+  /**
+   * Modifies an access log after encrypting its content.
+   * @param user the current user, used for encryption/decryption.
+   * @param body the access log with updated fields.
+   * @return the modified and decrypted access log, or null if body was not provided.
+   */
   async modifyAccessLogWithUser(user: models.User, body?: models.AccessLog): Promise<models.AccessLog | null> {
     return body ? this.modifyAs(this.dataOwnerApi.getDataOwnerIdOf(user)!, _.cloneDeep(body)) : null
   }
@@ -324,6 +386,9 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
       .then((als) => als[0])
   }
 
+  /**
+   * @throws always. Use {@link findByUserAfterDateWithUser} instead.
+   */
   findByUserAfterDate(
     userId: string,
     accessType?: string,
@@ -336,6 +401,18 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
     throw new Error('Cannot call a method that returns access logs without providing a user for de/encryption')
   }
 
+  /**
+   * Finds access logs by user id after a given date and decrypts them.
+   * @param user the current user, used for decryption.
+   * @param userId the id of the user whose access logs to find.
+   * @param accessType optional access type filter.
+   * @param startDate optional start date filter (epoch in ms).
+   * @param startKey the pagination start key.
+   * @param startDocumentId the pagination start document id.
+   * @param limit the maximum number of results to return.
+   * @param descending if true, results are returned in descending order.
+   * @return a paginated list of decrypted access logs.
+   */
   findByUserAfterDateWithUser(
     user: models.User,
     userId: string,
@@ -477,16 +554,32 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
       .then((r) => r.mapSuccessAsync((e) => this.decrypt(self, [e]).then((es) => es[0])))
   }
 
+  /**
+   * Retrieves the data owners that have access to the given access log, along with their access levels.
+   * @param entity the access log.
+   * @return an object containing a map of data owner ids to their access levels, and a flag indicating if there are unknown anonymous data owners.
+   */
   getDataOwnersWithAccessTo(
     entity: AccessLog
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
     return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: EntityWithDelegationTypeName.AccessLog })
   }
 
+  /**
+   * Retrieves the encryption keys of the given access log.
+   * @param entity the access log.
+   * @return the encryption key ids.
+   */
   getEncryptionKeysOf(entity: AccessLog): Promise<string[]> {
     return this.crypto.xapi.encryptionKeysOf({ entity, type: EntityWithDelegationTypeName.AccessLog }, undefined)
   }
 
+  /**
+   * Creates or updates de-anonymization metadata for the given access log, allowing the specified delegates to
+   * identify the data owners that have access to it.
+   * @param entity the access log.
+   * @param delegates the data owner ids for which to create de-anonymization metadata.
+   */
   createDelegationDeAnonymizationMetadata(entity: AccessLog, delegates: string[]): Promise<void> {
     return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo(
       { entity, type: EntityWithDelegationTypeName.AccessLog },

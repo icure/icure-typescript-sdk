@@ -195,7 +195,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
   }
 
   /**
-   * Same as {@link findIdsBy} but it will only return the ids of the contacts. It can also filter the contacts where Contact.openingDate is between
+   * Same as {@link findBy} but it will only return the ids of the contacts. It can also filter the contacts where Contact.openingDate is between
    * startDate and endDate in ascending or descending order by that field. (default: ascending).
    */
   async findIdsBy(hcpartyId: string, patient: models.Patient, startDate?: number, endDate?: number, descending?: boolean) {
@@ -334,6 +334,14 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       .then((contacts) => this.decrypt(hcPartyId, contacts))
   }
 
+  /**
+   * Filters contacts using a filter chain and decrypts the results for the given user.
+   * @param user the user for decryption
+   * @param startDocumentId optional document id to start pagination from
+   * @param limit maximum number of results to return
+   * @param body the filter chain to apply
+   * @return a paginated list of decrypted contacts
+   */
   filterByWithUser(
     user: models.User,
     startDocumentId?: string,
@@ -347,6 +355,17 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       )
   }
 
+  /**
+   * Lists contacts by opening date within a date range and decrypts the results for the given user.
+   * @param user the user for decryption
+   * @param startDate start of the date range (format: YYYYMMDDHHmmss)
+   * @param endDate end of the date range (format: YYYYMMDDHHmmss)
+   * @param hcpartyid the healthcare party id
+   * @param startKey optional start key for pagination
+   * @param startDocumentId optional document id to start pagination from
+   * @param limit maximum number of results to return
+   * @return a paginated list of decrypted contacts
+   */
   listContactsByOpeningDateWithUser(
     user: models.User,
     startDate: number,
@@ -363,6 +382,12 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       )
   }
 
+  /**
+   * Gets a service by id and decrypts it for the given user.
+   * @param user the user for decryption
+   * @param serviceId the service id
+   * @return the decrypted service
+   */
   getServiceWithUser(user: models.User, serviceId: string): Promise<Service> {
     return super
       .getService(serviceId)
@@ -370,20 +395,46 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       .then((decrypted) => decrypted[0])
   }
 
+  /**
+   * Lists services by their ids and decrypts them for the given user.
+   * @param user the user for decryption
+   * @param serviceIds the list of service ids to retrieve
+   * @return an array of decrypted services
+   */
   listServicesWithUser(user: models.User, serviceIds: ListOfIds): Promise<Array<Service> | any> {
     return super
       .filterServicesBy(undefined, serviceIds.ids?.length, new FilterChainService({ filter: new ServiceByIdsFilter({ ids: serviceIds.ids }) }))
       .then((paginatedList) => this.decryptServices(user.healthcarePartyId ?? user.patientId ?? user.deviceId!, paginatedList.rows ?? []))
   }
 
+  /**
+   * Finds contacts by healthcare party and form id and decrypts them for the given user.
+   * @param user the user for decryption
+   * @param hcPartyId the healthcare party id
+   * @param formId the form id
+   * @return an array of decrypted contacts
+   */
   findByHCPartyFormIdWithUser(user: models.User, hcPartyId: string, formId: string): Promise<Array<models.Contact> | any> {
     return super.findByHCPartyFormId(hcPartyId, formId).then((ctcs) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, ctcs))
   }
 
+  /**
+   * Finds contacts by healthcare party and multiple form ids and decrypts them for the given user.
+   * @param user the user for decryption
+   * @param hcPartyId the healthcare party id
+   * @param body the list of form ids
+   * @return an array of decrypted contacts
+   */
   findByHCPartyFormIdsWithUser(user: models.User, hcPartyId: string, body: models.ListOfIds): Promise<Array<models.Contact> | any> {
     return super.findByHCPartyFormIds(hcPartyId, body).then((ctcs) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, ctcs))
   }
 
+  /**
+   * Gets a contact by id and decrypts it for the given user.
+   * @param user the user for decryption
+   * @param contactId the contact id
+   * @return the decrypted contact
+   */
   getContactWithUser(user: models.User, contactId: string): Promise<models.Contact> {
     return super
       .getContact(contactId)
@@ -391,10 +442,22 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       .then((ctcs) => ctcs[0])
   }
 
+  /**
+   * Gets multiple contacts by their ids and decrypts them for the given user.
+   * @param user the user for decryption
+   * @param body the list of contact ids
+   * @return an array of decrypted contacts
+   */
   getContactsWithUser(user: models.User, body?: models.ListOfIds): Promise<Array<models.Contact> | any> {
     return super.getContacts(body).then((ctcs) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, ctcs))
   }
 
+  /**
+   * Modifies an existing contact by encrypting it and saving it to the database.
+   * @param user the user for encryption
+   * @param body the contact to modify
+   * @return the modified and decrypted contact
+   */
   async modifyContactWithUser(user: models.User, body?: models.Contact): Promise<models.Contact | any> {
     return body ? this.modifyContactAs(this.dataOwnerApi.getDataOwnerIdOf(user)!, body) : null
   }
@@ -406,6 +469,12 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       .then((ctcs) => ctcs[0])
   }
 
+  /**
+   * Modifies multiple existing contacts by encrypting them and saving them to the database.
+   * @param user the user for encryption
+   * @param bodies the array of contacts to modify
+   * @return an array of modified and decrypted contacts
+   */
   async modifyContactsWithUser(user: models.User, bodies?: Array<models.Contact>): Promise<models.Contact[] | any> {
     return bodies
       ? this.encrypt(
@@ -417,6 +486,12 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       : null
   }
 
+  /**
+   * Creates a new contact by encrypting it and saving it to the database.
+   * @param user the user for encryption
+   * @param body the contact to create
+   * @return the created and decrypted contact
+   */
   async createContactWithUser(user: models.User, body?: models.Contact): Promise<models.Contact | null> {
     return body
       ? this.encrypt(user, [_.cloneDeep(body)])
@@ -426,6 +501,12 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       : null
   }
 
+  /**
+   * Creates multiple new contacts by encrypting them and saving them to the database.
+   * @param user the user for encryption
+   * @param bodies the array of contacts to create
+   * @return an array of created and decrypted contacts
+   */
   async createContactsWithUser(user: models.User, bodies?: Array<models.Contact>): Promise<models.Contact[] | null> {
     return bodies
       ? this.encrypt(
@@ -437,6 +518,14 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       : null
   }
 
+  /**
+   * Encrypts the content and custom encrypted fields of services.
+   * Services with compound values are recursively encrypted.
+   * @param key the encryption key
+   * @param rawKey the raw encryption key as a string
+   * @param services the array of services to encrypt
+   * @return a promise containing the encrypted services
+   */
   encryptServices(key: CryptoKey, rawKey: string, services: Service[]): PromiseLike<Service[]> {
     return Promise.all(
       services.map(async (svc) => {
@@ -490,6 +579,12 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     )
   }
 
+  /**
+   * Encrypts contacts for the given user including all services within the contacts.
+   * @param user the user for encryption
+   * @param ctcs the array of contacts to encrypt
+   * @return a promise containing the encrypted contacts
+   */
   encrypt(user: models.User, ctcs: Array<models.Contact>) {
     return this.encryptAs(this.dataOwnerApi.getDataOwnerIdOf(user)!, ctcs)
   }
@@ -532,10 +627,22 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     return ctcs.map((e) => allEncrypted.get(e.id!)!)
   }
 
+  /**
+   * Decrypts contacts and all their encrypted content.
+   * @param hcpartyId the healthcare party id (deprecated parameter, kept for compatibility)
+   * @param ctcs the array of encrypted contacts
+   * @return a promise containing the decrypted contacts
+   */
   async decrypt(hcpartyId: string, ctcs: Array<models.Contact>): Promise<Array<models.Contact>> {
     return (await this.crypto.xapi.tryDecryptEntities(ctcs, EntityWithDelegationTypeName.Contact, (x) => new Contact(x))).map(({ entity }) => entity)
   }
 
+  /**
+   * Decrypts services and all their encrypted content.
+   * @param hcpartyId the healthcare party id (deprecated parameter, kept for compatibility)
+   * @param svcs the array of encrypted services
+   * @return a promise containing the decrypted services
+   */
   async decryptServices(hcpartyId: string, svcs: Array<models.Service>): Promise<Array<models.Service>> {
     /*TODO
      * not super efficient, re-decrypts the encryption key metadata of services multiple times, but should mostly rely
@@ -546,6 +653,12 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     return (await this.crypto.xapi.tryDecryptEntities(svcs, EntityWithDelegationTypeName.Contact, (x) => new Service(x))).map(({ entity }) => entity)
   }
 
+  /**
+   * Finds the contact containing the given service id, prioritizing the latest version by valueDate.
+   * @param ctcs the array of contacts to search
+   * @param svcId the service id to find
+   * @return the contact containing the service or undefined if not found
+   */
   contactOfService(ctcs: Array<models.Contact>, svcId: string): models.Contact | undefined {
     let latestContact: models.Contact | undefined = undefined
     let latestService: models.Service
@@ -559,6 +672,12 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     return latestContact
   }
 
+  /**
+   * Extracts and filters services from contacts, keeping only the latest version of each service and excluding deleted services.
+   * @param ctcs the array of contacts containing services
+   * @param filter a predicate function to filter services: (service, contact) => boolean
+   * @return an array of filtered services with contactId set
+   */
   filteredServices(ctcs: Array<models.Contact>, filter: any): Array<models.Service> {
     const byIds: { [key: string]: models.Service } = {}
     ctcs.forEach((c) =>
@@ -575,21 +694,43 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     return _.values(byIds).filter((s: any) => !s.deleted && !s.endOfLife)
   }
 
-  //Return a promise
+  /**
+   * Extracts and filters services from contacts, returning a promise. Same as filteredServices but wrapped in a promise.
+   * @param ctcs the array of contacts containing services
+   * @param filter a predicate function to filter services: (service, contact) => boolean
+   * @return a promise containing an array of filtered services
+   */
   filterServices(ctcs: Array<models.Contact>, filter: any): Promise<Array<models.Service>> {
     return Promise.resolve(this.filteredServices(ctcs, filter))
   }
 
+  /**
+   * Gets all services from a contact that have the specified label.
+   * @param ctc the contact
+   * @param label the service label to filter by
+   * @return an array of services with the given label
+   */
   services(ctc: models.Contact, label: string) {
     return ctc.services!.filter((s) => s.label === label)
   }
 
+  /**
+   * Gets the preferred content for a service based on language preference, falling back to French then first available language.
+   * @param svc the service
+   * @param lng the preferred language code
+   * @return the content in the preferred language or null if no content exists
+   */
   preferredContent(svc: models.Service, lng: string) {
     return (
       svc && svc.content && (svc.content[lng] || svc.content['fr'] || (Object.keys(svc.content)[0] ? svc.content[Object.keys(svc.content)[0]] : null))
     )
   }
 
+  /**
+   * Extracts the value from content, prioritizing string, number, measure, medication, and boolean values in that order.
+   * @param c the content
+   * @return the extracted value or undefined if no value is present
+   */
   contentValue(c: models.Content) {
     return (
       c.stringValue ||
@@ -600,11 +741,24 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     )
   }
 
+  /**
+   * Gets a short human-readable description of a service in the preferred language.
+   * @param svc the service
+   * @param lng the preferred language code
+   * @return a short description of the service content or empty string
+   */
   shortServiceDescription(svc: models.Service, lng: string) {
     const c = this.preferredContent(svc, lng)
     return !c ? '' : this.shortContentDescription(c, lng, svc.label)
   }
 
+  /**
+   * Gets a short human-readable description of content, formatted appropriately for the content type.
+   * @param c the content
+   * @param lng the language code for medication formatting
+   * @param label optional label used for boolean content display
+   * @return a short description of the content
+   */
   shortContentDescription(c: models.Content, lng: string, label?: string) {
     return (
       c.stringValue ||
@@ -619,16 +773,33 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     )
   }
 
+  /**
+   * Extracts the medication value from a service's content in the preferred language.
+   * @param svc the service
+   * @param lng the preferred language code
+   * @return the medication value or undefined if not present
+   */
   medicationValue(svc: models.Service, lng: string) {
     const c =
       svc && svc.content && (svc.content[lng] || svc.content['fr'] || (Object.keys(svc.content)[0] ? svc.content[Object.keys(svc.content)[0]] : null))
     return c && c.medicationValue
   }
 
+  /**
+   * Checks if content has any data value set (string, number, measure, boolean, medication, or document).
+   * @param c the content to check
+   * @return true if content has data, false otherwise
+   */
   contentHasData(c: any): boolean {
     return c.stringValue || c.numberValue || c.measureValue || c.booleanValue || c.booleanValue === false || c.medicationValue || c.documentId
   }
 
+  /**
+   * Localizes a value by selecting the appropriate language from an object, falling back through FR, EN, and NL.
+   * @param e the object with language-keyed values or a simple value
+   * @param lng the preferred language code
+   * @return the localized value or null if e is null/undefined
+   */
   localize(e: any, lng: string) {
     if (!e) {
       return null
@@ -782,11 +953,21 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     return (init && init(promoted)) || promoted
   }
 
+  /**
+   * Checks if a service has numeric content (measure or number value) in the preferred language.
+   * @param svc the service
+   * @param lng the preferred language code
+   * @return true if the service has numeric content, false otherwise
+   */
   isNumeric(svc: models.Service, lng: string) {
     const c = this.preferredContent(svc, lng)
     return c && (c.measureValue || c.numberValue || c.numberValue == 0)
   }
 
+  /**
+   * Returns utility functions for working with services.
+   * @return an object with helper methods for creating and manipulating services
+   */
   service() {
     return {
       newInstance: (user: models.User, s: any) =>
@@ -808,6 +989,10 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     }
   }
 
+  /**
+   * Returns utility functions for working with medication content.
+   * @return an object with helper methods for formatting and displaying medication information
+   */
   medication() {
     const regimenScores: any = {
       afterwakingup: 63000,
@@ -1109,16 +1294,34 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       .then((r) => r.mapSuccessAsync((e) => this.decrypt(self, [e]).then((es) => es[0])))
   }
 
+  /**
+   * Gets the data owners that have access to the contact and their permission levels.
+   * @param entity the contact
+   * @return a promise containing the permissions by data owner id and whether there are unknown anonymous data owners
+   */
   getDataOwnersWithAccessTo(
     entity: models.Contact
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
     return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: EntityWithDelegationTypeName.Contact })
   }
 
+  /**
+   * Gets all encryption keys available for the contact.
+   * @param entity the contact
+   * @return a promise containing an array of encryption key hex strings
+   */
   getEncryptionKeysOf(entity: models.Contact): Promise<string[]> {
     return this.crypto.xapi.encryptionKeysOf({ entity, type: EntityWithDelegationTypeName.Contact }, undefined)
   }
 
+  /**
+   * Subscribes to service events (create, update, delete) and receives decrypted services.
+   * @param eventTypes the types of events to subscribe to
+   * @param filter optional filter to apply to services
+   * @param eventFired callback function invoked when an event occurs, receives the decrypted service
+   * @param options optional subscription options
+   * @return a connection that can be closed to unsubscribe
+   */
   async subscribeToServiceEvents(
     eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
     filter: AbstractFilter<Service> | undefined,
@@ -1138,6 +1341,14 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     ).then((ws) => new ConnectionImpl(ws))
   }
 
+  /**
+   * Subscribes to contact events (create, update, delete) and receives decrypted contacts.
+   * @param eventTypes the types of events to subscribe to
+   * @param filter optional filter to apply to contacts
+   * @param eventFired callback function invoked when an event occurs, receives the decrypted contact
+   * @param options optional subscription options
+   * @return a connection that can be closed to unsubscribe
+   */
   async subscribeToContactEvents(
     eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
     filter: AbstractFilter<Contact> | undefined,
@@ -1157,6 +1368,12 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     ).then((ws) => new ConnectionImpl(ws))
   }
 
+  /**
+   * Creates or updates de-anonymization metadata for delegations in a contact.
+   * @param entity the contact
+   * @param delegates the array of delegate ids to create de-anonymization metadata for
+   * @return a promise that completes when the metadata is created/updated
+   */
   createDelegationDeAnonymizationMetadata(entity: Contact, delegates: string[]): Promise<void> {
     return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: EntityWithDelegationTypeName.Contact }, delegates)
   }

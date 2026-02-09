@@ -125,6 +125,10 @@ export class IccClassificationXApi extends IccClassificationApi implements Encry
       : Promise.resolve([])
   }
 
+  /**
+   * Same as {@link findBy} but it will only return the ids of the classifications. It can also filter the classifications where
+   * Classification.created is between startDate and endDate in ascending or descending order by that field (default: ascending).
+   */
   async findIdsBy(hcpartyId: string, patient: models.Patient, startDate?: number, endDate?: number, descending?: boolean) {
     const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: EntityWithDelegationTypeName.Patient }, hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
@@ -257,16 +261,32 @@ export class IccClassificationXApi extends IccClassificationApi implements Encry
     )
   }
 
+  /**
+   * Retrieves the data owners that have access to the given classification, along with their access levels.
+   * @param entity the classification.
+   * @return an object containing a map of data owner ids to their access levels, and a flag indicating if there are unknown anonymous data owners.
+   */
   getDataOwnersWithAccessTo(
     entity: models.Classification
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
     return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: EntityWithDelegationTypeName.Classification })
   }
 
+  /**
+   * Retrieves the encryption keys of the given classification.
+   * @param entity the classification.
+   * @return the encryption key ids.
+   */
   getEncryptionKeysOf(entity: models.Classification): Promise<string[]> {
     return this.crypto.xapi.encryptionKeysOf({ entity, type: EntityWithDelegationTypeName.Classification }, undefined)
   }
 
+  /**
+   * Creates or updates de-anonymization metadata for the given classification, allowing the specified delegates to
+   * identify the data owners that have access to it.
+   * @param entity the classification.
+   * @param delegates the data owner ids for which to create de-anonymization metadata.
+   */
   createDelegationDeAnonymizationMetadata(entity: models.Classification, delegates: string[]): Promise<void> {
     return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo(
       { entity, type: EntityWithDelegationTypeName.Classification },

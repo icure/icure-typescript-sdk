@@ -226,7 +226,7 @@ __metadata:
   dependencies:
     "@icure/apiV6": "npm:@icure/api@6.4.4"
     "@icure/apiV7": "npm:@icure/api@7.1.32"
-    "@icure/test-setup": 0.0.70
+    "@icure/test-setup": 0.0.71
     "@types/chai": ^4.3.0
     "@types/chai-as-promised": ^7.1.1
     "@types/isomorphic-fetch": ^0.0.36
@@ -288,9 +288,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@icure/test-setup@npm:0.0.70":
-  version: 0.0.70
-  resolution: "@icure/test-setup@npm:0.0.70"
+"@icure/test-setup@npm:0.0.71":
+  version: 0.0.71
+  resolution: "@icure/test-setup@npm:0.0.71"
   dependencies:
     "@icure/api": 7.1.32
     "@types/react-dom": ^18.0.6
@@ -298,7 +298,7 @@ __metadata:
     isomorphic-fetch: ^3.0.0
     node-localstorage: ^2.2.1
     uuid: ^3.3.2
-  checksum: 48c2f653e5cf06679e9d57e7c9c9852dc4e526a42516be169b6c53db35f5401e9e59ff577b97dcbf7e86b1e1314927bb291e2b19c6104e92751e614b0107e3d8
+  checksum: e9790a4f09b04765dac632e21b01752c738fff389cb2354a6e4fab0d652289e7de57464dd5026a9ae211987b8a299aab9c04d59627a51fc1a2f51be01e65c11e
   languageName: node
   linkType: hard
 

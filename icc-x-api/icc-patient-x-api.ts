@@ -126,6 +126,11 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     return new models.Patient(initialisationInfo.updatedEntity)
   }
 
+  /**
+   * Ensures patient names are consistent by synchronizing names property with firstName/lastName/maidenName/alias fields.
+   * @param patient the patient to process
+   * @return the patient with completed names
+   */
   completeNames(patient: models.Patient): models.Patient {
     let finalPatient: any = patient
 
@@ -204,6 +209,12 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     throw new Error('Cannot call a method that returns patients without providing a user for de/encryption')
   }
 
+  /**
+   * Creates a patient in the database with encryption.
+   * @param user the current user
+   * @param body the patient data to create
+   * @return the created patient
+   */
   createPatientWithUser(user: models.User, body?: models.Patient): Promise<models.Patient | any> {
     return body
       ? this.encrypt(user, [_.cloneDeep(this.completeNames(body))])
@@ -246,6 +257,18 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     throw new Error('Cannot call a method that returns contacts without providing a user for de/encryption')
   }
 
+  /**
+   * Filters patients using a filter chain and returns decrypted results.
+   * @param user the current user
+   * @param filterChain the filter chain to apply
+   * @param startKey optional start key for pagination
+   * @param startDocumentId optional start document id for pagination
+   * @param limit optional maximum number of results
+   * @param skip optional number of results to skip
+   * @param sort optional sort field
+   * @param desc optional sort direction
+   * @return paginated list of decrypted patients
+   */
   filterByWithUser(
     user: models.User,
     filterChain: models.FilterChainPatient,
@@ -272,6 +295,17 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     throw new Error('Cannot call a method that returns contacts without providing a user for de/encryption')
   }
 
+  /**
+   * Finds patients by access log user after a specific date and returns decrypted results.
+   * @param user the current user
+   * @param userId the user id to search for in access logs
+   * @param accessType optional type of access
+   * @param startDate optional start date timestamp
+   * @param startKey optional start key for pagination
+   * @param startDocumentId optional start document id for pagination
+   * @param limit optional maximum number of results
+   * @return paginated list of decrypted patients
+   */
   findByAccessLogUserAfterDateWithUser(
     user: models.User,
     userId: string,
@@ -290,6 +324,12 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     throw new Error('Cannot call a method that returns contacts without providing a user for de/encryption')
   }
 
+  /**
+   * Finds a patient by external id and returns the decrypted result.
+   * @param user the current user
+   * @param externalId the external id to search for
+   * @return the decrypted patient
+   */
   findByExternalIdWithUser(user: models.User, externalId: string): Promise<models.Patient | any> {
     return super
       .findByExternalId(externalId)
@@ -308,6 +348,17 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     throw new Error('Cannot call a method that returns contacts without providing a user for de/encryption')
   }
 
+  /**
+   * Finds patients by name, birth date, or SSIN with automatic search and returns decrypted results.
+   * @param user the current user
+   * @param healthcarePartyId optional healthcare party id
+   * @param filterValue optional search value
+   * @param startKey optional start key for pagination
+   * @param startDocumentId optional start document id for pagination
+   * @param limit optional maximum number of results
+   * @param sortDirection optional sort direction
+   * @return paginated list of decrypted patients
+   */
   findByNameBirthSsinAutoWithUser(
     user: models.User,
     healthcarePartyId?: string,
@@ -326,6 +377,14 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     throw new Error('Cannot call a method that returns contacts without providing a user for de/encryption')
   }
 
+  /**
+   * Performs a fuzzy search for patients and returns decrypted results.
+   * @param user the current user
+   * @param firstName optional first name to search for
+   * @param lastName optional last name to search for
+   * @param dateOfBirth optional date of birth timestamp
+   * @return array of decrypted patients
+   */
   fuzzySearchWithUser(user: models.User, firstName?: string, lastName?: string, dateOfBirth?: number): Promise<Array<models.Patient> | any> {
     return super.fuzzySearch(firstName, lastName, dateOfBirth).then((pats) => this.decrypt(user, pats))
   }
@@ -334,10 +393,21 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     throw new Error('Cannot call a method that returns contacts without providing a user for de/encryption')
   }
 
+  /**
+   * Gets a patient by id without decryption.
+   * @param patientId the patient id
+   * @return the encrypted patient
+   */
   getPatientRaw(patientId: string): Promise<models.Patient | any> {
     return super.getPatient(patientId)
   }
 
+  /**
+   * Gets a patient by id with decryption.
+   * @param user the current user
+   * @param patientId the patient id
+   * @return the decrypted patient
+   */
   getPatientWithUser(user: models.User, patientId: string): Promise<models.Patient | any> {
     return super
       .getPatient(patientId)
@@ -345,6 +415,12 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
       .then((pats) => pats[0].entity)
   }
 
+  /**
+   * Gets a patient by id and indicates whether it was successfully decrypted.
+   * @param user the current user
+   * @param patientId the patient id
+   * @return object containing the patient and a flag indicating if it was decrypted
+   */
   getPotentiallyEncryptedPatientWithUser(user: models.User, patientId: string): Promise<{ patient: models.Patient; decrypted: boolean }> {
     return super
       .getPatient(patientId)
@@ -356,6 +432,12 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     throw new Error('Cannot call a method that returns contacts without providing a user for de/encryption')
   }
 
+  /**
+   * Gets multiple patients by their ids with decryption.
+   * @param user the current user
+   * @param body list of patient ids
+   * @return array of decrypted patients
+   */
   getPatientsWithUser(user: models.User, body?: models.ListOfIds): Promise<Array<models.Patient> | any> {
     return super.getPatients(body).then((pats) => this.decrypt(user, pats))
   }
@@ -364,6 +446,17 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     throw new Error('Cannot call a method that returns contacts without providing a user for de/encryption')
   }
 
+  /**
+   * Lists deleted patients with decryption.
+   * @param user the current user
+   * @param startDate optional start date timestamp
+   * @param endDate optional end date timestamp
+   * @param desc optional sort direction
+   * @param startKey optional start key for pagination
+   * @param startDocumentId optional start document id for pagination
+   * @param limit optional maximum number of results
+   * @return paginated list of decrypted deleted patients
+   */
   listDeletedPatientsWithUser(
     user: models.User,
     startDate?: number,
@@ -382,6 +475,13 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     throw new Error('Cannot call a method that returns contacts without providing a user for de/encryption')
   }
 
+  /**
+   * Lists deleted patients by name with decryption.
+   * @param user the current user
+   * @param firstName optional first name to filter by
+   * @param lastName optional last name to filter by
+   * @return array of decrypted deleted patients
+   */
   listDeletedPatientsByNameWithUser(user: models.User, firstName?: string, lastName?: string): Promise<Array<models.Patient> | any> {
     return super.listDeletedPatientsByName(firstName, lastName).then((rows) => this.decrypt(user, rows, false))
   }
@@ -390,6 +490,12 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     throw new Error('Cannot call a method that returns contacts without providing a user for de/encryption')
   }
 
+  /**
+   * Lists merged patients after a specific date with decryption.
+   * @param user the current user
+   * @param date timestamp to start from
+   * @return array of decrypted merged patients
+   */
   listOfMergesAfterWithUser(user: models.User, date: number): Promise<Array<models.Patient> | any> {
     return super.listOfMergesAfter(date).then((pats) => this.decrypt(user, pats, false))
   }
@@ -398,6 +504,15 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     throw new Error('Cannot call a method that returns contacts without providing a user for de/encryption')
   }
 
+  /**
+   * Lists patients modified after a specific date with decryption.
+   * @param user the current user
+   * @param date timestamp to start from
+   * @param startKey optional start key for pagination
+   * @param startDocumentId optional start document id for pagination
+   * @param limit optional maximum number of results
+   * @return paginated list of decrypted modified patients
+   */
   listOfPatientsModifiedAfterWithUser(
     user: models.User,
     date: number,
@@ -414,6 +529,17 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     throw new Error('Cannot call a method that returns contacts without providing a user for de/encryption')
   }
 
+  /**
+   * Lists patients with decryption.
+   * @param user the current user
+   * @param hcPartyId optional healthcare party id
+   * @param sortField optional sort field
+   * @param startKey optional start key for pagination
+   * @param startDocumentId optional start document id for pagination
+   * @param limit optional maximum number of results
+   * @param sortDirection optional sort direction
+   * @return paginated list of decrypted patients
+   */
   listPatientsWithUser(
     user: models.User,
     hcPartyId?: string,
@@ -439,6 +565,17 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     throw new Error('Cannot call a method that returns contacts without providing a user for de/encryption')
   }
 
+  /**
+   * Lists patients by healthcare party with decryption.
+   * @param user the current user
+   * @param hcPartyId the healthcare party id
+   * @param sortField optional sort field
+   * @param startKey optional start key for pagination
+   * @param startDocumentId optional start document id for pagination
+   * @param limit optional maximum number of results
+   * @param sortDirection optional sort direction
+   * @return paginated list of decrypted patients
+   */
   listPatientsByHcPartyWithUser(
     user: models.User,
     hcPartyId: string,
@@ -464,6 +601,17 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     throw new Error('Cannot call a method that returns contacts without providing a user for de/encryption')
   }
 
+  /**
+   * Lists patients of a healthcare party with decryption.
+   * @param user the current user
+   * @param hcPartyId the healthcare party id
+   * @param sortField optional sort field
+   * @param startKey optional start key for pagination
+   * @param startDocumentId optional start document id for pagination
+   * @param limit optional maximum number of results
+   * @param sortDirection optional sort direction
+   * @return paginated list of decrypted patients
+   */
   listPatientsOfHcPartyWithUser(
     user: models.User,
     hcPartyId: string,
@@ -482,6 +630,13 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     throw new Error('Cannot call a method that returns contacts without providing a user for de/encryption')
   }
 
+  /**
+   * Merges patients and returns the decrypted result.
+   * @param user the current user
+   * @param toId the target patient id
+   * @param fromIds the source patient ids to merge from
+   * @return the decrypted merged patient
+   */
   mergeIntoWithUser(user: models.User, toId: string, fromIds: string): Promise<models.Patient | any> {
     return super
       .mergeInto(toId, fromIds)
@@ -500,6 +655,12 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     return super.modifyPatient(body)
   }
 
+  /**
+   * Updates a patient with encryption.
+   * @param user the current user
+   * @param body the patient data to update
+   * @return the updated decrypted patient
+   */
   modifyPatientWithUser(user: models.User, body?: models.Patient): Promise<models.Patient | null> {
     return body ? this.modifyPatientAs(this.dataOwnerApi.getDataOwnerIdOf(user), body) : Promise.resolve(null)
   }
@@ -515,6 +676,15 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     throw new Error('Cannot call a method that returns contacts without providing a user for de/encryption')
   }
 
+  /**
+   * Updates a patient referral and returns the decrypted result.
+   * @param user the current user
+   * @param patientId the patient id
+   * @param referralId the referral id
+   * @param start optional start timestamp
+   * @param end optional end timestamp
+   * @return the updated decrypted patient
+   */
   modifyPatientReferralWithUser(
     user: models.User,
     patientId: string,
@@ -528,6 +698,12 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
       .then((pats) => pats[0])
   }
 
+  /**
+   * Encrypts patients using the current user's encryption keys.
+   * @param user the current user
+   * @param pats the patients to encrypt
+   * @return the encrypted patients
+   */
   encrypt(user: models.User, pats: Array<models.Patient>): Promise<Array<models.Patient>> {
     const dataOwnerId = this.dataOwnerApi.getDataOwnerIdOf(user)
     return this.encryptAs(dataOwnerId, pats)
@@ -544,7 +720,13 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     )
   }
 
-  // If patient can't be decrypted returns patient with encrypted data.
+  /**
+   * Decrypts patients using the current user's encryption keys. If a patient can't be decrypted, returns it with encrypted data.
+   * @param user the current user
+   * @param patients the patients to decrypt
+   * @param fillDelegations optional flag to fill delegations (defaults to true)
+   * @return the decrypted patients
+   */
   decrypt(user: models.User, patients: Array<models.Patient>, fillDelegations = true): Promise<Array<models.Patient>> {
     return this.decryptAs(this.dataOwnerApi.getDataOwnerIdOf(user), patients, fillDelegations)
   }
@@ -553,6 +735,11 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     return this.tryDecryptOrReturnOriginal(patients).then((ps) => ps.map((p) => p.entity))
   }
 
+  /**
+   * Attempts to decrypt patients. If decryption fails, returns the original encrypted patients.
+   * @param patients the patients to decrypt
+   * @return array of objects containing the patient entity and a flag indicating if it was decrypted
+   */
   async tryDecryptOrReturnOriginal(patients: Array<models.Patient>): Promise<{ entity: models.Patient; decrypted: boolean }[]> {
     return (await this.crypto.xapi.tryDecryptEntities(patients, EntityWithDelegationTypeName.Patient, (x) => new models.Patient(x))).map((p) => {
       if (p.entity.picture && !(p.entity.picture instanceof ArrayBuffer)) {
@@ -584,6 +771,16 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     return this.shareAllDataOfPatient(user, patId, ownerId, delegateIds, delegationTags, usingPost)
   }
 
+  /**
+   * Shares a patient and all related data with specified delegates.
+   * @param user the current user
+   * @param patId the patient id
+   * @param ownerId the owner healthcare party id
+   * @param delegateIds the delegate ids to share with
+   * @param delegationTags tags specifying what data to share (e.g., medicalInformation, financialInformation, all)
+   * @param usingPost optional flag to use POST method instead of GET (defaults to false)
+   * @return object containing the updated patient and sharing statuses for each entity type
+   */
   async shareAllDataOfPatient(
     user: models.User,
     patId: string,
@@ -863,6 +1060,13 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
       })
   }
 
+  /**
+   * Exports a patient and all related medical data.
+   * @param user the current user
+   * @param patId the patient id
+   * @param ownerId the owner healthcare party id
+   * @return object containing the patient and all related entities (contacts, forms, health elements, invoices, classifications, calendar items, documents)
+   */
   async export(
     user: models.User,
     patId: string,
@@ -977,6 +1181,11 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     }
   }
 
+  /**
+   * Validates a Belgian INAMI number using modulo 97 check.
+   * @param inami the INAMI number to validate
+   * @return true if the INAMI number is valid, false otherwise
+   */
   checkInami(inami: string): boolean {
     const num_inami = inami.replace(new RegExp('[^(0-9)]', 'g'), '')
 
@@ -996,6 +1205,11 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     return retour
   }
 
+  /**
+   * Validates a Belgian social security identification number (SSIN/NISS) including support for bis and ter numbers.
+   * @param ssin the SSIN to validate
+   * @return true if the SSIN is valid, false otherwise
+   */
   isValidSsin(ssin: string) {
     ssin = ssin.replace(new RegExp('[^(0-9)]', 'g'), '')
     let isValidNiss = false
@@ -1017,6 +1231,13 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     return isValidNiss
   }
 
+  /**
+   * Extracts the patient id from a child document, following merge chains if necessary.
+   * @param childDocument the child document (invoice, calendar item, contact, or access log)
+   * @param hcpId the healthcare party id
+   * @param childDocumentType the type of the child document
+   * @return the patient id after following any merge chains
+   */
   async getPatientIdOfChildDocumentForHcpAndHcpParents(
     childDocument: models.Invoice | models.CalendarItem | models.Contact | models.AccessLog,
     hcpId: string,
@@ -1191,12 +1412,22 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     return this.crypto.xapi.getSecretIdsSharedWithParents({ entity: patient, type: EntityWithDelegationTypeName.Patient })
   }
 
+  /**
+   * Gets all data owners with access to the patient and their permission levels.
+   * @param entity the patient
+   * @return object containing permissions by data owner id and a flag indicating if there are unknown anonymous data owners
+   */
   getDataOwnersWithAccessTo(
     entity: models.Patient
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
     return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: EntityWithDelegationTypeName.Patient })
   }
 
+  /**
+   * Gets all encryption keys of the patient that the current user can decrypt.
+   * @param entity the patient
+   * @return array of encryption keys
+   */
   getEncryptionKeysOf(entity: models.Patient): Promise<string[]> {
     return this.crypto.xapi.encryptionKeysOf({ entity, type: EntityWithDelegationTypeName.Patient }, undefined)
   }
@@ -1244,6 +1475,14 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     return (await this.tryDecryptOrReturnOriginal([merged]))[0].entity
   }
 
+  /**
+   * Subscribes to patient events (create, update, delete) and automatically decrypts them.
+   * @param eventTypes the types of events to subscribe to
+   * @param filter optional filter to apply to events
+   * @param eventFired callback function to handle each event
+   * @param options optional subscription options
+   * @return connection object to manage the subscription
+   */
   async subscribeToPatientEvents(
     eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
     filter: AbstractFilter<Patient> | undefined,
@@ -1263,6 +1502,11 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     ).then((rs) => new ConnectionImpl(rs))
   }
 
+  /**
+   * Creates or updates de-anonymization metadata for patient delegations.
+   * @param entity the patient
+   * @param delegates array of delegate ids to create metadata for
+   */
   createDelegationDeAnonymizationMetadata(entity: Patient, delegates: string[]): Promise<void> {
     return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: EntityWithDelegationTypeName.Patient }, delegates)
   }

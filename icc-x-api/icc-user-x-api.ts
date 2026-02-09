@@ -28,11 +28,23 @@ export class IccUserXApi extends IccUserApi {
     this.fetchImpl = fetchImpl
   }
 
+  /**
+   * Retrieves the currently logged-in user. Uses a cached version by default to avoid redundant API calls.
+   * @param bypassCache if true, forces a fresh fetch from the server and updates the cache; otherwise returns the cached user if available.
+   * @return the current user.
+   */
   getCurrentUser(bypassCache: boolean = false): Promise<User> {
     if (bypassCache) return (this.cachedCurrentUser = super.getCurrentUser())
     else return this.cachedCurrentUser ?? (this.cachedCurrentUser = super.getCurrentUser())
   }
 
+  /**
+   * Modifies an existing user. If the user being modified is the current user, the local cache is updated accordingly.
+   * Handles 409 conflict errors by re-fetching the latest revision and retrying when the only server-side changes
+   * are to authenticationTokens or rev.
+   * @param body the user with updated fields to persist.
+   * @return the modified user as returned by the server.
+   */
   async modifyUser(body?: User): Promise<User> {
     //If we do not load the current user, we cannot know if the modification is on the current user
     await this.getCurrentUser()
@@ -57,6 +69,14 @@ export class IccUserXApi extends IccUserApi {
     } else return super.modifyUser(body)
   }
 
+  /**
+   * Subscribes to real-time user events using a WebSocket connection.
+   * @param eventTypes the types of events to listen for (e.g. 'CREATE', 'UPDATE', 'DELETE').
+   * @param filter an optional filter to restrict which user events trigger the callback.
+   * @param eventFired the callback function invoked when a matching user event is received.
+   * @param options optional subscription configuration such as connection parameters and retry behaviour.
+   * @return a connection object that can be used to manage the WebSocket subscription lifecycle.
+   */
   async subscribeToUserEvents(
     eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
     filter: AbstractFilter<User> | undefined,
@@ -67,6 +87,11 @@ export class IccUserXApi extends IccUserApi {
     return new ConnectionImpl(rs)
   }
 
+  /**
+   * Checks whether the given password is valid for the currently logged-in user by attempting authentication.
+   * @param password the password to verify.
+   * @return true if the password is valid, false otherwise.
+   */
   async checkPassword(password: string): Promise<boolean> {
     const userInfo = await this.getGroupAndUserIdFromToken()
     if (!!userInfo) {

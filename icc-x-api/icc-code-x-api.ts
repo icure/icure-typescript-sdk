@@ -26,6 +26,11 @@ export class IccCodeXApi extends IccCodeApi {
     super(host, headers, authenticationProvider, fetchImpl)
   }
 
+  /**
+   * Groups a list of ICD-10 codes by their corresponding ICD-10 chapter.
+   * @param listOfCodes an array of ICD-10 code strings to classify into chapters.
+   * @return a sorted array of chapter objects, each containing a code, description, and list of matching sub-codes.
+   */
   // noinspection JSUnusedGlobalSymbols
   icdChapters(listOfCodes: Array<string>) {
     return Promise.resolve(
@@ -64,6 +69,11 @@ export class IccCodeXApi extends IccCodeApi {
     )
   }
 
+  /**
+   * Groups a list of ICPC-2 codes by their corresponding ICPC-2 chapter.
+   * @param listOfCodes an array of ICPC-2 code strings to classify into chapters.
+   * @return a sorted array of chapter objects, each containing a code, description, and list of matching sub-codes.
+   */
   // noinspection JSUnusedGlobalSymbols
   icpcChapters(listOfCodes: Array<string>) {
     return Promise.resolve(
@@ -94,12 +104,25 @@ export class IccCodeXApi extends IccCodeApi {
     )
   }
 
+  /**
+   * Returns the appropriate language code for a given code type. Falls back to French ('fr') if the
+   * requested language is not available for the specified type.
+   * @param type the code type to look up available languages for.
+   * @param lng the desired language code.
+   * @return the requested language code if available, or 'fr' as a fallback.
+   */
   // noinspection JSUnusedGlobalSymbols
   languageForType(type: string, lng: string) {
     const availableLanguages = this.codeLanguages[type]
     return availableLanguages && availableLanguages.indexOf(lng) >= 0 ? lng : 'fr'
   }
 
+  /**
+   * Normalizes a code, ensuring it has a consistent structure with id, type, code, and version fields.
+   * Accepts either a pipe-delimited string (e.g. "type|code|version") or a Code object.
+   * @param c a code represented as a pipe-delimited string or a Code object.
+   * @return an object with id, type, code, and version fields fully populated.
+   */
   // noinspection JSMethodCanBeStatic, JSUnusedGlobalSymbols
   normalize(c: Code | string) {
     return typeof c === 'string'

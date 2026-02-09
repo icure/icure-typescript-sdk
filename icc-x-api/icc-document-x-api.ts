@@ -654,7 +654,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
 
   // noinspection JSUnusedGlobalSymbols
   /**
-   * Same as {@link findByMessage} but it will only return the ids of the contacts. It can also filter the documents where Document.created is between
+   * Same as {@link findByMessage} but it will only return the ids of the documents. It can also filter the documents where Document.created is between
    * startDate and endDate in ascending or descending order by that field. (default: ascending).
    */
   async findIdsByMessage(hcpartyId: string, message: models.Message, startDate?: number, endDate?: number, descending?: boolean): Promise<string[]> {
@@ -663,10 +663,20 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     return this.findDocumentIdsByDataOwnerSecretForeignKey(topmostParentId, _.uniq(extractedKeys), startDate, endDate, descending)
   }
 
+  /**
+   * Decrypts an array of documents.
+   * @param documents the documents to decrypt.
+   * @return an array of objects containing the document and a flag indicating if it was successfully decrypted.
+   */
   async decrypt(documents: Array<models.Document>): Promise<{ entity: models.Document; decrypted: boolean }[]> {
     return await this.crypto.xapi.tryDecryptEntities(documents, EntityWithDelegationTypeName.Document, (x) => new models.Document(x))
   }
 
+  /**
+   * Encrypts an array of documents.
+   * @param documents the documents to encrypt.
+   * @return the encrypted documents.
+   */
   encrypt(documents: Array<models.Document>): Promise<Array<models.Document>> {
     return this.crypto.xapi.tryEncryptEntities(
       documents,
@@ -708,6 +718,13 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
   getMainAttachmentAs(documentId: string, returnType: "application/json", tryHardToParseJson?: boolean): Promise<any>
   //prettier-ignore
   getMainAttachmentAs(documentId: string, returnType: 'application/octet-stream' | 'text/plain' | 'application/json', tryHardToParseJson?: boolean): Promise<any>
+  /**
+   * Gets the main attachment of a document without decrypting it.
+   * @param documentId the id of the document.
+   * @param returnType the desired return type for the attachment data.
+   * @param tryHardToParseJson if true, will attempt to parse JSON even if the content type is not application/json.
+   * @return the attachment data in the requested format.
+   */
   async getMainAttachmentAs(
     documentId: string,
     returnType: 'application/octet-stream' | 'text/plain' | 'application/json',
@@ -737,6 +754,12 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
   getAndTryDecryptMainAttachmentAs(document: models.Document, returnType: "application/json"): Promise<any | undefined>
   //prettier-ignore
   getAndTryDecryptMainAttachmentAs(document: models.Document, returnType: 'application/octet-stream' | 'text/plain' | 'application/json'): Promise<any | undefined>
+  /**
+   * Gets and decrypts the main attachment of a document, parsing it to the requested format.
+   * @param document the document containing the attachment.
+   * @param returnType the desired return type for the attachment data.
+   * @return the decrypted and parsed attachment data, or undefined if decryption failed or parsing was unsuccessful.
+   */
   async getAndTryDecryptMainAttachmentAs(
     document: models.Document,
     returnType: 'application/octet-stream' | 'text/plain' | 'application/json'
@@ -772,11 +795,22 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
   }
 
   // noinspection JSUnusedGlobalSymbols
+  /**
+   * Converts a MIME type and file extension to a UTI (Uniform Type Identifier).
+   * @param mimeType the MIME type.
+   * @param extension the file extension.
+   * @return the corresponding UTI.
+   */
   uti(mimeType: string, extension: string) {
     return (mimeType && mimeType !== 'application/octet-stream' ? this.utiDefs[mimeType] : this.utiExts[extension]) || this.utiDefs[mimeType]
   }
 
   // noinspection JSUnusedGlobalSymbols
+  /**
+   * Converts a UTI (Uniform Type Identifier) to a MIME type.
+   * @param uti the UTI.
+   * @return the corresponding MIME type.
+   */
   mimeType(uti: string) {
     return this.utiRevDefs[uti]
   }
@@ -1053,16 +1087,31 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
       .then((r) => r.mapSuccessAsync(async (m) => (await this.decrypt([m]))[0].entity))
   }
 
+  /**
+   * Gets the data owners that have access to a document.
+   * @param entity the document.
+   * @return an object containing the permissions by data owner id and a flag indicating if there are unknown anonymous data owners.
+   */
   getDataOwnersWithAccessTo(
     entity: models.Document
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
     return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: EntityWithDelegationTypeName.Document })
   }
 
+  /**
+   * Gets the encryption keys of a document.
+   * @param entity the document.
+   * @return an array of encryption keys.
+   */
   getEncryptionKeysOf(entity: models.Document): Promise<string[]> {
     return this.crypto.xapi.encryptionKeysOf({ entity, type: EntityWithDelegationTypeName.Document }, undefined)
   }
 
+  /**
+   * Creates delegation de-anonymization metadata for a document.
+   * @param entity the document.
+   * @param delegates the data owner ids of the delegates.
+   */
   createDelegationDeAnonymizationMetadata(entity: models.Document, delegates: string[]): Promise<void> {
     return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo(
       { entity, type: EntityWithDelegationTypeName.Document },
@@ -1077,10 +1126,22 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     }
   }
 
+  /**
+   * Creates a new document.
+   * @param user the user (not used).
+   * @param body the document to create.
+   * @return the created document.
+   */
   async createDocumentWithUser(user: models.User | undefined, body: models.Document): Promise<models.Document> {
     return (await this.decrypt([await super.createDocument((await this.encrypt([body]))[0])]))[0].entity
   }
 
+  /**
+   * Deletes the main attachment of a document.
+   * @param user the user (not used).
+   * @param documentId the id of the document.
+   * @return the updated document.
+   */
   async deleteAttachmentWithUser(user: models.User | undefined, documentId: string): Promise<models.Document> {
     return (await this.decrypt([await super.deleteAttachment(documentId)]))[0].entity
   }
@@ -1126,30 +1187,76 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     return (await this.decrypt(await super.findWithoutDelegation(limit))).map((x) => x.entity)
   }
 
+  /**
+   * Gets a document by id.
+   * @param user the user (not used).
+   * @param documentId the id of the document.
+   * @return the document.
+   */
   async getDocumentWithUser(user: models.User | undefined, documentId: string): Promise<models.Document> {
     return (await this.decrypt([await super.getDocument(documentId)]))[0].entity
   }
 
+  /**
+   * Gets a document by external UUID.
+   * @param user the user (not used).
+   * @param externalUuid the external UUID of the document.
+   * @return the document.
+   */
   async getDocumentByExternalUuidWithUser(user: models.User | undefined, externalUuid: string): Promise<models.Document> {
     return (await this.decrypt([await super.getDocumentByExternalUuid(externalUuid)]))[0].entity
   }
 
+  /**
+   * Gets multiple documents by their ids.
+   * @param user the user (not used).
+   * @param body a list of document ids.
+   * @return the documents.
+   */
   async getDocumentsWithUser(user: models.User | undefined, body?: ListOfIds): Promise<Array<models.Document>> {
     return (await this.decrypt(await super.getDocuments(body))).map((x) => x.entity)
   }
 
+  /**
+   * Gets all documents with a specific external UUID.
+   * @param user the user (not used).
+   * @param externalUuid the external UUID.
+   * @return the documents.
+   */
   async getDocumentsByExternalUuidWithUser(user: models.User | undefined, externalUuid: string): Promise<Array<models.Document>> {
     return (await this.decrypt(await super.getDocumentsByExternalUuid(externalUuid))).map((x) => x.entity)
   }
 
+  /**
+   * Updates a document.
+   * @param user the user (not used).
+   * @param body the document to update.
+   * @return the updated document.
+   */
   async modifyDocumentWithUser(user: models.User | undefined, body: models.Document): Promise<models.Document> {
     return (await this.decrypt([await super.modifyDocument((await this.encrypt([body]))[0])]))[0].entity
   }
 
+  /**
+   * Updates multiple documents.
+   * @param user the user (not used).
+   * @param body the documents to update.
+   * @return the updated documents.
+   */
   async modifyDocumentsWithUser(user: models.User | undefined, body: Array<models.Document>): Promise<Array<models.Document>> {
     return (await this.decrypt(await super.modifyDocuments(await this.encrypt(body)))).map((x) => x.entity)
   }
 
+  /**
+   * Sets the main attachment of a document.
+   * @param user the user (not used).
+   * @param documentId the id of the document.
+   * @param documentRev the revision of the document.
+   * @param body the attachment data.
+   * @param utis an array of UTIs for the attachment.
+   * @param dataIsEncrypted whether the data is already encrypted.
+   * @return the updated document.
+   */
   async setMainDocumentAttachmentWithUser(
     user: models.User | undefined,
     documentId: string,
@@ -1161,6 +1268,17 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     return (await this.decrypt([await super.setMainDocumentAttachment(documentId, documentRev, body, utis, dataIsEncrypted)]))[0].entity
   }
 
+  /**
+   * Sets a secondary attachment on a document.
+   * @param user the user (not used).
+   * @param documentId the id of the document.
+   * @param key the key for the secondary attachment.
+   * @param rev the revision of the document.
+   * @param attachment the attachment data.
+   * @param utis an array of UTIs for the attachment.
+   * @param dataIsEncrypted whether the data is already encrypted.
+   * @return the updated document.
+   */
   async setSecondaryAttachmentWithUser(
     user: models.User | undefined,
     documentId: string,
@@ -1173,6 +1291,14 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     return (await this.decrypt([await super.setSecondaryAttachment(documentId, key, rev, attachment, utis, dataIsEncrypted)]))[0].entity
   }
 
+  /**
+   * Deletes a secondary attachment from a document.
+   * @param user the user (not used).
+   * @param documentId the id of the document.
+   * @param key the key of the secondary attachment.
+   * @param rev the revision of the document.
+   * @return the updated document.
+   */
   async deleteSecondaryAttachmentWithUser(user: models.User | undefined, documentId: string, key: string, rev: string): Promise<models.Document> {
     return (await this.decrypt([await super.deleteSecondaryAttachment(documentId, key, rev)]))[0].entity
   }

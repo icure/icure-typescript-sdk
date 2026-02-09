@@ -15,6 +15,10 @@ import { DataOwnerWithType } from '../icc-api/model/DataOwnerWithType'
 export type DataOwnerOrStub = DataOwner | CryptoActorStub
 export type DataOwner = HealthcareParty | Patient | Device
 
+/**
+ * Extended API for managing data owners (healthcare parties, patients, and devices).
+ * Provides methods to retrieve data owner information, manage hierarchies, and handle cryptographic keys.
+ */
 export class IccDataOwnerXApi extends IccDataownerApi {
   private currentDataOwnerType: DataOwnerTypeEnum | undefined
   private currentDataOwnerHierarchyIds: string[] | undefined
@@ -63,6 +67,12 @@ export class IccDataOwnerXApi extends IccDataownerApi {
     return new Set([...this.getHexPublicKeysWithSha1Of(dataOwner), ...this.getHexPublicKeysWithSha256Of(dataOwner)])
   }
 
+  /**
+   * Gets the crypto actor stub for the current data owner. This is a lightweight representation containing only
+   * cryptographic information without full data owner details.
+   * @return the crypto actor stub of the current data owner.
+   * @throws if the current user is not a data owner.
+   */
   async getCurrentDataOwnerStub(): Promise<CryptoActorStubWithType> {
     return CryptoActorStubWithType.fromDataOwner(await this.getCurrentDataOwner())
   }
@@ -94,8 +104,9 @@ export class IccDataOwnerXApi extends IccDataownerApi {
 
   /**
    * Get the hierarchy for the current data owner starting from the specified parent.
-   * @throws an array starting at the topmost parent and ending at the provided parent id. If the provided id is not part of the hierarchy throws an
-   * error.
+   * @param parentId the id of a parent in the current data owner hierarchy.
+   * @return an array starting at the topmost parent and ending at the provided parent id.
+   * @throws if the provided id is not part of the data owner hierarchy.
    */
   async getCurrentDataOwnerHierarchyIdsFrom(parentId: string): Promise<string[]> {
     if (!this.currentDataOwnerHierarchyIds) {
@@ -146,7 +157,7 @@ export class IccDataOwnerXApi extends IccDataownerApi {
   }
 
   /**
-   * Get a data owner. Note that this does not decrpyt patient data owners.
+   * Get a data owner. Note that this does not decrypt patient data owners.
    * @param ownerId id of the data owner to retrieve (patient, medical device, hcp, ...)
    * @return the data owner with the provided id
    * @throws if you have no access to the data owner. Use {@link getCryptoActorStub}.

@@ -19,7 +19,7 @@
   "devDependencies": {
     "@icure/apiV6": "npm:@icure/api@6.4.4",
     "@icure/apiV7": "npm:@icure/api@7.1.32",
-    "@icure/test-setup": "0.0.70",
+    "@icure/test-setup": "0.0.71",
     "@types/chai": "^4.3.0",
     "@types/chai-as-promised": "^7.1.1",
     "@types/isomorphic-fetch": "^0.0.36",
@@ -54,9 +54,6 @@
     "webpack-cli": "^6.0.1"
   },
   "scripts": {
-    "gen": "java -classpath swagger-codegen-generators.jar io.swagger.codegen.v3.cli.SwaggerCodegen generate -i https://api.icure.cloud/v3/api-docs/v2 -l typescript --additional-properties classPrefix=Icc skipPathPrefix=/rest/v2 -o ./icc-api/",
-    "genloc": "java -classpath swagger-codegen-generators.jar io.swagger.codegen.v3.cli.SwaggerCodegen generate -i http://127.0.0.1:16043/v3/api-docs/v2 -l typescript --additional-properties classPrefix=Icc skipPathPrefix=/rest/v2 -o ./icc-api/",
-    "gendev": "java -classpath swagger-codegen-generators.jar io.swagger.codegen.v3.cli.SwaggerCodegen generate -i https://api.icure.dev/v3/api-docs/v2 -l typescript --additional-properties classPrefix=Icc skipPathPrefix=/rest/v2 -o ./icc-api/",
     "eslint": "eslint --fix icc-api/* icc-x-api/*",
     "build": "tsc",
     "testwp": "echo 'Test webpack build' && yarn webpack --config buildconfig/webpack.config.js || rm -rf dist && rm -rf buildconfig/dist-wp",

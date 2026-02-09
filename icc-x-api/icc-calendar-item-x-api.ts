@@ -49,6 +49,14 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
     this.encryptedFields = parseEncryptedFields(encryptedKeys, 'CalendarItem.')
   }
 
+  /**
+   * Creates a new instance of calendar item with initialised encryption metadata (not in the database), without
+   * linking it to a patient. Use {@link newInstancePatient} to create a calendar item linked to a patient.
+   * @param user the current user.
+   * @param ci initialised data for the calendar item.
+   * @param options optional parameters for delegates and root delegation.
+   * @return a new instance of calendar item.
+   */
   newInstance(
     user: User,
     ci: any | CalendarItem,
@@ -169,10 +177,19 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
       .then((calendarItems) => this.decrypt(hcPartyId, calendarItems))
   }
 
+  /**
+   * @throws always. Use {@link createCalendarItemWithHcParty} instead.
+   */
   createCalendarItem(body?: CalendarItem): never {
     throw new Error('Cannot call a method that must encrypt a calendar item without providing a user for de/encryption')
   }
 
+  /**
+   * Creates a calendar item after encrypting its content.
+   * @param user the current user, used for encryption.
+   * @param body the calendar item to create.
+   * @return the created and decrypted calendar item.
+   */
   async createCalendarItemWithHcParty(user: models.User, body?: models.CalendarItem): Promise<models.CalendarItem | any> {
     return body
       ? this.encrypt(user, [_.cloneDeep(body)])
@@ -182,6 +199,12 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
       : null
   }
 
+  /**
+   * Retrieves a calendar item by id and decrypts it.
+   * @param user the current user, used for decryption.
+   * @param calendarItemId the id of the calendar item to retrieve.
+   * @return the decrypted calendar item.
+   */
   getCalendarItemWithUser(user: models.User, calendarItemId: string): Promise<CalendarItem | any> {
     return super
       .getCalendarItem(calendarItemId)
@@ -189,6 +212,9 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
       .then((cis) => cis[0])
   }
 
+  /**
+   * @throws always. Use {@link getCalendarItemWithUser} instead.
+   */
   getCalendarItem(calendarItemId: string): never {
     throw new Error('Cannot call a method that must en/decrypt a calendar item without providing a user for de/encryption')
   }
@@ -200,10 +226,20 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
     return super.getCalendarItems().then((calendarItems) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, calendarItems))
   }
 
+  /**
+   * @throws always. Use {@link getCalendarItemsWithPaginationWithUser} instead.
+   */
   getCalendarItems(): never {
     throw new Error('Cannot call a method that must en/decrypt a calendar item without providing a user for de/encryption')
   }
 
+  /**
+   * Retrieves calendar items with pagination and decrypts them.
+   * @param user the current user, used for decryption.
+   * @param startDocumentId the pagination start document id.
+   * @param limit the maximum number of results to return.
+   * @return a paginated list of decrypted calendar items.
+   */
   async getCalendarItemsWithPaginationWithUser(user: models.User, startDocumentId?: string, limit?: number): Promise<PaginatedListCalendarItem> {
     return super.getCalendarItemsWithPagination(startDocumentId, limit).then((calendarItems) =>
       this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, calendarItems.rows ?? []).then(
@@ -216,6 +252,9 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
     )
   }
 
+  /**
+   * @throws always. Use {@link getCalendarItemsWithPaginationWithUser} instead.
+   */
   getCalendarItemsWithPagination(startDocumentId?: string, limit?: number): never {
     throw new Error('Cannot call a method that must en/decrypt a calendar item without providing a user for de/encryption')
   }
@@ -229,10 +268,22 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
       .then((calendarItems) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, calendarItems))
   }
 
+  /**
+   * @throws always. Use {@link findCalendarItemsByRecurrenceIdWithPaginationWithUser} instead.
+   */
   findCalendarItemsByRecurrenceId(recurrenceId: string): never {
     throw new Error('Cannot call a method that must en/decrypt a calendar item without providing a user for de/encryption')
   }
 
+  /**
+   * Finds calendar items by recurrence id with pagination and decrypts them.
+   * @param user the current user, used for decryption.
+   * @param recurrenceId the recurrence id to search for.
+   * @param startKey the pagination start key.
+   * @param startDocumentId the pagination start document id.
+   * @param limit the maximum number of results to return.
+   * @return a paginated list of decrypted calendar items matching the recurrence id.
+   */
   async findCalendarItemsByRecurrenceIdWithPaginationWithUser(
     user: models.User,
     recurrenceId: string,
@@ -251,18 +302,38 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
     )
   }
 
+  /**
+   * @throws always. Use {@link findCalendarItemsByRecurrenceIdWithPaginationWithUser} instead.
+   */
   findCalendarItemsByRecurrenceIdWithPagination(recurrenceId: string, startKey?: string, startDocumentId?: string, limit?: number): never {
     throw new Error('Cannot call a method that must en/decrypt a calendar item without providing a user for de/encryption')
   }
 
+  /**
+   * Retrieves multiple calendar items by their ids and decrypts them.
+   * @param user the current user, used for decryption.
+   * @param body the list of calendar item ids to retrieve.
+   * @return the decrypted calendar items.
+   */
   getCalendarItemsWithIdsWithUser(user: models.User, body?: models.ListOfIds): Promise<Array<CalendarItem> | any> {
     return super.getCalendarItemsWithIds(body).then((calendarItems) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, calendarItems))
   }
 
+  /**
+   * @throws always. Use {@link getCalendarItemsWithIdsWithUser} instead.
+   */
   getCalendarItemsWithIds(body?: models.ListOfIds): never {
     throw new Error('Cannot call a method that must en/decrypt a calendar item without providing a user for de/encryption')
   }
 
+  /**
+   * Retrieves calendar items for a given healthcare party within a date range and decrypts them.
+   * @param user the current user, used for decryption.
+   * @param startDate the start of the date range.
+   * @param endDate the end of the date range.
+   * @param hcPartyId the id of the healthcare party.
+   * @return the decrypted calendar items.
+   */
   getCalendarItemsByPeriodAndHcPartyIdWithUser(
     user: models.User,
     startDate: number,
@@ -274,10 +345,21 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
       .then((calendarItems) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, calendarItems))
   }
 
+  /**
+   * @throws always. Use {@link getCalendarItemsByPeriodAndHcPartyIdWithUser} instead.
+   */
   getCalendarItemsByPeriodAndHcPartyId(startDate?: number, endDate?: number, hcPartyId?: string): never {
     throw new Error('Cannot call a method that must en/decrypt a calendar item without providing a user for de/encryption')
   }
 
+  /**
+   * Retrieves calendar items for a given agenda within a date range and decrypts them.
+   * @param user the current user, used for decryption.
+   * @param startDate the start of the date range.
+   * @param endDate the end of the date range.
+   * @param agendaId the id of the agenda.
+   * @return the decrypted calendar items.
+   */
   getCalendarsByPeriodAndAgendaIdWithUser(
     user: models.User,
     startDate: number,
@@ -289,10 +371,16 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
       .then((calendarItems) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, calendarItems))
   }
 
+  /**
+   * @throws always. Use {@link getCalendarsByPeriodAndAgendaIdWithUser} instead.
+   */
   getCalendarsByPeriodAndAgendaId(startDate?: number, endDate?: number, agendaId?: string): never {
     throw new Error('Cannot call a method that must en/decrypt a calendar item without providing a user for de/encryption')
   }
 
+  /**
+   * @throws always. Use {@link modifyCalendarItemWithHcParty} instead.
+   */
   modifyCalendarItem(body?: CalendarItem): never {
     throw new Error('Cannot call a method that must encrypt a calendar item without providing a user for de/encryption')
   }
@@ -313,6 +401,12 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
     return resetCalendarItem
   }
 
+  /**
+   * Modifies a calendar item after encrypting its content.
+   * @param user the current user, used for encryption/decryption.
+   * @param body the calendar item with updated fields.
+   * @return the modified and decrypted calendar item, or null if body was not provided.
+   */
   async modifyCalendarItemWithHcParty(user: models.User, body?: models.CalendarItem): Promise<models.CalendarItem | any> {
     return body ? this.modifyAs(this.dataOwnerApi.getDataOwnerIdOf(user)!, _.cloneDeep(body)) : null
   }
@@ -324,6 +418,12 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
       .then((cis) => cis[0])
   }
 
+  /**
+   * Encrypts the encrypted fields of a list of calendar items.
+   * @param user the current user, used to determine the data owner for encryption.
+   * @param calendarItems the calendar items to encrypt.
+   * @return the encrypted calendar items.
+   */
   encrypt(user: models.User, calendarItems: Array<models.CalendarItem>): Promise<Array<models.CalendarItem>> {
     return this.encryptAs(this.dataOwnerApi.getDataOwnerIdOf(user)!, calendarItems)
   }
@@ -339,6 +439,12 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
     )
   }
 
+  /**
+   * Decrypts a list of calendar items using the current data owner's keys.
+   * @param hcpId the id of the healthcare party performing the decryption.
+   * @param calendarItems the calendar items to decrypt.
+   * @return the decrypted calendar items.
+   */
   async decrypt(hcpId: string, calendarItems: Array<models.CalendarItem>): Promise<Array<models.CalendarItem>> {
     return (
       await this.crypto.xapi.tryDecryptEntities(calendarItems, EntityWithDelegationTypeName.CalendarItem, (json) => new CalendarItem(json))
@@ -469,12 +575,22 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
       .then((r) => r.mapSuccessAsync((e) => this.decrypt(self, [e]).then((es) => es[0])))
   }
 
+  /**
+   * Retrieves the data owners that have access to the given calendar item, along with their access levels.
+   * @param entity the calendar item.
+   * @return an object containing a map of data owner ids to their access levels, and a flag indicating if there are unknown anonymous data owners.
+   */
   getDataOwnersWithAccessTo(
     entity: CalendarItem
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
     return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: EntityWithDelegationTypeName.CalendarItem })
   }
 
+  /**
+   * Retrieves the encryption keys of the given calendar item.
+   * @param entity the calendar item.
+   * @return the encryption key ids.
+   */
   getEncryptionKeysOf(entity: CalendarItem): Promise<string[]> {
     return this.crypto.xapi.encryptionKeysOf({ entity, type: EntityWithDelegationTypeName.CalendarItem }, undefined)
   }
@@ -571,6 +687,12 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
     }
   }
 
+  /**
+   * Creates or updates de-anonymization metadata for the given calendar item, allowing the specified delegates to
+   * identify the data owners that have access to it.
+   * @param entity the calendar item.
+   * @param delegates the data owner ids for which to create de-anonymization metadata.
+   */
   createDelegationDeAnonymizationMetadata(entity: CalendarItem, delegates: string[]): Promise<void> {
     return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo(
       { entity, type: EntityWithDelegationTypeName.CalendarItem },

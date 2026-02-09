@@ -31,6 +31,14 @@ export class IccDoctemplateXApi extends IccDoctemplateApi {
     this.fetchImpl = fetchImpl
   }
 
+  /**
+   * Creates a new instance of document template with initialised metadata (not persisted in the database).
+   * @param user the current user, used to set the owner.
+   * @param template the template content as a string, which will be converted to an ArrayBuffer attachment.
+   * @param c optional initial data to merge into the document template. Metadata such as id, creation date, and guid
+   * will be automatically generated if not provided.
+   * @return a new DocumentTemplate instance with populated metadata fields.
+   */
   newInstance(user: models.User, template: string, c: any): Promise<DocumentTemplate> {
     return new Promise<DocumentTemplate>((resolve, reject) => {
       const documentTemplate: DocumentTemplate = {
@@ -60,6 +68,11 @@ export class IccDoctemplateXApi extends IccDoctemplateApi {
     })
   }
 
+  /**
+   * @deprecated not implemented. Always rejects with an error.
+   * @param ownerId the id of the owner.
+   * @return always rejects.
+   */
   // noinspection JSUnusedLocalSymbols
   findAllByOwnerId(ownerId: string): Promise<Array<models.DocumentTemplate>> {
     return new Promise(function (resolve, reject) {
@@ -67,6 +80,12 @@ export class IccDoctemplateXApi extends IccDoctemplateApi {
     })
   }
 
+  /**
+   * Builds the URL for downloading a document template attachment.
+   * @param documentId the id of the document template.
+   * @param attachmentId the id of the attachment.
+   * @return the fully qualified URL to the attachment resource.
+   */
   // noinspection JSUnusedGlobalSymbols
   getAttachmentUrl(documentId: string, attachmentId: string) {
     return (
@@ -74,6 +93,13 @@ export class IccDoctemplateXApi extends IccDoctemplateApi {
     )
   }
 
+  /**
+   * Retrieves the text content of a document template attachment. Decodes binary responses as UTF-8 text, and
+   * returns text/plain, text/html, or text/xml content directly. Returns false for unsupported content types.
+   * @param documentTemplateId the id of the document template.
+   * @param attachmentId the id of the attachment.
+   * @return the attachment text content as a string, or false if the content type is unsupported.
+   */
   getAttachmentText(documentTemplateId: string, attachmentId: string): Promise<any | boolean> {
     const _body = null
 

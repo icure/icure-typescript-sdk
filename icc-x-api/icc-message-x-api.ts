@@ -48,6 +48,13 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
   }
 
   // noinspection JSUnusedGlobalSymbols
+  /**
+   * Creates a new instance of message with initialised encryption metadata (not in the database).
+   * @param user the current user.
+   * @param m initialised data for the message. Metadata such as id, creation data, etc. will be automatically initialised, but you can specify
+   * other kinds of data or overwrite generated metadata with this. You can't specify encryption metadata.
+   * @return a new instance of message.
+   */
   newInstance(user: User, m: any) {
     return this.newInstanceWithPatient(user, null, m)
   }
@@ -120,10 +127,20 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     )
   }
 
+  /**
+   * Decrypts the encrypted content of messages.
+   * @param messages the messages to decrypt.
+   * @return the decrypted messages with their encryption status.
+   */
   async decrypt(messages: Array<models.Message>) {
     return await this.crypto.xapi.tryDecryptEntities(messages, EntityWithDelegationTypeName.Message, (x) => new models.Message(x))
   }
 
+  /**
+   * Encrypts the content of messages.
+   * @param messages the messages to encrypt.
+   * @return the encrypted messages.
+   */
   encrypt(messages: Array<models.Message>): Promise<Array<models.Message>> {
     return this.crypto.xapi.tryEncryptEntities(
       messages,
@@ -270,20 +287,43 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     return this.crypto.xapi.secretIdsOf({ entity: message, type: EntityWithDelegationTypeName.Message }, undefined)
   }
 
+  /**
+   * Creates or updates de-anonymization metadata for the message, allowing resolution of anonymous delegations.
+   * @param entity the message.
+   * @param delegates the data owner ids of the delegates.
+   */
   createDelegationDeAnonymizationMetadata(entity: Message, delegates: string[]): Promise<void> {
     return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: EntityWithDelegationTypeName.Message }, delegates)
   }
 
+  /**
+   * Retrieves the data owners that have access to the message.
+   * @param entity the message.
+   * @return the data owners with their access levels and a flag indicating if there are unknown anonymous data owners.
+   */
   getDataOwnersWithAccessTo(
     entity: models.Message
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
     return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: EntityWithDelegationTypeName.Message })
   }
 
+  /**
+   * Retrieves the encryption keys of the message.
+   * @param entity the message.
+   * @return the encryption keys.
+   */
   getEncryptionKeysOf(entity: models.Message): Promise<string[]> {
     return this.crypto.xapi.encryptionKeysOf({ entity, type: EntityWithDelegationTypeName.Message }, undefined)
   }
 
+  /**
+   * Subscribes to message events (create, update, delete).
+   * @param eventTypes the types of events to subscribe to.
+   * @param filter optional filter to apply to the events.
+   * @param eventFired callback function to be called when an event is fired.
+   * @param options optional subscription options.
+   * @return a connection that can be used to close the subscription.
+   */
   async subscribeToMessageEvents(
     eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
     filter: AbstractFilter<Message> | undefined,
@@ -309,10 +349,24 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     }
   }
 
+  /**
+   * Creates a message.
+   * @param user the current user (unused, for compatibility).
+   * @param body the message to create.
+   * @return the created message.
+   */
   async createMessageWithUser(user: models.User | undefined, body: Message): Promise<Message> {
     return (await this.decrypt([await super.createMessage((await this.encrypt([body]))[0])]))[0].entity
   }
 
+  /**
+   * Finds messages with pagination.
+   * @param user the current user (unused, for compatibility).
+   * @param startKey optional start key for pagination.
+   * @param startDocumentId optional start document id for pagination.
+   * @param limit optional maximum number of results to return.
+   * @return a paginated list of messages.
+   */
   async findMessagesWithUser(
     user: models.User | undefined,
     startKey?: string,
@@ -322,6 +376,16 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     return await this.decryptPage(await super.findMessages(startKey, startDocumentId, limit))
   }
 
+  /**
+   * Finds messages by sender address with pagination.
+   * @param user the current user (unused, for compatibility).
+   * @param fromAddress the sender address to filter by.
+   * @param startKey optional start key for pagination.
+   * @param startDocumentId optional start document id for pagination.
+   * @param limit optional maximum number of results to return.
+   * @param hcpId optional healthcare party id to filter by.
+   * @return a paginated list of messages.
+   */
   async findMessagesByFromAddressWithUser(
     user: models.User | undefined,
     fromAddress?: string,
@@ -347,6 +411,17 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     return (await this.decrypt(await super.findMessagesByHCPartyPatientForeignKeys(secretFKeys))).map((x) => x.entity)
   }
 
+  /**
+   * Finds messages by recipient address with pagination.
+   * @param user the current user (unused, for compatibility).
+   * @param toAddress the recipient address to filter by.
+   * @param startKey optional start key for pagination.
+   * @param startDocumentId optional start document id for pagination.
+   * @param limit optional maximum number of results to return.
+   * @param reverse optional flag to reverse the sort order.
+   * @param hcpId optional healthcare party id to filter by.
+   * @return a paginated list of messages.
+   */
   async findMessagesByToAddressWithUser(
     user: models.User | undefined,
     toAddress?: string,
@@ -359,6 +434,17 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     return await this.decryptPage(await super.findMessagesByToAddress(toAddress, startKey, startDocumentId, limit, reverse, hcpId))
   }
 
+  /**
+   * Finds messages by transport GUID with pagination.
+   * @param user the current user (unused, for compatibility).
+   * @param transportGuid the transport GUID to filter by.
+   * @param received optional flag to filter by received status.
+   * @param startKey optional start key for pagination.
+   * @param startDocumentId optional start document id for pagination.
+   * @param limit optional maximum number of results to return.
+   * @param hcpId optional healthcare party id to filter by.
+   * @return a paginated list of messages.
+   */
   async findMessagesByTransportGuidWithUser(
     user: models.User | undefined,
     transportGuid?: string,
@@ -371,6 +457,18 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     return await this.decryptPage(await super.findMessagesByTransportGuid(transportGuid, received, startKey, startDocumentId, limit, hcpId))
   }
 
+  /**
+   * Finds messages by transport GUID and sent date range with pagination.
+   * @param user the current user (unused, for compatibility).
+   * @param transportGuid the transport GUID to filter by.
+   * @param from optional start timestamp for the date range.
+   * @param to optional end timestamp for the date range.
+   * @param startKey optional start key for pagination.
+   * @param startDocumentId optional start document id for pagination.
+   * @param limit optional maximum number of results to return.
+   * @param hcpId optional healthcare party id to filter by.
+   * @return a paginated list of messages.
+   */
   async findMessagesByTransportGuidSentDateWithUser(
     user: models.User | undefined,
     transportGuid?: string,
@@ -384,38 +482,96 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     return await this.decryptPage(await super.findMessagesByTransportGuidSentDate(transportGuid, from, to, startKey, startDocumentId, limit, hcpId))
   }
 
+  /**
+   * Retrieves the children messages of a message.
+   * @param user the current user (unused, for compatibility).
+   * @param messageId the id of the parent message.
+   * @return the children messages.
+   */
   async getChildrenMessagesWithUser(user: models.User | undefined, messageId: string): Promise<Array<Message>> {
     return (await this.decrypt(await super.getChildrenMessages(messageId))).map((x) => x.entity)
   }
 
+  /**
+   * Retrieves the children messages of a list of parent messages.
+   * @param user the current user (unused, for compatibility).
+   * @param body the list of parent message ids.
+   * @return the children messages.
+   */
   async getChildrenMessagesOfListWithUser(user: models.User | undefined, body?: ListOfIds): Promise<Array<Message>> {
     return (await this.decrypt(await super.getChildrenMessagesOfList(body))).map((x) => x.entity)
   }
 
+  /**
+   * Retrieves a message by its id.
+   * @param user the current user (unused, for compatibility).
+   * @param messageId the id of the message.
+   * @return the message.
+   */
   async getMessageWithUser(user: models.User | undefined, messageId: string): Promise<Message> {
     return (await this.decrypt([await super.getMessage(messageId)]))[0].entity
   }
 
+  /**
+   * Retrieves multiple messages by their ids.
+   * @param user the current user (unused, for compatibility).
+   * @param messageIds the list of message ids.
+   * @return the messages.
+   */
   async getMessagesWithUser(user: models.User | undefined, messageIds: ListOfIds): Promise<Message[]> {
     return (await this.decrypt(await super.getMessages(messageIds))).map((x) => x.entity)
   }
 
+  /**
+   * Lists messages by invoice ids.
+   * @param user the current user (unused, for compatibility).
+   * @param body the list of invoice ids.
+   * @return the messages associated with the invoices.
+   */
   async listMessagesByInvoiceIdsWithUser(user: models.User | undefined, body?: ListOfIds): Promise<Array<Message>> {
     return (await this.decrypt(await super.listMessagesByInvoiceIds(body))).map((x) => x.entity)
   }
 
+  /**
+   * Lists messages by transport GUIDs.
+   * @param user the current user (unused, for compatibility).
+   * @param hcpId the healthcare party id.
+   * @param body the list of transport GUIDs.
+   * @return the messages associated with the transport GUIDs.
+   */
   async listMessagesByTransportGuidsWithUser(user: models.User | undefined, hcpId: string, body?: ListOfIds): Promise<Array<Message>> {
     return (await this.decrypt(await super.listMessagesByTransportGuids(hcpId, body))).map((x) => x.entity)
   }
 
+  /**
+   * Modifies a message.
+   * @param user the current user (unused, for compatibility).
+   * @param body the message to modify.
+   * @return the modified message.
+   */
   async modifyMessageWithUser(user: models.User | undefined, body: Message): Promise<Message> {
     return (await this.decrypt([await super.modifyMessage((await this.encrypt([body]))[0])]))[0].entity
   }
 
+  /**
+   * Sets the status bits of multiple messages.
+   * @param user the current user (unused, for compatibility).
+   * @param status the status bits to set.
+   * @param body the list of message ids.
+   * @return the updated messages.
+   */
   async setMessagesStatusBitsWithUser(user: models.User | undefined, status: number, body?: ListOfIds): Promise<Array<Message>> {
     return (await this.decrypt(await super.setMessagesStatusBits(status, body))).map((x) => x.entity)
   }
 
+  /**
+   * Filters messages using a filter chain with pagination.
+   * @param user the current user (unused, for compatibility).
+   * @param body the filter chain to apply.
+   * @param startDocumentId optional start document id for pagination.
+   * @param limit optional maximum number of results to return.
+   * @return a paginated list of filtered messages.
+   */
   async filterMessagesByWithUser(
     user: models.User | undefined,
     body: FilterChainMessage,
@@ -425,6 +581,12 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
     return await this.decryptPage(await super.filterMessagesBy(body, startDocumentId, limit))
   }
 
+  /**
+   * Sets the read status of multiple messages.
+   * @param user the current user (unused, for compatibility).
+   * @param body the read status update information.
+   * @return the updated messages.
+   */
   async setMessagesReadStatusWithUser(user: models.User | undefined, body?: MessagesReadStatusUpdate): Promise<Array<Message>> {
     return (await this.decrypt(await super.setMessagesReadStatus(body))).map((x) => x.entity)
   }

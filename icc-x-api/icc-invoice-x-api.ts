@@ -109,6 +109,13 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
     )
   }
 
+  /**
+   * Creates an invoice. If a prefix is provided, an auto-incrementing invoice reference is generated using the
+   * entity reference API. If the invoice has an internshipNihii, the reference is adjusted accordingly.
+   * @param invoice the invoice to create.
+   * @param prefix optional prefix for generating an auto-incrementing invoice reference.
+   * @return the created invoice.
+   */
   createInvoice(invoice: Invoice, prefix?: string): Promise<Invoice> {
     if (!prefix) {
       return super.createInvoice(invoice)
@@ -132,6 +139,12 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
       })
   }
 
+  /**
+   * Gets the next available invoice reference number for the given prefix.
+   * @param prefix the prefix to look up the latest reference for.
+   * @param entityrefApi the entity reference API to query.
+   * @return the next sequence number (1-based).
+   */
   getNextInvoiceReference(prefix: string, entityrefApi: IccEntityrefApi): Promise<number> {
     return entityrefApi.getLatest(prefix).then((entRef: models.EntityReference) => {
       if (!entRef || !entRef.id || !entRef.id!.startsWith(prefix)) return 1
@@ -140,6 +153,15 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
     })
   }
 
+  /**
+   * Creates an entity reference for an invoice with the given reference number. If the reference already exists
+   * (conflict), retries with the next available number.
+   * @param nextReference the reference number to use.
+   * @param docId the document id to link to this reference.
+   * @param prefix the prefix for the reference id.
+   * @param entityrefApi the entity reference API to use.
+   * @return the created entity reference.
+   */
   createInvoiceReference(nextReference: number, docId: string, prefix: string, entityrefApi: IccEntityrefApi): Promise<models.EntityReference> {
     return entityrefApi
       .createEntityReference(
@@ -180,16 +202,32 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
     return await this.decrypt(hcpartyId, invoices)
   }
 
+  /**
+   * Same as {@link findBy} but it will only return the ids of the invoices. It can also filter the invoices where Invoice.invoiceDate is between
+   * startDate and endDate in ascending or descending order by that field (default: ascending).
+   */
   async findIdsBy(hcpartyId: string, patient: models.Patient, startDate?: number, endDate?: number, descending?: boolean): Promise<string[]> {
     const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: EntityWithDelegationTypeName.Patient }, hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     return this.findInvoiceIdsByDataOwnerPatientInvoiceDate(hcpartyId!, _.uniq(extractedKeys), startDate, endDate, descending)
   }
 
+  /**
+   * Encrypts a list of invoices. Currently a no-op as invoices do not have encrypted fields.
+   * @param user the current user.
+   * @param invoices the invoices to encrypt.
+   * @return the invoices unchanged.
+   */
   encrypt(user: models.User, invoices: Array<models.Invoice>) {
     return Promise.resolve(invoices)
   }
 
+  /**
+   * Decrypts a list of invoices. Currently a no-op as invoices do not have encrypted fields.
+   * @param hcpartyId the id of the healthcare party.
+   * @param invoices the invoices to decrypt.
+   * @return the invoices unchanged.
+   */
   decrypt(hcpartyId: string, invoices: Array<models.Invoice>): Promise<Array<models.Invoice>> {
     return Promise.resolve(invoices)
   }
@@ -318,16 +356,32 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
       .then((r) => r.mapSuccessAsync((e) => this.decrypt(self, [e]).then((es) => es[0])))
   }
 
+  /**
+   * Retrieves the data owners that have access to the given invoice, along with their access levels.
+   * @param entity the invoice.
+   * @return an object containing a map of data owner ids to their access levels, and a flag indicating if there are unknown anonymous data owners.
+   */
   getDataOwnersWithAccessTo(
     entity: models.Invoice
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
     return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: EntityWithDelegationTypeName.Invoice })
   }
 
+  /**
+   * Retrieves the encryption keys of the given invoice.
+   * @param entity the invoice.
+   * @return the encryption key ids.
+   */
   getEncryptionKeysOf(entity: models.Invoice): Promise<string[]> {
     return this.crypto.xapi.encryptionKeysOf({ entity, type: EntityWithDelegationTypeName.Invoice }, undefined)
   }
 
+  /**
+   * Creates or updates de-anonymization metadata for the given invoice, allowing the specified delegates to
+   * identify the data owners that have access to it.
+   * @param entity the invoice.
+   * @param delegates the data owner ids for which to create de-anonymization metadata.
+   */
   createDelegationDeAnonymizationMetadata(entity: models.Invoice, delegates: string[]): Promise<void> {
     return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: EntityWithDelegationTypeName.Invoice }, delegates)
   }

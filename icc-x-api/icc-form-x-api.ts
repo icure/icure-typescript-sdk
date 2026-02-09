@@ -121,9 +121,9 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
    *      3.2.  if it doesn't exist in the cache, it has to be loaded from Browser Local store, and then import it to WebCrypto
    * 4. Obtain the array of delegations which are delegated to his ID (hcpartyId) in this patient
    * 5. Decrypt and collect all keys (secretForeignKeys) within delegations of previous step (with obtained AES key of step 4)
-   * 6. Do the REST call to get all contacts with (allSecretForeignKeysDelimitedByComa, hcpartyId)
+   * 6. Do the REST call to get all forms with (allSecretForeignKeysDelimitedByComa, hcpartyId)
    *
-   * After these painful steps, you have the contacts of the patient.
+   * After these painful steps, you have the forms of the patient.
    * @deprecated use {@link findIdsBy} instead.
    * @param hcpartyId
    * @param patient
@@ -139,14 +139,26 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
   }
 
   /**
-   * Same as {@link findBy} but it will only return the ids of the forms. It can also filter the forms where Form.openingDate is between
-   * startDate and endDate in ascending or descending order by that field. (default: ascending).
+   * Same as {@link findBy} but it will only return the ids of the forms. It can also filter the forms by opening date
+   * (the date when the form was opened/started) between startDate and endDate in ascending or descending order by that field (default: ascending).
+   * @param hcpartyId the id of the data owner.
+   * @param patient the patient whose forms to retrieve.
+   * @param startDate optional start date filter (inclusive). Only forms with openingDate >= startDate will be returned.
+   * @param endDate optional end date filter (inclusive). Only forms with openingDate <= endDate will be returned.
+   * @param descending if true, results are sorted by openingDate in descending order; otherwise in ascending order (default).
+   * @return an array of form ids.
    */
   async findIdsBy(hcpartyId: string, patient: models.Patient, startDate?: number, endDate?: number, descending?: boolean) {
     const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: EntityWithDelegationTypeName.Patient }, hcpartyId)
     return this.findFormIdsByDataOwnerPatientOpeningDate(hcpartyId, _.uniq(extractedKeys), startDate, endDate, descending)
   }
 
+  /**
+   * Decrypts the encrypted content of the provided forms.
+   * @param hcpartyId the id of the data owner attempting to decrypt the forms.
+   * @param forms the forms to decrypt.
+   * @return an array of decrypted forms. Forms that could not be decrypted will be returned as-is.
+   */
   async decrypt(hcpartyId: string, forms: Array<models.Form>) {
     return (await this.crypto.xapi.tryDecryptEntities(forms, EntityWithDelegationTypeName.Form, (x) => new models.Form(x))).map(
       ({ entity }) => entity
@@ -277,16 +289,34 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
       .then((r) => r.mapSuccessAsync((e) => this.decrypt(self, [e]).then((es) => es[0])))
   }
 
+  /**
+   * Gets all data owners that have access to the given form, along with their access levels.
+   * @param entity the form to check.
+   * @return an object containing:
+   * - permissionsByDataOwnerId: a map of data owner id to their access level.
+   * - hasUnknownAnonymousDataOwners: true if there are anonymous data owners with access that could not be identified.
+   */
   getDataOwnersWithAccessTo(
     entity: models.Form
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
     return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: EntityWithDelegationTypeName.Form })
   }
 
+  /**
+   * Retrieves all encryption keys of the given form that are available to the current data owner.
+   * @param entity the form whose encryption keys to retrieve.
+   * @return an array of encryption keys in hexadecimal string format.
+   */
   getEncryptionKeysOf(entity: models.Form): Promise<string[]> {
     return this.crypto.xapi.encryptionKeysOf({ entity, type: EntityWithDelegationTypeName.Form }, undefined)
   }
 
+  /**
+   * Creates or updates de-anonymization metadata for the given form, allowing the delegates to be identified
+   * even if they were initially anonymous (e.g., in keyless mode).
+   * @param entity the form for which to create de-anonymization metadata.
+   * @param delegates the ids of the data owners for which to create de-anonymization information.
+   */
   createDelegationDeAnonymizationMetadata(entity: models.Form, delegates: string[]): Promise<void> {
     return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: EntityWithDelegationTypeName.Form }, delegates)
   }

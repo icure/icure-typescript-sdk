@@ -95,6 +95,15 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
     )
   }
 
+  /**
+   * Creates a new receipt linked to a document and optionally attaches a blob to it.
+   * @param user the current user.
+   * @param docId the id of the document this receipt refers to.
+   * @param refs an array of reference strings to associate with the receipt.
+   * @param blobType the type of the blob attachment.
+   * @param blob the binary content to attach; if empty (byteLength == 0), no attachment is set.
+   * @return the created receipt, with the attachment set if the blob was non-empty.
+   */
   logReceipt(user: models.User, docId: string, refs: Array<string>, blobType: string, blob: ArrayBuffer) {
     return this.newInstance(user, { documentId: docId, references: refs })
       .then((rcpt) => this.createReceipt(rcpt))
@@ -269,16 +278,32 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
     )
   }
 
+  /**
+   * Retrieves the data owners that have access to the given receipt, along with their access levels.
+   * @param entity the receipt.
+   * @return an object containing a map of data owner ids to their access levels, and a flag indicating if there are unknown anonymous data owners.
+   */
   getDataOwnersWithAccessTo(
     entity: models.Receipt
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
     return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: EntityWithDelegationTypeName.Receipt })
   }
 
+  /**
+   * Retrieves the encryption keys of the given receipt.
+   * @param entity the receipt.
+   * @return the encryption key ids.
+   */
   getEncryptionKeysOf(entity: models.Receipt): Promise<string[]> {
     return this.crypto.xapi.encryptionKeysOf({ entity, type: EntityWithDelegationTypeName.Receipt }, undefined)
   }
 
+  /**
+   * Creates or updates de-anonymization metadata for the given receipt, allowing the specified delegates to
+   * identify the data owners that have access to it.
+   * @param entity the receipt.
+   * @param delegates the data owner ids for which to create de-anonymization metadata.
+   */
   createDelegationDeAnonymizationMetadata(entity: models.Receipt, delegates: string[]): Promise<void> {
     return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: EntityWithDelegationTypeName.Receipt }, delegates)
   }

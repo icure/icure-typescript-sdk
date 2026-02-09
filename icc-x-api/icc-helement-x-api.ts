@@ -117,10 +117,19 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     return new models.HealthElement(initialisationInfo.updatedEntity)
   }
 
+  /**
+   * @throws always. Use {@link createHealthElementWithUser} instead.
+   */
   createHealthElement(body?: models.HealthElement): never {
     throw new Error('Cannot call a method that returns health elements without providing a user for de/encryption')
   }
 
+  /**
+   * Creates a health element after encrypting its content.
+   * @param user the current user, used for encryption.
+   * @param body the health element to create.
+   * @return the created and decrypted health element.
+   */
   createHealthElementWithUser(user: models.User, body?: models.HealthElement): Promise<models.HealthElement | any> {
     return body
       ? this.encrypt(user, [_.cloneDeep(body)])
@@ -130,10 +139,19 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
       : Promise.resolve(null)
   }
 
+  /**
+   * @throws always. Use {@link createHealthElementsWithUser} instead.
+   */
   createHealthElements(body?: Array<HealthElement>): never {
     throw new Error('Cannot call a method that returns health elements without providing a user for de/encryption')
   }
 
+  /**
+   * Creates multiple health elements after encrypting their content.
+   * @param user the current user, used for encryption.
+   * @param bodies the health elements to create.
+   * @return the created and decrypted health elements.
+   */
   createHealthElementsWithUser(user: models.User, bodies?: models.HealthElement[]): Promise<models.HealthElement[] | any> {
     return bodies
       ? this.encrypt(
@@ -145,10 +163,19 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
       : Promise.resolve(null)
   }
 
+  /**
+   * @throws always. Use {@link getHealthElementWithUser} instead.
+   */
   getHealthElement(healthElementId: string): never {
     throw new Error('Cannot call a method that returns health element without providing a user for de/encryption')
   }
 
+  /**
+   * Retrieves a health element by id and decrypts it.
+   * @param user the current user, used for decryption.
+   * @param healthElementId the id of the health element to retrieve.
+   * @return the decrypted health element.
+   */
   getHealthElementWithUser(user: models.User, healthElementId: string): Promise<models.HealthElement> {
     return super
       .getHealthElement(healthElementId)
@@ -156,30 +183,60 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
       .then((hes) => hes[0])
   }
 
+  /**
+   * @throws always. Use {@link getHealthElementsWithUser} instead.
+   */
   getHealthElements(body?: models.ListOfIds): never {
     throw new Error('Cannot call a method that returns health elements without providing a user for de/encryption')
   }
 
+  /**
+   * Retrieves multiple health elements by their ids and decrypts them.
+   * @param user the current user, used for decryption.
+   * @param body the list of health element ids to retrieve.
+   * @return the decrypted health elements.
+   */
   getHealthElementsWithUser(user: models.User, body?: models.ListOfIds): Promise<models.HealthElement[]> {
     return super.getHealthElements(body).then((hes) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user), hes))
   }
 
+  /**
+   * @throws always.
+   */
   newHealthElementDelegations(healthElementId: string, body?: Array<models.Delegation>): never {
     throw new Error('Cannot call a method that returns health element without providing a user for de/encryption')
   }
 
+  /**
+   * @throws always. Use {@link findHealthElementsByHCPartyPatientForeignKeysWithUser} instead.
+   */
   findHealthElementsByHCPartyPatientForeignKeys(hcPartyId: string, secretFKeys: string): never {
     throw new Error('Cannot call a method that returns health element without providing a user for de/encryption')
   }
 
+  /**
+   * @deprecated use {@link findHealthElementIdsByDataOwnerPatientOpeningDate} instead.
+   */
   findHealthElementsByHCPartyPatientForeignKeysWithUser(user: models.User, hcPartyId: string, secretFKeys: string): Promise<HealthElement[]> {
     return super.findHealthElementsByHCPartyPatientForeignKeys(hcPartyId, secretFKeys).then((hes) => this.decryptWithUser(user, hes))
   }
 
+  /**
+   * @deprecated use {@link findHealthElementIdsByDataOwnerPatientOpeningDate} instead.
+   */
   findHealthElementsByHCPartyPatientForeignKeysArrayWithUser(user: models.User, hcPartyId: string, secretFKeys: string[]): Promise<HealthElement[]> {
     return super.findHealthElementsByHCPartyPatientForeignKeysUsingPost(hcPartyId, secretFKeys).then((hes) => this.decryptWithUser(user, hes))
   }
 
+  /**
+   * Finds all health elements for a given patient and healthcare party, and decrypts them.
+   * @deprecated use {@link findHealthElementIdsByDataOwnerPatientOpeningDate} instead.
+   * @param user the current user, used for decryption.
+   * @param hcPartyId the id of the healthcare party.
+   * @param patient the patient whose health elements to find.
+   * @param usingPost if true, uses POST instead of GET for the request.
+   * @return the decrypted health elements.
+   */
   async findHealthElementsByHCPartyAndPatientWithUser(
     user: models.User,
     hcPartyId: string,
@@ -196,10 +253,19 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
       : this.findHealthElementsByHCPartyPatientForeignKeysWithUser(user, hcPartyId, keys.join(','))
   }
 
+  /**
+   * @throws always. Use {@link modifyHealthElementWithUser} instead.
+   */
   modifyHealthElement(body?: HealthElement): never {
     throw new Error('Cannot call a method that returns health element without providing a user for de/encryption')
   }
 
+  /**
+   * Modifies a health element after encrypting its content.
+   * @param user the current user, used for encryption/decryption.
+   * @param body the health element with updated fields.
+   * @return the modified and decrypted health element, or null if body was not provided.
+   */
   modifyHealthElementWithUser(user: models.User, body?: HealthElement): Promise<HealthElement | any> {
     return body ? this.modifyHealthElementAs(this.dataOwnerApi.getDataOwnerIdOf(user), body) : Promise.resolve(null)
   }
@@ -210,10 +276,19 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
       .then((hes) => hes[0])
   }
 
+  /**
+   * @throws always. Use {@link modifyHealthElementsWithUser} instead.
+   */
   modifyHealthElements(body?: Array<HealthElement>): never {
     throw new Error('Cannot call a method that returns health elements without providing a user for de/encryption')
   }
 
+  /**
+   * Modifies multiple health elements after encrypting their content.
+   * @param user the current user, used for encryption/decryption.
+   * @param bodies the health elements with updated fields.
+   * @return the modified and decrypted health elements, or null if bodies was not provided.
+   */
   modifyHealthElementsWithUser(user: models.User, bodies?: HealthElement[]): Promise<HealthElement[] | any> {
     return bodies
       ? this.encrypt(
@@ -329,6 +404,12 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
       .then((helements) => this.decrypt(hcPartyId, helements))
   }
 
+  /**
+   * Encrypts the encrypted fields of a list of health elements.
+   * @param user the current user, used to determine the data owner for encryption.
+   * @param healthElements the health elements to encrypt.
+   * @return the encrypted health elements.
+   */
   encrypt(user: models.User, healthElements: Array<models.HealthElement>): Promise<Array<models.HealthElement>> {
     return this.encryptAs(this.dataOwnerApi.getDataOwnerIdOf(user), healthElements)
   }
@@ -344,20 +425,43 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     )
   }
 
+  /**
+   * Decrypts a list of health elements using the given user's data owner keys.
+   * @param user the current user.
+   * @param hes the health elements to decrypt.
+   * @return the decrypted health elements.
+   */
   decryptWithUser(user: models.User, hes: Array<models.HealthElement>): Promise<Array<models.HealthElement>> {
     return this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user), hes)
   }
 
+  /**
+   * Decrypts a list of health elements using the current data owner's keys.
+   * @param dataOwnerId the id of the data owner performing the decryption.
+   * @param hes the health elements to decrypt.
+   * @return the decrypted health elements.
+   */
   async decrypt(dataOwnerId: string, hes: Array<models.HealthElement>): Promise<Array<models.HealthElement>> {
     return (await this.crypto.xapi.tryDecryptEntities(hes, EntityWithDelegationTypeName.HealthElement, (x) => new models.HealthElement(x))).map(
       ({ entity }) => entity
     )
   }
 
+  /**
+   * @throws always. Use {@link filterByWithUser} instead.
+   */
   filterHealthElementsBy(startDocumentId?: string, limit?: number, body?: FilterChainHealthElement): never {
     throw new Error('Cannot call a method that returns health elements without providing a user for de/encryption')
   }
 
+  /**
+   * Filters health elements using the provided filter chain and decrypts the results.
+   * @param user the current user, used for decryption.
+   * @param startDocumentId the pagination start document id.
+   * @param limit the maximum number of results to return.
+   * @param body the filter chain to apply.
+   * @return a paginated list of decrypted health elements.
+   */
   filterByWithUser(
     user: models.User,
     startDocumentId?: string,
@@ -369,6 +473,14 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
       .then((pl) => this.decryptWithUser(user, pl.rows!).then((dr) => Object.assign(pl, { rows: dr })))
   }
 
+  /**
+   * Converts a service into a new health element linked to the given patient.
+   * @param user the current user.
+   * @param patient the patient to link the health element to.
+   * @param heSvc the service to convert.
+   * @param descr the description for the new health element.
+   * @return the created health element.
+   */
   // noinspection JSUnusedGlobalSymbols
   serviceToHealthElement(user: models.User, patient: models.Patient, heSvc: models.Service, descr: string) {
     return this.newInstance(user, patient, {
@@ -387,6 +499,11 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     })
   }
 
+  /**
+   * Parses a pipe-delimited code string into a Code object.
+   * @param code the code string in format "type|code|version".
+   * @return a Code object with the parsed fields.
+   */
   // noinspection JSUnusedGlobalSymbols, JSMethodCanBeStatic
   stringToCode(code: string) {
     const c = code.split('|')
@@ -521,16 +638,34 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
       .then((r) => r.mapSuccessAsync((e) => this.decrypt(self, [e]).then((es) => es[0])))
   }
 
+  /**
+   * Retrieves the data owners that have access to the given health element, along with their access levels.
+   * @param entity the health element.
+   * @return an object containing a map of data owner ids to their access levels, and a flag indicating if there are unknown anonymous data owners.
+   */
   getDataOwnersWithAccessTo(
     entity: models.HealthElement
   ): Promise<{ permissionsByDataOwnerId: { [p: string]: AccessLevelEnum }; hasUnknownAnonymousDataOwners: boolean }> {
     return this.crypto.delegationsDeAnonymization.getDataOwnersWithAccessTo({ entity, type: EntityWithDelegationTypeName.HealthElement })
   }
 
+  /**
+   * Retrieves the encryption keys of the given health element.
+   * @param entity the health element.
+   * @return the encryption key ids.
+   */
   getEncryptionKeysOf(entity: models.HealthElement): Promise<string[]> {
     return this.crypto.xapi.encryptionKeysOf({ entity, type: EntityWithDelegationTypeName.HealthElement }, undefined)
   }
 
+  /**
+   * Subscribes to real-time health element events using a WebSocket connection. Received events are automatically decrypted.
+   * @param eventTypes the types of events to listen for (e.g. 'CREATE', 'UPDATE', 'DELETE').
+   * @param filter an optional filter to restrict which health element events trigger the callback.
+   * @param eventFired the callback function invoked when a matching health element event is received.
+   * @param options optional subscription configuration such as connection parameters and retry behaviour.
+   * @return a connection object that can be used to manage the WebSocket subscription lifecycle.
+   */
   async subscribeToHealthElementEvents(
     eventTypes: ('CREATE' | 'UPDATE' | 'DELETE')[],
     filter: AbstractFilter<HealthElement> | undefined,
@@ -551,6 +686,12 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     ).then((rs) => new ConnectionImpl(rs))
   }
 
+  /**
+   * Creates or updates de-anonymization metadata for the given health element, allowing the specified delegates to
+   * identify the data owners that have access to it.
+   * @param entity the health element.
+   * @param delegates the data owner ids for which to create de-anonymization metadata.
+   */
   createDelegationDeAnonymizationMetadata(entity: HealthElement, delegates: string[]): Promise<void> {
     return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo(
       { entity, type: EntityWithDelegationTypeName.HealthElement },
