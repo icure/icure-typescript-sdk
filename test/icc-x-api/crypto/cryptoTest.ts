@@ -1,8 +1,6 @@
-import { IccPatientApi } from '../../../icc-api'
 import 'isomorphic-fetch'
 import { expect, use as chaiUse } from 'chai'
 import 'mocha'
-
 import { Patient } from '../../../icc-api/model/Patient'
 import {
   createHcpHierarchyApis,
@@ -18,6 +16,7 @@ import { BasicAuthenticationProvider, EntityWithDelegationTypeName } from '../..
 import initApi = TestUtils.initApi
 import { SecretIdUseOption } from '../../../icc-x-api/crypto/SecretIdUseOption'
 import UseAnyConfidential = SecretIdUseOption.UseAnyConfidential
+import { IccPatientApi } from '../../../icc-api'
 
 chaiUse(require('chai-as-promised'))
 
@@ -73,6 +72,33 @@ describe('Create a patient from scratch', () => {
     )
     expect(fetchedWithoutDecryption.id).to.equal(patient.id)
     expect(fetchedWithoutDecryption.note).to.be.undefined
+  })
+
+  it('encrypted self should not change after re-encryption if encrypted data do not change', async () => {
+    const api = await initApi(env, hcp1Username)
+    const user = await api.userApi.getCurrentUser()
+
+    const note = 'A secured note that is encrypted'
+    const patient = await api.patientApi.createPatientWithUser(
+      user,
+      await api.patientApi.newInstance(
+        user,
+        new Patient({
+          lastName: 'Biden',
+          firstName: 'Joe',
+          note,
+        })
+      )
+    )
+    expect(patient.note).to.equal(note)
+    console.log(
+      `Created patient (decrypted): ${patient.id}: ${patient.firstName} ${patient.lastName} [note:${patient.note}, encryptedSelf:${patient.encryptedSelf}]`
+    )
+
+    const updatedPatient = await api.patientApi.modifyPatientWithUser(user, { ...patient, firstName: 'John' })
+    expect(updatedPatient?.firstName).to.equal('John')
+    expect(updatedPatient?.note).to.equal(patient.note)
+    expect(updatedPatient?.encryptedSelf).to.equal(patient.encryptedSelf)
   })
 })
 
