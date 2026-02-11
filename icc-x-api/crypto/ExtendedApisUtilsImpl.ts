@@ -714,6 +714,7 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
 
               return this.primitives.AES.encrypt(k.key, utf8_2ua(json), k.raw)
             },
+            (encryptedSelf) => this.tryDecryptJson(keys, encryptedSelf, false),
             fieldsToEncrypt,
             entityType
           )
@@ -747,6 +748,7 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
                 }
                 return Promise.resolve(new ArrayBuffer(1))
               },
+              () => Promise.resolve(null),
               fieldsToEncrypt,
               'entity'
             )

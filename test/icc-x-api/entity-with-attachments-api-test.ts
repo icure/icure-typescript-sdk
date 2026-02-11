@@ -24,7 +24,7 @@ const entityWithAttachmentApis = {
   docMainAttachment: (apis: Apis, currentUser: User) =>
     <EntityWithAttachmentApi<models.Document>>{
       async createEntity(): Promise<models.Document> {
-        return apis.documentApi.createDocument(await apis.documentApi.newInstance(currentUser))
+        return apis.documentApi.createDocumentWithUser(currentUser, await apis.documentApi.newInstance(currentUser))
       },
       encryptAndSetAttachment(entity: models.Document, attachment: ArrayBuffer | Uint8Array): Promise<models.Document> {
         return apis.documentApi.encryptAndSetDocumentAttachment(entity, attachment)
@@ -39,7 +39,7 @@ const entityWithAttachmentApis = {
   docSecondaryAttachment: (apis: Apis, currentUser: User) =>
     <EntityWithAttachmentApi<models.Document>>{
       async createEntity(): Promise<models.Document> {
-        return apis.documentApi.createDocument(await apis.documentApi.newInstance(currentUser))
+        return apis.documentApi.createDocumentWithUser(currentUser, await apis.documentApi.newInstance(currentUser))
       },
       encryptAndSetAttachment(entity: models.Document, attachment: ArrayBuffer | Uint8Array): Promise<models.Document> {
         return apis.documentApi.encryptAndSetSecondaryDocumentAttachment(entity, 'secondary', attachment)

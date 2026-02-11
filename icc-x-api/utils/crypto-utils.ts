@@ -391,12 +391,47 @@ export function parseEncryptedFields(encryptedFields: string[], path: string): E
   }
 }
 
+function encryptedObjectDeepEqual(l: any, r: any): boolean {
+  if (Array.isArray(l)) {
+    if (!Array.isArray(r) || l.length !== r.length) {
+      return false
+    }
+    for (let i = 0; i < l.length; i++) {
+      if (!encryptedObjectDeepEqual(l[i], r[i])) {
+        return false
+      }
+    }
+  } else if (typeof l === 'object') {
+    if (typeof r !== 'object' || Array.isArray(r)) {
+      return false
+    }
+    const toEncryptKeys = Object.keys(l)
+    const encryptedSelfContentKeys = Object.keys(r)
+    if (toEncryptKeys.length !== encryptedSelfContentKeys.length) {
+      return false
+    }
+    const allKeys = new Set([...toEncryptKeys, ...encryptedSelfContentKeys])
+    if (allKeys.size !== toEncryptKeys.length) {
+      return false
+    }
+    for (const key of toEncryptKeys) {
+      if (!encryptedObjectDeepEqual(l[key], r[key])) {
+        return false
+      }
+    }
+  } else {
+    return l === r
+  }
+  return true
+}
+
 /**
  * @internal this function is for internal use only and may be changed without notice
  * Encrypt the object graph recursively. Generally return an updated SHALLOW copy, although some fields may be deep copied if they also needed to be
  * recursively encrypted.
  * @param obj the object to encrypt
  * @param cryptor takes in input an object consisting only of the fields to encrypt of obj, and returns the encrypted object.
+ * @param decryptor takes in input an "encrytpedSelf" value and returns the decrypted content. Can return null or throw exception if the decryption fails.
  * @param keys the keys to encrypt for the
  * @param path path of the current object, used for error messages.
  * @return a shallow copy of the object with a new encryptedSelfField and without the encrypted fields.
@@ -404,6 +439,7 @@ export function parseEncryptedFields(encryptedFields: string[], path: string): E
 export async function encryptObject(
   obj: { [key: string]: any },
   cryptor: (obj: { [key: string]: any }) => Promise<ArrayBuffer>,
+  decryptor: (encryptedSelf: Uint8Array<ArrayBufferLike>) => Promise<any>,
   keys: EncryptedFieldsManifest,
   path: string = 'obj'
 ): Promise<{ [key: string]: any }> {
@@ -417,12 +453,26 @@ export async function encryptObject(
       delete shallowClone[fieldName]
     }
   }
-  shallowClone['encryptedSelf'] = b2a(ua2string(await cryptor(currEncryptedFields)))
+  let existingEncryptedSelfMatch = false
+  if (shallowClone.encryptedSelf != undefined) {
+    let decrypted = undefined
+    try {
+      decrypted = await decryptor(string2ua(a2b(shallowClone.encryptedSelf)))
+    } catch (e) {
+      // ignore
+    }
+    if (decrypted != undefined /* ignore null and undefined */ && encryptedObjectDeepEqual(currEncryptedFields, decrypted)) {
+      existingEncryptedSelfMatch = true
+    }
+  }
+  if (!existingEncryptedSelfMatch) {
+    shallowClone['encryptedSelf'] = b2a(ua2string(await cryptor(currEncryptedFields)))
+  }
   for (const [fieldName, subKeys] of Object.entries(keys.nestedObjectsKeys)) {
     const fieldValue = shallowClone[fieldName]
     if (fieldValue !== undefined && fieldValue !== null) {
       if (!isPojo(fieldValue)) throw new Error(`Expected field ${path}.${fieldName} to be a non-array object`)
-      shallowClone[fieldName] = await encryptObject(fieldValue, cryptor, subKeys, path + '.' + fieldName)
+      shallowClone[fieldName] = await encryptObject(fieldValue, cryptor, decryptor, subKeys, path + '.' + fieldName)
     }
   }
   for (const [mapFieldName, subKeys] of Object.entries(keys.mapsValuesKeys)) {
@@ -435,7 +485,7 @@ export async function encryptObject(
           newMap[key] = value
         } else {
           if (!isPojo(value)) throw new Error(`Expected field ${path}.${mapFieldName}.${key} to be a non-array object`)
-          newMap[key] = await encryptObject(value, cryptor, subKeys, path + '.' + mapFieldName + '.' + key)
+          newMap[key] = await encryptObject(value, cryptor, decryptor, subKeys, path + '.' + mapFieldName + '.' + key)
         }
       }
       shallowClone[mapFieldName] = newMap
@@ -452,7 +502,7 @@ export async function encryptObject(
           newArray[i] = value
         } else {
           if (!isPojo(value)) throw new Error(`Expected field ${path}.${arrayFieldName}[${i}] to be a non-array object`)
-          newArray[i] = await encryptObject(value, cryptor, subKeys, path + '.' + arrayFieldName + '[' + i + ']')
+          newArray[i] = await encryptObject(value, cryptor, decryptor, subKeys, path + '.' + arrayFieldName + '[' + i + ']')
         }
       }
       shallowClone[arrayFieldName] = newArray

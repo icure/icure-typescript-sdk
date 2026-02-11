@@ -29,7 +29,7 @@ async function createMessage(
     toAddresses: [api.cryptoApi.primitives.randomUuid(), props.includeToAddress ?? api.cryptoApi.primitives.randomUuid()],
     received: props.includeRandomReceived ? Math.floor(Math.random() * 1000000) : undefined,
   }
-  return await api.messageApi.createMessage(await api.messageApi.newInstance(user, messageBase))
+  return await api.messageApi.createMessageWithUser(undefined, await api.messageApi.newInstance(user, messageBase))
 }
 
 async function createTestMessages(
@@ -137,28 +137,28 @@ describe('CSM-243', async function () {
   it('A user should be able to retrieve paginated messages without received date by fromAddress', async function () {
     const targetAddress = randomUUID()
     await doTestWithoutReceived({ includeFromAddress: targetAddress }, (messageApi, nextKey, nextKeyDocId, limit) =>
-      messageApi.findMessagesByFromAddress(targetAddress, nextKey, nextKeyDocId, limit)
+      messageApi.findMessagesByFromAddressWithUser(undefined, targetAddress, nextKey, nextKeyDocId, limit)
     )
   })
 
   it('A user should be able to retrieve paginated messages with received date by fromAddress', async function () {
     const targetAddress = randomUUID()
     await doTestWithReceived({ includeFromAddress: targetAddress }, (messageApi, nextKey, nextKeyDocId, limit) =>
-      messageApi.findMessagesByFromAddress(targetAddress, nextKey, nextKeyDocId, limit)
+      messageApi.findMessagesByFromAddressWithUser(undefined, targetAddress, nextKey, nextKeyDocId, limit)
     )
   })
 
   it('A user should be able to retrieve paginated messages without received date by toAddress', async function () {
     const targetAddress = randomUUID()
     await doTestWithoutReceived({ includeToAddress: targetAddress }, (messageApi, nextKey, nextKeyDocId, limit) =>
-      messageApi.findMessagesByToAddress(targetAddress, nextKey, nextKeyDocId, limit)
+      messageApi.findMessagesByToAddressWithUser(undefined, targetAddress, nextKey, nextKeyDocId, limit)
     )
   })
 
   it('A user should be able to retrieve paginated messages with received date by toAddress', async function () {
     const targetAddress = randomUUID()
     await doTestWithReceived({ includeToAddress: targetAddress }, (messageApi, nextKey, nextKeyDocId, limit) =>
-      messageApi.findMessagesByToAddress(targetAddress, nextKey, nextKeyDocId, limit)
+      messageApi.findMessagesByToAddressWithUser(undefined, targetAddress, nextKey, nextKeyDocId, limit)
     )
   })
 })

@@ -37,7 +37,7 @@ describe('icc-x-user-api Tests', () => {
 
   it('Can get an user by its phoneNumber', async () => {
     const primitives = new WebCryptoPrimitives(webcrypto as any)
-    const phoneNumber = `+${primitives.randomUuid()}`
+    const phoneNumber = `+32${Math.floor(Math.random() * 900000000) + 100000000}`
 
     const api = await initMasterApi(env)
 

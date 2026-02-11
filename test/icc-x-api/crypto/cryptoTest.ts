@@ -1,8 +1,6 @@
-import { IccPatientApi } from '../../../icc-api'
 import 'isomorphic-fetch'
 import { expect, use as chaiUse } from 'chai'
 import 'mocha'
-
 import { Patient } from '../../../icc-api/model/Patient'
 import {
   createHcpHierarchyApis,
@@ -18,6 +16,9 @@ import { BasicAuthenticationProvider, EntityWithDelegationTypeName } from '../..
 import initApi = TestUtils.initApi
 import { SecretIdUseOption } from '../../../icc-x-api/crypto/SecretIdUseOption'
 import UseAnyConfidential = SecretIdUseOption.UseAnyConfidential
+import { IccPatientApi } from '../../../icc-api'
+import { Contact } from '../../../icc-api/model/Contact'
+import { randomUUID } from 'crypto'
 
 chaiUse(require('chai-as-promised'))
 
@@ -73,6 +74,144 @@ describe('Create a patient from scratch', () => {
     )
     expect(fetchedWithoutDecryption.id).to.equal(patient.id)
     expect(fetchedWithoutDecryption.note).to.be.undefined
+  })
+})
+
+describe('Entity encryption', async () => {
+  it('encrypted self should not change after re-encryption if encrypted data do not change', async () => {
+    const api = await initApi(env, hcp1Username)
+    const user = await api.userApi.getCurrentUser()
+
+    const note = 'A secured note that is encrypted'
+    const patient = await api.patientApi.createPatientWithUser(
+      user,
+      await api.patientApi.newInstance(
+        user,
+        new Patient({
+          lastName: 'Biden',
+          firstName: 'Joe',
+          note,
+        })
+      )
+    )
+    expect(patient.note).to.equal(note)
+    expect(patient.encryptedSelf).to.not.be.empty
+    const updatedPatient = await api.patientApi.modifyPatientWithUser(user, { ...patient, firstName: 'John' })
+    expect(updatedPatient?.firstName).to.equal('John')
+    expect(updatedPatient?.note).to.equal(patient.note)
+    expect(updatedPatient?.encryptedSelf).to.equal(patient.encryptedSelf)
+    const contactWithBasicContent = (await api.contactApi.createContactWithUser(
+      user,
+      await api.contactApi.newInstance(user, patient, {
+        services: [
+          {
+            id: randomUUID(),
+            valueDate: 20250101000000,
+            content: {
+              en: {
+                stringValue: 'A service with only basic content',
+                numberValue: 1234,
+              },
+            },
+          },
+        ],
+        descr: 'Demo',
+      })
+    ))!
+    expect(contactWithBasicContent.encryptedSelf).to.not.be.empty
+    expect(contactWithBasicContent.services![0].encryptedSelf).to.not.be.empty
+    const updatedContactWithBasicContent = await api.contactApi.modifyContactWithUser(user, {
+      ...contactWithBasicContent,
+      services: [
+        {
+          ...contactWithBasicContent.services![0],
+          valueDate: 20250101120000,
+        },
+      ],
+    })
+    expect(updatedContactWithBasicContent?.services![0].valueDate).to.equal(20250101120000)
+    expect(updatedContactWithBasicContent?.services![0].encryptedSelf).to.equal(contactWithBasicContent.services![0].encryptedSelf)
+    expect(updatedContactWithBasicContent?.encryptedSelf).to.equal(contactWithBasicContent.encryptedSelf)
+    const contactWithCompoundContent = (await api.contactApi.createContactWithUser(
+      user,
+      await api.contactApi.newInstance(user, patient, {
+        services: [
+          {
+            id: randomUUID(),
+            valueDate: 20250101000000,
+            content: {
+              en: {
+                compoundValue: [
+                  {
+                    id: randomUUID(),
+                    content: {
+                      en: {
+                        stringValue: 'Compound service sub 1',
+                        numberValue: 1,
+                      },
+                    },
+                    comment: 'A comment on the compound service sub 1',
+                  },
+                  {
+                    id: randomUUID(),
+                    content: {
+                      en: {
+                        stringValue: 'Compound service sub 2',
+                        numberValue: 2,
+                      },
+                    },
+                    comment: 'A comment on the compound service sub 2',
+                  },
+                ],
+              },
+            },
+          },
+        ],
+        descr: 'Demo 2',
+      })
+    ))!
+    expect(contactWithCompoundContent.encryptedSelf).to.not.be.empty
+    expect(contactWithCompoundContent.services![0].encryptedSelf).to.not.be.empty // Still going to encrypt {}
+    expect(contactWithCompoundContent.services![0].content!.en.compoundValue![0].encryptedSelf).to.not.be.empty
+    expect(contactWithCompoundContent.services![0].content!.en.compoundValue![1].encryptedSelf).to.not.be.empty
+
+    // Modify compound values comment and check that encryptedSelf does not change since the content does not change
+    const updatedContactWithCompoundContent = (await api.contactApi.modifyContactWithUser(user, {
+      ...contactWithCompoundContent,
+      services: [
+        {
+          ...contactWithCompoundContent.services![0],
+          content: {
+            en: {
+              compoundValue: [
+                {
+                  ...contactWithCompoundContent.services![0].content!.en.compoundValue![0],
+                  comment: 'An updated comment on the compound service sub 1',
+                },
+                {
+                  ...contactWithCompoundContent.services![0].content!.en.compoundValue![1],
+                  comment: 'An updated comment on the compound service sub 2',
+                },
+              ],
+            },
+          },
+        },
+      ],
+    }))!
+    expect(updatedContactWithCompoundContent.services![0].content!.en.compoundValue![0].comment).to.equal(
+      'An updated comment on the compound service sub 1'
+    )
+    expect(updatedContactWithCompoundContent.services![0].content!.en.compoundValue![1].comment).to.equal(
+      'An updated comment on the compound service sub 2'
+    )
+    expect(updatedContactWithCompoundContent.encryptedSelf).to.equal(contactWithCompoundContent.encryptedSelf)
+    expect(updatedContactWithCompoundContent.services![0].encryptedSelf).to.equal(contactWithCompoundContent.services![0].encryptedSelf)
+    expect(updatedContactWithCompoundContent.services![0].content!.en.compoundValue![0].encryptedSelf).to.equal(
+      contactWithCompoundContent.services![0].content!.en.compoundValue![0].encryptedSelf
+    )
+    expect(updatedContactWithCompoundContent.services![0].content!.en.compoundValue![1].encryptedSelf).to.equal(
+      contactWithCompoundContent.services![0].content!.en.compoundValue![1].encryptedSelf
+    )
   })
 })
 
