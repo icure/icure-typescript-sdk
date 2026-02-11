@@ -561,6 +561,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
                 (obj) => {
                   return this.crypto.primitives.AES.encrypt(key, utf8_2ua(JSON.stringify(obj)), rawKey)
                 },
+                (encryptedSelf) => this.crypto.xapi.tryDecryptJson([{ key, raw: rawKey }], encryptedSelf, false),
                 this.serviceEncryptedFieldsNoContent,
                 'service'
               )
@@ -571,6 +572,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
             (obj) => {
               return this.crypto.primitives.AES.encrypt(key, utf8_2ua(JSON.stringify(obj)), rawKey)
             },
+            (encryptedSelf) => this.crypto.xapi.tryDecryptJson([{ key, raw: rawKey }], encryptedSelf, false),
             this.serviceEncryptedFieldsWithContent,
             'service'
           )
@@ -609,6 +611,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
                 (obj) => {
                   return this.crypto.primitives.AES.encrypt(k.key, utf8_2ua(JSON.stringify(obj)), k.raw)
                 },
+                (encryptedSelf) => this.crypto.xapi.tryDecryptJson(keys, encryptedSelf, false),
                 this.contactEncryptedFields,
                 EntityWithDelegationTypeName.Contact
               )

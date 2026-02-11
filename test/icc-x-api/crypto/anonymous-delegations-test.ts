@@ -391,7 +391,8 @@ describe('Anonymous delegations', () => {
   it('without de-anonymisation metadata the data owners should be able to identify anonymous delegates only if their parent is part of the delegation with that delegate.', async () => {
     const { parentApi: childApi, parentUser: childUser, grandApi: parentApi, grandUser: parentUser } = await createHcpHierarchyApis(env) // Want to use only hcp with one parent
     const patientInfo = await createUserAndApi('anonymous')
-    let entity: Message = await parentApi.messageApi.createMessage(
+    let entity: Message = await parentApi.messageApi.createMessageWithUser(
+      parentUser,
       await parentApi.messageApi.newInstanceWithPatient(parentUser, null, { subject: 'A simple subject' })
     )
     entity = await parentApi.messageApi.shareWith(patientInfo.userInfo.dataOwnerId, entity, [], { requestedPermissions: FULL_WRITE })

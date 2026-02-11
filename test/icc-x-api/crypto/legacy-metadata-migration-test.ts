@@ -76,7 +76,7 @@ describe('Legacy delegations migration test', () => {
       login: pLogin,
       passwordHash: pPassword,
       healthcarePartyId: pId,
-      email: pLogin,
+      email: `${pLogin}@icure.com`
     }
     const aId = randomUUID()
     const aLogin = `childA-${randomUUID()}`
@@ -116,7 +116,7 @@ describe('Legacy delegations migration test', () => {
       autoDelegations: {
         all: [pId],
       },
-      email: aLogin,
+      email: `${aLogin}@icure.com`
     }
     const bId = randomUUID()
     const bLogin = `childB-${randomUUID()}`
@@ -153,7 +153,7 @@ describe('Legacy delegations migration test', () => {
       autoDelegations: {
         all: [pId],
       },
-      email: bLogin,
+      email: `${bLogin}@icure.com`
     }
     const patientConfidentialSecretId = '24cd8cf5-0958-4ee9-8e90-95f3d25a47d7'
     const patientBase: Patient = {
