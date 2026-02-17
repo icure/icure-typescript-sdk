@@ -609,6 +609,28 @@ export class IccFormApi {
   }
 
   /**
+   * Returns a list of form templates for the specified specialty in a group.
+   * @summary Get form templates by specialty in a group
+   * @param groupId the id of the group
+   * @param specialityCode the specialty code to filter templates by
+   * @param loadLayout whether to load the layout of the form templates
+   */
+  async getFormTemplatesBySpecialtyInGroup(groupId: string, specialityCode: string, loadLayout?: boolean): Promise<Array<FormTemplate>> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/form/template/inGroup/${encodeURIComponent(String(groupId))}/bySpecialty/${encodeURIComponent(String(specialityCode))}` +
+      '?ts=' +
+      new Date().getTime() +
+      (loadLayout !== undefined ? '&loadLayout=' + encodeURIComponent(String(loadLayout)) : '')
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new FormTemplate(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    * Returns an instance of created form template.
    * @summary Create a form template in a group
    * @param groupId the id of the group
