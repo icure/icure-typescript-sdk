@@ -211,6 +211,67 @@ describe('icc-form-x-api Tests', () => {
       const templatesInGroupAfterDelete = await formApi.getFormTemplatesByUserInGroup(groupId, currentUser.id!)
       expect(templatesInGroupAfterDelete.map((t) => t.id)).to.not.include(createdTemplate.id)
     })
+
+    it('should find form templates by specialty in a group', async () => {
+      // Given
+      const { formApi, userApi } = await initApi(env)
+      const currentUser = await userApi.getCurrentUser()
+      const groupId = env.testGroupId
+      const specialtyCode = 'SPECIALTY-' + randomUUID()
+      const otherSpecialtyCode = 'SPECIALTY-' + randomUUID()
+
+      const templatesToCreate = [
+        new FormTemplate({
+          id: randomUUID(),
+          guid: randomUUID(),
+          author: currentUser.id,
+          name: 'Specialty Template 1',
+          specialty: new CodeStub({ code: specialtyCode, type: 'specialty', version: '1' }),
+        }),
+        new FormTemplate({
+          id: randomUUID(),
+          guid: randomUUID(),
+          author: currentUser.id,
+          name: 'Specialty Template 2',
+          specialty: new CodeStub({ code: specialtyCode, type: 'specialty', version: '1' }),
+        }),
+        new FormTemplate({
+          id: randomUUID(),
+          guid: randomUUID(),
+          author: currentUser.id,
+          name: 'Other Specialty Template',
+          specialty: new CodeStub({ code: otherSpecialtyCode, type: 'specialty', version: '1' }),
+        }),
+      ]
+
+      const createdTemplates = await formApi.createFormTemplatesInGroup(groupId, templatesToCreate)
+      expect(createdTemplates).to.have.lengthOf(3)
+
+      // When: find by specialty
+      const templatesBySpecialty = await formApi.getFormTemplatesBySpecialtyInGroup(groupId, specialtyCode)
+
+      // Then: should return only the 2 templates with the matching specialty
+      expect(templatesBySpecialty.map((t) => t.id)).to.include(createdTemplates[0].id)
+      expect(templatesBySpecialty.map((t) => t.id)).to.include(createdTemplates[1].id)
+      expect(templatesBySpecialty.map((t) => t.id)).to.not.include(createdTemplates[2].id)
+
+      // When: find by other specialty
+      const otherTemplates = await formApi.getFormTemplatesBySpecialtyInGroup(groupId, otherSpecialtyCode)
+
+      // Then: should return only the 1 template with the other specialty
+      expect(otherTemplates.map((t) => t.id)).to.include(createdTemplates[2].id)
+      expect(otherTemplates.map((t) => t.id)).to.not.include(createdTemplates[0].id)
+
+      // When: find by non-existent specialty
+      const emptyResult = await formApi.getFormTemplatesBySpecialtyInGroup(groupId, 'NONEXISTENT-' + randomUUID())
+
+      // Then: should return empty
+      expect(emptyResult).to.have.lengthOf(0)
+
+      // Cleanup
+      const idsAndRevs = createdTemplates.map((t) => new IdWithRev({ id: t.id!, rev: t.rev! }))
+      await formApi.deleteFormTemplatesInGroup(groupId, idsAndRevs)
+    })
   })
 
   describeNoLite('Form Templates Batch Operations in Group Tests', () => {
