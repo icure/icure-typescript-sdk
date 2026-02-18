@@ -12,6 +12,7 @@
 import { Copayment } from './Copayment'
 import { Pricing } from './Pricing'
 import { ReimbursementCriterion } from './ReimbursementCriterion'
+import {ChapterParagraph} from "./ChapterParagraph"
 
 export class Reimbursement {
   constructor(json: JSON | any) {
@@ -27,6 +28,7 @@ export class Reimbursement {
   temporary?: boolean
   reference?: boolean
   legalReferencePath?: string
+  chapterParagraph?: ChapterParagraph //Falls back on legalReferencePath if not provided
   flatRateSystem?: boolean
   reimbursementBasePrice?: number
   referenceBasePrice?: number
