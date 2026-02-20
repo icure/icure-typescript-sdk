@@ -15,10 +15,10 @@ import { DocIdentifier } from '../model/DocIdentifier'
 import { PaginatedListAccessLog } from '../model/PaginatedListAccessLog'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
-import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { ListOfIds } from '../model/ListOfIds'
 import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
+import { AbstractFilterAccessLog } from '../model/AbstractFilterAccessLog'
 
 export class IccAccesslogApi {
   host: string
@@ -342,6 +342,35 @@ export class IccAccesslogApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((x) => new EntityBulkShareResult<AccessLog>(x, AccessLog)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
+   * @summary Get ids of access logs matching the provided filter.
+   * @param body an AbstractFilterAccessLog.
+   */
+  async matchAccessLogsBy(body: AbstractFilterAccessLog): Promise<Array<string>> {
+    const _url = this.host + `/accessLog/match`
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
+   * @summary Get ids of access logs matching the provided filter in a specific group.
+   * @param groupId the id of the group where to perform the search.
+   * @param body an AbstractFilterAccessLog.
+   */
+  async matchAccessLogsInGroupBy(groupId: string, body: AbstractFilterAccessLog): Promise<Array<string>> {
+    const _url = this.host + `/inGroup/${groupId}/match`
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
       .catch((err) => this.handleError(err))
   }
 }
