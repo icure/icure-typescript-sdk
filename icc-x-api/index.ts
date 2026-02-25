@@ -12,6 +12,7 @@ import {
   IccClassificationTemplateApi,
   IccEntityrefApi,
   IccEntitytemplateApi,
+  IccFormApi,
   IccFrontendmigrationApi,
   IccGroupApi,
   IccIcureApi,
@@ -144,6 +145,7 @@ export interface BasicApis {
   readonly codeApi: IccCodeXApi
   readonly deviceApi: IccDeviceXApi
   readonly entityReferenceApi: IccEntityrefApi
+  readonly formApi: IccFormApi
   readonly groupApi: IccGroupApi
   readonly healthcarePartyApi: IccHcpartyXApi
   readonly icureApi: IccIcureApi
@@ -1554,7 +1556,7 @@ export interface IcureBasicApi extends BasicApis {
   /**
    * Get the information on groups that the current user can access and the current group that this api instance is working on.
    * Note that the values you will get for `availableGroups` may differ from the values you would get if you call {@link IccUserApi.getMatchingUsers}
-   * on {@link Apis.userApi}, since the latter is specialised on the specific instance of the user in `currentGroup`.
+   * on {@link userApi}, since the latter is specialised on the specific instance of the user in `currentGroup`.
    * - `currentGroup`: the group that this api instance is working on, or undefined if the backend environment is not multi-group.
    * - `availableGroups`: the list of groups that the current user can access with the provided secret. Empty if the backend environment is not
    * multi-group.
@@ -1577,6 +1579,7 @@ class IcureBasicApiImpl implements IcureBasicApi {
   private _codeApi: IccCodeXApi | undefined
   private _deviceApi: IccDeviceXApi | undefined
   private _entityReferenceApi: IccEntityrefApi | undefined
+  private _formApi: IccFormApi | undefined
   private _groupApi: IccGroupApi | undefined
   private _healthcarePartyApi: IccHcpartyXApi | undefined
   private _icureApi: IccIcureApi | undefined
@@ -1635,6 +1638,9 @@ class IcureBasicApiImpl implements IcureBasicApi {
       this._entityReferenceApi ??
       (this._entityReferenceApi = new IccEntityrefApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
     )
+  }
+  get formApi(): IccFormApi {
+    return this._formApi ?? (this._formApi = new IccFormApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
   }
   get groupApi(): IccGroupApi {
     return this._groupApi ?? (this._groupApi = new IccGroupApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
