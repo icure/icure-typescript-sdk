@@ -592,8 +592,9 @@ export class IccFormApi {
    * @param groupId the id of the group
    * @param userId the id of the user
    * @param loadLayout whether to load the layout of the form templates
+   * @param raw whether to use raw mapping for the form templates
    */
-  async getFormTemplatesByUserInGroup(groupId: string, userId: string, loadLayout?: boolean): Promise<Array<FormTemplate>> {
+  async getFormTemplatesByUserInGroup(groupId: string, userId: string, loadLayout?: boolean, raw?: boolean): Promise<Array<FormTemplate>> {
     let _body = null
 
     const _url =
@@ -601,7 +602,8 @@ export class IccFormApi {
       `/form/template/inGroup/${encodeURIComponent(String(groupId))}/byUser/${encodeURIComponent(String(userId))}` +
       '?ts=' +
       new Date().getTime() +
-      (loadLayout !== undefined ? '&loadLayout=' + encodeURIComponent(String(loadLayout)) : '')
+      (loadLayout !== undefined ? '&loadLayout=' + encodeURIComponent(String(loadLayout)) : '') +
+      (raw ? '&raw=' + encodeURIComponent(String(raw)) : '')
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new FormTemplate(it)))
@@ -614,8 +616,9 @@ export class IccFormApi {
    * @param groupId the id of the group
    * @param specialityCode the specialty code to filter templates by
    * @param loadLayout whether to load the layout of the form templates
+   * @param raw whether to use raw mapping for the form templates
    */
-  async getFormTemplatesBySpecialtyInGroup(groupId: string, specialityCode: string, loadLayout?: boolean): Promise<Array<FormTemplate>> {
+  async getFormTemplatesBySpecialtyInGroup(groupId: string, specialityCode: string, loadLayout?: boolean, raw?: boolean): Promise<Array<FormTemplate>> {
     let _body = null
 
     const _url =
@@ -623,7 +626,8 @@ export class IccFormApi {
       `/form/template/inGroup/${encodeURIComponent(String(groupId))}/bySpecialty/${encodeURIComponent(String(specialityCode))}` +
       '?ts=' +
       new Date().getTime() +
-      (loadLayout !== undefined ? '&loadLayout=' + encodeURIComponent(String(loadLayout)) : '')
+      (loadLayout !== undefined ? '&loadLayout=' + encodeURIComponent(String(loadLayout)) : '') +
+      (raw ? '&raw=' + encodeURIComponent(String(raw)) : '')
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new FormTemplate(it)))
@@ -766,13 +770,40 @@ export class IccFormApi {
    * @summary Get form templates in a group by their ids
    * @param groupId the id of the group
    * @param formTemplateIds the list of form template ids
+   * @param raw whether to use raw mapping for the form templates
    */
-  async getFormTemplatesInGroup(groupId: string, formTemplateIds: string[]): Promise<FormTemplate[]> {
-    const _url = this.host + `/form/template/inGroup/${encodeURIComponent(String(groupId))}/byIds` + '?ts=' + new Date().getTime()
+  async getFormTemplatesInGroup(groupId: string, formTemplateIds: string[], raw?: boolean): Promise<FormTemplate[]> {
+    const _url =
+      this.host +
+      `/form/template/inGroup/${encodeURIComponent(String(groupId))}/byIds` +
+      '?ts=' +
+      new Date().getTime() +
+      (raw ? '&raw=' + encodeURIComponent(String(raw)) : '')
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, { ids: formTemplateIds }, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new FormTemplate(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Get a form template in a group
+   * @param groupId the id of the group
+   * @param formTemplateId the id of the form template
+   * @param raw whether to use raw mapping for the form template
+   */
+  async getFormTemplateInGroup(groupId: string, formTemplateId: string, raw?: boolean): Promise<FormTemplate> {
+    let _body = null
+
+    const _url =
+      this.host +
+      `/form/template/inGroup/${encodeURIComponent(String(groupId))}/${encodeURIComponent(String(formTemplateId))}` +
+      '?ts=' +
+      new Date().getTime() +
+      (raw ? '&raw=' + encodeURIComponent(String(raw)) : '')
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new FormTemplate(doc.body as JSON))
       .catch((err) => this.handleError(err))
   }
 

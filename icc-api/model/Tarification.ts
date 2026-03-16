@@ -29,6 +29,7 @@ export class Tarification {
   type?: string
   code?: string
   version?: string
+  domain?: Tarification.DomainEnum
   author?: string
   regions?: Array<string>
   periodicity?: Array<Periodicity>
@@ -51,6 +52,12 @@ export class Tarification {
   ngroup?: string
 }
 export namespace Tarification {
+  export type DomainEnum = 'ambulatory' | 'hospital' | 'both'
+  export const DomainEnum = {
+    Ambulatory: 'ambulatory' as DomainEnum,
+    Hospital: 'hospital' as DomainEnum,
+    Both: 'both' as DomainEnum,
+  }
   export type FlagsEnum =
     | 'male_only'
     | 'female_only'
