@@ -22,6 +22,7 @@ import { ReplicationInfo } from '../model/ReplicationInfo'
 import { ReplicatorDocument } from '../model/ReplicatorDocument'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
+import {Code} from "../model/Code"
 
 export class IccIcureApi {
   host: string
@@ -276,6 +277,21 @@ export class IccIcureApi {
     let headers = this.headers
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Patient(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   *
+   * @summary Resolve codes conflicts
+   * @param limit
+   */
+  resolveCodesConflicts(limit?: number): Promise<Array<Code>> {
+    let _body = null
+
+    const _url = this.host + `/icure/conflicts/code` + '?ts=' + new Date().getTime() + (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
+    let headers = this.headers
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Code(it)))
       .catch((err) => this.handleError(err))
   }
 
