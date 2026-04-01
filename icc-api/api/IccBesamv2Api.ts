@@ -66,9 +66,15 @@ export class IccBesamv2Api {
    * As the operation may last several minutes, this process will not return the task status.
    * Instead, it is possible to check the status of the task using the {@link getSamUpdateTaskStatus} method.
    * @param apiToken a token from a cloud installation of the kraken.
+   * @param forceSnapshot whether to apply only the latest diff patch or reset the database to the latest snapshot and apply the following patches.
+   * @param purgeOutdatedEntities whether to purge the outdated entities from the diff patches or just soft-delete them (purges by default).
    */
-  triggerSamUpdateTask(apiToken: string): Promise<string> {
-    const _url = this.host + `/be_samv2/patch?apiToken=${encodeURIComponent(apiToken)}`
+  triggerSamUpdateTask(apiToken: string, forceSnapshot?: boolean, purgeOutdatedEntities?: boolean): Promise<string> {
+    const _url =
+      this.host +
+      `/be_samv2/patch?apiToken=${encodeURIComponent(apiToken)}` +
+      (forceSnapshot != null ? `&forceSnapshot=${forceSnapshot}` : ``) +
+      (purgeOutdatedEntities != null ? `&purgeOutdatedEntities=${purgeOutdatedEntities}` : ``)
     let headers = this.headers
     return XHR.sendCommand('POST', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => JSON.stringify(doc.body))
