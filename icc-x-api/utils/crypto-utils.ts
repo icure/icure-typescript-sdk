@@ -392,6 +392,9 @@ export function parseEncryptedFields(encryptedFields: string[], path: string): E
 }
 
 function encryptedObjectDeepEqual(l: any, r: any): boolean {
+  if (l === null || r === null) {
+    return l === r
+  }
   if (Array.isArray(l)) {
     if (!Array.isArray(r) || l.length !== r.length) {
       return false
