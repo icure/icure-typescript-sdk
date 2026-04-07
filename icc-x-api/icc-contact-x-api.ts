@@ -356,6 +356,27 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
   }
 
   /**
+   * Filters services using a filter chain and decrypts the results for the given user.
+   * @param user the user for decryption
+   * @param startDocumentId optional document id to start pagination from
+   * @param limit maximum number of results to return
+   * @param body the filter chain to apply
+   * @return a paginated list of decrypted services
+   */
+  filterServicesByWithUser(
+    user: models.User,
+    startDocumentId?: string,
+    limit?: number,
+    body?: models.FilterChainService
+  ): Promise<PaginatedListContact | any> {
+    return super
+      .filterServicesBy(startDocumentId, limit, body)
+      .then((svcs) =>
+        this.decryptServices(user.healthcarePartyId! || user.patientId!, svcs.rows!).then((decryptedRows) => Object.assign(svcs, { rows: decryptedRows }))
+      )
+  }
+
+  /**
    * Lists contacts by opening date within a date range and decrypts the results for the given user.
    * @param user the user for decryption
    * @param startDate start of the date range (format: YYYYMMDDHHmmss)
@@ -1180,6 +1201,15 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
    */
   async decryptPatientIdOf(contact: models.Contact): Promise<string[]> {
     return this.crypto.xapi.owningEntityIdsOf({ entity: contact, type: EntityWithDelegationTypeName.Contact }, undefined)
+  }
+
+  /**
+   * @param service a service
+   * @return the id of the patient that the service refers to, retrieved from the encrypted metadata. Normally there should only be one element
+   * in the returned array, but in case of entity merges there could be multiple values.
+   */
+  async decryptPatientIdOfService(service: models.Service): Promise<string[]> {
+    return this.crypto.xapi.owningEntityIdsOf({ entity: service, type: EntityWithDelegationTypeName.Contact }, undefined)
   }
 
   /**
