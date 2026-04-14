@@ -596,7 +596,7 @@ export namespace IcureApi {
       cryptoInitInfo,
       host,
       authenticationProviderInfo.groupSpecificAuthenticationProvider,
-      fetch,
+      fetchImpl,
       authenticationProviderInfo.grouplessUserApi,
       authenticationProviderInfo.matches,
       authenticationProviderInfo.matches.find((match) => match.groupId === authenticationProviderInfo.chosenGroupId),
