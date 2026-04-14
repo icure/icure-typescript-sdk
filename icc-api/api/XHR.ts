@@ -18,11 +18,13 @@ export namespace XHR {
     statusCode: number
     contentType: string
     body: JSON | Array<JSON> | any //stream bytes|json|array<json>
+    responseHeaders: {[key: string]: string[]}
 
-    constructor(status: number, contentType: string, body: JSON | Array<JSON> | any) {
+    constructor(status: number, contentType: string, body: JSON | Array<JSON> | any, responseHeaders: {[key: string]: string[]} = {}) {
       this.statusCode = status
       this.contentType = contentType
       this.body = body
+      this.responseHeaders = responseHeaders
     }
   }
 
@@ -81,7 +83,8 @@ export namespace XHR {
     contentTypeOverride?: 'application/json' | 'text/plain' | 'application/octet-stream',
     headerProvider: AuthService = new NoAuthService(),
     minimumAuthenticationClass: number | undefined = undefined,
-    tryHardToParseJson: boolean = false
+    tryHardToParseJson: boolean = false,
+    collectHeaders: string[] = []
   ): Promise<Data> {
     const authHeaders = await headerProvider.getAuthHeaders(minimumAuthenticationClass)
     const contentType = headers && headers.find((it) => (it.header ? it.header.toLowerCase() === 'content-type' : false))
@@ -160,7 +163,31 @@ export namespace XHR {
             : ct.startsWith('application/xml') || ct.startsWith('text/')
               ? response.text()
               : response.arrayBuffer()
-        ).then((d) => new Data(response.status, ct, d))
+        ).then((d) => {
+          const responseHeaders: { [key: string]: string[] } = {}
+          if (collectHeaders.length) {
+            const prefixPatterns: string[] = []
+            for (const h of collectHeaders) {
+              if (h.endsWith('*')) {
+                prefixPatterns.push(h.slice(0, -1).toLowerCase())
+              } else if (response.headers.has(h)) {
+                responseHeaders[h] = [response.headers.get(h)!]
+              }
+            }
+            if (prefixPatterns.length) {
+              response.headers.forEach((value, key) => {
+                const lowerKey = key.toLowerCase()
+                if (prefixPatterns.some((prefix) => lowerKey.startsWith(prefix))) {
+                  if (!responseHeaders[key]) {
+                    responseHeaders[key] = []
+                  }
+                  responseHeaders[key].push(value)
+                }
+              })
+            }
+          }
+          return new Data(response.status, ct, d, responseHeaders)
+        })
       }
     })
   }
