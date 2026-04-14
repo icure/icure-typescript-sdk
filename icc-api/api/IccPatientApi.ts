@@ -25,6 +25,7 @@ import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-ap
 import { iccRestApiPath } from './IccRestApiPath'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
+import { TimingInfo } from '../model/TimingInfo'
 
 export class IccPatientApi {
   host: string
@@ -169,7 +170,10 @@ export class IccPatientApi {
    * @param skip Skip rows
    * @param sort Sort key
    * @param desc Descending
+   * @param collectTiming if true, include server-side filter timing information in the response
    */
+  filterPatientsBy(startKey?: string, startDocumentId?: string, limit?: number, skip?: number, sort?: string, desc?: boolean, body?: FilterChainPatient, collectTiming?: false): Promise<PaginatedListPatient>
+  filterPatientsBy(startKey?: string, startDocumentId?: string, limit?: number, skip?: number, sort?: string, desc?: boolean, body?: FilterChainPatient, collectTiming?: true): Promise<PaginatedListPatient & TimingInfo>
   async filterPatientsBy(
     startKey?: string,
     startDocumentId?: string,
@@ -177,7 +181,8 @@ export class IccPatientApi {
     skip?: number,
     sort?: string,
     desc?: boolean,
-    body?: FilterChainPatient
+    body?: FilterChainPatient,
+    collectTiming: boolean = false
   ): Promise<PaginatedListPatient> {
     let _body = null
     _body = body
@@ -195,8 +200,8 @@ export class IccPatientApi {
       (desc ? '&desc=' + encodeURIComponent(String(desc)) : '')
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new PaginatedListPatient(doc.body as JSON))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+      .then((doc) => Object.assign(new PaginatedListPatient(doc.body as JSON), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
 
@@ -710,13 +715,16 @@ export class IccPatientApi {
    *
    * @summary Get ids of patients matching the provided filter for the current user (HcParty)
    * @param body
+   * @param collectTiming if true, include server-side filter timing information in the response
    */
-  async matchPatientsBy(body?: AbstractFilterPatient): Promise<Array<string>> {
+  matchPatientsBy(body?: AbstractFilterPatient, collectTiming?: false): Promise<Array<string>>
+  matchPatientsBy(body?: AbstractFilterPatient, collectTiming?: true): Promise<Array<string> & TimingInfo>
+  async matchPatientsBy(body?: AbstractFilterPatient, collectTiming: boolean = false): Promise<Array<string>> {
     const _url = this.host + `/patient/match` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+      .then((doc) => Object.assign((doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
 

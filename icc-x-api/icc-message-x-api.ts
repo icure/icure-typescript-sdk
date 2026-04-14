@@ -2,7 +2,7 @@ import { IccAuthApi, IccMessageApi } from '../icc-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 
 import * as models from '../icc-api/model/models'
-import { DocIdentifier, ListOfIds, Message, MessagesReadStatusUpdate, PaginatedListMessage, Patient, User } from '../icc-api/model/models'
+import { DocIdentifier, ListOfIds, Message, MessagesReadStatusUpdate, PaginatedListMessage, Patient, TimingInfo, User } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
@@ -570,15 +570,31 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
    * @param body the filter chain to apply.
    * @param startDocumentId optional start document id for pagination.
    * @param limit optional maximum number of results to return.
+   * @param collectTiming add timing information to the response
    * @return a paginated list of filtered messages.
    */
   async filterMessagesByWithUser(
     user: models.User | undefined,
     body: FilterChainMessage,
     startDocumentId?: string,
-    limit?: number
+    limit?: number,
+    collectTiming?: false
+  ): Promise<PaginatedListMessage>
+  async filterMessagesByWithUser(
+    user: models.User | undefined,
+    body: FilterChainMessage,
+    startDocumentId?: string,
+    limit?: number,
+    collectTiming?: true
+  ): Promise<PaginatedListMessage & TimingInfo>
+  async filterMessagesByWithUser(
+    user: models.User | undefined,
+    body: FilterChainMessage,
+    startDocumentId?: string,
+    limit?: number,
+    collectTiming: boolean = false
   ): Promise<PaginatedListMessage> {
-    return await this.decryptPage(await super.filterMessagesBy(body, startDocumentId, limit))
+    return await this.decryptPage(await super.filterMessagesBy(body, startDocumentId, limit, collectTiming as any))
   }
 
   /**

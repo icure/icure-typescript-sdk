@@ -16,6 +16,7 @@ import { Tarification } from '../model/Tarification'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 import {AbstractFilterPricing} from "../model/AbstractFilterPricing"
+import { TimingInfo } from '../model/TimingInfo'
 
 export class IccTarificationApi {
   host: string
@@ -272,16 +273,19 @@ export class IccTarificationApi {
    *
    * @summary Get ids of tarification matching the provided filter for the current user (HcParty)
    * @param body
+   * @param collectTiming if true, include server-side filter timing information in the response
    */
-  async matchTarificationsByInGroup(groupId: string, body?: AbstractFilterPricing): Promise<Array<string>> {
+  matchTarificationsByInGroup(groupId: string, body?: AbstractFilterPricing, collectTiming?: false): Promise<Array<string>>
+  matchTarificationsByInGroup(groupId: string, body?: AbstractFilterPricing, collectTiming?: true): Promise<Array<string> & TimingInfo>
+  async matchTarificationsByInGroup(groupId: string, body?: AbstractFilterPricing, collectTiming: boolean = false): Promise<Array<string>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/tarification/inGroup/${encodeURIComponent(String(groupId))}/match` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+      .then((doc) => Object.assign((doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
 }

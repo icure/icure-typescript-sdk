@@ -22,6 +22,7 @@ import { UserGroup } from '../model/UserGroup'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 import { ListOfIds } from '../model/ListOfIds'
+import { TimingInfo } from '../model/TimingInfo'
 
 export class IccUserApi {
   host: string
@@ -198,8 +199,11 @@ export class IccUserApi {
    * @param body
    * @param startDocumentId A User document ID
    * @param limit Number of rows
+   * @param collectTiming if true, include server-side filter timing information in the response
    */
-  filterUsersBy(startDocumentId?: string, limit?: number, body?: FilterChainUser): Promise<PaginatedListUser> {
+  filterUsersBy(startDocumentId?: string, limit?: number, body?: FilterChainUser, collectTiming?: false): Promise<PaginatedListUser>
+  filterUsersBy(startDocumentId?: string, limit?: number, body?: FilterChainUser, collectTiming?: true): Promise<PaginatedListUser & TimingInfo>
+  filterUsersBy(startDocumentId?: string, limit?: number, body?: FilterChainUser, collectTiming: boolean = false): Promise<PaginatedListUser> {
     let _body = null
     _body = body
 
@@ -212,8 +216,8 @@ export class IccUserApi {
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new PaginatedListUser(doc.body as JSON))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+      .then((doc) => Object.assign(new PaginatedListUser(doc.body as JSON), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
 
@@ -224,8 +228,11 @@ export class IccUserApi {
    * @param groupId
    * @param startDocumentId A User document ID
    * @param limit Number of rows
+   * @param collectTiming if true, include server-side filter timing information in the response
    */
-  filterUsersInGroupBy(groupId: string, startDocumentId?: string, limit?: number, body?: FilterChainUser): Promise<PaginatedListUser> {
+  filterUsersInGroupBy(groupId: string, startDocumentId?: string, limit?: number, body?: FilterChainUser, collectTiming?: false): Promise<PaginatedListUser>
+  filterUsersInGroupBy(groupId: string, startDocumentId?: string, limit?: number, body?: FilterChainUser, collectTiming?: true): Promise<PaginatedListUser & TimingInfo>
+  filterUsersInGroupBy(groupId: string, startDocumentId?: string, limit?: number, body?: FilterChainUser, collectTiming: boolean = false): Promise<PaginatedListUser> {
     let _body = null
     _body = body
 
@@ -238,8 +245,8 @@ export class IccUserApi {
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new PaginatedListUser(doc.body as JSON))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+      .then((doc) => Object.assign(new PaginatedListUser(doc.body as JSON), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
 
@@ -538,16 +545,19 @@ export class IccUserApi {
    *
    * @summary Get ids of healthcare party matching the provided filter for the current user (HcParty)
    * @param body
+   * @param collectTiming if true, include server-side filter timing information in the response
    */
-  matchUsersBy(body?: AbstractFilterUser): Promise<Array<string>> {
+  matchUsersBy(body?: AbstractFilterUser, collectTiming?: false): Promise<Array<string>>
+  matchUsersBy(body?: AbstractFilterUser, collectTiming?: true): Promise<Array<string> & TimingInfo>
+  matchUsersBy(body?: AbstractFilterUser, collectTiming: boolean = false): Promise<Array<string>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/user/match` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+      .then((doc) => Object.assign((doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
 

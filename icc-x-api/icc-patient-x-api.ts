@@ -10,7 +10,7 @@ import { IccClassificationXApi } from './icc-classification-x-api'
 
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import { Document, IcureStub, ListOfIds, MaintenanceTask, Patient } from '../icc-api/model/models'
+import { Document, IcureStub, ListOfIds, MaintenanceTask, Patient, TimingInfo } from '../icc-api/model/models'
 import { IccCalendarItemXApi } from './icc-calendar-item-x-api'
 import { b64_2ab } from '../icc-api/model/ModelHelper'
 import { findName, garnishPersonWithName, hasName } from './utils/person-util'
@@ -267,6 +267,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
    * @param skip optional number of results to skip
    * @param sort optional sort field
    * @param desc optional sort direction
+   * @param collectTiming add timing information to the response
    * @return paginated list of decrypted patients
    */
   filterByWithUser(
@@ -277,10 +278,33 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
     limit?: number,
     skip?: number,
     sort?: string,
-    desc?: boolean
+    desc?: boolean,
+    collectTiming?: false
+  ): Promise<models.PaginatedListPatient | any>
+  filterByWithUser(
+    user: models.User,
+    filterChain: models.FilterChainPatient,
+    startKey?: string,
+    startDocumentId?: string,
+    limit?: number,
+    skip?: number,
+    sort?: string,
+    desc?: boolean,
+    collectTiming?: true
+  ): Promise<(models.PaginatedListPatient & TimingInfo) | any>
+  filterByWithUser(
+    user: models.User,
+    filterChain: models.FilterChainPatient,
+    startKey?: string,
+    startDocumentId?: string,
+    limit?: number,
+    skip?: number,
+    sort?: string,
+    desc?: boolean,
+    collectTiming: boolean = false
   ): Promise<models.PaginatedListPatient | any> {
     return super
-      .filterPatientsBy(startKey, startDocumentId, limit, skip, sort, desc, filterChain)
+      .filterPatientsBy(startKey, startDocumentId, limit, skip, sort, desc, filterChain, collectTiming as any)
       .then((pl) => this.decrypt(user, pl.rows!, false).then((dr) => Object.assign(pl, { rows: dr })))
   }
 

@@ -3,7 +3,7 @@ import { IccCryptoXApi } from './icc-crypto-x-api'
 import * as models from '../icc-api/model/models'
 import * as _ from 'lodash'
 import { IccHcpartyXApi } from './icc-hcparty-x-api'
-import { DocIdentifier, ListOfIds, MaintenanceTask } from '../icc-api/model/models'
+import { DocIdentifier, ListOfIds, MaintenanceTask, TimingInfo } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
@@ -140,10 +140,25 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
     user: models.User,
     startDocumentId?: string,
     limit?: number,
-    body?: models.FilterChainMaintenanceTask
+    body?: models.FilterChainMaintenanceTask,
+    collectTiming?: false
+  ): Promise<models.PaginatedListMaintenanceTask>
+  filterMaintenanceTasksByWithUser(
+    user: models.User,
+    startDocumentId?: string,
+    limit?: number,
+    body?: models.FilterChainMaintenanceTask,
+    collectTiming?: true
+  ): Promise<models.PaginatedListMaintenanceTask & TimingInfo>
+  filterMaintenanceTasksByWithUser(
+    user: models.User,
+    startDocumentId?: string,
+    limit?: number,
+    body?: models.FilterChainMaintenanceTask,
+    collectTiming: boolean = false
   ): Promise<models.PaginatedListMaintenanceTask> {
     return super
-      .filterMaintenanceTasksBy(startDocumentId, limit, body)
+      .filterMaintenanceTasksBy(startDocumentId, limit, body, collectTiming as any)
       .then((pl) => this.decrypt(user, pl.rows!).then((dr) => Object.assign(pl, { rows: dr })))
   }
 

@@ -3,7 +3,7 @@ import { IccCryptoXApi } from './icc-crypto-x-api'
 
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import { ListOfIds, MaintenanceTask, Topic, TopicRole } from '../icc-api/model/models'
+import { ListOfIds, MaintenanceTask, TimingInfo, Topic, TopicRole } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
@@ -287,10 +287,13 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
    * @param body the filter to apply.
    * @param startDocumentId the document id to start from (inclusive).
    * @param limit the maximum number of topics to return in the page.
+   * @param collectTiming add timing information to the response
    * @return a paginated list of topics.
    */
-  override async filterTopicsBy(body: FilterChainTopic, startDocumentId?: string, limit?: number): Promise<PaginatedListTopic> {
-    const page = await super.filterTopicsBy(body, startDocumentId, limit)
+  override async filterTopicsBy(body: FilterChainTopic, startDocumentId?: string, limit?: number, collectTiming?: false): Promise<PaginatedListTopic>
+  override async filterTopicsBy(body: FilterChainTopic, startDocumentId?: string, limit?: number, collectTiming?: true): Promise<PaginatedListTopic & TimingInfo>
+  override async filterTopicsBy(body: FilterChainTopic, startDocumentId?: string, limit?: number, collectTiming: boolean = false): Promise<PaginatedListTopic> {
+    const page = await super.filterTopicsBy(body, startDocumentId, limit, collectTiming as any)
     const decryptedTopics = await this.decrypt(page.rows ?? [])
     return {
       ...page,

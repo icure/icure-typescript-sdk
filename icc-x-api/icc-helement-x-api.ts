@@ -5,7 +5,7 @@ import * as models from '../icc-api/model/models'
 
 import * as _ from 'lodash'
 import * as moment from 'moment'
-import { FilterChainHealthElement, HealthElement, PaginatedListHealthElement } from '../icc-api/model/models'
+import { FilterChainHealthElement, HealthElement, PaginatedListHealthElement, TimingInfo } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
@@ -460,16 +460,32 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
    * @param startDocumentId the pagination start document id.
    * @param limit the maximum number of results to return.
    * @param body the filter chain to apply.
+   * @param collectTiming add timing information to the response
    * @return a paginated list of decrypted health elements.
    */
   filterByWithUser(
     user: models.User,
     startDocumentId?: string,
     limit?: number,
-    body?: FilterChainHealthElement
+    body?: FilterChainHealthElement,
+    collectTiming?: false
+  ): Promise<PaginatedListHealthElement>
+  filterByWithUser(
+    user: models.User,
+    startDocumentId?: string,
+    limit?: number,
+    body?: FilterChainHealthElement,
+    collectTiming?: true
+  ): Promise<PaginatedListHealthElement & TimingInfo>
+  filterByWithUser(
+    user: models.User,
+    startDocumentId?: string,
+    limit?: number,
+    body?: FilterChainHealthElement,
+    collectTiming: boolean = false
   ): Promise<PaginatedListHealthElement> {
     return super
-      .filterHealthElementsBy(startDocumentId, limit, body)
+      .filterHealthElementsBy(startDocumentId, limit, body, collectTiming as any)
       .then((pl) => this.decryptWithUser(user, pl.rows!).then((dr) => Object.assign(pl, { rows: dr })))
   }
 

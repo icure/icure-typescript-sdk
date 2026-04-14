@@ -17,6 +17,7 @@ import { iccRestApiPath } from './IccRestApiPath'
 import { PaginatedListInsurance } from '../model/PaginatedListInsurance'
 import { Insurance } from "../model/Insurance"
 import {AbstractFilterInsurance} from "../model/AbstractFilterInsurance"
+import { TimingInfo } from '../model/TimingInfo'
 
 export class IccInsuranceApi {
   host: string
@@ -205,16 +206,19 @@ export class IccInsuranceApi {
    *
    * @summary Get ids of code matching the provided filter for the current user (HcParty)
    * @param body
+   * @param collectTiming if true, include server-side filter timing information in the response
    */
-  async matchInsurancesByInGroup(groupId: string, body?: AbstractFilterInsurance): Promise<Array<string>> {
+  matchInsurancesByInGroup(groupId: string, body?: AbstractFilterInsurance, collectTiming?: false): Promise<Array<string>>
+  matchInsurancesByInGroup(groupId: string, body?: AbstractFilterInsurance, collectTiming?: true): Promise<Array<string> & TimingInfo>
+  async matchInsurancesByInGroup(groupId: string, body?: AbstractFilterInsurance, collectTiming: boolean = false): Promise<Array<string>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/insurance/inGroup/${encodeURIComponent(String(groupId))}/match` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+      .then((doc) => Object.assign((doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
 }

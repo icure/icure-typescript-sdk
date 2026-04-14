@@ -17,6 +17,7 @@ import { FilterChainDevice } from '../model/FilterChainDevice'
 import { IdWithRev } from '../model/IdWithRev'
 import { ListOfIds } from '../model/ListOfIds'
 import { PaginatedListDevice } from '../model/PaginatedListDevice'
+import { TimingInfo } from '../model/TimingInfo'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 
@@ -161,8 +162,11 @@ export class IccDeviceApi {
    * @param body
    * @param startDocumentId A device document ID
    * @param limit Number of rows
+   * @param collectTiming if true, include server-side filter timing information in the response
    */
-  filterDevicesBy(startDocumentId?: string, limit?: number, body?: FilterChainDevice): Promise<PaginatedListDevice> {
+  filterDevicesBy(startDocumentId?: string, limit?: number, body?: FilterChainDevice, collectTiming?: false): Promise<PaginatedListDevice>
+  filterDevicesBy(startDocumentId?: string, limit?: number, body?: FilterChainDevice, collectTiming?: true): Promise<PaginatedListDevice & TimingInfo>
+  filterDevicesBy(startDocumentId?: string, limit?: number, body?: FilterChainDevice, collectTiming: boolean = false): Promise<PaginatedListDevice> {
     let _body = null
     _body = body
 
@@ -175,8 +179,8 @@ export class IccDeviceApi {
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new PaginatedListDevice(doc.body as JSON))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+      .then((doc) => Object.assign(new PaginatedListDevice(doc.body as JSON), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
 
@@ -251,16 +255,19 @@ export class IccDeviceApi {
    *
    * @summary Get ids of devices matching the provided filter for the current user (HcParty)
    * @param body
+   * @param collectTiming add timing information to the response
    */
-  matchDevicesBy(body?: AbstractFilterDevice): Promise<Array<string>> {
+  matchDevicesBy(body?: AbstractFilterDevice, collectTiming?: false): Promise<Array<string>>
+  matchDevicesBy(body?: AbstractFilterDevice, collectTiming?: true): Promise<Array<string> & TimingInfo>
+  matchDevicesBy(body?: AbstractFilterDevice, collectTiming: boolean = false): Promise<Array<string>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/device/match` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+      .then((doc) => Object.assign((doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
 

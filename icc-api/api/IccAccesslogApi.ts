@@ -19,6 +19,7 @@ import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { ListOfIds } from '../model/ListOfIds'
 import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
 import { AbstractFilterAccessLog } from '../model/AbstractFilterAccessLog'
+import { TimingInfo } from '../model/TimingInfo'
 
 export class IccAccesslogApi {
   host: string
@@ -349,13 +350,16 @@ export class IccAccesslogApi {
    *
    * @summary Get ids of access logs matching the provided filter.
    * @param body an AbstractFilterAccessLog.
+   * @param collectTiming if true, include server-side filter timing information in the response
    */
-  async matchAccessLogsBy(body: AbstractFilterAccessLog): Promise<Array<string>> {
+  matchAccessLogsBy(body: AbstractFilterAccessLog, collectTiming?: false): Promise<Array<string>>
+  matchAccessLogsBy(body: AbstractFilterAccessLog, collectTiming?: true): Promise<Array<string> & TimingInfo>
+  async matchAccessLogsBy(body: AbstractFilterAccessLog, collectTiming: boolean = false): Promise<Array<string>> {
     const _url = this.host + `/accessLog/match`
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+      .then((doc) => Object.assign((doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
 
@@ -364,13 +368,16 @@ export class IccAccesslogApi {
    * @summary Get ids of access logs matching the provided filter in a specific group.
    * @param groupId the id of the group where to perform the search.
    * @param body an AbstractFilterAccessLog.
+   * @param collectTiming if true, include server-side filter timing information in the response
    */
-  async matchAccessLogsInGroupBy(groupId: string, body: AbstractFilterAccessLog): Promise<Array<string>> {
+  matchAccessLogsInGroupBy(groupId: string, body: AbstractFilterAccessLog, collectTiming?: false): Promise<Array<string>>
+  matchAccessLogsInGroupBy(groupId: string, body: AbstractFilterAccessLog, collectTiming?: true): Promise<Array<string> & TimingInfo>
+  async matchAccessLogsInGroupBy(groupId: string, body: AbstractFilterAccessLog, collectTiming: boolean = false): Promise<Array<string>> {
     const _url = this.host + `/inGroup/${groupId}/match`
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+      .then((doc) => Object.assign((doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
 }

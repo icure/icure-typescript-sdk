@@ -6,7 +6,7 @@ import i18n from './rsrc/contact.i18n'
 import * as moment from 'moment'
 import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
-import { Contact, FilterChainService, ListOfIds, Service } from '../icc-api/model/models'
+import { Contact, FilterChainService, ListOfIds, Service, TimingInfo } from '../icc-api/model/models'
 import { PaginatedListContact } from '../icc-api/model/PaginatedListContact'
 import { utf8_2ua } from './utils/binary-utils'
 import { ServiceByIdsFilter } from './filters/ServiceByIdsFilter'
@@ -340,16 +340,32 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
    * @param startDocumentId optional document id to start pagination from
    * @param limit maximum number of results to return
    * @param body the filter chain to apply
+   * @param collectTiming add timing information to the response
    * @return a paginated list of decrypted contacts
    */
   filterByWithUser(
     user: models.User,
     startDocumentId?: string,
     limit?: number,
-    body?: models.FilterChainContact
+    body?: models.FilterChainContact,
+    collectTiming?: false
+  ): Promise<PaginatedListContact | any>
+  filterByWithUser(
+    user: models.User,
+    startDocumentId?: string,
+    limit?: number,
+    body?: models.FilterChainContact,
+    collectTiming?: true
+  ): Promise<(PaginatedListContact & TimingInfo) | any>
+  filterByWithUser(
+    user: models.User,
+    startDocumentId?: string,
+    limit?: number,
+    body?: models.FilterChainContact,
+    collectTiming: boolean = false
   ): Promise<PaginatedListContact | any> {
     return super
-      .filterContactsBy(startDocumentId, limit, body)
+      .filterContactsBy(startDocumentId, limit, body, collectTiming as any)
       .then((ctcs) =>
         this.decrypt(user.healthcarePartyId! || user.patientId!, ctcs.rows!).then((decryptedRows) => Object.assign(ctcs, { rows: decryptedRows }))
       )
@@ -361,16 +377,32 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
    * @param startDocumentId optional document id to start pagination from
    * @param limit maximum number of results to return
    * @param body the filter chain to apply
+   * @param collectTiming add timing information to the response
    * @return a paginated list of decrypted services
    */
   filterServicesByWithUser(
     user: models.User,
     startDocumentId?: string,
     limit?: number,
-    body?: models.FilterChainService
+    body?: models.FilterChainService,
+    collectTiming?: false
+  ): Promise<PaginatedListContact | any>
+  filterServicesByWithUser(
+    user: models.User,
+    startDocumentId?: string,
+    limit?: number,
+    body?: models.FilterChainService,
+    collectTiming?: true
+  ): Promise<(PaginatedListContact & TimingInfo) | any>
+  filterServicesByWithUser(
+    user: models.User,
+    startDocumentId?: string,
+    limit?: number,
+    body?: models.FilterChainService,
+    collectTiming: boolean = false
   ): Promise<PaginatedListContact | any> {
     return super
-      .filterServicesBy(startDocumentId, limit, body)
+      .filterServicesBy(startDocumentId, limit, body, collectTiming as any)
       .then((svcs) =>
         this.decryptServices(user.healthcarePartyId! || user.patientId!, svcs.rows!).then((decryptedRows) => Object.assign(svcs, { rows: decryptedRows }))
       )

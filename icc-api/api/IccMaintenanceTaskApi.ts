@@ -20,6 +20,7 @@ import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShar
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { ListOfIds } from '../model/ListOfIds'
 import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
+import { TimingInfo } from '../model/TimingInfo'
 
 export class IccMaintenanceTaskApi {
   host: string
@@ -112,8 +113,11 @@ export class IccMaintenanceTaskApi {
    * @param body
    * @param startDocumentId A maintenanceTask document ID
    * @param limit Number of rows
+   * @param collectTiming if true, include server-side filter timing information in the response
    */
-  async filterMaintenanceTasksBy(startDocumentId?: string, limit?: number, body?: FilterChainMaintenanceTask): Promise<PaginatedListMaintenanceTask> {
+  filterMaintenanceTasksBy(startDocumentId?: string, limit?: number, body?: FilterChainMaintenanceTask, collectTiming?: false): Promise<PaginatedListMaintenanceTask>
+  filterMaintenanceTasksBy(startDocumentId?: string, limit?: number, body?: FilterChainMaintenanceTask, collectTiming?: true): Promise<PaginatedListMaintenanceTask & TimingInfo>
+  async filterMaintenanceTasksBy(startDocumentId?: string, limit?: number, body?: FilterChainMaintenanceTask, collectTiming: boolean = false): Promise<PaginatedListMaintenanceTask> {
     let _body = null
     _body = body
 
@@ -126,8 +130,8 @@ export class IccMaintenanceTaskApi {
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new PaginatedListMaintenanceTask(doc.body as JSON))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+      .then((doc) => Object.assign(new PaginatedListMaintenanceTask(doc.body as JSON), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
 

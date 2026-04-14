@@ -24,6 +24,7 @@ import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShar
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { MinimalEntityBulkShareResult } from '../model/requests/MinimalEntityBulkShareResult'
 import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
+import { TimingInfo } from '../model/TimingInfo'
 
 export class IccHelementApi {
   host: string
@@ -130,8 +131,11 @@ export class IccHelementApi {
    * @param body
    * @param startDocumentId A HealthElement document ID
    * @param limit Number of rows
+   * @param collectTiming if true, include server-side filter timing information in the response
    */
-  async filterHealthElementsBy(startDocumentId?: string, limit?: number, body?: FilterChainHealthElement): Promise<PaginatedListHealthElement> {
+  filterHealthElementsBy(startDocumentId?: string, limit?: number, body?: FilterChainHealthElement, collectTiming?: false): Promise<PaginatedListHealthElement>
+  filterHealthElementsBy(startDocumentId?: string, limit?: number, body?: FilterChainHealthElement, collectTiming?: true): Promise<PaginatedListHealthElement & TimingInfo>
+  async filterHealthElementsBy(startDocumentId?: string, limit?: number, body?: FilterChainHealthElement, collectTiming: boolean = false): Promise<PaginatedListHealthElement> {
     let _body = null
     _body = body
 
@@ -144,8 +148,8 @@ export class IccHelementApi {
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new PaginatedListHealthElement(doc.body as JSON))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+      .then((doc) => Object.assign(new PaginatedListHealthElement(doc.body as JSON), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
 
@@ -316,13 +320,16 @@ export class IccHelementApi {
    *
    * @summary Get ids of health element matching the provided filter for the current user (HcParty)
    * @param body
+   * @param collectTiming if true, include server-side filter timing information in the response
    */
-  async matchHealthElementsBy(body?: AbstractFilterHealthElement): Promise<Array<string>> {
+  matchHealthElementsBy(body?: AbstractFilterHealthElement, collectTiming?: false): Promise<Array<string>>
+  matchHealthElementsBy(body?: AbstractFilterHealthElement, collectTiming?: true): Promise<Array<string> & TimingInfo>
+  async matchHealthElementsBy(body?: AbstractFilterHealthElement, collectTiming: boolean = false): Promise<Array<string>> {
     const _url = this.host + `/helement/match` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+      .then((doc) => Object.assign((doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
 

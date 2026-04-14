@@ -30,6 +30,7 @@ import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShar
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { MinimalEntityBulkShareResult } from '../model/requests/MinimalEntityBulkShareResult'
 import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
+import { TimingInfo } from '../model/TimingInfo'
 
 export class IccContactApi {
   host: string
@@ -153,8 +154,11 @@ export class IccContactApi {
    * @param body
    * @param startDocumentId A Contact document ID
    * @param limit Number of rows
+   * @param collectTiming if true, include server-side filter timing information in the response
    */
-  async filterContactsBy(startDocumentId?: string, limit?: number, body?: FilterChainContact): Promise<PaginatedListContact> {
+  filterContactsBy(startDocumentId?: string, limit?: number, body?: FilterChainContact, collectTiming?: false): Promise<PaginatedListContact>
+  filterContactsBy(startDocumentId?: string, limit?: number, body?: FilterChainContact, collectTiming?: true): Promise<PaginatedListContact & TimingInfo>
+  async filterContactsBy(startDocumentId?: string, limit?: number, body?: FilterChainContact, collectTiming: boolean = false): Promise<PaginatedListContact> {
     let _body = null
     _body = body
 
@@ -167,8 +171,8 @@ export class IccContactApi {
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new PaginatedListContact(doc.body as JSON))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+      .then((doc) => Object.assign(new PaginatedListContact(doc.body as JSON), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
 
@@ -178,8 +182,11 @@ export class IccContactApi {
    * @param body
    * @param startDocumentId A Contact document ID
    * @param limit Number of rows
+   * @param collectTiming if true, include server-side filter timing information in the response
    */
-  async filterServicesBy(startDocumentId?: string, limit?: number, body?: FilterChainService): Promise<PaginatedListService> {
+  filterServicesBy(startDocumentId?: string, limit?: number, body?: FilterChainService, collectTiming?: false): Promise<PaginatedListService>
+  filterServicesBy(startDocumentId?: string, limit?: number, body?: FilterChainService, collectTiming?: true): Promise<PaginatedListService & TimingInfo>
+  async filterServicesBy(startDocumentId?: string, limit?: number, body?: FilterChainService, collectTiming: boolean = false): Promise<PaginatedListService> {
     let _body = null
     _body = body
 
@@ -192,8 +199,8 @@ export class IccContactApi {
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new PaginatedListService(doc.body as JSON))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+      .then((doc) => Object.assign(new PaginatedListService(doc.body as JSON), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
 
@@ -629,16 +636,19 @@ export class IccContactApi {
    *
    * @summary Get ids of contacts matching the provided filter for the current user (HcParty)
    * @param body
+   * @param collectTiming if true, include server-side filter timing information in the response
    */
-  async matchContactsBy(body?: AbstractFilterContact): Promise<Array<string>> {
+  matchContactsBy(body?: AbstractFilterContact, collectTiming?: false): Promise<Array<string>>
+  matchContactsBy(body?: AbstractFilterContact, collectTiming?: true): Promise<Array<string> & TimingInfo>
+  async matchContactsBy(body?: AbstractFilterContact, collectTiming: boolean = false): Promise<Array<string>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/contact/match` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+      .then((doc) => Object.assign((doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
 
@@ -646,16 +656,19 @@ export class IccContactApi {
    *
    * @summary Get ids of services matching the provided filter for the current user
    * @param body
+   * @param collectTiming add timing information to the response
    */
-  async matchServicesBy(body?: AbstractFilterService): Promise<Array<string>> {
+  matchServicesBy(body?: AbstractFilterService, collectTiming?: false): Promise<Array<string>>
+  matchServicesBy(body?: AbstractFilterService, collectTiming?: true): Promise<Array<string> & TimingInfo>
+  async matchServicesBy(body?: AbstractFilterService, collectTiming: boolean = false): Promise<Array<string>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/contact/service/match` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+      .then((doc) => Object.assign((doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
 

@@ -20,6 +20,7 @@ import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { FilterChainTopic } from '../model/FilterChainTopic'
 import { PaginatedListTopic } from '../model/PaginatedListTopic'
 import { AbstractFilterTopic } from '../model/AbstractFilterTopic'
+import { TimingInfo } from '../model/TimingInfo'
 import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
 
 export class IccTopicApi {
@@ -154,8 +155,11 @@ export class IccTopicApi {
    * @param body
    * @param startDocumentId A Topic document ID
    * @param limit Number of rows
+   * @param collectTiming if true, include server-side filter timing information in the response
    */
-  async filterTopicsBy(body: FilterChainTopic, startDocumentId?: string, limit?: number): Promise<PaginatedListTopic> {
+  filterTopicsBy(body: FilterChainTopic, startDocumentId?: string, limit?: number, collectTiming?: false): Promise<PaginatedListTopic>
+  filterTopicsBy(body: FilterChainTopic, startDocumentId?: string, limit?: number, collectTiming?: true): Promise<PaginatedListTopic & TimingInfo>
+  async filterTopicsBy(body: FilterChainTopic, startDocumentId?: string, limit?: number, collectTiming: boolean = false): Promise<PaginatedListTopic> {
     const _url =
       this.host +
       `/topic/filter` +
@@ -165,8 +169,8 @@ export class IccTopicApi {
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new PaginatedListTopic(doc.body as JSON))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+      .then((doc) => Object.assign(new PaginatedListTopic(doc.body as JSON), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
 
@@ -174,13 +178,16 @@ export class IccTopicApi {
    *
    * @summary Get ids of topics matching the provided filter for the current user (HcParty)
    * @param body
+   * @param collectTiming if true, include server-side filter timing information in the response
    */
-  async matchTopicsBy(body: AbstractFilterTopic): Promise<Array<string>> {
+  matchTopicsBy(body: AbstractFilterTopic, collectTiming?: false): Promise<Array<string>>
+  matchTopicsBy(body: AbstractFilterTopic, collectTiming?: true): Promise<Array<string> & TimingInfo>
+  async matchTopicsBy(body: AbstractFilterTopic, collectTiming: boolean = false): Promise<Array<string>> {
     const _url = this.host + `/topic/match` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+      .then((doc) => Object.assign((doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
 

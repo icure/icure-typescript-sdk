@@ -20,6 +20,7 @@ import { PaginatedListHealthcareParty } from '../model/PaginatedListHealthcarePa
 import { PublicKey } from '../model/PublicKey'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
+import { TimingInfo } from '../model/TimingInfo'
 
 export class IccHcpartyApi {
   host: string
@@ -162,8 +163,11 @@ export class IccHcpartyApi {
    * @param body
    * @param startDocumentId A HealthcareParty document ID
    * @param limit Number of rows
+   * @param collectTiming if true, include server-side filter timing information in the response
    */
-  async filterHealthPartiesBy(startDocumentId?: string, limit?: number, body?: FilterChainHealthcareParty): Promise<PaginatedListHealthcareParty> {
+  filterHealthPartiesBy(startDocumentId?: string, limit?: number, body?: FilterChainHealthcareParty, collectTiming?: false): Promise<PaginatedListHealthcareParty>
+  filterHealthPartiesBy(startDocumentId?: string, limit?: number, body?: FilterChainHealthcareParty, collectTiming?: true): Promise<PaginatedListHealthcareParty & TimingInfo>
+  async filterHealthPartiesBy(startDocumentId?: string, limit?: number, body?: FilterChainHealthcareParty, collectTiming: boolean = false): Promise<PaginatedListHealthcareParty> {
     const _url =
       this.host +
       `/hcparty/filter` +
@@ -173,8 +177,8 @@ export class IccHcpartyApi {
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new PaginatedListHealthcareParty(doc.body as JSON))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+      .then((doc) => Object.assign(new PaginatedListHealthcareParty(doc.body as JSON), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
 
@@ -429,16 +433,19 @@ export class IccHcpartyApi {
    *
    * @summary Get ids of healthcare party matching the provided filter for the current user (HcParty)
    * @param body
+   * @param collectTiming if true, include server-side filter timing information in the response
    */
-  matchHealthcarePartiesBy(body?: AbstractFilterHealthcareParty): Promise<Array<string>> {
+  matchHealthcarePartiesBy(body?: AbstractFilterHealthcareParty, collectTiming?: false): Promise<Array<string>>
+  matchHealthcarePartiesBy(body?: AbstractFilterHealthcareParty, collectTiming?: true): Promise<Array<string> & TimingInfo>
+  matchHealthcarePartiesBy(body?: AbstractFilterHealthcareParty, collectTiming: boolean = false): Promise<Array<string>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/hcparty/match` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+      .then((doc) => Object.assign((doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
 

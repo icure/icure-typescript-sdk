@@ -25,6 +25,7 @@ import { FilterChainMessage } from '../model/FilterChainMessage'
 import { AbstractFilterMessage } from '../model/AbstractFilterMessage'
 import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
 import { AccessLog } from '../model/AccessLog'
+import { TimingInfo } from '../model/TimingInfo'
 
 export class IccMessageApi {
   host: string
@@ -518,8 +519,11 @@ export class IccMessageApi {
    * @param body
    * @param startDocumentId A Message document ID
    * @param limit Number of rows
+   * @param collectTiming if true, include server-side filter timing information in the response
    */
-  async filterMessagesBy(body: FilterChainMessage, startDocumentId?: string, limit?: number): Promise<PaginatedListMessage> {
+  filterMessagesBy(body: FilterChainMessage, startDocumentId?: string, limit?: number, collectTiming?: false): Promise<PaginatedListMessage>
+  filterMessagesBy(body: FilterChainMessage, startDocumentId?: string, limit?: number, collectTiming?: true): Promise<PaginatedListMessage & TimingInfo>
+  async filterMessagesBy(body: FilterChainMessage, startDocumentId?: string, limit?: number, collectTiming: boolean = false): Promise<PaginatedListMessage> {
     const _url =
       this.host +
       `/message/filter` +
@@ -529,8 +533,8 @@ export class IccMessageApi {
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new PaginatedListMessage(doc.body as JSON))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+      .then((doc) => Object.assign(new PaginatedListMessage(doc.body as JSON), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
 
@@ -538,13 +542,16 @@ export class IccMessageApi {
    *
    * @summary Get ids of messages matching the provided filter for the current user (HcParty)
    * @param body
+   * @param collectTiming if true, include server-side filter timing information in the response
    */
-  async matchMessagesBy(body: AbstractFilterMessage): Promise<Array<string>> {
+  matchMessagesBy(body: AbstractFilterMessage, collectTiming?: false): Promise<Array<string>>
+  matchMessagesBy(body: AbstractFilterMessage, collectTiming?: true): Promise<Array<string> & TimingInfo>
+  async matchMessagesBy(body: AbstractFilterMessage, collectTiming: boolean = false): Promise<Array<string>> {
     const _url = this.host + `/message/match` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+      .then((doc) => Object.assign((doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
 }

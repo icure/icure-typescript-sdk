@@ -25,6 +25,7 @@ import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShar
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { MinimalEntityBulkShareResult } from '../model/requests/MinimalEntityBulkShareResult'
 import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
+import { TimingInfo } from '../model/TimingInfo'
 
 export class IccInvoiceApi {
   host: string
@@ -146,13 +147,16 @@ export class IccInvoiceApi {
    * Returns a list of invoices along with next start keys and Document ID. If the nextStartKey is Null it means that this is the last page.
    * @summary Filter invoices for the current user (HcParty)
    * @param body
+   * @param collectTiming if true, include server-side filter timing information in the response
    */
-  async filterInvoicesBy(body?: FilterChainInvoice): Promise<Array<Invoice>> {
+  filterInvoicesBy(body?: FilterChainInvoice, collectTiming?: false): Promise<Array<Invoice>>
+  filterInvoicesBy(body?: FilterChainInvoice, collectTiming?: true): Promise<Array<Invoice> & TimingInfo>
+  async filterInvoicesBy(body?: FilterChainInvoice, collectTiming: boolean = false): Promise<Array<Invoice>> {
     const _url = this.host + `/invoice/filter` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+      .then((doc) => Object.assign((doc.body as Array<JSON>).map((it) => new Invoice(it)), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
 

@@ -18,6 +18,7 @@ import { Unit } from '../model/Unit'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 import { ListOfIds } from '../model/ListOfIds'
+import { TimingInfo } from '../model/TimingInfo'
 
 export class IccCodeApi {
   host: string
@@ -89,7 +90,10 @@ export class IccCodeApi {
    * @param skip Skip rows
    * @param sort Sort key
    * @param desc Descending
+   * @param collectTiming if true, include server-side filter timing information in the response
    */
+  filterCodesBy(startKey?: string, startDocumentId?: string, limit?: number, skip?: number, sort?: string, desc?: boolean, body?: FilterChainCode, collectTiming?: false): Promise<PaginatedListCode>
+  filterCodesBy(startKey?: string, startDocumentId?: string, limit?: number, skip?: number, sort?: string, desc?: boolean, body?: FilterChainCode, collectTiming?: true): Promise<PaginatedListCode & TimingInfo>
   filterCodesBy(
     startKey?: string,
     startDocumentId?: string,
@@ -97,7 +101,8 @@ export class IccCodeApi {
     skip?: number,
     sort?: string,
     desc?: boolean,
-    body?: FilterChainCode
+    body?: FilterChainCode,
+    collectTiming: boolean = false
   ): Promise<PaginatedListCode> {
     let _body = null
     _body = body
@@ -115,8 +120,8 @@ export class IccCodeApi {
       (desc ? '&desc=' + encodeURIComponent(String(desc)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => new PaginatedListCode(doc.body as JSON))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+      .then((doc) => Object.assign(new PaginatedListCode(doc.body as JSON), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
 
@@ -377,16 +382,20 @@ export class IccCodeApi {
    *
    * @summary Get ids of code matching the provided filter for the current user (HcParty)
    * @param body
+   * @param collectTiming add timing information to the response
+   *
    */
-  matchCodesBy(body?: AbstractFilterCode): Promise<Array<string>> {
+  matchCodesBy(body?: AbstractFilterCode, collectTiming?: false): Promise<Array<string>>
+  matchCodesBy(body?: AbstractFilterCode, collectTiming?: true): Promise<Array<string> & TimingInfo>
+  matchCodesBy(body?: AbstractFilterCode, collectTiming: boolean = false): Promise<Array<string>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/code/match` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+      .then((doc) => Object.assign((doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
 
@@ -468,16 +477,19 @@ export class IccCodeApi {
    *
    * @summary Get ids of code matching the provided filter for the current user (HcParty)
    * @param body
+   * @param collectTiming if true, include server-side filter timing information in the response
    */
-  async matchCodesByInGroup(groupId: string, body?: AbstractFilterCode): Promise<Array<string>> {
+  matchCodesByInGroup(groupId: string, body?: AbstractFilterCode, collectTiming?: false): Promise<Array<string>>
+  matchCodesByInGroup(groupId: string, body?: AbstractFilterCode, collectTiming?: true): Promise<Array<string> & TimingInfo>
+  async matchCodesByInGroup(groupId: string, body?: AbstractFilterCode, collectTiming: boolean = false): Promise<Array<string>> {
     let _body = null
     _body = body
 
     const _url = this.host + `/code/inGroup/${encodeURIComponent(String(groupId))}/match` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
-      .then((doc) => (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))))
+    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+      .then((doc) => Object.assign((doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
 }

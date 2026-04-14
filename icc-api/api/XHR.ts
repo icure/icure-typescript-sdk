@@ -138,7 +138,8 @@ export namespace XHR {
           contentTypeOverride,
           headerProvider,
           requiredAuthLevelHeader ? parseInt(requiredAuthLevelHeader) : undefined,
-          tryHardToParseJson
+          tryHardToParseJson,
+          collectHeaders
         )
       } else if (response.status >= 400) {
         const error: {
