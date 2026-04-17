@@ -183,7 +183,7 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
    * @param receipt a receipt.
    * @param blobType the type of the attachment.
    * @param attachment the raw attachment data.
-   * @param deflate if true, compress the attachment before uploading. Reliable decompression of compressed data requires version 26.5 of the API and all users to be using at least version 8.6.20 of the SDK    * @return the updated receipt.
+   * @param deflate if true, compress the attachment before uploading. Reliable decompression of compressed data requires version 26.5 of the API and all users to be using at least version 8.7.0 of the SDK    * @return the updated receipt.
    */
   async encryptCompressAndSetReceiptDataAttachment(
     receipt: models.Receipt,
@@ -219,7 +219,7 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
    * @param receipt a receipt.
    * @param blobType the type of the attachment.
    * @param attachment the raw attachment data.
-   * @param deflate if true, compress the attachment before uploading. Reliable decompression of compressed data requires version 26.5 of the API and all users to be using at least version 8.6.20 of the SDK    * @return the updated receipt.
+   * @param deflate if true, compress the attachment before uploading. Reliable decompression of compressed data requires version 26.5 of the API and all users to be using at least version 8.7.0 of the SDK    * @return the updated receipt.
    */
   async setClearReceiptDataAttachment(
     receipt: models.Receipt,

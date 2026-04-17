@@ -821,7 +821,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
    * @param attachment a new main attachment for the document.
    * @param utis an array of UTIs for the attachment. The first element will be considered as the main UTI for the document. If provided and non-empty
    * overrides existing values.
-   * @param deflate if true, compress the attachment before uploading. Reliable decompression of compressed data requires version 26.5 of the API and all users to be using at least version 8.6.20 of the SDK    * @return the updated document.
+   * @param deflate if true, compress the attachment before uploading. Reliable decompression of compressed data requires version 26.5 of the API and all users to be using at least version 8.7.0 of the SDK    * @return the updated document.
    */
   async encryptAndSetDocumentAttachment(
     document: models.Document,
@@ -863,7 +863,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
    * @param attachment a new main attachment for the document.
    * @param utis an array of UTIs for the attachment. The first element will be considered as the main UTI for the document. If provided and non-empty
    * overrides existing values.
-   * @param deflate if true, compress the attachment before uploading. Reliable decompression of compressed data requires version 26.5 of the API and all users to be using at least version 8.6.20 of the SDK    * @return the updated document.
+   * @param deflate if true, compress the attachment before uploading. Reliable decompression of compressed data requires version 26.5 of the API and all users to be using at least version 8.7.0 of the SDK    * @return the updated document.
    */
   async setClearDocumentAttachment(
     document: models.Document,
@@ -900,7 +900,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
    * @param attachment a new secondary attachment for the document.
    * @param utis an array of UTIs for the attachment. The first element will be considered as the main UTI for the document. If provided and non-empty
    * overrides existing values.
-   * @param deflate if true, compress the attachment before uploading. Reliable decompression of compressed data requires version 26.5 of the API and all users to be using at least version 8.6.20 of the SDK    * @return the updated document.
+   * @param deflate if true, compress the attachment before uploading. Reliable decompression of compressed data requires version 26.5 of the API and all users to be using at least version 8.7.0 of the SDK    * @return the updated document.
    */
   async encryptAndSetSecondaryDocumentAttachment(
     document: models.Document,
@@ -945,7 +945,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
    * @param attachment a new secondary attachment for the document.
    * @param utis an array of UTIs for the attachment. The first element will be considered as the main UTI for the document. If provided and non-empty
    * overrides existing values.
-   * @param deflate if true, compress the attachment before uploading. Reliable decompression of compressed data requires version 26.5 of the API and all users to be using at least version 8.6.20 of the SDK
+   * @param deflate if true, compress the attachment before uploading. Reliable decompression of compressed data requires version 26.5 of the API and all users to be using at least version 8.7.0 of the SDK
    * @return the updated document.
    */
   async setClearSecondaryDocumentAttachment(
