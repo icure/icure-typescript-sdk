@@ -404,13 +404,20 @@ export class IccDocumentApi {
    * overrides existing values.
    * @param dataIsEncrypted set this to true if the body you provided is containing encrypted data. This helps to have the appropriate content type
    * for the attachment. Defaults is false
+   * @param compressionAlgorithm the client-side compression algorithm used on the data, if any (e.g. 'lzma'). Null/undefined if no compression was applied.
+   * @param triedCompressionAlgorithmsVersion a version string indicating which compression algorithms were tried by the SDK, used to decide whether
+   * re-compression with newer algorithms should be attempted on read.
+   * @param realDataSize the size in bytes of the original data before compression and encryption, used for informational purposes.
    */
   async setMainDocumentAttachment(
     documentId: string,
     documentRev: string,
     body: Object,
     utis?: Array<string>,
-    dataIsEncrypted?: boolean
+    dataIsEncrypted?: boolean,
+    compressionAlgorithm?: string,
+    triedCompressionAlgorithmsVersion?: string,
+    realDataSize?: number
   ): Promise<Document> {
     if (!documentRev) throw new Error('Document rev is required')
     let _body = body
@@ -423,7 +430,12 @@ export class IccDocumentApi {
       '&rev=' +
       encodeURIComponent(String(documentRev)) +
       (utis ? utis.map((x) => '&utis=' + encodeURIComponent(String(x))).join('') : '') +
-      (dataIsEncrypted ? '&encrypted=' + encodeURIComponent(String(dataIsEncrypted)) : '')
+      (dataIsEncrypted ? '&encrypted=' + encodeURIComponent(String(dataIsEncrypted)) : '') +
+      (compressionAlgorithm ? '&compressionAlgorithm=' + encodeURIComponent(String(compressionAlgorithm)) : '') +
+      (triedCompressionAlgorithmsVersion
+        ? '&triedCompressionAlgorithmsVersion=' + encodeURIComponent(String(triedCompressionAlgorithmsVersion))
+        : '') +
+      (realDataSize != null ? '&realDataSize=' + encodeURIComponent(String(realDataSize)) : '')
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
@@ -478,6 +490,10 @@ export class IccDocumentApi {
    * @param utis an array of UTIs for the attachment. If provided and non-empty overrides existing values.
    * @param dataIsEncrypted set this to true if the body you provided is containing encrypted data. This helps to have the appropriate content type
    * for the attachment. Defaults is false
+   * @param compressionAlgorithm the client-side compression algorithm used on the data, if any (e.g. 'lzma'). Null/undefined if no compression was applied.
+   * @param triedCompressionAlgorithmsVersion a version string indicating which compression algorithms were tried by the SDK, used to decide whether
+   * re-compression with newer algorithms should be attempted on read.
+   * @param realDataSize the size in bytes of the original data before compression and encryption, used for informational purposes.
    * @return the updated document
    */
   async setSecondaryAttachment(
@@ -486,7 +502,10 @@ export class IccDocumentApi {
     rev: string,
     attachment: Object,
     utis?: Array<string>,
-    dataIsEncrypted?: boolean
+    dataIsEncrypted?: boolean,
+    compressionAlgorithm?: string,
+    triedCompressionAlgorithmsVersion?: string,
+    realDataSize?: number
   ): Promise<Document> {
     const _url =
       this.host +
@@ -498,7 +517,12 @@ export class IccDocumentApi {
       new Date().getTime() +
       (rev ? '&rev=' + encodeURIComponent(String(rev)) : '') +
       (utis ? utis.map((x) => '&utis=' + encodeURIComponent(String(x))).join('') : '') +
-      (dataIsEncrypted ? '&encrypted=' + encodeURIComponent(String(dataIsEncrypted)) : '')
+      (dataIsEncrypted ? '&encrypted=' + encodeURIComponent(String(dataIsEncrypted)) : '') +
+      (compressionAlgorithm ? '&compressionAlgorithm=' + encodeURIComponent(String(compressionAlgorithm)) : '') +
+      (triedCompressionAlgorithmsVersion
+        ? '&triedCompressionAlgorithmsVersion=' + encodeURIComponent(String(triedCompressionAlgorithmsVersion))
+        : '') +
+      (realDataSize != null ? '&realDataSize=' + encodeURIComponent(String(realDataSize)) : '')
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
     return XHR.sendCommand('PUT', _url, headers, attachment, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())

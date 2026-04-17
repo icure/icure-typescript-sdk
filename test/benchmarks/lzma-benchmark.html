@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>LZMA Benchmark: JS Inline vs JS Worker vs WASM</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #1a1a2e; color: #e0e0e0; }
+    h1 { color: #0f3460; }
+    table { border-collapse: collapse; margin: 10px 0; }
+    th, td { border: 1px solid #444; padding: 6px 12px; text-align: right; }
+    th { background: #16213e; }
+    .fastest { color: #4ecca3; font-weight: bold; }
+    #status { color: #e94560; margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <h1>LZMA Benchmark: JS Inline vs JS Worker vs WASM</h1>
+  <div id="status">Loading...</div>
+  <div id="results"></div>
+
+  <!-- lzma-js inline (no worker, runs on main thread) -->
+  <script src="/node_modules/lzma/src/lzma_worker.js"></script>
+  <script>
+    // Save the inline (non-worker) LZMA reference before lzma.js overwrites it
+    var LZMA_INLINE = window.LZMA;
+  </script>
+
+  <!-- lzma-js worker bootstrapper -->
+  <script src="/node_modules/lzma/src/lzma.js"></script>
+
+  <!-- WASM module (LZMA2/XZ via liblzma) -->
+  <script src="/icc-x-api/wasm/lzma/lzma.js"></script>
+
+  <script>
+    var ITERATIONS = 20;
+    var SIZES = [
+      { name: '1 KB',  tag: '1kb',  bytes: 1024 },
+      { name: '1 MB',  tag: '1mb',  bytes: 1024 * 1024 },
+      { name: '10 MB', tag: '10mb', bytes: 10 * 1024 * 1024 },
+    ];
+
+    // Create the worker-based LZMA instance
+    var LZMA_WORKER_INSTANCE = new LZMA('/node_modules/lzma/src/lzma_worker.js');
+
+    function generateTestData(size) {
+      var lines = [];
+      var words = ['patient', 'contact', 'healthcare', 'delegation', 'encrypted', 'document', 'service', 'invoice'];
+      var totalLen = 0;
+      var i = 0;
+      while (totalLen < size) {
+        var line = i + ': ' + words[i % words.length] + ' id=' + Math.random().toString(36).slice(2) + ' ts=' + Date.now() + ' value=' + Math.random() + '\n';
+        lines.push(line);
+        totalLen += line.length;
+        i++;
+      }
+      var text = lines.join('').slice(0, size);
+      return new TextEncoder().encode(text);
+    }
+
+    // --- JS Inline LZMA1 (main thread, no worker) ---
+    function jsInlineCompress(data) {
+      return new Promise(function(resolve, reject) {
+        LZMA_INLINE.compress(data, 6, function(result, error) {
+          if (error) return reject(error);
+          resolve(new Uint8Array(result));
+        });
+      });
+    }
+
+    function jsInlineDecompress(data) {
+      return new Promise(function(resolve, reject) {
+        LZMA_INLINE.decompress(data, function(result, error) {
+          if (error) return reject(error);
+          if (typeof result === 'string') {
+            resolve(new TextEncoder().encode(result));
+          } else {
+            resolve(new Uint8Array(result));
+          }
+        });
+      });
+    }
+
+    // --- JS Worker LZMA1 (Web Worker, off main thread) ---
+    function jsWorkerCompress(data) {
+      return new Promise(function(resolve, reject) {
+        LZMA_WORKER_INSTANCE.compress(data, 6, function(result, error) {
+          if (error) return reject(error);
+          resolve(new Uint8Array(result));
+        });
+      });
+    }
+
+    function jsWorkerDecompress(data) {
+      return new Promise(function(resolve, reject) {
+        LZMA_WORKER_INSTANCE.decompress(data, function(result, error) {
+          if (error) return reject(error);
+          if (typeof result === 'string') {
+            resolve(new TextEncoder().encode(result));
+          } else {
+            resolve(new Uint8Array(result));
+          }
+        });
+      });
+    }
+
+    // --- WASM LZMA2/XZ (liblzma) ---
+    var wasmModule = null;
+
+    async function initWasm() {
+      wasmModule = await createLzmaModule();
+    }
+
+    function wasmCompress(data) {
+      var inputPtr = wasmModule._malloc(data.length);
+      wasmModule.HEAPU8.set(data, inputPtr);
+      var ret = wasmModule._lzma_wasm_compress(inputPtr, data.length, 6);
+      wasmModule._free(inputPtr);
+      if (ret !== 0) throw new Error('WASM compress failed: ' + ret);
+      var ptr = wasmModule._get_result_ptr();
+      var len = wasmModule._get_result_len();
+      var out = new Uint8Array(len);
+      out.set(wasmModule.HEAPU8.subarray(ptr, ptr + len));
+      wasmModule._free_result();
+      return out;
+    }
+
+    function wasmDecompress(data) {
+      var inputPtr = wasmModule._malloc(data.length);
+      wasmModule.HEAPU8.set(data, inputPtr);
+      var ret = wasmModule._lzma_wasm_decompress(inputPtr, data.length);
+      wasmModule._free(inputPtr);
+      if (ret !== 0) throw new Error('WASM decompress failed: ' + ret);
+      var ptr = wasmModule._get_result_ptr();
+      var len = wasmModule._get_result_len();
+      var out = new Uint8Array(len);
+      out.set(wasmModule.HEAPU8.subarray(ptr, ptr + len));
+      wasmModule._free_result();
+      return out;
+    }
+
+    // --- Benchmark harness ---
+    function median(arr) {
+      var sorted = arr.slice().sort(function(a, b) { return a - b; });
+      var mid = Math.floor(sorted.length / 2);
+      return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    }
+
+    function mean(arr) {
+      return arr.reduce(function(a, b) { return a + b; }, 0) / arr.length;
+    }
+
+    function p95(arr) {
+      var sorted = arr.slice().sort(function(a, b) { return a - b; });
+      return sorted[Math.floor(sorted.length * 0.95)];
+    }
+
+    function min(arr) {
+      return Math.min.apply(null, arr);
+    }
+
+    function max(arr) {
+      return Math.max.apply(null, arr);
+    }
+
+    function uint8ToBase64(u8) {
+      var chunks = [];
+      var chunkSize = 8192;
+      for (var i = 0; i < u8.length; i += chunkSize) {
+        chunks.push(String.fromCharCode.apply(null, u8.subarray(i, Math.min(i + chunkSize, u8.length))));
+      }
+      return btoa(chunks.join(''));
+    }
+
+    async function benchmarkOp(fn, data, iterations) {
+      // Warmup
+      await fn(data);
+      var times = [];
+      var resultSize = 0;
+      for (var i = 0; i < iterations; i++) {
+        var start = performance.now();
+        var result = await fn(data);
+        times.push(performance.now() - start);
+        resultSize = result.length || result.byteLength;
+      }
+      return {
+        times: times,
+        resultSize: resultSize,
+        stats: {
+          median: median(times),
+          mean: mean(times),
+          min: min(times),
+          max: max(times),
+          p95: p95(times),
+        }
+      };
+    }
+
+    async function runBenchmarks() {
+      var status = document.getElementById('status');
+      var allResults = [];
+
+      status.textContent = 'Initializing WASM module...';
+      await initWasm();
+
+      // Warmup the worker with a small payload so the worker thread is ready
+      status.textContent = 'Warming up JS Worker...';
+      await jsWorkerCompress(new Uint8Array(64));
+
+      for (var si = 0; si < SIZES.length; si++) {
+        var size = SIZES[si];
+        status.textContent = 'Running ' + size.name + ' benchmarks...';
+        var data = generateTestData(size.bytes);
+
+        // --- Compress benchmarks ---
+        var jsInlineComp = await benchmarkOp(jsInlineCompress, data, ITERATIONS);
+        var jsWorkerComp = await benchmarkOp(jsWorkerCompress, data, ITERATIONS);
+        var wasmComp = await benchmarkOp(function(d) { return Promise.resolve(wasmCompress(d)); }, data, ITERATIONS);
+
+        // --- Prepare compressed data for decompression ---
+        var jsCompressed = await jsInlineCompress(data);
+        var wasmCompressed = wasmCompress(data);
+
+        // --- Decompress benchmarks ---
+        var jsInlineDecomp = await benchmarkOp(jsInlineDecompress, jsCompressed, ITERATIONS);
+        var jsWorkerDecomp = await benchmarkOp(jsWorkerDecompress, jsCompressed, ITERATIONS);
+        var wasmDecomp = await benchmarkOp(function(d) { return Promise.resolve(wasmDecompress(d)); }, wasmCompressed, ITERATIONS);
+
+        // --- Verify round-trip correctness ---
+        var jsInlineRT = await jsInlineDecompress(await jsInlineCompress(data));
+        var jsWorkerRT = await jsWorkerDecompress(await jsWorkerCompress(data));
+        var wasmRT = wasmDecompress(wasmCompress(data));
+        var jsInlineCorrect = jsInlineRT.length === data.length && jsInlineRT.every(function(v, i) { return v === data[i]; });
+        var jsWorkerCorrect = jsWorkerRT.length === data.length && jsWorkerRT.every(function(v, i) { return v === data[i]; });
+        var wasmCorrect = wasmRT.length === data.length && wasmRT.every(function(v, i) { return v === data[i]; });
+
+        allResults.push({
+          size: size.name,
+          tag: size.tag,
+          originalBytes: size.bytes,
+          files: {
+            reference: uint8ToBase64(data),
+            lzmaJs: uint8ToBase64(jsCompressed),
+            lzmaWasm: uint8ToBase64(wasmCompressed),
+          },
+          jsInline: {
+            compress: jsInlineComp.stats,
+            decompress: jsInlineDecomp.stats,
+            compressedSize: jsInlineComp.resultSize,
+            ratio: (jsInlineComp.resultSize / size.bytes * 100).toFixed(1),
+            correct: jsInlineCorrect,
+          },
+          jsWorker: {
+            compress: jsWorkerComp.stats,
+            decompress: jsWorkerDecomp.stats,
+            compressedSize: jsWorkerComp.resultSize,
+            ratio: (jsWorkerComp.resultSize / size.bytes * 100).toFixed(1),
+            correct: jsWorkerCorrect,
+          },
+          wasm: {
+            compress: wasmComp.stats,
+            decompress: wasmDecomp.stats,
+            compressedSize: wasmComp.resultSize,
+            ratio: (wasmComp.resultSize / size.bytes * 100).toFixed(1),
+            correct: wasmCorrect,
+          },
+        });
+      }
+
+      status.textContent = 'Done!';
+      window.__benchmarkResults = allResults;
+      renderResults(allResults);
+    }
+
+    function renderResults(allResults) {
+      var resultsDiv = document.getElementById('results');
+      while (resultsDiv.firstChild) resultsDiv.removeChild(resultsDiv.firstChild);
+
+      var table = document.createElement('table');
+      var headerRow = document.createElement('tr');
+      var headers = ['Size', 'Op', 'Impl', 'Median', 'Mean', 'Min', 'Max', 'P95', 'Compressed', 'Ratio', 'OK'];
+      headers.forEach(function(h) {
+        var th = document.createElement('th');
+        th.textContent = h;
+        headerRow.appendChild(th);
+      });
+      table.appendChild(headerRow);
+
+      var impls = ['jsInline', 'jsWorker', 'wasm'];
+      var implLabels = { jsInline: 'JS Inline', jsWorker: 'JS Worker', wasm: 'WASM/XZ' };
+
+      allResults.forEach(function(r) {
+        ['compress', 'decompress'].forEach(function(op) {
+          // Find the fastest median for this size+op
+          var medians = impls.map(function(impl) { return r[impl][op].median; });
+          var fastestMedian = Math.min.apply(null, medians);
+
+          impls.forEach(function(impl, idx) {
+            var s = r[impl][op];
+            var row = document.createElement('tr');
+            var isCompress = op === 'compress';
+            var cells = [
+              idx === 0 ? r.size : '',
+              idx === 0 ? op : '',
+              implLabels[impl],
+              s.median.toFixed(2) + ' ms',
+              s.mean.toFixed(2) + ' ms',
+              s.min.toFixed(2) + ' ms',
+              s.max.toFixed(2) + ' ms',
+              s.p95.toFixed(2) + ' ms',
+              isCompress ? String(r[impl].compressedSize) : '-',
+              isCompress ? r[impl].ratio + '%' : '-',
+              r[impl].correct ? 'OK' : 'FAIL'
+            ];
+            cells.forEach(function(text, cidx) {
+              var td = document.createElement('td');
+              td.textContent = text;
+              if (cidx === 2 && s.median === fastestMedian) td.className = 'fastest';
+              row.appendChild(td);
+            });
+            table.appendChild(row);
+          });
+        });
+      });
+
+      resultsDiv.appendChild(table);
+    }
+
+    runBenchmarks().catch(function(err) {
+      document.getElementById('status').textContent = 'Error: ' + err.message;
+      console.error(err);
+    });
+  </script>
+</body>
+</html>

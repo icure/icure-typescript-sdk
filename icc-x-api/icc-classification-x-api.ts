@@ -3,8 +3,7 @@ import { IccCryptoXApi } from './icc-crypto-x-api'
 
 import * as models from '../icc-api/model/models'
 
-import * as _ from 'lodash'
-import * as moment from 'moment'
+import { format as formatDate } from 'date-fns'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
@@ -82,7 +81,7 @@ export class IccClassificationXApi extends IccClassificationApi implements Encry
       codes: c?.codes ?? [],
       tags: c?.tags ?? [],
       healthElementId: c?.healthElementId ?? this.crypto.primitives.randomUuid(),
-      openingDate: c?.openingDate ?? parseInt(moment().format('YYYYMMDDHHmmss')),
+      openingDate: c?.openingDate ?? parseInt(formatDate(new Date(), 'yyyyMMddHHmmss')),
     }
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
@@ -121,7 +120,7 @@ export class IccClassificationXApi extends IccClassificationApi implements Encry
     const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: EntityWithDelegationTypeName.Patient }, hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     return extractedKeys && extractedKeys.length > 0
-      ? this.findClassificationsByHCPartyPatientForeignKeys(topmostParentId, _.uniq(extractedKeys).join(','))
+      ? this.findClassificationsByHCPartyPatientForeignKeys(topmostParentId, [...new Set(extractedKeys)].join(','))
       : Promise.resolve([])
   }
 
@@ -133,7 +132,7 @@ export class IccClassificationXApi extends IccClassificationApi implements Encry
     const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: EntityWithDelegationTypeName.Patient }, hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     return extractedKeys && extractedKeys.length > 0
-      ? this.findClassificationIdsByDataOwnerPatientCreated(topmostParentId, _.uniq(extractedKeys), startDate, endDate, descending)
+      ? this.findClassificationIdsByDataOwnerPatientCreated(topmostParentId, [...new Set(extractedKeys)], startDate, endDate, descending)
       : Promise.resolve([])
   }
 

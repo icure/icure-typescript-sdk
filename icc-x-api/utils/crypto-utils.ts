@@ -1,6 +1,4 @@
-import * as mm from 'moment'
-import { Moment } from 'moment'
-import * as _ from 'lodash'
+import { parse as parseDate, isAfter as isDateAfter, isBefore as isDateBefore } from 'date-fns'
 import { a2b, b2a, b64Url2ua, hex2ua, string2ua, ua2b64Url, ua2hex, ua2string } from '../utils/binary-utils'
 import { pack } from './asn1-packer'
 import { parseAsn1 } from './asn1-parser'
@@ -164,23 +162,23 @@ export function appendBuffer(buffer1: ArrayBuffer, buffer2: ArrayBuffer): ArrayB
 
 //Convenience methods for dates management
 export function after(d1: number | null | undefined, d2: number | null | undefined): boolean {
-  return d1 === null || d2 === null || d1 === undefined || d2 === undefined || moment(d1)!.isAfter(moment(d2)!)
+  return d1 === null || d2 === null || d1 === undefined || d2 === undefined || isDateAfter(parseDateNumber(d1)!, parseDateNumber(d2)!)
 }
 
 export function before(d1: number | null | undefined, d2: number | null | undefined): boolean {
-  return d1 === null || d2 === null || d1 === undefined || d2 === undefined || moment(d1)!.isBefore(moment(d2)!)
+  return d1 === null || d2 === null || d1 === undefined || d2 === undefined || isDateBefore(parseDateNumber(d1)!, parseDateNumber(d2)!)
 }
 
-function moment(epochOrLongCalendar: number): Moment | null {
+function parseDateNumber(epochOrLongCalendar: number): Date | null {
   if (!epochOrLongCalendar && epochOrLongCalendar !== 0) {
     return null
   }
   if (epochOrLongCalendar >= 18000101 && epochOrLongCalendar < 25400000) {
-    return mm('' + epochOrLongCalendar, 'YYYYMMDD')
+    return parseDate('' + epochOrLongCalendar, 'yyyyMMdd', new Date())
   } else if (epochOrLongCalendar >= 18000101000000) {
-    return mm('' + epochOrLongCalendar, 'YYYYMMDDHHmmss')
+    return parseDate('' + epochOrLongCalendar, 'yyyyMMddHHmmss', new Date())
   } else {
-    return mm(epochOrLongCalendar)
+    return new Date(epochOrLongCalendar)
   }
 }
 

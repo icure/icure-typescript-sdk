@@ -1,5 +1,3 @@
-import * as _ from 'lodash'
-
 import { Code } from '../../icc-api/model/Code'
 
 /**
@@ -11,7 +9,7 @@ import { Code } from '../../icc-api/model/Code'
  * @returns A shallow copy of the input with its type, code, version and id normalized.
  */
 export function normalizeCode(code: Code): Code {
-  code = _.clone(code)
+  code = { ...code }
 
   if (code.type && code.code && code.version) {
     // do nothing, we all have the authoritative fields we need

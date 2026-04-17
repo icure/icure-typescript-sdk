@@ -1,7 +1,6 @@
 import { IccEntityrefApi, IccInvoiceApi } from '../icc-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 
-import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
 import { Invoice } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
@@ -197,8 +196,8 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
     const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: EntityWithDelegationTypeName.Patient }, hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     let invoices: Array<Invoice> = usingPost
-      ? await this.findInvoicesByHCPartyPatientForeignKeysUsingPost(hcpartyId!, _.uniq(extractedKeys))
-      : await this.findInvoicesByHCPartyPatientForeignKeys(hcpartyId!, _.uniq(extractedKeys).join(','))
+      ? await this.findInvoicesByHCPartyPatientForeignKeysUsingPost(hcpartyId!, [...new Set(extractedKeys)])
+      : await this.findInvoicesByHCPartyPatientForeignKeys(hcpartyId!, [...new Set(extractedKeys)].join(','))
     return await this.decrypt(hcpartyId, invoices)
   }
 
@@ -209,7 +208,7 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
   async findIdsBy(hcpartyId: string, patient: models.Patient, startDate?: number, endDate?: number, descending?: boolean): Promise<string[]> {
     const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: EntityWithDelegationTypeName.Patient }, hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
-    return this.findInvoiceIdsByDataOwnerPatientInvoiceDate(hcpartyId!, _.uniq(extractedKeys), startDate, endDate, descending)
+    return this.findInvoiceIdsByDataOwnerPatientInvoiceDate(hcpartyId!, [...new Set(extractedKeys)], startDate, endDate, descending)
   }
 
   /**

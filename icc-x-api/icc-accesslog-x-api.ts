@@ -2,7 +2,7 @@ import { IccAccesslogApi } from '../icc-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 import * as models from '../icc-api/model/models'
 import { AccessLog, ListOfIds, PaginatedListAccessLog } from '../icc-api/model/models'
-import * as _ from 'lodash'
+import { cloneDeep } from './utils/collection-utils'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
@@ -204,8 +204,8 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     return extractedKeys && extractedKeys.length > 0
       ? usingPost
-        ? this.findByHCPartyPatientSecretFKeysArray(hcpartyId!, _.uniq(extractedKeys))
-        : this.findByHCPartyPatientSecretFKeys(hcpartyId!, _.uniq(extractedKeys).join(','))
+        ? this.findByHCPartyPatientSecretFKeysArray(hcpartyId!, [...new Set(extractedKeys)])
+        : this.findByHCPartyPatientSecretFKeys(hcpartyId!, [...new Set(extractedKeys)].join(','))
       : Promise.resolve([])
   }
 
@@ -216,7 +216,7 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
   async findIdsBy(hcpartyId: string, patient: models.Patient, startDate?: number, endDate?: number, descending?: boolean): Promise<string[]> {
     const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: EntityWithDelegationTypeName.Patient }, hcpartyId)
     return extractedKeys && extractedKeys.length > 0
-      ? this.findAccessLogIdsByDataOwnerPatientDate(hcpartyId, _.uniq(extractedKeys), startDate, endDate, descending)
+      ? this.findAccessLogIdsByDataOwnerPatientDate(hcpartyId, [...new Set(extractedKeys)], startDate, endDate, descending)
       : Promise.resolve([])
   }
 
@@ -284,7 +284,7 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
    */
   createAccessLogWithUser(user: models.User, body?: models.AccessLog): Promise<models.AccessLog | any> {
     return body
-      ? this.encrypt(user, [_.cloneDeep(body)])
+      ? this.encrypt(user, [cloneDeep(body)])
           .then((als) => super.createAccessLog(als[0]))
           .then((accessLog) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, [accessLog]))
           .then((als) => als[0])
@@ -376,11 +376,11 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
    * @return the modified and decrypted access log, or null if body was not provided.
    */
   async modifyAccessLogWithUser(user: models.User, body?: models.AccessLog): Promise<models.AccessLog | null> {
-    return body ? this.modifyAs(this.dataOwnerApi.getDataOwnerIdOf(user)!, _.cloneDeep(body)) : null
+    return body ? this.modifyAs(this.dataOwnerApi.getDataOwnerIdOf(user)!, cloneDeep(body)) : null
   }
 
   private async modifyAs(owner: string, body: models.AccessLog): Promise<models.AccessLog> {
-    return this.encryptAs(owner, [_.cloneDeep(body)])
+    return this.encryptAs(owner, [cloneDeep(body)])
       .then((als) => super.modifyAccessLog(als[0]))
       .then((accessLog) => this.decrypt(owner, [accessLog]))
       .then((als) => als[0])

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head><title>LZMA Compatibility Test</title></head>
+<body>
+  <div id="status">Loading...</div>
+
+  <!-- lzma-js (LZMA1) -->
+  <script src="/node_modules/lzma/src/lzma_worker.js"></script>
+  <script>var LZMA_INLINE = window.LZMA;</script>
+
+  <!-- WASM module (LZMA2/XZ via liblzma) -->
+  <script src="/icc-x-api/wasm/lzma/lzma.js"></script>
+
+  <script>
+    var wasmModule = null;
+
+    async function init() {
+      wasmModule = await createLzmaModule();
+      document.getElementById('status').textContent = 'Ready';
+      window.__ready = true;
+    }
+
+    // --- LZMA-JS compress/decompress ---
+    window.lzmaJsCompress = function(uint8arr) {
+      return new Promise(function(resolve, reject) {
+        LZMA_INLINE.compress(uint8arr, 6, function(result, error) {
+          if (error) return reject(error);
+          // Convert signed byte array to base64
+          var u8 = new Uint8Array(result.length);
+          for (var i = 0; i < result.length; i++) u8[i] = result[i] < 0 ? result[i] + 256 : result[i];
+          resolve(Array.from(u8));
+        });
+      });
+    };
+
+    window.lzmaJsDecompress = function(byteArray) {
+      return new Promise(function(resolve, reject) {
+        LZMA_INLINE.decompress(byteArray, function(result, error) {
+          if (error) return reject(new Error(String(error)));
+          if (typeof result === 'string') {
+            resolve(Array.from(new TextEncoder().encode(result)));
+          } else {
+            resolve(Array.from(new Uint8Array(result)));
+          }
+        });
+      });
+    };
+
+    // --- WASM compress/decompress ---
+    window.lzmaWasmCompress = function(uint8arr) {
+      var data = new Uint8Array(uint8arr);
+      var inputPtr = wasmModule._malloc(data.length);
+      wasmModule.HEAPU8.set(data, inputPtr);
+      var ret = wasmModule._lzma_wasm_compress(inputPtr, data.length, 6);
+      wasmModule._free(inputPtr);
+      if (ret !== 0) throw new Error('WASM compress failed: ' + ret);
+      var ptr = wasmModule._get_result_ptr();
+      var len = wasmModule._get_result_len();
+      var out = new Uint8Array(len);
+      out.set(wasmModule.HEAPU8.subarray(ptr, ptr + len));
+      wasmModule._free_result();
+      return Array.from(out);
+    };
+
+    window.lzmaWasmDecompress = function(byteArray) {
+      var data = new Uint8Array(byteArray);
+      var inputPtr = wasmModule._malloc(data.length);
+      wasmModule.HEAPU8.set(data, inputPtr);
+      var ret = wasmModule._lzma_wasm_decompress(inputPtr, data.length);
+      wasmModule._free(inputPtr);
+      if (ret !== 0) throw new Error('WASM decompress failed: ' + ret);
+      var ptr = wasmModule._get_result_ptr();
+      var len = wasmModule._get_result_len();
+      var out = new Uint8Array(len);
+      out.set(wasmModule.HEAPU8.subarray(ptr, ptr + len));
+      wasmModule._free_result();
+      return Array.from(out);
+    };
+
+    init();
+  </script>
+</body>
+</html>

@@ -1,7 +1,6 @@
 import { IccDoctemplateApi } from '../icc-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 
-import { extend } from 'lodash'
 import * as models from '../icc-api/model/models'
 import { DocumentTemplate } from '../icc-api/model/models'
 import { string2ua } from './utils/binary-utils'

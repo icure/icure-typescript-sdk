@@ -31,7 +31,6 @@ import { expect, use as chaiUse } from 'chai'
 import * as chaiAsPromised from 'chai-as-promised'
 import { IccMessageApi } from '../../icc-api'
 import undefinedError = Mocha.utils.undefinedError
-import { create } from 'lodash'
 
 chaiUse(chaiAsPromised)
 setLocalStorage(fetch)

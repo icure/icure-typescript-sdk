@@ -4,7 +4,7 @@ import codeLanguages from './rsrc/codelng'
 import icd10 from './rsrc/icd10'
 import icpc2 from './rsrc/icpc2'
 
-import * as _ from 'lodash'
+import { sortBy } from './utils/collection-utils'
 import { Code } from '../icc-api/model/Code'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 
@@ -34,19 +34,20 @@ export class IccCodeXApi extends IccCodeApi {
   // noinspection JSUnusedGlobalSymbols
   icdChapters(listOfCodes: Array<string>) {
     return Promise.resolve(
-      _.sortBy(
-        _.values(
-          _.reduce(
-            _.fromPairs(
+      sortBy(
+        Object.values(
+          Object.entries(
+            Object.fromEntries(
               listOfCodes.map((code) => [
                 code,
-                _.toPairs(this.icd10).find(([k]) => {
+                Object.entries(this.icd10).find(([k]) => {
                   const parts = k.split(/-/)
                   return code.substr(0, 3) >= parts[0] && code.substr(0, 3) <= parts[1]
                 }),
               ])
-            ),
-            (acc: any, pairOfRangeAndIcdInfo, code) => {
+            )
+          ).reduce(
+            (acc: any, [code, pairOfRangeAndIcdInfo]) => {
               if (!pairOfRangeAndIcdInfo) {
                 return acc
               }
@@ -77,11 +78,12 @@ export class IccCodeXApi extends IccCodeApi {
   // noinspection JSUnusedGlobalSymbols
   icpcChapters(listOfCodes: Array<string>) {
     return Promise.resolve(
-      _.sortBy(
-        _.values(
-          _.reduce(
-            _.fromPairs(listOfCodes.map((code) => [code, _.toPairs(this.icpc2).find(([k]) => k === code.substr(0, 1).toUpperCase())])),
-            (acc: any, pairOfRangeAndIcdInfo, code) => {
+      sortBy(
+        Object.values(
+          Object.entries(
+            Object.fromEntries(listOfCodes.map((code) => [code, Object.entries(this.icpc2).find(([k]) => k === code.substr(0, 1).toUpperCase())]))
+          ).reduce(
+            (acc: any, [code, pairOfRangeAndIcdInfo]) => {
               if (!pairOfRangeAndIcdInfo) {
                 return acc
               }
