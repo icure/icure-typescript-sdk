@@ -21,7 +21,7 @@ jobs:
         run: yarn install --frozen-lockfile
       - name: Test and coverage
         env:
-          ICURE_TS_TEST_URL: 'https://kraken.icure.dev/rest/v1'
+          ICURE_TS_TEST_URL: 'https://api.icure.dev'
           ICURE_TS_TEST_MSG_GTW_URL: 'https://mock.icure.dev/msggtw'
           TEST_ENVIRONMENT: 'acceptance'
           BACKEND_TYPE: 'kraken'
