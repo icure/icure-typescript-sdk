@@ -4,7 +4,7 @@ import codeLanguages from './rsrc/codelng'
 import icd10 from './rsrc/icd10'
 import icpc2 from './rsrc/icpc2'
 
-import { icdChapters, icpcChapters } from './utils/code-util'
+import { icdChapters, icpcChapters } from './utils'
 import { Code } from '../icc-api/model/Code'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 

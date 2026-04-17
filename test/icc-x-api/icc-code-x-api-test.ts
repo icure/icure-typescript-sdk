@@ -1,6 +1,6 @@
 import { describe, it } from 'mocha'
 import { expect } from 'chai'
-import { icdChapters, icpcChapters } from '../../icc-x-api/utils/code-util'
+import { icdChapters, icpcChapters } from '../../icc-x-api'
 import icd10 from '../../icc-x-api/rsrc/icd10'
 import icpc2 from '../../icc-x-api/rsrc/icpc2'
 
