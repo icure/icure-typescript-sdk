@@ -36,34 +36,16 @@ export class IccCodeXApi extends IccCodeApi {
     return Promise.resolve(
       sortBy(
         Object.values(
-          Object.entries(
-            Object.fromEntries(
-              listOfCodes.map((code) => [
-                code,
-                Object.entries(this.icd10).find(([k]) => {
-                  const parts = k.split(/-/)
-                  return code.substr(0, 3) >= parts[0] && code.substr(0, 3) <= parts[1]
-                }),
-              ])
-            )
-          ).reduce(
-            (acc: any, [code, pairOfRangeAndIcdInfo]) => {
-              if (!pairOfRangeAndIcdInfo) {
-                return acc
-              }
-              const shortKey = pairOfRangeAndIcdInfo[0].substr(0, 2)
-              ;(
-                acc[shortKey] ||
-                (acc[shortKey] = {
-                  code: shortKey,
-                  descr: pairOfRangeAndIcdInfo[1],
-                  subCodes: [],
-                })
-              ).subCodes.push(code)
-              return acc
-            },
-            {}
-          )
+          listOfCodes.reduce((acc: any, code) => {
+            const match = Object.entries(this.icd10).find(([k]) => {
+              const parts = k.split(/-/)
+              return code.substr(0, 3) >= parts[0] && code.substr(0, 3) <= parts[1]
+            })
+            if (!match) return acc
+            const shortKey = match[0].substr(0, 2)
+            ;(acc[shortKey] || (acc[shortKey] = { code: shortKey, descr: match[1], subCodes: [] })).subCodes.push(code)
+            return acc
+          }, {})
         ),
         (c: any) => c.shortKey
       )
@@ -80,26 +62,13 @@ export class IccCodeXApi extends IccCodeApi {
     return Promise.resolve(
       sortBy(
         Object.values(
-          Object.entries(
-            Object.fromEntries(listOfCodes.map((code) => [code, Object.entries(this.icpc2).find(([k]) => k === code.substr(0, 1).toUpperCase())]))
-          ).reduce(
-            (acc: any, [code, pairOfRangeAndIcdInfo]) => {
-              if (!pairOfRangeAndIcdInfo) {
-                return acc
-              }
-              const shortKey = pairOfRangeAndIcdInfo[0]
-              ;(
-                acc[shortKey] ||
-                (acc[shortKey] = {
-                  code: shortKey,
-                  descr: pairOfRangeAndIcdInfo[1],
-                  subCodes: [],
-                })
-              ).subCodes.push(code)
-              return acc
-            },
-            {}
-          )
+          listOfCodes.reduce((acc: any, code) => {
+            const match = Object.entries(this.icpc2).find(([k]) => k === code.substring(0, 1).toUpperCase())
+            if (!match) return acc
+            const shortKey = match[0]
+            ;(acc[shortKey] || (acc[shortKey] = { code: shortKey, descr: match[1], subCodes: [] })).subCodes.push(code)
+            return acc
+          }, {})
         ),
         (c: any) => c.shortKey
       )
