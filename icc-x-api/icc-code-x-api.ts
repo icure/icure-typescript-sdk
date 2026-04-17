@@ -4,7 +4,7 @@ import codeLanguages from './rsrc/codelng'
 import icd10 from './rsrc/icd10'
 import icpc2 from './rsrc/icpc2'
 
-import { sortBy } from './utils/collection-utils'
+import { icdChapters, icpcChapters } from './utils/code-util'
 import { Code } from '../icc-api/model/Code'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 
@@ -33,23 +33,7 @@ export class IccCodeXApi extends IccCodeApi {
    */
   // noinspection JSUnusedGlobalSymbols
   icdChapters(listOfCodes: Array<string>) {
-    return Promise.resolve(
-      sortBy(
-        Object.values(
-          listOfCodes.reduce((acc: any, code) => {
-            const match = Object.entries(this.icd10).find(([k]) => {
-              const parts = k.split(/-/)
-              return code.substr(0, 3) >= parts[0] && code.substr(0, 3) <= parts[1]
-            })
-            if (!match) return acc
-            const shortKey = match[0].substr(0, 2)
-            ;(acc[shortKey] || (acc[shortKey] = { code: shortKey, descr: match[1], subCodes: [] })).subCodes.push(code)
-            return acc
-          }, {})
-        ),
-        (c: any) => c.shortKey
-      )
-    )
+    return Promise.resolve(icdChapters(listOfCodes, this.icd10))
   }
 
   /**
@@ -59,20 +43,7 @@ export class IccCodeXApi extends IccCodeApi {
    */
   // noinspection JSUnusedGlobalSymbols
   icpcChapters(listOfCodes: Array<string>) {
-    return Promise.resolve(
-      sortBy(
-        Object.values(
-          listOfCodes.reduce((acc: any, code) => {
-            const match = Object.entries(this.icpc2).find(([k]) => k === code.substring(0, 1).toUpperCase())
-            if (!match) return acc
-            const shortKey = match[0]
-            ;(acc[shortKey] || (acc[shortKey] = { code: shortKey, descr: match[1], subCodes: [] })).subCodes.push(code)
-            return acc
-          }, {})
-        ),
-        (c: any) => c.shortKey
-      )
-    )
+    return Promise.resolve(icpcChapters(listOfCodes, this.icpc2))
   }
 
   /**
