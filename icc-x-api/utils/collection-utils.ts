@@ -23,8 +23,30 @@ export function cloneDeep<T>(obj: T): T {
   }
 
   if (ArrayBuffer.isView(obj)) {
-    const TypedArrayCtor = obj.constructor as new (buffer: ArrayBuffer) => typeof obj
-    return new TypedArrayCtor((obj as unknown as { buffer: ArrayBuffer }).buffer.slice(0)) as unknown as T
+    if (obj instanceof DataView) {
+      const clonedBuffer = obj.buffer.slice(obj.byteOffset, obj.byteOffset + obj.byteLength)
+      return new DataView(clonedBuffer, 0, obj.byteLength) as unknown as T
+    }
+
+    const view = obj as unknown as {
+      buffer: ArrayBuffer
+      byteOffset: number
+      byteLength: number
+      length?: number
+      BYTES_PER_ELEMENT?: number
+      slice?: () => unknown
+      constructor: new (buffer: ArrayBuffer, byteOffset?: number, length?: number) => unknown
+    }
+
+    if (typeof view.slice === 'function') {
+      return view.slice() as T
+    }
+
+    const clonedBuffer = view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength)
+    const TypedArrayCtor = view.constructor as new (buffer: ArrayBuffer, byteOffset?: number, length?: number) => typeof obj
+    const length =
+      typeof view.BYTES_PER_ELEMENT === 'number' && typeof view.length === 'number' ? view.length : undefined
+    return new TypedArrayCtor(clonedBuffer, 0, length) as unknown as T
   }
 
   const result: any = Object.create(Object.getPrototypeOf(obj))
