@@ -1,5 +1,5 @@
-import { parseNumber, formatNumber, isValidNumber, ParsedNumber } from 'libphonenumber-js'
-import { format as formatDate, parse as parseDate } from 'date-fns'
+import {parseNumber, formatNumber, isValidNumber, ParsedNumber} from 'libphonenumber-js'
+import {format as formatDate, parse as parseDate} from 'date-fns'
 
 // TODO: move this to env.js?
 const DEFAULT_COUNTRY = 'BE'
@@ -199,18 +199,21 @@ export function personName(person: { firstName?: string; lastName?: string }): s
 
 export function personNameAbbrev(person: { firstName?: string; lastName?: string }): string {
   const firstName = person.firstName ? person.firstName[0] + '.' : undefined
-  return personName({ ...person, firstName })
+  return personName({...person, firstName})
 }
 
-export function toMoment(epochOrLongCalendar: number): Date | null {
+export function toMoment(epochOrLongCalendar: number): { format: (format: string) => string } | null {
   if (!epochOrLongCalendar && epochOrLongCalendar !== 0) {
     return null
   }
-  if (epochOrLongCalendar >= 18000101 && epochOrLongCalendar < 25400000) {
-    return parseDate('' + epochOrLongCalendar, 'yyyyMMdd', new Date())
-  } else if (epochOrLongCalendar >= 18000101000000) {
-    return parseDate('' + epochOrLongCalendar, 'yyyyMMddHHmmss', new Date())
-  } else {
-    return new Date(epochOrLongCalendar)
+  const parsed = (epochOrLongCalendar >= 18000101 && epochOrLongCalendar < 25400000) ?
+    parseDate('' + epochOrLongCalendar, 'yyyyMMdd', new Date()) :
+    (epochOrLongCalendar >= 18000101000000) ?
+      parseDate('' + epochOrLongCalendar, 'yyyyMMddHHmmss', new Date()) :
+      new Date(epochOrLongCalendar)
+  return {
+    format: (format: string): string => {
+      return formatDate(parsed, format)
+    }
   }
 }

@@ -62,12 +62,13 @@ interface ImplResult {
 interface BenchmarkResult {
   size: string
   tag: string
+  skipJs: boolean
   originalBytes: number
   files: {
     reference: string // base64
     lzmaJs: string // base64
     lzmaWasm: string // base64
-  }
+  } | null
   jsInline: ImplResult
   jsWorker: ImplResult
   wasm: ImplResult
@@ -92,20 +93,21 @@ function pad(s: string, w: number): string {
 const WORKER_FILES_DIR = path.join(__dirname, 'worker-files')
 
 test('LZMA benchmark: JS Inline vs JS Worker vs WASM', async ({ page }) => {
-  test.setTimeout(1_800_000) // 30 minutes for 10MB payloads
+  test.setTimeout(3_600_000) // 60 minutes for 128MB payloads
 
   const { server, port } = await startServer()
 
   try {
     await page.goto(`http://localhost:${port}/test/benchmarks/lzma-benchmark.html`)
 
-    await page.waitForFunction(() => (window as any).__benchmarkResults != null, null, { timeout: 1_500_000 })
+    await page.waitForFunction(() => (window as any).__benchmarkResults != null, null, { timeout: 3_300_000 })
 
     const results: BenchmarkResult[] = await page.evaluate(() => (window as any).__benchmarkResults)
 
-    // Save test files to worker-files directory
+    // Save test files to worker-files directory (skip large payloads with no exported files)
     fs.mkdirSync(WORKER_FILES_DIR, { recursive: true })
     for (const r of results) {
+      if (!r.files) continue
       fs.writeFileSync(path.join(WORKER_FILES_DIR, `${r.tag}.bin`), Buffer.from(r.files.reference, 'base64'))
       fs.writeFileSync(path.join(WORKER_FILES_DIR, `${r.tag}.lzma`), Buffer.from(r.files.lzmaJs, 'base64'))
       fs.writeFileSync(path.join(WORKER_FILES_DIR, `${r.tag}.xz`), Buffer.from(r.files.lzmaWasm, 'base64'))
@@ -119,7 +121,9 @@ test('LZMA benchmark: JS Inline vs JS Worker vs WASM', async ({ page }) => {
     console.log('='.repeat(W))
 
     for (const r of results) {
-      console.log(`\n--- ${r.size} (${r.originalBytes.toLocaleString()} bytes) ---\n`)
+      console.log(`\n--- ${r.size} (${r.originalBytes.toLocaleString()} bytes)${r.skipJs ? ' [WASM only]' : ''} ---\n`)
+
+      const activeImpls = r.skipJs ? (['wasm'] as const) : IMPLS
 
       for (const op of ['compress', 'decompress'] as const) {
         console.log(`  ${op.toUpperCase()}:`)
@@ -128,10 +132,10 @@ test('LZMA benchmark: JS Inline vs JS Worker vs WASM', async ({ page }) => {
         )
         console.log('    ' + '-'.repeat(W - 4))
 
-        const medians = IMPLS.map((impl) => r[impl][op].median)
+        const medians = activeImpls.map((impl) => r[impl][op].median)
         const fastestMedian = Math.min(...medians)
 
-        for (const impl of IMPLS) {
+        for (const impl of activeImpls) {
           const s = r[impl][op]
           const isFastest = s.median === fastestMedian
           const marker = isFastest ? ' *' : '  '
@@ -142,14 +146,15 @@ test('LZMA benchmark: JS Inline vs JS Worker vs WASM', async ({ page }) => {
           )
         }
 
-        // Speedup summary
-        const jsInlineMs = r.jsInline[op].median
-        const jsWorkerMs = r.jsWorker[op].median
-        const wasmMs = r.wasm[op].median
+        if (!r.skipJs) {
+          const jsInlineMs = r.jsInline[op].median
+          const jsWorkerMs = r.jsWorker[op].median
+          const wasmMs = r.wasm[op].median
 
-        console.log('')
-        console.log(`    Speedup vs JS Inline:  Worker ${(jsInlineMs / jsWorkerMs).toFixed(1)}x | WASM ${(jsInlineMs / wasmMs).toFixed(1)}x`)
-        console.log(`    Speedup vs JS Worker:  WASM ${(jsWorkerMs / wasmMs).toFixed(1)}x`)
+          console.log('')
+          console.log(`    Speedup vs JS Inline:  Worker ${(jsInlineMs / jsWorkerMs).toFixed(1)}x | WASM ${(jsInlineMs / wasmMs).toFixed(1)}x`)
+          console.log(`    Speedup vs JS Worker:  WASM ${(jsWorkerMs / wasmMs).toFixed(1)}x`)
+        }
         console.log('')
       }
     }
@@ -160,8 +165,10 @@ test('LZMA benchmark: JS Inline vs JS Worker vs WASM', async ({ page }) => {
 
     // Assertions
     for (const r of results) {
-      expect(r.jsInline.correct).toBe(true)
-      expect(r.jsWorker.correct).toBe(true)
+      if (!r.skipJs) {
+        expect(r.jsInline.correct).toBe(true)
+        expect(r.jsWorker.correct).toBe(true)
+      }
       expect(r.wasm.correct).toBe(true)
     }
   } finally {

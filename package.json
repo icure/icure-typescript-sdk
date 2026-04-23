@@ -51,7 +51,7 @@
   },
   "scripts": {
     "eslint": "eslint --fix icc-api/* icc-x-api/*",
-    "build": "tsc",
+    "build": "tsc && mkdir -p dist/icc-x-api/wasm/lzma && cp icc-x-api/wasm/lzma/lzma.js icc-x-api/wasm/lzma/lzma.wasm dist/icc-x-api/wasm/lzma",
     "testwp": "echo 'Test webpack build' && yarn webpack --config buildconfig/webpack.config.js || rm -rf dist && rm -rf buildconfig/dist-wp",
     "prepare": "rimraf dist && npm run build && jq '{name:.name, version:.version, description:.description, main:\"index.js\", types:\"index.d.ts\", dependencies:.dependencies, author:.author, license:.license, bugs:.bugs, homepage:.homepage}' < package.json > dist/package.json && yarn testwp",
     "publish": "yarn run prepare && cd dist && cp ../.npmignore . && npm publish && cd ..",
