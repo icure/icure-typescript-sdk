@@ -1,7 +1,6 @@
 import { IccFormApi } from '../icc-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 
-import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
 
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
@@ -133,8 +132,8 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
     const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: EntityWithDelegationTypeName.Patient }, hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     let forms: Array<models.Form> = await (usingPost
-      ? this.findFormsByHCPartyPatientForeignKeysUsingPost(hcpartyId!, undefined, undefined, undefined, _.uniq(extractedKeys))
-      : this.findFormsByHCPartyPatientForeignKeys(hcpartyId!, _.uniq(extractedKeys).join(',')))
+      ? this.findFormsByHCPartyPatientForeignKeysUsingPost(hcpartyId!, undefined, undefined, undefined, [...new Set(extractedKeys)])
+      : this.findFormsByHCPartyPatientForeignKeys(hcpartyId!, [...new Set(extractedKeys)].join(',')))
     return await this.decrypt(hcpartyId, forms)
   }
 
@@ -150,7 +149,7 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
    */
   async findIdsBy(hcpartyId: string, patient: models.Patient, startDate?: number, endDate?: number, descending?: boolean) {
     const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: EntityWithDelegationTypeName.Patient }, hcpartyId)
-    return this.findFormIdsByDataOwnerPatientOpeningDate(hcpartyId, _.uniq(extractedKeys), startDate, endDate, descending)
+    return this.findFormIdsByDataOwnerPatientOpeningDate(hcpartyId, [...new Set(extractedKeys)], startDate, endDate, descending)
   }
 
   /**

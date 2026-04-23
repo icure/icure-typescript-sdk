@@ -14,7 +14,6 @@ import { SecureDelegation } from '../../icc-api/model/SecureDelegation'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import { RecoveryDataUseFailureReason } from '../../icc-x-api/icc-recovery-x-api'
 import { KeyPairRecoverer } from '../../icc-x-api/crypto/KeyPairRecoverer'
-import { delay } from 'lodash'
 import { FilterChainHealthElement } from '../../icc-api/model/FilterChainHealthElement'
 import { HealthElementByHcPartyFilter } from '../../icc-x-api/filters/HealthElementByHcPartyFilter'
 

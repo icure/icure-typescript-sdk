@@ -1,8 +1,5 @@
-import { parseNumber, formatNumber, isValidNumber, ParsedNumber } from 'libphonenumber-js'
-
-import * as moment from 'moment'
-import * as _ from 'lodash'
-import { Moment } from 'moment'
+import { parseNumber, formatNumber, ParsedNumber } from 'libphonenumber-js'
+import {format as formatDate, parse as parseDate} from 'date-fns'
 
 // TODO: move this to env.js?
 const DEFAULT_COUNTRY = 'BE'
@@ -80,13 +77,9 @@ export function phoneNumberFormat(phoneNumber: string): string {
 }
 */
 
-export function phoneNumberValidate(phoneNumber: string): boolean {
-  return isValidNumber(phoneNumber)
-}
-
 export function phoneNumberFormat(phoneNumber: string): string {
   const parsedPhoneNumber = parseNumber(phoneNumber, DEFAULT_COUNTRY) as ParsedNumber
-  if (_.isEmpty(parsedPhoneNumber)) {
+  if (Object.keys(parsedPhoneNumber).length === 0) {
     // The number is not valid, so we leave the input string as-is.
     return phoneNumber
   }
@@ -109,15 +102,15 @@ export function dateDecode(dateNumber: number): Date | undefined {
   if (dateNumber < 0) {
     throw new Error("We don't decode negative dates. Please make sure you have valid data.")
   }
-  const dateNumberStr: string = _.padStart(dateNumber.toString(), 8, '19700101')
+  const dateNumberStr: string = dateNumber.toString().padStart(8, '19700101')
   if (dateNumberStr.length > 8) {
     if (dateNumberStr.endsWith('000000')) {
-      return dateNumber ? moment(dateNumberStr, 'YYYYMMDD000000').toDate() : undefined
+      return dateNumber ? parseDate(dateNumberStr.slice(0, 8), 'yyyyMMdd', new Date()) : undefined
     }
 
     throw Error("Decoded date is over year 9999. We can't format it properly.")
   }
-  return dateNumber ? moment(dateNumberStr, 'YYYYMMDD').toDate() : undefined
+  return dateNumber ? parseDate(dateNumberStr, 'yyyyMMdd', new Date()) : undefined
 }
 
 /**
@@ -128,7 +121,7 @@ export function dateDecode(dateNumber: number): Date | undefined {
  * @see #dateDecode
  */
 export function timeDecode(timeNumber: number): Date | undefined {
-  return timeNumber ? moment(timeNumber.toString(), 'YYYYMMDDHHmmss').toDate() : undefined
+  return timeNumber ? parseDate(timeNumber.toString(), 'yyyyMMddHHmmss', new Date()) : undefined
 }
 
 /**
@@ -139,7 +132,7 @@ export function timeDecode(timeNumber: number): Date | undefined {
  * @see #timeEncode
  */
 export function dateEncode(date: Date): number | undefined {
-  const dateStr = _.padStart(moment(date).format('YYYYMMDD'), 8, '19700101')
+  const dateStr = formatDate(date, 'yyyyMMdd').padStart(8, '19700101')
   // date is null if the field is not set
   return date ? Number(dateStr) : undefined
 }
@@ -152,7 +145,7 @@ export function dateEncode(date: Date): number | undefined {
  * @see #dateEncode
  */
 export function timeEncode(date: Date): number | undefined {
-  return date ? Number(moment(date).format('YYYYMMDDHHmmss')) : undefined
+  return date ? Number(formatDate(date, 'yyyyMMddHHmmss')) : undefined
 }
 
 /**
@@ -194,7 +187,10 @@ export function money(value: number): string {
  * From { key1: value1, key2: value2, ... } returns key1=value1&key2=value2&...=...
  */
 export function toUrlParams(params: { [key: string]: string }): string {
-  return _.filter(_.map(params, (value, key) => (value ? key + '=' + value : undefined))).join('&')
+  return Object.entries(params)
+    .map(([key, value]) => (value ? key + '=' + value : undefined))
+    .filter(Boolean)
+    .join('&')
 }
 
 export function personName(person: { firstName?: string; lastName?: string }): string {
@@ -203,18 +199,21 @@ export function personName(person: { firstName?: string; lastName?: string }): s
 
 export function personNameAbbrev(person: { firstName?: string; lastName?: string }): string {
   const firstName = person.firstName ? person.firstName[0] + '.' : undefined
-  return personName({ ...person, firstName })
+  return personName({...person, firstName})
 }
 
-export function toMoment(epochOrLongCalendar: number): Moment | null {
+export function toMoment(epochOrLongCalendar: number): { format: (format: string) => string } | null {
   if (!epochOrLongCalendar && epochOrLongCalendar !== 0) {
     return null
   }
-  if (epochOrLongCalendar >= 18000101 && epochOrLongCalendar < 25400000) {
-    return moment('' + epochOrLongCalendar, 'YYYYMMDD')
-  } else if (epochOrLongCalendar >= 18000101000000) {
-    return moment('' + epochOrLongCalendar, 'YYYYMMDDhhmmss')
-  } else {
-    return moment(epochOrLongCalendar)
+  const parsed = (epochOrLongCalendar >= 18000101 && epochOrLongCalendar < 25400000) ?
+    parseDate('' + epochOrLongCalendar, 'yyyyMMdd', new Date()) :
+    (epochOrLongCalendar >= 18000101000000) ?
+      parseDate('' + epochOrLongCalendar, 'yyyyMMddHHmmss', new Date()) :
+      new Date(epochOrLongCalendar)
+  return {
+    format: (format: string): string => {
+      return formatDate(parsed, format)
+    }
   }
 }

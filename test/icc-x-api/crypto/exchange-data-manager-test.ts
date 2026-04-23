@@ -17,7 +17,7 @@ import { ExchangeData } from '../../../icc-api/model/internal/ExchangeData'
 import { expect } from 'chai'
 import { setEquals } from '../../../icc-x-api/utils/collection-utils'
 import { KeyPair } from '../../../icc-x-api/crypto/RSA'
-import * as _ from 'lodash'
+import { objectEquals } from '../../../icc-x-api/utils/collection-utils'
 import { fingerprintV1, fingerprintV1toV2, fingerprintV2 } from '../../../icc-x-api/crypto/utils'
 import { DataOwnerTypeEnum } from '../../../icc-api/model/DataOwnerTypeEnum'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
@@ -101,7 +101,7 @@ describe('Exchange data manager - unit', async function () {
     expected: { exchangeData: ExchangeData; accessControlSecret?: string; exchangeKey: CryptoKey | undefined }
   ) {
     expect(actual).to.not.be.undefined
-    expect(_.isEqual(_.omit(expected.exchangeData, ['rev']), _.omit(actual!.exchangeData, ['rev']))).to.equal(
+    expect(objectEquals(expected.exchangeData, actual!.exchangeData, ['rev'])).to.equal(
       true,
       `Data should be equivalent\nExpected: ${JSON.stringify(expected.exchangeData, undefined, 2)}\nActual: ${JSON.stringify(
         actual!.exchangeData,
@@ -329,7 +329,7 @@ describe('Exchange data manager - unit', async function () {
         getExchangeDataByIds: 0,
         getExchangeDataByParticipant: 0,
       })
-      expect(_.isEqual(_.omit(createdData.exchangeData, ['rev']), _.omit(newData.exchangeData, ['rev']))).to.equal(
+      expect(objectEquals(createdData.exchangeData, newData.exchangeData, ['rev'])).to.equal(
         false,
         'Exchange data manager should have created new exchange data for encryption'
       )

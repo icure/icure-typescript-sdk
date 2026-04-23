@@ -1,11 +1,10 @@
 import { IccAuthApi, IccDocumentApi } from '../icc-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 
-import * as _ from 'lodash'
 import { XHR } from '../icc-api/api/XHR'
 import * as models from '../icc-api/model/models'
 
-import { a2b, hex2ua, string2ua, ua2string, ua2utf8 } from './utils/binary-utils'
+import { ua2ab, ua2utf8 } from './utils/binary-utils'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
@@ -18,6 +17,7 @@ import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { SecretIdUseOption } from './crypto/SecretIdUseOption'
 import { ListOfIds, PaginatedListDocument, PaginatedListMessage } from '../icc-api/model/models'
+import { compressData, decompressData, getCompressionVersion } from './utils/compression-utils'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXApi<models.Document> {
@@ -660,7 +660,7 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
   async findIdsByMessage(hcpartyId: string, message: models.Message, startDate?: number, endDate?: number, descending?: boolean): Promise<string[]> {
     const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: message, type: EntityWithDelegationTypeName.Message }, hcpartyId)
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
-    return this.findDocumentIdsByDataOwnerSecretForeignKey(topmostParentId, _.uniq(extractedKeys), startDate, endDate, descending)
+    return this.findDocumentIdsByDataOwnerSecretForeignKey(topmostParentId, [...new Set(extractedKeys)], startDate, endDate, descending)
   }
 
   /**
@@ -821,15 +821,39 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
    * @param attachment a new main attachment for the document.
    * @param utis an array of UTIs for the attachment. The first element will be considered as the main UTI for the document. If provided and non-empty
    * overrides existing values.
-   * @return the updated document.
+   * @param deflate if true, compress the attachment before uploading. Reliable decompression of compressed data requires version 26.5 of the API and all users to be using at least version 8.7.0 of the SDK    * @return the updated document.
    */
-  async encryptAndSetDocumentAttachment(document: models.Document, attachment: ArrayBuffer | Uint8Array, utis?: string[]): Promise<models.Document> {
+  async encryptAndSetDocumentAttachment(
+    document: models.Document,
+    attachment: ArrayBuffer | Uint8Array,
+    utis?: string[],
+    deflate: boolean = false
+  ): Promise<models.Document> {
     if (!document.rev) throw new Error('Cannot set attachment on document without rev')
-    const { encryptedData, updatedEntity } = await this.crypto.xapi.encryptDataOf(document, EntityWithDelegationTypeName.Document, attachment, (d) =>
-      this.modifyDocumentWithUser(undefined, d)
+    const realDataSize = ua2ab(attachment).byteLength
+    const { data: dataToEncrypt, algorithm: compressionAlgorithm } = deflate
+      ? await compressData(attachment, utis)
+      : { data: ua2ab(attachment), algorithm: undefined }
+
+    const { encryptedData, updatedEntity } = await this.crypto.xapi.encryptDataOf(
+      document,
+      EntityWithDelegationTypeName.Document,
+      dataToEncrypt,
+      (d) => this.modifyDocumentWithUser(undefined, d)
     )
     return (
-      await this.decrypt([await super.setMainDocumentAttachment(document.id!, updatedEntity?.rev ?? document.rev, encryptedData, utis, true)])
+      await this.decrypt([
+        await super.setMainDocumentAttachment(
+          document.id!,
+          updatedEntity?.rev ?? document.rev,
+          encryptedData,
+          utis,
+          true,
+          compressionAlgorithm,
+          getCompressionVersion(),
+          realDataSize
+        ),
+      ])
     )[0].entity
   }
 
@@ -839,11 +863,34 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
    * @param attachment a new main attachment for the document.
    * @param utis an array of UTIs for the attachment. The first element will be considered as the main UTI for the document. If provided and non-empty
    * overrides existing values.
-   * @return the updated document.
+   * @param deflate if true, compress the attachment before uploading. Reliable decompression of compressed data requires version 26.5 of the API and all users to be using at least version 8.7.0 of the SDK    * @return the updated document.
    */
-  async setClearDocumentAttachment(document: models.Document, attachment: ArrayBuffer | Uint8Array, utis?: string[]): Promise<models.Document> {
+  async setClearDocumentAttachment(
+    document: models.Document,
+    attachment: ArrayBuffer | Uint8Array,
+    utis?: string[],
+    deflate: boolean = false
+  ): Promise<models.Document> {
     if (!document.rev) throw new Error('Cannot set attachment on document without rev')
-    return (await this.decrypt([await super.setMainDocumentAttachment(document.id!, document.rev, attachment, utis, false)]))[0].entity
+    const realDataSize = ua2ab(attachment).byteLength
+    const { data: dataToUpload, algorithm: compressionAlgorithm } = deflate
+      ? await compressData(attachment, utis)
+      : { data: ua2ab(attachment), algorithm: undefined }
+
+    return (
+      await this.decrypt([
+        await super.setMainDocumentAttachment(
+          document.id!,
+          document.rev,
+          dataToUpload,
+          utis,
+          false,
+          compressionAlgorithm,
+          getCompressionVersion(),
+          realDataSize
+        ),
+      ])
+    )[0].entity
   }
 
   /**
@@ -853,21 +900,40 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
    * @param attachment a new secondary attachment for the document.
    * @param utis an array of UTIs for the attachment. The first element will be considered as the main UTI for the document. If provided and non-empty
    * overrides existing values.
-   * @return the updated document.
+   * @param deflate if true, compress the attachment before uploading. Reliable decompression of compressed data requires version 26.5 of the API and all users to be using at least version 8.7.0 of the SDK    * @return the updated document.
    */
   async encryptAndSetSecondaryDocumentAttachment(
     document: models.Document,
     secondaryAttachmentKey: string,
     attachment: ArrayBuffer | Uint8Array,
-    utis?: string[]
+    utis?: string[],
+    deflate: boolean = false
   ): Promise<models.Document> {
     if (!document.rev) throw new Error('Cannot set attachment on document without rev')
-    const { encryptedData, updatedEntity } = await this.crypto.xapi.encryptDataOf(document, EntityWithDelegationTypeName.Document, attachment, (d) =>
-      this.modifyDocumentWithUser(undefined, d)
+    const realDataSize = ua2ab(attachment).byteLength
+    const { data: dataToEncrypt, algorithm: compressionAlgorithm } = deflate
+      ? await compressData(attachment, utis)
+      : { data: ua2ab(attachment), algorithm: undefined }
+
+    const { encryptedData, updatedEntity } = await this.crypto.xapi.encryptDataOf(
+      document,
+      EntityWithDelegationTypeName.Document,
+      dataToEncrypt,
+      (d) => this.modifyDocumentWithUser(undefined, d)
     )
     return (
       await this.decrypt([
-        await super.setSecondaryAttachment(document.id!, secondaryAttachmentKey, updatedEntity?.rev ?? document.rev!, encryptedData, utis, true),
+        await super.setSecondaryAttachment(
+          document.id!,
+          secondaryAttachmentKey,
+          updatedEntity?.rev ?? document.rev!,
+          encryptedData,
+          utis,
+          true,
+          compressionAlgorithm,
+          getCompressionVersion(),
+          realDataSize
+        ),
       ])
     )[0].entity
   }
@@ -879,16 +945,36 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
    * @param attachment a new secondary attachment for the document.
    * @param utis an array of UTIs for the attachment. The first element will be considered as the main UTI for the document. If provided and non-empty
    * overrides existing values.
+   * @param deflate if true, compress the attachment before uploading. Reliable decompression of compressed data requires version 26.5 of the API and all users to be using at least version 8.7.0 of the SDK
    * @return the updated document.
    */
   async setClearSecondaryDocumentAttachment(
     document: models.Document,
     secondaryAttachmentKey: string,
     attachment: ArrayBuffer | Uint8Array,
-    utis?: string[]
+    utis?: string[],
+    deflate: boolean = false
   ): Promise<models.Document> {
-    return (await this.decrypt([await super.setSecondaryAttachment(document.id!, secondaryAttachmentKey, document.rev!, attachment, utis, false)]))[0]
-      .entity
+    const realDataSize = ua2ab(attachment).byteLength
+    const { data: dataToUpload, algorithm: compressionAlgorithm } = deflate
+      ? await compressData(attachment, utis)
+      : { data: ua2ab(attachment), algorithm: undefined }
+
+    return (
+      await this.decrypt([
+        await super.setSecondaryAttachment(
+          document.id!,
+          secondaryAttachmentKey,
+          document.rev!,
+          dataToUpload,
+          utis,
+          false,
+          compressionAlgorithm,
+          getCompressionVersion(),
+          realDataSize
+        ),
+      ])
+    )[0].entity
   }
 
   /**
@@ -920,10 +1006,18 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     document: models.Document,
     validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<{ data: ArrayBuffer; wasDecrypted: boolean }> {
+    const compressionAlgorithm = document.extraMainAttachmentInfo?.compressionAlgorithm
     return await this.crypto.xapi.tryDecryptDataOf(
       { entity: document, type: EntityWithDelegationTypeName.Document },
       await super.getRawMainDocumentAttachment(document.id!),
-      (x) => validator(x)
+      async (decrypted) => {
+        try {
+          const data = compressionAlgorithm ? await decompressData(decrypted, compressionAlgorithm) : decrypted
+          return (await validator(data)) ? data : undefined
+        } catch {
+          return undefined
+        }
+      }
     )
   }
 
@@ -960,10 +1054,18 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     secondaryAttachmentKey: string,
     validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<{ data: ArrayBuffer; wasDecrypted: boolean }> {
+    const compressionAlgorithm = document.secondaryAttachments?.[secondaryAttachmentKey]?.compressionAlgorithm
     return await this.crypto.xapi.tryDecryptDataOf(
       { entity: document, type: EntityWithDelegationTypeName.Document },
       await super.getSecondaryAttachment(document.id!, secondaryAttachmentKey),
-      (x) => validator(x)
+      async (decrypted) => {
+        try {
+          const data = compressionAlgorithm ? await decompressData(decrypted, compressionAlgorithm) : decrypted
+          return (await validator(data)) ? data : undefined
+        } catch {
+          return undefined
+        }
+      }
     )
   }
 

@@ -2,7 +2,6 @@ import * as WebSocketNode from 'ws'
 import { Patient } from '../../icc-api/model/Patient'
 import { AbstractFilter } from '../filters/filters'
 import { User } from '../../icc-api/model/User'
-import { isNode } from 'browser-or-node'
 import { IccAuthApi } from '../../icc-api'
 import { Service } from '../../icc-api/model/Service'
 import { HealthElement } from '../../icc-api/model/HealthElement'
@@ -12,6 +11,8 @@ import { Device } from '../../icc-api/model/Device'
 import { Contact } from '../../icc-api/model/Contact'
 import { Message } from '../../icc-api/model/Message'
 import { Topic } from '../../icc-api/model/Topic'
+
+const isNode: boolean = typeof process !== "undefined" && process.versions != null && process.versions.node != null;
 
 export type EventTypes = 'CREATE' | 'UPDATE' | 'DELETE'
 type Subscribable =

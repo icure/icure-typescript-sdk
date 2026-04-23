@@ -8,8 +8,6 @@ import { XHR } from '../../icc-api/api/XHR'
 import XHRError = XHR.XHRError
 import { ExchangeData } from '../../icc-api/model/internal/ExchangeData'
 import { KeyPairUpdateRequest } from '../maintenance/KeyPairUpdateRequest'
-import { get } from 'lodash'
-
 export enum RecoveryDataUseFailureReason {
   /**
    * The recovery data matching the provided recovery key does not exist. It could have been deleted, or it could have been expired.

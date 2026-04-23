@@ -1,6 +1,5 @@
 import { IccReceiptApi } from '../icc-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
-import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
@@ -14,6 +13,7 @@ import { XHR } from '../icc-api/api/XHR'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 import { MaintenanceTask } from '../icc-api/model/models'
 import { EntityWithDelegationTypeName, ua2ab } from './utils'
+import { compressData, decompressData, getCompressionVersion } from './utils/compression-utils'
 
 export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi<models.Receipt> {
   get headers(): Promise<Array<XHR.Header>> {
@@ -171,7 +171,122 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
     return await this.crypto.xapi.tryDecryptDataOf(
       { entity: receipt, type: EntityWithDelegationTypeName.Receipt },
       await this.getReceiptAttachment(receipt.id!, attachmentId),
-      (x) => validator(x)
+      async (x) => ((await validator(x)) ? x : undefined)
+    )
+  }
+
+  // --- New data attachment methods (with compression support) ---
+
+  /**
+   * Compresses, encrypts, and uploads a receipt attachment using the new data attachment endpoint.
+   * Compression is attempted automatically; if the compressed result is not smaller, the original data is used.
+   * @param receipt a receipt.
+   * @param blobType the type of the attachment.
+   * @param attachment the raw attachment data.
+   * @param deflate if true, compress the attachment before uploading. Reliable decompression of compressed data requires version 26.5 of the API and all users to be using at least version 8.7.0 of the SDK    * @return the updated receipt.
+   */
+  async encryptCompressAndSetReceiptDataAttachment(
+    receipt: models.Receipt,
+    blobType: string,
+    attachment: ArrayBuffer | Uint8Array,
+    deflate: boolean = false
+  ): Promise<models.Receipt> {
+    const realDataSize = ua2ab(attachment).byteLength
+    const { data: dataToEncrypt, algorithm: compressionAlgorithm } = deflate
+      ? await compressData(attachment)
+      : { data: ua2ab(attachment), algorithm: undefined }
+
+    const { encryptedData, updatedEntity } = await this.crypto.xapi.encryptDataOf(
+      receipt,
+      EntityWithDelegationTypeName.Receipt,
+      dataToEncrypt,
+      (r) => this.modifyReceipt(r)
+    )
+    return await this.setReceiptDataAttachment(
+      receipt.id!,
+      blobType,
+      updatedEntity?.rev ?? receipt.rev!,
+      encryptedData,
+      compressionAlgorithm,
+      getCompressionVersion(),
+      realDataSize
+    )
+  }
+
+  /**
+   * Compresses and uploads an unencrypted receipt attachment using the new data attachment endpoint.
+   * Compression is attempted automatically; if the compressed result is not smaller, the original data is used.
+   * @param receipt a receipt.
+   * @param blobType the type of the attachment.
+   * @param attachment the raw attachment data.
+   * @param deflate if true, compress the attachment before uploading. Reliable decompression of compressed data requires version 26.5 of the API and all users to be using at least version 8.7.0 of the SDK    * @return the updated receipt.
+   */
+  async setClearReceiptDataAttachment(
+    receipt: models.Receipt,
+    blobType: string,
+    attachment: ArrayBuffer | Uint8Array,
+    deflate: boolean = false
+  ): Promise<models.Receipt> {
+    const realDataSize = ua2ab(attachment).byteLength
+    const { data: dataToUpload, algorithm: compressionAlgorithm } = deflate
+      ? await compressData(attachment)
+      : { data: ua2ab(attachment), algorithm: undefined }
+
+    return await this.setReceiptDataAttachment(
+      receipt.id!,
+      blobType,
+      receipt.rev!,
+      dataToUpload,
+      compressionAlgorithm,
+      getCompressionVersion(),
+      realDataSize
+    )
+  }
+
+  /**
+   * Gets a receipt's data attachment by blob type, decrypts it, and decompresses if needed.
+   * Throws if decryption fails.
+   * @param receipt a receipt.
+   * @param blobType the blob type of the attachment to retrieve.
+   * @param validator optionally a validator function which checks if the decryption was successful.
+   * @return the decrypted (and decompressed) attachment.
+   */
+  async getAndDecryptReceiptDataAttachment(
+    receipt: models.Receipt,
+    blobType: string,
+    validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
+  ): Promise<ArrayBuffer> {
+    const retrieved = await this.getAndTryDecryptReceiptDataAttachment(receipt, blobType, validator)
+    if (!retrieved.wasDecrypted) throw new Error(`No valid key found to decrypt data of receipt ${receipt.id}.`)
+    return retrieved.data
+  }
+
+  /**
+   * Gets a receipt's data attachment by blob type, tries to decrypt it, and decompresses if needed.
+   * @param receipt a receipt.
+   * @param blobType the blob type of the attachment to retrieve.
+   * @param validator optionally a validator function which checks if the decryption was successful.
+   * @return an object containing:
+   * - data: the decrypted (and decompressed) attachment, or the raw data if decryption failed.
+   * - wasDecrypted: if the data was successfully decrypted or not.
+   */
+  async getAndTryDecryptReceiptDataAttachment(
+    receipt: models.Receipt,
+    blobType: string,
+    validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
+  ): Promise<{ data: ArrayBuffer; wasDecrypted: boolean }> {
+    const compressionAlgorithm = receipt.attachmentInfos?.[blobType]?.compressionAlgorithm
+    return await this.crypto.xapi.tryDecryptDataOf(
+      { entity: receipt, type: EntityWithDelegationTypeName.Receipt },
+      await this.getReceiptAttachmentByBlobType(receipt.id!, blobType),
+      async (decrypted) => {
+        try {
+          const data = compressionAlgorithm ? await decompressData(decrypted, compressionAlgorithm) : decrypted
+          return (await validator(data)) ? data : undefined
+        } catch {
+          return undefined
+        }
+      }
     )
   }
 

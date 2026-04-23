@@ -3,7 +3,6 @@ import { DataOwner } from '../../icc-x-api/icc-data-owner-x-api'
 import { KeyPair, ShaVersion } from '../../icc-x-api/crypto/RSA'
 import { CryptoPrimitives } from '../../icc-x-api/crypto/CryptoPrimitives'
 import { ua2hex } from '../../icc-x-api'
-import * as _ from 'lodash'
 import { fingerprintV1 } from '../../icc-x-api/crypto/utils'
 
 export class FakeEncryptionKeysManager extends UserEncryptionKeysManager {
@@ -38,7 +37,7 @@ export class FakeEncryptionKeysManager extends UserEncryptionKeysManager {
 
   getKeyPairForFingerprint(fingerprint: string): { pair: KeyPair<CryptoKey>; verified: boolean } | undefined {
     const key = this.keys[fingerprint]
-    if (key) return _.cloneDeep(key)
+    if (key) return { pair: { publicKey: key.pair.publicKey, privateKey: key.pair.privateKey }, verified: key.verified }
     return undefined
   }
 

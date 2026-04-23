@@ -1,7 +1,6 @@
 import { IccAuthApi, IccTopicApi } from '../icc-api'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 
-import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
 import { ListOfIds, MaintenanceTask, TimingInfo, Topic, TopicRole } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'

@@ -22,7 +22,6 @@ import { Measure } from '../../icc-api/model/Measure'
 import initApi = TestUtils.initApi
 import { SecretIdUseOption } from '../../icc-x-api/crypto/SecretIdUseOption'
 import UseAnyConfidential = SecretIdUseOption.UseAnyConfidential
-import { random } from 'lodash'
 import { ServiceByHcPartyMonthTagPrefixFilter } from '../../icc-x-api/filters/ServiceByHcPartyMonthTagPrefixFilter'
 import { ServiceByHcPartyMonthCodePrefixFilter } from '../../icc-x-api/filters/ServiceByHcPartyMonthCodePrefixFilter'
 import { ServiceByHcPartyPatientCodePrefixFilter } from '../../icc-x-api/filters/ServiceByHcPartyPatientCodePrefixFilter'

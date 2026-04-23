@@ -4,7 +4,7 @@ import codeLanguages from './rsrc/codelng'
 import icd10 from './rsrc/icd10'
 import icpc2 from './rsrc/icpc2'
 
-import * as _ from 'lodash'
+import { icdChapters, icpcChapters } from './utils'
 import { Code } from '../icc-api/model/Code'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 
@@ -33,40 +33,7 @@ export class IccCodeXApi extends IccCodeApi {
    */
   // noinspection JSUnusedGlobalSymbols
   icdChapters(listOfCodes: Array<string>) {
-    return Promise.resolve(
-      _.sortBy(
-        _.values(
-          _.reduce(
-            _.fromPairs(
-              listOfCodes.map((code) => [
-                code,
-                _.toPairs(this.icd10).find(([k]) => {
-                  const parts = k.split(/-/)
-                  return code.substr(0, 3) >= parts[0] && code.substr(0, 3) <= parts[1]
-                }),
-              ])
-            ),
-            (acc: any, pairOfRangeAndIcdInfo, code) => {
-              if (!pairOfRangeAndIcdInfo) {
-                return acc
-              }
-              const shortKey = pairOfRangeAndIcdInfo[0].substr(0, 2)
-              ;(
-                acc[shortKey] ||
-                (acc[shortKey] = {
-                  code: shortKey,
-                  descr: pairOfRangeAndIcdInfo[1],
-                  subCodes: [],
-                })
-              ).subCodes.push(code)
-              return acc
-            },
-            {}
-          )
-        ),
-        (c: any) => c.shortKey
-      )
-    )
+    return Promise.resolve(icdChapters(listOfCodes, this.icd10))
   }
 
   /**
@@ -76,32 +43,7 @@ export class IccCodeXApi extends IccCodeApi {
    */
   // noinspection JSUnusedGlobalSymbols
   icpcChapters(listOfCodes: Array<string>) {
-    return Promise.resolve(
-      _.sortBy(
-        _.values(
-          _.reduce(
-            _.fromPairs(listOfCodes.map((code) => [code, _.toPairs(this.icpc2).find(([k]) => k === code.substr(0, 1).toUpperCase())])),
-            (acc: any, pairOfRangeAndIcdInfo, code) => {
-              if (!pairOfRangeAndIcdInfo) {
-                return acc
-              }
-              const shortKey = pairOfRangeAndIcdInfo[0]
-              ;(
-                acc[shortKey] ||
-                (acc[shortKey] = {
-                  code: shortKey,
-                  descr: pairOfRangeAndIcdInfo[1],
-                  subCodes: [],
-                })
-              ).subCodes.push(code)
-              return acc
-            },
-            {}
-          )
-        ),
-        (c: any) => c.shortKey
-      )
-    )
+    return Promise.resolve(icpcChapters(listOfCodes, this.icpc2))
   }
 
   /**

@@ -9,7 +9,7 @@ import { CryptoPrimitives } from './CryptoPrimitives'
 import { EntityWithDelegationTypeName, hex2ua, ua2ab } from '../utils'
 import { CryptoActorStubWithType } from '../../icc-api/model/CryptoActorStub'
 import { ShaVersion } from './RSA'
-import { Mutex } from 'async-mutex'
+import { Mutex } from '../utils/mutex'
 import { SimpleLruCache } from '../utils/simple-lru-cache'
 
 export type ExchangeDataManagerOptionalParameters = {

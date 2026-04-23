@@ -16,7 +16,7 @@ import { MaintenanceTaskAfterDateFilter } from '../../../icc-x-api/filters/Maint
 import { KeyPairUpdateRequest } from '../../../icc-x-api/maintenance/KeyPairUpdateRequest'
 import { EntityShareRequest } from '../../../icc-api/model/requests/EntityShareRequest'
 import { MaintenanceTask } from '../../../icc-api/model/MaintenanceTask'
-import * as _ from 'lodash'
+import { uniqBy } from '../../../icc-x-api/utils/collection-utils'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import { SecureDelegation } from '../../../icc-api/model/SecureDelegation'
 import { CalendarItem } from '../../../icc-api/model/CalendarItem'
@@ -165,8 +165,8 @@ describe('Anonymous delegations', () => {
     const searchIds = await dataOwnerIdsForSearch(apis, apis.dataOwnerApi.getDataOwnerIdOf(user), EntityWithDelegationTypeName.HealthElement)
     const patientKeys = await apis.patientApi.decryptSecretIdsOf(patient)
     expect(patientKeys).to.not.be.empty
-    const sfks = _.uniq(patientKeys).join(',')
-    const retrievedHealthElements = _.uniqBy(
+    const sfks = [...new Set(patientKeys)].join(',')
+    const retrievedHealthElements = uniqBy(
       await searchIds.reduce(async (acc, searchId) => {
         const awaitedAcc = await acc
         const currResult = await apis.healthcareElementApi.findByHCPartyPatientSecretFKeys(searchId, sfks)

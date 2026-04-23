@@ -1,7 +1,7 @@
 import { IccMaintenanceTaskApi } from '../icc-api/api/IccMaintenanceTaskApi'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 import * as models from '../icc-api/model/models'
-import * as _ from 'lodash'
+import { cloneDeep } from './utils/collection-utils'
 import { IccHcpartyXApi } from './icc-hcparty-x-api'
 import { DocIdentifier, ListOfIds, MaintenanceTask, TimingInfo } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
@@ -109,7 +109,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
 
   createMaintenanceTaskWithUser(user: models.User, body?: models.MaintenanceTask): Promise<models.MaintenanceTask | null> {
     return body
-      ? this.encrypt(user, [_.cloneDeep(body)])
+      ? this.encrypt(user, [cloneDeep(body)])
           .then((tasks) => super.createMaintenanceTask(tasks[0]))
           .then((mt) => this.decrypt(user, [mt]))
           .then((tasks) => tasks[0])
@@ -182,7 +182,7 @@ export class IccMaintenanceTaskXApi extends IccMaintenanceTaskApi implements Enc
   }
 
   private modifyMaintenanceTaskAs(dataOwner: string, body: models.MaintenanceTask): Promise<models.MaintenanceTask> {
-    return this.encryptAs(dataOwner, [_.cloneDeep(body)])
+    return this.encryptAs(dataOwner, [cloneDeep(body)])
       .then((encTasks) => super.modifyMaintenanceTask(encTasks[0]))
       .then((mt) => this.decryptAs(dataOwner, [mt]))
       .then((mts) => mts[0])

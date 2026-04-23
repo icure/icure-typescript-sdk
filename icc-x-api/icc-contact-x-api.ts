@@ -3,8 +3,8 @@ import { IccCryptoXApi } from './icc-crypto-x-api'
 
 import i18n from './rsrc/contact.i18n'
 
-import * as moment from 'moment'
-import * as _ from 'lodash'
+import { format as formatDate, isAfter as isDateAfter, parse as parseDate } from 'date-fns'
+import { cloneDeep, uniqBy, sortBy } from './utils/collection-utils'
 import * as models from '../icc-api/model/models'
 import { Contact, FilterChainService, ListOfIds, Service, TimingInfo } from '../icc-api/model/models'
 import { PaginatedListContact } from '../icc-api/model/PaginatedListContact'
@@ -124,7 +124,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       groupId: c?.groupId ?? this.crypto.primitives.randomUuid(),
       subContacts: c?.subContacts ?? [],
       services: c?.services ?? [],
-      openingDate: c?.openingDate ?? parseInt(moment().format('YYYYMMDDHHmmss')),
+      openingDate: c?.openingDate ?? parseInt(formatDate(new Date(), 'yyyyMMddHHmmss')),
     })
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
@@ -186,10 +186,10 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
               .filter((l) => l.extractedKeys.length > 0)
               .map(({ hcpartyId, extractedKeys }) =>
                 usingPost
-                  ? this.findByHCPartyPatientSecretFKeysArray(hcpartyId, _.uniq(extractedKeys))
-                  : this.findByHCPartyPatientSecretFKeys(hcpartyId, _.uniq(extractedKeys).join(','))
+                  ? this.findByHCPartyPatientSecretFKeysArray(hcpartyId, [...new Set(extractedKeys)])
+                  : this.findByHCPartyPatientSecretFKeys(hcpartyId, [...new Set(extractedKeys)].join(','))
               )
-          ).then((results) => _.uniqBy(_.flatMap(results), (x) => x.id))
+          ).then((results) => uniqBy(results.flat(), (x) => x.id))
         : Promise.resolve([])
     )
   }
@@ -215,7 +215,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
               .map(({ hcpartyId, extractedKeys }) =>
                 this.findContactIdsByDataOwnerPatientOpeningDate(hcpartyId, extractedKeys, startDate, endDate, descending)
               )
-          ).then((results) => _.uniq(_.flatMap(results)))
+          ).then((results) => [...new Set(results.flat())])
         : Promise.resolve([])
     )
   }
@@ -242,8 +242,8 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
         })
     }
 
-    return _.uniqBy(
-      _.flatMap(
+    return uniqBy(
+      (
         await Promise.all(
           Object.keys(perHcpId).map((hcpId) =>
             this.findContactsByHCPartyPatientForeignKeys(
@@ -254,7 +254,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
             )
           )
         )
-      ),
+      ).flat(),
       (x) => x.id
     )
   }
@@ -516,7 +516,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
   }
 
   private modifyContactAs(dataOwner: string, body: models.Contact): Promise<models.Contact> {
-    return this.encryptAs(dataOwner, [_.cloneDeep(body)])
+    return this.encryptAs(dataOwner, [cloneDeep(body)])
       .then((ctcs) => super.modifyContact(ctcs[0]))
       .then((ctc) => this.decrypt(dataOwner, [ctc]))
       .then((ctcs) => ctcs[0])
@@ -532,7 +532,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     return bodies
       ? this.encrypt(
           user,
-          bodies.map((c) => _.cloneDeep(c))
+          bodies.map((c) => cloneDeep(c))
         )
           .then((ctcs) => super.modifyContacts(ctcs))
           .then((ctcs) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, ctcs))
@@ -547,7 +547,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
    */
   async createContactWithUser(user: models.User, body?: models.Contact): Promise<models.Contact | null> {
     return body
-      ? this.encrypt(user, [_.cloneDeep(body)])
+      ? this.encrypt(user, [cloneDeep(body)])
           .then((ctcs) => super.createContact(ctcs[0]))
           .then((ctc) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, [ctc]))
           .then((ctcs) => ctcs[0])
@@ -564,7 +564,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     return bodies
       ? this.encrypt(
           user,
-          bodies.map((c) => _.cloneDeep(c))
+          bodies.map((c) => cloneDeep(c))
         )
           .then((ctcs) => super.createContacts(ctcs))
           .then((ctcs) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, ctcs))
@@ -720,7 +720,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     let latestService: models.Service
     ctcs.forEach((c) => {
       const s: models.Service | undefined = c.services!.find((it) => svcId === it.id)
-      if (s && (!latestService || moment(s.valueDate).isAfter(moment(latestService.valueDate)))) {
+      if (s && (!latestService || isDateAfter(parseDate('' + s.valueDate, 'yyyyMMddHHmmss', new Date()), parseDate('' + latestService.valueDate, 'yyyyMMddHHmmss', new Date())))) {
         latestContact = c
         latestService = s
       }
@@ -747,7 +747,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
           }
         })
     )
-    return _.values(byIds).filter((s: any) => !s.deleted && !s.endOfLife)
+    return Object.values(byIds).filter((s: any) => !s.deleted && !s.endOfLife)
   }
 
   /**
@@ -901,7 +901,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       return null
     }
     const existing = ctc.services!.find((s) => s.id === svc.id)
-    const promoted = _.extend(_.extend(existing || {}, svc), {
+    const promoted = Object.assign(existing || {}, svc, {
       author: user.id,
       responsible: this.dataOwnerApi.getDataOwnerIdOf(user),
       modified: new Date().getTime(),
@@ -919,7 +919,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
     Object.keys(poaIds || {}).forEach((k: string) => {
       const poas = hierarchyOfHeAndPoaIds[k]
       if (poas) {
-        hierarchyOfHeAndPoaIds[k] = _.concat(poas, (poaIds || {})[k])
+        hierarchyOfHeAndPoaIds[k] = [...poas, ...(poaIds || {})[k]]
       } else {
         hierarchyOfHeAndPoaIds[k] = (poaIds || {})[k]
       }
@@ -949,9 +949,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
               sameInCurrent.services!.push({ serviceId: svc.id })
             }
           } else {
-            const newSubContact = _.assign(_.assign({}, psc), {
-              services: [{ serviceId: svc.id }],
-            })
+            const newSubContact = { ...psc, services: [{ serviceId: svc.id }] }
             ctc.subContacts!.push(newSubContact)
             allSubcontactsInCurrentContactContainingService.push(newSubContact)
           }
@@ -1026,22 +1024,19 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
    */
   service() {
     return {
-      newInstance: (user: models.User, s: any) =>
-        _.extend(
-          {
-            id: this.crypto.primitives.randomUuid(),
-            _type: 'org.taktik.icure.entities.embed.Service',
-            created: new Date().getTime(),
-            modified: new Date().getTime(),
-            responsible: s?.responsible ?? (this.autofillAuthor ? this.dataOwnerApi.getDataOwnerIdOf(user) : undefined),
-            author: s?.author ?? (this.autofillAuthor ? user.id : undefined),
-            codes: [],
-            tags: [],
-            content: {},
-            valueDate: parseInt(moment().format('YYYYMMDDHHmmss')),
-          },
-          s
-        ),
+      newInstance: (user: models.User, s: any) => ({
+        id: this.crypto.primitives.randomUuid(),
+        _type: 'org.taktik.icure.entities.embed.Service',
+        created: new Date().getTime(),
+        modified: new Date().getTime(),
+        responsible: s?.responsible ?? (this.autofillAuthor ? this.dataOwnerApi.getDataOwnerIdOf(user) : undefined),
+        author: s?.author ?? (this.autofillAuthor ? user.id : undefined),
+        codes: [],
+        tags: [],
+        content: {},
+        valueDate: parseInt(formatDate(new Date(), 'yyyyMMddHHmmss')),
+        ...s,
+      }),
     }
   }
 
@@ -1144,9 +1139,9 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
             ? this.i18n[lang].monthly
             : this.i18n[lang].daily
 
-          return `${quantityUnit}, ${m.regimen.length} x ${dayPeriod}, ${_.sortBy(
+          return `${quantityUnit}, ${m.regimen.length} x ${dayPeriod}, ${sortBy(
             m.regimen,
-            (r) =>
+            (r: any) =>
               (r.date ? r.date * 1000000 : 29990000000000) +
               (r.dayNumber || 0) * 1000000 +
               ((r.weekday && r.weekday.weekNumber) || 0) * 7 * 1000000 +
@@ -1188,7 +1183,7 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
       },
       regimenToString: (r: models.RegimenItem, lang: string) => {
         let res = r.date
-          ? `${this.i18n[lang].the} ${moment(r.date).format('DD/MM/YYYY')}`
+          ? `${this.i18n[lang].the} ${formatDate(r.date, 'dd/MM/yyyy')}`
           : r.dayNumber
           ? `${this.i18n[lang].onDay} ${r.dayNumber}`
           : r.weekday && r.weekday.weekday

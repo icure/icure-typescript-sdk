@@ -26,7 +26,6 @@ import { ShareMetadataBehaviour } from './ShareMetadataBehaviour'
 import { IccUserXApi } from '../icc-user-x-api'
 import { MinimalEntityBulkShareResult } from '../../icc-api/model/requests/MinimalEntityBulkShareResult'
 import { BulkShareOrUpdateMetadataParams, EntityRequestInformation } from '../../icc-api/model/requests/BulkShareOrUpdateMetadataParams'
-import * as _ from 'lodash'
 import AccessLevel = SecureDelegation.AccessLevelEnum
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import RequestedPermissionInternal = EntityShareRequest.RequestedPermissionInternal
@@ -576,7 +575,7 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
   async tryDecryptDataOf(
     entity: EncryptedEntityWithType,
     content: ArrayBuffer | Uint8Array,
-    validator: (decryptedData: ArrayBuffer) => Promise<boolean> | undefined
+    postProcessor?: (decryptedData: ArrayBuffer) => Promise<ArrayBuffer | undefined>
   ): Promise<{ data: ArrayBuffer; wasDecrypted: boolean }> {
     const triedKeys: Set<string> = new Set()
     const result = await this.doIncrementallyDecryptingKeys(entity.entity, entity.type, async (e, t, keys) => {
@@ -585,7 +584,12 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
           triedKeys.add(k.raw)
           try {
             const decrypted = await this.primitives.AES.decrypt(k.key, content)
-            if (!validator || (await validator(decrypted))) return { success: decrypted }
+            if (postProcessor) {
+              const processed = await postProcessor(decrypted)
+              if (processed !== undefined) return { success: processed }
+            } else {
+              return { success: decrypted }
+            }
           } catch (e) {
             console.warn(`Error while attempting to decrypt attachment of ${entity.entity.id} with raw key ${k.raw}: ${e}`)
           }

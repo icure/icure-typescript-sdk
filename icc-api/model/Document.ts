@@ -134,6 +134,12 @@ export class Document {
    * Extra Uniform Type Identifiers for the main attachment
    */
   otherUtis?: Array<string>
+  mainAttachmentStoredDataSize?: number
+  extraMainAttachmentInfo?: {
+    compressionAlgorithm?: string
+    triedCompressionAlgorithmsVersion?: string
+    realDataSize?: number
+  }
   /**
    * Secondary attachments for this document
    */

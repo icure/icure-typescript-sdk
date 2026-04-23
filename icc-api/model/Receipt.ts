@@ -10,7 +10,9 @@
  * Do not edit the class manually.
  */
 import { CodeStub } from './CodeStub'
+import { DataAttachment } from './DataAttachment'
 import { Delegation } from './Delegation'
+import { DeletedAttachment } from './DeletedAttachment'
 import { SecurityMetadata } from './SecurityMetadata'
 import { EntityWithDelegationTypeName } from '../../icc-x-api/utils/EntityWithDelegationTypeName'
 
@@ -58,6 +60,8 @@ export class Receipt {
    */
   deletionDate?: number
   attachmentIds?: { [key: string]: string }
+  attachmentInfos?: { [key: string]: DataAttachment }
+  deletedAttachments?: Array<DeletedAttachment>
   references?: Array<string>
   documentId?: string
   category?: string

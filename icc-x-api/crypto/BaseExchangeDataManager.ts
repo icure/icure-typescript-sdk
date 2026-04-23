@@ -5,7 +5,7 @@ import { IccExchangeDataApi } from '../../icc-api/api/internal/IccExchangeDataAp
 import { XHR } from '../../icc-api/api/XHR'
 import { CryptoPrimitives } from './CryptoPrimitives'
 import { b64_2ua, hex2ua, ua2ab, ua2b64, ua2hex, utf8_2ua } from '../utils'
-import * as _ from 'lodash'
+import { cloneDeep } from '../utils/collection-utils'
 import { fingerprintIsV1, fingerprintV1toV2 } from './utils'
 import XHRError = XHR.XHRError
 
@@ -402,7 +402,7 @@ export class BaseExchangeDataManager {
       obj[fp] = newEncryptionKeys[fp]
       return obj
     }, {} as { [keyPairFingerprint: string]: CryptoKey })
-    const updatedExchangeData = _.cloneDeep(exchangeData)
+    const updatedExchangeData = cloneDeep(exchangeData)
     updatedExchangeData.exchangeKey = {
       ...exchangeData.exchangeKey,
       ...(await this.encryptDataWithKeys(rawExchangeKey, encryptionKeysForMissingEntries)),

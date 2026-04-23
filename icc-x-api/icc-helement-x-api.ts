@@ -3,8 +3,8 @@ import { IccCryptoXApi } from './icc-crypto-x-api'
 
 import * as models from '../icc-api/model/models'
 
-import * as _ from 'lodash'
-import * as moment from 'moment'
+import { format as formatDate } from 'date-fns'
+import { cloneDeep, uniqBy } from './utils/collection-utils'
 import { FilterChainHealthElement, HealthElement, PaginatedListHealthElement, TimingInfo } from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
@@ -88,7 +88,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
       codes: h?.codes ?? [],
       tags: h?.tags ?? [],
       healthElementId: h?.healthElementId ?? this.crypto.primitives.randomUuid(),
-      openingDate: h?.openingDate ?? parseInt(moment().format('YYYYMMDDHHmmss')),
+      openingDate: h?.openingDate ?? parseInt(formatDate(new Date(), 'yyyyMMddHHmmss')),
     }
 
     const ownerId = this.dataOwnerApi.getDataOwnerIdOf(user)
@@ -132,7 +132,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
    */
   createHealthElementWithUser(user: models.User, body?: models.HealthElement): Promise<models.HealthElement | any> {
     return body
-      ? this.encrypt(user, [_.cloneDeep(body)])
+      ? this.encrypt(user, [cloneDeep(body)])
           .then((hes) => super.createHealthElement(hes[0]))
           .then((he) => this.decryptWithUser(user, [he]))
           .then((hes) => hes[0])
@@ -156,7 +156,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     return bodies
       ? this.encrypt(
           user,
-          bodies.map((c) => _.cloneDeep(c))
+          bodies.map((c) => cloneDeep(c))
         )
           .then((hes) => super.createHealthElements(hes))
           .then((hes) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user), hes))
@@ -270,7 +270,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     return body ? this.modifyHealthElementAs(this.dataOwnerApi.getDataOwnerIdOf(user), body) : Promise.resolve(null)
   }
   private modifyHealthElementAs(dataOwner: string, body: HealthElement): Promise<HealthElement> {
-    return this.encryptAs(dataOwner, [_.cloneDeep(body)])
+    return this.encryptAs(dataOwner, [cloneDeep(body)])
       .then((hes) => super.modifyHealthElement(hes[0]))
       .then((he) => this.decrypt(dataOwner, [he]))
       .then((hes) => hes[0])
@@ -293,7 +293,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
     return bodies
       ? this.encrypt(
           user,
-          bodies.map((c) => _.cloneDeep(c))
+          bodies.map((c) => cloneDeep(c))
         )
           .then((hes) => super.modifyHealthElements(hes))
           .then((hes) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user), hes))
@@ -337,10 +337,10 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
                 .filter((l) => l.extractedKeys.length > 0)
                 .map(({ hcpartyId, extractedKeys }) =>
                   usingPost
-                    ? this.findByHCPartyPatientSecretFKeysArray(hcpartyId, _.uniq(extractedKeys))
-                    : this.findByHCPartyPatientSecretFKeys(hcpartyId, _.uniq(extractedKeys).join(','))
+                    ? this.findByHCPartyPatientSecretFKeysArray(hcpartyId, [...new Set(extractedKeys)])
+                    : this.findByHCPartyPatientSecretFKeys(hcpartyId, [...new Set(extractedKeys)].join(','))
                 )
-            ).then((results) => _.uniqBy(_.flatMap(results), (x) => x.id))
+            ).then((results) => uniqBy(results.flat(), (x) => x.id))
           : Promise.resolve([])
       )
       .then((decryptedHelements: Array<models.HealthElement>) => {
@@ -357,7 +357,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
               }
             }
           })
-          return _.values(byIds).filter((s: any) => !s.endOfLife)
+          return Object.values(byIds).filter((s: any) => !s.endOfLife)
         }
       })
   }
@@ -383,7 +383,7 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
               .map(({ hcpartyId, extractedKeys }) =>
                 this.findHealthElementIdsByDataOwnerPatientOpeningDate(hcpartyId, extractedKeys, startDate, endDate, descending)
               )
-          ).then((results) => _.uniq(_.flatMap(results)))
+          ).then((results) => [...new Set(results.flat())])
         : Promise.resolve([])
     )
   }

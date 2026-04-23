@@ -285,7 +285,7 @@ export interface ExtendedApisUtils {
   tryDecryptDataOf(
     entity: EncryptedEntityWithType,
     content: ArrayBuffer | Uint8Array,
-    validator: (decryptedData: ArrayBuffer) => Promise<boolean> | undefined
+    postProcessor?: (decryptedData: ArrayBuffer) => Promise<ArrayBuffer | undefined>
   ): Promise<{ data: ArrayBuffer; wasDecrypted: boolean }>
 
   tryDecryptEntities<T extends EncryptedEntity>(

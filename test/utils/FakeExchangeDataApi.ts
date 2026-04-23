@@ -3,7 +3,7 @@ import { ExchangeData } from '../../icc-api/model/internal/ExchangeData'
 import { PaginatedListExchangeData } from '../../icc-api/model/PaginatedListExchangeData'
 import { FakeGenericApi } from './FakeGenericApi'
 import { PaginatedDocumentKeyIdPairObject } from '../../icc-api/model/PaginatedDocumentKeyIdPairObject'
-import * as _ from 'lodash'
+import { cloneDeep } from '../../icc-x-api/utils/collection-utils'
 import { expect } from 'chai'
 import base = Mocha.reporters.base
 import { ListOfIds } from '../../icc-api/model/ListOfIds'
@@ -35,7 +35,7 @@ export class FakeExchangeDataApi extends IccExchangeDataApi {
   }
 
   public get callCount(): CallCount {
-    return _.cloneDeep(this._callCount)
+    return cloneDeep(this._callCount)
   }
 
   compareCallCountFromBaseline(baseline: CallCount, expected: ExpectedCallCount) {

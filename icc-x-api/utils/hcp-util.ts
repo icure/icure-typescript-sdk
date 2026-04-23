@@ -1,4 +1,3 @@
-import * as _ from 'lodash'
 import { HealthcareParty, Telecom } from '../../icc-api/model/models'
 
 export interface KendoDropdownSpeciality {
@@ -78,7 +77,7 @@ export const SPECIALITIES: Array<string> = [
  * Translation keys for specialities.
  * @see SPECIALITIES
  */
-export const SPECIALITIES_KEYS: { [spec: string]: string } = _.fromPairs(SPECIALITIES.map((spec) => [spec, 'hcp-form.SPECIALITIES.' + spec]))
+export const SPECIALITIES_KEYS: { [spec: string]: string } = Object.fromEntries(SPECIALITIES.map((spec) => [spec, 'hcp-form.SPECIALITIES.' + spec]))
 
 export function isDoctor(nihii: string): boolean {
   return !!nihii && nihii.length === 11 && nihii.startsWith('1') && !nihii.endsWith('005') && !nihii.endsWith('006')
@@ -118,5 +117,5 @@ export function getPhoneNumber(hcp: HealthcareParty, maxLength: number | undefin
     return res && Number(res)
   })
 
-  return (!phoneNumbers.length || _.isNaN(phoneNumbers[0]) ? null : phoneNumbers[0]) || null
+  return (!phoneNumbers.length || Number.isNaN(phoneNumbers[0]) ? null : phoneNumbers[0]) || null
 }

@@ -12,3 +12,6 @@ custom-docker-compose-cloud.yaml
 .yarn/*
 .yarnrc*
 .pnp*
+/icc-x-api/wasm/lzma/build
+/test/benchmarks/worker-files
+/test-results

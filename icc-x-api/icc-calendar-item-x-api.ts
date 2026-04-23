@@ -1,7 +1,7 @@
 import * as i18n from './rsrc/contact.i18n'
 
-import * as _ from 'lodash'
 import * as models from '../icc-api/model/models'
+import { cloneDeep } from './utils/collection-utils'
 import { CalendarItem, User } from '../icc-api/model/models'
 import { IccCryptoXApi } from './icc-crypto-x-api'
 import { IccCalendarItemApi } from '../icc-api'
@@ -144,8 +144,8 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
     const topmostParentId = (await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds())[0]
     return extractedKeys && extractedKeys.length > 0
       ? usingPost
-        ? this.findByHCPartyPatientSecretFKeysArray(hcpartyId!, _.uniq(extractedKeys))
-        : this.findByHCPartyPatientSecretFKeys(hcpartyId!, _.uniq(extractedKeys).join(','))
+        ? this.findByHCPartyPatientSecretFKeysArray(hcpartyId!, [...new Set(extractedKeys)])
+        : this.findByHCPartyPatientSecretFKeys(hcpartyId!, [...new Set(extractedKeys)].join(','))
       : Promise.resolve([])
   }
 
@@ -156,7 +156,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
   async findIdsBy(hcpartyId: string, patient: models.Patient, startDate?: number, endDate?: number, descending?: boolean): Promise<string[]> {
     const extractedKeys = await this.crypto.xapi.secretIdsOf({ entity: patient, type: EntityWithDelegationTypeName.Patient }, hcpartyId)
     return extractedKeys && extractedKeys.length > 0
-      ? this.findCalendarItemIdsByDataOwnerPatientStartTime(hcpartyId, _.uniq(extractedKeys), startDate, endDate, descending)
+      ? this.findCalendarItemIdsByDataOwnerPatientStartTime(hcpartyId, [...new Set(extractedKeys)], startDate, endDate, descending)
       : Promise.resolve([])
   }
 
@@ -192,7 +192,7 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
    */
   async createCalendarItemWithHcParty(user: models.User, body?: models.CalendarItem): Promise<models.CalendarItem | any> {
     return body
-      ? this.encrypt(user, [_.cloneDeep(body)])
+      ? this.encrypt(user, [cloneDeep(body)])
           .then((items) => super.createCalendarItem(items[0]))
           .then((ci) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user)!, [ci]))
           .then((cis) => cis[0])
@@ -408,11 +408,11 @@ export class IccCalendarItemXApi extends IccCalendarItemApi implements Encrypted
    * @return the modified and decrypted calendar item, or null if body was not provided.
    */
   async modifyCalendarItemWithHcParty(user: models.User, body?: models.CalendarItem): Promise<models.CalendarItem | any> {
-    return body ? this.modifyAs(this.dataOwnerApi.getDataOwnerIdOf(user)!, _.cloneDeep(body)) : null
+    return body ? this.modifyAs(this.dataOwnerApi.getDataOwnerIdOf(user)!, cloneDeep(body)) : null
   }
 
   private modifyAs(dataOwner: string, body: models.CalendarItem): Promise<models.CalendarItem> {
-    return this.encryptAs(dataOwner, [_.cloneDeep(body)])
+    return this.encryptAs(dataOwner, [cloneDeep(body)])
       .then((items) => super.modifyCalendarItem(items[0]))
       .then((ci) => this.decrypt(dataOwner, [ci]))
       .then((cis) => cis[0])

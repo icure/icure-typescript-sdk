@@ -215,6 +215,66 @@ export class IccReceiptApi {
   }
 
   /**
+   * @summary Creates a receipt's data attachment with compression metadata
+   * @param receiptId id of a receipt
+   * @param blobType receipt blob type
+   * @param rev revision of the receipt
+   * @param body content of the attachment
+   * @param compressionAlgorithm the compression algorithm used on the client side, if any
+   * @param triedCompressionAlgorithmsVersion a version string for the compression algorithms tried
+   * @param realDataSize the real size of the data after decryption and decompression
+   */
+  async setReceiptDataAttachment(
+    receiptId: string,
+    blobType: string,
+    rev: string,
+    body: ArrayBuffer,
+    compressionAlgorithm?: string,
+    triedCompressionAlgorithmsVersion?: string,
+    realDataSize?: number
+  ): Promise<Receipt> {
+    if (!rev) throw new Error('Receipt rev is required')
+
+    const _url =
+      this.host +
+      `/receipt/${encodeURIComponent(String(receiptId))}/dataattachment/${encodeURIComponent(String(blobType))}` +
+      '?ts=' +
+      new Date().getTime() +
+      '&rev=' +
+      encodeURIComponent(String(rev)) +
+      (compressionAlgorithm ? '&compressionAlgorithm=' + encodeURIComponent(String(compressionAlgorithm)) : '') +
+      (triedCompressionAlgorithmsVersion
+        ? '&triedCompressionAlgorithmsVersion=' + encodeURIComponent(String(triedCompressionAlgorithmsVersion))
+        : '') +
+      (realDataSize != null ? '&realDataSize=' + encodeURIComponent(String(realDataSize)) : '')
+    let headers = await this.headers
+    headers = headers
+      .filter((h) => h.header !== 'Content-Type' && h.header !== 'Content-Length')
+      .concat(new XHR.Header('Content-Type', 'application/octet-stream'))
+      .concat(new XHR.Header('Content-Length', String(body.byteLength)))
+    return XHR.sendCommand('PUT', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new Receipt(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * @summary Get a receipt's attachment by blob type
+   * @param receiptId id of the receipt
+   * @param blobType the blob type of the attachment to retrieve
+   */
+  async getReceiptAttachmentByBlobType(receiptId: string, blobType: string): Promise<ArrayBuffer> {
+    const _url =
+      this.host +
+      `/receipt/${encodeURIComponent(String(receiptId))}/attachment/ofType/${encodeURIComponent(String(blobType))}` +
+      '?ts=' +
+      new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => doc.body)
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    * @internal this method is for internal use only and may be changed without notice
    */
   async bulkShareReceipt(request: BulkShareOrUpdateMetadataParams): Promise<EntityBulkShareResult<Receipt>[]> {
