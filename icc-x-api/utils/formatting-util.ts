@@ -1,4 +1,4 @@
-import {parseNumber, formatNumber, isValidNumber, ParsedNumber} from 'libphonenumber-js'
+import { parseNumber, formatNumber, ParsedNumber } from 'libphonenumber-js'
 import {format as formatDate, parse as parseDate} from 'date-fns'
 
 // TODO: move this to env.js?

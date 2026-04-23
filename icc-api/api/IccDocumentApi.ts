@@ -404,7 +404,7 @@ export class IccDocumentApi {
    * overrides existing values.
    * @param dataIsEncrypted set this to true if the body you provided is containing encrypted data. This helps to have the appropriate content type
    * for the attachment. Defaults is false
-   * @param compressionAlgorithm the client-side compression algorithm used on the data, if any (e.g. 'lzma'). Null/undefined if no compression was applied.
+   * @param compressionAlgorithm the client-side compression algorithm used on the data, if any (e.g. 'lzma2'). Null/undefined if no compression was applied.
    * @param triedCompressionAlgorithmsVersion a version string indicating which compression algorithms were tried by the SDK, used to decide whether
    * re-compression with newer algorithms should be attempted on read.
    * @param realDataSize the size in bytes of the original data before compression and encryption, used for informational purposes.
