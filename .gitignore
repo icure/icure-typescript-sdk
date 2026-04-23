@@ -5,3 +5,6 @@ scratchDir/
 coverage/
 .nyc_output/
 /test/scratch/
+worker-files/
+build/
+test-results/
