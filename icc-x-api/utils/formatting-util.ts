@@ -202,6 +202,131 @@ export function personNameAbbrev(person: { firstName?: string; lastName?: string
   return personName({...person, firstName})
 }
 
+// Moment.js → date-fns format token mapping. Listed longest-first so the
+// matcher consumes the longest valid moment token at each position.
+const MOMENT_TO_DATE_FNS_TOKENS: ReadonlyArray<readonly [string, string]> = [
+  // Year
+  ['YYYY', 'yyyy'],
+  ['YY', 'yy'],
+  ['Y', 'y'],
+  // Month
+  ['MMMM', 'MMMM'],
+  ['MMM', 'MMM'],
+  ['Mo', 'Mo'],
+  ['MM', 'MM'],
+  ['M', 'M'],
+  // Quarter
+  ['Qo', 'Qo'],
+  ['Q', 'Q'],
+  // Day of year (moment DDD/DDDD/DDDo → date-fns D/DDD/Do, additional tokens)
+  ['DDDDo', 'Do'],
+  ['DDDD', 'DDD'],
+  ['DDDo', 'Do'],
+  ['DDD', 'D'],
+  // Day of month
+  ['Do', 'do'],
+  ['DD', 'dd'],
+  ['D', 'd'],
+  // Day of week
+  ['dddd', 'EEEE'],
+  ['ddd', 'EEE'],
+  ['dd', 'EEEEEE'],
+  ['do', 'eo'],
+  ['d', 'e'],
+  ['E', 'i'],
+  // Week of year
+  ['ww', 'ww'],
+  ['wo', 'wo'],
+  ['w', 'w'],
+  ['WW', 'II'],
+  ['Wo', 'Io'],
+  ['W', 'I'],
+  // Hour
+  ['HH', 'HH'],
+  ['H', 'H'],
+  ['hh', 'hh'],
+  ['h', 'h'],
+  ['kk', 'kk'],
+  ['k', 'k'],
+  // AM/PM
+  ['A', 'a'],
+  ['a', 'aaa'],
+  // Minute
+  ['mm', 'mm'],
+  ['m', 'm'],
+  // Second
+  ['ss', 'ss'],
+  ['s', 's'],
+  // Fractional seconds
+  ['SSSS', 'SSSS'],
+  ['SSS', 'SSS'],
+  ['SS', 'SS'],
+  ['S', 'S'],
+  // Timezone offset
+  ['ZZ', 'xx'],
+  ['Z', 'xxx'],
+  // Unix timestamp
+  ['X', 't'],
+  ['x', 'T'],
+]
+
+export function momentFormatToDateFnsFormat(format: string): string {
+  const parts: string[] = []
+  let literalBuffer = ''
+
+  const flushLiteral = () => {
+    if (literalBuffer.length > 0) {
+      parts.push("'" + literalBuffer.replace(/'/g, "''") + "'")
+      literalBuffer = ''
+    }
+  }
+
+  let i = 0
+  while (i < format.length) {
+    const c = format[i]
+
+    // Moment bracketed literal: [text] → date-fns 'text'
+    if (c === '[') {
+      const end = format.indexOf(']', i)
+      if (end === -1) {
+        literalBuffer += format.substring(i + 1)
+        i = format.length
+        continue
+      }
+      literalBuffer += format.substring(i + 1, end)
+      i = end + 1
+      continue
+    }
+
+    // Match the longest moment token starting at the current position.
+    let matched: readonly [string, string] | undefined
+    for (const token of MOMENT_TO_DATE_FNS_TOKENS) {
+      if (format.startsWith(token[0], i)) {
+        matched = token
+        break
+      }
+    }
+    if (matched) {
+      flushLiteral()
+      parts.push(matched[1])
+      i += matched[0].length
+      continue
+    }
+
+    // Non-token character: alphabetic chars must be escaped as literals,
+    // otherwise date-fns would interpret them as its own tokens.
+    if (/[A-Za-z]/.test(c)) {
+      literalBuffer += c
+    } else {
+      flushLiteral()
+      parts.push(c)
+    }
+    i++
+  }
+  flushLiteral()
+  return parts.join('')
+}
+
 export function toMoment(epochOrLongCalendar: number): { format: (format: string) => string } | null {
   if (!epochOrLongCalendar && epochOrLongCalendar !== 0) {
     return null
@@ -213,7 +338,10 @@ export function toMoment(epochOrLongCalendar: number): { format: (format: string
       new Date(epochOrLongCalendar)
   return {
     format: (format: string): string => {
-      return formatDate(parsed, format)
+      return formatDate(parsed, momentFormatToDateFnsFormat(format), {
+        useAdditionalDayOfYearTokens: true,
+        useAdditionalWeekYearTokens: true,
+      })
     }
   }
 }
