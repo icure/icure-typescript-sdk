@@ -3,10 +3,10 @@ import { expect } from 'chai'
 import { momentFormatToDateFnsFormat, toMoment } from '../../../icc-x-api/utils/formatting-util'
 
 describe('toMoment', () => {
-  it('should return null for undefined/null/NaN input', () => {
-    expect(toMoment(undefined as any)).to.be.null
-    expect(toMoment(null as any)).to.be.null
-    expect(toMoment(NaN)).to.be.null
+  it('should return undefined for undefined/null/NaN input', () => {
+    expect(toMoment(undefined)).to.be.undefined
+    expect(toMoment(null)).to.be.undefined
+    expect(toMoment(NaN)).to.be.undefined
   })
 
   it('should handle 0 as a valid epoch timestamp', () => {

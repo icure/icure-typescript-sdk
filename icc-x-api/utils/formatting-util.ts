@@ -14,7 +14,8 @@ const patterns = {
 }
 
 //http://ht5ifv.serprest.pt/extensions/tools/IBAN/
-export function isValidIBAN(iban: string) {
+export function isValidIBAN(iban: string | null | undefined): boolean | undefined {
+  if (iban === null || iban === undefined) return undefined
   //This function check if the checksum if correct
   iban = iban.replace(/^(.{4})(.*)$/, '$2$1') //Move the first 4 chars from left to the right
   const fun = (e: string) => (e.charCodeAt(0) - 'A'.charCodeAt(0) + 10).toString()
@@ -28,7 +29,8 @@ export function isValidIBAN(iban: string) {
   return $sum % 97 === 1
 }
 
-export function ibanValidate(iban: string) {
+export function ibanValidate(iban: string | null | undefined): boolean | undefined {
+  if (iban === null || iban === undefined) return undefined
   if (iban.startsWith('BE')) {
     return patterns.IBANBE(iban)
   } else {
@@ -36,23 +38,28 @@ export function ibanValidate(iban: string) {
   }
 }
 
-export function ibanFormat(iban: string): string {
+export function ibanFormat(iban: string | null | undefined): string | undefined {
+  if (iban === null || iban === undefined) return undefined
   return iban.replace(ibanRegExp, '$1 $2 $3 $4')
 }
 
-export function nihiiFormat(nihii: string): string {
+export function nihiiFormat(nihii: string | null | undefined): string | undefined {
+  if (nihii === null || nihii === undefined) return undefined
   return nihii.replace(nihiiRegExp, '$1 $2 $3 $4')
 }
 
-export function nihiiValidate(nihii: string): boolean {
+export function nihiiValidate(nihii: string | null | undefined): boolean | undefined {
+  if (nihii === null || nihii === undefined) return undefined
   return !!nihii.match(nihiiRegExp)
 }
 
-export function ssinFormat(ssin: string): string {
+export function ssinFormat(ssin: string | null | undefined): string | undefined {
+  if (ssin === null || ssin === undefined) return undefined
   return ssin.replace(ssinRegExp, '$1 $2 $3 $4 $5')
 }
 
-export function ssinValidate(ssin: string): boolean {
+export function ssinValidate(ssin: string | null | undefined): boolean | undefined {
+  if (ssin === null || ssin === undefined) return undefined
   return !!ssin.match(ssinRegExp)
 }
 
@@ -77,7 +84,8 @@ export function phoneNumberFormat(phoneNumber: string): string {
 }
 */
 
-export function phoneNumberFormat(phoneNumber: string): string {
+export function phoneNumberFormat(phoneNumber: string | null | undefined): string | undefined {
+  if (phoneNumber === null || phoneNumber === undefined) return undefined
   const parsedPhoneNumber = parseNumber(phoneNumber, DEFAULT_COUNTRY) as ParsedNumber
   if (Object.keys(parsedPhoneNumber).length === 0) {
     // The number is not valid, so we leave the input string as-is.
@@ -94,10 +102,8 @@ export function phoneNumberFormat(phoneNumber: string): string {
  * @see #dateEncode
  * @see #timeDecode
  */
-export function dateDecode(dateNumber: number): Date | undefined {
-  if (!dateNumber) {
-    return undefined
-  }
+export function dateDecode(dateNumber: number | null | undefined): Date | undefined {
+  if (dateNumber === null || dateNumber === undefined) return undefined
 
   if (dateNumber < 0) {
     throw new Error("We don't decode negative dates. Please make sure you have valid data.")
@@ -120,7 +126,8 @@ export function dateDecode(dateNumber: number): Date | undefined {
  * @see #timeEncode
  * @see #dateDecode
  */
-export function timeDecode(timeNumber: number): Date | undefined {
+export function timeDecode(timeNumber: number | null | undefined): Date | undefined {
+  if (timeNumber === null || timeNumber === undefined) return undefined
   return timeNumber ? parseDate(timeNumber.toString(), 'yyyyMMddHHmmss', new Date()) : undefined
 }
 
@@ -131,7 +138,8 @@ export function timeDecode(timeNumber: number): Date | undefined {
  * @see #dateDecode
  * @see #timeEncode
  */
-export function dateEncode(date: Date): number | undefined {
+export function dateEncode(date?: Date | null | undefined): number | undefined {
+  if (date === null || date === undefined) { return undefined }
   const dateStr = formatDate(date, 'yyyyMMdd').padStart(8, '19700101')
   // date is null if the field is not set
   return date ? Number(dateStr) : undefined
@@ -144,7 +152,8 @@ export function dateEncode(date: Date): number | undefined {
  * @see #timeDecode
  * @see #dateEncode
  */
-export function timeEncode(date: Date): number | undefined {
+export function timeEncode(date: Date | null | undefined): number | undefined {
+  if (date === null || date === undefined) return undefined
   return date ? Number(formatDate(date, 'yyyyMMddHHmmss')) : undefined
 }
 
@@ -153,7 +162,8 @@ export function timeEncode(date: Date): number | undefined {
  * @param value the numerical or string value to encode
  * @param unit the unit represented as a string (an empty string is also supported)
  */
-export function unit(value: number | string, unit: string | null): string {
+export function unit(value: number | string | null | undefined, unit: string | null | undefined): string | undefined {
+  if (value === null || value === undefined) return undefined
   unit = unit || ''
   let separator: string
   if (!unit || unit.startsWith('°')) {
@@ -167,37 +177,42 @@ export function unit(value: number | string, unit: string | null): string {
 
 /**
  * 0.1 + 0.2 = 0.30000000000000004. Use this function to be better at maths.
- * @param a number
+ * @param value number
  * @return the rounded number, two after the comma
  */
-export function amount(value: number): number {
-  return Number((value || 0).toFixed(2))
+export function amount(value: number | null | undefined): number | undefined {
+  if (value === null || value === undefined) return undefined
+  return Number(value.toFixed(2))
 }
 
 /**
  * A simple formatter to keep the logic across the app.
  * Input: 2.1 ; Output: 2.10€
  */
-export function money(value: number): string {
-  return [(value || 0).toFixed(2), '€'].join('')
+export function money(value: number | null | undefined): string | undefined {
+  if (value === null || value === undefined) return undefined
+  return [value.toFixed(2), '€'].join('')
 }
 
 /**
  * Transform a dictionary to a url params.
  * From { key1: value1, key2: value2, ... } returns key1=value1&key2=value2&...=...
  */
-export function toUrlParams(params: { [key: string]: string }): string {
+export function toUrlParams(params: { [key: string]: string } | null | undefined): string | undefined {
+  if (params === null || params === undefined) return undefined
   return Object.entries(params)
     .map(([key, value]) => (value ? key + '=' + value : undefined))
     .filter(Boolean)
     .join('&')
 }
 
-export function personName(person: { firstName?: string; lastName?: string }): string {
+export function personName(person: { firstName?: string; lastName?: string } | null | undefined): string | undefined {
+  if (person === null || person === undefined) return undefined
   return `${person.firstName || ''} ${person.lastName || ''}`.trim()
 }
 
-export function personNameAbbrev(person: { firstName?: string; lastName?: string }): string {
+export function personNameAbbrev(person: { firstName?: string; lastName?: string } | null | undefined): string | undefined {
+  if (person === null || person === undefined) return undefined
   const firstName = person.firstName ? person.firstName[0] + '.' : undefined
   return personName({...person, firstName})
 }
@@ -270,7 +285,8 @@ const MOMENT_TO_DATE_FNS_TOKENS: ReadonlyArray<readonly [string, string]> = [
   ['x', 'T'],
 ]
 
-export function momentFormatToDateFnsFormat(format: string): string {
+export function momentFormatToDateFnsFormat(format: string | null | undefined): string | undefined {
+  if (format === null || format === undefined) return undefined
   const parts: string[] = []
   let literalBuffer = ''
 
@@ -327,9 +343,10 @@ export function momentFormatToDateFnsFormat(format: string): string {
   return parts.join('')
 }
 
-export function toMoment(epochOrLongCalendar: number): { format: (format: string) => string } | null {
+export function toMoment(epochOrLongCalendar: number | null | undefined): { format: (format: string | null | undefined) => string | undefined } | undefined {
+  if (epochOrLongCalendar === null || epochOrLongCalendar === undefined) return undefined
   if (!epochOrLongCalendar && epochOrLongCalendar !== 0) {
-    return null
+    return undefined
   }
   const parsed = (epochOrLongCalendar >= 18000101 && epochOrLongCalendar < 25400000) ?
     parseDate('' + epochOrLongCalendar, 'yyyyMMdd', new Date()) :
@@ -337,8 +354,11 @@ export function toMoment(epochOrLongCalendar: number): { format: (format: string
       parseDate('' + epochOrLongCalendar, 'yyyyMMddHHmmss', new Date()) :
       new Date(epochOrLongCalendar)
   return {
-    format: (format: string): string => {
-      return formatDate(parsed, momentFormatToDateFnsFormat(format), {
+    format: (format: string | null | undefined): string | undefined => {
+      if (format === null || format === undefined) return undefined
+      const dateFnsFormat = momentFormatToDateFnsFormat(format)
+      if (dateFnsFormat === null || dateFnsFormat === undefined) return undefined
+      return formatDate(parsed, dateFnsFormat, {
         useAdditionalDayOfYearTokens: true,
         useAdditionalWeekYearTokens: true,
       })
