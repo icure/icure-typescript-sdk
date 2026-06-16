@@ -21,6 +21,8 @@ import { PublicKey } from '../model/PublicKey'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 import { TimingInfo } from '../model/TimingInfo'
+import { ConflictResolutionRequest } from '../model/ConflictResolutionRequest'
+import { ConflictResolutionResult } from '../model/ConflictResolutionResult'
 
 export class IccHcpartyApi {
   host: string
@@ -165,9 +167,24 @@ export class IccHcpartyApi {
    * @param limit Number of rows
    * @param collectTiming if true, include server-side filter timing information in the response
    */
-  filterHealthPartiesBy(startDocumentId?: string, limit?: number, body?: FilterChainHealthcareParty, collectTiming?: false): Promise<PaginatedListHealthcareParty>
-  filterHealthPartiesBy(startDocumentId?: string, limit?: number, body?: FilterChainHealthcareParty, collectTiming?: true): Promise<PaginatedListHealthcareParty & TimingInfo>
-  async filterHealthPartiesBy(startDocumentId?: string, limit?: number, body?: FilterChainHealthcareParty, collectTiming: boolean = false): Promise<PaginatedListHealthcareParty> {
+  filterHealthPartiesBy(
+    startDocumentId?: string,
+    limit?: number,
+    body?: FilterChainHealthcareParty,
+    collectTiming?: false
+  ): Promise<PaginatedListHealthcareParty>
+  filterHealthPartiesBy(
+    startDocumentId?: string,
+    limit?: number,
+    body?: FilterChainHealthcareParty,
+    collectTiming?: true
+  ): Promise<PaginatedListHealthcareParty & TimingInfo>
+  async filterHealthPartiesBy(
+    startDocumentId?: string,
+    limit?: number,
+    body?: FilterChainHealthcareParty,
+    collectTiming: boolean = false
+  ): Promise<PaginatedListHealthcareParty> {
     const _url =
       this.host +
       `/hcparty/filter` +
@@ -177,7 +194,18 @@ export class IccHcpartyApi {
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+    return XHR.sendCommand(
+      'POST',
+      _url,
+      headers,
+      body,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService(),
+      undefined,
+      false,
+      collectTiming ? ['x-filter-timing-*'] : []
+    )
       .then((doc) => Object.assign(new PaginatedListHealthcareParty(doc.body as JSON), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
@@ -444,8 +472,24 @@ export class IccHcpartyApi {
     const _url = this.host + `/hcparty/match` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
-      .then((doc) => Object.assign((doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
+    return XHR.sendCommand(
+      'POST',
+      _url,
+      headers,
+      _body,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService(),
+      undefined,
+      false,
+      collectTiming ? ['x-filter-timing-*'] : []
+    )
+      .then((doc) =>
+        Object.assign(
+          (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))),
+          collectTiming ? { responseHeaders: doc.responseHeaders } : {}
+        )
+      )
       .catch((err) => this.handleError(err))
   }
 
@@ -515,6 +559,103 @@ export class IccHcpartyApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new DataOwnerRegistrationSuccess(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves the ids of all the healthcare parties that currently have conflicting revisions and therefore need to
+   * be resolved.
+   * @summary List the ids of the healthcare parties that have conflicts.
+   * @return the ids of the healthcare parties with unresolved conflicts.
+   */
+  async getConflictingEntitiesIds(): Promise<Array<string>> {
+    const _url = this.host + `/hcparty/conflicts` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => doc.body as Array<string>)
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves all the conflicting revisions of the healthcare party with the given id (the current revision is not
+   * included). The returned entities are still encrypted.
+   * @summary Get the conflicting revisions of a healthcare party.
+   * @param entityId the id of the healthcare party to retrieve the conflicts for.
+   * @return the conflicting revisions of the healthcare party.
+   */
+  async getConflictsForEntity(entityId: string): Promise<Array<HealthcareParty>> {
+    const _url = this.host + `/hcparty/conflicts/${encodeURIComponent(String(entityId))}` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new HealthcareParty(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Resolves a conflict by declaring which revision of the healthcare party should be kept as winner and which
+   * conflicting revisions should be purged. The provided document must already be encrypted.
+   * @summary Declare the winning revision of a conflicting healthcare party.
+   * @param body the {@link ConflictResolutionRequest} carrying the winning revision and the conflicts to purge.
+   * @return the {@link ConflictResolutionResult} with the saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinner(body: ConflictResolutionRequest<HealthcareParty>): Promise<ConflictResolutionResult<HealthcareParty>> {
+    const _url = this.host + `/hcparty/conflicts/winner` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new ConflictResolutionResult<HealthcareParty>(doc.body, (x) => new HealthcareParty(x)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Like {@link getConflictingEntitiesIds} but targets the entities of the group with the given id.
+   * @summary List the ids of the healthcare parties that have conflicts, in the given group.
+   * @param groupId the id of the group to look into.
+   * @return the ids of the healthcare parties with unresolved conflicts in the group.
+   */
+  async getConflictingEntitiesIdsInGroup(groupId: string): Promise<Array<string>> {
+    const _url = this.host + `/hcparty/inGroup/${encodeURIComponent(String(groupId))}/conflicts` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => doc.body as Array<string>)
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Like {@link getConflictsForEntity} but targets the entity of the group with the given id.
+   * @summary Get the conflicting revisions of a healthcare party, in the given group.
+   * @param groupId the id of the group the healthcare party belongs to.
+   * @param entityId the id of the healthcare party to retrieve the conflicts for.
+   * @return the conflicting revisions of the healthcare party.
+   */
+  async getConflictsForEntityInGroup(groupId: string, entityId: string): Promise<Array<HealthcareParty>> {
+    const _url =
+      this.host +
+      `/hcparty/inGroup/${encodeURIComponent(String(groupId))}/conflicts/${encodeURIComponent(String(entityId))}` +
+      '?ts=' +
+      new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new HealthcareParty(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Like {@link declareConflictWinner} but targets the entity of the group with the given id.
+   * @summary Declare the winning revision of a conflicting healthcare party, in the given group.
+   * @param groupId the id of the group the healthcare party belongs to.
+   * @param body the {@link ConflictResolutionRequest} carrying the winning revision and the conflicts to purge.
+   * @return the {@link ConflictResolutionResult} with the saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinnerInGroup(
+    groupId: string,
+    body: ConflictResolutionRequest<HealthcareParty>
+  ): Promise<ConflictResolutionResult<HealthcareParty>> {
+    const _url = this.host + `/hcparty/inGroup/${encodeURIComponent(String(groupId))}/conflicts/winner` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new ConflictResolutionResult<HealthcareParty>(doc.body, (x) => new HealthcareParty(x)))
       .catch((err) => this.handleError(err))
   }
 }

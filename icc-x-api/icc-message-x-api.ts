@@ -3,6 +3,7 @@ import { IccCryptoXApi } from './icc-crypto-x-api'
 
 import * as models from '../icc-api/model/models'
 import { DocIdentifier, ListOfIds, Message, MessagesReadStatusUpdate, PaginatedListMessage, Patient, TimingInfo, User } from '../icc-api/model/models'
+import { cloneDeep } from './utils/collection-utils'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
@@ -692,5 +693,67 @@ export class IccMessageXApi extends IccMessageApi implements EncryptedEntityXApi
 
   setMessagesReadStatus(body?: MessagesReadStatusUpdate): never {
     throw new Error('Use withUser method')
+  }
+
+  /**
+   * Like {@link getConflictsForEntity} but additionally decrypts the conflicting revisions for the given user.
+   * @param user the current user, used to determine the data owner that will decrypt the entities.
+   * @param entityId the id of the message to retrieve the conflicts for.
+   * @return the decrypted conflicting revisions of the message.
+   */
+  getConflictsForEntityWithUser(user: models.User, entityId: string): Promise<Array<models.Message>> {
+    return super
+      .getConflictsForEntity(entityId)
+      .then((ms) => this.decrypt(ms))
+      .then((res) => res.map(({ entity }) => entity))
+  }
+
+  /**
+   * Like {@link declareConflictWinner} but encrypts the winning revision before sending it and decrypts the saved
+   * winner returned by the backend.
+   * @param user the current user, used to determine the data owner that will encrypt/decrypt the entity.
+   * @param request the {@link models.ConflictResolutionRequest} carrying the (decrypted) winning revision and the conflicts to purge.
+   * @return the {@link models.ConflictResolutionResult} with the decrypted saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinnerWithUser(
+    user: models.User,
+    request: models.ConflictResolutionRequest<models.Message>
+  ): Promise<models.ConflictResolutionResult<models.Message>> {
+    const encrypted = (await this.encrypt([cloneDeep(request.document!)]))[0]
+    const result = await super.declareConflictWinner({ ...request, document: encrypted })
+    if (result.document) result.document = (await this.decrypt([result.document]))[0].entity
+    return result
+  }
+
+  /**
+   * Like {@link getConflictsForEntityWithUser} but targets the entity of the group with the given id.
+   * @param user the current user, used to determine the data owner that will decrypt the entities.
+   * @param groupId the id of the group the message belongs to.
+   * @param entityId the id of the message to retrieve the conflicts for.
+   * @return the decrypted conflicting revisions of the message.
+   */
+  getConflictsForEntityInGroupWithUser(user: models.User, groupId: string, entityId: string): Promise<Array<models.Message>> {
+    return super
+      .getConflictsForEntityInGroup(groupId, entityId)
+      .then((ms) => this.decrypt(ms))
+      .then((res) => res.map(({ entity }) => entity))
+  }
+
+  /**
+   * Like {@link declareConflictWinnerWithUser} but targets the entity of the group with the given id.
+   * @param user the current user, used to determine the data owner that will encrypt/decrypt the entity.
+   * @param groupId the id of the group the message belongs to.
+   * @param request the {@link models.ConflictResolutionRequest} carrying the (decrypted) winning revision and the conflicts to purge.
+   * @return the {@link models.ConflictResolutionResult} with the decrypted saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinnerInGroupWithUser(
+    user: models.User,
+    groupId: string,
+    request: models.ConflictResolutionRequest<models.Message>
+  ): Promise<models.ConflictResolutionResult<models.Message>> {
+    const encrypted = (await this.encrypt([cloneDeep(request.document!)]))[0]
+    const result = await super.declareConflictWinnerInGroup(groupId, { ...request, document: encrypted })
+    if (result.document) result.document = (await this.decrypt([result.document]))[0].entity
+    return result
   }
 }

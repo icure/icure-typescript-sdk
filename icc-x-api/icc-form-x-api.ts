@@ -13,8 +13,9 @@ import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
-import { EntityWithDelegationTypeName } from './utils'
+import { EntityWithDelegationTypeName, parseEncryptedFields } from './utils'
 import { SecretIdUseOption } from './crypto/SecretIdUseOption'
+import { cloneDeep } from './utils/collection-utils'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<models.Form> {
@@ -318,5 +319,79 @@ export class IccFormXApi extends IccFormApi implements EncryptedEntityXApi<model
    */
   createDelegationDeAnonymizationMetadata(entity: models.Form, delegates: string[]): Promise<void> {
     return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: EntityWithDelegationTypeName.Form }, delegates)
+  }
+
+  /**
+   * Like {@link getConflictsForEntity} but additionally decrypts the conflicting revisions for the given user.
+   * @param user the current user, used to determine the data owner that will decrypt the entities.
+   * @param entityId the id of the form to retrieve the conflicts for.
+   * @return the decrypted conflicting revisions of the form.
+   */
+  getConflictsForEntityWithUser(user: models.User, entityId: string): Promise<Array<models.Form>> {
+    return super.getConflictsForEntity(entityId).then((fs) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user), fs))
+  }
+
+  /**
+   * Like {@link declareConflictWinner} but encrypts the winning revision before sending it and decrypts the saved
+   * winner returned by the backend.
+   * @param user the current user, used to determine the data owner that will encrypt/decrypt the entity.
+   * @param request the {@link models.ConflictResolutionRequest} carrying the (decrypted) winning revision and the conflicts to purge.
+   * @return the {@link models.ConflictResolutionResult} with the decrypted saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinnerWithUser(
+    user: models.User,
+    request: models.ConflictResolutionRequest<models.Form>
+  ): Promise<models.ConflictResolutionResult<models.Form>> {
+    const encrypted = (
+      await this.crypto.xapi.tryEncryptEntities(
+        [cloneDeep(request.document!)],
+        EntityWithDelegationTypeName.Form,
+        parseEncryptedFields([], 'Form.'),
+        false,
+        false,
+        (x) => new models.Form(x)
+      )
+    )[0]
+    const result = await super.declareConflictWinner({ ...request, document: encrypted })
+    if (result.document) result.document = (await this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user), [result.document]))[0]
+    return result
+  }
+
+  /**
+   * Like {@link getConflictsForEntityWithUser} but targets the entity of the group with the given id.
+   * @param user the current user, used to determine the data owner that will decrypt the entities.
+   * @param groupId the id of the group the form belongs to.
+   * @param entityId the id of the form to retrieve the conflicts for.
+   * @return the decrypted conflicting revisions of the form.
+   */
+  getConflictsForEntityInGroupWithUser(user: models.User, groupId: string, entityId: string): Promise<Array<models.Form>> {
+    return super.getConflictsForEntityInGroup(groupId, entityId).then((fs) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user), fs))
+  }
+
+  /**
+   * Like {@link declareConflictWinnerWithUser} but targets the entity of the group with the given id.
+   * @param user the current user, used to determine the data owner that will encrypt/decrypt the entity.
+   * @param groupId the id of the group the form belongs to.
+   * @param request the {@link models.ConflictResolutionRequest} carrying the (decrypted) winning revision and the conflicts to purge.
+   * @return the {@link models.ConflictResolutionResult} with the decrypted saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinnerInGroupWithUser(
+    user: models.User,
+    groupId: string,
+    request: models.ConflictResolutionRequest<models.Form>
+  ): Promise<models.ConflictResolutionResult<models.Form>> {
+    const encrypted = (
+      await this.crypto.xapi.tryEncryptEntities(
+        [cloneDeep(request.document!)],
+        EntityWithDelegationTypeName.Form,
+        parseEncryptedFields([], 'Form.'),
+        false,
+        false,
+        (x) => new models.Form(x)
+      )
+    )[0]
+    const result = await super.declareConflictWinnerInGroup(groupId, { ...request, document: encrypted })
+    if (result.document) result.document = (await this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user), [result.document]))[0]
+    return result
   }
 }

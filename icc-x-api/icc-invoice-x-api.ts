@@ -3,6 +3,7 @@ import { IccCryptoXApi } from './icc-crypto-x-api'
 
 import * as models from '../icc-api/model/models'
 import { Invoice } from '../icc-api/model/models'
+import { cloneDeep } from './utils/collection-utils'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
@@ -383,5 +384,61 @@ export class IccInvoiceXApi extends IccInvoiceApi implements EncryptedEntityXApi
    */
   createDelegationDeAnonymizationMetadata(entity: models.Invoice, delegates: string[]): Promise<void> {
     return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: EntityWithDelegationTypeName.Invoice }, delegates)
+  }
+
+  /**
+   * Like {@link getConflictsForEntity} but additionally decrypts the conflicting revisions for the given user.
+   * @param user the current user, used to determine the data owner that will decrypt the entities.
+   * @param entityId the id of the invoice to retrieve the conflicts for.
+   * @return the decrypted conflicting revisions of the invoice.
+   */
+  getConflictsForEntityWithUser(user: models.User, entityId: string): Promise<Array<models.Invoice>> {
+    return super.getConflictsForEntity(entityId).then((is) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user), is))
+  }
+
+  /**
+   * Like {@link declareConflictWinner} but encrypts the winning revision before sending it and decrypts the saved
+   * winner returned by the backend.
+   * @param user the current user, used to determine the data owner that will encrypt/decrypt the entity.
+   * @param request the {@link models.ConflictResolutionRequest} carrying the (decrypted) winning revision and the conflicts to purge.
+   * @return the {@link models.ConflictResolutionResult} with the decrypted saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinnerWithUser(
+    user: models.User,
+    request: models.ConflictResolutionRequest<models.Invoice>
+  ): Promise<models.ConflictResolutionResult<models.Invoice>> {
+    const encrypted = (await this.encrypt(user, [cloneDeep(request.document!)]))[0]
+    const result = await super.declareConflictWinner({ ...request, document: encrypted })
+    if (result.document) result.document = (await this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user), [result.document]))[0]
+    return result
+  }
+
+  /**
+   * Like {@link getConflictsForEntityWithUser} but targets the entity of the group with the given id.
+   * @param user the current user, used to determine the data owner that will decrypt the entities.
+   * @param groupId the id of the group the invoice belongs to.
+   * @param entityId the id of the invoice to retrieve the conflicts for.
+   * @return the decrypted conflicting revisions of the invoice.
+   */
+  getConflictsForEntityInGroupWithUser(user: models.User, groupId: string, entityId: string): Promise<Array<models.Invoice>> {
+    return super.getConflictsForEntityInGroup(groupId, entityId).then((is) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user), is))
+  }
+
+  /**
+   * Like {@link declareConflictWinnerWithUser} but targets the entity of the group with the given id.
+   * @param user the current user, used to determine the data owner that will encrypt/decrypt the entity.
+   * @param groupId the id of the group the invoice belongs to.
+   * @param request the {@link models.ConflictResolutionRequest} carrying the (decrypted) winning revision and the conflicts to purge.
+   * @return the {@link models.ConflictResolutionResult} with the decrypted saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinnerInGroupWithUser(
+    user: models.User,
+    groupId: string,
+    request: models.ConflictResolutionRequest<models.Invoice>
+  ): Promise<models.ConflictResolutionResult<models.Invoice>> {
+    const encrypted = (await this.encrypt(user, [cloneDeep(request.document!)]))[0]
+    const result = await super.declareConflictWinnerInGroup(groupId, { ...request, document: encrypted })
+    if (result.document) result.document = (await this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user), [result.document]))[0]
+    return result
   }
 }

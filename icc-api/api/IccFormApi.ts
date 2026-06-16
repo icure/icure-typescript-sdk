@@ -24,6 +24,8 @@ import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { MinimalEntityBulkShareResult } from '../model/requests/MinimalEntityBulkShareResult'
 import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
 import { PaginatedListForm } from '../model/PaginatedListForm'
+import { ConflictResolutionRequest } from '../model/ConflictResolutionRequest'
+import { ConflictResolutionResult } from '../model/ConflictResolutionResult'
 
 export class IccFormApi {
   host: string
@@ -618,7 +620,12 @@ export class IccFormApi {
    * @param loadLayout whether to load the layout of the form templates
    * @param raw whether to use raw mapping for the form templates
    */
-  async getFormTemplatesBySpecialtyInGroup(groupId: string, specialityCode: string, loadLayout?: boolean, raw?: boolean): Promise<Array<FormTemplate>> {
+  async getFormTemplatesBySpecialtyInGroup(
+    groupId: string,
+    specialityCode: string,
+    loadLayout?: boolean,
+    raw?: boolean
+  ): Promise<Array<FormTemplate>> {
     let _body = null
 
     const _url =
@@ -660,7 +667,9 @@ export class IccFormApi {
 
     const _url =
       this.host +
-      `/form/template/inGroup/${encodeURIComponent(String(groupId))}/${encodeURIComponent(String(formTemplateId))}?rev=${encodeURIComponent(String(rev))}` +
+      `/form/template/inGroup/${encodeURIComponent(String(groupId))}/${encodeURIComponent(String(formTemplateId))}?rev=${encodeURIComponent(
+        String(rev)
+      )}` +
       '&ts=' +
       new Date().getTime()
     let headers = await this.headers
@@ -680,11 +689,7 @@ export class IccFormApi {
     let _body = null
     _body = body
 
-    const _url =
-      this.host +
-      `/form/template/inGroup/${encodeURIComponent(String(groupId))}` +
-      '?ts=' +
-      new Date().getTime()
+    const _url = this.host + `/form/template/inGroup/${encodeURIComponent(String(groupId))}` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
@@ -816,7 +821,15 @@ export class IccFormApi {
     const _url = this.host + `/form/template/inGroup/${encodeURIComponent(String(groupId))}/delete/batch` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, { ids: formTemplateIdsAndRevs }, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand(
+      'POST',
+      _url,
+      headers,
+      { ids: formTemplateIdsAndRevs },
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
       .catch((err) => this.handleError(err))
   }
@@ -830,7 +843,15 @@ export class IccFormApi {
     const _url = this.host + `/form/template/inGroup/${encodeURIComponent(String(groupId))}/undelete/batch` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, { ids: formTemplateIdsAndRevs }, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand(
+      'POST',
+      _url,
+      headers,
+      { ids: formTemplateIdsAndRevs },
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
       .then((doc) => (doc.body as Array<JSON>).map((it) => new FormTemplate(it)))
       .catch((err) => this.handleError(err))
   }
@@ -844,7 +865,15 @@ export class IccFormApi {
     const _url = this.host + `/form/template/inGroup/${encodeURIComponent(String(groupId))}/purge/batch` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, { ids: formTemplateIdsAndRevs }, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand(
+      'POST',
+      _url,
+      headers,
+      { ids: formTemplateIdsAndRevs },
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
       .then((doc) => (doc.body as Array<JSON>).map((it) => new DocIdentifier(it)))
       .catch((err) => this.handleError(err))
   }
@@ -870,6 +899,100 @@ export class IccFormApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((x) => new MinimalEntityBulkShareResult(x)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves the ids of all the forms that currently have conflicting revisions and therefore need to
+   * be resolved.
+   * @summary List the ids of the forms that have conflicts.
+   * @return the ids of the forms with unresolved conflicts.
+   */
+  async getConflictingEntitiesIds(): Promise<Array<string>> {
+    const _url = this.host + `/form/conflicts` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => doc.body as Array<string>)
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves all the conflicting revisions of the form with the given id (the current revision is not
+   * included). The returned entities are still encrypted.
+   * @summary Get the conflicting revisions of a form.
+   * @param entityId the id of the form to retrieve the conflicts for.
+   * @return the conflicting revisions of the form.
+   */
+  async getConflictsForEntity(entityId: string): Promise<Array<Form>> {
+    const _url = this.host + `/form/conflicts/${encodeURIComponent(String(entityId))}` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Form(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Resolves a conflict by declaring which revision of the form should be kept as winner and which
+   * conflicting revisions should be purged. The provided document must already be encrypted.
+   * @summary Declare the winning revision of a conflicting form.
+   * @param body the {@link ConflictResolutionRequest} carrying the winning revision and the conflicts to purge.
+   * @return the {@link ConflictResolutionResult} with the saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinner(body: ConflictResolutionRequest<Form>): Promise<ConflictResolutionResult<Form>> {
+    const _url = this.host + `/form/conflicts/winner` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new ConflictResolutionResult<Form>(doc.body, (x) => new Form(x)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Like {@link getConflictingEntitiesIds} but targets the entities of the group with the given id.
+   * @summary List the ids of the forms that have conflicts, in the given group.
+   * @param groupId the id of the group to look into.
+   * @return the ids of the forms with unresolved conflicts in the group.
+   */
+  async getConflictingEntitiesIdsInGroup(groupId: string): Promise<Array<string>> {
+    const _url = this.host + `/form/inGroup/${encodeURIComponent(String(groupId))}/conflicts` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => doc.body as Array<string>)
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Like {@link getConflictsForEntity} but targets the entity of the group with the given id.
+   * @summary Get the conflicting revisions of a form, in the given group.
+   * @param groupId the id of the group the form belongs to.
+   * @param entityId the id of the form to retrieve the conflicts for.
+   * @return the conflicting revisions of the form.
+   */
+  async getConflictsForEntityInGroup(groupId: string, entityId: string): Promise<Array<Form>> {
+    const _url =
+      this.host +
+      `/form/inGroup/${encodeURIComponent(String(groupId))}/conflicts/${encodeURIComponent(String(entityId))}` +
+      '?ts=' +
+      new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Form(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Like {@link declareConflictWinner} but targets the entity of the group with the given id.
+   * @summary Declare the winning revision of a conflicting form, in the given group.
+   * @param groupId the id of the group the form belongs to.
+   * @param body the {@link ConflictResolutionRequest} carrying the winning revision and the conflicts to purge.
+   * @return the {@link ConflictResolutionResult} with the saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinnerInGroup(groupId: string, body: ConflictResolutionRequest<Form>): Promise<ConflictResolutionResult<Form>> {
+    const _url = this.host + `/form/inGroup/${encodeURIComponent(String(groupId))}/conflicts/winner` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new ConflictResolutionResult<Form>(doc.body, (x) => new Form(x)))
       .catch((err) => this.handleError(err))
   }
 }

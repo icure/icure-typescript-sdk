@@ -23,6 +23,8 @@ import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-ap
 import { iccRestApiPath } from './IccRestApiPath'
 import { ListOfIds } from '../model/ListOfIds'
 import { TimingInfo } from '../model/TimingInfo'
+import { ConflictResolutionRequest } from '../model/ConflictResolutionRequest'
+import { ConflictResolutionResult } from '../model/ConflictResolutionResult'
 
 export class IccUserApi {
   host: string
@@ -216,7 +218,18 @@ export class IccUserApi {
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+    return XHR.sendCommand(
+      'POST',
+      _url,
+      headers,
+      _body,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService(),
+      undefined,
+      false,
+      collectTiming ? ['x-filter-timing-*'] : []
+    )
       .then((doc) => Object.assign(new PaginatedListUser(doc.body as JSON), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
@@ -230,9 +243,27 @@ export class IccUserApi {
    * @param limit Number of rows
    * @param collectTiming if true, include server-side filter timing information in the response
    */
-  filterUsersInGroupBy(groupId: string, startDocumentId?: string, limit?: number, body?: FilterChainUser, collectTiming?: false): Promise<PaginatedListUser>
-  filterUsersInGroupBy(groupId: string, startDocumentId?: string, limit?: number, body?: FilterChainUser, collectTiming?: true): Promise<PaginatedListUser & TimingInfo>
-  filterUsersInGroupBy(groupId: string, startDocumentId?: string, limit?: number, body?: FilterChainUser, collectTiming: boolean = false): Promise<PaginatedListUser> {
+  filterUsersInGroupBy(
+    groupId: string,
+    startDocumentId?: string,
+    limit?: number,
+    body?: FilterChainUser,
+    collectTiming?: false
+  ): Promise<PaginatedListUser>
+  filterUsersInGroupBy(
+    groupId: string,
+    startDocumentId?: string,
+    limit?: number,
+    body?: FilterChainUser,
+    collectTiming?: true
+  ): Promise<PaginatedListUser & TimingInfo>
+  filterUsersInGroupBy(
+    groupId: string,
+    startDocumentId?: string,
+    limit?: number,
+    body?: FilterChainUser,
+    collectTiming: boolean = false
+  ): Promise<PaginatedListUser> {
     let _body = null
     _body = body
 
@@ -245,7 +276,18 @@ export class IccUserApi {
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+    return XHR.sendCommand(
+      'POST',
+      _url,
+      headers,
+      _body,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService(),
+      undefined,
+      false,
+      collectTiming ? ['x-filter-timing-*'] : []
+    )
       .then((doc) => Object.assign(new PaginatedListUser(doc.body as JSON), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
@@ -556,8 +598,24 @@ export class IccUserApi {
     const _url = this.host + `/user/match` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
-      .then((doc) => Object.assign((doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
+    return XHR.sendCommand(
+      'POST',
+      _url,
+      headers,
+      _body,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService(),
+      undefined,
+      false,
+      collectTiming ? ['x-filter-timing-*'] : []
+    )
+      .then((doc) =>
+        Object.assign(
+          (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))),
+          collectTiming ? { responseHeaders: doc.responseHeaders } : {}
+        )
+      )
       .catch((err) => this.handleError(err))
   }
 
@@ -651,7 +709,6 @@ export class IccUserApi {
       .catch((err) => this.handleError(err))
   }
 
-
   disable2fa(userId: string): Promise<void> {
     const _url = this.host + `/user/${encodeURIComponent(String(userId))}/2fa` + '?ts=' + new Date().getTime()
     let headers = this.headers
@@ -670,6 +727,51 @@ export class IccUserApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new User(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves the ids of all the users that currently have conflicting revisions and therefore need to
+   * be resolved.
+   * @summary List the ids of the users that have conflicts.
+   * @return the ids of the users with unresolved conflicts.
+   */
+  async getConflictingEntitiesIds(): Promise<Array<string>> {
+    const _url = this.host + `/user/conflicts` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => doc.body as Array<string>)
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves all the conflicting revisions of the user with the given id (the current revision is not
+   * included). The returned entities are still encrypted.
+   * @summary Get the conflicting revisions of a user.
+   * @param entityId the id of the user to retrieve the conflicts for.
+   * @return the conflicting revisions of the user.
+   */
+  async getConflictsForEntity(entityId: string): Promise<Array<User>> {
+    const _url = this.host + `/user/conflicts/${encodeURIComponent(String(entityId))}` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new User(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Resolves a conflict by declaring which revision of the user should be kept as winner and which
+   * conflicting revisions should be purged. The provided document must already be encrypted.
+   * @summary Declare the winning revision of a conflicting user.
+   * @param body the {@link ConflictResolutionRequest} carrying the winning revision and the conflicts to purge.
+   * @return the {@link ConflictResolutionResult} with the saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinner(body: ConflictResolutionRequest<User>): Promise<ConflictResolutionResult<User>> {
+    const _url = this.host + `/user/conflicts/winner` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new ConflictResolutionResult<User>(doc.body, (x) => new User(x)))
       .catch((err) => this.handleError(err))
   }
 }

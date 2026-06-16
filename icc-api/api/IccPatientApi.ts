@@ -26,6 +26,8 @@ import { iccRestApiPath } from './IccRestApiPath'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
 import { TimingInfo } from '../model/TimingInfo'
+import { ConflictResolutionRequest } from '../model/ConflictResolutionRequest'
+import { ConflictResolutionResult } from '../model/ConflictResolutionResult'
 
 export class IccPatientApi {
   host: string
@@ -172,8 +174,26 @@ export class IccPatientApi {
    * @param desc Descending
    * @param collectTiming if true, include server-side filter timing information in the response
    */
-  filterPatientsBy(startKey?: string, startDocumentId?: string, limit?: number, skip?: number, sort?: string, desc?: boolean, body?: FilterChainPatient, collectTiming?: false): Promise<PaginatedListPatient>
-  filterPatientsBy(startKey?: string, startDocumentId?: string, limit?: number, skip?: number, sort?: string, desc?: boolean, body?: FilterChainPatient, collectTiming?: true): Promise<PaginatedListPatient & TimingInfo>
+  filterPatientsBy(
+    startKey?: string,
+    startDocumentId?: string,
+    limit?: number,
+    skip?: number,
+    sort?: string,
+    desc?: boolean,
+    body?: FilterChainPatient,
+    collectTiming?: false
+  ): Promise<PaginatedListPatient>
+  filterPatientsBy(
+    startKey?: string,
+    startDocumentId?: string,
+    limit?: number,
+    skip?: number,
+    sort?: string,
+    desc?: boolean,
+    body?: FilterChainPatient,
+    collectTiming?: true
+  ): Promise<PaginatedListPatient & TimingInfo>
   async filterPatientsBy(
     startKey?: string,
     startDocumentId?: string,
@@ -200,7 +220,18 @@ export class IccPatientApi {
       (desc ? '&desc=' + encodeURIComponent(String(desc)) : '')
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+    return XHR.sendCommand(
+      'POST',
+      _url,
+      headers,
+      _body,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService(),
+      undefined,
+      false,
+      collectTiming ? ['x-filter-timing-*'] : []
+    )
       .then((doc) => Object.assign(new PaginatedListPatient(doc.body as JSON), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
@@ -723,8 +754,24 @@ export class IccPatientApi {
     const _url = this.host + `/patient/match` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
-      .then((doc) => Object.assign((doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
+    return XHR.sendCommand(
+      'POST',
+      _url,
+      headers,
+      body,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService(),
+      undefined,
+      false,
+      collectTiming ? ['x-filter-timing-*'] : []
+    )
+      .then((doc) =>
+        Object.assign(
+          (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))),
+          collectTiming ? { responseHeaders: doc.responseHeaders } : {}
+        )
+      )
       .catch((err) => this.handleError(err))
   }
 
@@ -863,6 +910,100 @@ export class IccPatientApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Patient(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves the ids of all the patients that currently have conflicting revisions and therefore need to
+   * be resolved.
+   * @summary List the ids of the patients that have conflicts.
+   * @return the ids of the patients with unresolved conflicts.
+   */
+  async getConflictingEntitiesIds(): Promise<Array<string>> {
+    const _url = this.host + `/patient/conflicts` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => doc.body as Array<string>)
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves all the conflicting revisions of the patient with the given id (the current revision is not
+   * included). The returned entities are still encrypted.
+   * @summary Get the conflicting revisions of a patient.
+   * @param entityId the id of the patient to retrieve the conflicts for.
+   * @return the conflicting revisions of the patient.
+   */
+  async getConflictsForEntity(entityId: string): Promise<Array<Patient>> {
+    const _url = this.host + `/patient/conflicts/${encodeURIComponent(String(entityId))}` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Patient(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Resolves a conflict by declaring which revision of the patient should be kept as winner and which
+   * conflicting revisions should be purged. The provided document must already be encrypted.
+   * @summary Declare the winning revision of a conflicting patient.
+   * @param body the {@link ConflictResolutionRequest} carrying the winning revision and the conflicts to purge.
+   * @return the {@link ConflictResolutionResult} with the saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinner(body: ConflictResolutionRequest<Patient>): Promise<ConflictResolutionResult<Patient>> {
+    const _url = this.host + `/patient/conflicts/winner` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new ConflictResolutionResult<Patient>(doc.body, (x) => new Patient(x)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Like {@link getConflictingEntitiesIds} but targets the entities of the group with the given id.
+   * @summary List the ids of the patients that have conflicts, in the given group.
+   * @param groupId the id of the group to look into.
+   * @return the ids of the patients with unresolved conflicts in the group.
+   */
+  async getConflictingEntitiesIdsInGroup(groupId: string): Promise<Array<string>> {
+    const _url = this.host + `/patient/inGroup/${encodeURIComponent(String(groupId))}/conflicts` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => doc.body as Array<string>)
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Like {@link getConflictsForEntity} but targets the entity of the group with the given id.
+   * @summary Get the conflicting revisions of a patient, in the given group.
+   * @param groupId the id of the group the patient belongs to.
+   * @param entityId the id of the patient to retrieve the conflicts for.
+   * @return the conflicting revisions of the patient.
+   */
+  async getConflictsForEntityInGroup(groupId: string, entityId: string): Promise<Array<Patient>> {
+    const _url =
+      this.host +
+      `/patient/inGroup/${encodeURIComponent(String(groupId))}/conflicts/${encodeURIComponent(String(entityId))}` +
+      '?ts=' +
+      new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Patient(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Like {@link declareConflictWinner} but targets the entity of the group with the given id.
+   * @summary Declare the winning revision of a conflicting patient, in the given group.
+   * @param groupId the id of the group the patient belongs to.
+   * @param body the {@link ConflictResolutionRequest} carrying the winning revision and the conflicts to purge.
+   * @return the {@link ConflictResolutionResult} with the saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinnerInGroup(groupId: string, body: ConflictResolutionRequest<Patient>): Promise<ConflictResolutionResult<Patient>> {
+    const _url = this.host + `/patient/inGroup/${encodeURIComponent(String(groupId))}/conflicts/winner` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new ConflictResolutionResult<Patient>(doc.body, (x) => new Patient(x)))
       .catch((err) => this.handleError(err))
   }
 }
