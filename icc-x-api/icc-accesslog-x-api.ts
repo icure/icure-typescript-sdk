@@ -586,4 +586,60 @@ export class IccAccesslogXApi extends IccAccesslogApi implements EncryptedEntity
       delegates
     )
   }
+
+  /**
+   * Like {@link getConflictsForEntity} but additionally decrypts the conflicting revisions for the given user.
+   * @param user the current user, used to determine the data owner that will decrypt the entities.
+   * @param entityId the id of the access log to retrieve the conflicts for.
+   * @return the decrypted conflicting revisions of the access log.
+   */
+  getConflictsForEntityWithUser(user: models.User, entityId: string): Promise<Array<models.AccessLog>> {
+    return super.getConflictsForEntity(entityId).then((als) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user), als))
+  }
+
+  /**
+   * Like {@link declareConflictWinner} but encrypts the winning revision before sending it and decrypts the saved
+   * winner returned by the backend.
+   * @param user the current user, used to determine the data owner that will encrypt/decrypt the entity.
+   * @param request the {@link models.ConflictResolutionRequest} carrying the (decrypted) winning revision and the conflicts to purge.
+   * @return the {@link models.ConflictResolutionResult} with the decrypted saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinnerWithUser(
+    user: models.User,
+    request: models.ConflictResolutionRequest<models.AccessLog>
+  ): Promise<models.ConflictResolutionResult<models.AccessLog>> {
+    const encrypted = (await this.encrypt(user, [cloneDeep(request.document!)]))[0]
+    const result = await super.declareConflictWinner({ ...request, document: encrypted })
+    if (result.document) result.document = (await this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user), [result.document]))[0]
+    return result
+  }
+
+  /**
+   * Like {@link getConflictsForEntityWithUser} but targets the entity of the group with the given id.
+   * @param user the current user, used to determine the data owner that will decrypt the entities.
+   * @param groupId the id of the group the access log belongs to.
+   * @param entityId the id of the access log to retrieve the conflicts for.
+   * @return the decrypted conflicting revisions of the access log.
+   */
+  getConflictsForEntityInGroupWithUser(user: models.User, groupId: string, entityId: string): Promise<Array<models.AccessLog>> {
+    return super.getConflictsForEntityInGroup(groupId, entityId).then((als) => this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user), als))
+  }
+
+  /**
+   * Like {@link declareConflictWinnerWithUser} but targets the entity of the group with the given id.
+   * @param user the current user, used to determine the data owner that will encrypt/decrypt the entity.
+   * @param groupId the id of the group the access log belongs to.
+   * @param request the {@link models.ConflictResolutionRequest} carrying the (decrypted) winning revision and the conflicts to purge.
+   * @return the {@link models.ConflictResolutionResult} with the decrypted saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinnerInGroupWithUser(
+    user: models.User,
+    groupId: string,
+    request: models.ConflictResolutionRequest<models.AccessLog>
+  ): Promise<models.ConflictResolutionResult<models.AccessLog>> {
+    const encrypted = (await this.encrypt(user, [cloneDeep(request.document!)]))[0]
+    const result = await super.declareConflictWinnerInGroup(groupId, { ...request, document: encrypted })
+    if (result.document) result.document = (await this.decrypt(this.dataOwnerApi.getDataOwnerIdOf(user), [result.document]))[0]
+    return result
+  }
 }

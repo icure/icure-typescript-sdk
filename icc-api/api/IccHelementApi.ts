@@ -25,6 +25,8 @@ import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { MinimalEntityBulkShareResult } from '../model/requests/MinimalEntityBulkShareResult'
 import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
 import { TimingInfo } from '../model/TimingInfo'
+import { ConflictResolutionRequest } from '../model/ConflictResolutionRequest'
+import { ConflictResolutionResult } from '../model/ConflictResolutionResult'
 
 export class IccHelementApi {
   host: string
@@ -133,9 +135,24 @@ export class IccHelementApi {
    * @param limit Number of rows
    * @param collectTiming if true, include server-side filter timing information in the response
    */
-  filterHealthElementsBy(startDocumentId?: string, limit?: number, body?: FilterChainHealthElement, collectTiming?: false): Promise<PaginatedListHealthElement>
-  filterHealthElementsBy(startDocumentId?: string, limit?: number, body?: FilterChainHealthElement, collectTiming?: true): Promise<PaginatedListHealthElement & TimingInfo>
-  async filterHealthElementsBy(startDocumentId?: string, limit?: number, body?: FilterChainHealthElement, collectTiming: boolean = false): Promise<PaginatedListHealthElement> {
+  filterHealthElementsBy(
+    startDocumentId?: string,
+    limit?: number,
+    body?: FilterChainHealthElement,
+    collectTiming?: false
+  ): Promise<PaginatedListHealthElement>
+  filterHealthElementsBy(
+    startDocumentId?: string,
+    limit?: number,
+    body?: FilterChainHealthElement,
+    collectTiming?: true
+  ): Promise<PaginatedListHealthElement & TimingInfo>
+  async filterHealthElementsBy(
+    startDocumentId?: string,
+    limit?: number,
+    body?: FilterChainHealthElement,
+    collectTiming: boolean = false
+  ): Promise<PaginatedListHealthElement> {
     let _body = null
     _body = body
 
@@ -148,7 +165,18 @@ export class IccHelementApi {
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+    return XHR.sendCommand(
+      'POST',
+      _url,
+      headers,
+      _body,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService(),
+      undefined,
+      false,
+      collectTiming ? ['x-filter-timing-*'] : []
+    )
       .then((doc) => Object.assign(new PaginatedListHealthElement(doc.body as JSON), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
@@ -328,8 +356,24 @@ export class IccHelementApi {
     const _url = this.host + `/helement/match` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
-      .then((doc) => Object.assign((doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
+    return XHR.sendCommand(
+      'POST',
+      _url,
+      headers,
+      body,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService(),
+      undefined,
+      false,
+      collectTiming ? ['x-filter-timing-*'] : []
+    )
+      .then((doc) =>
+        Object.assign(
+          (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))),
+          collectTiming ? { responseHeaders: doc.responseHeaders } : {}
+        )
+      )
       .catch((err) => this.handleError(err))
   }
 
@@ -388,6 +432,103 @@ export class IccHelementApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((x) => new MinimalEntityBulkShareResult(x)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves the ids of all the health elements that currently have conflicting revisions and therefore need to
+   * be resolved.
+   * @summary List the ids of the health elements that have conflicts.
+   * @return the ids of the health elements with unresolved conflicts.
+   */
+  async getConflictingEntitiesIds(): Promise<Array<string>> {
+    const _url = this.host + `/helement/conflicts` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => doc.body as Array<string>)
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves all the conflicting revisions of the health element with the given id (the current revision is not
+   * included). The returned entities are still encrypted.
+   * @summary Get the conflicting revisions of a health element.
+   * @param entityId the id of the health element to retrieve the conflicts for.
+   * @return the conflicting revisions of the health element.
+   */
+  async getConflictsForEntity(entityId: string): Promise<Array<HealthElement>> {
+    const _url = this.host + `/helement/conflicts/${encodeURIComponent(String(entityId))}` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new HealthElement(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Resolves a conflict by declaring which revision of the health element should be kept as winner and which
+   * conflicting revisions should be purged. The provided document must already be encrypted.
+   * @summary Declare the winning revision of a conflicting health element.
+   * @param body the {@link ConflictResolutionRequest} carrying the winning revision and the conflicts to purge.
+   * @return the {@link ConflictResolutionResult} with the saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinner(body: ConflictResolutionRequest<HealthElement>): Promise<ConflictResolutionResult<HealthElement>> {
+    const _url = this.host + `/helement/conflicts/winner` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new ConflictResolutionResult<HealthElement>(doc.body, (x) => new HealthElement(x)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Like {@link getConflictingEntitiesIds} but targets the entities of the group with the given id.
+   * @summary List the ids of the health elements that have conflicts, in the given group.
+   * @param groupId the id of the group to look into.
+   * @return the ids of the health elements with unresolved conflicts in the group.
+   */
+  async getConflictingEntitiesIdsInGroup(groupId: string): Promise<Array<string>> {
+    const _url = this.host + `/helement/inGroup/${encodeURIComponent(String(groupId))}/conflicts` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => doc.body as Array<string>)
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Like {@link getConflictsForEntity} but targets the entity of the group with the given id.
+   * @summary Get the conflicting revisions of a health element, in the given group.
+   * @param groupId the id of the group the health element belongs to.
+   * @param entityId the id of the health element to retrieve the conflicts for.
+   * @return the conflicting revisions of the health element.
+   */
+  async getConflictsForEntityInGroup(groupId: string, entityId: string): Promise<Array<HealthElement>> {
+    const _url =
+      this.host +
+      `/helement/inGroup/${encodeURIComponent(String(groupId))}/conflicts/${encodeURIComponent(String(entityId))}` +
+      '?ts=' +
+      new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new HealthElement(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Like {@link declareConflictWinner} but targets the entity of the group with the given id.
+   * @summary Declare the winning revision of a conflicting health element, in the given group.
+   * @param groupId the id of the group the health element belongs to.
+   * @param body the {@link ConflictResolutionRequest} carrying the winning revision and the conflicts to purge.
+   * @return the {@link ConflictResolutionResult} with the saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinnerInGroup(
+    groupId: string,
+    body: ConflictResolutionRequest<HealthElement>
+  ): Promise<ConflictResolutionResult<HealthElement>> {
+    const _url = this.host + `/helement/inGroup/${encodeURIComponent(String(groupId))}/conflicts/winner` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new ConflictResolutionResult<HealthElement>(doc.body, (x) => new HealthElement(x)))
       .catch((err) => this.handleError(err))
   }
 }

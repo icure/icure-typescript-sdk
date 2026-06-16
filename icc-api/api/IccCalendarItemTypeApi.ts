@@ -16,6 +16,8 @@ import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-ap
 import { iccRestApiPath } from './IccRestApiPath'
 import { ListOfIds } from '../model/ListOfIds'
 import { PaginatedListCalendarItemType } from '../model/PaginatedListCalendarItemType'
+import { ConflictResolutionRequest } from '../model/ConflictResolutionRequest'
+import { ConflictResolutionResult } from '../model/ConflictResolutionResult'
 
 export class IccCalendarItemTypeApi {
   host: string
@@ -169,6 +171,51 @@ export class IccCalendarItemTypeApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new CalendarItemType(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves the ids of all the calendar item types that currently have conflicting revisions and therefore need to
+   * be resolved.
+   * @summary List the ids of the calendar item types that have conflicts.
+   * @return the ids of the calendar item types with unresolved conflicts.
+   */
+  async getConflictingEntitiesIds(): Promise<Array<string>> {
+    const _url = this.host + `/calendarItemType/conflicts` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => doc.body as Array<string>)
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves all the conflicting revisions of the calendar item type with the given id (the current revision is not
+   * included). The returned entities are still encrypted.
+   * @summary Get the conflicting revisions of a calendar item type.
+   * @param entityId the id of the calendar item type to retrieve the conflicts for.
+   * @return the conflicting revisions of the calendar item type.
+   */
+  async getConflictsForEntity(entityId: string): Promise<Array<CalendarItemType>> {
+    const _url = this.host + `/calendarItemType/conflicts/${encodeURIComponent(String(entityId))}` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new CalendarItemType(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Resolves a conflict by declaring which revision of the calendar item type should be kept as winner and which
+   * conflicting revisions should be purged. The provided document must already be encrypted.
+   * @summary Declare the winning revision of a conflicting calendar item type.
+   * @param body the {@link ConflictResolutionRequest} carrying the winning revision and the conflicts to purge.
+   * @return the {@link ConflictResolutionResult} with the saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinner(body: ConflictResolutionRequest<CalendarItemType>): Promise<ConflictResolutionResult<CalendarItemType>> {
+    const _url = this.host + `/calendarItemType/conflicts/winner` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new ConflictResolutionResult<CalendarItemType>(doc.body, (x) => new CalendarItemType(x)))
       .catch((err) => this.handleError(err))
   }
 }

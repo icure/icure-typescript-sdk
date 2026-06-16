@@ -15,9 +15,11 @@ import { ListOfIds } from '../model/ListOfIds'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 import { PaginatedListInsurance } from '../model/PaginatedListInsurance'
-import { Insurance } from "../model/Insurance"
-import {AbstractFilterInsurance} from "../model/AbstractFilterInsurance"
+import { Insurance } from '../model/Insurance'
+import { AbstractFilterInsurance } from '../model/AbstractFilterInsurance'
 import { TimingInfo } from '../model/TimingInfo'
+import { ConflictResolutionRequest } from '../model/ConflictResolutionRequest'
+import { ConflictResolutionResult } from '../model/ConflictResolutionResult'
 
 export class IccInsuranceApi {
   host: string
@@ -217,8 +219,118 @@ export class IccInsuranceApi {
     const _url = this.host + `/insurance/inGroup/${encodeURIComponent(String(groupId))}/match` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
-      .then((doc) => Object.assign((doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
+    return XHR.sendCommand(
+      'POST',
+      _url,
+      headers,
+      _body,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService(),
+      undefined,
+      false,
+      collectTiming ? ['x-filter-timing-*'] : []
+    )
+      .then((doc) =>
+        Object.assign(
+          (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))),
+          collectTiming ? { responseHeaders: doc.responseHeaders } : {}
+        )
+      )
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves the ids of all the insurances that currently have conflicting revisions and therefore need to
+   * be resolved.
+   * @summary List the ids of the insurances that have conflicts.
+   * @return the ids of the insurances with unresolved conflicts.
+   */
+  async getConflictingEntitiesIds(): Promise<Array<string>> {
+    const _url = this.host + `/insurance/conflicts` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => doc.body as Array<string>)
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves all the conflicting revisions of the insurance with the given id (the current revision is not
+   * included). The returned entities are still encrypted.
+   * @summary Get the conflicting revisions of an insurance.
+   * @param entityId the id of the insurance to retrieve the conflicts for.
+   * @return the conflicting revisions of the insurance.
+   */
+  async getConflictsForEntity(entityId: string): Promise<Array<Insurance>> {
+    const _url = this.host + `/insurance/conflicts/${encodeURIComponent(String(entityId))}` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Insurance(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Resolves a conflict by declaring which revision of the insurance should be kept as winner and which
+   * conflicting revisions should be purged. The provided document must already be encrypted.
+   * @summary Declare the winning revision of a conflicting insurance.
+   * @param body the {@link ConflictResolutionRequest} carrying the winning revision and the conflicts to purge.
+   * @return the {@link ConflictResolutionResult} with the saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinner(body: ConflictResolutionRequest<Insurance>): Promise<ConflictResolutionResult<Insurance>> {
+    const _url = this.host + `/insurance/conflicts/winner` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new ConflictResolutionResult<Insurance>(doc.body, (x) => new Insurance(x)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Like {@link getConflictingEntitiesIds} but targets the entities of the group with the given id.
+   * @summary List the ids of the insurances that have conflicts, in the given group.
+   * @param groupId the id of the group to look into.
+   * @return the ids of the insurances with unresolved conflicts in the group.
+   */
+  async getConflictingEntitiesIdsInGroup(groupId: string): Promise<Array<string>> {
+    const _url = this.host + `/insurance/inGroup/${encodeURIComponent(String(groupId))}/conflicts` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => doc.body as Array<string>)
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Like {@link getConflictsForEntity} but targets the entity of the group with the given id.
+   * @summary Get the conflicting revisions of an insurance, in the given group.
+   * @param groupId the id of the group the insurance belongs to.
+   * @param entityId the id of the insurance to retrieve the conflicts for.
+   * @return the conflicting revisions of the insurance.
+   */
+  async getConflictsForEntityInGroup(groupId: string, entityId: string): Promise<Array<Insurance>> {
+    const _url =
+      this.host +
+      `/insurance/inGroup/${encodeURIComponent(String(groupId))}/conflicts/${encodeURIComponent(String(entityId))}` +
+      '?ts=' +
+      new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Insurance(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Like {@link declareConflictWinner} but targets the entity of the group with the given id.
+   * @summary Declare the winning revision of a conflicting insurance, in the given group.
+   * @param groupId the id of the group the insurance belongs to.
+   * @param body the {@link ConflictResolutionRequest} carrying the winning revision and the conflicts to purge.
+   * @return the {@link ConflictResolutionResult} with the saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinnerInGroup(groupId: string, body: ConflictResolutionRequest<Insurance>): Promise<ConflictResolutionResult<Insurance>> {
+    const _url = this.host + `/insurance/inGroup/${encodeURIComponent(String(groupId))}/conflicts/winner` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new ConflictResolutionResult<Insurance>(doc.body, (x) => new Insurance(x)))
       .catch((err) => this.handleError(err))
   }
 }

@@ -16,6 +16,8 @@ import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-ap
 import { iccRestApiPath } from './IccRestApiPath'
 import { ListOfIds } from '../model/ListOfIds'
 import { PaginatedListPlace } from '../model/PaginatedListPlace'
+import { ConflictResolutionRequest } from '../model/ConflictResolutionRequest'
+import { ConflictResolutionResult } from '../model/ConflictResolutionResult'
 
 export class IccPlaceApi {
   host: string
@@ -133,6 +135,51 @@ export class IccPlaceApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Place(doc.body as JSON))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves the ids of all the places that currently have conflicting revisions and therefore need to
+   * be resolved.
+   * @summary List the ids of the places that have conflicts.
+   * @return the ids of the places with unresolved conflicts.
+   */
+  async getConflictingEntitiesIds(): Promise<Array<string>> {
+    const _url = this.host + `/place/conflicts` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => doc.body as Array<string>)
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves all the conflicting revisions of the place with the given id (the current revision is not
+   * included). The returned entities are still encrypted.
+   * @summary Get the conflicting revisions of a place.
+   * @param entityId the id of the place to retrieve the conflicts for.
+   * @return the conflicting revisions of the place.
+   */
+  async getConflictsForEntity(entityId: string): Promise<Array<Place>> {
+    const _url = this.host + `/place/conflicts/${encodeURIComponent(String(entityId))}` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Place(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Resolves a conflict by declaring which revision of the place should be kept as winner and which
+   * conflicting revisions should be purged. The provided document must already be encrypted.
+   * @summary Declare the winning revision of a conflicting place.
+   * @param body the {@link ConflictResolutionRequest} carrying the winning revision and the conflicts to purge.
+   * @return the {@link ConflictResolutionResult} with the saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinner(body: ConflictResolutionRequest<Place>): Promise<ConflictResolutionResult<Place>> {
+    const _url = this.host + `/place/conflicts/winner` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new ConflictResolutionResult<Place>(doc.body, (x) => new Place(x)))
       .catch((err) => this.handleError(err))
   }
 }

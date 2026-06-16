@@ -26,6 +26,8 @@ import { AbstractFilterMessage } from '../model/AbstractFilterMessage'
 import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
 import { AccessLog } from '../model/AccessLog'
 import { TimingInfo } from '../model/TimingInfo'
+import { ConflictResolutionRequest } from '../model/ConflictResolutionRequest'
+import { ConflictResolutionResult } from '../model/ConflictResolutionResult'
 
 export class IccMessageApi {
   host: string
@@ -522,8 +524,18 @@ export class IccMessageApi {
    * @param collectTiming if true, include server-side filter timing information in the response
    */
   filterMessagesBy(body: FilterChainMessage, startDocumentId?: string, limit?: number, collectTiming?: false): Promise<PaginatedListMessage>
-  filterMessagesBy(body: FilterChainMessage, startDocumentId?: string, limit?: number, collectTiming?: true): Promise<PaginatedListMessage & TimingInfo>
-  async filterMessagesBy(body: FilterChainMessage, startDocumentId?: string, limit?: number, collectTiming: boolean = false): Promise<PaginatedListMessage> {
+  filterMessagesBy(
+    body: FilterChainMessage,
+    startDocumentId?: string,
+    limit?: number,
+    collectTiming?: true
+  ): Promise<PaginatedListMessage & TimingInfo>
+  async filterMessagesBy(
+    body: FilterChainMessage,
+    startDocumentId?: string,
+    limit?: number,
+    collectTiming: boolean = false
+  ): Promise<PaginatedListMessage> {
     const _url =
       this.host +
       `/message/filter` +
@@ -533,7 +545,18 @@ export class IccMessageApi {
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+    return XHR.sendCommand(
+      'POST',
+      _url,
+      headers,
+      body,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService(),
+      undefined,
+      false,
+      collectTiming ? ['x-filter-timing-*'] : []
+    )
       .then((doc) => Object.assign(new PaginatedListMessage(doc.body as JSON), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
@@ -550,8 +573,118 @@ export class IccMessageApi {
     const _url = this.host + `/message/match` + '?ts=' + new Date().getTime()
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
-      .then((doc) => Object.assign((doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
+    return XHR.sendCommand(
+      'POST',
+      _url,
+      headers,
+      body,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService(),
+      undefined,
+      false,
+      collectTiming ? ['x-filter-timing-*'] : []
+    )
+      .then((doc) =>
+        Object.assign(
+          (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))),
+          collectTiming ? { responseHeaders: doc.responseHeaders } : {}
+        )
+      )
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves the ids of all the messages that currently have conflicting revisions and therefore need to
+   * be resolved.
+   * @summary List the ids of the messages that have conflicts.
+   * @return the ids of the messages with unresolved conflicts.
+   */
+  async getConflictingEntitiesIds(): Promise<Array<string>> {
+    const _url = this.host + `/message/conflicts` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => doc.body as Array<string>)
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves all the conflicting revisions of the message with the given id (the current revision is not
+   * included). The returned entities are still encrypted.
+   * @summary Get the conflicting revisions of a message.
+   * @param entityId the id of the message to retrieve the conflicts for.
+   * @return the conflicting revisions of the message.
+   */
+  async getConflictsForEntity(entityId: string): Promise<Array<Message>> {
+    const _url = this.host + `/message/conflicts/${encodeURIComponent(String(entityId))}` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Message(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Resolves a conflict by declaring which revision of the message should be kept as winner and which
+   * conflicting revisions should be purged. The provided document must already be encrypted.
+   * @summary Declare the winning revision of a conflicting message.
+   * @param body the {@link ConflictResolutionRequest} carrying the winning revision and the conflicts to purge.
+   * @return the {@link ConflictResolutionResult} with the saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinner(body: ConflictResolutionRequest<Message>): Promise<ConflictResolutionResult<Message>> {
+    const _url = this.host + `/message/conflicts/winner` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new ConflictResolutionResult<Message>(doc.body, (x) => new Message(x)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Like {@link getConflictingEntitiesIds} but targets the entities of the group with the given id.
+   * @summary List the ids of the messages that have conflicts, in the given group.
+   * @param groupId the id of the group to look into.
+   * @return the ids of the messages with unresolved conflicts in the group.
+   */
+  async getConflictingEntitiesIdsInGroup(groupId: string): Promise<Array<string>> {
+    const _url = this.host + `/message/inGroup/${encodeURIComponent(String(groupId))}/conflicts` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => doc.body as Array<string>)
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Like {@link getConflictsForEntity} but targets the entity of the group with the given id.
+   * @summary Get the conflicting revisions of a message, in the given group.
+   * @param groupId the id of the group the message belongs to.
+   * @param entityId the id of the message to retrieve the conflicts for.
+   * @return the conflicting revisions of the message.
+   */
+  async getConflictsForEntityInGroup(groupId: string, entityId: string): Promise<Array<Message>> {
+    const _url =
+      this.host +
+      `/message/inGroup/${encodeURIComponent(String(groupId))}/conflicts/${encodeURIComponent(String(entityId))}` +
+      '?ts=' +
+      new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Message(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Like {@link declareConflictWinner} but targets the entity of the group with the given id.
+   * @summary Declare the winning revision of a conflicting message, in the given group.
+   * @param groupId the id of the group the message belongs to.
+   * @param body the {@link ConflictResolutionRequest} carrying the winning revision and the conflicts to purge.
+   * @return the {@link ConflictResolutionResult} with the saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinnerInGroup(groupId: string, body: ConflictResolutionRequest<Message>): Promise<ConflictResolutionResult<Message>> {
+    const _url = this.host + `/message/inGroup/${encodeURIComponent(String(groupId))}/conflicts/winner` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new ConflictResolutionResult<Message>(doc.body, (x) => new Message(x)))
       .catch((err) => this.handleError(err))
   }
 }

@@ -714,4 +714,60 @@ export class IccHelementXApi extends IccHelementApi implements EncryptedEntityXA
       delegates
     )
   }
+
+  /**
+   * Like {@link getConflictsForEntity} but additionally decrypts the conflicting revisions for the given user.
+   * @param user the current user, used to determine the data owner that will decrypt the entities.
+   * @param entityId the id of the health element to retrieve the conflicts for.
+   * @return the decrypted conflicting revisions of the health element.
+   */
+  getConflictsForEntityWithUser(user: models.User, entityId: string): Promise<Array<models.HealthElement>> {
+    return super.getConflictsForEntity(entityId).then((hes) => this.decryptWithUser(user, hes))
+  }
+
+  /**
+   * Like {@link declareConflictWinner} but encrypts the winning revision before sending it and decrypts the saved
+   * winner returned by the backend.
+   * @param user the current user, used to determine the data owner that will encrypt/decrypt the entity.
+   * @param request the {@link models.ConflictResolutionRequest} carrying the (decrypted) winning revision and the conflicts to purge.
+   * @return the {@link models.ConflictResolutionResult} with the decrypted saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinnerWithUser(
+    user: models.User,
+    request: models.ConflictResolutionRequest<models.HealthElement>
+  ): Promise<models.ConflictResolutionResult<models.HealthElement>> {
+    const encrypted = (await this.encrypt(user, [cloneDeep(request.document!)]))[0]
+    const result = await super.declareConflictWinner({ ...request, document: encrypted })
+    if (result.document) result.document = (await this.decryptWithUser(user, [result.document]))[0]
+    return result
+  }
+
+  /**
+   * Like {@link getConflictsForEntityWithUser} but targets the entity of the group with the given id.
+   * @param user the current user, used to determine the data owner that will decrypt the entities.
+   * @param groupId the id of the group the health element belongs to.
+   * @param entityId the id of the health element to retrieve the conflicts for.
+   * @return the decrypted conflicting revisions of the health element.
+   */
+  getConflictsForEntityInGroupWithUser(user: models.User, groupId: string, entityId: string): Promise<Array<models.HealthElement>> {
+    return super.getConflictsForEntityInGroup(groupId, entityId).then((hes) => this.decryptWithUser(user, hes))
+  }
+
+  /**
+   * Like {@link declareConflictWinnerWithUser} but targets the entity of the group with the given id.
+   * @param user the current user, used to determine the data owner that will encrypt/decrypt the entity.
+   * @param groupId the id of the group the health element belongs to.
+   * @param request the {@link models.ConflictResolutionRequest} carrying the (decrypted) winning revision and the conflicts to purge.
+   * @return the {@link models.ConflictResolutionResult} with the decrypted saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinnerInGroupWithUser(
+    user: models.User,
+    groupId: string,
+    request: models.ConflictResolutionRequest<models.HealthElement>
+  ): Promise<models.ConflictResolutionResult<models.HealthElement>> {
+    const encrypted = (await this.encrypt(user, [cloneDeep(request.document!)]))[0]
+    const result = await super.declareConflictWinnerInGroup(groupId, { ...request, document: encrypted })
+    if (result.document) result.document = (await this.decryptWithUser(user, [result.document]))[0]
+    return result
+  }
 }

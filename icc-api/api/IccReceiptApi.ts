@@ -18,6 +18,8 @@ import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShar
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
 import { ListOfIds } from '../model/ListOfIds'
 import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
+import { ConflictResolutionRequest } from '../model/ConflictResolutionRequest'
+import { ConflictResolutionResult } from '../model/ConflictResolutionResult'
 
 export class IccReceiptApi {
   host: string
@@ -283,6 +285,51 @@ export class IccReceiptApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((x) => new EntityBulkShareResult<Receipt>(x, Receipt)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves the ids of all the receipts that currently have conflicting revisions and therefore need to
+   * be resolved.
+   * @summary List the ids of the receipts that have conflicts.
+   * @return the ids of the receipts with unresolved conflicts.
+   */
+  async getConflictingEntitiesIds(): Promise<Array<string>> {
+    const _url = this.host + `/receipt/conflicts` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => doc.body as Array<string>)
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves all the conflicting revisions of the receipt with the given id (the current revision is not
+   * included). The returned entities are still encrypted.
+   * @summary Get the conflicting revisions of a receipt.
+   * @param entityId the id of the receipt to retrieve the conflicts for.
+   * @return the conflicting revisions of the receipt.
+   */
+  async getConflictsForEntity(entityId: string): Promise<Array<Receipt>> {
+    const _url = this.host + `/receipt/conflicts/${encodeURIComponent(String(entityId))}` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Receipt(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Resolves a conflict by declaring which revision of the receipt should be kept as winner and which
+   * conflicting revisions should be purged. The provided document must already be encrypted.
+   * @summary Declare the winning revision of a conflicting receipt.
+   * @param body the {@link ConflictResolutionRequest} carrying the winning revision and the conflicts to purge.
+   * @return the {@link ConflictResolutionResult} with the saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinner(body: ConflictResolutionRequest<Receipt>): Promise<ConflictResolutionResult<Receipt>> {
+    const _url = this.host + `/receipt/conflicts/winner` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new ConflictResolutionResult<Receipt>(doc.body, (x) => new Receipt(x)))
       .catch((err) => this.handleError(err))
   }
 }

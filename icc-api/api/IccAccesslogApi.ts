@@ -20,6 +20,8 @@ import { ListOfIds } from '../model/ListOfIds'
 import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
 import { AbstractFilterAccessLog } from '../model/AbstractFilterAccessLog'
 import { TimingInfo } from '../model/TimingInfo'
+import { ConflictResolutionRequest } from '../model/ConflictResolutionRequest'
+import { ConflictResolutionResult } from '../model/ConflictResolutionResult'
 
 export class IccAccesslogApi {
   host: string
@@ -358,8 +360,24 @@ export class IccAccesslogApi {
     const _url = this.host + `/accessLog/match`
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
-      .then((doc) => Object.assign((doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
+    return XHR.sendCommand(
+      'POST',
+      _url,
+      headers,
+      body,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService(),
+      undefined,
+      false,
+      collectTiming ? ['x-filter-timing-*'] : []
+    )
+      .then((doc) =>
+        Object.assign(
+          (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))),
+          collectTiming ? { responseHeaders: doc.responseHeaders } : {}
+        )
+      )
       .catch((err) => this.handleError(err))
   }
 
@@ -376,8 +394,118 @@ export class IccAccesslogApi {
     const _url = this.host + `/inGroup/${groupId}/match`
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
-      .then((doc) => Object.assign((doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
+    return XHR.sendCommand(
+      'POST',
+      _url,
+      headers,
+      body,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService(),
+      undefined,
+      false,
+      collectTiming ? ['x-filter-timing-*'] : []
+    )
+      .then((doc) =>
+        Object.assign(
+          (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))),
+          collectTiming ? { responseHeaders: doc.responseHeaders } : {}
+        )
+      )
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves the ids of all the access logs that currently have conflicting revisions and therefore need to
+   * be resolved.
+   * @summary List the ids of the access logs that have conflicts.
+   * @return the ids of the access logs with unresolved conflicts.
+   */
+  async getConflictingEntitiesIds(): Promise<Array<string>> {
+    const _url = this.host + `/accesslog/conflicts` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => doc.body as Array<string>)
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves all the conflicting revisions of the access log with the given id (the current revision is not
+   * included). The returned entities are still encrypted.
+   * @summary Get the conflicting revisions of an access log.
+   * @param entityId the id of the access log to retrieve the conflicts for.
+   * @return the conflicting revisions of the access log.
+   */
+  async getConflictsForEntity(entityId: string): Promise<Array<AccessLog>> {
+    const _url = this.host + `/accesslog/conflicts/${encodeURIComponent(String(entityId))}` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new AccessLog(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Resolves a conflict by declaring which revision of the access log should be kept as winner and which
+   * conflicting revisions should be purged. The provided document must already be encrypted.
+   * @summary Declare the winning revision of a conflicting access log.
+   * @param body the {@link ConflictResolutionRequest} carrying the winning revision and the conflicts to purge.
+   * @return the {@link ConflictResolutionResult} with the saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinner(body: ConflictResolutionRequest<AccessLog>): Promise<ConflictResolutionResult<AccessLog>> {
+    const _url = this.host + `/accesslog/conflicts/winner` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new ConflictResolutionResult<AccessLog>(doc.body, (x) => new AccessLog(x)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Like {@link getConflictingEntitiesIds} but targets the entities of the group with the given id.
+   * @summary List the ids of the access logs that have conflicts, in the given group.
+   * @param groupId the id of the group to look into.
+   * @return the ids of the access logs with unresolved conflicts in the group.
+   */
+  async getConflictingEntitiesIdsInGroup(groupId: string): Promise<Array<string>> {
+    const _url = this.host + `/accesslog/inGroup/${encodeURIComponent(String(groupId))}/conflicts` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => doc.body as Array<string>)
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Like {@link getConflictsForEntity} but targets the entity of the group with the given id.
+   * @summary Get the conflicting revisions of an access log, in the given group.
+   * @param groupId the id of the group the access log belongs to.
+   * @param entityId the id of the access log to retrieve the conflicts for.
+   * @return the conflicting revisions of the access log.
+   */
+  async getConflictsForEntityInGroup(groupId: string, entityId: string): Promise<Array<AccessLog>> {
+    const _url =
+      this.host +
+      `/accesslog/inGroup/${encodeURIComponent(String(groupId))}/conflicts/${encodeURIComponent(String(entityId))}` +
+      '?ts=' +
+      new Date().getTime()
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new AccessLog(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Like {@link declareConflictWinner} but targets the entity of the group with the given id.
+   * @summary Declare the winning revision of a conflicting access log, in the given group.
+   * @param groupId the id of the group the access log belongs to.
+   * @param body the {@link ConflictResolutionRequest} carrying the winning revision and the conflicts to purge.
+   * @return the {@link ConflictResolutionResult} with the saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinnerInGroup(groupId: string, body: ConflictResolutionRequest<AccessLog>): Promise<ConflictResolutionResult<AccessLog>> {
+    const _url = this.host + `/accesslog/inGroup/${encodeURIComponent(String(groupId))}/conflicts/winner` + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new ConflictResolutionResult<AccessLog>(doc.body, (x) => new AccessLog(x)))
       .catch((err) => this.handleError(err))
   }
 }

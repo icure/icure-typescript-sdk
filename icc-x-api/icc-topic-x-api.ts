@@ -19,6 +19,7 @@ import { EncryptedFieldsManifest, EntityWithDelegationTypeName, parseEncryptedFi
 import { AbstractFilter } from './filters/filters'
 import { Connection, ConnectionImpl } from '../icc-api/model/Connection'
 import { SecretIdUseOption } from './crypto/SecretIdUseOption'
+import { cloneDeep } from './utils/collection-utils'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<models.Topic> {
@@ -290,8 +291,18 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
    * @return a paginated list of topics.
    */
   override async filterTopicsBy(body: FilterChainTopic, startDocumentId?: string, limit?: number, collectTiming?: false): Promise<PaginatedListTopic>
-  override async filterTopicsBy(body: FilterChainTopic, startDocumentId?: string, limit?: number, collectTiming?: true): Promise<PaginatedListTopic & TimingInfo>
-  override async filterTopicsBy(body: FilterChainTopic, startDocumentId?: string, limit?: number, collectTiming: boolean = false): Promise<PaginatedListTopic> {
+  override async filterTopicsBy(
+    body: FilterChainTopic,
+    startDocumentId?: string,
+    limit?: number,
+    collectTiming?: true
+  ): Promise<PaginatedListTopic & TimingInfo>
+  override async filterTopicsBy(
+    body: FilterChainTopic,
+    startDocumentId?: string,
+    limit?: number,
+    collectTiming: boolean = false
+  ): Promise<PaginatedListTopic> {
     const page = await super.filterTopicsBy(body, startDocumentId, limit, collectTiming as any)
     const decryptedTopics = await this.decrypt(page.rows ?? [])
     return {
@@ -387,5 +398,61 @@ export class IccTopicXApi extends IccTopicApi implements EncryptedEntityXApi<mod
 
   createDelegationDeAnonymizationMetadata(entity: Topic, delegates: string[]): Promise<void> {
     return this.crypto.delegationsDeAnonymization.createOrUpdateDeAnonymizationInfo({ entity, type: EntityWithDelegationTypeName.Topic }, delegates)
+  }
+
+  /**
+   * Like {@link getConflictsForEntity} but additionally decrypts the conflicting revisions for the given user.
+   * @param user the current user.
+   * @param entityId the id of the topic to retrieve the conflicts for.
+   * @return the decrypted conflicting revisions of the topic.
+   */
+  getConflictsForEntityWithUser(user: models.User, entityId: string): Promise<Array<models.Topic>> {
+    return super.getConflictsForEntity(entityId).then((ts) => this.decrypt(ts))
+  }
+
+  /**
+   * Like {@link declareConflictWinner} but encrypts the winning revision before sending it and decrypts the saved
+   * winner returned by the backend.
+   * @param user the current user.
+   * @param request the {@link models.ConflictResolutionRequest} carrying the (decrypted) winning revision and the conflicts to purge.
+   * @return the {@link models.ConflictResolutionResult} with the decrypted saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinnerWithUser(
+    user: models.User,
+    request: models.ConflictResolutionRequest<models.Topic>
+  ): Promise<models.ConflictResolutionResult<models.Topic>> {
+    const encrypted = (await this.encrypt([cloneDeep(request.document!)]))[0]
+    const result = await super.declareConflictWinner({ ...request, document: encrypted })
+    if (result.document) result.document = (await this.decrypt([result.document]))[0]
+    return result
+  }
+
+  /**
+   * Like {@link getConflictsForEntityWithUser} but targets the entity of the group with the given id.
+   * @param user the current user.
+   * @param groupId the id of the group the topic belongs to.
+   * @param entityId the id of the topic to retrieve the conflicts for.
+   * @return the decrypted conflicting revisions of the topic.
+   */
+  getConflictsForEntityInGroupWithUser(user: models.User, groupId: string, entityId: string): Promise<Array<models.Topic>> {
+    return super.getConflictsForEntityInGroup(groupId, entityId).then((ts) => this.decrypt(ts))
+  }
+
+  /**
+   * Like {@link declareConflictWinnerWithUser} but targets the entity of the group with the given id.
+   * @param user the current user.
+   * @param groupId the id of the group the topic belongs to.
+   * @param request the {@link models.ConflictResolutionRequest} carrying the (decrypted) winning revision and the conflicts to purge.
+   * @return the {@link models.ConflictResolutionResult} with the decrypted saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinnerInGroupWithUser(
+    user: models.User,
+    groupId: string,
+    request: models.ConflictResolutionRequest<models.Topic>
+  ): Promise<models.ConflictResolutionResult<models.Topic>> {
+    const encrypted = (await this.encrypt([cloneDeep(request.document!)]))[0]
+    const result = await super.declareConflictWinnerInGroup(groupId, { ...request, document: encrypted })
+    if (result.document) result.document = (await this.decrypt([result.document]))[0]
+    return result
   }
 }

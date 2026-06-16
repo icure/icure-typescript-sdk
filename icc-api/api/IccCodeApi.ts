@@ -19,6 +19,8 @@ import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-ap
 import { iccRestApiPath } from './IccRestApiPath'
 import { ListOfIds } from '../model/ListOfIds'
 import { TimingInfo } from '../model/TimingInfo'
+import { ConflictResolutionRequest } from '../model/ConflictResolutionRequest'
+import { ConflictResolutionResult } from '../model/ConflictResolutionResult'
 
 export class IccCodeApi {
   host: string
@@ -92,8 +94,26 @@ export class IccCodeApi {
    * @param desc Descending
    * @param collectTiming if true, include server-side filter timing information in the response
    */
-  filterCodesBy(startKey?: string, startDocumentId?: string, limit?: number, skip?: number, sort?: string, desc?: boolean, body?: FilterChainCode, collectTiming?: false): Promise<PaginatedListCode>
-  filterCodesBy(startKey?: string, startDocumentId?: string, limit?: number, skip?: number, sort?: string, desc?: boolean, body?: FilterChainCode, collectTiming?: true): Promise<PaginatedListCode & TimingInfo>
+  filterCodesBy(
+    startKey?: string,
+    startDocumentId?: string,
+    limit?: number,
+    skip?: number,
+    sort?: string,
+    desc?: boolean,
+    body?: FilterChainCode,
+    collectTiming?: false
+  ): Promise<PaginatedListCode>
+  filterCodesBy(
+    startKey?: string,
+    startDocumentId?: string,
+    limit?: number,
+    skip?: number,
+    sort?: string,
+    desc?: boolean,
+    body?: FilterChainCode,
+    collectTiming?: true
+  ): Promise<PaginatedListCode & TimingInfo>
   filterCodesBy(
     startKey?: string,
     startDocumentId?: string,
@@ -120,7 +140,18 @@ export class IccCodeApi {
       (desc ? '&desc=' + encodeURIComponent(String(desc)) : '')
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+    return XHR.sendCommand(
+      'POST',
+      _url,
+      headers,
+      _body,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService(),
+      undefined,
+      false,
+      collectTiming ? ['x-filter-timing-*'] : []
+    )
       .then((doc) => Object.assign(new PaginatedListCode(doc.body as JSON), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
@@ -394,8 +425,24 @@ export class IccCodeApi {
     const _url = this.host + `/code/match` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
-      .then((doc) => Object.assign((doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
+    return XHR.sendCommand(
+      'POST',
+      _url,
+      headers,
+      _body,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService(),
+      undefined,
+      false,
+      collectTiming ? ['x-filter-timing-*'] : []
+    )
+      .then((doc) =>
+        Object.assign(
+          (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))),
+          collectTiming ? { responseHeaders: doc.responseHeaders } : {}
+        )
+      )
       .catch((err) => this.handleError(err))
   }
 
@@ -488,8 +535,69 @@ export class IccCodeApi {
     const _url = this.host + `/code/inGroup/${encodeURIComponent(String(groupId))}/match` + '?ts=' + new Date().getTime()
     let headers = this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
-      .then((doc) => Object.assign((doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
+    return XHR.sendCommand(
+      'POST',
+      _url,
+      headers,
+      _body,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService(),
+      undefined,
+      false,
+      collectTiming ? ['x-filter-timing-*'] : []
+    )
+      .then((doc) =>
+        Object.assign(
+          (doc.body as Array<JSON>).map((it) => JSON.parse(JSON.stringify(it))),
+          collectTiming ? { responseHeaders: doc.responseHeaders } : {}
+        )
+      )
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves the ids of all the codes that currently have conflicting revisions and therefore need to
+   * be resolved.
+   * @summary List the ids of the codes that have conflicts.
+   * @return the ids of the codes with unresolved conflicts.
+   */
+  async getConflictingEntitiesIds(): Promise<Array<string>> {
+    const _url = this.host + `/code/conflicts` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => doc.body as Array<string>)
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves all the conflicting revisions of the code with the given id (the current revision is not
+   * included). The returned entities are still encrypted.
+   * @summary Get the conflicting revisions of a code.
+   * @param entityId the id of the code to retrieve the conflicts for.
+   * @return the conflicting revisions of the code.
+   */
+  async getConflictsForEntity(entityId: string): Promise<Array<Code>> {
+    const _url = this.host + `/code/conflicts/${encodeURIComponent(String(entityId))}` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Code(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Resolves a conflict by declaring which revision of the code should be kept as winner and which
+   * conflicting revisions should be purged. The provided document must already be encrypted.
+   * @summary Declare the winning revision of a conflicting code.
+   * @param body the {@link ConflictResolutionRequest} carrying the winning revision and the conflicts to purge.
+   * @return the {@link ConflictResolutionResult} with the saved winner and the conflicts that are still unresolved.
+   */
+  async declareConflictWinner(body: ConflictResolutionRequest<Code>): Promise<ConflictResolutionResult<Code>> {
+    const _url = this.host + `/code/conflicts/winner` + '?ts=' + new Date().getTime()
+    let headers = this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => new ConflictResolutionResult<Code>(doc.body, (x) => new Code(x)))
       .catch((err) => this.handleError(err))
   }
 }
