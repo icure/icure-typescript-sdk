@@ -143,6 +143,7 @@ export function timeDecode(timeNumber: number | null | undefined): Date | undefi
  */
 export function dateEncode(date?: Date | Number | String | null | undefined): number | undefined {
   if (date === null || date === undefined) { return undefined }
+  if (typeof date === 'string' && date.trim() === '') return undefined
   if (date instanceof Date) {
     // date is null if the field is not set
     return date ? Number(formatDate(date, 'yyyyMMdd').padStart(8, '19700101')) : undefined
@@ -174,6 +175,7 @@ export function dateEncode(date?: Date | Number | String | null | undefined): nu
  */
 export function timeEncode(date: Date | Number | String | null | undefined): number | undefined {
   if (date === null || date === undefined) return undefined
+  if (typeof date === 'string' && date.trim() === '') return undefined
   if (date instanceof Date) {
     return date ? Number(formatDate(date, 'yyyyMMddHHmmss')) : undefined
   }

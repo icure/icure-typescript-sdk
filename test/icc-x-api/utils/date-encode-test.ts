@@ -10,6 +10,7 @@ describe('dateEncode', () => {
 
   it('should return undefined for falsy String/Number input', () => {
     expect(dateEncode('')).to.be.undefined
+    expect(dateEncode('   ')).to.be.undefined
     expect(dateEncode(0)).to.be.undefined
   })
 
@@ -53,6 +54,7 @@ describe('timeEncode', () => {
 
   it('should return undefined for falsy String/Number input', () => {
     expect(timeEncode('')).to.be.undefined
+    expect(timeEncode('   ')).to.be.undefined
     expect(timeEncode(0)).to.be.undefined
   })
 
