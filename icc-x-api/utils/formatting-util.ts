@@ -133,28 +133,63 @@ export function timeDecode(timeNumber: number | null | undefined): Date | undefi
 
 /**
  * Encodes a Date object into a backend date number (e.g., patient birth date).
- * @param date a Date object
+ *
+ * A Date is formatted as usual. A String or a Number is interpreted as a fuzzy date that is already
+ * encoded (yyyyMMdd or yyyyMMddHHmmss) or as an epoch expressed in milliseconds.
+ * @param date a Date object, or a fuzzy date / epoch as a String or Number
  * @return a YYYYMMDD date number for the backend
  * @see #dateDecode
  * @see #timeEncode
  */
-export function dateEncode(date?: Date | null | undefined): number | undefined {
+export function dateEncode(date?: Date | Number | String | null | undefined): number | undefined {
   if (date === null || date === undefined) { return undefined }
-  const dateStr = formatDate(date, 'yyyyMMdd').padStart(8, '19700101')
-  // date is null if the field is not set
-  return date ? Number(dateStr) : undefined
+  if (date instanceof Date) {
+    // date is null if the field is not set
+    return date ? Number(formatDate(date, 'yyyyMMdd').padStart(8, '19700101')) : undefined
+  }
+  // A String or a Number is a fuzzy date (yyyyMMdd, yyyyMMddHHmmss) or an epoch in milliseconds
+  const fuzzy = Number(date)
+  if (!fuzzy || isNaN(fuzzy)) return undefined
+  if (fuzzy >= 18000101 && fuzzy < 25400000) {
+    // already a yyyyMMdd fuzzy date
+    return fuzzy
+  }
+  if (fuzzy >= 18000101000000) {
+    // a yyyyMMddHHmmss fuzzy date: keep only the date part
+    return Math.floor(fuzzy / 1000000)
+  }
+  // an epoch expressed in milliseconds
+  return Number(formatDate(new Date(fuzzy), 'yyyyMMdd'))
 }
 
 /**
  * Encodes a Date object into a backend time number (e.g., health element openingDate).
- * @param date a Date object
+ *
+ * A Date is formatted as usual. A String or a Number is interpreted as a fuzzy date that is already
+ * encoded (yyyyMMdd or yyyyMMddHHmmss) or as an epoch expressed in milliseconds.
+ * @param date a Date object, or a fuzzy date / epoch as a String or Number
  * @return a YYYYMMDDHHmmss date number for the backend
  * @see #timeDecode
  * @see #dateEncode
  */
-export function timeEncode(date: Date | null | undefined): number | undefined {
+export function timeEncode(date: Date | Number | String | null | undefined): number | undefined {
   if (date === null || date === undefined) return undefined
-  return date ? Number(formatDate(date, 'yyyyMMddHHmmss')) : undefined
+  if (date instanceof Date) {
+    return date ? Number(formatDate(date, 'yyyyMMddHHmmss')) : undefined
+  }
+  // A String or a Number is a fuzzy date (yyyyMMdd, yyyyMMddHHmmss) or an epoch in milliseconds
+  const fuzzy = Number(date)
+  if (!fuzzy || isNaN(fuzzy)) return undefined
+  if (fuzzy >= 18000101 && fuzzy < 25400000) {
+    // a yyyyMMdd fuzzy date: pad the time part with zeroes
+    return fuzzy * 1000000
+  }
+  if (fuzzy >= 18000101000000) {
+    // already a yyyyMMddHHmmss fuzzy date
+    return fuzzy
+  }
+  // an epoch expressed in milliseconds
+  return Number(formatDate(new Date(fuzzy), 'yyyyMMddHHmmss'))
 }
 
 /**
