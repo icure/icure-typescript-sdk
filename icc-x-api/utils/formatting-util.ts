@@ -96,39 +96,61 @@ export function phoneNumberFormat(phoneNumber: string | null | undefined): strin
 
 /**
  * Converts a backend date number (e.g., patient birth date) into a Date object.
- * @param dateNumber a YYYYMMDD date number from the backend
+ *
+ * Accepts both yyyyMMdd and yyyyMMddHHmmss fuzzy dates (only the date part is kept), a String that
+ * can be parsed as such a number (blank Strings yield undefined), and a Date which is passed through.
+ * @param dateNumber a yyyyMMdd / yyyyMMddHHmmss fuzzy date, a numeric String, or a Date
  * @return a Date object
- * @throws Error if it is impossible to create a date from the number, other if dateNumber is negative.
+ * @throws Error if the fuzzy date is negative.
  * @see #dateEncode
  * @see #timeDecode
  */
-export function dateDecode(dateNumber: number | null | undefined): Date | undefined {
+export function dateDecode(dateNumber: number | string | Date | null | undefined): Date | undefined {
   if (dateNumber === null || dateNumber === undefined) return undefined
-
+  if (dateNumber instanceof Date) return dateNumber
+  if (typeof dateNumber === 'string') {
+    if (dateNumber.trim() === '') return undefined
+    const parsed = Number(dateNumber)
+    if (isNaN(parsed)) return undefined
+    dateNumber = parsed
+  }
   if (dateNumber < 0) {
     throw new Error("We don't decode negative dates. Please make sure you have valid data.")
   }
+  if (!dateNumber) return undefined
+  // Accept both yyyyMMdd and yyyyMMddHHmmss: pad short numbers and keep only the date part.
   const dateNumberStr: string = dateNumber.toString().padStart(8, '19700101')
-  if (dateNumberStr.length > 8) {
-    if (dateNumberStr.endsWith('000000')) {
-      return dateNumber ? parseDate(dateNumberStr.slice(0, 8), 'yyyyMMdd', new Date()) : undefined
-    }
 
-    throw Error("Decoded date is over year 9999. We can't format it properly.")
-  }
-  return dateNumber ? parseDate(dateNumberStr, 'yyyyMMdd', new Date()) : undefined
+  return parseDate(dateNumberStr.slice(0, 8), 'yyyyMMdd', new Date())
 }
 
 /**
  * Converts a backend time number (e.g., health element openingDate) into a Date object.
- * @param timeNumber a YYYYMMDD date number from the backend
+ *
+ * Accepts both yyyyMMddHHmmss and yyyyMMdd fuzzy dates (the time part defaults to midnight), a String
+ * that can be parsed as such a number (blank Strings yield undefined), and a Date which is passed through.
+ * @param timeNumber a yyyyMMddHHmmss / yyyyMMdd fuzzy date, a numeric String, or a Date
  * @return a Date object
+ * @throws Error if the fuzzy date is negative.
  * @see #timeEncode
  * @see #dateDecode
  */
-export function timeDecode(timeNumber: number | null | undefined): Date | undefined {
+export function timeDecode(timeNumber: number | string | Date | null | undefined): Date | undefined {
   if (timeNumber === null || timeNumber === undefined) return undefined
-  return timeNumber ? parseDate(timeNumber.toString(), 'yyyyMMddHHmmss', new Date()) : undefined
+  if (timeNumber instanceof Date) return timeNumber
+  if (typeof timeNumber === 'string') {
+    if (timeNumber.trim() === '') return undefined
+    const parsed = Number(timeNumber)
+    if (isNaN(parsed)) return undefined
+    timeNumber = parsed
+  }
+  if (timeNumber < 0) {
+    throw new Error("We don't decode negative dates. Please make sure you have valid data.")
+  }
+  if (!timeNumber) return undefined
+  // Accept both yyyyMMdd and yyyyMMddHHmmss: pad the date part, then fill the time part with zeroes.
+  const timeNumberStr: string = timeNumber.toString().padStart(8, '19700101').padEnd(14, '0')
+  return parseDate(timeNumberStr, 'yyyyMMddHHmmss', new Date())
 }
 
 /**

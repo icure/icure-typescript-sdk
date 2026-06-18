@@ -160,5 +160,12 @@ emcc \
     "${C_FILES[@]}" \
     -o "$SCRIPT_DIR/lzma.js"
 
+# Post-process: alias the Node-only `require("node:fs")` so bundlers (esbuild/webpack on
+# Vercel, Next.js, ...) don't try to statically resolve the "node:fs" builtin when bundling
+# for the browser/edge. The Node branch is guarded by ENVIRONMENT_IS_NODE, so this only runs
+# under Node, where `require` is available. See https://esbuild.github.io/ "Could not resolve".
+echo "Patching node:fs require for bundler compatibility..."
+perl -0pi -e 's/\bvar fs = require\("node:fs"\);/var nodeRequire = typeof require === "function" ? require : undefined;\n      var fs = nodeRequire("node:fs");/' "$SCRIPT_DIR/lzma.js"
+
 echo "Build complete:"
 ls -lh "$SCRIPT_DIR/lzma.js" "$SCRIPT_DIR/lzma.wasm"
