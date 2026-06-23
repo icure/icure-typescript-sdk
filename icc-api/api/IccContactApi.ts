@@ -861,7 +861,7 @@ export class IccContactApi {
    * @return the conflicting revisions of the contact.
    */
   async getConflictsForEntity(entityId: string): Promise<Array<Contact>> {
-    const _url = this.host + `/contact/conflicts/${encodeURIComponent(String(entityId))}` + '?ts=' + new Date().getTime()
+    const _url = this.host + `/contact/conflicts/of?entityId=${encodeURIComponent(String(entityId))}` + '&ts=' + new Date().getTime()
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Contact(it)))
@@ -908,8 +908,8 @@ export class IccContactApi {
   async getConflictsForEntityInGroup(groupId: string, entityId: string): Promise<Array<Contact>> {
     const _url =
       this.host +
-      `/contact/inGroup/${encodeURIComponent(String(groupId))}/conflicts/${encodeURIComponent(String(entityId))}` +
-      '?ts=' +
+      `/contact/inGroup/${encodeURIComponent(String(groupId))}/conflicts/of?entityId=${encodeURIComponent(String(entityId))}` +
+      '&ts=' +
       new Date().getTime()
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())

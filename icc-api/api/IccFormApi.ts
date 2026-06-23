@@ -924,7 +924,7 @@ export class IccFormApi {
    * @return the conflicting revisions of the form.
    */
   async getConflictsForEntity(entityId: string): Promise<Array<Form>> {
-    const _url = this.host + `/form/conflicts/${encodeURIComponent(String(entityId))}` + '?ts=' + new Date().getTime()
+    const _url = this.host + `/form/conflicts/of?entityId=${encodeURIComponent(String(entityId))}` + '&ts=' + new Date().getTime()
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Form(it)))
@@ -971,8 +971,8 @@ export class IccFormApi {
   async getConflictsForEntityInGroup(groupId: string, entityId: string): Promise<Array<Form>> {
     const _url =
       this.host +
-      `/form/inGroup/${encodeURIComponent(String(groupId))}/conflicts/${encodeURIComponent(String(entityId))}` +
-      '?ts=' +
+      `/form/inGroup/${encodeURIComponent(String(groupId))}/conflicts/of?entityId=${encodeURIComponent(String(entityId))}` +
+      '&ts=' +
       new Date().getTime()
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())

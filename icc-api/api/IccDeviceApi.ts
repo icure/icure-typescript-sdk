@@ -391,7 +391,7 @@ export class IccDeviceApi {
    * @return the conflicting revisions of the device.
    */
   async getConflictsForEntity(entityId: string): Promise<Array<Device>> {
-    const _url = this.host + `/device/conflicts/${encodeURIComponent(String(entityId))}` + '?ts=' + new Date().getTime()
+    const _url = this.host + `/device/conflicts/of?entityId=${encodeURIComponent(String(entityId))}` + '&ts=' + new Date().getTime()
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Device(it)))
@@ -438,8 +438,8 @@ export class IccDeviceApi {
   async getConflictsForEntityInGroup(groupId: string, entityId: string): Promise<Array<Device>> {
     const _url =
       this.host +
-      `/device/inGroup/${encodeURIComponent(String(groupId))}/conflicts/${encodeURIComponent(String(entityId))}` +
-      '?ts=' +
+      `/device/inGroup/${encodeURIComponent(String(groupId))}/conflicts/of?entityId=${encodeURIComponent(String(entityId))}` +
+      '&ts=' +
       new Date().getTime()
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())

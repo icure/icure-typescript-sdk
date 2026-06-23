@@ -935,7 +935,7 @@ export class IccPatientApi {
    * @return the conflicting revisions of the patient.
    */
   async getConflictsForEntity(entityId: string): Promise<Array<Patient>> {
-    const _url = this.host + `/patient/conflicts/${encodeURIComponent(String(entityId))}` + '?ts=' + new Date().getTime()
+    const _url = this.host + `/patient/conflicts/of?entityId=${encodeURIComponent(String(entityId))}` + '&ts=' + new Date().getTime()
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Patient(it)))
@@ -982,8 +982,8 @@ export class IccPatientApi {
   async getConflictsForEntityInGroup(groupId: string, entityId: string): Promise<Array<Patient>> {
     const _url =
       this.host +
-      `/patient/inGroup/${encodeURIComponent(String(groupId))}/conflicts/${encodeURIComponent(String(entityId))}` +
-      '?ts=' +
+      `/patient/inGroup/${encodeURIComponent(String(groupId))}/conflicts/of?entityId=${encodeURIComponent(String(entityId))}` +
+      '&ts=' +
       new Date().getTime()
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())

@@ -457,7 +457,7 @@ export class IccHelementApi {
    * @return the conflicting revisions of the health element.
    */
   async getConflictsForEntity(entityId: string): Promise<Array<HealthElement>> {
-    const _url = this.host + `/helement/conflicts/${encodeURIComponent(String(entityId))}` + '?ts=' + new Date().getTime()
+    const _url = this.host + `/helement/conflicts/of?entityId=${encodeURIComponent(String(entityId))}` + '&ts=' + new Date().getTime()
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new HealthElement(it)))
@@ -504,8 +504,8 @@ export class IccHelementApi {
   async getConflictsForEntityInGroup(groupId: string, entityId: string): Promise<Array<HealthElement>> {
     const _url =
       this.host +
-      `/helement/inGroup/${encodeURIComponent(String(groupId))}/conflicts/${encodeURIComponent(String(entityId))}` +
-      '?ts=' +
+      `/helement/inGroup/${encodeURIComponent(String(groupId))}/conflicts/of?entityId=${encodeURIComponent(String(entityId))}` +
+      '&ts=' +
       new Date().getTime()
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())

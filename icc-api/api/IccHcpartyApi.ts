@@ -584,7 +584,7 @@ export class IccHcpartyApi {
    * @return the conflicting revisions of the healthcare party.
    */
   async getConflictsForEntity(entityId: string): Promise<Array<HealthcareParty>> {
-    const _url = this.host + `/hcparty/conflicts/${encodeURIComponent(String(entityId))}` + '?ts=' + new Date().getTime()
+    const _url = this.host + `/hcparty/conflicts/of?entityId=${encodeURIComponent(String(entityId))}` + '&ts=' + new Date().getTime()
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new HealthcareParty(it)))
@@ -631,8 +631,8 @@ export class IccHcpartyApi {
   async getConflictsForEntityInGroup(groupId: string, entityId: string): Promise<Array<HealthcareParty>> {
     const _url =
       this.host +
-      `/hcparty/inGroup/${encodeURIComponent(String(groupId))}/conflicts/${encodeURIComponent(String(entityId))}` +
-      '?ts=' +
+      `/hcparty/inGroup/${encodeURIComponent(String(groupId))}/conflicts/of?entityId=${encodeURIComponent(String(entityId))}` +
+      '&ts=' +
       new Date().getTime()
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())

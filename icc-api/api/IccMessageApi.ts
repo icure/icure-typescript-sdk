@@ -616,7 +616,7 @@ export class IccMessageApi {
    * @return the conflicting revisions of the message.
    */
   async getConflictsForEntity(entityId: string): Promise<Array<Message>> {
-    const _url = this.host + `/message/conflicts/${encodeURIComponent(String(entityId))}` + '?ts=' + new Date().getTime()
+    const _url = this.host + `/message/conflicts/of?entityId=${encodeURIComponent(String(entityId))}` + '&ts=' + new Date().getTime()
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Message(it)))
@@ -663,8 +663,8 @@ export class IccMessageApi {
   async getConflictsForEntityInGroup(groupId: string, entityId: string): Promise<Array<Message>> {
     const _url =
       this.host +
-      `/message/inGroup/${encodeURIComponent(String(groupId))}/conflicts/${encodeURIComponent(String(entityId))}` +
-      '?ts=' +
+      `/message/inGroup/${encodeURIComponent(String(groupId))}/conflicts/of?entityId=${encodeURIComponent(String(entityId))}` +
+      '&ts=' +
       new Date().getTime()
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())

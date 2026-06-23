@@ -821,7 +821,7 @@ export class IccInvoiceApi {
    * @return the conflicting revisions of the invoice.
    */
   async getConflictsForEntity(entityId: string): Promise<Array<Invoice>> {
-    const _url = this.host + `/invoice/conflicts/${encodeURIComponent(String(entityId))}` + '?ts=' + new Date().getTime()
+    const _url = this.host + `/invoice/conflicts/of?entityId=${encodeURIComponent(String(entityId))}` + '&ts=' + new Date().getTime()
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Invoice(it)))
@@ -868,8 +868,8 @@ export class IccInvoiceApi {
   async getConflictsForEntityInGroup(groupId: string, entityId: string): Promise<Array<Invoice>> {
     const _url =
       this.host +
-      `/invoice/inGroup/${encodeURIComponent(String(groupId))}/conflicts/${encodeURIComponent(String(entityId))}` +
-      '?ts=' +
+      `/invoice/inGroup/${encodeURIComponent(String(groupId))}/conflicts/of?entityId=${encodeURIComponent(String(entityId))}` +
+      '&ts=' +
       new Date().getTime()
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())

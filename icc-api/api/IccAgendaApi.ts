@@ -219,7 +219,7 @@ export class IccAgendaApi {
    * @return the conflicting revisions of the agenda.
    */
   async getConflictsForEntity(entityId: string): Promise<Array<Agenda>> {
-    const _url = this.host + `/agenda/conflicts/${encodeURIComponent(String(entityId))}` + '?ts=' + new Date().getTime()
+    const _url = this.host + `/agenda/conflicts/of?entityId=${encodeURIComponent(String(entityId))}` + '&ts=' + new Date().getTime()
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Agenda(it)))

@@ -196,7 +196,7 @@ export class IccCalendarItemTypeApi {
    * @return the conflicting revisions of the calendar item type.
    */
   async getConflictsForEntity(entityId: string): Promise<Array<CalendarItemType>> {
-    const _url = this.host + `/calendarItemType/conflicts/${encodeURIComponent(String(entityId))}` + '?ts=' + new Date().getTime()
+    const _url = this.host + `/calendarItemType/conflicts/of?entityId=${encodeURIComponent(String(entityId))}` + '&ts=' + new Date().getTime()
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new CalendarItemType(it)))

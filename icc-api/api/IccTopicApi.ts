@@ -265,7 +265,7 @@ export class IccTopicApi {
    * @return the conflicting revisions of the topic.
    */
   async getConflictsForEntity(entityId: string): Promise<Array<Topic>> {
-    const _url = this.host + `/topic/conflicts/${encodeURIComponent(String(entityId))}` + '?ts=' + new Date().getTime()
+    const _url = this.host + `/topic/conflicts/of?entityId=${encodeURIComponent(String(entityId))}` + '&ts=' + new Date().getTime()
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Topic(it)))
@@ -312,8 +312,8 @@ export class IccTopicApi {
   async getConflictsForEntityInGroup(groupId: string, entityId: string): Promise<Array<Topic>> {
     const _url =
       this.host +
-      `/topic/inGroup/${encodeURIComponent(String(groupId))}/conflicts/${encodeURIComponent(String(entityId))}` +
-      '?ts=' +
+      `/topic/inGroup/${encodeURIComponent(String(groupId))}/conflicts/of?entityId=${encodeURIComponent(String(entityId))}` +
+      '&ts=' +
       new Date().getTime()
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())

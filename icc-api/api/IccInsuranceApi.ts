@@ -262,7 +262,7 @@ export class IccInsuranceApi {
    * @return the conflicting revisions of the insurance.
    */
   async getConflictsForEntity(entityId: string): Promise<Array<Insurance>> {
-    const _url = this.host + `/insurance/conflicts/${encodeURIComponent(String(entityId))}` + '?ts=' + new Date().getTime()
+    const _url = this.host + `/insurance/conflicts/of?entityId=${encodeURIComponent(String(entityId))}` + '&ts=' + new Date().getTime()
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new Insurance(it)))
@@ -309,8 +309,8 @@ export class IccInsuranceApi {
   async getConflictsForEntityInGroup(groupId: string, entityId: string): Promise<Array<Insurance>> {
     const _url =
       this.host +
-      `/insurance/inGroup/${encodeURIComponent(String(groupId))}/conflicts/${encodeURIComponent(String(entityId))}` +
-      '?ts=' +
+      `/insurance/inGroup/${encodeURIComponent(String(groupId))}/conflicts/of?entityId=${encodeURIComponent(String(entityId))}` +
+      '&ts=' +
       new Date().getTime()
     let headers = this.headers
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())

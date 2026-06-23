@@ -437,7 +437,7 @@ export class IccAccesslogApi {
    * @return the conflicting revisions of the access log.
    */
   async getConflictsForEntity(entityId: string): Promise<Array<AccessLog>> {
-    const _url = this.host + `/accesslog/conflicts/${encodeURIComponent(String(entityId))}` + '?ts=' + new Date().getTime()
+    const _url = this.host + `/accesslog/conflicts/of?entityId=${encodeURIComponent(String(entityId))}` + '&ts=' + new Date().getTime()
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new AccessLog(it)))
@@ -484,8 +484,8 @@ export class IccAccesslogApi {
   async getConflictsForEntityInGroup(groupId: string, entityId: string): Promise<Array<AccessLog>> {
     const _url =
       this.host +
-      `/accesslog/inGroup/${encodeURIComponent(String(groupId))}/conflicts/${encodeURIComponent(String(entityId))}` +
-      '?ts=' +
+      `/accesslog/inGroup/${encodeURIComponent(String(groupId))}/conflicts/of?entityId=${encodeURIComponent(String(entityId))}` +
+      '&ts=' +
       new Date().getTime()
     let headers = await this.headers
     return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
