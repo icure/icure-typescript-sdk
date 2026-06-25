@@ -94,20 +94,30 @@ export function phoneNumberFormat(phoneNumber: string | null | undefined): strin
   return formatNumber(parsedPhoneNumber, 'INTERNATIONAL')
 }
 
+// An empty object ({}) is a supported sentinel meaning "now": the date/time encoders and decoders
+// interpret it as the current date. Only a plain, empty object qualifies — Dates, arrays, boxed
+// primitives, and objects with keys are excluded.
+function isNowSentinel(value: unknown): boolean {
+  return typeof value === 'object' && value !== null && Object.getPrototypeOf(value) === Object.prototype && Object.keys(value).length === 0
+}
+
 /**
  * Converts a backend date number (e.g., patient birth date) into a Date object.
  *
  * Accepts both yyyyMMdd and yyyyMMddHHmmss fuzzy dates (only the date part is kept), a String that
  * can be parsed as such a number (blank Strings yield undefined), and a Date which is passed through.
- * @param dateNumber a yyyyMMdd / yyyyMMddHHmmss fuzzy date, a numeric String, or a Date
+ * A null or undefined input yields undefined; an empty object ({}) defaults to the current date.
+ * @param dateNumber a yyyyMMdd / yyyyMMddHHmmss fuzzy date, a numeric String, or a Date; {} defaults to now
  * @return a Date object
  * @throws Error if the fuzzy date is negative.
  * @see #dateEncode
  * @see #timeDecode
  */
-export function dateDecode(dateNumber: number | string | Date | null | undefined): Date | undefined {
+export function dateDecode(dateNumber: number | string | Date | Record<string, never> | null | undefined): Date | undefined {
   if (dateNumber === null || dateNumber === undefined) return undefined
   if (dateNumber instanceof Date) return dateNumber
+  // An empty object ({}) is the supported sentinel meaning "now"; any other object yields undefined.
+  if (typeof dateNumber === 'object') return isNowSentinel(dateNumber) ? new Date() : undefined
   if (typeof dateNumber === 'string') {
     if (dateNumber.trim() === '') return undefined
     const parsed = Number(dateNumber)
@@ -129,15 +139,18 @@ export function dateDecode(dateNumber: number | string | Date | null | undefined
  *
  * Accepts both yyyyMMddHHmmss and yyyyMMdd fuzzy dates (the time part defaults to midnight), a String
  * that can be parsed as such a number (blank Strings yield undefined), and a Date which is passed through.
- * @param timeNumber a yyyyMMddHHmmss / yyyyMMdd fuzzy date, a numeric String, or a Date
+ * A null or undefined input yields undefined; an empty object ({}) defaults to the current date and time.
+ * @param timeNumber a yyyyMMddHHmmss / yyyyMMdd fuzzy date, a numeric String, or a Date; {} defaults to now
  * @return a Date object
  * @throws Error if the fuzzy date is negative.
  * @see #timeEncode
  * @see #dateDecode
  */
-export function timeDecode(timeNumber: number | string | Date | null | undefined): Date | undefined {
+export function timeDecode(timeNumber: number | string | Date | Record<string, never> | null | undefined): Date | undefined {
   if (timeNumber === null || timeNumber === undefined) return undefined
   if (timeNumber instanceof Date) return timeNumber
+  // An empty object ({}) is the supported sentinel meaning "now"; any other object yields undefined.
+  if (typeof timeNumber === 'object') return isNowSentinel(timeNumber) ? new Date() : undefined
   if (typeof timeNumber === 'string') {
     if (timeNumber.trim() === '') return undefined
     const parsed = Number(timeNumber)
@@ -158,18 +171,21 @@ export function timeDecode(timeNumber: number | string | Date | null | undefined
  *
  * A Date is formatted as usual. A String or a Number is interpreted as a fuzzy date that is already
  * encoded (yyyyMMdd or yyyyMMddHHmmss) or as an epoch expressed in milliseconds.
- * @param date a Date object, or a fuzzy date / epoch as a String or Number
+ * A null or undefined input yields undefined; an empty object ({}) defaults to the current date.
+ * @param date a Date object, or a fuzzy date / epoch as a String or Number; {} defaults to today
  * @return a YYYYMMDD date number for the backend
  * @see #dateDecode
  * @see #timeEncode
  */
-export function dateEncode(date?: Date | Number | String | null | undefined): number | undefined {
-  if (date === null || date === undefined) { return undefined }
-  if (typeof date === 'string' && date.trim() === '') return undefined
+export function dateEncode(date: Date | number | string | Record<string, never> | null | undefined): number | undefined {
+  if (date === null || date === undefined) return undefined
   if (date instanceof Date) {
     // date is null if the field is not set
     return date ? Number(formatDate(date, 'yyyyMMdd').padStart(8, '19700101')) : undefined
   }
+  // An empty object ({}) is the supported sentinel meaning "now"; any other object yields undefined.
+  if (typeof date === 'object') return isNowSentinel(date) ? dateEncode(new Date()) : undefined
+  if (typeof date === 'string' && date.trim() === '') return undefined
   // A String or a Number is a fuzzy date (yyyyMMdd, yyyyMMddHHmmss) or an epoch in milliseconds
   const fuzzy = Number(date)
   if (!fuzzy || isNaN(fuzzy)) return undefined
@@ -190,17 +206,20 @@ export function dateEncode(date?: Date | Number | String | null | undefined): nu
  *
  * A Date is formatted as usual. A String or a Number is interpreted as a fuzzy date that is already
  * encoded (yyyyMMdd or yyyyMMddHHmmss) or as an epoch expressed in milliseconds.
- * @param date a Date object, or a fuzzy date / epoch as a String or Number
+ * A null or undefined input yields undefined; an empty object ({}) defaults to the current date and time.
+ * @param date a Date object, or a fuzzy date / epoch as a String or Number; {} defaults to now
  * @return a YYYYMMDDHHmmss date number for the backend
  * @see #timeDecode
  * @see #dateEncode
  */
-export function timeEncode(date: Date | Number | String | null | undefined): number | undefined {
+export function timeEncode(date: Date | number | string | Record<string, never> | null | undefined): number | undefined {
   if (date === null || date === undefined) return undefined
-  if (typeof date === 'string' && date.trim() === '') return undefined
   if (date instanceof Date) {
     return date ? Number(formatDate(date, 'yyyyMMddHHmmss')) : undefined
   }
+  // An empty object ({}) is the supported sentinel meaning "now"; any other object yields undefined.
+  if (typeof date === 'object') return isNowSentinel(date) ? timeEncode(new Date()) : undefined
+  if (typeof date === 'string' && date.trim() === '') return undefined
   // A String or a Number is a fuzzy date (yyyyMMdd, yyyyMMddHHmmss) or an epoch in milliseconds
   const fuzzy = Number(date)
   if (!fuzzy || isNaN(fuzzy)) return undefined

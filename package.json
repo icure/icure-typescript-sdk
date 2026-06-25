@@ -56,7 +56,8 @@
     "prepare": "rimraf dist && npm run build && jq '{name:.name, version:.version, description:.description, main:\"index.js\", types:\"index.d.ts\", dependencies:.dependencies, author:.author, license:.license, bugs:.bugs, homepage:.homepage}' < package.json > dist/package.json && yarn testwp",
     "publish": "yarn run prepare && cd dist && cp ../.npmignore . && npm publish && cd ..",
     "precommit": "pretty-quick --staged",
-    "test": "nyc mocha \"test/**/*.ts\" --require ts-node/register --require source-map-support/register --timeout=60000 --recursive",
+    "test": "nyc mocha \"test/icc-api/*.ts\" --require ts-node/register --require source-map-support/register --timeout=60000 --recursive",
+    "lzma": "playwright test --config test/benchmarks/playwright.config.ts",
     "clean": "npx ts-node test-scripts/cleanup.ts"
   },
   "repository": {

@@ -1,11 +1,16 @@
 import { describe, it } from 'mocha'
 import { expect } from 'chai'
+import { format as formatDate } from 'date-fns'
 import { dateDecode, dateEncode, timeDecode, timeEncode } from '../../../icc-x-api/utils/formatting-util'
 
 describe('dateEncode', () => {
   it('should return undefined for undefined/null input', () => {
     expect(dateEncode(undefined)).to.be.undefined
     expect(dateEncode(null)).to.be.undefined
+  })
+
+  it("should encode today's date for an empty object input", () => {
+    expect(dateEncode({})).to.equal(Number(formatDate(new Date(), 'yyyyMMdd')))
   })
 
   it('should return undefined for falsy String/Number input', () => {
@@ -52,6 +57,12 @@ describe('timeEncode', () => {
     expect(timeEncode(null)).to.be.undefined
   })
 
+  it('should encode the current date and time for an empty object input', () => {
+    const today = Number(formatDate(new Date(), 'yyyyMMdd'))
+    // Only assert on the date part to avoid flakiness on second boundaries.
+    expect(Math.floor((timeEncode({}) as number) / 1000000)).to.equal(today)
+  })
+
   it('should return undefined for falsy String/Number input', () => {
     expect(timeEncode('')).to.be.undefined
     expect(timeEncode('   ')).to.be.undefined
@@ -86,6 +97,10 @@ describe('dateDecode', () => {
   it('should return undefined for undefined/null input', () => {
     expect(dateDecode(undefined)).to.be.undefined
     expect(dateDecode(null)).to.be.undefined
+  })
+
+  it("should decode to today's date for an empty object input", () => {
+    expect(formatDate(dateDecode({}) as Date, 'yyyyMMdd')).to.equal(formatDate(new Date(), 'yyyyMMdd'))
   })
 
   it('should return undefined for blank String input', () => {
@@ -127,6 +142,11 @@ describe('timeDecode', () => {
   it('should return undefined for undefined/null input', () => {
     expect(timeDecode(undefined)).to.be.undefined
     expect(timeDecode(null)).to.be.undefined
+  })
+
+  it('should decode to the current date for an empty object input', () => {
+    // Only assert on the date part to avoid flakiness on second boundaries.
+    expect(formatDate(timeDecode({}) as Date, 'yyyyMMdd')).to.equal(formatDate(new Date(), 'yyyyMMdd'))
   })
 
   it('should return undefined for blank String input', () => {
