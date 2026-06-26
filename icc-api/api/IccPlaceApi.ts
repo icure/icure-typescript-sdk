@@ -18,6 +18,8 @@ import { ListOfIds } from '../model/ListOfIds'
 import { PaginatedListPlace } from '../model/PaginatedListPlace'
 import { ConflictResolutionRequest } from '../model/ConflictResolutionRequest'
 import { ConflictResolutionResult } from '../model/ConflictResolutionResult'
+import { ConflictResolutionStrategy } from '../model/ConflictResolutionStrategy'
+import { MergeResult } from '../model/MergeResult'
 
 export class IccPlaceApi {
   host: string
@@ -180,6 +182,51 @@ export class IccPlaceApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new ConflictResolutionResult<Place>(doc.body, (x) => new Place(x)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Automatically resolves the conflicting revisions of the places with the given ids, according to the provided
+   * {@link ConflictResolutionStrategy}.
+   * @summary Automatically solve the conflicts of the places with the given ids.
+   * @param entityIds the ids of the places to solve the conflicts for.
+   * @param strategy the {@link ConflictResolutionStrategy} to use to resolve the conflicts. Defaults to `FullMergeability`.
+   * @return the {@link MergeResult} of the conflict resolution for each requested entity.
+   */
+  async autoSolveConflicts(
+    entityIds: Array<string>,
+    strategy: ConflictResolutionStrategy = ConflictResolutionStrategy.FullMergeability
+  ): Promise<Array<MergeResult>> {
+    const _url = this.host + `/place/conflicts/solve?strategy=${encodeURIComponent(String(strategy))}` + '&ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, entityIds, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new MergeResult(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Like {@link autoSolveConflicts} but targets the entities of the group with the given id.
+   * @summary Automatically solve the conflicts of the places with the given ids, in the given group.
+   * @param groupId the id of the group to look into.
+   * @param entityIds the ids of the places to solve the conflicts for.
+   * @param strategy the {@link ConflictResolutionStrategy} to use to resolve the conflicts. Defaults to `FullMergeability`.
+   * @return the {@link MergeResult} of the conflict resolution for each requested entity.
+   */
+  async autoSolveConflictsInGroup(
+    groupId: string,
+    entityIds: Array<string>,
+    strategy: ConflictResolutionStrategy = ConflictResolutionStrategy.FullMergeability
+  ): Promise<Array<MergeResult>> {
+    const _url =
+      this.host +
+      `/place/inGroup/${encodeURIComponent(String(groupId))}/conflicts/solve?strategy=${encodeURIComponent(String(strategy))}` +
+      '&ts=' +
+      new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, entityIds, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new MergeResult(it)))
       .catch((err) => this.handleError(err))
   }
 }
