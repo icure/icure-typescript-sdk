@@ -1,4 +1,5 @@
 import { lzmaWasmCompress, lzmaWasmDecompress } from './lzma-wasm'
+import { ua2ab } from './binary-utils'
 
 const COMPRESSION_VERSION = '1'
 const MINIMUM_SIZE_FOR_COMPRESSION = 64
@@ -62,7 +63,7 @@ export function getCompressionVersion(): string {
  * @returns the (possibly compressed) data and the algorithm used, or undefined if no compression was applied.
  */
 export async function compressData(data: ArrayBuffer | Uint8Array, utis?: string[]): Promise<CompressionResult> {
-  const raw = toArrayBuffer(data)
+  const raw = ua2ab(data)
 
   if (utis?.some((uti) => ALREADY_COMPRESSED_UTIS.has(uti)) || raw.byteLength < MINIMUM_SIZE_FOR_COMPRESSION) {
     return { data: raw, algorithm: undefined }
@@ -85,15 +86,10 @@ export async function compressData(data: ArrayBuffer | Uint8Array, utis?: string
  */
 export async function decompressData(data: ArrayBuffer | Uint8Array, algorithm: string | undefined): Promise<ArrayBuffer> {
   if (!algorithm) {
-    return toArrayBuffer(data)
+    return ua2ab(data)
   }
   if (algorithm === 'lzma2') {
     return lzmaWasmDecompress(data)
   }
   throw new Error(`Unsupported compression algorithm: ${algorithm}`)
-}
-
-function toArrayBuffer(data: ArrayBuffer | Uint8Array): ArrayBuffer {
-  if (data instanceof ArrayBuffer) return data
-  return new Uint8Array(data).buffer as ArrayBuffer
 }

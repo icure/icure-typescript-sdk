@@ -191,16 +191,12 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
     attachment: ArrayBuffer | Uint8Array,
     deflate: boolean = false
   ): Promise<models.Receipt> {
-    const realDataSize = ua2ab(attachment).byteLength
-    const { data: dataToEncrypt, algorithm: compressionAlgorithm } = deflate
-      ? await compressData(attachment)
-      : { data: ua2ab(attachment), algorithm: undefined }
+    const raw = ua2ab(attachment)
+    const realDataSize = raw.byteLength
+    const { data: dataToEncrypt, algorithm: compressionAlgorithm } = deflate ? await compressData(attachment) : { data: raw, algorithm: undefined }
 
-    const { encryptedData, updatedEntity } = await this.crypto.xapi.encryptDataOf(
-      receipt,
-      EntityWithDelegationTypeName.Receipt,
-      dataToEncrypt,
-      (r) => this.modifyReceipt(r)
+    const { encryptedData, updatedEntity } = await this.crypto.xapi.encryptDataOf(receipt, EntityWithDelegationTypeName.Receipt, dataToEncrypt, (r) =>
+      this.modifyReceipt(r)
     )
     return await this.setReceiptDataAttachment(
       receipt.id!,
@@ -227,10 +223,9 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
     attachment: ArrayBuffer | Uint8Array,
     deflate: boolean = false
   ): Promise<models.Receipt> {
-    const realDataSize = ua2ab(attachment).byteLength
-    const { data: dataToUpload, algorithm: compressionAlgorithm } = deflate
-      ? await compressData(attachment)
-      : { data: ua2ab(attachment), algorithm: undefined }
+    const raw = ua2ab(attachment)
+    const realDataSize = raw.byteLength
+    const { data: dataToUpload, algorithm: compressionAlgorithm } = deflate ? await compressData(attachment) : { data: raw, algorithm: undefined }
 
     return await this.setReceiptDataAttachment(
       receipt.id!,

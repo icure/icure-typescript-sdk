@@ -112,6 +112,48 @@ describe('LZMA WASM compatibility (Node.js)', function () {
     })
   })
 
+  describe('input immutability', () => {
+    it('should not modify an ArrayBuffer input in place when compressing via lzmaWasmCompress', async () => {
+      const data = generateReferenceData()
+      const input = data.buffer.slice(0) as ArrayBuffer
+      const snapshot = new Uint8Array(input.slice(0))
+
+      await lzmaWasmCompress(input)
+
+      expect(new Uint8Array(input)).to.deep.equal(snapshot)
+    })
+
+    it('should not modify an ArrayBuffer input in place when decompressing via lzmaWasmDecompress', async () => {
+      const data = generateReferenceData()
+      const compressed = await lzmaWasmCompress(data)
+      const snapshot = new Uint8Array(compressed.slice(0))
+
+      await lzmaWasmDecompress(compressed)
+
+      expect(new Uint8Array(compressed)).to.deep.equal(snapshot)
+    })
+
+    it('should not modify an ArrayBuffer input in place when compressing via compressData', async () => {
+      const data = generateReferenceData()
+      const input = data.buffer.slice(0) as ArrayBuffer
+      const snapshot = new Uint8Array(input.slice(0))
+
+      await compressData(input)
+
+      expect(new Uint8Array(input)).to.deep.equal(snapshot)
+    })
+
+    it('should not modify an ArrayBuffer input in place when decompressing via decompressData', async () => {
+      const data = generateReferenceData()
+      const { data: compressed, algorithm } = await compressData(data)
+      const snapshot = new Uint8Array(compressed.slice(0))
+
+      await decompressData(compressed, algorithm)
+
+      expect(new Uint8Array(compressed)).to.deep.equal(snapshot)
+    })
+  })
+
   describe('xz CLI interop', function () {
     before(function () {
       if (!hasXzCli()) this.skip()

@@ -831,10 +831,11 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     deflate: boolean = false
   ): Promise<models.Document> {
     if (!document.rev) throw new Error('Cannot set attachment on document without rev')
-    const realDataSize = ua2ab(attachment).byteLength
+    const raw = ua2ab(attachment)
+    const realDataSize = raw.byteLength
     const { data: dataToEncrypt, algorithm: compressionAlgorithm } = deflate
       ? await compressData(attachment, utis)
-      : { data: ua2ab(attachment), algorithm: undefined }
+      : { data: raw, algorithm: undefined }
 
     const { encryptedData, updatedEntity } = await this.crypto.xapi.encryptDataOf(
       document,
@@ -873,10 +874,11 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     deflate: boolean = false
   ): Promise<models.Document> {
     if (!document.rev) throw new Error('Cannot set attachment on document without rev')
-    const realDataSize = ua2ab(attachment).byteLength
+    const raw = ua2ab(attachment)
+    const realDataSize = raw.byteLength
     const { data: dataToUpload, algorithm: compressionAlgorithm } = deflate
       ? await compressData(attachment, utis)
-      : { data: ua2ab(attachment), algorithm: undefined }
+      : { data: raw, algorithm: undefined }
 
     return (
       await this.decrypt([
@@ -911,10 +913,11 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     deflate: boolean = false
   ): Promise<models.Document> {
     if (!document.rev) throw new Error('Cannot set attachment on document without rev')
-    const realDataSize = ua2ab(attachment).byteLength
+    const raw = ua2ab(attachment)
+    const realDataSize = raw.byteLength
     const { data: dataToEncrypt, algorithm: compressionAlgorithm } = deflate
       ? await compressData(attachment, utis)
-      : { data: ua2ab(attachment), algorithm: undefined }
+      : { data: raw, algorithm: undefined }
 
     const { encryptedData, updatedEntity } = await this.crypto.xapi.encryptDataOf(
       document,
@@ -956,10 +959,11 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
     utis?: string[],
     deflate: boolean = false
   ): Promise<models.Document> {
-    const realDataSize = ua2ab(attachment).byteLength
+    const raw = ua2ab(attachment)
+    const realDataSize = raw.byteLength
     const { data: dataToUpload, algorithm: compressionAlgorithm } = deflate
       ? await compressData(attachment, utis)
-      : { data: ua2ab(attachment), algorithm: undefined }
+      : { data: raw, algorithm: undefined }
 
     return (
       await this.decrypt([
