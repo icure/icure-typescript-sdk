@@ -9,6 +9,8 @@ Publishes a new version to NPM and GitHub in one pass: preflight checks, version
 
 **Each step gates the next. If a step fails, stop and report — never continue past a failed check.**
 
+**Interactive prompts:** commits, tags and pushes are SSH-signed through the Secretive agent, which may refuse to sign from a non-interactive shell (`agent refused operation` / `Permission denied (publickey)`). If that happens, don't retry blindly: ask the user to run the exact same command with the `!` prefix so they can approve Secretive's prompt. Remote-only operations (deleting a tag/release) can alternatively go through `gh api`, which uses an HTTPS token and needs no SSH.
+
 ## 1. Preflight — everything pushed on release/v8
 
 ```bash
@@ -83,7 +85,9 @@ git push origin release/v8 <VERSION>
 yarn run publish
 ```
 
-This builds (`prepare`) and runs `npm publish` from `dist/`. Verify: `npm view @icure/api@<VERSION> version`.
+This builds (`prepare`) and runs `npm publish` from `dist/`. NPM requires a fresh one-time password at publish time, even right after a successful `npm login` — expect an `EOTP` error or a masked browser-auth URL. When that happens the build is already done: ask the user to run `! cd dist && npm publish` themselves (or `! cd dist && npm publish --otp=<code>`) and complete the OTP flow.
+
+Always verify before continuing: `npm view @icure/api@<VERSION> version` must return the version — a 404 means the publish did NOT complete (e.g. the OTP prompt was abandoned), regardless of how much tarball output was printed.
 
 ## 8. Create the GitHub release
 
@@ -97,6 +101,8 @@ It reads the RELEASES.md entry and creates the release on the pushed tag. Verify
 
 | Failed step                                         | Recovery                                                          |
 |-----------------------------------------------------|-------------------------------------------------------------------|
+| Git command: `agent refused operation`              | User runs the same command with `!` prefix and approves Secretive |
+| `npm publish` fails with `EOTP` / auth URL          | User runs `! cd dist && npm publish` and completes the OTP; then verify with `npm view` |
 | `yarn run publish` (7)                              | Fix the build issue; tag and notes are fine — retry publish only  |
 | NPM publish succeeded but GitHub release (8) failed | Re-run step 8 only; never re-publish to NPM                       |
 | Wrong version published                             | NPM versions are immutable — release a new patch, don't unpublish |
