@@ -1068,7 +1068,7 @@ Maintenance release (version bump only).
 
 - Added auto solve conflicts method
 
-## [MISSING] 8.9.1 (2026-07-08)
+## 8.9.1 (2026-07-08)
 <!-- tag: 8.9.1 | target: 30b843ac293588f60c8dd1c7c8ce1e509d63cb2e | prerelease: false -->
 
 - Force content type application/octet-stream for receipt attachments
