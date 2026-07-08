@@ -18,6 +18,10 @@ This is the iCure TypeScript SDK - a client library for the iCure healthcare pla
 - Run specific test: `mocha "test/path/to/test.ts" --require ts-node/register --require source-map-support/register --timeout=60000`
 - Run test pattern: `mocha "test/**/*pattern*.ts" --require ts-node/register --timeout=60000`
 
+### Releasing
+- Use the `/tsdk-release` skill (`.claude/skills/tsdk-release/SKILL.md`) to publish a new version: it verifies release/v8 is fully pushed, handles npm login, bumps to a semver-correct unpublished version, drafts release notes in `RELEASES.md`, tags, pushes, runs `yarn run publish`, and creates the GitHub release.
+- `RELEASES.md` is the source of truth for release notes; `scripts/create-releases.ts` creates GitHub releases from it (`--only <version>` for a single one).
+
 ## Architecture
 
 ### Two-Layer Structure

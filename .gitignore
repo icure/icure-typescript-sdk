@@ -15,3 +15,4 @@ custom-docker-compose-cloud.yaml
 /icc-x-api/wasm/lzma/build
 /test/benchmarks/worker-files
 /test-results
+.claude/settings.local.json
