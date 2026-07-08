@@ -273,7 +273,7 @@ export class IccReceiptApi {
       '?ts=' +
       new Date().getTime()
     let headers = await this.headers
-    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, "application/octet-stream", this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
   }
