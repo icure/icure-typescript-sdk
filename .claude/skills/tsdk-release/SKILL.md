@@ -97,6 +97,9 @@ bun scripts/create-releases.ts --only <VERSION>
 
 It reads the RELEASES.md entry and creates the release on the pushed tag. Verify with `gh release view <VERSION>`. Then remove the `[MISSING] ` marker from the entry's header in RELEASES.md (no marker = published), commit (`Marked <VERSION> as released`) and push.
 
+## 9. Bump the dependence in fhc-api
+The repository ../fhc-api depends on @icure/api. If the new release becomes incompatible with the peerDependencies definition in fhc-api package.json. Do a patch release of fhc-api using the sister skill in fhc-api repo: fhc-release
+
 ## Failure recovery
 
 | Failed step                                         | Recovery                                                          |
