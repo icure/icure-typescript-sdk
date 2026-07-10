@@ -72,10 +72,10 @@ git add RELEASES.md && git commit -m "Added release notes for <VERSION>"
 
 ## 6. Tag and push
 
-Tags use the plain version, no `v` prefix, on the bump commit:
+Tags use the plain version, no `v` prefix, on the bump commit. `tag.gpgSign` is enabled in this repo, so tags are annotated and need a message — a bare `git tag <VERSION>` fails with "no tag message?":
 
 ```bash
-git tag <VERSION> $BUMP_SHA
+git tag -m <VERSION> <VERSION> $BUMP_SHA
 git push origin release/v8 <VERSION>
 ```
 
