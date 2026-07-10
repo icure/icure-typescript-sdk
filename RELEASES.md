@@ -1074,3 +1074,8 @@ Maintenance release (version bump only).
 - Force content type application/octet-stream for receipt attachments
 - Minor improvements to attachment compression: avoid double copy if input is a shared array buffer
 
+
+## [MISSING] 8.9.2 (2026-07-10)
+<!-- tag: 8.9.2 | target: ccb62d6d00adc098f99d0bd8364356403f1437b8 | prerelease: false -->
+
+- Do not throw on undecrypted receipt attachments when the receipt has no encryption metadata
