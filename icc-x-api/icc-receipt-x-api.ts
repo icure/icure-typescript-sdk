@@ -149,7 +149,7 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
     validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<ArrayBuffer> {
     const retrieved = await this.getAndTryDecryptReceiptAttachment(receipt, attachmentId, (x) => validator(x))
-    if (!retrieved.wasDecrypted) throw new Error(`No valid key found to decrypt data of receipt ${receipt.id}.`)
+    if (!retrieved.wasDecrypted && (Object.keys(receipt.encryptionKeys ?? {}).length || Object.keys(receipt.securityMetadata?.secureDelegations ?? {}).length)) throw new Error(`No valid key found to decrypt data of receipt ${receipt.id}.`)
     return retrieved.data
   }
 
@@ -252,7 +252,8 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
     validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<ArrayBuffer> {
     const retrieved = await this.getAndTryDecryptReceiptDataAttachment(receipt, blobType, validator)
-    if (!retrieved.wasDecrypted) throw new Error(`No valid key found to decrypt data of receipt ${receipt.id}.`)
+    // Only throw if the receipt has encryption metadata: attachments of unencrypted receipts are legitimately returned as-is
+    if (!retrieved.wasDecrypted && (Object.keys(receipt.encryptionKeys ?? {}).length || Object.keys(receipt.securityMetadata?.secureDelegations ?? {}).length)) throw new Error(`No valid key found to decrypt data of receipt ${receipt.id}.`)
     return retrieved.data
   }
 
