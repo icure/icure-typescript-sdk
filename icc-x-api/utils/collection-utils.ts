@@ -22,7 +22,29 @@ export function cloneDeep<T>(obj: T): T {
     return result as unknown as T
   }
 
+  // ArrayBuffer checks
+  const tag = Object.prototype.toString.call(obj)
+
+  // Raw buffers (not views) + realm safe check
+  if (obj instanceof ArrayBuffer || tag === '[object ArrayBuffer]') {
+    return (obj as unknown as ArrayBuffer).slice(0) as unknown as T
+  }
+
+  // Shared buffers + realm safe check
+  if (typeof SharedArrayBuffer !== 'undefined' && (obj instanceof SharedArrayBuffer || tag === '[object SharedArrayBuffer]')) {
+    const src = new Uint8Array(obj as unknown as SharedArrayBuffer)
+    const copy = new Uint8Array(src.byteLength)
+    copy.set(src)
+    return copy.buffer as unknown as T
+  }
+
+  // ArrayBuffer.isView does non-view ArrayBuffers (raw ArrayBuffers, SharedArrayBuffers)
   if (ArrayBuffer.isView(obj)) {
+    // Node Buffer: its .slice() shares memory, so it must be special-cased BEFORE the generic slice() path
+    if (typeof Buffer !== 'undefined' && Buffer.isBuffer(obj)) {
+      return Buffer.from(obj) as unknown as T // Buffer.from(buffer) copies
+    }
+
     if (obj instanceof DataView) {
       const clonedBuffer = obj.buffer.slice(obj.byteOffset, obj.byteOffset + obj.byteLength)
       return new DataView(clonedBuffer, 0, obj.byteLength) as unknown as T
@@ -44,8 +66,7 @@ export function cloneDeep<T>(obj: T): T {
 
     const clonedBuffer = view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength)
     const TypedArrayCtor = view.constructor as new (buffer: ArrayBuffer, byteOffset?: number, length?: number) => typeof obj
-    const length =
-      typeof view.BYTES_PER_ELEMENT === 'number' && typeof view.length === 'number' ? view.length : undefined
+    const length = typeof view.BYTES_PER_ELEMENT === 'number' && typeof view.length === 'number' ? view.length : undefined
     return new TypedArrayCtor(clonedBuffer, 0, length) as unknown as T
   }
 
