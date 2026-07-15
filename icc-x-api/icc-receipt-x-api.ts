@@ -139,6 +139,7 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
    * Gets the attachment of a receipt and tries to decrypt it using the encryption keys of the receipt.
    * @param receipt a receipt.
    * @param attachmentId id of the attachment of this receipt to retrieve.
+   * @param returnNonDecrypted in case an attachment should have been encrypted and could not be decrypted, return it as is
    * @param validator optionally a validator function which checks if the decryption was successful. In cases where the receipt has many encryption
    * keys and it is unclear which one should be used this function can help to detect bad decryptions.
    * @return the decrypted attachment, if it could be decrypted, else the encrypted attachment.
@@ -146,10 +147,11 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
   async getAndDecryptReceiptAttachment(
     receipt: models.Receipt,
     attachmentId: string,
+    returnNonDecrypted: boolean = false,
     validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<ArrayBuffer> {
     const retrieved = await this.getAndTryDecryptReceiptAttachment(receipt, attachmentId, (x) => validator(x))
-    if (!retrieved.wasDecrypted && (Object.keys(receipt.encryptionKeys ?? {}).length || Object.keys(receipt.securityMetadata?.secureDelegations ?? {}).length)) throw new Error(`No valid key found to decrypt data of receipt ${receipt.id}.`)
+    if (!returnNonDecrypted && !retrieved.wasDecrypted && (Object.keys(receipt.encryptionKeys ?? {}).length || Object.keys(receipt.securityMetadata?.secureDelegations ?? {}).length)) throw new Error(`No valid key found to decrypt data of receipt ${receipt.id}.`)
     return retrieved.data
   }
 
@@ -243,17 +245,19 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
    * Throws if decryption fails.
    * @param receipt a receipt.
    * @param blobType the blob type of the attachment to retrieve.
+   * @param returnNonDecrypted in case an attachment should have been encrypted and could not be decrypted, return it as is
    * @param validator optionally a validator function which checks if the decryption was successful.
    * @return the decrypted (and decompressed) attachment.
    */
   async getAndDecryptReceiptDataAttachment(
     receipt: models.Receipt,
     blobType: string,
+    returnNonDecrypted: boolean = false,
     validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<ArrayBuffer> {
     const retrieved = await this.getAndTryDecryptReceiptDataAttachment(receipt, blobType, validator)
     // Only throw if the receipt has encryption metadata: attachments of unencrypted receipts are legitimately returned as-is
-    if (!retrieved.wasDecrypted && (Object.keys(receipt.encryptionKeys ?? {}).length || Object.keys(receipt.securityMetadata?.secureDelegations ?? {}).length)) throw new Error(`No valid key found to decrypt data of receipt ${receipt.id}.`)
+    if (!returnNonDecrypted && !retrieved.wasDecrypted && (Object.keys(receipt.encryptionKeys ?? {}).length || Object.keys(receipt.securityMetadata?.secureDelegations ?? {}).length)) throw new Error(`No valid key found to decrypt data of receipt ${receipt.id}.`)
     return retrieved.data
   }
 
