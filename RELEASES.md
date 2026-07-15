@@ -1089,3 +1089,9 @@ Maintenance release (version bump only).
 <!-- tag: 8.9.3 | target: bb53b894d61ddd9466f80d0ef12036b058f14019 | prerelease: false -->
 
 - Fixed ArrayBuffer issue in cloneDeep
+
+## [MISSING] 8.10.0 (2026-07-15)
+<!-- tag: 8.10.0 | target: f77a9278f39c47ab761a2d1bcb2a7c870134675f | prerelease: false -->
+
+- Added `returnNonDecrypted` option to receipt attachment decryption methods: when set, an attachment that should have been encrypted but could not be decrypted is returned as is instead of throwing. Note: the new parameter is inserted before `validator`, so callers passing a validator positionally to `getAndDecryptReceiptAttachment` or `getAndDecryptReceiptDataAttachment` must be updated.
+- Added tests for cloning of objects with ByteArray structures
