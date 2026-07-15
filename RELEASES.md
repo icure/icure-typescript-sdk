@@ -1079,3 +1079,13 @@ Maintenance release (version bump only).
 <!-- tag: 8.9.2 | target: ccb62d6d00adc098f99d0bd8364356403f1437b8 | prerelease: false -->
 
 - Do not throw on undecrypted receipt attachments when the receipt has no encryption metadata
+
+## [MISSING] 8.8.7 (2026-07-14)
+<!-- tag: 8.8.7 | target: 352c1f4e26ce3781c463b47f17b6a8982ee719f0 | prerelease: false -->
+
+- Fixed ArrayBuffer issue in cloneDeep (backport to 8.8)
+
+## [MISSING] 8.9.3 (2026-07-14)
+<!-- tag: 8.9.3 | target: bb53b894d61ddd9466f80d0ef12036b058f14019 | prerelease: false -->
+
+- Fixed ArrayBuffer issue in cloneDeep
