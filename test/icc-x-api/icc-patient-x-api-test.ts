@@ -192,6 +192,64 @@ describe('icc-x-patient-api Tests', () => {
     }
   })
 
+  it('modifyPatientWithUser should preserve the picture data when a picture is passed', async () => {
+    const api = await initApi(env!, hcp1Username)
+    const user = await api.userApi.getCurrentUser()
+
+    // Create a patient without a picture
+    const created = await api.patientApi.createPatientWithUser(
+      user,
+      await api.patientApi.newInstance(user, { firstName: 'Giovanni', lastName: 'Giorgio' })
+    )
+    expect(created.picture).to.be.undefined
+
+    // Modify the patient, adding a picture (stored as an ArrayBuffer, which goes through cloneDeep in modifyPatientAs)
+    const pictureAB = randomBytes(100)
+    const modified = await api.patientApi.modifyPatientWithUser(user, new Patient({ ...created, picture: new Uint8Array(pictureAB) }))
+    assert(modified != null)
+    expect(modified!.id).to.equal(created.id)
+    expect(modified!.picture).to.not.be.undefined
+    expect(modified!.picture instanceof ArrayBuffer || ArrayBuffer.isView(modified!.picture)).to.be.true
+
+    // The returned picture must match the one that was passed in, byte for byte (cloneDeep must not corrupt the ArrayBuffer)
+    const modifiedPicture = new Uint8Array(modified!.picture!)
+    expect(modifiedPicture).to.have.length(pictureAB.length)
+    for (let i = 0; i < pictureAB.length; i++) {
+      expect(modifiedPicture[i]).to.equal(pictureAB[i])
+    }
+
+    // The picture must survive a round-trip through the backend
+    const retrieved = await api.patientApi.getPatientWithUser(user, created.id!)
+    expect(retrieved.picture).to.not.be.undefined
+    expect(retrieved.picture instanceof ArrayBuffer || ArrayBuffer.isView(retrieved.picture)).to.be.true
+    const retrievedPicture = new Uint8Array(retrieved.picture!)
+    expect(retrievedPicture).to.have.length(pictureAB.length)
+    for (let i = 0; i < pictureAB.length; i++) {
+      expect(retrievedPicture[i]).to.equal(pictureAB[i])
+    }
+  })
+
+  it('modifyPatientWithUser should not mutate the picture of the patient passed as argument', async () => {
+    const api = await initApi(env!, hcp1Username)
+    const user = await api.userApi.getCurrentUser()
+
+    const pictureAB = randomBytes(100)
+    const created = await api.patientApi.createPatientWithUser(
+      user,
+      await api.patientApi.newInstance(user, { firstName: 'Giovanni', lastName: 'Giorgio', picture: new Uint8Array(pictureAB) })
+    )
+
+    // The input object should be left untouched by the encryption/cloneDeep step during modify
+    const input = new Patient({ ...created, note: 'updated note' })
+    const inputPictureBefore = new Uint8Array(input.picture!).slice()
+    await api.patientApi.modifyPatientWithUser(user, input)
+    const inputPictureAfter = new Uint8Array(input.picture!)
+    expect(inputPictureAfter).to.have.length(inputPictureBefore.length)
+    for (let i = 0; i < inputPictureBefore.length; i++) {
+      expect(inputPictureAfter[i]).to.equal(inputPictureBefore[i])
+    }
+  })
+
   it('A patient created with v8 + should have no auto-fixed delegations', async () => {
     const api = await initApi(env!, hcp1Username)
     const user = await api.userApi.getCurrentUser()
