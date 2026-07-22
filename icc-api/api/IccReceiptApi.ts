@@ -210,7 +210,11 @@ export class IccReceiptApi {
       '?ts=' +
       new Date().getTime() +
       '&rev=' +
-      receiptRev
+      receiptRev +
+      '&contentLength=' +
+      encodeURIComponent(String(body.byteLength)) +
+      '&contentType=' +
+      encodeURIComponent('application/octet-stream')
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
@@ -250,7 +254,9 @@ export class IccReceiptApi {
       (triedCompressionAlgorithmsVersion
         ? '&triedCompressionAlgorithmsVersion=' + encodeURIComponent(String(triedCompressionAlgorithmsVersion))
         : '') +
-      (realDataSize != null ? '&realDataSize=' + encodeURIComponent(String(realDataSize)) : '')
+      (realDataSize != null ? '&realDataSize=' + encodeURIComponent(String(realDataSize)) : '') +
+      '&contentLength=' +
+      encodeURIComponent(String(body.byteLength))
     let headers = await this.headers
     headers = headers
       .filter((h) => h.header !== 'Content-Type')
