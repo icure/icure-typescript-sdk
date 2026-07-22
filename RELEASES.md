@@ -1096,7 +1096,7 @@ Maintenance release (version bump only).
 - Added `returnNonDecrypted` option to receipt attachment decryption methods: when set, an attachment that should have been encrypted but could not be decrypted is returned as is instead of throwing. Note: the new parameter is inserted before `validator`, so callers passing a validator positionally to `getAndDecryptReceiptAttachment` or `getAndDecryptReceiptDataAttachment` must be updated.
 - Added tests for cloning of objects with ByteArray structures
 
-## [MISSING] 8.10.1 (2026-07-22)
+## 8.10.1 (2026-07-22)
 <!-- tag: 8.10.1 | target: 1d6c319a17a90efa583b402f9dbd7a6caecc26b8 | prerelease: false -->
 
 - Removed manual Content-Length header from receipt attachment upload
