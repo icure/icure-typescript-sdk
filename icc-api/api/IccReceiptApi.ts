@@ -253,9 +253,8 @@ export class IccReceiptApi {
       (realDataSize != null ? '&realDataSize=' + encodeURIComponent(String(realDataSize)) : '')
     let headers = await this.headers
     headers = headers
-      .filter((h) => h.header !== 'Content-Type' && h.header !== 'Content-Length')
+      .filter((h) => h.header !== 'Content-Type')
       .concat(new XHR.Header('Content-Type', 'application/octet-stream'))
-      .concat(new XHR.Header('Content-Length', String(body.byteLength)))
     return XHR.sendCommand('PUT', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Receipt(doc.body as JSON))
       .catch((err) => this.handleError(err))
