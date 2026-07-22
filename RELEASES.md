@@ -1101,7 +1101,7 @@ Maintenance release (version bump only).
 
 - Removed manual Content-Length header from receipt attachment upload
 
-## [MISSING] 8.10.2 (2026-07-22)
+## 8.10.2 (2026-07-22)
 <!-- tag: 8.10.2 | target: 4591273cdc38253dcac7586e6b230f8e74951302 | prerelease: false -->
 
 - Added contentLength/contentType query parameter hints to receipt attachment uploads
