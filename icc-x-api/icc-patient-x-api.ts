@@ -1457,7 +1457,10 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
   }
 
   /**
-   * Merge two patients into one. This method performs the following operations:
+   * Merge two patients into one.
+   * Both the from and mergedInto patient must be decrypted patients, otherwise the method may have unexpected behavior.
+   *
+   * This method performs the following operations:
    * - The `from` patient will be soft-deleted, and it will point to the `into` patient. Only the `deletionDate` and `mergeToPatientId` fields of the
    *   patient will be changed (automatically by this method). Note that the value of {@link from} is only used to verify that the client is aware of
    *   the last version of the `from` patient: any changes to its content and/or metadata compared to what is actually stored in the database will be
@@ -1495,7 +1498,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
    */
   async mergePatients(from: Patient, mergedInto: Patient): Promise<Patient> {
     const encryptedMerged = (await this.encryptAs(await this.dataOwnerApi.getCurrentDataOwnerId(), [mergedInto]))[0]
-    const merged = await super.baseMergePatients(from.id!, from.rev!, encryptedMerged)
+    const merged = await super.baseMergePatients(from.id!, from.rev!, encryptedMerged, true)
     return (await this.tryDecryptOrReturnOriginal([merged]))[0].entity
   }
 

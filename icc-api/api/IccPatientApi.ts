@@ -898,7 +898,7 @@ export class IccPatientApi {
   /**
    * @internal use mergePatients from the extended api instead
    */
-  async baseMergePatients(fromId: string, expectedFromRev: string, updatedInto: Patient) {
+  async baseMergePatients(fromId: string, expectedFromRev: string, updatedInto: Patient, omitEncryptionKeysOfFrom: boolean) {
     let _body = updatedInto
 
     const _url =
@@ -907,7 +907,9 @@ export class IccPatientApi {
       '?ts=' +
       new Date().getTime() +
       '&expectedFromRev=' +
-      encodeURIComponent(String(expectedFromRev))
+      encodeURIComponent(String(expectedFromRev)) +
+      '&omitEncryptionKeysOfFrom=' +
+      encodeURIComponent(omitEncryptionKeysOfFrom)
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
