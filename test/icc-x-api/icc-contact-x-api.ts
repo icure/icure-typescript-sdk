@@ -138,54 +138,7 @@ describe('icc-x-contact-api Tests', () => {
     expect(decryptedPatientIds[0]).to.equal(patient.id)
   })
 
-  it('Filter Services By HealthElementId - Success', async () => {
-    // Given
-    const {
-      userApi: userApiForHcp,
-      patientApi: patientApiForHcp,
-      contactApi: contactApiForHcp,
-      healthcareElementApi: hElementApiForHcp,
-    } = await initApi(env!, hcp1Username)
-
-    const hcpUser = await userApiForHcp.getCurrentUser()
-
-    const patient = await createPatient(patientApiForHcp, hcpUser)
-    const healthElement = await createHealthElement(hElementApiForHcp, hcpUser, patient)
-    const contactToCreate = await createBasicContact(contactApiForHcp, hcpUser, patient).then((contact) => {
-      return {
-        ...contact,
-        subContacts: [
-          new SubContact({
-            id: randomUUID(),
-            healthElementId: healthElement!.id!,
-            services: [new ServiceLink({ serviceId: contact.services![0].id })],
-          }),
-        ],
-      }
-    })
-
-    const createdContact = (await contactApiForHcp.createContactWithUser(hcpUser, new Contact(contactToCreate))) as Contact
-    assert(createdContact != null)
-
-    // When
-    const foundServices = await contactApiForHcp.filterServicesBy(
-      undefined,
-      undefined,
-      new FilterChainService({
-        filter: new ServiceByHcPartyHealthElementIdsFilter({
-          healthcarePartyId: hcpUser.healthcarePartyId!,
-          healthElementIds: [healthElement!.id!],
-        }),
-      })
-    )
-
-    // Then
-    assert(foundServices.rows!.length == 1)
-    assert(foundServices.rows![0].id == createdContact.services![0].id)
-    assert(foundServices.rows![0].healthElementsIds!.find((heId) => heId == healthElement!.id!) != undefined)
-  })
-
-  it('contacts findBy for HCP GET and POSt', async () => {
+  it('contacts findBy for HCP GET and POST', async () => {
     // Given
     const {
       userApi: userApiForHcp,

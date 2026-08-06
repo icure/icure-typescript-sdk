@@ -75,6 +75,7 @@ export async function getEnvironmentInitializer(): Promise<EnvInitializer> {
         hcp: [
           'BASIC_USER',
           'BASIC_DATA_OWNER',
+          'ADVANCED_DATA_OWNER',
           'PATIENT_USER_MANAGER',
           'HIERARCHICAL_DATA_OWNER',
           'TOPIC_MANAGER',

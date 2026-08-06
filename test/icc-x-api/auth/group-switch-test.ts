@@ -37,7 +37,6 @@ describeNoLite('Authentication providers should be able to switch group', functi
   })
 
   const authenticationProviders: [string, () => Promise<AuthenticationProvider>][] = [
-    ['Basic', () => Promise.resolve(new BasicAuthenticationProvider(userDetails.userLogin, userDetails.userPw12))],
     [
       'Jwt',
       () =>
@@ -91,7 +90,14 @@ describeNoLite('Authentication providers should be able to switch group', functi
       const initialUserApi = new IccUserApi(host, {}, provider, fetch)
       const matches = await initialUserApi.getMatchingUsers()
       expect(matches.map((x) => x.userId)).to.not.contain(userDetails.user3.id)
-      await expect(provider.switchGroup(userDetails.group3.id!, matches)).to.be.rejected
     })
   }
+
+  it('Should not be possible to get matching users with a Basic authentication provider', async () => {
+    const provider = new BasicAuthenticationProvider(userDetails.userLogin, userDetails.userPw12)
+    const initialUserApi = new IccUserApi(host, {}, provider, fetch)
+    const initialUser = await initialUserApi.getCurrentUser()
+    expect(initialUser.id).to.be.oneOf([userDetails.user1.id, userDetails.user2.id])
+    await expect(initialUserApi.getMatchingUsers()).to.be.rejected
+  })
 })

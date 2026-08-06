@@ -38,6 +38,12 @@ export const defaultRoles = {
     'AgendaManagement.Create',
     'GroupManagement.Read.BasicInfo',
   ],
+  ADVANCED_DATA_OWNER: [
+    'CalendarItemTypeManagement.Delete',
+    'CalendarItemTypeManagement.Purge',
+    'DeviceManagement.Update.Any',
+    'DeviceManagement.Purge.Any',
+  ],
   HIERARCHICAL_DATA_OWNER: [
     'ApplicationSettingsManagement.Create',
     'ApplicationSettingsManagement.ExtendedRead.DelegatedToParents',
@@ -337,5 +343,7 @@ export const defaultRoles = {
     'GroupManagement.Read.AdvancedInfo',
     'ObjectStorageManagement.Read',
     'ObjectStorageManagement.Create',
+    'CalendarItemTypeManagement.Delete',
+    'CalendarItemTypeManagement.Purge',
   ],
 }

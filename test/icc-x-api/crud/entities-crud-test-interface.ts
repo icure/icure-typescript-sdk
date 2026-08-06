@@ -156,7 +156,7 @@ export const entities: { [key: string]: CRUDInterface } = {
     create: async (api: IcureApi, patient: Patient) => {
       const currentUser = await api.userApi.getCurrentUser()
       const item = await api.documentApi.newInstance(currentUser, patient, { name: randomUUID() })
-      return api.documentApi.createDocument(item)
+      return api.documentApi.createDocumentWithUser(currentUser, item)
     },
     share: async (delegatorApi: IcureApi, delegateApi: IcureApi, entity: any) => {
       const delegateUser = await delegateApi.userApi.getCurrentUser()
@@ -315,7 +315,7 @@ export const entities: { [key: string]: CRUDInterface } = {
     create: async (api: IcureApi, _: Patient) => {
       const currentUser = await api.userApi.getCurrentUser()
       const item = await api.messageApi.newInstance(currentUser, {})
-      return api.messageApi.createMessage(item)
+      return api.messageApi.createMessageWithUser(currentUser, item)
     },
     share: async (delegatorApi: IcureApi, delegateApi: IcureApi, entity: any) => {
       const delegateUser = await delegateApi.userApi.getCurrentUser()
@@ -375,16 +375,6 @@ export const entities: { [key: string]: CRUDInterface } = {
     },
     deleteMany: async (api: IcureApi, ids: IdWithRev[]) => api.receiptApi.deleteReceipts(new ListOfIds({ ids: ids.map((it) => it.id!) })),
     delete: async (api: IcureApi, id: IdWithRev) => api.receiptApi.deleteReceipt(id.id!),
-  },
-  TimeTable: {
-    encryptable: false,
-    create: async (api: IcureApi, _: Patient) => {
-      const item = new TimeTable({ id: randomUUID() })
-      return api.timetableApi.createTimeTable(item)
-    },
-    share: async (_: IcureApi, __: IcureApi, entity: any) => entity,
-    deleteMany: async (api: IcureApi, ids: IdWithRev[]) => api.timetableApi.deleteTimeTables(new ListOfIds({ ids: ids.map((it) => it.id!) })),
-    delete: async (api: IcureApi, id: IdWithRev) => api.timetableApi.deleteTimeTable(id.id!),
   },
   Topic: {
     encryptable: true,

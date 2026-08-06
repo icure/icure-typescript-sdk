@@ -674,8 +674,8 @@ export class IccUserApi {
       .catch((err) => this.handleError(err))
   }
 
-  enable2fa(userId: string, secret: string): Promise<void> {
-    let _body = { secret }
+  enable2fa(userId: string, secret: string, otp: string, otpLength: number): Promise<void> {
+    let _body = { secret, otp, otpLength }
 
     const _url = this.host + `/user/${encodeURIComponent(String(userId))}/2fa` + '?ts=' + new Date().getTime()
     let headers = this.headers

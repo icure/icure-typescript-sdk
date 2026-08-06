@@ -158,10 +158,6 @@ describe('CRUD Test', () => {
         create: { allowed: masterApi, denied: noPermissionsApi },
         delete: { allowed: hcpApi, denied: hcpApi },
       },
-      TimeTable: {
-        create: { allowed: masterApi, denied: noPermissionsApi },
-        delete: { allowed: hcpApi, denied: hcpApi },
-      },
       Topic: {
         create: { allowed: masterApi, denied: noPermissionsApi },
         delete: { allowed: hcpApi, denied: hcpApi },

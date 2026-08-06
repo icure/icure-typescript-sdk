@@ -118,7 +118,7 @@ describe('Smart authentication provider', () => {
     const { credentials, api } = await createNewHcpApi(env)
     const initialUser = await api.userApi.getCurrentUser()
     const masterApi = await initMasterApi(env)
-    const totpSecret = 'AAPX7PW2RJIGZ3D4' // pragma: allowlist secret (fake secret generated only for test)
+    const totpSecret = 'AAPX7PW2RJIGZ3D4AAPX7PW2RJIGZ3D4' // pragma: allowlist secret (fake secret generated only for test)
     const totp = new TOTP({
       algorithm: 'SHA1',
       digits: 6,
@@ -126,7 +126,7 @@ describe('Smart authentication provider', () => {
       secret: totpSecret,
     })
     const userPw = randomUUID()
-    await masterApi.userApi.enable2fa(initialUser.id!, totpSecret)
+    await masterApi.userApi.enable2fa(initialUser.id!, totpSecret, totp.generate(), 6)
     const userWithPwAnd2fa = await masterApi.userApi.modifyUser({
       ...initialUser,
       passwordHash: userPw,
@@ -161,7 +161,7 @@ describe('Smart authentication provider', () => {
     const { credentials, api } = await createNewHcpApi(env)
     const initialUser = await api.userApi.getCurrentUser()
     const masterApi = await initMasterApi(env)
-    const totpSecret = 'AAPX7PW2RJIGZ3D4' // pragma: allowlist secret (fake secret generated only for test)
+    const totpSecret = 'AAPX7PW2RJIGZ3D4AAPX7PW2RJIGZ3D4' // pragma: allowlist secret (fake secret generated only for test)
     const totp = new TOTP({
       algorithm: 'SHA1',
       digits: 6,
@@ -169,7 +169,7 @@ describe('Smart authentication provider', () => {
       secret: totpSecret,
     })
     const userPw = randomUUID()
-    await masterApi.userApi.enable2fa(initialUser.id!, totpSecret)
+    await masterApi.userApi.enable2fa(initialUser.id!, totpSecret, totp.generate(), 6)
     const userWithPwAnd2fa = await masterApi.userApi.modifyUser({
       ...initialUser,
       passwordHash: userPw,
