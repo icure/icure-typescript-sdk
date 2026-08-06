@@ -267,6 +267,29 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
     }
   }
 
+  /**
+   * Whether an existing, already-established access level (`undefined` if none) is enough to satisfy a requested
+   * permission, without needing to create/update a delegation just for the permission itself. `ROOT` is a special,
+   * self-only request independent of any other delegation on the entity, so it is never considered satisfied by
+   * unrelated existing coverage.
+   *
+   * `MAX_WRITE` doesn't demand write access outright: it resolves to WRITE only if the caller granting it
+   * (`callerAccess`) itself has WRITE, and to READ otherwise - so an existing READ is already sufficient for a
+   * `MAX_WRITE` request unless the caller could actually upgrade it to WRITE.
+   */
+  private isPermissionSufficient(
+    existing: AccessLevel | undefined,
+    requested: RequestedPermissionInternal,
+    callerAccess: AccessLevel | undefined
+  ): boolean {
+    if (requested === 'ROOT') return false
+    if (!existing) return false
+    if (existing === 'WRITE') return true
+    if (requested === 'FULL_READ') return true
+    if (requested === 'FULL_WRITE') return false
+    return callerAccess !== 'WRITE' // MAX_WRITE: existing READ is enough unless the caller could grant WRITE
+  }
+
   private async prepareBulkShareRequests(
     entitiesType: EntityWithDelegationTypeName,
     entitiesUpdates: {
@@ -337,31 +360,76 @@ export class ExtendedApisUtilsImpl implements ExtendedApisUtils {
           updatedForMigration: true,
         })
       }
-      for (const [delegate, userRequest] of Object.entries(dataForDelegates)) {
-        if (!migrationRequests[delegate]) {
-          const request = await this.secureDelegationsManager.makeShareOrUpdateRequestParams(
-            entityWithType,
-            delegate,
-            userRequest.shareSecretIds ?? [],
-            userRequest.shareEncryptionKeys ?? [],
-            userRequest.shareOwningEntityIds ?? [],
-            userRequest.requestedPermissions
-          )
-          if (request) {
-            currentRequests[String(currentOrderedRequests.length)] = request
-            currentOrderedRequests.push({
-              delegateId: delegate,
-              request: userRequest,
-              updatedForMigration: false,
-            })
+
+      // Hoisted: needed both for the redundant-share check below and (as before) for potentialParentDelegations.
+      const selfId = await this.dataOwnerApi.getCurrentDataOwnerId()
+      const hierarchy = this.useParentKeys ? await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds() : [selfId]
+      const existingDelegationMembersDetails = await this.securityMetadataDecryptor.getDelegationMemberDetails(entityWithType)
+
+      // Whole-entity, content-independent permission a data owner already has via ANY existing delegation naming
+      // them - matches how the backend itself authorizes writes ("is there at least one delegation with write
+      // access"), so unlike content coverage below this is deliberately not restricted to what the current caller
+      // can decrypt: permission-level metadata is not end-to-end encrypted the way secret ids/encryption keys are.
+      const bestPermissionByDataOwner: { [id: string]: AccessLevel } = {}
+      for (const members of Object.values(existingDelegationMembersDetails)) {
+        for (const partyId of [members.delegator, members.delegate]) {
+          if (partyId && bestPermissionByDataOwner[partyId] !== 'WRITE') {
+            bestPermissionByDataOwner[partyId] = members.accessLevel
           }
         }
       }
-      if (Object.keys(currentRequests).length > 0) {
-        const existingDelegationMembersDetails = await this.securityMetadataDecryptor.getDelegationMemberDetails(entityWithType)
-        const accessibleMembers = new Set(
-          this.useParentKeys ? await this.dataOwnerApi.getCurrentDataOwnerHierarchyIds() : [await this.dataOwnerApi.getCurrentDataOwnerId()]
+      for (const dataOwnerId of Object.keys(entity.delegations ?? {})) {
+        bestPermissionByDataOwner[dataOwnerId] = 'WRITE'
+      }
+
+      // Content a data owner already has DIRECT (decryptable-by-me) access to via any existing delegation naming
+      // them as either party - only computed for content types actually requested by at least one delegate.
+      const delegatesToProcess = Object.entries(dataForDelegates).filter(([delegate]) => !migrationRequests[delegate])
+      const needsSecretIds = delegatesToProcess.some(([, r]) => (r.shareSecretIds ?? []).length > 0)
+      const needsEncryptionKeys = delegatesToProcess.some(([, r]) => (r.shareEncryptionKeys ?? []).length > 0)
+      const needsOwningEntityIds = delegatesToProcess.some(([, r]) => (r.shareOwningEntityIds ?? []).length > 0)
+      const directSecretIds = needsSecretIds
+        ? await this.securityMetadataDecryptor.directlyAccessibleValuesByDataOwner(entity, hierarchy, SecurityMetadataType.SecretId)
+        : {}
+      const directEncryptionKeys = needsEncryptionKeys
+        ? await this.securityMetadataDecryptor.directlyAccessibleValuesByDataOwner(entity, hierarchy, SecurityMetadataType.EncryptionKey)
+        : {}
+      const directOwningEntityIds = needsOwningEntityIds
+        ? await this.securityMetadataDecryptor.directlyAccessibleValuesByDataOwner(entity, hierarchy, SecurityMetadataType.OwningEntityId)
+        : {}
+
+      for (const [delegate, userRequest] of delegatesToProcess) {
+        const filteredSecretIds = (userRequest.shareSecretIds ?? []).filter((id) => !directSecretIds[delegate]?.has(id))
+        const filteredEncryptionKeys = (userRequest.shareEncryptionKeys ?? []).filter((k) => !directEncryptionKeys[delegate]?.has(k))
+        const filteredOwningEntityIds = (userRequest.shareOwningEntityIds ?? []).filter((id) => !directOwningEntityIds[delegate]?.has(id))
+        const nothingLeftToShare = !filteredSecretIds.length && !filteredEncryptionKeys.length && !filteredOwningEntityIds.length
+
+        if (
+          nothingLeftToShare &&
+          this.isPermissionSufficient(bestPermissionByDataOwner[delegate], userRequest.requestedPermissions, bestPermissionByDataOwner[selfId])
+        ) {
+          continue // fully covered by some other already-decryptable, directly-named delegation: nothing to write
+        }
+
+        const request = await this.secureDelegationsManager.makeShareOrUpdateRequestParams(
+          entityWithType,
+          delegate,
+          filteredSecretIds,
+          filteredEncryptionKeys,
+          filteredOwningEntityIds,
+          userRequest.requestedPermissions
         )
+        if (request) {
+          currentRequests[String(currentOrderedRequests.length)] = request
+          currentOrderedRequests.push({
+            delegateId: delegate,
+            request: userRequest,
+            updatedForMigration: false,
+          })
+        }
+      }
+      if (Object.keys(currentRequests).length > 0) {
+        const accessibleMembers = new Set(hierarchy)
         const potentialParentDelegations = Object.entries(existingDelegationMembersDetails).flatMap(([k, members]) => {
           if ((!!members.delegate && accessibleMembers.has(members.delegate)) || (!!members.delegator && accessibleMembers.has(members.delegator))) {
             return [k]

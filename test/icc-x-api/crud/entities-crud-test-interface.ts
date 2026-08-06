@@ -379,8 +379,7 @@ export const entities: { [key: string]: CRUDInterface } = {
   TimeTable: {
     encryptable: false,
     create: async (api: IcureApi, _: Patient) => {
-      const currentUser = await api.userApi.getCurrentUser()
-      const item = new TimeTable({})
+      const item = new TimeTable({ id: randomUUID() })
       return api.timetableApi.createTimeTable(item)
     },
     share: async (_: IcureApi, __: IcureApi, entity: any) => entity,

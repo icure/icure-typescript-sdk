@@ -291,6 +291,35 @@ export class SecurityMetadataDecryptor {
     return this.extractFromLegacyDelegations(entity, dataOwnersHierarchySubset, metadataType)
   }
 
+  /**
+   * For every value (secret id / encryption key / owning entity id, depending on metadataType) decryptable by the
+   * given hierarchy, returns which data owners have DIRECT access to it: i.e. are explicitly named as either party
+   * (delegator/delegate, owner/delegatedTo) of the specific delegation edge that carries that value - never a data
+   * owner merely reachable by inference through a parent/child hierarchy relationship. Both parties of an edge get
+   * equal credit for its content because they have equal decrypt access to it by construction (the edge's exchange
+   * key can be unwrapped by either party's private key).
+   *
+   * Used to check whether sharing a value with a delegate would be redundant because some other, already-decryptable
+   * delegation on the entity already grants that delegate the exact same value directly.
+   */
+  async directlyAccessibleValuesByDataOwner(
+    entity: EncryptedEntityStub | EncryptedEntity,
+    dataOwnersHierarchySubset: string[],
+    metadataType: SecurityMetadataType
+  ): Promise<{ [dataOwnerId: string]: Set<string> }> {
+    const edges = [
+      ...(await this.decryptAllLegacyDelegations(entity, dataOwnersHierarchySubset, metadataType)),
+      ...(await this.decryptAllSecureDelegations(entity, dataOwnersHierarchySubset, metadataType)),
+    ]
+    const result: { [dataOwnerId: string]: Set<string> } = {}
+    for (const edge of edges) {
+      for (const partyId of edge.dataOwnersWithAccess) {
+        ;(result[partyId] ??= new Set()).add(edge.decrypted)
+      }
+    }
+    return result
+  }
+
   async decryptAllSecureDelegations(
     entity: EncryptedEntityStub | EncryptedEntity,
     dataOwnersHierarchySubset: string[],

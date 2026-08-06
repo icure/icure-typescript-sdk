@@ -216,16 +216,25 @@ async function createV7PatientSharedWithParent(
 }
 
 /**
- * Creates a fresh hcp (random keypair) and makes it a child of parentId, purely to establish the
- * existing relationship that operations such as mergePatients require between data owners in
- * order to authorize the operation (an entirely unrelated hcp gets a 403). Deliberately does NOT
- * give the child a locally-held copy of the parent's key (disableParentKeysInitialisation skips
- * the startup check that would otherwise require one): unlike other hierarchies in this suite that
- * intentionally simulate a shared workstation, here we want the child to only ever decrypt what it
- * has a real, direct delegation for, so that visibility assertions aren't muddied by it also being
- * able to reach anything shared with the parent through a locally-cached parent key.
+ * Creates a fresh hcp (random keypair) and makes it a child of parentId, to establish the existing
+ * relationship that operations such as mergePatients require between data owners in order to
+ * authorize the operation (an entirely unrelated hcp gets a 403).
+ *
+ * By default this does NOT give the child a locally-held copy of the parent's key
+ * (disableParentKeysInitialisation skips the startup check that would otherwise require one): in
+ * tests where we only care about the authorization relationship, we don't want the child to also
+ * be able to reach anything shared with the parent through a locally-cached parent key, which
+ * would muddy visibility assertions.
+ * Pass holdParentKey: true for tests that specifically want to exercise genuine hierarchical
+ * inheritance (a child that has actually verified/cached its parent's key, like a properly
+ * provisioned device in the same care organisation - as opposed to the confidentiality checks
+ * elsewhere in this suite, which intentionally avoid this).
  */
-async function createChildOfParent(testSetupApi: IcureApi, parentId: string): Promise<{ api: IcureApi; user: User; id: string }> {
+async function createChildOfParent(
+  testSetupApi: IcureApi,
+  parentId: string,
+  parentKeys?: { privateKey: string; publicKey: string }
+): Promise<{ api: IcureApi; user: User; id: string }> {
   const info = await createNewHcpApi(env)
   await testSetupApi.healthcarePartyApi.modifyHealthcareParty({
     ...(await testSetupApi.healthcarePartyApi.getHealthcareParty(info.credentials.dataOwnerId)),
@@ -236,6 +245,7 @@ async function createChildOfParent(testSetupApi: IcureApi, parentId: string): Pr
       dataOwnerId: info.credentials.dataOwnerId,
       pairs: [{ keyPair: { privateKey: info.credentials.privateKey, publicKey: info.credentials.publicKey }, shaVersion: ShaVersion.Sha1 }],
     },
+    ...(parentKeys ? [{ dataOwnerId: parentId, pairs: [{ keyPair: parentKeys, shaVersion: ShaVersion.Sha1 }] }] : []),
   ])
   const api = await IcureApi.initialise(
     env.iCureUrl,
@@ -243,7 +253,7 @@ async function createChildOfParent(testSetupApi: IcureApi, parentId: string): Pr
     new TestCryptoStrategies(),
     webcrypto as any,
     fetch,
-    { storage: storage.storage, keyStorage: storage.keyStorage, entryKeysFactory: storage.keyFactory, disableParentKeysInitialisation: true }
+    { storage: storage.storage, keyStorage: storage.keyStorage, entryKeysFactory: storage.keyFactory, disableParentKeysInitialisation: !parentKeys }
   )
   const user = await api.userApi.getCurrentUser()
   return { api, user, id: info.credentials.dataOwnerId }
@@ -551,8 +561,11 @@ describe('CSM-814', async function () {
       const pId = pInfo.credentials.dataOwnerId
       // A and B are children of the same parent P, so that A is authorized to merge B's patient
       // into its own (see the note above about mergePatients requiring an existing relationship).
+      // B additionally holds P's key locally (holdParentKey), like a properly provisioned device
+      // in the same care organisation, so that anything shared with P is genuinely, automatically
+      // reachable by B too - this is what the redundant-reshare check below relies on.
       const aInfo = await createChildOfParent(testSetupApi, pId)
-      const bInfo = await createChildOfParent(testSetupApi, pId)
+      const bInfo = await createChildOfParent(testSetupApi, pId, { privateKey: pInfo.credentials.privateKey, publicKey: pInfo.credentials.publicKey })
 
       // PatientA created by hcpA, but for some reason not shared with the parent at all.
       const pA = await aInfo.api.patientApi.createPatientWithUser(
@@ -592,12 +605,13 @@ describe('CSM-814', async function () {
       const resharedByA = await aInfo.api.patientApi.shareWith(pId, merged, [])
       expect(resharedByA.rev).to.not.equal(merged.rev)
 
-      // Redundant shareWith of an already-shared encryption key, this time performed by the parent
-      // itself rather than the entity's original creator: a harmless no-op - nothing to write, so
-      // the rev stays the same.
-      //TODO this optimization is actually missing at the moment, we plan to add it in the future, so this part of the
-      // test will fail
-      const reshareAgain = await pInfo.api.patientApi.shareWith(pId, resharedByA, [])
+      // Redundant shareWith of an already-shared encryption key, this time performed by B rather
+      // than A (the entity's current, and only, encryption key holder): B is a child of the same
+      // parent P and genuinely holds P's key locally (like a properly provisioned device in the
+      // same care organisation), so B can decrypt the A->P delegation and see that P already has
+      // this encryption key directly. This is a harmless no-op - there is nothing new to grant, so
+      // the rev stays unchanged, even though B itself never granted this access.
+      const reshareAgain = await bInfo.api.patientApi.shareWith(pId, resharedByA, [])
       expect(reshareAgain.rev).to.equal(resharedByA.rev)
 
       // shareWithMany to a mix of delegates that already have the key (the parent, a no-op) and
