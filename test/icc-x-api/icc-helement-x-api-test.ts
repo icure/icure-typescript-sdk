@@ -12,10 +12,14 @@ import { Code } from '../../icc-api/model/Code'
 import { User } from '../../icc-api/model/User'
 import { getEnvVariables, TestVars } from '@icure/test-setup/types'
 import { HealthElementByIdsFilter } from '../../icc-x-api/filters/HealthElementByIdsFilter'
+import { HealthElementByAssociationIdFilter } from '../../icc-x-api/filters/HealthElementByAssociationIdFilter'
+import { HealthElementByQualifiedLinkFilter } from '../../icc-x-api/filters/HealthElementByQualifiedLinkFilter'
+import { HealthElementQualifiedLink } from '../../icc-api/model/HealthElementQualifiedLink'
 import { FilterChainHealthElement } from '../../icc-api/model/FilterChainHealthElement'
 import initApi = TestUtils.initApi
 import { SecretIdUseOption } from '../../icc-x-api/crypto/SecretIdUseOption'
 import UseAnyConfidential = SecretIdUseOption.UseAnyConfidential
+import initMasterApi = TestUtils.initMasterApi
 
 setLocalStorage(fetch)
 let env: TestVars
@@ -204,6 +208,59 @@ describe('icc-helement-x-api Tests', () => {
     assert(
       JSON.stringify(healthElementByFilter.rows[0]) === JSON.stringify(healthElementById),
       'Found health elements by id should match the one found by filter'
+    )
+  })
+
+  it('filter healthcare element by association id and by qualified link should return the same output as by id', async () => {
+    // Given
+    const { userApi: userApiForHcp, patientApi: patientApiForHcp, healthcareElementApi: hElementApiForHcp } = await initMasterApi(env!)
+    const hcpUser = await userApiForHcp.getCurrentUser()
+
+    const patient = (await createPatient(patientApiForHcp, hcpUser)) as Patient
+    const linkedHealthElementId = randomUUID()
+    const associationId = randomUUID()
+    const healthElementToPersist = await healthElementToCreate(hElementApiForHcp, hcpUser, patient)
+    healthElementToPersist.qualifiedLinks = [
+      new HealthElementQualifiedLink({
+        type: 'exampleQualification',
+        associationId,
+        healthElementId: linkedHealthElementId,
+      }),
+    ]
+    const createdHealthElement = await hElementApiForHcp.createHealthElementWithUser(hcpUser, healthElementToPersist)
+
+    // When
+    const healthElementById = await hElementApiForHcp.getHealthElementWithUser(hcpUser, createdHealthElement.id)
+    const healthElementByAssociationIdFilter = await hElementApiForHcp.filterByWithUser(
+      hcpUser,
+      undefined,
+      undefined,
+      new FilterChainHealthElement({
+        filter: new HealthElementByAssociationIdFilter({ associationId }),
+      })
+    )
+    const healthElementByQualifiedLinkFilter = await hElementApiForHcp.filterByWithUser(
+      hcpUser,
+      undefined,
+      undefined,
+      new FilterChainHealthElement({
+        filter: new HealthElementByQualifiedLinkFilter({ linkedIds: [linkedHealthElementId], type: 'exampleQualification' }),
+      })
+    )
+
+    // Then
+    assert(!!healthElementById.qualifiedLinks?.length, 'Health element should have a qualified link')
+
+    assert(healthElementByAssociationIdFilter.rows?.length == 1, 'Found health elements by association id should be 1')
+    assert(
+      healthElementByAssociationIdFilter.rows[0].id == createdHealthElement.id,
+      'Found health element by association id should be the same as the created one'
+    )
+
+    assert(healthElementByQualifiedLinkFilter.rows?.length == 1, 'Found health elements by qualified link should be 1')
+    assert(
+      healthElementByQualifiedLinkFilter.rows[0].id == createdHealthElement.id,
+      'Found health element by qualified link should be the same as the created one'
     )
   })
 

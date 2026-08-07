@@ -208,7 +208,7 @@ describe('icc-x-contact-api Tests', () => {
     expect((await api2.calendarItemApi.decryptPatientIdOf(retrieved))[0]).to.equal(samplePatient.id)
   })
 
-  it('Instanciation of old Measure should be mapped to new Measure with referenceRanges', () => {
+  it('Instantiation of old Measure should be mapped to new Measure with referenceRanges', () => {
     const oldMeasure = {
       min: 0,
       max: 10,
@@ -226,7 +226,7 @@ describe('icc-x-contact-api Tests', () => {
     expect(Object.keys(newMeasure)).to.not.contain('max')
   })
 
-  it('Instanciation of Service with old Measure should be mapped to new Measure with referenceRanges', () => {
+  it('Instantiation of Service with old Measure should be mapped to new Measure with referenceRanges', () => {
     const serviceJson = {
       id: 'serviceId',
       valueDate: 20220203111034,
@@ -261,7 +261,7 @@ describe('icc-x-contact-api Tests', () => {
     expect(Object.keys(service.content?.en?.measureValue!)).to.not.contain('max')
   })
 
-  it('Instanciation of Contact with old Measure should be mapped to new Measure with referenceRanges', () => {
+  it('Instantiation of Contact with old Measure should be mapped to new Measure with referenceRanges', () => {
     const contactJson = {
       id: 'contactId',
       services: [

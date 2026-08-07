@@ -17,6 +17,7 @@ import { Identifier } from './Identifier'
 import { PlanOfAction } from './PlanOfAction'
 import { Annotation } from './Annotation'
 import { SecurityMetadata } from './SecurityMetadata'
+import { HealthElementQualifiedLink } from './HealthElementQualifiedLink'
 import { EntityWithDelegationTypeName } from '../../icc-x-api/utils/EntityWithDelegationTypeName'
 
 /**
@@ -160,7 +161,10 @@ export class HealthElement {
    */
   encryptedSelf?: string
   securityMetadata?: SecurityMetadata
-  
+  /**
+   * Directed, qualified links from this healthcare element to other healthcare elements.
+   */
+  qualifiedLinks?: Array<HealthElementQualifiedLink>
 }
 export namespace HealthElement {
   export type LateralityEnum = 'left' | 'right'
