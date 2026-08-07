@@ -1296,3 +1296,11 @@ Maintenance release (version bump only).
 
 - Add new optimizations to "share" methods to avoid adding redundant delegations when possible: the SDK will now try to decrypt all delegations that are directly accessible to the target delegates and readable to the current SDK (directly or indirectly); any data of the share request already accessible through those delegations will be ignored, and if all data is already accessible to all delegates the share request will be a no-op
 - Expose omitEncryptionKeysOfFrom in method of baseMergePatient: now used explicitly in merge patient method, no change since kraken consider it as true by default if not provided
+
+
+## 8.12.0 (2026-08-07)
+
+<!-- tag: 8.12.0 | target: 82f00619afc7717d490d1be28a601749bf6ed0ca | prerelease: false -->
+
+- Added HealthElementByAssociationIdFilter and HealthElementByQualifiedLinkFilter
+- Added HealthElementQualifiedLink and corresponding property in HealthElement
