@@ -1304,3 +1304,10 @@ Maintenance release (version bump only).
 
 - Added HealthElementByAssociationIdFilter and HealthElementByQualifiedLinkFilter
 - Added HealthElementQualifiedLink and corresponding property in HealthElement
+
+
+## [MISSING] 8.13.0 (2026-08-11)
+
+<!-- tag: 8.13.0 | target: 74ac1fb4c7ba50aecaf031f36be38fba2e9752de | prerelease: false -->
+
+- Added HealthElementAsserter model and corresponding `asserters` property in HealthElement (encrypted list of (asserterId, asserterType) pairs recording who declared the patient has the health element)
