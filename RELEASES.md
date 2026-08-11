@@ -1306,7 +1306,7 @@ Maintenance release (version bump only).
 - Added HealthElementQualifiedLink and corresponding property in HealthElement
 
 
-## [MISSING] 8.13.0 (2026-08-11)
+## 8.13.0 (2026-08-11)
 
 <!-- tag: 8.13.0 | target: 74ac1fb4c7ba50aecaf031f36be38fba2e9752de | prerelease: false -->
 
