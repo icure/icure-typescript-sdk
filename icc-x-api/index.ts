@@ -475,7 +475,7 @@ export namespace EncryptedFieldsConfig {
     calendarItem: ['details', 'title', 'patientId'],
     contact: ['descr', 'notes[].markdown'],
     service: ['notes[].markdown'],
-    healthElement: ['descr', 'note', 'notes[].markdown'],
+    healthElement: ['descr', 'note', 'notes[].markdown', 'asserters'],
     maintenanceTask: ['properties'],
     patient: ['note', 'notes[].markdown'],
     message: [],

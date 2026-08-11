@@ -18,7 +18,7 @@ import { PlanOfAction } from './PlanOfAction'
 import { Annotation } from './Annotation'
 import { SecurityMetadata } from './SecurityMetadata'
 import { HealthElementQualifiedLink } from './HealthElementQualifiedLink'
-import { EntityWithDelegationTypeName } from '../../icc-x-api/utils/EntityWithDelegationTypeName'
+import { HealthElementAsserter } from './HealthElementAsserter'
 
 /**
  * This entity is a root level object. It represents a healthcare element. It is serialized in JSON and saved in the underlying CouchDB database.
@@ -165,6 +165,11 @@ export class HealthElement {
    * Directed, qualified links from this healthcare element to other healthcare elements.
    */
   qualifiedLinks?: Array<HealthElementQualifiedLink>
+  /**
+   * The parties (0..*) asserting that the patient has this healthcare element, i.e. on whose word
+   * the healthcare element is held to be true.
+   */
+  asserters?: Array<HealthElementAsserter>
 }
 export namespace HealthElement {
   export type LateralityEnum = 'left' | 'right'
