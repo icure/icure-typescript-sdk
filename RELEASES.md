@@ -1311,3 +1311,9 @@ Maintenance release (version bump only).
 <!-- tag: 8.13.0 | target: 74ac1fb4c7ba50aecaf031f36be38fba2e9752de | prerelease: false -->
 
 - Added HealthElementAsserter model and corresponding `asserters` property in HealthElement (encrypted list of (asserterId, asserterType) pairs recording who declared the patient has the health element)
+
+## [MISSING] 8.13.1 (2026-08-13)
+
+<!-- tag: 8.13.1 | target: f0d9841ca1b63ac6e030182f6ace4d5f71a62351 | prerelease: false -->
+
+- Restructured HealthElementAsserter to match cardinal-sdk 2.13.2: the flat (asserterId, asserterType) pair shipped in 8.13.0 is replaced by exactly one of `localAsserterIdentifier` (`{ id, type }`, for a party stored in iCure) or `externalAsserterIdentifier` (an `Identifier` for a party from another system, deliberately carrying no asserter type). `LocalAsserterIdentifier` is nested under the `HealthElementAsserter` namespace and `AsserterTypeEnum` gains a runtime companion object. Since `asserters` is encrypted, the server can neither validate nor migrate it: asserters written by 8.13.0 are not read back by this version.
