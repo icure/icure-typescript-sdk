@@ -1312,7 +1312,7 @@ Maintenance release (version bump only).
 
 - Added HealthElementAsserter model and corresponding `asserters` property in HealthElement (encrypted list of (asserterId, asserterType) pairs recording who declared the patient has the health element)
 
-## [MISSING] 8.13.1 (2026-08-13)
+## 8.13.1 (2026-08-13)
 
 <!-- tag: 8.13.1 | target: f0d9841ca1b63ac6e030182f6ace4d5f71a62351 | prerelease: false -->
 
