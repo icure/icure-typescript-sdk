@@ -12,12 +12,12 @@ import { Identifier } from './Identifier'
  * - `localAsserterIdentifier` names a party stored in this iCure instance: an id, plus the `AsserterTypeEnum` saying
  *   which kind of record that id points at;
  * - `externalAsserterIdentifier` names a party that has no record here, through a business `Identifier` issued by
- *   another system. There is deliberately no asserter type on this branch: the kind of a record we do not store is not
- *   knowable to us.
+ *   another system, wrapped in an `ExternalAsserterIdentifier`. There is deliberately no asserter type on this branch:
+ *   the kind of a record we do not store is not knowable to us.
  *
- * Both fields of `LocalAsserterIdentifier` are required by the server and by the other iCure SDKs, and are declared
- * optional here only because every model in this layer is. An asserter written with a partial local identifier cannot
- * be read back by those SDKs.
+ * Both fields of `LocalAsserterIdentifier` and the `identifier` of `ExternalAsserterIdentifier` are required by the
+ * server and by the other iCure SDKs, and are declared optional here only because every model in this layer is. An
+ * asserter written with a partial local identifier or an empty external identifier cannot be read back by those SDKs.
  *
  * Do not rely on the server to enforce any of the above. `asserters` is encrypted by default (see
  * `EncryptedFieldsConfig.Defaults.healthElement`), so the server usually sees only ciphertext and its own checks - the
@@ -46,7 +46,7 @@ export class HealthElementAsserter {
    * The asserting party, as a business identifier from a system that is not this one. Unset when the party is named by
    * localAsserterIdentifier. Carries no asserter type.
    */
-  externalAsserterIdentifier?: Identifier
+  externalAsserterIdentifier?: HealthElementAsserter.ExternalAsserterIdentifier
 }
 
 export namespace HealthElementAsserter {
@@ -66,6 +66,27 @@ export namespace HealthElementAsserter {
      * The kind of entity id refers to. This is the entity-kind axis, not the role the party played in the assertion.
      */
     type?: AsserterTypeEnum
+  }
+
+  /**
+   * The party making the assertion, when it has no record in this iCure instance.
+   *
+   * The party is named by a business `identifier` issued by another system: a national registry number, an entry in
+   * the sending hospital's directory, and so on. Because the record lives elsewhere there is no `AsserterTypeEnum`
+   * here: the kind of a record we do not store is not knowable to us. The wrapper around the `Identifier` mirrors
+   * `LocalAsserterIdentifier` on the other branch, and is where anything specific to an external asserter would go:
+   * `Identifier` itself is shared by every `identifiers` field in the model and cannot carry it.
+   */
+  export class ExternalAsserterIdentifier {
+    constructor(json: JSON | any) {
+      Object.assign(this as ExternalAsserterIdentifier, json)
+    }
+
+    /**
+     * The business identifier of the party in the system that issued it. `system` names that issuing system and
+     * `value` is the party's identifier within it; together they are what makes the party resolvable.
+     */
+    identifier?: Identifier
   }
 
   /**
