@@ -1317,3 +1317,9 @@ Maintenance release (version bump only).
 <!-- tag: 8.13.1 | target: f0d9841ca1b63ac6e030182f6ace4d5f71a62351 | prerelease: false -->
 
 - Restructured HealthElementAsserter to match cardinal-sdk 2.13.2: the flat (asserterId, asserterType) pair shipped in 8.13.0 is replaced by exactly one of `localAsserterIdentifier` (`{ id, type }`, for a party stored in iCure) or `externalAsserterIdentifier` (an `Identifier` for a party from another system, deliberately carrying no asserter type). `LocalAsserterIdentifier` is nested under the `HealthElementAsserter` namespace and `AsserterTypeEnum` gains a runtime companion object. Since `asserters` is encrypted, the server can neither validate nor migrate it: asserters written by 8.13.0 are not read back by this version.
+
+## [MISSING] 8.13.2 (2026-09-02)
+
+<!-- tag: 8.13.2 | target: e6d990cf67eb25be3160fd4644c63af857b2fe4d | prerelease: false -->
+
+- Wrapped `HealthElementAsserter.externalAsserterIdentifier` in a nested `ExternalAsserterIdentifier({ identifier })` instead of a bare `Identifier`, matching kraken-common#338 and mirroring `LocalAsserterIdentifier`. Wire shape moves from `{ system, value }` to `{ identifier: { system, value } }`; the wrapper leaves room for external-asserter-specific fields without another break. Since `asserters` is encrypted, the server can neither validate nor migrate it: external asserters written by 8.13.1 are not read back.
