@@ -9,18 +9,23 @@ Publishes a new version to NPM and GitHub in one pass: preflight checks, version
 
 **Each step gates the next. If a step fails, stop and report — never continue past a failed check.**
 
-**Interactive prompts:** commits, tags and pushes are SSH-signed through the Secretive agent, which may refuse to sign from a non-interactive shell (`agent refused operation` / `Permission denied (publickey)`). If that happens, don't retry blindly: ask the user to run the exact same command with the `!` prefix so they can approve Secretive's prompt. Remote-only operations (deleting a tag/release) can alternatively go through `gh api`, which uses an HTTPS token and needs no SSH.
+**Interactive prompts:** commits, tags and pushes are SSH-signed through the Secretive agent, which may refuse to sign from a non-interactive shell (`agent refused operation` / `Permission denied (publickey)`). If that happens, don't retry blindly: ask the user to run the exact same command with the `!` prefix so they can approve Secretive's prompt. One exception: a refusal can be transient (`error: unable to sign the tag`, moments after commits signed fine) — retry the exact command once, and only escalate if it fails again. Remote-only operations (deleting a tag/release) can alternatively go through `gh api`, which uses an HTTPS token and needs no SSH.
 
 ## 1. Preflight — everything pushed on release/v8
 
 ```bash
-git fetch origin
-git status --porcelain            # must be empty
-git branch --show-current         # must be release/v8
+git fetch origin                       # MUST succeed — see below
+git status --porcelain                 # must be empty
+git branch --show-current              # must be release/v8
 git rev-parse HEAD origin/release/v8   # must be identical
+gh api repos/icure/icure-typescript-sdk/branches/release/v8 --jq '.commit.sha'   # must equal HEAD
 ```
 
 Any mismatch → stop and tell the user what differs (uncommitted files, unpushed commits, wrong branch).
+
+**A failed `git fetch` is a hard stop, never a warning to step over.** `origin/release/v8` is a *local* ref: when the fetch fails (Secretive refusing SSH, no network), `git rev-parse` compares HEAD against a stale ref and reports *identical* — a false green that hides every commit and release made since the last successful fetch. Releasing from that state means publishing a tree missing other people's work under a higher version number, and NPM versions are immutable. Ask the user to run `! git fetch origin`, then start preflight over.
+
+The `gh api` line is an independent cross-check: it reads the real branch head over HTTPS, needs no SSH, and catches a stale ref even when the fetch looked fine. Where it disagrees with the local ref, trust `gh api`.
 
 ## 2. NPM authentication
 
@@ -87,7 +92,13 @@ yarn run publish
 
 This builds (`prepare`) and runs `npm publish` from `dist/`. NPM requires a fresh one-time password at publish time, even right after a successful `npm login` — expect an `EOTP` error or a masked browser-auth URL. When that happens the build is already done: ask the user to run `! cd dist && npm publish` themselves (or `! cd dist && npm publish --otp=<code>`) and complete the OTP flow.
 
-Always verify before continuing: `npm view @icure/api@<VERSION> version` must return the version — a 404 means the publish did NOT complete (e.g. the OTP prompt was abandoned), regardless of how much tarball output was printed.
+Always verify before continuing: `npm view @icure/api@<VERSION> version --prefer-online` must return the version — a 404 means the publish did NOT complete (e.g. the OTP prompt was abandoned), regardless of how much tarball output was printed.
+
+`--prefer-online` is not optional: a plain `npm view` serves a cached 404 for some minutes after a *successful* publish, so without it you will report a working release as failed and risk a pointless re-publish. When the answer still looks wrong, query the registry directly, which bypasses NPM's cache entirely:
+
+```bash
+curl -s https://registry.npmjs.org/@icure/api | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['dist-tags'], '<VERSION>' in d['versions'])"
+```
 
 ## 8. Create the GitHub release
 
