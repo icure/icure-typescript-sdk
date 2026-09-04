@@ -151,7 +151,12 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
     validator: (decrypted: ArrayBuffer) => Promise<boolean> = () => Promise.resolve(true)
   ): Promise<ArrayBuffer> {
     const retrieved = await this.getAndTryDecryptReceiptAttachment(receipt, attachmentId, (x) => validator(x))
-    if (!returnNonDecrypted && !retrieved.wasDecrypted && (Object.keys(receipt.encryptionKeys ?? {}).length || Object.keys(receipt.securityMetadata?.secureDelegations ?? {}).length)) throw new Error(`No valid key found to decrypt data of receipt ${receipt.id}.`)
+    if (
+      !returnNonDecrypted &&
+      !retrieved.wasDecrypted &&
+      (Object.keys(receipt.encryptionKeys ?? {}).length || Object.keys(receipt.securityMetadata?.secureDelegations ?? {}).length)
+    )
+      throw new Error(`No valid key found to decrypt data of receipt ${receipt.id}.`)
     return retrieved.data
   }
 
@@ -257,7 +262,12 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
   ): Promise<ArrayBuffer> {
     const retrieved = await this.getAndTryDecryptReceiptDataAttachment(receipt, blobType, validator)
     // Only throw if the receipt has encryption metadata: attachments of unencrypted receipts are legitimately returned as-is
-    if (!returnNonDecrypted && !retrieved.wasDecrypted && (Object.keys(receipt.encryptionKeys ?? {}).length || Object.keys(receipt.securityMetadata?.secureDelegations ?? {}).length)) throw new Error(`No valid key found to decrypt data of receipt ${receipt.id}.`)
+    if (
+      !returnNonDecrypted &&
+      !retrieved.wasDecrypted &&
+      (Object.keys(receipt.encryptionKeys ?? {}).length || Object.keys(receipt.securityMetadata?.secureDelegations ?? {}).length)
+    )
+      throw new Error(`No valid key found to decrypt data of receipt ${receipt.id}.`)
     return retrieved.data
   }
 
@@ -288,6 +298,27 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
         }
       }
     )
+  }
+
+  /**
+   * Lists the receipts created within the provided date interval, based on the `created` timestamp of the receipt.
+   * Both bounds are inclusive and optional: an undefined bound leaves that side of the interval open.
+   *
+   * Requests made through this api also carry the access control keys headers of the current data owner, which is
+   * what makes receipts reachable only through anonymous delegations visible. Receipts have no encrypted fields, so
+   * the returned entities need no decryption; use {@link getAndTryDecryptReceiptDataAttachment} or
+   * {@link getAndTryDecryptReceiptAttachment} to read their attachments.
+   *
+   * Note that the result is not paginated: when scanning a large database, prefer several calls over successive
+   * sub-intervals to keep each response to a workable size.
+   *
+   * @param startDate the start of the interval as a unix epoch in ms (inclusive), no lower bound if undefined.
+   * @param endDate the end of the interval as a unix epoch in ms (inclusive), no upper bound if undefined.
+   * @param descending whether to sort the result from the most recently created receipt to the oldest.
+   * @return the receipts created within the provided interval.
+   */
+  async listReceiptsBetweenDates(startDate?: number, endDate?: number, descending?: boolean): Promise<Array<models.Receipt>> {
+    return await super.listReceiptsBetweenDates(startDate, endDate, descending)
   }
 
   /**

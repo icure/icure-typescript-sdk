@@ -163,6 +163,30 @@ export class IccReceiptApi {
   }
 
   /**
+   * Lists the receipts created within the provided date interval, based on the `created` timestamp of the receipt.
+   * Both bounds are inclusive and optional: an undefined bound leaves that side of the interval open.
+   * @summary List the receipts created within a date interval
+   * @param startDate the start of the interval as a unix epoch in ms (inclusive), no lower bound if undefined.
+   * @param endDate the end of the interval as a unix epoch in ms (inclusive), no upper bound if undefined.
+   * @param descending whether to sort the result from the most recently created receipt to the oldest.
+   * @return the receipts created within the provided interval.
+   */
+  async listReceiptsBetweenDates(startDate?: number, endDate?: number, descending?: boolean): Promise<Array<Receipt>> {
+    const _url =
+      this.host +
+      `/receipt/byCreated` +
+      '?ts=' +
+      new Date().getTime() +
+      (startDate !== undefined ? '&startDate=' + encodeURIComponent(String(startDate)) : '') +
+      (endDate !== undefined ? '&endDate=' + encodeURIComponent(String(endDate)) : '') +
+      (descending !== undefined ? '&descending=' + encodeURIComponent(String(descending)) : '')
+    let headers = await this.headers
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new Receipt(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
    *
    * @summary Updates a receipt
    * @param body
@@ -258,9 +282,7 @@ export class IccReceiptApi {
       '&contentLength=' +
       encodeURIComponent(String(body.byteLength))
     let headers = await this.headers
-    headers = headers
-      .filter((h) => h.header !== 'Content-Type')
-      .concat(new XHR.Header('Content-Type', 'application/octet-stream'))
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/octet-stream'))
     return XHR.sendCommand('PUT', _url, headers, body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Receipt(doc.body as JSON))
       .catch((err) => this.handleError(err))
@@ -278,7 +300,7 @@ export class IccReceiptApi {
       '?ts=' +
       new Date().getTime()
     let headers = await this.headers
-    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, "application/octet-stream", this.authenticationProvider.getAuthService())
+    return XHR.sendCommand('GET', _url, headers, null, this.fetchImpl, 'application/octet-stream', this.authenticationProvider.getAuthService())
       .then((doc) => doc.body)
       .catch((err) => this.handleError(err))
   }
