@@ -1,0 +1,20 @@
+{
+  "name": "@icure/receipt-attachment-scan",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Scans every receipt of an iCure database, decrypts its attachments and checks that each payload is valid XML or valid JSON.",
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@icure/api": "^8.10.2",
+    "fast-xml-parser": "^4.5.3"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.10",
+    "typescript": "^5.8.2"
+  }
+}
