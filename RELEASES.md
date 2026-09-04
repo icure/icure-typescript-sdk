@@ -1324,7 +1324,7 @@ Maintenance release (version bump only).
 
 - Wrapped `HealthElementAsserter.externalAsserterIdentifier` in a nested `ExternalAsserterIdentifier({ identifier })` instead of a bare `Identifier`, matching kraken-common#338 and mirroring `LocalAsserterIdentifier`. Wire shape moves from `{ system, value }` to `{ identifier: { system, value } }`; the wrapper leaves room for external-asserter-specific fields without another break. Since `asserters` is encrypted, the server can neither validate nor migrate it: external asserters written by 8.13.1 are not read back.
 
-## [MISSING] 8.14.0 (2026-09-04)
+## 8.14.0 (2026-09-04)
 <!-- tag: 8.14.0 | target: 7279b0b817e296c600e11638fa9819ab06578028 | prerelease: false -->
 
 - Add listReceiptsBetweenDates to IccReceiptApi and IccReceiptXApi, wrapping GET /rest/v2/receipt/byCreated so the receipts of a database can be enumerated by creation date
