@@ -5,7 +5,7 @@
     "": {
       "name": "@icure/receipt-attachment-scan",
       "dependencies": {
-        "@icure/api": "^8.10.2",
+        "@icure/api": "^8.14.0",
         "fast-xml-parser": "^4.5.3",
       },
       "devDependencies": {
@@ -17,7 +17,7 @@
   "packages": {
     "@babel/runtime": ["@babel/runtime@7.29.7", "", {}, "sha512-Nq8OhGWiZIZGV6hLHoyAKLLcJihP/xFeBMGJoUrxTX2psI8dCifzLhZISFb+VWS3wFMRDmCGw5R+dOySCqPLhw=="],
 
-    "@icure/api": ["@icure/api@8.13.2", "", { "dependencies": { "date-fns": "^2.23.0", "libphonenumber-js": "^1.7.18" } }, "sha512-fauW/siRv9gBpOeZG2BR+WTheKGI9eIAHp47L0vfqzuNOrxb+dD6r88VOs511ie5oIRZG7l4g7/Pm479LOrrTw=="],
+    "@icure/api": ["@icure/api@8.14.0", "", { "dependencies": { "date-fns": "^2.23.0", "libphonenumber-js": "^1.7.18" } }, "sha512-YwZ/C6hwCfcaej2Wp2QxowmNIlq8to2PHvnNgTYcnOUpvqhPWDqikAdfn1YaJIyDDPS+9CGVT8RnQtVKLMh29g=="],
 
     "@types/bun": ["@types/bun@1.4.0", "", { "dependencies": { "bun-types": "1.4.0" } }, "sha512-K+lZULY23vRgK/CfTjFIV+tyifaNdSMlPh9j+6mQ/cLfpOznLyAuzgV/JQysyECpkBQLVMSyvjlr2fBUSA9wFQ=="],
 

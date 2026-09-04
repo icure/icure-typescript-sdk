@@ -3,7 +3,7 @@
 A [Bun](https://bun.sh) application that walks every receipt of an iCure database, downloads and decrypts each
 attachment, and checks that the resulting payload is either a valid XML document or a valid JSON document.
 
-It uses the **published** `@icure/api` SDK (`^8.10.2`), not the sources of this repository, so it exercises the same
+It uses the **published** `@icure/api` SDK (`^8.14.0`), not the sources of this repository, so it exercises the same
 code path an application would.
 
 ## Install
@@ -55,11 +55,9 @@ By default every receipt of the database is scanned. Receipts are enumerated wit
 so windows keep each response to a workable size. The first window has an open lower bound, which also picks up
 receipts that carry no creation date at all.
 
-That endpoint is not part of the *published* typescript SDK yet, so the request is issued through the SDK's own `XHR`
-helper with the receipt api's host, access-control-keys headers and auth service, exactly as a generated method would
-(see `src/receipts.ts`). `IccReceiptApi.listReceiptsBetweenDates` has since been added on `release/v8`: once a version
-carrying it is published, bump `@icure/api` here and `src/receipts.ts` collapses to a single SDK call. If the backend
-does not expose the endpoint, the scan says so and you can fall back to `--ids-file` or `--ref`.
+The call goes through `IccReceiptXApi.listReceiptsBetweenDates`, added to the SDK in 8.14.0. Older backends may not
+expose the endpoint; the scan reports that explicitly instead of surfacing a bare 404, and you can fall back to
+`--ids-file` or `--ref`.
 
 - `--from` / `--to` restrict the creation-date range (ISO-8601 or a unix epoch in ms).
 - `--ids-file <path>` scans only the receipt ids listed in a file, one per line.

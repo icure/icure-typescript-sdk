@@ -10,7 +10,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@icure/api": "^8.10.2",
+    "@icure/api": "^8.14.0",
     "fast-xml-parser": "^4.5.3"
   },
   "devDependencies": {

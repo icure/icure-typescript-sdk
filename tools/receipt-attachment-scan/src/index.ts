@@ -133,7 +133,7 @@ async function main() {
       options.to ? new Date(options.to).toISOString() : 'now'
     }`
     console.log(`Scanning every receipt created between ${range} (windows of ${options.windowDays || '∞'} day(s))`)
-    for await (const batch of enumerateReceiptsByCreationDate(receiptApi, fetchImpl, options)) {
+    for await (const batch of enumerateReceiptsByCreationDate(receiptApi, options)) {
       await processBatch(batch)
       if (reachedLimit) break
     }
