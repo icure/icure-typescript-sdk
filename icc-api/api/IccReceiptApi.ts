@@ -12,6 +12,7 @@
 import { XHR } from './XHR'
 import { DocIdentifier } from '../model/DocIdentifier'
 import { Receipt } from '../model/Receipt'
+import { IcureStub } from '../model/IcureStub'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
@@ -404,6 +405,19 @@ export class IccReceiptApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, entityIds, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new MergeResult(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves the delegation stubs of the Receipts which ids are passed as parameter.
+   * @param receiptIds the ids of the receipts for which the stubs should be retrieved
+   */
+  async findReceiptsDelegationsStubsByIds(receiptIds: string[]): Promise<Array<IcureStub>> {
+    const _url = this.host + `/receipt/delegations`
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, { ids: receiptIds }, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
       .catch((err) => this.handleError(err))
   }
 }

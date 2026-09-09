@@ -21,6 +21,7 @@ import { ListOfIds } from '../model/ListOfIds'
 import { PaginatedListPatient } from '../model/PaginatedListPatient'
 import { PaginatedListString } from '../model/PaginatedListString'
 import { Patient } from '../model/Patient'
+import { IcureStub } from '../model/IcureStub'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
@@ -1053,6 +1054,19 @@ export class IccPatientApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, entityIds, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new MergeResult(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves the delegation stubs of the Patients which ids are passed as parameter.
+   * @param patientIds the ids of the patients for which the stubs should be retrieved
+   */
+  async findPatientsDelegationsStubsByIds(patientIds: string[]): Promise<Array<IcureStub>> {
+    const _url = this.host + `/patient/delegations`
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, { ids: patientIds }, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
       .catch((err) => this.handleError(err))
   }
 }

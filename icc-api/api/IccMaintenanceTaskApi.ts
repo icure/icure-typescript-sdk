@@ -14,6 +14,7 @@ import { DocIdentifier } from '../model/DocIdentifier'
 import { FilterChainMaintenanceTask } from '../model/FilterChainMaintenanceTask'
 import { MaintenanceTask } from '../model/MaintenanceTask'
 import { PaginatedListMaintenanceTask } from '../model/PaginatedListMaintenanceTask'
+import { IcureStub } from '../model/IcureStub'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
@@ -115,9 +116,24 @@ export class IccMaintenanceTaskApi {
    * @param limit Number of rows
    * @param collectTiming if true, include server-side filter timing information in the response
    */
-  filterMaintenanceTasksBy(startDocumentId?: string, limit?: number, body?: FilterChainMaintenanceTask, collectTiming?: false): Promise<PaginatedListMaintenanceTask>
-  filterMaintenanceTasksBy(startDocumentId?: string, limit?: number, body?: FilterChainMaintenanceTask, collectTiming?: true): Promise<PaginatedListMaintenanceTask & TimingInfo>
-  async filterMaintenanceTasksBy(startDocumentId?: string, limit?: number, body?: FilterChainMaintenanceTask, collectTiming: boolean = false): Promise<PaginatedListMaintenanceTask> {
+  filterMaintenanceTasksBy(
+    startDocumentId?: string,
+    limit?: number,
+    body?: FilterChainMaintenanceTask,
+    collectTiming?: false
+  ): Promise<PaginatedListMaintenanceTask>
+  filterMaintenanceTasksBy(
+    startDocumentId?: string,
+    limit?: number,
+    body?: FilterChainMaintenanceTask,
+    collectTiming?: true
+  ): Promise<PaginatedListMaintenanceTask & TimingInfo>
+  async filterMaintenanceTasksBy(
+    startDocumentId?: string,
+    limit?: number,
+    body?: FilterChainMaintenanceTask,
+    collectTiming: boolean = false
+  ): Promise<PaginatedListMaintenanceTask> {
     let _body = null
     _body = body
 
@@ -130,7 +146,18 @@ export class IccMaintenanceTaskApi {
       (limit ? '&limit=' + encodeURIComponent(String(limit)) : '')
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
-    return XHR.sendCommand('POST', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService(), undefined, false, collectTiming ? ['x-filter-timing-*'] : [])
+    return XHR.sendCommand(
+      'POST',
+      _url,
+      headers,
+      _body,
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService(),
+      undefined,
+      false,
+      collectTiming ? ['x-filter-timing-*'] : []
+    )
       .then((doc) => Object.assign(new PaginatedListMaintenanceTask(doc.body as JSON), collectTiming ? { responseHeaders: doc.responseHeaders } : {}))
       .catch((err) => this.handleError(err))
   }
@@ -176,6 +203,27 @@ export class IccMaintenanceTaskApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((x) => new EntityBulkShareResult<MaintenanceTask>(x, MaintenanceTask)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves the delegation stubs of the MaintenanceTasks which ids are passed as parameter.
+   * @param maintenanceTaskIds the ids of the maintenance tasks for which the stubs should be retrieved
+   */
+  async findMaintenanceTasksDelegationsStubsByIds(maintenanceTaskIds: string[]): Promise<Array<IcureStub>> {
+    const _url = this.host + `/maintenancetask/delegations`
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand(
+      'POST',
+      _url,
+      headers,
+      { ids: maintenanceTaskIds },
+      this.fetchImpl,
+      undefined,
+      this.authenticationProvider.getAuthService()
+    )
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
       .catch((err) => this.handleError(err))
   }
 }

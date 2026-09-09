@@ -759,4 +759,17 @@ export class IccDocumentApi {
       .then((doc) => (doc.body as Array<JSON>).map((it) => new MergeResult(it)))
       .catch((err) => this.handleError(err))
   }
+
+  /**
+   * Retrieves the delegation stubs of the Documents which ids are passed as parameter.
+   * @param documentIds the ids of the documents for which the stubs should be retrieved
+   */
+  async findDocumentsDelegationsStubsByIds(documentIds: string[]): Promise<Array<IcureStub>> {
+    const _url = this.host + `/document/delegations`
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, { ids: documentIds }, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
+      .catch((err) => this.handleError(err))
+  }
 }

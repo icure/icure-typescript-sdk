@@ -306,7 +306,7 @@ export class IccHelementApi {
   }
 
   async findHealthElementsDelegationsStubsByIds(healthElementIds: string[]): Promise<Array<IcureStub>> {
-    const _url = this.host + `/helement/byHcPartySecretForeignKeys/delegations`
+    const _url = this.host + `/helement/delegations`
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, { ids: healthElementIds }, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
