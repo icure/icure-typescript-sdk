@@ -1,8 +1,6 @@
-import { EncryptedEntity, EncryptedEntityStub } from '../../icc-api/model/models'
-import { EncryptedEntityWithType, EntityWithDelegationTypeName } from '../utils/EntityWithDelegationTypeName'
+import { EncryptedEntity, EncryptedEntityStub, IcureStub } from '../../icc-api/model/models'
+import { EncryptedEntityWithType, EntityWithDelegationTypeName } from '../utils'
 import { SecureDelegation } from '../../icc-api/model/SecureDelegation'
-import AccessLevelEnum = SecureDelegation.AccessLevelEnum
-import { EntityShareOrMetadataUpdateRequest } from '../../icc-api/model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityShareRequest } from '../../icc-api/model/requests/EntityShareRequest'
 import { EntityBulkShareResult } from '../../icc-api/model/requests/EntityBulkShareResult'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
@@ -12,6 +10,8 @@ import { MinimalEntityBulkShareResult } from '../../icc-api/model/requests/Minim
 import { EncryptedFieldsManifest } from '../utils'
 import { BulkShareOrUpdateMetadataParams } from '../../icc-api/model/requests/BulkShareOrUpdateMetadataParams'
 import { SecretIdUseOption } from './SecretIdUseOption'
+import { ShareByIdResult, ShareRequestPurpose } from '../utils/ShareByIdResult'
+import { SecretIdShareOptions } from './ShareSecretIdOptions'
 
 /**
  * @internal this interface is meant only for internal use and may be changed without notice.
@@ -177,7 +177,7 @@ export interface ExtendedApisUtils {
         shareOwningEntityIds?: string[]
         requestedPermissions: RequestedPermissionEnum
       }
-      updatedForMigration: boolean
+      purpose: ShareRequestPurpose
       code?: number
       reason?: string
     }[]
@@ -199,7 +199,7 @@ export interface ExtendedApisUtils {
     doRequestBulkShareOrUpdate: (request: BulkShareOrUpdateMetadataParams) => Promise<MinimalEntityBulkShareResult[]>
   ): Promise<{
     unmodifiedEntitiesIds: string[]
-    successfulUpdates: { entityId: string; delegateId: string }[]
+    successfulUpdates: { entityId: string; delegateId: string; purpose: ShareRequestPurpose }[]
     updateErrors: {
       entityId: string
       delegateId: string
@@ -209,9 +209,10 @@ export interface ExtendedApisUtils {
         shareOwningEntityIds?: string[]
         requestedPermissions: RequestedPermissionEnum
       }
-      updatedForMigration: boolean
+      purpose: ShareRequestPurpose
       code?: number
       reason?: string
+      shouldRetry: boolean
     }[]
   }>
 
@@ -246,6 +247,55 @@ export interface ExtendedApisUtils {
     },
     doRequestBulkShareOrUpdate: (request: BulkShareOrUpdateMetadataParams) => Promise<EntityBulkShareResult<T>[]>
   ): Promise<ShareResult<T>>
+
+  /**
+   * Shares many already-existing entities, identified by their id, with one or more delegates, using the same share
+   * options for all the entities of the batch.
+   *
+   * This is a bulk-oriented counterpart of {@link simpleShareOrUpdateEncryptedEntityMetadata}: the encrypted metadata
+   * to share is automatically retrieved from the entities themselves, and the entities are retrieved from the cloud
+   * (as delegation stubs) instead of being provided by the caller, so no decrypted entity is needed nor returned.
+   *
+   * Unlike {@link simpleShareOrUpdateEncryptedEntityMetadata} this method never throws because of an individual
+   * (entity, delegate) request: failures - both failures to resolve the share options and requests rejected by the
+   * cloud - are reported in {@link ShareByIdResult.shareErrors}, so a failure for one pair doesn't prevent the others
+   * from being shared. Requests that the cloud rejected for a reason worth retrying are automatically retried once
+   * with a fresh version of the entity.
+   * @param ids ids of the entities to share; duplicates are ignored, and ids of entities that can't be found (or
+   * read) are reported in {@link ShareByIdResult.notFoundIds}.
+   * @param delegates associates the id of the data owners which will be granted access to the entities to the
+   * following sharing options:
+   * - shareSecretIds specifies which secret ids of each entity should be shared: with
+   * {@link SecretIdShareOptions.AllAvailable} (the default) each entity is shared with all the secret ids of that
+   * entity that the current data owner can access, with {@link SecretIdShareOptions.UseExactly} every entity is
+   * shared with exactly the provided secret ids.
+   * - shareEncryptionKeys specifies if the encryption keys of the entities should be shared. Defaults to
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}.
+   * - shareOwningEntityIds specifies if the owning entity ids of the entities should be shared. Defaults to
+   * {@link ShareMetadataBehaviour.IF_AVAILABLE}.
+   * - requestedPermissions requested permissions for the delegate. Defaults to
+   * {@link RequestedPermissionEnum.MAX_WRITE}.
+   * @param entitiesType type of the entities to share.
+   * @param getStubs retrieves the delegation stubs of the entities with the provided ids from the cloud. Entities the
+   * current user can't read must simply be omitted from the result.
+   * @param doRequestBulkShareOrUpdate performs the request to share or update the encrypted metadata of the entities
+   * on the cloud API (and save to DB).
+   * @return a promise which will be completed with the outcome of the operation for each (entity, delegate) pair.
+   */
+  shareById(
+    ids: string[],
+    delegates: {
+      [delegateId: string]: {
+        shareSecretIds?: SecretIdShareOptions // Defaults to SecretIdShareOptions.AllAvailable
+        requestedPermissions?: RequestedPermissionEnum // Defaults to RequestedPermissionEnum.MAX_WRITE
+        shareEncryptionKeys?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+        shareOwningEntityIds?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    },
+    entitiesType: EntityWithDelegationTypeName,
+    getStubs: (ids: string[]) => Promise<IcureStub[]>,
+    doRequestBulkShareOrUpdate: (request: BulkShareOrUpdateMetadataParams) => Promise<MinimalEntityBulkShareResult[]>
+  ): Promise<ShareByIdResult>
   // endregion
 
   // region content encryption and decryption

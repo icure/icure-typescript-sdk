@@ -12,6 +12,7 @@
 import { XHR } from './XHR'
 import { Classification } from '../model/Classification'
 import { DocIdentifier } from '../model/DocIdentifier'
+import { IcureStub } from '../model/IcureStub'
 import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-api/auth/AuthenticationProvider'
 import { iccRestApiPath } from './IccRestApiPath'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
@@ -238,6 +239,19 @@ export class IccClassificationApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((x) => new MinimalEntityBulkShareResult(x)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves the delegation stubs of the Classifications which ids are passed as parameter.
+   * @param classificationIds the ids of the classifications for which the stubs should be retrieved
+   */
+  async findClassificationsDelegationsStubsByIds(classificationIds: string[]): Promise<Array<IcureStub>> {
+    const _url = this.host + `/classification/delegations`
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, { ids: classificationIds }, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
       .catch((err) => this.handleError(err))
   }
 }

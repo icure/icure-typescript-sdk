@@ -467,4 +467,17 @@ export class IccCalendarItemApi {
       .then((doc) => (doc.body as Array<JSON>).map((it) => new MergeResult(it)))
       .catch((err) => this.handleError(err))
   }
+
+  /**
+   * Retrieves the delegation stubs of the CalendarItems which ids are passed as parameter.
+   * @param calendarItemIds the ids of the calendar items for which the stubs should be retrieved
+   */
+  async findCalendarItemsDelegationsStubsByIds(calendarItemIds: string[]): Promise<Array<IcureStub>> {
+    const _url = this.host + `/calendarItem/delegations`
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, { ids: calendarItemIds }, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
+      .catch((err) => this.handleError(err))
+  }
 }

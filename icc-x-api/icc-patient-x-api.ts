@@ -23,6 +23,7 @@ import { MinimalEntityBulkShareResult } from '../icc-api/model/requests/MinimalE
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
 import { ShareResult } from './utils/ShareResult'
+import { ShareByIdResult } from './utils/ShareByIdResult'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { XHR } from '../icc-api/api/XHR'
@@ -31,6 +32,7 @@ import { IccUserXApi } from './icc-user-x-api'
 import { AbstractFilter } from './filters/filters'
 import { Connection, ConnectionImpl } from '../icc-api/model/Connection'
 import { BulkShareOrUpdateMetadataParams } from '../icc-api/model/requests/BulkShareOrUpdateMetadataParams'
+import { SecretIdShareOptions } from './crypto/ShareSecretIdOptions'
 
 // noinspection JSUnusedGlobalSymbols
 export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi<models.Patient> {
@@ -796,6 +798,7 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
   }
 
   /**
+   * @deprecated Use methods for getting ids of data you want to share then share using share by id.
    * Shares a patient and all related data with specified delegates.
    * @param user the current user
    * @param patId the patient id
@@ -1407,6 +1410,56 @@ export class IccPatientXApi extends IccPatientApi implements EncryptedEntityXApi
         (x) => this.bulkSharePatients(x)
       )
       .then((r) => r.mapSuccessAsync((e) => this.decryptAs(self, [e]).then((es) => es[0])))
+  }
+
+  /**
+   * Shares the patients with the provided ids with one or more delegates, using the same share options for all of
+   * them.
+   *
+   * Unlike {@link shareWith} this method does not need the decrypted patients, does not return them, and does not
+   * fail because of a single patient or delegate: the outcome of each (patient, delegate) pair is reported in
+   * the returned {@link ShareByIdResult}. Ids of patients that don't exist or that the current user can't read are
+   * reported in {@link ShareByIdResult.notFoundIds} and are otherwise ignored.
+   * @param ids the ids of the patients to share. Duplicates are ignored.
+   * @param delegates associates the id of the data owners which will be granted access to the patients to the
+   * following sharing options:
+   * - shareSecretIds specifies which secret ids of each of the patients should be shared: with
+   * {@link SecretIdShareOptions.AllAvailable} (the default) each of them is shared with all the secret ids of that entity
+   * that the current data owner can access, with {@link SecretIdShareOptions.UseExactly} they are all shared with exactly
+   * the provided secret ids.
+   * - requestedPermissions requested permissions for the delegate. Defaults to
+   * {@link RequestedPermissionEnum.MAX_WRITE}.
+   * - shareEncryptionKey specifies if the encryption key of the patients should be shared: this is needed for the
+   * delegate to be able to decrypt their content. Defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}.
+   * @return a promise which will be completed with the outcome of the operation for each (patient, delegate) pair.
+   */
+  async shareById(
+    ids: string[],
+    delegates: {
+      [delegateId: string]: {
+        shareSecretIds?: SecretIdShareOptions // Defaults to all available without being required
+        requestedPermissions?: RequestedPermissionEnum
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
+  ): Promise<ShareByIdResult> {
+    return this.crypto.xapi.shareById(
+      ids,
+      Object.fromEntries(
+        Object.entries(delegates).map(([delegateId, options]) => [
+          delegateId,
+          {
+            shareSecretIds: options.shareSecretIds,
+            requestedPermissions: options.requestedPermissions,
+            shareEncryptionKeys: options.shareEncryptionKey,
+            shareOwningEntityIds: ShareMetadataBehaviour.NEVER,
+          },
+        ])
+      ),
+      EntityWithDelegationTypeName.Patient,
+      (x) => this.findPatientsDelegationsStubsByIds(x),
+      (x) => this.bulkSharePatientsMinimal(x)
+    )
   }
 
   /**
