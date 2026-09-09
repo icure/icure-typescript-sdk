@@ -260,7 +260,7 @@ export class IccHelementApi {
   }
 
   /**
-   * @deprecated use {@link findHealthElementsDelegationsStubsByIds} instead.
+   * @deprecated use {@link listHealthElementsDelegationsStubById} instead.
    * @summary List helement stubs found By Healthcare Party and secret foreign keys.
    * @param body
    * @param hcPartyId
@@ -284,7 +284,7 @@ export class IccHelementApi {
 
   /**
    * Keys must be delimited by coma
-   * @deprecated use {@link findHealthElementsDelegationsStubsByIds} instead.
+   * @deprecated use {@link listHealthElementsDelegationsStubById} instead.
    * @summary List helement stubs found By Healthcare Party and secret foreign keys.
    * @param hcPartyId
    * @param secretFKeys
@@ -305,7 +305,27 @@ export class IccHelementApi {
       .catch((err) => this.handleError(err))
   }
 
+  /**
+   * @deprecated This method does not work: it sends the ids to `/helement/byHcPartySecretForeignKeys/delegations`, which expects a list of
+   * secret foreign keys and not a {@link ListOfIds}. Use {@link listHealthElementsDelegationsStubById} instead, which calls the correct
+   * `/helement/delegations` endpoint. Kept only for backward compatibility with users that may rely on the current (broken) behaviour.
+   * @summary List helement stubs found by ids.
+   * @param healthElementIds the ids of the health elements for which the stubs should be retrieved
+   */
   async findHealthElementsDelegationsStubsByIds(healthElementIds: string[]): Promise<Array<IcureStub>> {
+    const _url = this.host + `/helement/byHcPartySecretForeignKeys/delegations`
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, { ids: healthElementIds }, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves the delegation stubs of the HealthElements which ids are passed as parameter.
+   * @param healthElementIds the ids of the health elements for which the stubs should be retrieved
+   */
+  async listHealthElementsDelegationsStubById(healthElementIds: string[]): Promise<Array<IcureStub>> {
     const _url = this.host + `/helement/delegations`
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
