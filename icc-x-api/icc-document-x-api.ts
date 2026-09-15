@@ -1247,10 +1247,11 @@ export class IccDocumentXApi extends IccDocumentApi implements EncryptedEntityXA
    * Deletes the main attachment of a document.
    * @param user the user (not used).
    * @param documentId the id of the document.
+   * @param documentRev the revision of the document.
    * @return the updated document.
    */
-  async deleteAttachmentWithUser(user: models.User | undefined, documentId: string): Promise<models.Document> {
-    return (await this.decrypt([await super.deleteAttachment(documentId)]))[0].entity
+  async deleteAttachmentWithUser(user: models.User | undefined, documentId: string, documentRev: string): Promise<models.Document> {
+    return (await this.decrypt([await super.deleteAttachment(documentId, documentRev)]))[0].entity
   }
 
   /**

@@ -75,11 +75,17 @@ export class IccDocumentApi {
    * Deletes a document's attachment and returns the modified document instance afterward
    * @summary Delete a document's attachment
    * @param documentId
+   * @param documentRev
    */
-  async deleteAttachment(documentId: string): Promise<Document> {
+  async deleteAttachment(documentId: string, documentRev: string): Promise<Document> {
     let _body = null
 
-    const _url = this.host + `/document/${encodeURIComponent(String(documentId))}/attachment` + '?ts=' + new Date().getTime()
+    const _url =
+      this.host +
+      `/document/${encodeURIComponent(String(documentId))}/attachment` +
+      '?ts=' +
+      new Date().getTime() +
+      `&rev=${encodeURIComponent(documentRev)}`
     let headers = await this.headers
     return XHR.sendCommand('DELETE', _url, headers, _body, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => new Document(doc.body as JSON))
