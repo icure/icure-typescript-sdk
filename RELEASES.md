@@ -1329,3 +1329,9 @@ Maintenance release (version bump only).
 
 - Add listReceiptsBetweenDates to IccReceiptApi and IccReceiptXApi, wrapping GET /rest/v2/receipt/byCreated so the receipts of a database can be enumerated by creation date
 - Add a bun tool that scans receipt attachments and validates their XML/JSON payloads
+
+
+## 8.15.0 (2026-09-15)
+<!-- tag: 8.15.0 | target: 98b994e7e11cd39d0bffd9ab441706ecc7993c25 | prerelease: false -->
+
+- Added missing `documentRev` parameter to `deleteAttachment` and `deleteAttachmentWithUser`
