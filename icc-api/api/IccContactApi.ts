@@ -429,7 +429,7 @@ export class IccContactApi {
    * Retrieves the delegation stub of the Contact which ids are passed as parameter.
    * @param contactIds the ids of the contact for which the stub should be retrieved
    */
-  async findContactsDelegationsStubsByIds(contactIds: []): Promise<IcureStub[]> {
+  async findContactsDelegationsStubsByIds(contactIds: string[]): Promise<IcureStub[]> {
     const _url = this.host + `/contact/delegations`
     let headers = await this.headers
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))

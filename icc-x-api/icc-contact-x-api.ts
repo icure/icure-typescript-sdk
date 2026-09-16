@@ -4,7 +4,7 @@ import { IccCryptoXApi } from './icc-crypto-x-api'
 import i18n from './rsrc/contact.i18n'
 
 import { format as formatDate, isAfter as isDateAfter, parse as parseDate } from 'date-fns'
-import { cloneDeep, uniqBy, sortBy } from './utils/collection-utils'
+import { cloneDeep, sortBy, uniqBy } from './utils/collection-utils'
 import * as models from '../icc-api/model/models'
 import { Contact, FilterChainService, ListOfIds, Service, TimingInfo } from '../icc-api/model/models'
 import { PaginatedListContact } from '../icc-api/model/PaginatedListContact'
@@ -13,7 +13,6 @@ import { ServiceByIdsFilter } from './filters/ServiceByIdsFilter'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import {
   before,
-  decryptObject,
   EncryptedFieldsManifest,
   encryptObject,
   EntityWithDelegationTypeName,
@@ -24,6 +23,7 @@ import {
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
+import { SecretIdShareOptions } from './crypto/ShareSecretIdOptions'
 import { ShareResult } from './utils/ShareResult'
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
 import { XHR } from '../icc-api/api/XHR'
@@ -31,9 +31,10 @@ import { IccUserXApi } from './icc-user-x-api'
 import { EncryptedEntityXApi } from './basexapi/EncryptedEntityXApi'
 import { AbstractFilter } from './filters/filters'
 import { Connection, ConnectionImpl } from '../icc-api/model/Connection'
+import { SecretIdUseOption } from './crypto/SecretIdUseOption'
+import { ShareByIdResult } from './utils/ShareByIdResult'
 import AccessLevelEnum = SecureDelegation.AccessLevelEnum
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
-import { SecretIdUseOption } from './crypto/SecretIdUseOption'
 
 export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi<models.Contact> {
   i18n: any = i18n
@@ -1361,6 +1362,59 @@ export class IccContactXApi extends IccContactApi implements EncryptedEntityXApi
         (x) => this.bulkShareContacts(x)
       )
       .then((r) => r.mapSuccessAsync((e) => this.decrypt(self, [e]).then((es) => es[0])))
+  }
+
+  /**
+   * Shares the contacts with the provided ids with one or more delegates, using the same share options for all of
+   * them.
+   *
+   * Unlike {@link shareWith} this method does not need the decrypted contacts, does not return them, and does not
+   * fail because of a single contact or delegate: the outcome of each (contact, delegate) pair is reported in the
+   * returned {@link ShareByIdResult}. Ids of contacts that don't exist or that the current user can't read are
+   * reported in {@link ShareByIdResult.notFoundIds} and are otherwise ignored.
+   * @param ids the ids of the contacts to share. Duplicates are ignored.
+   * @param delegates associates the id of the data owners which will be granted access to the contacts to the
+   * following sharing options:
+   * - shareSecretIds specifies which secret ids of each of the contacts should be shared: with
+   * {@link SecretIdShareOptions.AllAvailable} (the default) each of them is shared with all the secret ids of that entity
+   * that the current data owner can access, with {@link SecretIdShareOptions.UseExactly} they are all shared with exactly
+   * the provided secret ids.
+   * - requestedPermissions requested permissions for the delegate. Defaults to
+   * {@link RequestedPermissionEnum.MAX_WRITE}.
+   * - shareEncryptionKey specifies if the encryption key of the contacts should be shared: this is needed for the
+   * delegate to be able to decrypt the content of the contacts. Defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}.
+   * - sharePatientId specifies if the id of the patient the contacts refer to should be shared with the delegate.
+   * Defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}.
+   * @return a promise which will be completed with the outcome of the operation for each (contact, delegate) pair.
+   */
+  async shareById(
+    ids: string[],
+    delegates: {
+      [delegateId: string]: {
+        shareSecretIds?: SecretIdShareOptions // Defaults to all available without being required
+        requestedPermissions?: RequestedPermissionEnum
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+        sharePatientId?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
+  ): Promise<ShareByIdResult> {
+    return this.crypto.xapi.shareById(
+      ids,
+      Object.fromEntries(
+        Object.entries(delegates).map(([delegateId, options]) => [
+          delegateId,
+          {
+            shareSecretIds: options.shareSecretIds,
+            requestedPermissions: options.requestedPermissions,
+            shareEncryptionKeys: options.shareEncryptionKey,
+            shareOwningEntityIds: options.sharePatientId,
+          },
+        ])
+      ),
+      EntityWithDelegationTypeName.Contact,
+      (x) => this.findContactsDelegationsStubsByIds(x),
+      (x) => this.bulkShareContactsMinimal(x)
+    )
   }
 
   /**

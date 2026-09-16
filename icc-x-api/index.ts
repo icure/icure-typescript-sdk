@@ -137,6 +137,16 @@ export { CryptoStrategies } from './crypto/CryptoStrategies'
 export { NativeCryptoPrimitivesBridge } from './crypto/NativeCryptoPrimitivesBridge'
 export { hexPublicKeysWithSha1Of, hexPublicKeysWithSha256Of, getShaVersionForKey } from './crypto/utils'
 export { SecretIdUseOption } from './crypto/SecretIdUseOption'
+export { SecretIdShareOptions } from './crypto/ShareSecretIdOptions'
+export {
+  ShareByIdResult,
+  SuccessfulRequestDetails,
+  FailedRequestDetails,
+  FailedRequestDetailsFailureType,
+  ShareRequestSummary,
+  ShareRequestPurpose,
+  SharedSecretIdsSource,
+} from './utils/ShareByIdResult'
 
 export interface BasicApis {
   readonly accessLogApi: IccAccesslogApi
@@ -1592,7 +1602,8 @@ class IcureBasicApiImpl implements IcureBasicApi {
 
   get accessLogApi(): IccAccesslogApi {
     return (
-      this._accessLogApi ?? (this._accessLogApi = new IccAccesslogApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
+      this._accessLogApi ??
+      (this._accessLogApi = new IccAccesslogApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
     )
   }
 
@@ -1604,9 +1615,7 @@ class IcureBasicApiImpl implements IcureBasicApi {
   }
 
   get icureApi(): IccIcureApi {
-    return (
-      this._icureApi ?? (this._icureApi = new IccIcureApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
-    )
+    return this._icureApi ?? (this._icureApi = new IccIcureApi(this.host, this.params.headers, this.groupSpecificAuthenticationProvider, this.fetch))
   }
 
   get agendaApi(): IccAgendaApi {

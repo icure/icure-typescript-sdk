@@ -4,7 +4,9 @@ import * as models from '../icc-api/model/models'
 import { IccDataOwnerXApi } from './icc-data-owner-x-api'
 import { AuthenticationProvider, NoAuthenticationProvider } from './auth/AuthenticationProvider'
 import { ShareMetadataBehaviour } from './crypto/ShareMetadataBehaviour'
+import { SecretIdShareOptions } from './crypto/ShareSecretIdOptions'
 import { ShareResult } from './utils/ShareResult'
+import { ShareByIdResult } from './utils/ShareByIdResult'
 import { EntityShareRequest } from '../icc-api/model/requests/EntityShareRequest'
 import RequestedPermissionEnum = EntityShareRequest.RequestedPermissionEnum
 import { SecureDelegation } from '../icc-api/model/SecureDelegation'
@@ -421,6 +423,56 @@ export class IccReceiptXApi extends IccReceiptApi implements EncryptedEntityXApi
         ])
       ),
       (x) => this.bulkShareReceipt(x)
+    )
+  }
+
+  /**
+   * Shares the receipts with the provided ids with one or more delegates, using the same share options for all of
+   * them.
+   *
+   * Unlike {@link shareWith} this method does not need the decrypted receipts, does not return them, and does not
+   * fail because of a single receipt or delegate: the outcome of each (receipt, delegate) pair is reported in
+   * the returned {@link ShareByIdResult}. Ids of receipts that don't exist or that the current user can't read are
+   * reported in {@link ShareByIdResult.notFoundIds} and are otherwise ignored.
+   * @param ids the ids of the receipts to share. Duplicates are ignored.
+   * @param delegates associates the id of the data owners which will be granted access to the receipts to the
+   * following sharing options:
+   * - shareSecretIds specifies which secret ids of each of the receipts should be shared: with
+   * {@link SecretIdShareOptions.AllAvailable} (the default) each of them is shared with all the secret ids of that entity
+   * that the current data owner can access, with {@link SecretIdShareOptions.UseExactly} they are all shared with exactly
+   * the provided secret ids.
+   * - requestedPermissions requested permissions for the delegate. Defaults to
+   * {@link RequestedPermissionEnum.MAX_WRITE}.
+   * - shareEncryptionKey specifies if the encryption key of the receipts should be shared: this is needed for the
+   * delegate to be able to decrypt their content. Defaults to {@link ShareMetadataBehaviour.IF_AVAILABLE}.
+   * @return a promise which will be completed with the outcome of the operation for each (receipt, delegate) pair.
+   */
+  async shareById(
+    ids: string[],
+    delegates: {
+      [delegateId: string]: {
+        shareSecretIds?: SecretIdShareOptions // Defaults to all available without being required
+        requestedPermissions?: RequestedPermissionEnum
+        shareEncryptionKey?: ShareMetadataBehaviour // Defaults to ShareMetadataBehaviour.IF_AVAILABLE
+      }
+    }
+  ): Promise<ShareByIdResult> {
+    return this.crypto.xapi.shareById(
+      ids,
+      Object.fromEntries(
+        Object.entries(delegates).map(([delegateId, options]) => [
+          delegateId,
+          {
+            shareSecretIds: options.shareSecretIds,
+            requestedPermissions: options.requestedPermissions,
+            shareEncryptionKeys: options.shareEncryptionKey,
+            shareOwningEntityIds: ShareMetadataBehaviour.NEVER,
+          },
+        ])
+      ),
+      EntityWithDelegationTypeName.Receipt,
+      (x) => this.findReceiptsDelegationsStubsByIds(x),
+      (x) => this.bulkShareReceiptMinimal(x)
     )
   }
 
