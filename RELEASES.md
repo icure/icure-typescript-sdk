@@ -1336,8 +1336,8 @@ Maintenance release (version bump only).
 
 - Added missing `documentRev` parameter to `deleteAttachment` and `deleteAttachmentWithUser`
 
-## [MISSING] 8.16.0 (2026-09-24)
+## 8.16.0 (2026-09-24)
 <!-- tag: 8.16.0 | target: f2041120ec46e0845d83b36ff7a8fb7f70f2b272 | prerelease: false -->
 
 - Added optional `agreementNumber` to `InvoicingCode`: the reimbursement agreement number obtained during a pre-authorization (mirrors kraken-common#349)
-- **Requires iCure backend (kraken) 26.10 or later** to support the new field: older backends silently drop `agreementNumber` on save. It is currently available on nightly.icure.cloud.
+- **Requires iCure backend (kraken) 26.10 or later** for `agreementNumber` to be persisted and returned; older backends do not know the field.
