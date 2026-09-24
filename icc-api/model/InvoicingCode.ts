@@ -65,6 +65,10 @@ export class InvoicingCode {
   archived?: boolean
   lost?: boolean
   insuranceJustification?: number
+  /**
+   * The reimbursement agreement number obtained during a pre-authorization.
+   */
+  agreementNumber?: string
   cancelPatientInterventionReason?: number
   status?: number
   options?: { [key: string]: string }
