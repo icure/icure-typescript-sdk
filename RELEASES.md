@@ -1342,7 +1342,7 @@ Maintenance release (version bump only).
 - Added optional `agreementNumber` to `InvoicingCode`: the reimbursement agreement number obtained during a pre-authorization (mirrors kraken-common#349)
 - **Requires iCure backend (kraken) 26.10 or later** for `agreementNumber` to be persisted and returned; older backends do not know the field.
 
-## [MISSING] 8.17.0 (2026-10-06)
+## 8.17.0 (2026-10-06)
 <!-- tag: 8.17.0 | target: 972ee2b80572974b5d7de31623ad6a610f4cbb0f | prerelease: false -->
 
 - Added the `RelatedPerson` entity (#200): a person related to one or more patients that is neither a patient nor a healthcare party (e.g. a contact person, caregiver or legal guardian). It is an encryptable root entity, not a data owner
