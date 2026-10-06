@@ -85,7 +85,7 @@ iCure uses a complex delegation-based encryption scheme:
 
 ### Entity Types
 
-**Encrypted entities**: Patient, Contact (with Services), HealthElement, Document, Form, Invoice, CalendarItem, AccessLog, Message, Topic, MaintenanceTask
+**Encrypted entities**: Patient, Contact (with Services), HealthElement, Document, Form, Invoice, CalendarItem, AccessLog, Message, Topic, MaintenanceTask, RelatedPerson (root entity, not a data owner)
 
 **Encrypted field configuration**: Each entity type has configurable encrypted fields defined in `EncryptedFieldsConfig` (see `icc-x-api/index.ts`). Default configurations are in `EncryptedFieldsConfig.Defaults`.
 
