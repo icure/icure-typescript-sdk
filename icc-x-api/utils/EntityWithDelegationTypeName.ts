@@ -18,6 +18,7 @@ export enum EntityWithDelegationTypeName {
   Message = 'Message',
   Patient = 'Patient',
   Receipt = 'Receipt',
+  RelatedPerson = 'RelatedPerson',
   TimeTable = 'TimeTable',
   Topic = 'Topic',
 }
@@ -37,6 +38,7 @@ export const entityWithDelegationTypeNames: Set<EntityWithDelegationTypeName> = 
   EntityWithDelegationTypeName.Message,
   EntityWithDelegationTypeName.Patient,
   EntityWithDelegationTypeName.Receipt,
+  EntityWithDelegationTypeName.RelatedPerson,
   EntityWithDelegationTypeName.TimeTable,
 ])
 

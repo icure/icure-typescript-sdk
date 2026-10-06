@@ -11,6 +11,7 @@ import { Device } from '../../icc-api/model/Device'
 import { Contact } from '../../icc-api/model/Contact'
 import { Message } from '../../icc-api/model/Message'
 import { Topic } from '../../icc-api/model/Topic'
+import { RelatedPerson } from '../../icc-api/model/RelatedPerson'
 
 const isNode: boolean = typeof process !== "undefined" && process.versions != null && process.versions.node != null;
 
@@ -26,7 +27,19 @@ type Subscribable =
   | 'Contact'
   | 'Message'
   | 'Topic'
-type SubscribableEntity = Patient | Service | User | HealthElement | MaintenanceTask | HealthcareParty | Device | Contact | Message | Topic
+  | 'RelatedPerson'
+type SubscribableEntity =
+  | Patient
+  | Service
+  | User
+  | HealthElement
+  | MaintenanceTask
+  | HealthcareParty
+  | Device
+  | Contact
+  | Message
+  | Topic
+  | RelatedPerson
 export type SubscriptionOptions = {
   connectionMaxRetry?: number
   connectionRetryIntervalMs?: number
@@ -92,6 +105,16 @@ export function subscribeToEntityEvents(
   eventFired: (entity: Topic) => Promise<void>,
   options: SubscriptionOptions,
   decryptor: (encrypted: Topic) => Promise<Topic>
+): Promise<WebSocketWrapper>
+export function subscribeToEntityEvents(
+  basePath: string,
+  authApi: IccAuthApi,
+  entityClass: 'RelatedPerson',
+  eventTypes: EventTypes[],
+  filter: AbstractFilter<RelatedPerson> | undefined,
+  eventFired: (entity: RelatedPerson) => Promise<void>,
+  options: SubscriptionOptions,
+  decryptor: (encrypted: RelatedPerson) => Promise<RelatedPerson>
 ): Promise<WebSocketWrapper>
 export function subscribeToEntityEvents(
   basePath: string,
@@ -165,6 +188,10 @@ export function subscribeToEntityEvents<T extends SubscribableEntity>(
     Topic: {
       qualifiedName: 'org.taktik.icure.entities.Topic',
       decryptor: (data: Topic) => decryptor!(data as Topic as T),
+    },
+    RelatedPerson: {
+      qualifiedName: 'org.taktik.icure.entities.RelatedPerson',
+      decryptor: (data: RelatedPerson) => decryptor!(data as RelatedPerson as T),
     },
     MaintenanceTask: {
       qualifiedName: 'org.taktik.icure.entities.MaintenanceTask',

@@ -30,6 +30,11 @@ export class Partnership {
    * UUID of the contact person or patient in this relationship.
    */
   partnerId?: string
+  /**
+   * The type of entity `partnerId` refers to. When undefined the partner is either a patient or a healthcare party (legacy behavior, the client
+   * has to resolve the ambiguity). Use `relatedPerson` to refer to a {@link RelatedPerson}.
+   */
+  partnerType?: Partnership.PartnerTypeEnum
   meToOtherRelationshipDescription?: string
   otherToMeRelationshipDescription?: string
 }
@@ -112,6 +117,12 @@ export namespace Partnership {
     Unknown: 'unknown' as TypeEnum,
     Seealso: 'seealso' as TypeEnum,
     Refer: 'refer' as TypeEnum,
+  }
+  export type PartnerTypeEnum = 'patient' | 'healthcareParty' | 'relatedPerson'
+  export const PartnerTypeEnum = {
+    Patient: 'patient' as PartnerTypeEnum,
+    HealthcareParty: 'healthcareParty' as PartnerTypeEnum,
+    RelatedPerson: 'relatedPerson' as PartnerTypeEnum,
   }
   export type StatusEnum = 'active' | 'complicated' | 'past'
   export const StatusEnum = {
