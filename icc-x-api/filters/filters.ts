@@ -41,6 +41,8 @@ import { Tarification } from '../../icc-api/model/Tarification'
 import { AbstractFilterPricing } from '../../icc-api/model/AbstractFilterPricing'
 import { Insurance } from '../../icc-api/model/Insurance'
 import { AbstractFilterInsurance } from '../../icc-api/model/AbstractFilterInsurance'
+import { RelatedPerson } from '../../icc-api/model/RelatedPerson'
+import { AbstractFilterRelatedPerson } from '../../icc-api/model/AbstractFilterRelatedPerson'
 
 export * from './AllCodesFilter'
 export * from './AllDevicesFilter'
@@ -119,6 +121,9 @@ export * from './TopicByParticipantFilter'
 export * from './MessageByHcPartyFilter'
 export * from './MessageByHcPartyTransportGuidFilter'
 export * from './LatestMessageByHcPartyTransportGuidFilter'
+export * from './RelatedPersonByIdsFilter'
+export * from './RelatedPersonByDataOwnerIdentifiersFilter'
+export * from './RelatedPersonByDataOwnerNameFilter'
 
 export class Filter {
   public static patient(): PatientFilterBuilder {
@@ -151,6 +156,8 @@ export type AbstractFilter<T> =
       ? AbstractFilterUser
       : T extends Tarification
       ? AbstractFilterPricing
+      : T extends RelatedPerson
+      ? AbstractFilterRelatedPerson
       : never)
   | ConstantFilter<T>
   | IntersectionFilter<T>

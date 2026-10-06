@@ -86,6 +86,7 @@ import { IccBekmehrXApi } from './icc-bekmehr-x-api'
 import { IccDoctemplateXApi } from './icc-doctemplate-x-api'
 import { UserGroup } from '../icc-api/model/UserGroup'
 import { IccTopicXApi } from './icc-topic-x-api'
+import { IccRelatedPersonXApi } from './icc-related-person-x-api'
 import { IccRoleApi } from '../icc-api/api/IccRoleApi'
 import { DataOwnerTypeEnum } from '../icc-api/model/DataOwnerTypeEnum'
 import { DelegationsDeAnonymization } from './crypto/DelegationsDeAnonymization'
@@ -117,6 +118,7 @@ export * from './icc-message-x-api'
 export * from './icc-patient-x-api'
 export * from './icc-user-x-api'
 export * from './icc-receipt-x-api'
+export * from './icc-related-person-x-api'
 export * from './icc-data-owner-x-api'
 export * from './icc-icure-maintenance-x-api'
 export * from './icc-maintenance-task-x-api'
@@ -195,6 +197,7 @@ export interface Apis extends BasicApis {
   readonly tarificationApi: IccTarificationApi
   readonly tmpApi: IccTmpApi
   readonly topicApi: IccTopicXApi
+  readonly relatedPersonApi: IccRelatedPersonXApi
   readonly recoveryApi: IccRecoveryXApi
 }
 
@@ -463,6 +466,12 @@ export interface EncryptedFieldsConfig {
   readonly topic?: string[]
 
   /**
+   * Fields to encrypt for entities of type {@link RelatedPerson}
+   * @default ['created', 'modified', 'companyName', 'languages', 'civility']
+   */
+  readonly relatedPerson?: string[]
+
+  /**
    * Fields to encrypt for entities of type {@link Document}
    * @default []
    */
@@ -481,6 +490,7 @@ export namespace EncryptedFieldsConfig {
     message: [],
     document: [],
     topic: ['description', 'linkedServices', 'linkedHealthElements'],
+    relatedPerson: ['created', 'modified', 'companyName', 'languages', 'civility'],
   }
 }
 
@@ -1264,6 +1274,25 @@ class IcureApiImpl implements IcureApi {
         !this.cryptoInitInfos.dataOwnerRequiresAnonymousDelegation,
         this.groupSpecificAuthenticationProvider,
         this.params.encryptedFieldsConfig.topic ?? EncryptedFieldsConfig.Defaults.topic,
+        this.fetch
+      ))
+    )
+  }
+
+  private _relatedPersonApi: IccRelatedPersonXApi | undefined
+
+  get relatedPersonApi(): IccRelatedPersonXApi {
+    return (
+      this._relatedPersonApi ??
+      (this._relatedPersonApi = new IccRelatedPersonXApi(
+        this.host,
+        this.cryptoInitInfos.headers,
+        this.cryptoApi,
+        this.dataOwnerApi,
+        this.authApi,
+        !this.cryptoInitInfos.dataOwnerRequiresAnonymousDelegation,
+        this.params.encryptedFieldsConfig.relatedPerson ?? EncryptedFieldsConfig.Defaults.relatedPerson,
+        this.groupSpecificAuthenticationProvider,
         this.fetch
       ))
     )
