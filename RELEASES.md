@@ -1341,3 +1341,13 @@ Maintenance release (version bump only).
 
 - Added optional `agreementNumber` to `InvoicingCode`: the reimbursement agreement number obtained during a pre-authorization (mirrors kraken-common#349)
 - **Requires iCure backend (kraken) 26.10 or later** for `agreementNumber` to be persisted and returned; older backends do not know the field.
+
+## [MISSING] 8.17.0 (2026-10-06)
+<!-- tag: 8.17.0 | target: 972ee2b80572974b5d7de31623ad6a610f4cbb0f | prerelease: false -->
+
+- Added the `RelatedPerson` entity (#200): a person related to one or more patients that is neither a patient nor a healthcare party (e.g. a contact person, caregiver or legal guardian). It is an encryptable root entity, not a data owner
+- Added `IccRelatedPersonApi` and `IccRelatedPersonXApi` (available as `relatedPersonApi` on `IcureApi`), with encrypted create, get, modify, filter, share, conflict and event-subscription methods
+- Added the `RelatedPersonByIdsFilter`, `RelatedPersonByDataOwnerIdentifiersFilter` and `RelatedPersonByDataOwnerNameFilter` filters, and `FilterChainRelatedPerson`
+- Added `EncryptedFieldsConfig.Defaults.relatedPerson` (`created`, `modified`, `companyName`, `languages`, `civility` encrypted by default), overridable through the `relatedPerson` entry of `encryptedFieldsConfig`
+- Added optional `partnerType` to `Partnership` (`patient`, `healthcareParty` or `relatedPerson`) to reference a related person from a patient
+- **Requires iCure backend (kraken) with `RelatedPersonManagement.*` permissions** for the related person endpoints; users without them get a 403
