@@ -21,6 +21,7 @@ import { AuthenticationProvider, NoAuthenticationProvider } from '../../icc-x-ap
 import { iccRestApiPath } from './IccRestApiPath'
 import { EntityShareOrMetadataUpdateRequest } from '../model/requests/EntityShareOrMetadataUpdateRequest'
 import { EntityBulkShareResult } from '../model/requests/EntityBulkShareResult'
+import { MinimalEntityBulkShareResult } from '../model/requests/MinimalEntityBulkShareResult'
 import { FilterChainMessage } from '../model/FilterChainMessage'
 import { AbstractFilterMessage } from '../model/AbstractFilterMessage'
 import { BulkShareOrUpdateMetadataParams } from '../model/requests/BulkShareOrUpdateMetadataParams'
@@ -517,6 +518,15 @@ export class IccMessageApi {
       .catch((err) => this.handleError(err))
   }
 
+  async bulkShareMessagesMinimal(request: BulkShareOrUpdateMetadataParams): Promise<MinimalEntityBulkShareResult[]> {
+    const _url = this.host + '/message/bulkSharedMetadataUpdateMinimal' + '?ts=' + new Date().getTime()
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('PUT', _url, headers, request, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((x) => new MinimalEntityBulkShareResult(x)))
+      .catch((err) => this.handleError(err))
+  }
+
   /**
    * Returns a list of messages along with next start keys and Document ID. If the nextStartKey is Null it means that this is the last page.
    * @summary List messages for the current user (HcParty) or the given hcparty in the filter
@@ -732,6 +742,19 @@ export class IccMessageApi {
     headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
     return XHR.sendCommand('POST', _url, headers, entityIds, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
       .then((doc) => (doc.body as Array<JSON>).map((it) => new MergeResult(it)))
+      .catch((err) => this.handleError(err))
+  }
+
+  /**
+   * Retrieves the delegation stubs of the Messages which ids are passed as parameter.
+   * @param messageIds the ids of the messages for which the stubs should be retrieved
+   */
+  async findMessagesDelegationsStubsByIds(messageIds: string[]): Promise<Array<IcureStub>> {
+    const _url = this.host + `/message/delegations`
+    let headers = await this.headers
+    headers = headers.filter((h) => h.header !== 'Content-Type').concat(new XHR.Header('Content-Type', 'application/json'))
+    return XHR.sendCommand('POST', _url, headers, { ids: messageIds }, this.fetchImpl, undefined, this.authenticationProvider.getAuthService())
+      .then((doc) => (doc.body as Array<JSON>).map((it) => new IcureStub(it)))
       .catch((err) => this.handleError(err))
   }
 }
