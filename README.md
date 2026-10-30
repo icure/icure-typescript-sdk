@@ -1,3 +1,6 @@
+> [!NOTE]
+> If you are looking to develop a new application using the iCure platform you might be looking for [CardinalSDK](https://github.com/icure/cardinal-sdk) instead
+
 # Crypto model in iCure
 
 ## Lexic
